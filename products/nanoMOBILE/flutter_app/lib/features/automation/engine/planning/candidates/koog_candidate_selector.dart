@@ -5,9 +5,7 @@
 /// modelo NO crea acciones, NO inventa package/selector/intent/coordenadas.
 /// Abstention (candidateId null) preserva la ambigüedad (no es fallo).
 ///
-/// Koog legado (koog.dart: PlanGenerator/KoogStep/Koog.run) queda intacto para
-/// sus callers (tests); este selector usa [LLMEngineClient] directamente, el
-/// mismo runtime local.
+/// Este selector usa [LLMEngineClient] directamente contra el runtime local.
 library;
 
 import 'dart:convert';

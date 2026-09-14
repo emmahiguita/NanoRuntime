@@ -52,6 +52,7 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
             "global",       // globalAction back/home/recents
             "launch",       // launchPackage
             "ocr",          // ocrRegion (ML Kit fallback de percepción)
+            "event-wait",   // waitForWindowEvent (espera reactiva por eventos)
         )
 
         /** Reintentos al esperar el rebind del AccessibilityService. */
@@ -214,10 +215,14 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                     return
                 }
                 mainHandler.post {
-                    service.takeScreenshot { bitmap ->
+                    service.takeScreenshotDetailed { bitmap, errorCode ->
                         if (bitmap == null) {
-                            result.error("SHOT_ERR", "captura de pantalla falló", null)
-                            return@takeScreenshot
+                            if (errorCode == 2) {
+                                result.error("SECURE_SURFACE", "Ventana protegida por FLAG_SECURE (código 2)", null)
+                            } else {
+                                result.error("SHOT_ERR", "captura de pantalla falló (código $errorCode)", null)
+                            }
+                            return@takeScreenshotDetailed
                         }
                         ocrExecutor.execute {
                             try {
@@ -239,6 +244,73 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                             }
                         }
                     }
+                }
+            }
+
+            "waitForWindowEvent" -> {
+                val expectedPackage = call.argument<String>("expectedPackage")
+                val eventTypes = call.argument<List<Number>>("eventTypes")?.map { it.toInt() }?.toSet()
+                    ?: setOf(32, 2048) // TYPE_WINDOW_STATE_CHANGED (32), TYPE_WINDOW_CONTENT_CHANGED (2048)
+                val timeoutMs = (call.argument<Number>("timeoutMs")?.toLong() ?: 2000L).coerceIn(100L, 5000L)
+
+                val completed = java.util.concurrent.atomic.AtomicBoolean(false)
+                var listener: dev.nanoai.mobile.services.AccessibilityEventListener? = null
+
+                val timeoutRunnable = Runnable {
+                    if (completed.compareAndSet(false, true)) {
+                        listener?.let { dev.nanoai.mobile.services.AgentAccessibilityBridge.removeListener(it) }
+                        result.success(
+                            mapOf(
+                                "detected" to false,
+                                "timeout" to true,
+                                "packageName" to "",
+                                "eventType" to 0,
+                            ),
+                        )
+                    }
+                }
+
+                listener = dev.nanoai.mobile.services.AccessibilityEventListener { event ->
+                    val pkgMatches = expectedPackage.isNullOrBlank() ||
+                        event.packageName.equals(expectedPackage, ignoreCase = true)
+                    val typeMatches = eventTypes.contains(event.eventType)
+                    if (pkgMatches && typeMatches) {
+                        if (completed.compareAndSet(false, true)) {
+                            mainHandler.removeCallbacks(timeoutRunnable)
+                            dev.nanoai.mobile.services.AgentAccessibilityBridge.removeListener(listener!!)
+                            mainHandler.post {
+                                result.success(
+                                    mapOf(
+                                        "detected" to true,
+                                        "timeout" to false,
+                                        "packageName" to event.packageName,
+                                        "className" to event.className,
+                                        "eventType" to event.eventType,
+                                        "timestamp" to event.timestamp,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                dev.nanoai.mobile.services.AgentAccessibilityBridge.addListener(listener)
+                mainHandler.postDelayed(timeoutRunnable, timeoutMs)
+            }
+
+            "getLastWindowEvent" -> {
+                val last = dev.nanoai.mobile.services.AgentAccessibilityBridge.lastEvent
+                if (last == null) {
+                    result.success(null)
+                } else {
+                    result.success(
+                        mapOf(
+                            "packageName" to last.packageName,
+                            "className" to last.className,
+                            "eventType" to last.eventType,
+                            "timestamp" to last.timestamp,
+                        ),
+                    )
                 }
             }
 

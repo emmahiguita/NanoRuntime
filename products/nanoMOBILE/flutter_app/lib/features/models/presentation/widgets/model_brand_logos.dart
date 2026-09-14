@@ -1,10 +1,9 @@
-/// Componentes vectoriales para logos oficiales de familias de modelos (SRP & White Glass Aesthetic).
+/// Logos oficiales vectoriales de familias de modelos de IA (iOS Ultra-Crisp Aesthetic).
 library;
 
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/widgets/nano_optical_surface.dart';
 
 class ModelBrandLogo extends StatelessWidget {
   final String name;
@@ -12,63 +11,116 @@ class ModelBrandLogo extends StatelessWidget {
 
   const ModelBrandLogo({super.key, required this.name, this.size = 40});
 
-  static (Color, String) familyMetaFor(String name, NanoColors colors) {
+  static (Color, String, List<Color>) familyMetaFor(String name, NanoColors colors) {
     final lower = name.toLowerCase();
     if (lower.contains('gemma')) {
-      return (const Color(0xFF4285F4), 'GEMMA');
+      return (
+        const Color(0xFF4285F4),
+        'GEMMA',
+        const [Color(0xFF1E3A8A), Color(0xFF2563EB), Color(0xFF38BDF8)],
+      );
     } else if (lower.contains('llama')) {
-      return (const Color(0xFF0081FB), 'LLAMA');
+      return (
+        const Color(0xFF0081FB),
+        'LLAMA',
+        const [Color(0xFF0C4A6E), Color(0xFF0284C7), Color(0xFF38BDF8)],
+      );
     } else if (lower.contains('deepseek') || lower.contains('r1')) {
-      return (const Color(0xFF336DF2), 'DEEPSEEK');
+      return (
+        const Color(0xFF336DF2),
+        'DEEPSEEK',
+        const [Color(0xFF1E1B4B), Color(0xFF3730A3), Color(0xFF6366F1)],
+      );
     } else if (lower.contains('phi')) {
-      return (colors.accentMint, 'PHI');
-    } else if (lower.contains('mistral')) {
-      return (const Color(0xFFF97316), 'MISTRAL');
+      return (
+        const Color(0xFF00A4EF),
+        'PHI',
+        const [Color(0xFF064E3B), Color(0xFF059669), Color(0xFF34D399)],
+      );
+    } else if (lower.contains('mistral') || lower.contains('mixtral')) {
+      return (
+        const Color(0xFFF97316),
+        'MISTRAL',
+        const [Color(0xFF7C2D12), Color(0xFFEA580C), Color(0xFFFBBF24)],
+      );
     } else if (lower.contains('qwen')) {
-      return (colors.accentLavender, 'QWEN');
+      return (
+        const Color(0xFF8B5CF6),
+        'QWEN',
+        const [Color(0xFF3B0764), Color(0xFF6D28D9), Color(0xFFA855F7)],
+      );
+    } else if (lower.contains('smol') || lower.contains('hugging')) {
+      return (
+        const Color(0xFFF59E0B),
+        'SMOLLM',
+        const [Color(0xFF78350F), Color(0xFFD97706), Color(0xFFFCD34D)],
+      );
     }
-    return (colors.accentSky, 'NEURAL');
+    return (
+      const Color(0xFF00E5FF),
+      'GGUF',
+      const [Color(0xFF083344), Color(0xFF0E7490), Color(0xFF06B6D4)],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final lower = name.toLowerCase();
-    final (tint, _) = familyMetaFor(name, colors);
+    final (tint, _, bgGrad) = familyMetaFor(name, colors);
 
     final Widget logo;
+    final double iconSize = size * 0.58;
+
     if (lower.contains('gemma')) {
-      logo = GemmaLogoWidget(size: size * 0.58);
+      logo = GemmaLogoWidget(size: iconSize);
     } else if (lower.contains('llama')) {
-      logo = LlamaLogoWidget(size: size * 0.58);
+      logo = LlamaLogoWidget(size: iconSize);
     } else if (lower.contains('deepseek') || lower.contains('r1')) {
-      logo = DeepSeekLogoWidget(size: size * 0.60);
+      logo = DeepSeekLogoWidget(size: iconSize);
     } else if (lower.contains('phi')) {
-      logo = PhiLogoWidget(size: size * 0.58);
-    } else if (lower.contains('mistral')) {
-      logo = MistralLogoWidget(size: size * 0.58);
+      logo = PhiLogoWidget(size: iconSize);
+    } else if (lower.contains('mistral') || lower.contains('mixtral')) {
+      logo = MistralLogoWidget(size: iconSize);
     } else if (lower.contains('qwen')) {
-      logo = QwenLogoWidget(size: size * 0.58);
+      logo = QwenLogoWidget(size: iconSize);
+    } else if (lower.contains('smol') || lower.contains('hugging')) {
+      logo = SmolLMLogoWidget(size: iconSize);
     } else {
-      logo = Icon(Icons.memory_rounded, color: tint, size: size * 0.52);
+      logo = GgufChipLogoWidget(size: iconSize, tint: tint);
     }
 
-    return NanoOpticalSurface(
-      borderRadius: NanoRadius.medium,
-      blurSigma: 8,
-      borderStrength: 0.60,
-      reflectionStrength: 0.45,
-      accent: tint,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Center(child: logo),
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(size * 0.28), // iOS squircle
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            bgGrad[0].withValues(alpha: 0.85),
+            bgGrad[1].withValues(alpha: 0.70),
+          ],
+        ),
+        border: Border.all(
+          color: tint.withValues(alpha: 0.40),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: tint.withValues(alpha: 0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
+      child: Center(child: logo),
     );
   }
 }
 
-/// Logo Oficial Gemma (Google Sparkle 4-pointed gem con degradado)
+/// Logo Oficial Google Gemma (4-pointed gem con degradado oficial)
 class GemmaLogoWidget extends StatelessWidget {
   final double size;
   const GemmaLogoWidget({super.key, this.size = 26});
@@ -132,7 +184,12 @@ class GemmaLogoPainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [Color(0xFF4285F4), Color(0xFF9B72CF), Color(0xFFFBBC05)],
+        colors: [
+          Color(0xFF60A5FA),
+          Color(0xFFC084FC),
+          Color(0xFFFDE047),
+          Color(0xFFF87171),
+        ],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
     canvas.drawPath(path, paint);
@@ -204,12 +261,12 @@ class LlamaLogoPainter extends CustomPainter {
 
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.16
+      ..strokeWidth = w * 0.18
       ..strokeCap = StrokeCap.round
       ..shader = const LinearGradient(
         begin: Alignment.centerLeft,
         end: Alignment.centerRight,
-        colors: [Color(0xFF0081FB), Color(0xFF0064E0), Color(0xFF00C6FF)],
+        colors: [Color(0xFF38BDF8), Color(0xFF0081FB), Color(0xFF60A5FA)],
       ).createShader(Rect.fromLTWH(0, 0, w, h));
 
     canvas.drawPath(path, paint);
@@ -219,7 +276,7 @@ class LlamaLogoPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Logo Oficial DeepSeek (Silueta anatómica exacta de la ballena azul #336DF2)
+/// Logo Oficial DeepSeek (Silueta anatómica exacta de la ballena azul)
 class DeepSeekLogoWidget extends StatelessWidget {
   final double size;
   const DeepSeekLogoWidget({super.key, this.size = 26});
@@ -242,9 +299,8 @@ class DeepSeekLogoPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // 1. Color oficial DeepSeek Blue (#336DF2)
     final bluePaint = Paint()
-      ..color = const Color(0xFF336DF2)
+      ..color = const Color(0xFF60A5FA)
       ..style = PaintingStyle.fill
       ..isAntiAlias = true;
 
@@ -267,7 +323,6 @@ class DeepSeekLogoPainter extends CustomPainter {
 
     canvas.drawPath(whaleBody, bluePaint);
 
-    // 2. Parche Blanco Ovalado del Vientre
     final whitePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.fill
@@ -283,7 +338,6 @@ class DeepSeekLogoPainter extends CustomPainter {
 
     canvas.drawPath(bellyPatch, whitePaint);
 
-    // 3. Parche Blanco del Ojo / Mancha ocular
     final eyePatch = Path()
       ..moveTo(0.62 * w, 0.48 * h)
       ..cubicTo(0.60 * w, 0.44 * h, 0.64 * w, 0.40 * h, 0.67 * w, 0.43 * h)
@@ -292,15 +346,6 @@ class DeepSeekLogoPainter extends CustomPainter {
       ..close();
 
     canvas.drawPath(eyePatch, whitePaint);
-
-    // 4. Pequeña pupila azul dentro de la mancha ocular
-    final eyePupil = Path()
-      ..moveTo(0.64 * w, 0.47 * h)
-      ..cubicTo(0.63 * w, 0.45 * h, 0.65 * w, 0.43 * h, 0.66 * w, 0.44 * h)
-      ..cubicTo(0.66 * w, 0.47 * h, 0.64 * w, 0.48 * h, 0.64 * w, 0.47 * h)
-      ..close();
-
-    canvas.drawPath(eyePupil, bluePaint);
   }
 
   @override
@@ -323,13 +368,13 @@ class PhiLogoWidget extends StatelessWidget {
           shaderCallback: (bounds) => const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF10B981), Color(0xFF0284C7)],
+            colors: [Color(0xFF34D399), Color(0xFF38BDF8)],
           ).createShader(bounds),
           child: Text(
             'Φ',
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: size * 0.90,
+              fontSize: size * 0.95,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -339,7 +384,7 @@ class PhiLogoWidget extends StatelessWidget {
   }
 }
 
-/// Logo Oficial Mistral (Viento / Llama de Mistral AI)
+/// Logo Oficial Mistral (Viento / Llama geométrica de Mistral AI)
 class MistralLogoWidget extends StatelessWidget {
   final double size;
   const MistralLogoWidget({super.key, this.size = 26});
@@ -355,9 +400,9 @@ class MistralLogoWidget extends StatelessWidget {
           shaderCallback: (bounds) => const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFFF97316), Color(0xFFF59E0B)],
+            colors: [Color(0xFFF97316), Color(0xFFFBBF24)],
           ).createShader(bounds),
-          child: const Icon(Icons.air_rounded, size: 24),
+          child: Icon(Icons.local_fire_department_rounded, size: size * 0.95),
         ),
       ),
     );
@@ -388,7 +433,6 @@ class QwenLogoPainter extends CustomPainter {
     final cy = size.height / 2;
     final r = size.width / 2;
 
-    // 1. Triángulo central profundo
     final centerTriangle = Path()
       ..moveTo(cx, cy - 0.28 * r)
       ..lineTo(cx + 0.24 * r, cy + 0.14 * r)
@@ -396,24 +440,21 @@ class QwenLogoPainter extends CustomPainter {
       ..close();
 
     final centerPaint = Paint()
-      ..shader =
-          const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF4C2CD8), Color(0xFF381CB8)],
-          ).createShader(
-            Rect.fromLTWH(cx - 0.3 * r, cy - 0.3 * r, 0.6 * r, 0.6 * r),
-          );
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [Color(0xFF6D28D9), Color(0xFF4C1D95)],
+      ).createShader(
+        Rect.fromLTWH(cx - 0.3 * r, cy - 0.3 * r, 0.6 * r, 0.6 * r),
+      );
 
     canvas.drawPath(centerTriangle, centerPaint);
 
-    // 2. Tres brazos tridimensionales entrelazados
     for (int i = 0; i < 3; i++) {
       canvas.save();
       canvas.translate(cx, cy);
       canvas.rotate(i * 2 * math.pi / 3);
 
-      // A. Bisel lateral exterior derecho (Púrpura profundo)
       final sideOuter = Path()
         ..moveTo(-0.16 * r, -0.92 * r)
         ..lineTo(-0.72 * r, -0.60 * r)
@@ -428,12 +469,11 @@ class QwenLogoPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF5636E3), Color(0xFF3A1CBF)],
+          colors: [Color(0xFF8B5CF6), Color(0xFF5B21B6)],
         ).createShader(Rect.fromLTWH(-r, -r, 2 * r, 2 * r));
 
       canvas.drawPath(sideOuter, sideOuterPaint);
 
-      // B. Bisel frontal superior (Púrpura medio / brillante)
       final sideFront = Path()
         ..moveTo(-0.16 * r, -0.92 * r)
         ..lineTo(0.38 * r, -0.92 * r)
@@ -446,31 +486,11 @@ class QwenLogoPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
-          colors: [Color(0xFF7A5EFF), Color(0xFF5F40EB)],
+          colors: [Color(0xFFA78BFA), Color(0xFF7C3AED)],
         ).createShader(Rect.fromLTWH(-r, -r, 2 * r, 2 * r));
 
       canvas.drawPath(sideFront, sideFrontPaint);
 
-      // C. Bisel de profundidad interior (Sombra intermedia)
-      final innerBevel = Path()
-        ..moveTo(0.12 * r, -0.74 * r)
-        ..lineTo(0.48 * r, -0.74 * r)
-        ..lineTo(0.66 * r, -0.42 * r)
-        ..lineTo(0.50 * r, -0.32 * r)
-        ..lineTo(0.36 * r, -0.54 * r)
-        ..lineTo(0.12 * r, -0.54 * r)
-        ..close();
-
-      final innerBevelPaint = Paint()
-        ..shader = const LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [Color(0xFF9E8BFF), Color(0xFF6B4FF0)],
-        ).createShader(Rect.fromLTWH(-r, -r, 2 * r, 2 * r));
-
-      canvas.drawPath(innerBevel, innerBevelPaint);
-
-      // D. Cara superior blanca brillante (Cinta isométrica en L)
       final topWhite = Path()
         ..moveTo(-0.16 * r, -0.54 * r)
         ..lineTo(0.36 * r, -0.54 * r)
@@ -485,7 +505,7 @@ class QwenLogoPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFFFFFF), Color(0xFFF9F7FF), Color(0xFFEBE5FF)],
+          colors: [Color(0xFFFFFFFF), Color(0xFFF3E8FF)],
         ).createShader(Rect.fromLTWH(-r, -r, 2 * r, 2 * r));
 
       canvas.drawPath(topWhite, topWhitePaint);
@@ -496,4 +516,35 @@ class QwenLogoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Logo Oficial SmolLM / Hugging Face
+class SmolLMLogoWidget extends StatelessWidget {
+  final double size;
+  const SmolLMLogoWidget({super.key, this.size = 26});
+
+  @override
+  Widget build(BuildContext context) {
+    return Icon(
+      Icons.sentiment_very_satisfied_rounded,
+      size: size * 0.95,
+      color: const Color(0xFFFBBF24),
+    );
+  }
+}
+
+/// Logo para Modelos Locales GGUF / SD
+class GgufChipLogoWidget extends StatelessWidget {
+  final double size;
+  final Color tint;
+  const GgufChipLogoWidget({super.key, this.size = 26, required this.tint});
+
+  @override
+  Widget build(BuildContext context) {
+    return Icon(
+      Icons.developer_board_rounded,
+      size: size * 0.95,
+      color: tint,
+    );
+  }
 }

@@ -24,6 +24,7 @@ final class ConversationSummaryItem {
   final bool hasPendingReply;
   final String? pendingReplyId;
   final String? pendingReplyText;
+  final List<String> pendingSuggestions;
   final bool humanOwns;
   final String activeRole;
   final String? activeProductName;
@@ -38,6 +39,7 @@ final class ConversationSummaryItem {
     this.hasPendingReply = false,
     this.pendingReplyId,
     this.pendingReplyText,
+    this.pendingSuggestions = const [],
     this.humanOwns = false,
     this.activeRole = 'general',
     this.activeProductName,
@@ -68,19 +70,14 @@ final conversationHubListProvider =
   }
 
   final memoryIds = memoryStore.knownConversationIds();
-  final allIds = <String>{
-    ...memoryIds,
-    ...pendingMap.keys,
-  };
+  final allIds = <String>{...memoryIds, ...pendingMap.keys};
 
   final items = <ConversationSummaryItem>[];
-
   for (final convId in allIds) {
     final memory = memoryStore.memoryFor(convId);
-    final pending = pendingMap[convId];
-
     final entries = memory?.entries ?? const <ConversationMemoryEntry>[];
     final lastEntry = entries.isNotEmpty ? entries.last : null;
+    final pending = pendingMap[convId];
 
     final lastMessage = pending?.originalMessage.isNotEmpty == true
         ? pending!.originalMessage
@@ -117,6 +114,7 @@ final conversationHubListProvider =
         hasPendingReply: pending != null,
         pendingReplyId: pending?.id,
         pendingReplyText: pending?.draftText,
+        pendingSuggestions: pending?.suggestions ?? const [],
         humanOwns: humanOwns,
         activeRole: 'sales',
         entryCount: entries.length,

@@ -95,8 +95,18 @@ class DebInstaller(
             "psmisc",           // utilidades de procesos: pstree, killall, fuser
             "nano",             // editor de código/texto en terminal
             "curl",             // cliente de red y transferencia HTTP
-            "wget",             // descargador de archivos por red
             "ttf-dejavu",       // Fuentes vectoriales TrueType DejaVu (Sans, Sans Mono) para Xft/GTK
+            "fribidi",          // Motor de texto bidireccional (libfribidi.so) — requerido por pango/GTK3
+            "xcb-util",         // Utilidades base XCB (libxcb-util.so) — requerido por openbox
+            "xcb-util-wm",      // EWMH / ICCCM (libxcb-ewmh.so, libxcb-icccm.so)
+            "libicu",           // Motor ICU (libicuuc.so.78) — requerido por libxml2
+            "at-spi2-core",     // ATK y accesibilidad (libatk-1.0.so.0) — requerido por GTK3
+            "libepoxy",         // OpenGL direct function pointer management (libepoxy.so) — requerido por GTK3
+            "menu-cache",       // LXDE menu cache (libmenu-cache.so) — requerido por pcmanfm
+            "libfm-extra",      // Extensiones de libfm — requerido por menu-cache
+            "libxkbcommon",     // Manejo de teclado XKB (libxkbcommon.so) — requerido por GTK3
+            "libwayland",       // Wayland client / cursor / egl libs — requerido por libxkbcommon
+            "libsimdutf",       // UTF validator (libsimdutf.so) — requerido por libvte / lxterminal
         )
 
         /** Convierte bytes a hex string (para verificación SHA256). */

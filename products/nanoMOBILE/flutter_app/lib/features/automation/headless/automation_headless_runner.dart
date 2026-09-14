@@ -20,6 +20,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
+import '../engine/scheduling/messaging_metrics.dart';
 
 const _headlessChannel = MethodChannel('com.nanoai/headless');
 
@@ -96,15 +97,20 @@ Future<void> runAutomationHeadless() async {
             ...NotificationObject.eventsFromMap(row['notification'] as Map),
       ];
       if (notifications.isNotEmpty) {
+        final batchWatch = Stopwatch()..start();
         try {
           await pipeline.submitNotifications(notifications, gate);
+          await pipeline.drain(gate);
+          batchWatch.stop();
+          MessagingMetrics.recordBatchLatency(batchWatch.elapsedMilliseconds);
         } on Object catch (error) {
           debugPrint('[headless] tanda fallida: $error');
           rethrow; // Do not acknowledge an inbox batch whose admission failed.
         }
+      } else {
+        // A live sink may already own this batch's events; wait before ACK.
+        await pipeline.drain(gate);
       }
-      // A live sink may already own this batch's events; wait before ACK.
-      await pipeline.drain(gate);
       for (final row in rows) {
         final eventId = row['eventId'];
         if (eventId is String && eventId.isNotEmpty) {

@@ -57,6 +57,7 @@ flutter:
     - assets/terminal_campaign_2.png
     - assets/terminal_campaign_3.png
     - assets/promo/
+    - assets/owl/states/
     - assets/owl/blink/
     - assets/owl/fly/
     - assets/owl/idle/

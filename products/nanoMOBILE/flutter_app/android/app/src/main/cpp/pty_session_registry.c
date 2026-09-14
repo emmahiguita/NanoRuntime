@@ -95,8 +95,13 @@ int pty_registry_close(jlong id) {
         }
         // Step 2: force SIGKILL if child is still alive.
         kill(-child, SIGKILL);
-        // Reap with blocking waitpid (child can't ignore SIGKILL).
-        waitpid(child, &status, 0);
+        // PROC-001 FIX: reap acotado con WNOHANG para evitar colgar el hilo JNI
+        // ante procesos en D-state o reparentados. 40 rondas x 5ms = 200ms máx.
+        for (int j = 0; j < 40; j++) {
+            pid_t r2 = waitpid(child, &status, WNOHANG);
+            if (r2 == child || r2 < 0) goto reaped;
+            usleep(5000);
+        }
     }
 reaped:
     // Now that the child slot is fully released, mark it free.

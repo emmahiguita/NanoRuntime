@@ -74,13 +74,15 @@
         </intent>
     </queries>
 
+    <!-- extractNativeLibs=true es INTENCIONAL: nanoshell.c usa dlopen() con
+         paths absolutos del filesystem. Con false, el linker usa paths internos
+         del APK que no son compatibles con dlopen explícito. -->
     <application
         android:label="NanoAI Local"
         android:name=".NanoApplication"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:description="@string/app_settings_description"
-        android:settingsActivity=".MainActivity"
         android:networkSecurityConfig="@xml/network_security_config"
         android:extractNativeLibs="true"
         android:enableOnBackInvokedCallback="true">

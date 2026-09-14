@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../features/automation/engine/agent_dependencies.dart';
 import '../../features/automation/engine/execution/agent_tool_dispatcher.dart';
 import '../services/device_info.dart';
+import '../services/native_conversational_router.dart';
 import '../services/chat_history_store.dart';
 import '../services/chat_system_prompt.dart';
 import '../services/llm_engine_client.dart';
@@ -481,6 +482,27 @@ class ChatNotifier extends StateNotifier<ChatState> {
     return null;
   }
 
+  List<String> _deriveSuggestions(String text) {
+    final lower = text.toLowerCase();
+    if (lower.contains('```') ||
+        lower.contains('bash') ||
+        lower.contains('código') ||
+        lower.contains('script')) {
+      return const ['Explicar código', 'Ejecutar en Terminal', 'Simplificar'];
+    }
+    if (lower.contains('error') ||
+        lower.contains('falló') ||
+        lower.contains('problema')) {
+      return const ['¿Cómo solucionarlo?', 'Ver logs', 'Probar alternativa'];
+    }
+    if (lower.contains('linux') ||
+        lower.contains('apt') ||
+        lower.contains('terminal')) {
+      return const ['💻 Abrir Linux', 'Ver paquetes', 'Ayuda de comandos'];
+    }
+    return const ['Profundizar más', 'Dar un ejemplo práctico', '¿Qué sigue?'];
+  }
+
   /// VOICE-NATURAL-01 — modo conversación continua del chat: Nano escucha,
   /// envía por el MISMO send(), habla la respuesta y vuelve a escuchar, hasta
   /// que el usuario la detiene o un turno queda en silencio (fin bounded).
@@ -877,17 +899,47 @@ class ChatNotifier extends StateNotifier<ChatState> {
         return;
       }
 
-      // Las acciones deterministas anteriores no dependen del GGUF. La
-      // ausencia de modelo sólo bloquea la conversación que realmente necesita
-      // inferencia, nunca la lectura nativa del dispositivo.
-      if (!state.engineOnline && state.activeModelPath == null) {
+      // Enrutamiento conversacional nativo y reactivo (saludos, telemetría y ayuda sin robotismos)
+      final hasActiveModel = state.engineOnline && state.activeModelPath != null;
+      final nativeResolution = const NativeConversationalRouter().tryResolve(
+        t,
+        hasModel: hasActiveModel,
+      );
+      if (nativeResolution != null) {
+        if (!_isGenerationCurrent(generationId)) return;
+        final nativeMsg = ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: nativeResolution.text,
+          timestamp: DateTime.now(),
+          source: nativeResolution.source,
+          suggestions: nativeResolution.suggestions,
+          status: MessageStatus.sent,
+        );
+        state = state.copyWith(
+          messages: [...state.messages, nativeMsg],
+          generating: false,
+          streamingText: '',
+        );
+        _persistMessages();
+        return;
+      }
+
+      // La ausencia de modelo sólo bloquea la inferencia profunda cuando no hay
+      // proveedor alternativo configurado.
+      if (!hasActiveModel) {
         final errorMsg = ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           sender: MessageSender.ai,
           text:
-              'No hay un modelo seleccionado. Por favor, ve a la pestaña Modelos y selecciona uno para poder chatear.',
+              'Para razonar sobre este tema específico, por favor selecciona un modelo en la pestaña Modelos o activa una tarea del sistema.',
           timestamp: DateTime.now(),
-          status: MessageStatus.error,
+          suggestions: const [
+            '🤖 Ir a Modelos',
+            '⚡ Ver Estado del Dispositivo',
+            '💻 Abrir Linux',
+          ],
+          status: MessageStatus.sent,
         );
         state = state.copyWith(
           messages: [...state.messages, errorMsg],
@@ -1299,12 +1351,14 @@ class ChatNotifier extends StateNotifier<ChatState> {
           .replaceAll('<\uFF5Cbegin\u2581of\u2581sentence\uFF5C>', '')
           .trim();
 
+      final cleanMsg = sanitizedText.isEmpty ? fullText : sanitizedText;
       final aiMsg = ChatMessage(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         sender: MessageSender.ai,
-        text: sanitizedText.isEmpty ? fullText : sanitizedText,
+        text: cleanMsg,
         timestamp: DateTime.now(),
         tps: finalTps,
+        suggestions: _deriveSuggestions(cleanMsg),
         status: MessageStatus.sent,
       );
       state = state.copyWith(

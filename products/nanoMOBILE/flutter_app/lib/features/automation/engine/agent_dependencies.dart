@@ -18,6 +18,7 @@ import 'messaging/conv_turn_state.dart'
         contextSignalsFor,
         conversationStateNotifierProvider,
         isPureGreeting;
+import 'messaging/messaging_package.dart';
 import 'messaging/tone_profile_providers.dart';
 import 'messaging/conversation_memory.dart'
     show ConversationMemoryStore, SqliteConversationMemoryStore;
@@ -38,12 +39,15 @@ import 'execution/stability_gate.dart';
 import 'execution/tool_registry.dart';
 import 'orchestration/execution_journal.dart';
 import 'platform/nano_system_api.dart';
+import 'system/app_capability_registry.dart';
 import 'system/app_launch_resolver.dart';
 import 'system/capability_probes.dart';
 import 'system/installed_app_catalog.dart';
 import 'system/system_graph.dart';
 import 'system/system_intent_launcher.dart';
 import 'system/system_inventory.dart';
+import 'execution/event_driven_waiter.dart';
+import 'workflow/workflow_executor.dart';
 import 'perception/mux/accessibility_perception_source.dart';
 import 'perception/mux/object_memory_perception_source.dart';
 import 'perception/mux/ocr_perception_source.dart';
@@ -91,6 +95,13 @@ import 'skills/nano_skills.dart';
 import 'skills/skill_extractor.dart';
 import 'skills/skill_store.dart';
 import 'system/system_intent_catalog.dart';
+import 'dart:async' show unawaited;
+import 'mcp/local_device_mcp_client.dart';
+import 'mcp/mcp_candidate_provider.dart';
+import 'mcp/mcp_connection_registry.dart';
+import 'mcp/mcp_tool_adapter.dart';
+import 'mcp/mcp_tool_projection.dart';
+import 'mcp/mcp_tool_registry.dart';
 
 /// Composition root del agente (DIP/SRP): TODAS las dependencias del agente
 /// se construyen UNA vez aquí con sus implementaciones reales y se inyectan a
@@ -175,6 +186,24 @@ final currentSituationSourceProvider = Provider<CurrentSituationSource>((ref) {
   };
 });
 
+/// Registro runtime de conexiones MCP.
+final mcpConnectionRegistryProvider = ChangeNotifierProvider<McpConnectionRegistry>((ref) {
+  final registry = McpConnectionRegistry();
+  final appCatalog = ref.watch(installedAppCatalogProvider);
+  final client = LocalDeviceMcpClient(appCatalog: appCatalog);
+  registry.register(client);
+  unawaited(registry.refreshTools());
+  return registry;
+});
+
+/// Catálogo de herramientas MCP proyectadas hacia Nano AI.
+final mcpToolRegistryProvider = Provider<McpToolRegistry>((ref) {
+  final connRegistry = ref.watch(mcpConnectionRegistryProvider);
+  const projection = McpToolProjection();
+  final tools = projection.projectAll(connRegistry.lastTools.values);
+  return McpToolRegistry(tools);
+});
+
 /// Dispatcher con TODAS sus dependencias inyectadas (sin defaults internos
 /// en producción). El chat lo recibe vía `chatProvider`.
 final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
@@ -195,6 +224,8 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     currentSituationSource: ref.watch(currentSituationSourceProvider),
     voiceOutputEnabled: () => ref.read(settingsProvider).voiceEnabled,
     systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
+    mcpConnectionRegistry: ref.watch(mcpConnectionRegistryProvider),
+    installedAppCatalog: ref.watch(installedAppCatalogProvider),
     // A14.5: lector de estado de plataforma para verificar postcondiciones
     // no-UI (archivo Linux, app fuera de foco) tras ejecutar.
     platformStateReader: PlatformVerificationRouter(
@@ -287,6 +318,26 @@ final installedAppCatalogProvider = Provider<InstalledAppCatalog>((ref) {
 /// Resolvedor determinista de "abre <app>" grounded.
 final appLaunchResolverProvider = Provider<AppLaunchResolver>((ref) {
   return AppLaunchResolver(ref.watch(installedAppCatalogProvider));
+});
+
+/// Registro formal de capacidades y perfiles de apps (6 niveles de madurez).
+final appCapabilityRegistryProvider = Provider<AppCapabilityRegistry>((ref) {
+  return AppCapabilityRegistry(catalog: ref.watch(installedAppCatalogProvider));
+});
+
+/// Mecanismo de espera reactivo basado en eventos nativos de accesibilidad.
+final eventDrivenWaiterProvider = Provider<EventDrivenWaiter>((ref) {
+  return EventDrivenWaiter();
+});
+
+/// Orquestador multi-paso desacoplado de CandidatePipeline.
+final workflowExecutorProvider = Provider<WorkflowExecutor>((ref) {
+  return WorkflowExecutor(
+    dispatcher: ref.watch(agentDispatcherProvider),
+    waiter: ref.watch(eventDrivenWaiterProvider),
+    capabilityRegistry: ref.watch(appCapabilityRegistryProvider),
+    verifier: ref.watch(agentVerifierProvider) as ActionVerifier?,
+  );
 });
 
 /// Navegación de sistema allowlisted (A3).
@@ -538,7 +589,7 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
     // determinista del decisionContext (AUTO-02), con la misma evidencia
     // (catálogo real, convstate, personaContext). El writer gatea bloques
     // por el rol resultante: UNDERSTANDING → ROUTER → CONTEXT autoritativo.
-    routeFor: (conversationId, text, sender) {
+    routeFor: (conversationId, text, sender, [packageName]) {
       final facts = ref.read(businessFactsNotifierProvider);
       final entry = ref.read(conversationStateNotifierProvider)[conversationId];
       final hasActiveProduct =
@@ -548,6 +599,8 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
       final hasPendingQuestion =
           entry != null && entry.pendingQuestion.isNotEmpty;
       final persona = ref.read(personaContextProvider);
+      final isBusinessChannel =
+          packageName == MessagingPackage.whatsappBusiness;
       return routeConversationAgent(
         messageText: text,
         facts: facts,
@@ -558,6 +611,7 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
         hasActiveProduct: hasActiveProduct,
         ownerName: persona.ownerName,
         hasPendingQuestion: hasPendingQuestion,
+        isBusinessChannel: isBusinessChannel,
       );
     },
     // WA-MEM-08: contexto factual de la conversación.
@@ -628,6 +682,11 @@ final candidateFirstPlannerProvider = Provider<CandidateFirstPlanner>((ref) {
         // Se posiciona al final para que los providers de mayor especificidad
         // (skills, flows, intents, apps) tengan precedencia cuando hay solapamiento.
         LinuxCandidateProvider(),
+        // A14.2: integración de herramientas MCP read/device grounded.
+        McpCandidateProvider(
+          ref.watch(mcpToolRegistryProvider),
+          const McpToolAdapter(),
+        ),
       ]);
     },
     selection: CandidateSelectionEngine(

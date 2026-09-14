@@ -35,10 +35,13 @@ import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
 import '../governance/action_confirmation.dart';
 import '../governance/rule_execution_authority.dart';
 import '../governance/semantic_policy.dart';
+import '../mcp/mcp_client_port.dart';
+import '../mcp/mcp_connection_registry.dart';
 import '../messaging/reply_capability.dart' show ReplyCapabilityRef;
 import '../notifications/notification_object.dart' show NotificationObject;
 import '../orchestration/execution_journal.dart';
 import '../perception/current_situation.dart';
+import '../system/installed_app_catalog.dart';
 import '../voice/execution_cancellation.dart';
 import 'tool_registry.dart';
 
@@ -453,6 +456,8 @@ class AgentToolDispatcher {
     ExecutionJournal? executionJournal,
     CurrentSituationSource? currentSituationSource,
     bool Function()? voiceOutputEnabled,
+    McpConnectionRegistry? mcpConnectionRegistry,
+    InstalledAppCatalog? installedAppCatalog,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
@@ -472,7 +477,9 @@ class AgentToolDispatcher {
        _platformStateReader = platformStateReader,
        _executionJournal = executionJournal,
        _currentSituationSource = currentSituationSource,
-       _voiceOutputEnabled = voiceOutputEnabled ?? (() => true);
+       _voiceOutputEnabled = voiceOutputEnabled ?? (() => true),
+       _mcpConnectionRegistry = mcpConnectionRegistry,
+       _installedAppCatalog = installedAppCatalog;
   final AgentExecutor _executor;
   final PolicyEngine _policy;
   AgentVerifier? _verifier;
@@ -542,6 +549,8 @@ class AgentToolDispatcher {
   /// Gate de salida TTS inyectado por el composition root. Mantiene el
   /// comando @habla bajo la misma preferencia global que las respuestas.
   final bool Function() _voiceOutputEnabled;
+  final McpConnectionRegistry? _mcpConnectionRegistry;
+  final InstalledAppCatalog? _installedAppCatalog;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -691,8 +700,22 @@ class AgentToolDispatcher {
       case 'responder':
       case 'reply':
         return _respond(rest);
+      case 'abrir':
+      case 'launch':
+      case 'launch_app':
+        return _handleOpenAppCommand(
+          rest,
+          executionId: executionId,
+          cancellation: cancellation,
+        );
+      case 'mcp':
+        return _handleMcpCommand(
+          rest,
+          executionId: executionId,
+          cancellation: cancellation,
+        );
       default:
-        return 'Comando desconocido "@$verb". Disponibles: @pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso|shizuku>.';
+        return 'Comando desconocido "@$verb". Disponibles: @abrir <app>, @mcp <list|call>, @pantalla, @leer_pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso|shizuku>.';
     }
     return (await runToolGuarded(
       call,
@@ -777,6 +800,121 @@ class AgentToolDispatcher {
     }
     return 'Solicitud de conexión enviada. Toca "Permitir" en el diálogo de '
         'Shizuku y vuelve.';
+  }
+
+  /// Ejecución directa de apertura de apps desde el chat / consola.
+  Future<String> _handleOpenAppCommand(
+    String rest, {
+    String? executionId,
+    ExecutionCancellationToken? cancellation,
+  }) async {
+    final query = rest.trim();
+    if (query.isEmpty) {
+      return 'Sintaxis: @abrir <paquete|nombre_app>. Ej: @abrir com.android.settings o @abrir ajustes';
+    }
+
+    String targetPackage = query;
+    final appCatalog = _installedAppCatalog;
+    if (!query.contains('.') && appCatalog != null) {
+      final match = await appCatalog.findApp(query);
+      switch (match) {
+        case AppMatchResolved(:final app):
+          targetPackage = app.packageName;
+        case AppMatchAmbiguous(:final candidates):
+          final options = candidates
+              .take(4)
+              .map((c) => '${c.label} (${c.packageName})')
+              .join(', ');
+          return 'Múltiples apps encontradas para "$query": $options. Especifica el nombre completo o paquete.';
+        case AppMatchNotFound():
+          targetPackage = query;
+      }
+    }
+
+    final call = ToolCall(
+      tool: 'launch_app',
+      args: {'packageName': targetPackage},
+    );
+    return (await runToolGuarded(
+      call,
+      humanInitiated: true,
+      executionId: executionId,
+      cancellation: cancellation,
+    )).feedback;
+  }
+
+  /// Ejecución e inspección directa de servidores y herramientas MCP.
+  Future<String> _handleMcpCommand(
+    String rest, {
+    String? executionId,
+    ExecutionCancellationToken? cancellation,
+  }) async {
+    final query = rest.trim();
+    final parts = query.split(RegExp(r'\s+'));
+    final sub = parts.isEmpty ? '' : parts.first.toLowerCase();
+
+    final mcpReg = _mcpConnectionRegistry;
+    if (mcpReg == null) {
+      return 'Registro MCP no configurado en este perfil.';
+    }
+
+    if (query.isEmpty || sub == 'list' || sub == 'listar') {
+      final snapshot = await mcpReg.refreshTools();
+      final buf = StringBuffer('🔌 Servidores y herramientas MCP conectadas:\n');
+      for (final s in mcpReg.servers) {
+        buf.writeln('• Servidor "${s.id}" (${s.displayName}) [${s.transport.name}]');
+      }
+      if (snapshot.tools.isEmpty) {
+        buf.writeln('  (Sin herramientas descubiertas)');
+      } else {
+        for (final entry in snapshot.tools.entries) {
+          buf.writeln('  - ${entry.key}: ${entry.value.description}');
+        }
+      }
+      if (snapshot.failures.isNotEmpty) {
+        buf.writeln('\n⚠️ Fallos de descubrimiento:');
+        for (final f in snapshot.failures) {
+          buf.writeln('  • ${f.serverId}: ${f.reason}');
+        }
+      }
+      return buf.toString().trim();
+    }
+
+    if (sub == 'call' || sub == 'ejecutar') {
+      if (parts.length < 2) {
+        return 'Sintaxis: @mcp call <tool_name> [json_args]. Ej: @mcp call device.diagnostics';
+      }
+      final toolName = parts[1];
+      Map<String, Object?> args = {};
+      if (parts.length > 2) {
+        final rawJson = query.substring(query.indexOf(toolName) + toolName.length).trim();
+        if (rawJson.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(rawJson);
+            if (decoded is Map<String, dynamic>) {
+              args = Map<String, Object?>.from(decoded);
+            }
+          } catch (_) {
+            args = {'input': rawJson};
+          }
+        }
+      }
+
+      final call = ToolCall(
+        tool: 'mcp.read',
+        args: {'mcpTool': toolName, ...args},
+      );
+      return (await runToolGuarded(
+        call,
+        humanInitiated: true,
+        executionId: executionId,
+        cancellation: cancellation,
+      )).feedback;
+    }
+
+    return 'Comandos MCP disponibles:\n'
+        '• @mcp list — Lista servidores y herramientas MCP descubiertas\n'
+        '• @mcp call <herramienta> [args] — Ejecuta una herramienta MCP';
   }
 
   // ── Tool-calling LLM ──────────────────────────────────────────────────────
@@ -1796,9 +1934,87 @@ class AgentToolDispatcher {
       case 'linux.writefile':
       case 'linux.run':
         return _linuxTool(call);
+      case 'mcp.read':
+      case 'mcp.device':
+      case 'mcp.externalWrite':
+      case 'mcp.privileged':
+        return _mcpTool(call);
       default:
         return '[tool] Herramienta desconocida "${call.tool}".';
     }
+  }
+
+  /// Ejecuta una herramienta MCP a través de McpConnectionRegistry.
+  Future<String> _mcpTool(ToolCall call) async {
+    final mcpTool = (call.args?['mcpTool'] as String?) ??
+        (call.args?['tool'] as String?) ??
+        call.selectorArg ??
+        call.textArg ??
+        '';
+    if (mcpTool.isEmpty) {
+      return '[tool] Llamada MCP requiere argumento "mcpTool".';
+    }
+
+    final mcpReg = _mcpConnectionRegistry;
+    if (mcpReg == null) {
+      return '[tool] MCP no disponible: registry no configurado.';
+    }
+
+    String serverId;
+    String toolName;
+    if (mcpTool.contains('/')) {
+      final split = mcpTool.split('/');
+      serverId = split[0];
+      toolName = split.sublist(1).join('/');
+    } else if (mcpTool.contains('.')) {
+      final split = mcpTool.split('.');
+      serverId = split[0];
+      toolName = split.sublist(1).join('.');
+    } else {
+      serverId = 'device';
+      toolName = mcpTool;
+    }
+
+    var client = mcpReg.client(serverId);
+    if (client == null && mcpReg.servers.isNotEmpty) {
+      client = mcpReg.client(mcpReg.servers.first.id);
+      serverId = mcpReg.servers.first.id;
+    }
+
+    if (client == null) {
+      return '[mcpError] No se encontró servidor MCP para "$serverId".';
+    }
+
+    final toolArgs = Map<String, Object?>.from(call.args ?? {})
+      ..remove('mcpTool');
+
+    final result = await client.callTool(
+      McpToolCall(
+        serverId: serverId,
+        toolName: toolName,
+        arguments: toolArgs,
+      ),
+    );
+
+    if (!result.success) {
+      return '[mcpError] Error ejecutando $mcpTool: '
+          '${result.message ?? result.errorCode ?? result.status.name}';
+    }
+
+    final textItems = result.content
+        .where((c) => c.text != null && c.text!.isNotEmpty)
+        .map((c) => c.text!)
+        .join('\n');
+
+    if (textItems.isNotEmpty) {
+      return textItems;
+    }
+
+    if (result.structuredContent != null) {
+      return jsonEncode(result.structuredContent);
+    }
+
+    return '[mcpSuccess] Herramienta $mcpTool ejecutada correctamente.';
   }
 
   /// Ejecuta un tool del subsistema Linux (C9) con resultado estructurado.

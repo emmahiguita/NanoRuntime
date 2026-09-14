@@ -38,15 +38,28 @@ final class SafeConversationRepair {
             u.contains('planeas') ||
             u.contains('ir') ||
             u.contains('salir')) {
-          return 'Todavía no sé si voy a ir hoy.';
+          return _pick([
+            'Todavía no sé si voy a ir hoy.',
+            'Aún no confirmo si salgo más tarde.',
+            'No estoy seguro todavía si voy.',
+          ], userText);
         }
         if (u.contains('haces') ||
             u.contains('haciendo') ||
             u.contains('estas en') ||
             u.contains('en que andas')) {
-          return 'Por acá tranquilo por ahora.';
+          return _pick([
+            'Por acá tranquilo por ahora.',
+            'Aquí pendiente.',
+            'Bien, por acá ocupado un rato.',
+            'Todo en orden por aquí.',
+          ], userText);
         }
-        return 'Todavía no lo tengo decidido.';
+        return _pick([
+          'Todavía no lo tengo decidido.',
+          'Aún no lo sé con certeza.',
+          'Todavía no defino eso bien.',
+        ], userText);
 
       case RepairCase.redundantQuestion:
         return _repairRedundantQuestion(reply, userText: userText);
@@ -62,6 +75,12 @@ final class SafeConversationRepair {
         // El modelo repitió textualmente al cliente: no hay reparación segura sin LLM
         return null;
     }
+  }
+
+  static String _pick(List<String> options, String? seed) {
+    if (seed == null || seed.isEmpty) return options.first;
+    final idx = seed.codeUnits.fold(0, (a, b) => a + b) % options.length;
+    return options[idx];
   }
 
   static String? _repairRedundantQuestion(String reply, {String? userText}) {
@@ -91,7 +110,11 @@ final class SafeConversationRepair {
       return cleaned;
     }
 
-    return 'Por acá todo bien también.';
+    return _pick([
+      'Por acá todo bien también.',
+      'Todo en orden por acá.',
+      'Bien, todo tranquilo.',
+    ], userText);
   }
 
   static String? _repairCallCenter(String reply, {String? userText}) {
@@ -119,7 +142,7 @@ final class SafeConversationRepair {
 
     final lower = cleaned.toLowerCase();
     if (lower == 'hola' || lower == '¡hola!' || lower == 'hola!') {
-      return '¡Hola!';
+      return _pick(['¡Hola!', 'Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?'], userText);
     }
 
     if (cleaned.isNotEmpty && cleaned.length >= 2) {
@@ -128,7 +151,7 @@ final class SafeConversationRepair {
 
     final u = userText?.trim().toLowerCase() ?? '';
     if (u.contains('hola') || u.contains('buenas') || u.contains('buenos')) {
-      return '¡Hola!';
+      return _pick(['¡Hola!', 'Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?'], userText);
     }
 
     return null;

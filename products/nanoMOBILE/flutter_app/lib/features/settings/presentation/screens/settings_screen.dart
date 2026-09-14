@@ -9,9 +9,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
-import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
-import 'package:nanoai/core/widgets/nano_section.dart';
 import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 

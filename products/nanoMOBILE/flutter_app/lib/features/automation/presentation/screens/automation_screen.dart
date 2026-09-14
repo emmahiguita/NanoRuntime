@@ -11,6 +11,7 @@ import 'automation_dev_screen.dart';
 import 'automation_rules_screen.dart';
 import 'automation_settings_screen.dart';
 import 'business_studio_screen.dart';
+import 'mcp_skills_hub_screen.dart';
 import 'personal_agent_screen.dart';
 
 /// El centro de control operativo de NanoAutomation.
@@ -62,6 +63,7 @@ class AutomationScreen extends ConsumerWidget {
                       onRulesTap: () => _openRules(context),
                       onBusinessTap: () => _openBusiness(context),
                       onPersonalAgentTap: () => _openPersonalAgent(context),
+                      onSkillsMcpTap: () => _openSkillsMcp(context),
                       // WA-DEV-ACCESS-01 — acceso directo siempre visible.
                       onDevTap: () => _openDev(context),
                     ),
@@ -89,6 +91,12 @@ class AutomationScreen extends ConsumerWidget {
   static void _openDev(BuildContext context) {
     Navigator.of(context).push(
       nanoGlassPageRoute<void>(builder: (_) => const AutomationDevScreen()),
+    );
+  }
+
+  static void _openSkillsMcp(BuildContext context) {
+    Navigator.of(context).push(
+      nanoGlassPageRoute<void>(builder: (_) => const McpSkillsHubScreen()),
     );
   }
 

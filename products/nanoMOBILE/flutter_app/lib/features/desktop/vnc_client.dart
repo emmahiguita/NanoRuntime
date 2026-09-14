@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
@@ -264,7 +265,9 @@ class VncClient {
   Future<bool> resizeDesktop(int width, int height) async {
     if (!_initialized || !_running || !supportsDesktopResize ||
         _resizeResult != null || width < 1 || height < 1 ||
-        width > 4096 || height > 4096) return false;
+        width > 4096 || height > 4096) {
+      return false;
+    }
     if (width == _fbWidth && height == _fbHeight) return true;
     final result = Completer<bool>();
     _resizeResult = result;
@@ -303,6 +306,23 @@ class VncClient {
     buf.setUint8(1, down ? 1 : 0);
     buf.setUint16(2, 0); // padding
     buf.setUint32(4, keysym);
+    _socket!.add(buf.buffer.asUint8List());
+  }
+
+  /// Envía texto al portapapeles de Linux X11 (RFB 3.8 ClientCutText, msg type 6).
+  /// Permite transferir texto arbitrario (desde "hola" hasta párrafos grandes)
+  /// directamente a la sesión X11 para pegar en terminales y editores.
+  void sendClientCutText(String text) {
+    if (!_initialized || _socket == null || !_running || text.isEmpty) return;
+    final bytes = utf8.encode(text);
+    final buf = ByteData(8 + bytes.length);
+    buf.setUint8(0, 6); // ClientCutText
+    buf.setUint8(1, 0); // padding
+    buf.setUint16(2, 0); // padding
+    buf.setUint32(4, bytes.length);
+    for (var i = 0; i < bytes.length; i++) {
+      buf.setUint8(8 + i, bytes[i]);
+    }
     _socket!.add(buf.buffer.asUint8List());
   }
 
@@ -737,7 +757,9 @@ class VncClient {
         final srcX = rectData.getUint16(0);
         final srcY = rectData.getUint16(2);
         if (!_validRect(_rectX, _rectY, _rectW, _rectH) ||
-            !_validRect(srcX, srcY, _rectW, _rectH)) return;
+            !_validRect(srcX, srcY, _rectW, _rectH)) {
+          return;
+        }
         _applyCopyRect(_rectX, _rectY, _rectW, _rectH, srcX, srcY);
         _updateHasPixels = true;
         offset += 4;

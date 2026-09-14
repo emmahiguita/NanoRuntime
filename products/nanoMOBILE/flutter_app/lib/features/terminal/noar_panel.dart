@@ -41,7 +41,7 @@ class _NoarPanelState extends State<NoarPanel> {
 
   // TER-15: acento cian de la paleta pizarra/cian (TER-13/14) — mismo
   // lenguaje visual que el FAB y la barra de modificadores.
-  static const Color _accent = Color(0xFF38BDF8);
+  static const Color _accent = Color(0xFF10B981);
   static const Color _steel = Color(0xFF9FB3C8);
   static const Color _ink = Color(0xFFE2E8F0);
 
@@ -482,7 +482,7 @@ class _CommandCard extends StatefulWidget {
 }
 
 class _CommandCardState extends State<_CommandCard> {
-  static const Color _accent = Color(0xFF38BDF8);
+  static const Color _accent = Color(0xFF10B981);
 
   bool _pressed = false;
 

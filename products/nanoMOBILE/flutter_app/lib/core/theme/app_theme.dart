@@ -352,7 +352,7 @@ class AppTheme {
   /// Tema claro: paleta azul iOS profesional, superficies limpias de alto contraste.
   static final light = _base(NanoLightColors());
 
-  /// Tema oscuro: paleta oscura profunda con acento ámbar-naranja y tipografía blanca nítida.
+  /// Tema oscuro: paleta oscura profunda con acento verde Cyber/Emerald y tipografía blanca nítida.
   static final dark = _base(NanoDarkColors());
 
   static final systemLight = _base(NanoSystemLightColors());

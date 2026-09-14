@@ -77,6 +77,7 @@ class AutomationDashboard extends ConsumerStatefulWidget {
     this.onRulesTap,
     this.onBusinessTap,
     this.onPersonalAgentTap,
+    this.onSkillsMcpTap,
     this.onDevTap,
   });
 
@@ -96,6 +97,9 @@ class AutomationDashboard extends ConsumerStatefulWidget {
 
   /// Acceso directo a la pantalla especializada del Agente Personal de WhatsApp.
   final VoidCallback? onPersonalAgentTap;
+
+  /// Acceso directo al Hub visual de MCP & Skills (grafo, telemetría y tienda).
+  final VoidCallback? onSkillsMcpTap;
 
   /// Abre la pantalla Dev (herramientas del agente) sin pasar por Ajustes.
   /// Solo se conecta en modo debug (misma puerta que el acceso de Ajustes).
@@ -604,6 +608,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       onRulesTap: widget.onRulesTap,
       onBusinessTap: widget.onBusinessTap,
       onPersonalAgentTap: widget.onPersonalAgentTap,
+      onSkillsMcpTap: widget.onSkillsMcpTap,
       onTimeRuleTap: _createTimeRule,
       suppressSuggestions: _running || _sensing || _composing,
       pendingDraftsCount: pendingDraftsCount,
@@ -1148,6 +1153,7 @@ class QuickAutomationActions extends StatelessWidget {
     this.onRulesTap,
     this.onBusinessTap,
     this.onPersonalAgentTap,
+    this.onSkillsMcpTap,
     this.onTimeRuleTap,
     this.suppressSuggestions = false,
     this.pendingDraftsCount = 0,
@@ -1176,6 +1182,9 @@ class QuickAutomationActions extends StatelessWidget {
   /// Acceso directo a la pantalla dedicada del Agente Personal de WhatsApp.
   final VoidCallback? onPersonalAgentTap;
 
+  /// Acceso directo al Hub visual de MCP & Skills.
+  final VoidCallback? onSkillsMcpTap;
+
   /// RULES-CREATE-02 — crea regla por hora con reloj del sistema + mensaje.
   final VoidCallback? onTimeRuleTap;
 
@@ -1202,6 +1211,7 @@ class QuickAutomationActions extends StatelessWidget {
             onRulesTap != null ||
             onBusinessTap != null ||
             onPersonalAgentTap != null ||
+            onSkillsMcpTap != null ||
             onTimeRuleTap != null) ...[
           const AutomationSectionLabel('Accesos'),
           if (onBusinessTap != null)
@@ -1248,6 +1258,13 @@ class QuickAutomationActions extends StatelessWidget {
                   ? '$activeRulesCount activa${activeRulesCount == 1 ? '' : 's'} · Automatizaciones'
                   : 'Todas tus automatizaciones',
               onTap: onRulesTap!,
+            ),
+          if (onSkillsMcpTap != null)
+            _DashboardEntryTile(
+              featherType: FeatherCoreType.models,
+              title: 'Hub de MCP & Skills',
+              subtitle: 'Grafo vivo, telemetría y tienda de plugins',
+              onTap: onSkillsMcpTap!,
             ),
           if (onTimeRuleTap != null)
             _DashboardEntryTile(

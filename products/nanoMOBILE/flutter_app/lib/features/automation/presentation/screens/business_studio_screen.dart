@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
+import 'package:nanoai/core/widgets/feather_core_icon.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart'
     show ruleRegistryProvider;
-import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
-import 'package:nanoai/features/automation/engine/business/business_presets.dart';
 import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart';
 import 'package:nanoai/features/automation/presentation/automation_layout.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
+import 'package:nanoai/features/automation/presentation/widgets/dialogs/business_presets_sheet.dart';
+import 'package:nanoai/features/automation/presentation/widgets/dialogs/delivery_edit_dialog.dart';
+import 'package:nanoai/features/automation/presentation/widgets/dialogs/hours_edit_dialog.dart';
+import 'package:nanoai/features/automation/presentation/widgets/dialogs/location_edit_dialog.dart';
+import 'package:nanoai/features/automation/presentation/widgets/dialogs/payment_methods_dialog.dart';
+import 'package:nanoai/features/automation/presentation/widgets/dialogs/product_dialog.dart';
 import 'package:nanoai/features/automation/presentation/widgets/settings_tile_components.dart';
-import 'package:nanoai/core/widgets/feather_core_icon.dart';
 
 /// Pantalla dedicada y centralizada (SOLID - SRP) para la gestión integral de
 /// WhatsApp Negocio: modo de respuesta, tono de venta, catálogo, pagos,
-/// ubicación, horarios y plantillas.
+/// ubicación, horarios y plantillas comerciales.
 class BusinessStudioScreen extends ConsumerWidget {
   const BusinessStudioScreen({super.key});
 
@@ -58,40 +63,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                     children: [
                       const AutomationBackHeader(),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          const FeatherCoreIcon(
-                            type: FeatherCoreType.whatsappBusiness,
-                            size: 52,
-                            glow: true,
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'WhatsApp Negocio',
-                                  style: TextStyle(
-                                    color: visual.text,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Control total de ventas, catálogo, pagos y atención',
-                                  style: TextStyle(
-                                    color: visual.textMuted,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      _buildHeaderBanner(visual),
                       const SizedBox(height: 20),
 
                       // SECCIÓN 1: MODO DE ATENCIÓN Y SUPERVISIÓN
@@ -124,36 +96,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                             ),
                             showChevron: false,
                           ),
-                          SettingsRow(
-                            icon: Icons.auto_awesome_rounded,
-                            title: 'Respuesta en WhatsApp',
-                            subtitle: switch (settings.agentAutomationMode) {
-                              AgentAutomationMode.autonomous =>
-                                'Autónomo — Nano responde automáticamente al cliente',
-                              AgentAutomationMode.assisted =>
-                                'Asistido — Nano redacta el borrador para que tú lo apruebes',
-                              AgentAutomationMode.manual =>
-                                'Manual — Respuestas pausadas en WhatsApp',
-                            },
-                            trailing: ValueBadge(
-                              label: switch (settings.agentAutomationMode) {
-                                AgentAutomationMode.autonomous => 'AUTÓNOMO',
-                                AgentAutomationMode.assisted => 'ASISTIDO',
-                                AgentAutomationMode.manual => 'MANUAL',
-                              },
-                            ),
-                            onTap: () {
-                              final next = switch (settings.agentAutomationMode) {
-                                AgentAutomationMode.autonomous =>
-                                  AgentAutomationMode.assisted,
-                                AgentAutomationMode.assisted =>
-                                  AgentAutomationMode.autonomous,
-                                AgentAutomationMode.manual =>
-                                  AgentAutomationMode.assisted,
-                              };
-                              settingsNotifier.setAgentAutomationMode(next);
-                            },
-                          ),
+                          _buildAutonomyRow(settings, settingsNotifier),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -169,9 +112,9 @@ class BusinessStudioScreen extends ConsumerWidget {
                                 ? 'Persuasivo — Resalta beneficios, crea urgencia y busca cerrar la venta'
                                 : 'Natural — Informativo, responde claro sin presionar la compra',
                             trailing: ValueBadge(
-                                label: tone.sales == ToneSales.persuasivo
-                                    ? 'PERSUASIVO'
-                                    : 'NATURAL',
+                              label: tone.sales == ToneSales.persuasivo
+                                  ? 'PERSUASIVO'
+                                  : 'NATURAL',
                             ),
                             onTap: () => toneNotifier.update(
                               tone.copyWith(
@@ -298,21 +241,28 @@ class BusinessStudioScreen extends ConsumerWidget {
                                   onPressed: () => notifier.removeProduct(p.id),
                                 ),
                                 showChevron: false,
+                                onTap: () async {
+                                  final prod = await showDialog<BusinessProduct>(
+                                    context: context,
+                                    builder: (_) => ProductDialog(initial: p),
+                                  );
+                                  if (prod != null) {
+                                    notifier.upsertProduct(prod);
+                                  }
+                                },
                               ),
                             ),
                           SettingsRow(
                             icon: Icons.add_circle_outline_rounded,
                             title: 'Agregar producto o servicio',
-                            subtitle:
-                                'Nombre, precio en pesos y stock disponible',
+                            subtitle: 'Nombre, precio en pesos y stock disponible',
                             showChevron: false,
                             trailing: Icon(
                               Icons.add_rounded,
                               color: visual.accent,
                             ),
                             onTap: () async {
-                              final prod =
-                                  await showDialog<BusinessProduct>(
+                              final prod = await showDialog<BusinessProduct>(
                                 context: context,
                                 builder: (_) => const ProductDialog(),
                               );
@@ -338,8 +288,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                             onTap: () async {
                               final text = await showDialog<String>(
                                 context: context,
-                                builder: (_) => TextEditDialog(
-                                  title: 'Métodos de pago autorizados',
+                                builder: (_) => PaymentMethodsDialog(
                                   initial: facts.payments,
                                 ),
                               );
@@ -357,8 +306,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                             onTap: () async {
                               final text = await showDialog<String>(
                                 context: context,
-                                builder: (_) => TextEditDialog(
-                                  title: 'Ubicación o dirección física',
+                                builder: (_) => LocationEditDialog(
                                   initial: facts.location,
                                 ),
                               );
@@ -376,8 +324,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                             onTap: () async {
                               final text = await showDialog<String>(
                                 context: context,
-                                builder: (_) => TextEditDialog(
-                                  title: 'Horario de atención',
+                                builder: (_) => HoursEditDialog(
                                   initial: facts.hours,
                                 ),
                               );
@@ -395,8 +342,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                             onTap: () async {
                               final text = await showDialog<String>(
                                 context: context,
-                                builder: (_) => TextEditDialog(
-                                  title: 'Envíos y domicilios',
+                                builder: (_) => DeliveryEditDialog(
                                   initial: facts.delivery,
                                 ),
                               );
@@ -419,7 +365,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                             subtitle:
                                 'Restaurante, Clínica, Barbería, Tienda de Ropa o Servicios',
                             trailing: const ValueBadge(label: 'PLANTILLAS'),
-                            onTap: () => _openPresetsSheet(context, ref),
+                            onTap: () => BusinessPresetsSheet.show(context),
                           ),
                           if (facts.products.isNotEmpty)
                             SettingsRow(
@@ -433,32 +379,7 @@ class BusinessStudioScreen extends ConsumerWidget {
                                 color: visual.textMuted,
                               ),
                               showChevron: false,
-                              onTap: () async {
-                                final confirmed = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('¿Vaciar catálogo?'),
-                                    content: const Text(
-                                      'Se eliminarán los productos, pagos y políticas comerciales.',
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () =>
-                                            Navigator.of(ctx).pop(false),
-                                        child: const Text('Cancelar'),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () =>
-                                            Navigator.of(ctx).pop(true),
-                                        child: const Text('Vaciar'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirmed == true) {
-                                  notifier.loadPreset(const BusinessFacts());
-                                }
-                              },
+                              onTap: () => _confirmResetCatalog(context, notifier),
                             ),
                         ],
                       ),
@@ -471,6 +392,87 @@ class BusinessStudioScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHeaderBanner(AutomationVisualPalette visual) {
+    return Row(
+      children: [
+        const FeatherCoreIcon(
+          type: FeatherCoreType.whatsappBusiness,
+          size: 52,
+          glow: true,
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'WhatsApp Negocio',
+                style: TextStyle(
+                  color: visual.text,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Control total de ventas, catálogo, pagos y atención',
+                style: TextStyle(
+                  color: visual.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAutonomyRow(
+    SettingsState settings,
+    SettingsNotifier settingsNotifier,
+  ) {
+    final autonomy = ConversationAutonomyModeName.fromName(
+      settings.waAutonomyMode,
+    );
+    return SettingsRow(
+      icon: Icons.auto_awesome_rounded,
+      title: 'Respuesta en WhatsApp',
+      subtitle: switch (autonomy) {
+        ConversationAutonomyMode.autonomous =>
+          'Autónomo — Nano responde automáticamente al cliente',
+        ConversationAutonomyMode.safeAuto =>
+          'Auto Seguro — Responde lo seguro y retiene dudas para aprobación',
+        ConversationAutonomyMode.suggestions =>
+          'Supervisado — Redacta borradores con opciones para tu aprobación',
+        ConversationAutonomyMode.disabled =>
+          'Pausado — No responde automáticamente en WhatsApp',
+      },
+      trailing: ValueBadge(
+        label: switch (autonomy) {
+          ConversationAutonomyMode.autonomous => 'AUTÓNOMO',
+          ConversationAutonomyMode.safeAuto => 'AUTO SEGURO',
+          ConversationAutonomyMode.suggestions => 'SUPERVISADO',
+          ConversationAutonomyMode.disabled => 'PAUSADO',
+        },
+      ),
+      onTap: () {
+        final next = switch (autonomy) {
+          ConversationAutonomyMode.autonomous =>
+            ConversationAutonomyMode.suggestions,
+          ConversationAutonomyMode.suggestions =>
+            ConversationAutonomyMode.safeAuto,
+          ConversationAutonomyMode.safeAuto =>
+            ConversationAutonomyMode.autonomous,
+          ConversationAutonomyMode.disabled =>
+            ConversationAutonomyMode.suggestions,
+        };
+        settingsNotifier.setWaAutonomyMode(next.name);
+      },
     );
   }
 
@@ -496,279 +498,36 @@ class BusinessStudioScreen extends ConsumerWidget {
     return buffer.toString().split('').reversed.join('');
   }
 
-  void _openPresetsSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
+  Future<void> _confirmResetCatalog(
+    BuildContext context,
+    BusinessFactsNotifier notifier,
+  ) async {
+    final visual = AutomationVisual.of(context);
+    final confirmed = await showDialog<bool>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (sheetContext) {
-        final visual = AutomationVisual.of(sheetContext);
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              0,
-              16,
-              MediaQuery.of(sheetContext).viewInsets.bottom + 20,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Plantillas de negocio predefinidas',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: visual.text,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Carga productos, horarios, pagos y políticas con un solo toque.',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: visual.textMuted,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: BusinessPresetsCatalog.presets.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (ctx, i) {
-                      final preset = BusinessPresetsCatalog.presets[i];
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(vertical: 4),
-                        leading: CircleAvatar(
-                          backgroundColor: visual.accentSoft,
-                          child: Icon(preset.icon, color: visual.accent),
-                        ),
-                        title: Text(
-                          preset.title,
-                          style: TextStyle(
-                            color: visual.text,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          preset.description,
-                          style: TextStyle(
-                            color: visual.textMuted,
-                            fontSize: 12,
-                          ),
-                        ),
-                        trailing: const Icon(Icons.chevron_right_rounded),
-                        onTap: () async {
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (dlgContext) => AlertDialog(
-                              title: Text('Aplicar estrategia "${preset.title}"'),
-                              content: Text(
-                                'Se configurará el tono comercial (${preset.tone.sales == ToneSales.persuasivo ? "Persuasivo" : "Natural"}, trato ${preset.tone.warmth == ToneWarmth.cercano ? "Cercano" : "Formal"}).\n\n'
-                                'Tus productos reales, precios y métodos de pago deben ser agregados por ti.',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () =>
-                                      Navigator.of(dlgContext).pop(false),
-                                  child: const Text('Cancelar'),
-                                ),
-                                FilledButton(
-                                  onPressed: () =>
-                                      Navigator.of(dlgContext).pop(true),
-                                  child: const Text('Aplicar'),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          if (confirmed == true && context.mounted) {
-                            await ref
-                                .read(toneProfileNotifierProvider.notifier)
-                                .update(preset.tone);
-                            if (sheetContext.mounted) {
-                              Navigator.of(sheetContext).pop();
-                            }
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Estrategia de venta para "${preset.title}" aplicada.',
-                                  ),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+      builder: (ctx) => AlertDialog(
+        backgroundColor: visual.isDark ? const Color(0xFF0F172A) : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('¿Vaciar catálogo?', style: TextStyle(color: visual.text, fontWeight: FontWeight.bold)),
+        content: Text(
+          'Se eliminarán los productos, pagos y políticas comerciales configuradas.',
+          style: TextStyle(color: visual.textMuted),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancelar', style: TextStyle(color: visual.textMuted)),
           ),
-        );
-      },
-    );
-  }
-}
-
-class ProductDialog extends StatefulWidget {
-  const ProductDialog({super.key});
-
-  @override
-  State<ProductDialog> createState() => _ProductDialogState();
-}
-
-class _ProductDialogState extends State<ProductDialog> {
-  final _name = TextEditingController();
-  final _variant = TextEditingController();
-  final _price = TextEditingController();
-  final _stock = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _variant.dispose();
-    _price.dispose();
-    _stock.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return AlertDialog(
-      backgroundColor: visual.surface,
-      title: Text('Nuevo producto', style: TextStyle(color: visual.text)),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _name,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Nombre (ej. Galaxy S24)',
-              ),
-            ),
-            TextField(
-              controller: _variant,
-              decoration: const InputDecoration(
-                labelText: 'Variante (ej. negro 256GB) — opcional',
-              ),
-            ),
-            TextField(
-              controller: _price,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Precio en pesos (ej. 899000)',
-              ),
-            ),
-            TextField(
-              controller: _stock,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Stock (número) — opcional',
-              ),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                style: TextStyle(color: visual.textMuted, fontSize: 12),
-              ),
-            ],
-          ],
-        ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            child: const Text('Vaciar'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(onPressed: _save, child: const Text('Guardar')),
-      ],
     );
-  }
-
-  void _save() {
-    final name = _name.text.trim();
-    final price = int.tryParse(_price.text.trim());
-    if (name.isEmpty || price == null || price <= 0) {
-      setState(() {
-        _error = 'Nombre obligatorio y precio numérico mayor que cero.';
-      });
-      return;
+    if (confirmed == true) {
+      notifier.loadPreset(const BusinessFacts());
     }
-    final stock = int.tryParse(_stock.text.trim());
-    Navigator.of(context).pop(
-      BusinessProduct(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        name: name,
-        details: _variant.text.trim(),
-        price: price,
-        stock: stock,
-      ),
-    );
   }
 }
-
-class TextEditDialog extends StatefulWidget {
-  const TextEditDialog({super.key, required this.title, required this.initial});
-
-  final String title;
-  final String initial;
-
-  @override
-  State<TextEditDialog> createState() => _TextEditDialogState();
-}
-
-class _TextEditDialogState extends State<TextEditDialog> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initial);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return AlertDialog(
-      backgroundColor: visual.surface,
-      title: Text(widget.title, style: TextStyle(color: visual.text)),
-      content: TextField(
-        controller: _controller,
-        autofocus: true,
-        maxLines: 3,
-        minLines: 1,
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancelar'),
-        ),
-        FilledButton(
-          onPressed: () {
-            final v = _controller.text.trim();
-            if (v.isEmpty) return;
-            Navigator.of(context).pop(v);
-          },
-          child: const Text('Guardar'),
-        ),
-      ],
-    );
-  }
-}
-

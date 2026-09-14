@@ -72,6 +72,8 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         val path = args?.get("path") as? String
         val contact = args?.get("contact") as? String
         val caption = args?.get("caption") as? String ?: ""
+        val requestedPkg = ((args?.get("package") ?: args?.get("packageName")) as? String)?.takeIf { it.isNotBlank() } ?: "com.whatsapp"
+
         if (path.isNullOrBlank()) {
             result.error("empty_path", "Sin archivo para compartir", null)
             return
@@ -92,24 +94,42 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
                 file,
             )
             val mime = mimeFor(file.name)
-            val send = Intent(Intent.ACTION_SEND).apply {
+            val cleanContact = contact.replace("@s.whatsapp.net", "").replace("@g.us", "").trim()
+            val jid = if (contact.contains("@g.us")) {
+                contact
+            } else {
+                val digits = cleanContact.filter { it.isDigit() }
+                if (digits.isNotBlank()) "$digits@s.whatsapp.net" else "$cleanContact@s.whatsapp.net"
+            }
+
+            fun createSendIntent(pkg: String) = Intent(Intent.ACTION_SEND).apply {
                 type = mime
                 putExtra(Intent.EXTRA_STREAM, uri)
-                putExtra("jid", "$contact@s.whatsapp.net")
+                putExtra("jid", jid)
                 if (caption.isNotBlank()) putExtra(Intent.EXTRA_TEXT, caption)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                setPackage("com.whatsapp")
+                setPackage(pkg)
             }
-            activity.startActivity(send)
-            result.success(true)
-        } catch (e: ActivityNotFoundException) {
-            result.error("whatsapp_missing", "WhatsApp no está instalado", null)
+
+            try {
+                activity.startActivity(createSendIntent(requestedPkg))
+                result.success(true)
+            } catch (e: ActivityNotFoundException) {
+                // Fallback automático entre WhatsApp y WhatsApp Business
+                val fallbackPkg = if (requestedPkg == "com.whatsapp") "com.whatsapp.w4b" else "com.whatsapp"
+                try {
+                    activity.startActivity(createSendIntent(fallbackPkg))
+                    result.success(true)
+                } catch (_: ActivityNotFoundException) {
+                    result.error("whatsapp_missing", "WhatsApp no está instalado", null)
+                }
+            }
         } catch (e: Exception) {
             result.error("share_failed", "No se pudo lanzar el envío: ${e.message}", null)
         }
     }
 
-    /// MIME por extensión conocida del catálogo; el resto genérico.
+    /// MIME por extensión conocida del catálogo y documentos; el resto genérico.
     private fun mimeFor(name: String): String = when (name.substringAfterLast('.', "").lowercase()) {
         "pdf" -> "application/pdf"
         "jpg", "jpeg" -> "image/jpeg"
@@ -117,6 +137,9 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         "webp" -> "image/webp"
         "mp4" -> "video/mp4"
         "csv" -> "text/comma-separated-values"
+        "txt" -> "text/plain"
+        "doc", "docx" -> "application/msword"
+        "xls", "xlsx" -> "application/vnd.ms-excel"
         else -> "*/*"
     }
 

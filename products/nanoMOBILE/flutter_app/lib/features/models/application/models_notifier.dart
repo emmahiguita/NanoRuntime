@@ -73,8 +73,22 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
 
   Future<void> _load() async {
     try {
-      final models = await _repository.listModels();
       final downloadDir = await _loadDownloadDirPref();
+      var models = await _repository.listModels();
+      if (downloadDir != null) {
+        models = [
+          for (final m in models)
+            if (!m.installed && File('$downloadDir/${m.fileName}').existsSync())
+              m.copyWith(
+                downloadState: ModelDownloadState.installed,
+                progress: 1.0,
+                localPath: '$downloadDir/${m.fileName}',
+                clearError: true,
+              )
+            else
+              m,
+        ];
+      }
       if (!mounted) return;
       final lastDetected = _lastDetected;
       // Si el escaneo terminó primero, reconcilia de inmediato: sin esto el
@@ -495,20 +509,15 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
       // de cargar: el mismo modelo pasa de lento a ~5 tok/s.
       final internalPath = await _copyToInternal(directPath, model.name);
       if (!mounted) return;
-      if (internalPath == null) {
-        state = state.copyWith(
-          loadingDetectedUri: null,
-          scanError: 'No se pudo copiar ${model.name} al storage interno.',
-        );
-        return;
-      }
+      final pathToUse = internalPath ?? directPath;
       state = state.copyWith(
         loadingDetectedUri: null,
         activeDetected: model.name,
+        scanError: null,
       );
       _ref
           .read(chatProvider.notifier)
-          .selectModel(model.name, path: internalPath);
+          .selectModel(model.name, path: pathToUse);
       return;
     }
     try {

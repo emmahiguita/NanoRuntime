@@ -122,6 +122,9 @@ class ToolRegistry {
       'linux.readfile': 'linux.readFile',
       'linux.writefile': 'linux.writeFile',
       'estado_dispositivo': 'device_state',
+      'abrir': 'launch_app',
+      'abrir_app': 'launch_app',
+      'mcp': 'mcp.read',
     },
   );
 
@@ -299,6 +302,31 @@ class ToolRegistry {
       name: 'grant_specific_permission',
       timeout: Duration(seconds: 15),
       description: 'Conceder un permiso runtime a un paquete con Shizuku',
+    ),
+    // ── Herramientas MCP (Model Context Protocol) ──────────────────────────
+    ToolDefinition(
+      name: 'mcp.read',
+      timeout: Duration(seconds: 15),
+      description: 'Ejecutar una herramienta MCP de solo lectura',
+      promptSyntax: '{"tool":"mcp.read","args":{"mcpTool":"<tool_id>"}}',
+    ),
+    ToolDefinition(
+      name: 'mcp.device',
+      timeout: Duration(seconds: 20),
+      description: 'Ejecutar una herramienta MCP que interactúa con el dispositivo',
+      promptSyntax: '{"tool":"mcp.device","args":{"mcpTool":"<tool_id>"}}',
+    ),
+    ToolDefinition(
+      name: 'mcp.externalWrite',
+      timeout: Duration(seconds: 30),
+      description: 'Ejecutar una herramienta MCP con efectos de escritura externa',
+      promptSyntax: '{"tool":"mcp.externalWrite","args":{"mcpTool":"<tool_id>"}}',
+    ),
+    ToolDefinition(
+      name: 'mcp.privileged',
+      timeout: Duration(seconds: 30),
+      description: 'Ejecutar una herramienta MCP con privilegios de sistema',
+      promptSyntax: '{"tool":"mcp.privileged","args":{"mcpTool":"<tool_id>"}}',
     ),
   ];
 

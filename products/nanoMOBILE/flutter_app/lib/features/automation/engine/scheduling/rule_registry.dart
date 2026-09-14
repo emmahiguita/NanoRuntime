@@ -7,7 +7,7 @@ library;
 
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, ChangeNotifier;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../messaging/messaging_package.dart';
@@ -100,7 +100,7 @@ class SharedPrefsRuleStore implements RuleStore {
   }
 }
 
-class RuleRegistry {
+class RuleRegistry with ChangeNotifier {
   RuleRegistry(this._store);
 
   final RuleStore _store;
@@ -140,6 +140,7 @@ class RuleRegistry {
       ..clear()
       ..addAll(unique);
     _loaded = true;
+    notifyListeners();
     // WA-CONSENT-01: sin auto-seed. La UI llama a seedWhatsAppRule() al
     // activar la automatización por primera vez.
   }
@@ -243,6 +244,7 @@ class RuleRegistry {
   void _persist() {
     // No persistir antes de cargar: evitaría pisar el store con una lista vacía.
     if (!_loaded) return;
+    notifyListeners();
     final snapshot = List<ScheduledRule>.of(_rules);
     _writes = _writes
         .catchError((Object _) {})

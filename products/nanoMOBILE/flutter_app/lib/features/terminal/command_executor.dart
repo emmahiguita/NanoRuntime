@@ -492,6 +492,20 @@ class CommandExecutor {
       }
     }
 
+    // ── FASE 07: Asistencia Inteligente / Lenguaje Natural (NanoAI Fallback) ──
+    // Si la entrada no es un binario ni comando formal pero parece lenguaje
+    // natural (saludos, preguntas, párrafos extensos), canalizarlo a NanoAI.
+    final isNaturalLanguage = raw.trim().contains(' ') ||
+        const {'hola', 'buenas', 'hi', 'hello', 'hey', 'ayuda', 'help', 'info', 'gracias'}
+            .contains(name.toLowerCase()) ||
+        raw.length > 25;
+
+    if (isNaturalLanguage && x.cmds.containsKey('ai')) {
+      x.out('[NanoAI] Procesando solicitud en lenguaje natural...', Ln.system);
+      x.cmds['ai']!([raw], x.ctx, x.out, x.after);
+      return;
+    }
+
     x.audit?.event(
       'command.not_found',
       layer: 'terminal',
@@ -499,6 +513,9 @@ class CommandExecutor {
       command: name,
       duration: started.elapsed,
     );
-    x.out('$name: comando no encontrado. "help" para ver todos.', Ln.stderr);
+    x.out('$name: comando no reconocido.', Ln.warn);
+    x.out('💡 Opciones disponibles:', Ln.info);
+    x.out('  • Escribe "help" para ver comandos del sistema.', Ln.info);
+    x.out('  • Escribe "ai $raw" para consultar al modelo neuronal.', Ln.info);
   }
 }

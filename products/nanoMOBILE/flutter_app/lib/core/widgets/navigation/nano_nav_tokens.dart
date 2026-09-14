@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 
 /// Tokens de diseño visual para la barra de navegación cósmica de Nano AI.
 ///
-/// Modo oscuro → acento ámbar/naranja noble. Modo claro → azul iOS profesional.
+/// Modo oscuro → acento verde cyber/esmeralda noble. Modo claro → azul iOS profesional.
 @immutable
 class NanoNavTokens {
   const NanoNavTokens._();
 
   // Acentos de marca Nano
-  static const accentAmber = Color(0xFFFF8C2A); // Modo oscuro
+  static const accentGreen = Color(0xFF10B981); // Modo oscuro Emerald
+  static const accentAmber = Color(0xFFFF8C2A); // Modo alternativo
   static const accentBlue = Color(0xFF1D6FE8);  // Modo claro iOS
   static const electricBlue = Color(0xFF2563EB);
   static const neonGreen = Color(0xFF10B981);
+  static const cyberGreen = Color(0xFF10B981);
   static const violet = Color(0xFF818CF8);
   static const indigo = Color(0xFF6366F1);
 
@@ -50,13 +52,13 @@ class NanoNavTokens {
 
   /// Retorna el color de acento activo según el brillo del contexto.
   static Color activeAccent(Brightness b) =>
-      b == Brightness.dark ? accentAmber : accentBlue;
+      b == Brightness.dark ? cyberGreen : accentBlue;
 
-  // Gradiente orbital de acento activo — ámbar en oscuro, azul iOS en claro
+  // Gradiente orbital de acento activo — verde cyber/esmeralda noble en oscuro, azul iOS en claro
   static const activeGradientDark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFF8C2A), Color(0xFFFF6D00), Color(0xFFE65100)],
+    colors: [Color(0xFF34D399), Color(0xFF10B981), Color(0xFF059669)],
     stops: [0.0, 0.50, 1.0],
   );
 
@@ -74,7 +76,7 @@ class NanoNavTokens {
   static const sendButtonGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFF8C2A), Color(0xFFFF6D00), Color(0xFFE65100)],
+    colors: [Color(0xFF34D399), Color(0xFF10B981), Color(0xFF059669)],
     stops: [0.0, 0.50, 1.0],
   );
 

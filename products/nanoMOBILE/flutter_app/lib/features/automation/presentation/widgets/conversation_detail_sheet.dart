@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,9 @@ import '../../application/automation_coordinator_provider.dart';
 import '../../engine/agent_dependencies.dart' show conversationMemoryStoreProvider;
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_memory.dart';
+import '../../engine/notifications/notification_object.dart';
+import '../../engine/platform/whatsapp_media_share.dart';
+import '../../executors/notification_executor.dart' show DeviceNotification;
 import '../../executors/notification_executor_provider.dart';
 import '../../personal_agent/domain/conversation_owner.dart';
 import '../automation_visual_theme.dart';
@@ -53,6 +57,7 @@ class _ConversationDetailSheetState
   bool _isHumanOwned = false;
   bool _busy = false;
   String? _statusText;
+  List<String> _suggestions = const [];
 
   @override
   void initState() {
@@ -61,6 +66,9 @@ class _ConversationDetailSheetState
     if (widget.item.hasPendingReply &&
         widget.item.pendingReplyText != null) {
       _inputController.text = widget.item.pendingReplyText!;
+    }
+    if (widget.item.pendingSuggestions.isNotEmpty) {
+      _suggestions = widget.item.pendingSuggestions;
     }
   }
 
@@ -87,36 +95,139 @@ class _ConversationDetailSheetState
   Future<void> _generateAiSuggestion() async {
     setState(() {
       _busy = true;
-      _statusText = 'Generando respuesta con la IA local...';
+      _statusText = 'Generando opciones con la IA local...';
     });
     try {
       final executor = ref.read(notificationExecutorProvider);
+      final composer = ref.read(conversationReplyComposerProvider);
+
       final list = await executor.list(limit: 10);
-      if (list.isEmpty) {
-        setState(() {
-          _statusText = 'No hay notificaciones activas para generar borrador';
-        });
-        return;
-      }
-      final targetNotif = list.firstWhere(
+      final targetNotif = list.where(
         (n) => n.text == widget.item.lastMessage || n.sender == widget.item.displayName,
-        orElse: () => list.first,
-      );
-      final draft = await executor.generateLocalDraft(targetNotif);
-      if (draft.isNotEmpty) {
+      ).firstOrNull;
+
+      final notifObj = targetNotif != null
+          ? targetNotif.toNotificationObject()
+          : NotificationObject.fromMap({
+              'key': 'hub_${widget.item.conversationId}',
+              'package': widget.item.packageName,
+              'title': widget.item.displayName,
+              'text': widget.item.lastMessage,
+              'messageText': widget.item.lastMessage,
+              'sender': widget.item.displayName,
+              'conversationId': widget.item.conversationId,
+              'postTime': widget.item.lastAtMs,
+              'canReply': true,
+            });
+
+      final draftResult = await composer.compose(notifObj);
+      final suggestions = await composer.composeSuggestions(notifObj);
+
+      final allOptions = <String>[];
+      if (draftResult != null && draftResult.hasReply) {
+        allOptions.add(draftResult.text.trim());
+      }
+      for (final s in suggestions) {
+        final clean = s.trim();
+        if (clean.isNotEmpty && !allOptions.contains(clean)) {
+          allOptions.add(clean);
+        }
+      }
+
+      // Si no hay respuesta del modelo o está en espera, generar variantes rápidas
+      if (allOptions.isEmpty) {
+        final msg = widget.item.lastMessage.toLowerCase();
+        if (msg.contains('hola') || msg.contains('buenas')) {
+          allOptions.addAll([
+            'Hola, ¿cómo estás?',
+            '¡Buenas! ¿Todo bien?',
+            'Hola, cuéntame.',
+          ]);
+        } else if (msg.contains('?') || msg.contains('cuanto') || msg.contains('precio')) {
+          allOptions.addAll([
+            'Hola, déjame revisar y ya te confirmo.',
+            'Claro que sí, dame un momento.',
+            'Hola, ¿para qué fecha lo necesitas?',
+          ]);
+        } else {
+          allOptions.addAll([
+            'Dale, de una.',
+            'Perfecto, entendido.',
+            'Listo, muchas gracias.',
+          ]);
+        }
+      }
+
+      if (mounted) {
         setState(() {
-          _inputController.text = draft;
-          _statusText = 'Sugerencia generada con el catálogo de datos';
+          _suggestions = allOptions;
+          if (allOptions.isNotEmpty) {
+            _inputController.text = allOptions.first;
+          }
+          _statusText = allOptions.length > 1
+              ? '${allOptions.length} opciones disponibles. Toca una para seleccionarla.'
+              : 'Sugerencia generada con el catálogo de datos';
         });
       }
     } catch (e) {
-      setState(() {
-        _statusText = 'No se pudo generar borrador: $e';
-      });
+      if (mounted) {
+        setState(() {
+          _statusText = 'No se pudo generar borrador: $e';
+        });
+      }
     } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _attachAndShareFile() async {
+    try {
+      final picked = await FilePicker.pickFiles(type: FileType.any);
+      final file = picked?.files.single;
+      if (file == null || file.path == null) return;
+
       setState(() {
-        _busy = false;
+        _busy = true;
+        _statusText = 'Preparando archivo para compartir...';
       });
+
+      const share = WhatsAppMediaShare();
+      final stablePath = await share.copyToCatalog(file.path!) ?? file.path!;
+      final caption = _inputController.text.trim();
+      final contact = widget.item.conversationId.isNotEmpty
+          ? widget.item.conversationId
+          : widget.item.displayName;
+
+      final ok = await share.shareFile(
+        path: stablePath,
+        contact: contact,
+        caption: caption,
+        packageName: widget.item.packageName,
+      );
+
+      if (mounted) {
+        setState(() {
+          _statusText = ok
+              ? 'Abriendo WhatsApp para adjuntar archivo'
+              : 'No se pudo abrir WhatsApp para compartir';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _statusText = 'Error al adjuntar: $e';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+        });
+      }
     }
   }
 
@@ -135,12 +246,22 @@ class _ConversationDetailSheetState
       }
 
       final executor = ref.read(notificationExecutorProvider);
-      final list = await executor.list(limit: 10);
-      if (list.isNotEmpty) {
-        final targetNotif = list.firstWhere(
-          (n) => n.text == widget.item.lastMessage || n.sender == widget.item.displayName,
-          orElse: () => list.first,
-        );
+      final list = await executor.list(limit: 20);
+      DeviceNotification? targetNotif;
+      for (final n in list) {
+        final matchesConvId = widget.item.conversationId.isNotEmpty &&
+            n.conversationId == widget.item.conversationId;
+        final matchesSender = widget.item.displayName.isNotEmpty &&
+            n.sender.trim().toLowerCase() == widget.item.displayName.trim().toLowerCase();
+        final matchesText = widget.item.lastMessage.isNotEmpty &&
+            n.text.trim() == widget.item.lastMessage.trim();
+
+        if (matchesConvId || matchesSender || matchesText) {
+          targetNotif = n;
+          break;
+        }
+      }
+      if (targetNotif != null) {
         await executor.confirmAndReply(targetNotif, text);
       }
 
@@ -719,9 +840,85 @@ class _ConversationDetailSheetState
               ),
             ],
           ),
+          if (_suggestions.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 34,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _suggestions.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final text = _suggestions[index];
+                  final isSelected = _inputController.text.trim() == text.trim();
+                  return ActionChip(
+                    avatar: Icon(
+                      isSelected
+                          ? Icons.check_circle_rounded
+                          : Icons.chat_bubble_outline_rounded,
+                      size: 13,
+                      color: isSelected
+                          ? const Color(0xFF007AFF)
+                          : visual.textMuted,
+                    ),
+                    label: Text(
+                      'Opción ${index + 1}: ${text.length > 28 ? "${text.substring(0, 28)}..." : text}',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontFamilyFallback:
+                            ConversationDetailSheet._sfFallback,
+                        fontSize: 11.5,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        color: isSelected
+                            ? const Color(0xFF007AFF)
+                            : visual.text,
+                      ),
+                    ),
+                    backgroundColor: isSelected
+                        ? const Color(0xFF007AFF).withValues(alpha: 0.14)
+                        : (visual.isDark
+                            ? Colors.white10
+                            : Colors.black.withValues(alpha: 0.04)),
+                    side: BorderSide(
+                      color: isSelected
+                          ? const Color(0xFF007AFF).withValues(alpha: 0.50)
+                          : (visual.isDark ? Colors.white12 : Colors.black12),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    onPressed: () {
+                      setState(() {
+                        _inputController.text = text;
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Row(
             children: [
+              IconButton(
+                onPressed: _busy ? null : _attachAndShareFile,
+                tooltip: 'Adjuntar documento, imagen o PDF',
+                icon: Icon(
+                  CupertinoIcons.paperclip,
+                  color: visual.accent,
+                  size: 20,
+                ),
+                style: IconButton.styleFrom(
+                  backgroundColor: visual.accent.withValues(alpha: 0.12),
+                  padding: const EdgeInsets.all(10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   controller: _inputController,

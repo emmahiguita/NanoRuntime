@@ -42,7 +42,12 @@ abstract final class BusinessPresetsCatalog {
         emojis: true,
         verbosity: ToneVerbosity.breve,
       ),
-      facts: BusinessFacts(),
+      facts: BusinessFacts(
+        hours: 'Lunes a Sábado de 9:00 AM a 7:00 PM',
+        delivery: 'Envíos a todo el país. Locales el mismo día; nacionales de 2 a 3 días hábiles.',
+        payments: 'Transferencias Bancolombia, Nequi, Daviplata, link de pago con tarjeta y contraentrega local. Solicitar comprobante de transferencia.',
+        location: 'Atención en tienda física y tienda virtual con envíos nacionales.',
+      ),
     ),
     BusinessPreset(
       id: 'restaurant',
@@ -56,7 +61,12 @@ abstract final class BusinessPresetsCatalog {
         emojis: true,
         verbosity: ToneVerbosity.media,
       ),
-      facts: BusinessFacts(),
+      facts: BusinessFacts(
+        hours: 'Martes a Domingo de 12:00 PM a 10:00 PM',
+        delivery: 'Domicilios en zona urbana (cobertura hasta 5 km). Tiempo estimado de 30 a 45 minutos.',
+        payments: 'Nequi, Daviplata, datáfono portátil y efectivo contra entrega.',
+        location: 'Sede principal con mesas y servicio para llevar.',
+      ),
     ),
     BusinessPreset(
       id: 'services',
@@ -70,7 +80,12 @@ abstract final class BusinessPresetsCatalog {
         emojis: false,
         verbosity: ToneVerbosity.media,
       ),
-      facts: BusinessFacts(),
+      facts: BusinessFacts(
+        hours: 'Lunes a Viernes de 8:00 AM a 6:00 PM con agenda previa',
+        delivery: 'Servicios digitales remotos y asesorías presenciales previa cita.',
+        payments: 'Transferencia bancaria Bancolombia, Nequi o enlace de pago PSE/Tarjeta.',
+        location: 'Servicio 100% digital o en oficina previa confirmación.',
+      ),
     ),
     BusinessPreset(
       id: 'clinic',
@@ -84,7 +99,12 @@ abstract final class BusinessPresetsCatalog {
         emojis: false,
         verbosity: ToneVerbosity.media,
       ),
-      facts: BusinessFacts(),
+      facts: BusinessFacts(
+        hours: 'Lunes a Viernes de 7:00 AM a 5:00 PM, Sábados de 8:00 AM a 1:00 PM',
+        delivery: 'Atención presencial en consultorio previa asignación de cita.',
+        payments: 'Transferencia bancaria, PSE o pago directo en recepción con tarjeta/efectivo.',
+        location: 'Consultorio médico / odontológico con cita previa.',
+      ),
     ),
     BusinessPreset(
       id: 'courses',
@@ -98,7 +118,12 @@ abstract final class BusinessPresetsCatalog {
         emojis: true,
         verbosity: ToneVerbosity.media,
       ),
-      facts: BusinessFacts(),
+      facts: BusinessFacts(
+        hours: 'Lunes a Viernes de 8:00 AM a 8:00 PM',
+        delivery: 'Acceso 100% digital a plataforma y clases en vivo.',
+        payments: 'Enlace de pago seguro PSE/Tarjeta, transferencia Bancolombia o Nequi.',
+        location: 'Plataforma educativa en línea.',
+      ),
     ),
   ];
 }

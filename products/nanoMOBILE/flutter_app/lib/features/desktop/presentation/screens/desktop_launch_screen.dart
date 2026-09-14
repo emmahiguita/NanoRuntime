@@ -9,7 +9,7 @@ import 'package:nanoai/core/services/package_service.dart';
 import 'package:nanoai/core/services/rootfs_manager.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
-import 'package:nanoai/core/widgets/nano_ambient_background.dart';
+import 'package:nanoai/features/home/buho_wallpaper.dart';
 import 'package:nanoai/core/widgets/nano_optical_surface.dart';
 
 /// Pantalla de control y lanzamiento del escritorio Linux (White Optical Glass + M3 Motion).
@@ -261,12 +261,11 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen>
       });
 
       if (!mounted) return;
-      final viewport = MediaQuery.sizeOf(context);
-      final dpr = MediaQuery.devicePixelRatioOf(context);
+      // Geometría PC estándar 16:9 (1280x720) para proporciones reales de monitor PC
       await _pkg.startDesktop(
         vncPassword: ref.read(settingsProvider).vncPassword,
-        width: (viewport.width * dpr).round(),
-        height: (viewport.height * dpr).round(),
+        width: 1280,
+        height: 720,
       );
 
       _stopStopwatch();
@@ -340,7 +339,11 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen>
         backgroundColor: colors.backgroundPrimary,
         body: Stack(
           children: [
-            const Positioned.fill(child: NanoAmbientBackground()),
+            const Positioned.fill(
+              child: BuhoWallpaper(
+                scrimOpacity: 0.58,
+              ),
+            ),
             SafeArea(
               child: Center(
                 child: ConstrainedBox(

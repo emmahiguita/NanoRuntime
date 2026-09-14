@@ -41,7 +41,7 @@ class DesktopSessionManager(
         private const val TAG = "desktop-session"
         const val DEFAULT_WIDTH   = 1280
         const val DEFAULT_HEIGHT  = 720
-        const val DESKTOP_CONFIG_VERSION = 8
+        const val DESKTOP_CONFIG_VERSION = 9
         private const val DESKTOP_CONFIG_MARKER =
             "nano/home/.nano-managed/desktop-config.version"
 
@@ -115,7 +115,7 @@ class DesktopSessionManager(
             "XDG_CONFIG_HOME"  to configDir.absolutePath,
             "XDG_STATE_HOME"   to stateDir.absolutePath,
             "TMPDIR"           to tmpDir.absolutePath,
-            "PATH"             to "${usrDir.absolutePath}/bin:/system/bin",
+            "PATH"             to "${usrDir.absolutePath}/bin:${usrDir.absolutePath}/libexec:/system/bin",
             "LD_LIBRARY_PATH"  to ldPath,
             "DISPLAY"          to display,
             "XDG_RUNTIME_DIR"  to tmpDir.absolutePath,
@@ -139,7 +139,8 @@ class DesktopSessionManager(
             // apps corren sin defaults (evidencia device 2026-08-12).
             "GSETTINGS_SCHEMA_DIR" to "${usrDir.absolutePath}/share/glib-2.0/schemas",
             // Iconos y datos XDG (temas de pcmanfm, iconos de openbox menu).
-            "XDG_DATA_DIRS"    to "${usrDir.absolutePath}/share",
+            "XDG_DATA_HOME"    to "${homeDir.absolutePath}/.local/share",
+            "XDG_DATA_DIRS"    to "${homeDir.absolutePath}/.local/share:${usrDir.absolutePath}/share",
             // Backend GSettings de Xfconf (mousepad/GTK). GIO dlopen()ea los
             // módulos desde un path Termux compilado en el binario; sin esta
             // variable busca en /data/data/com.termux/... y no carga el
@@ -150,6 +151,9 @@ class DesktopSessionManager(
             // Verificado device 2026-08-12: aterm con este env renderiza
             // cursor 24px en el framebuffer.
             "XCURSOR_SIZE"     to "28",
+            // Configuración de fuentes fontconfig para GTK3, Pango, PCManFM y Mousepad
+            "FONTCONFIG_PATH"  to "${usrDir.absolutePath}/etc/fonts",
+            "FONTCONFIG_FILE"  to "${usrDir.absolutePath}/etc/fonts/fonts.conf",
         )
     }
 
@@ -227,7 +231,7 @@ class DesktopSessionManager(
         // El appId real es 'lxterminal' (binario lxterminal); 'aterm' fue
         // el nombre histórico del tile del panel y confundía instalación.
         "lxterminal" -> File(usrDir, "bin/lxterminal") to listOf(
-            "lxterminal", "-e", "sh", "-c", "exec bash -i",
+            "lxterminal", "--title=Terminal", "-e", "sh", "-c", "cd \"${File(usrDir.parentFile, "home").absolutePath}\"; exec bash -i",
         )
         "pcmanfm"  -> File(usrDir, "bin/pcmanfm") to listOf("pcmanfm")
         "mousepad" -> File(usrDir, "bin/mousepad") to listOf("mousepad")
@@ -508,7 +512,7 @@ class DesktopSessionManager(
         // verificar salud del openboxPid vía worker y re-lanzar UNA vez si
         // murió (mismo patrón que la terminal en launchTerminal: /proc check
         // a los 500ms con re-spawn).
-        Thread.sleep(800)
+        Thread.sleep(200)
         if (openboxPid > 0 && !isPidAlive(openboxPid)) {
             Log.w(TAG, "openbox PID=$openboxPid murió tras el spawn — re-lanzando")
             launchWindowManager(lastWmEnv, onStatus)
@@ -529,21 +533,27 @@ class DesktopSessionManager(
         launchTerminal(lastWmEnv, onStatus)
         if (abortIfStopped("after-terminal-spawn", onError)) return
 
-        // Readiness del producto, no sólo del socket Xvnc. Sin esta barrera
-        // se reportaba "ready" aunque tint2 hubiese caído por su config/icono
-        // o la terminal hubiese muerto inmediatamente, dejando exactamente el
-        // framebuffer negro/incompleto observado en el dispositivo.
-        Thread.sleep(700)
-        val deadComponents = listOf(
-            "openbox" to openboxPid,
-            "tint2" to tint2Pid,
-            "pcmanfm" to pcmanfmPid,
-            "terminal" to terminalPid,
-        ).filter { (_, pid) -> pid <= 0 || !isPidAlive(pid) }
+        // Readiness del entorno gráfico:
+        // openbox es obligatorio; los componentes opcionales (tint2, pcmanfm, terminal)
+        // solo se validan si fueron lanzados con éxito (pid > 0).
+        Thread.sleep(150)
+        val deadComponents = mutableListOf<String>()
+        if (openboxPid <= 0 || !isPidAlive(openboxPid)) {
+            deadComponents.add("openbox")
+        }
+        if (tint2Pid > 0 && !isPidAlive(tint2Pid)) {
+            deadComponents.add("tint2")
+        }
+        if (pcmanfmPid > 0 && !isPidAlive(pcmanfmPid)) {
+            deadComponents.add("pcmanfm")
+        }
+        if (terminalPid > 0 && !isPidAlive(terminalPid)) {
+            deadComponents.add("terminal")
+        }
         if (deadComponents.isNotEmpty()) {
             throw java.io.IOException(
                 "Componentes gráficos no permanecieron vivos: " +
-                    deadComponents.joinToString { it.first },
+                    deadComponents.joinToString(),
             )
         }
 
@@ -629,15 +639,16 @@ class DesktopSessionManager(
         // del sistema vía /proc) y deja el shell interactivo debajo. El
         // watchdog granular re-lanza la terminal con el MISMO argv, así el
         // banner vuelve a aparecer si la terminal muere.
-        val hud = "python3 ${File(usrDir.parentFile, "home/.hud.py").absolutePath}"
-        val shellCmd = "$hud; exec bash -i"
+        val homeDir = File(usrDir.parentFile, "home")
+        val hud = "python3 ${File(homeDir, ".hud.py").absolutePath}"
+        val shellCmd = "cd \"${homeDir.absolutePath}\"; $hud; exec bash -i"
         // Trim 2026-08-14: fuera el fallback aterm — ya no se instala
         // (DESKTOP_PACKAGES) y el escritorio lo eliminó de la allowlist.
         val candidates = listOf(
-            TerminalLaunch(File(usrDir, "bin/lxterminal"), listOf("lxterminal", "-e", "sh", "-c", shellCmd)),
+            TerminalLaunch(File(usrDir, "bin/lxterminal"), listOf("lxterminal", "--title=Terminal", "-e", "sh", "-c", shellCmd)),
             TerminalLaunch(
                 File(usrDir, "bin/xterm"),
-                listOf("xterm") + bigFont + colors + listOf("-e", "sh", "-c", shellCmd),
+                listOf("xterm", "-title", "Terminal") + bigFont + colors + listOf("-e", "sh", "-c", shellCmd),
             ),
         )
         return candidates.firstOrNull { isElf(it.file) }
@@ -869,7 +880,29 @@ class DesktopSessionManager(
      * antes de lanzar Openbox para que una actualización nunca reutilice una
      * sesión con configuración anterior. Los documentos y dotfiles ajenos a
      * esta lista no se leen ni se sobrescriben. */
+    private fun ensureGlibSchemas() {
+        try {
+            val schemaDir = File(usrDir, "share/glib-2.0/schemas")
+            val compiled = File(schemaDir, "gschemas.compiled")
+            if (!compiled.exists() || compiled.length() == 0L) {
+                val compileBin = File(usrDir, "bin/glib-compile-schemas")
+                if (compileBin.exists()) {
+                    compileBin.setExecutable(true, false)
+                    val lib = File(usrDir, "lib").absolutePath
+                    val pb = ProcessBuilder(compileBin.absolutePath, schemaDir.absolutePath)
+                    pb.environment()["LD_LIBRARY_PATH"] = "$lib:/system/lib64:/system/lib"
+                    val proc = pb.start()
+                    proc.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)
+                    Log.i(TAG, "glib-compile-schemas ejecutado: exit=${proc.exitValue()}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "ensureGlibSchemas: ${e.message}")
+        }
+    }
+
     private fun provisionManagedDesktopConfig() {
+        ensureGlibSchemas()
         setupOpenboxMenu()
         setupOpenboxRc()
         setupWallpaper()
@@ -910,7 +943,8 @@ class DesktopSessionManager(
     private fun writeManagedText(target: File, content: String) {
         target.parentFile?.mkdirs()
         val temporary = File(target.parentFile, ".${target.name}.nano-tmp")
-        temporary.writeText(content)
+        val normalized = content.replace("\r\n", "\n")
+        temporary.writeBytes(normalized.toByteArray(Charsets.UTF_8))
         try {
             Files.move(
                 temporary.toPath(),
@@ -940,17 +974,20 @@ class DesktopSessionManager(
                   <menu id="root-menu" label="Nano Linux">
                     <separator label="APLICACIONES"/>
                     <item label="Terminal">
-                      <action name="Execute"><execute>lxterminal -e sh -c "exec bash -i"</execute></action>
+                      <action name="Execute"><execute>lxterminal --title=Terminal -e sh -c "cd '${homeDir.absolutePath}'; exec bash -i"</execute></action>
                     </item>
                     <item label="Archivos">
-                      <action name="Execute"><execute>pcmanfm</execute></action>
+                      <action name="Execute"><execute>pcmanfm "${homeDir.absolutePath}"</execute></action>
                     </item>
                     <item label="Editor">
                       <action name="Execute"><execute>mousepad</execute></action>
                     </item>
                     <separator label="SISTEMA"/>
                     <item label="Información de Nano">
-                      <action name="Execute"><execute>lxterminal -e sh -c "nano-info; printf '\n'; exec bash -i"</execute></action>
+                      <action name="Execute"><execute>lxterminal --title="Nano Info" -e sh -c "cd '${homeDir.absolutePath}'; python3 .hud.py --full; printf '\n'; exec bash -i"</execute></action>
+                    </item>
+                    <item label="Mostrar Escritorio">
+                      <action name="ToggleShowDesktop"/>
                     </item>
                     <item label="Recargar escritorio">
                       <action name="Reconfigure"/>
@@ -975,10 +1012,20 @@ class DesktopSessionManager(
             val rcXml = File(obDir, "rc.xml")
             val panelHeight = desktopPanelHeight()
             val availableHeight = (fbHeight - panelHeight).coerceAtLeast(320)
-            val terminalWidth = (fbWidth * 88 / 100)
-                .coerceIn(320, (fbWidth - 32).coerceAtLeast(320))
-            val terminalHeight = (availableHeight * 46 / 100)
-                .coerceIn(260, (availableHeight - 32).coerceAtLeast(260))
+            val isLandscape = fbWidth > fbHeight
+
+            val terminalWidth = if (isLandscape) {
+                (fbWidth * 68 / 100).coerceIn(480, (fbWidth - 48).coerceAtLeast(320))
+            } else {
+                (fbWidth * 86 / 100).coerceIn(320, (fbWidth - 24).coerceAtLeast(320))
+            }
+
+            val terminalHeight = if (isLandscape) {
+                (availableHeight * 64 / 100).coerceIn(300, (availableHeight - 32).coerceAtLeast(260))
+            } else {
+                (availableHeight * 48 / 100).coerceIn(260, (availableHeight - 32).coerceAtLeast(260))
+            }
+
             // rc.xml: tema NanoAI, DejaVu Sans. Animaciones/sombras fuera:
             // performance primero en VNC.
             writeManagedText(rcXml, """
@@ -1017,7 +1064,7 @@ class DesktopSessionManager(
                   <focus>
                     <focusNew>yes</focusNew>
                     <followMouse>no</followMouse>
-                    <raiseOnFocus>no</raiseOnFocus>
+                    <raiseOnFocus>yes</raiseOnFocus>
                   </focus>
                   <placement>
                     <policy>Smart</policy>
@@ -1047,6 +1094,16 @@ class DesktopSessionManager(
                         <action name="ShowMenu"><menu>root-menu</menu></action>
                       </mousebind>
                     </context>
+                    <context name="Frame">
+                      <mousebind button="Left" action="Press">
+                        <action name="Focus"/><action name="Raise"/>
+                      </mousebind>
+                    </context>
+                    <context name="Client">
+                      <mousebind button="Left" action="Press">
+                        <action name="Focus"/><action name="Raise"/>
+                      </mousebind>
+                    </context>
                     <context name="Titlebar">
                       <mousebind button="Left" action="Press">
                         <action name="Focus"/><action name="Raise"/>
@@ -1059,20 +1116,55 @@ class DesktopSessionManager(
                       </mousebind>
                     </context>
                     <context name="Close">
-                      <mousebind button="Left" action="Release"><action name="Close"/></mousebind>
+                      <mousebind button="Left" action="Press">
+                        <action name="Focus"/><action name="Raise"/><action name="Unshade"/>
+                      </mousebind>
+                      <mousebind button="Left" action="Click"><action name="Close"/></mousebind>
                     </context>
                     <context name="Iconify">
-                      <mousebind button="Left" action="Release"><action name="Iconify"/></mousebind>
+                      <mousebind button="Left" action="Press">
+                        <action name="Focus"/><action name="Raise"/><action name="Unshade"/>
+                      </mousebind>
+                      <mousebind button="Left" action="Click"><action name="Iconify"/></mousebind>
                     </context>
                     <context name="Maximize">
-                      <mousebind button="Left" action="Release"><action name="ToggleMaximize"/></mousebind>
+                      <mousebind button="Left" action="Press">
+                        <action name="Focus"/><action name="Raise"/><action name="Unshade"/>
+                      </mousebind>
+                      <mousebind button="Left" action="Click"><action name="ToggleMaximize"/></mousebind>
                     </context>
                   </mouse>
                   <applications>
                     <application class="Lxterminal" type="normal">
                       <position force="yes">
                         <x>center</x>
-                        <y>${panelHeight + 24}</y>
+                        <y>center</y>
+                        <monitor>all</monitor>
+                      </position>
+                      <size>
+                        <width>$terminalWidth</width>
+                        <height>$terminalHeight</height>
+                      </size>
+                      <maximized>no</maximized>
+                      <decor>yes</decor>
+                    </application>
+                    <application class="*ousepad*" type="normal">
+                      <position force="yes">
+                        <x>center</x>
+                        <y>center</y>
+                        <monitor>all</monitor>
+                      </position>
+                      <size>
+                        <width>$terminalWidth</width>
+                        <height>$terminalHeight</height>
+                      </size>
+                      <maximized>no</maximized>
+                      <decor>yes</decor>
+                    </application>
+                    <application class="*cmanfm*" type="normal">
+                      <position force="yes">
+                        <x>center</x>
+                        <y>center</y>
                         <monitor>all</monitor>
                       </position>
                       <size>
@@ -1098,8 +1190,8 @@ class DesktopSessionManager(
             writeManagedText(File(themeDir, "themerc"), """
                 ! Nano Linux Mobile — Openbox 3
                 border.width: 1
-                padding.width: 12
-                padding.height: 10
+                padding.width: 14
+                padding.height: 12
                 window.handle.width: 6
                 window.active.title.bg: flat solid
                 window.active.title.bg.color: #0B1B2B
@@ -1275,27 +1367,33 @@ class DesktopSessionManager(
                 Exec=$exec
                 Icon=$icon
                 Terminal=false
+                Path=${homeDir.absolutePath}
                 Categories=Utility;
                 """.trimIndent()
+            val lxterminalBin = File(usrDir, "bin/lxterminal").absolutePath
+            val pcmanfmBin = File(usrDir, "bin/pcmanfm").absolutePath
+            val mousepadBin = File(usrDir, "bin/mousepad").absolutePath
+            val python3Bin = File(usrDir, "bin/python3").absolutePath
+
             writeManagedText(
                 File(appsDir, "nano-terminal.desktop"),
-                desktop("Terminal", "lxterminal -e sh -c \"exec bash -i\"", terminalIcon.absolutePath),
+                desktop("Terminal", "$lxterminalBin --title=Terminal -e sh -c \"cd '${homeDir.absolutePath}'; exec bash -i\"", terminalIcon.absolutePath),
             )
             writeManagedText(
                 File(appsDir, "nano-archivos.desktop"),
-                desktop("Archivos", "pcmanfm", filesIcon.absolutePath),
+                desktop("Archivos", "$pcmanfmBin \"${homeDir.absolutePath}\"", filesIcon.absolutePath),
+            )
+            writeManagedText(
+                File(appsDir, "nano-editor.desktop"),
+                desktop("Editor", mousepadBin, editorIcon.absolutePath),
             )
             writeManagedText(
                 File(appsDir, "nano-info.desktop"),
                 desktop(
                     "Nano Info",
-                    "lxterminal -e sh -c \"nano-info; printf '\\n'; exec bash -i\"",
+                    "$lxterminalBin --title=\"Nano Info\" -e sh -c \"cd '${homeDir.absolutePath}'; $python3Bin .hud.py --full; printf '\\n'; exec bash -i\"",
                     infoIcon.absolutePath,
                 ),
-            )
-            writeManagedText(
-                File(appsDir, "nano-editor.desktop"),
-                desktop("Editor", "mousepad", editorIcon.absolutePath),
             )
 
             val tint2Dir = File(homeDir, ".config/tint2").also { it.mkdirs() }
@@ -1321,7 +1419,7 @@ class DesktopSessionManager(
                 background_color = #593044 100
                 border_color = #F0718C 100
 
-                panel_items = LTC
+                panel_items = TC
                 panel_size = 100% $panelHeight
                 panel_margin = 0 0
                 panel_padding = 8 5 8
@@ -1346,6 +1444,7 @@ class DesktopSessionManager(
                 launcher_tooltip = 1
                 launcher_item_app = ${File(appsDir, "nano-terminal.desktop").absolutePath}
                 launcher_item_app = ${File(appsDir, "nano-archivos.desktop").absolutePath}
+                launcher_item_app = ${File(appsDir, "nano-editor.desktop").absolutePath}
                 launcher_item_app = ${File(appsDir, "nano-info.desktop").absolutePath}
 
                 taskbar_padding = 5 3 5
@@ -1414,6 +1513,35 @@ class DesktopSessionManager(
                     "XDG_DESKTOP_DIR=\"${deskDir.absolutePath}\"\n",
                 )
             }
+            // DESKTOP-MIME-01: GIO requiere la base de datos de tipos MIME para
+            // reconocer archivos .desktop como 'application/x-desktop'. Sin globs,
+            // GIO los clasifica como 'text/plain', PCManFM los dibuja como iconos
+            // genéricos de papel en blanco y no ejecuta su acción al tocarlos.
+            listOf(File(usrDir, "share/mime"), File(homeDir, ".local/share/mime")).forEach { mDir ->
+                mDir.mkdirs()
+                val g2 = File(mDir, "globs2")
+                if (!g2.exists()) writeManagedText(g2, "50:application/x-desktop:*.desktop\n")
+                val g1 = File(mDir, "globs")
+                if (!g1.exists()) writeManagedText(g1, "application/x-desktop:*.desktop\n")
+            }
+
+            // GIO requiere gio-launch-desktop para lanzar aplicaciones desde .desktop
+            val libexec = File(usrDir, "libexec/gio-launch-desktop")
+            if (libexec.exists()) {
+                libexec.setExecutable(true, false)
+                val binTarget = File(usrDir, "bin/gio-launch-desktop")
+                if (!binTarget.exists()) {
+                    try {
+                        Files.createSymbolicLink(binTarget.toPath(), libexec.toPath())
+                    } catch (_: Exception) {
+                        try {
+                            Files.copy(libexec.toPath(), binTarget.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                            binTarget.setExecutable(true, false)
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+
             val appsDir = File(homeDir, ".local/share/applications")
             listOf(
                 "nano-terminal.desktop",
@@ -1426,46 +1554,62 @@ class DesktopSessionManager(
                     val dst = File(deskDir, name)
                     // Estos nombres son Nano-managed: reemplazarlos evita el
                     // bug seed-only que dejaba accesos de versiones previas.
-                    if (src.exists()) Files.copy(
-                        src.toPath(),
-                        dst.toPath(),
-                        StandardCopyOption.REPLACE_EXISTING,
-                    )
+                    if (src.exists()) {
+                        src.setExecutable(true, false)
+                        Files.copy(
+                            src.toPath(),
+                            dst.toPath(),
+                            StandardCopyOption.REPLACE_EXISTING,
+                        )
+                        dst.setExecutable(true, false)
+                    }
                 }
+
+            // Asegurar que cualquier acceso .desktop del escritorio tenga permiso de ejecución
+            deskDir.listFiles { _, fName -> fName.endsWith(".desktop") }?.forEach { f ->
+                f.setExecutable(true, false)
+            }
             // Desktop sin papelera ni carpetas especiales (gvfs incompleto
             // en este rootfs — honesto: trash:// no funciona aún).
             val confDir = File(homeDir, ".config/pcmanfm/default").also { it.mkdirs() }
+            // DESKTOP-FIX-01: pcmanfm --desktop lee el wallpaper, la tipografía y los
+            // colores de escritorio desde desktop-items-0.conf (no desde pcmanfm.conf).
+            // Sin estas claves aquí, pcmanfm mostraba pantalla de fondo negro sólido.
             writeManagedText(File(confDir, "desktop-items-0.conf"), """
                 [*]
+                wallpaper_mode=crop
+                wallpaper=${homeDir.absolutePath}/.nano-wallpaper.png
+                desktop_bg=#08131F
+                desktop_fg=#E8F0F6
+                desktop_shadow=#000000
+                desktop_font=DejaVu Sans Bold 13
                 show_trash=0
                 show_documents=0
+                show_wm_menu=1
+                sort_by=2
+                sort_type=0
             """.trimIndent())
-            // DESKTOP-FIX-01: pcmanfm --desktop es el desktop manager y pinta
-            // SU fondo sobre el root window — sin pcmanfm.conf usaba su
-            // default (wallpaper ausente en Termux = NEGRO) y tapaba el feh.
-            // Aquí pinta el mismo wallpaper. El tamaño de iconos pertenece a
-            // libfm.conf, no a pcmanfm.conf; escribir big_icon_size aquí no
-            // tenía efecto y dejaba el valor stock de 48 px en el teléfono.
             writeManagedText(File(confDir, "pcmanfm.conf"), """
                 [desktop]
-                wallpaper_mode=fit
+                wallpaper_mode=crop
                 wallpaper=${homeDir.absolutePath}/.nano-wallpaper.png
-                desktop_font=DejaVu Sans 18
+                desktop_font=DejaVu Sans Bold 13
             """.trimIndent())
             val libfmDir = File(homeDir, ".config/libfm").also { it.mkdirs() }
             writeManagedText(File(libfmDir, "libfm.conf"), """
                 [config]
                 single_click=1
+                quick_exec=1
                 use_trash=0
                 confirm_del=1
                 thumbnail_local=1
                 thumbnail_max=2048
 
                 [ui]
-                big_icon_size=112
-                small_icon_size=48
-                thumbnail_size=144
-                pane_icon_size=48
+                big_icon_size=64
+                small_icon_size=36
+                thumbnail_size=128
+                pane_icon_size=36
                 show_thumbnail=1
             """.trimIndent())
             Log.i(TAG, "pcmanfm desktop: ${deskDir.absolutePath} con ${deskDir.listFiles()?.size ?: 0} iconos")
@@ -1485,9 +1629,9 @@ class DesktopSessionManager(
         return png to "--bg-scale"
     }
 
-    // Wallpaper estático y sobrio: gradiente grafito/azul, un único halo y
-    // geometría sutil. Se pinta una vez al start; no deja procesos ni consume
-    // CPU/GPU en idle. PNG es compatible con pcmanfm y feh del rootfs actual.
+    // Wallpaper estático profesional: gradiente obsidiana, halo ambiental centrado,
+    // retícula técnica y emblema/tipografía centrados libres de iconos y paneles.
+    // Se genera a la resolución real del framebuffer sin consumo CPU/GPU en idle.
     private fun setupWallpaper() {
         try {
             val homeDir = File(usrDir.parentFile, "home").also { it.mkdirs() }
@@ -1497,58 +1641,123 @@ class DesktopSessionManager(
             val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bmp)
             val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+            // 1. Fondo gradiente oscuro profundo (obsidiana / azul grafito)
             paint.shader = LinearGradient(
-                0f, 0f, w.toFloat(), h.toFloat(),
+                0f, 0f, 0f, h.toFloat(),
                 intArrayOf(
-                    Color.rgb(5, 12, 20),
-                    Color.rgb(8, 22, 34),
-                    Color.rgb(5, 14, 23),
+                    Color.rgb(6, 11, 19),
+                    Color.rgb(12, 24, 38),
+                    Color.rgb(5, 9, 14),
                 ),
-                floatArrayOf(0f, 0.52f, 1f),
+                floatArrayOf(0f, 0.50f, 1f),
                 Shader.TileMode.CLAMP,
             )
             canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
 
             val minDim = minOf(w, h).toFloat()
+            val cx = w / 2f
+            val cy = h * 0.24f
+
+            // 2. Halo radial suave centrado
+            val glowRadius = minDim * 0.45f
             paint.shader = RadialGradient(
-                w * 0.82f, h * 0.18f, minDim * 0.58f,
-                intArrayOf(Color.argb(62, 29, 154, 190), Color.TRANSPARENT),
+                cx, cy, glowRadius,
+                intArrayOf(Color.argb(38, 14, 165, 233), Color.TRANSPARENT),
                 floatArrayOf(0f, 1f),
                 Shader.TileMode.CLAMP,
             )
-            canvas.drawRect(0f, 0f, w.toFloat(), h.toFloat(), paint)
+            canvas.drawCircle(cx, cy, glowRadius, paint)
 
+            // 3. Retícula sutil de puntos técnicos (estética workstation / developer)
             paint.shader = null
-            paint.style = Paint.Style.STROKE
-            paint.strokeWidth = 1.5f
-            paint.color = Color.argb(34, 91, 218, 241)
-            val spacing = (minDim * 0.10f).coerceAtLeast(56f)
-            var offset = -h.toFloat()
-            while (offset < w + h) {
-                canvas.drawLine(offset, h.toFloat(), offset + h, 0f, paint)
-                offset += spacing
+            paint.style = Paint.Style.FILL
+            paint.color = Color.argb(26, 148, 163, 184)
+            val spacing = (minDim * 0.055f).coerceAtLeast(36f)
+            val maxGridDist = minDim * 0.75f
+            var gx = spacing / 2f
+            while (gx < w) {
+                var gy = spacing / 2f
+                while (gy < h) {
+                    val dx = gx - cx
+                    val dy = gy - cy
+                    if (Math.hypot(dx.toDouble(), dy.toDouble()) < maxGridDist) {
+                        canvas.drawCircle(gx, gy, 1.4f, paint)
+                    }
+                    gy += spacing
+                }
+                gx += spacing
             }
 
+            // 4. Emblema geométrico moderno: hexágono con chevron de terminal
+            val emblemR = minDim * 0.060f
+            val emblemY = cy - minDim * 0.09f
+            val hexPath = android.graphics.Path()
+            for (i in 0..5) {
+                val angle = Math.toRadians((60.0 * i) - 30.0)
+                val px = (cx + emblemR * Math.cos(angle)).toFloat()
+                val py = (emblemY + emblemR * Math.sin(angle)).toFloat()
+                if (i == 0) hexPath.moveTo(px, py) else hexPath.lineTo(px, py)
+            }
+            hexPath.close()
+
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 3f
+            paint.color = Color.argb(180, 56, 189, 248)
+            canvas.drawPath(hexPath, paint)
+
+            // Prompt chevron '>' interno
+            val chevW = emblemR * 0.35f
+            val chevH = emblemR * 0.35f
+            paint.strokeWidth = 4f
+            paint.strokeCap = Paint.Cap.ROUND
+            paint.color = Color.argb(230, 125, 211, 252)
+            canvas.drawLine(cx - chevW * 0.7f, emblemY - chevH, cx + chevW * 0.5f, emblemY, paint)
+            canvas.drawLine(cx + chevW * 0.5f, emblemY, cx - chevW * 0.7f, emblemY + chevH, paint)
+            // Cursor underscore '_'
+            paint.strokeWidth = 3f
+            paint.color = Color.argb(230, 56, 189, 248)
+            canvas.drawLine(cx + chevW * 0.8f, emblemY + chevH, cx + chevW * 1.4f, emblemY + chevH, paint)
+
+            // 5. Tipografía de distribución (centrada horizontalmente, libre de iconos y paneles)
             paint.style = Paint.Style.FILL
+            paint.textAlign = Paint.Align.CENTER
             paint.typeface = android.graphics.Typeface.DEFAULT_BOLD
-            paint.textSize = (minDim * 0.065f).coerceIn(34f, 78f)
-            paint.color = Color.argb(210, 225, 241, 247)
-            canvas.drawText("NANO", minDim * 0.08f, minDim * 0.14f, paint)
+            paint.textSize = (minDim * 0.072f).coerceIn(40f, 82f)
+            paint.letterSpacing = 0.22f
+            paint.color = Color.argb(240, 241, 245, 249)
+            val titleY = emblemY + emblemR + minDim * 0.075f
+            canvas.drawText("N A N O", cx, titleY, paint)
+
+            // Línea de acento cian
+            val lineY = titleY + minDim * 0.022f
+            val lineW = minDim * 0.16f
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 2f
+            paint.color = Color.argb(200, 56, 189, 248)
+            canvas.drawLine(cx - lineW, lineY, cx + lineW, lineY, paint)
+
+            // Subtítulo
+            paint.style = Paint.Style.FILL
             paint.typeface = android.graphics.Typeface.DEFAULT
-            paint.textSize = (minDim * 0.020f).coerceIn(14f, 25f)
-            paint.letterSpacing = 0.12f
-            paint.color = Color.argb(175, 91, 218, 241)
-            canvas.drawText(
-                "LINUX MOBILE WORKSPACE",
-                minDim * 0.085f,
-                minDim * 0.19f,
-                paint,
-            )
+            paint.textSize = (minDim * 0.022f).coerceIn(16f, 26f)
+            paint.letterSpacing = 0.28f
+            paint.color = Color.argb(210, 56, 189, 248)
+            val subY = lineY + minDim * 0.035f
+            canvas.drawText("LINUX MOBILE WORKSPACE", cx, subY, paint)
+
+            // Badge técnico
+            paint.textSize = (minDim * 0.015f).coerceIn(12f, 18f)
+            paint.letterSpacing = 0.16f
+            paint.color = Color.argb(170, 100, 116, 139)
+            val badgeY = subY + minDim * 0.038f
+            canvas.drawText("AARCH64  •  OPENBOX X11  •  GTK3", cx, badgeY, paint)
+
             png.outputStream().use { out ->
                 bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
             }
             bmp.recycle()
-            Log.i(TAG, "wallpaper Nano Mobile escrito: ${w}x${h} PNG")
+            Log.i(TAG, "wallpaper Nano Mobile profesional generado: ${w}x${h} PNG")
         } catch (e: Exception) {
             Log.w(TAG, "setupWallpaper: ${e.message}")
         }

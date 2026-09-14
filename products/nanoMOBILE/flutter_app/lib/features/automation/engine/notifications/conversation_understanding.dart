@@ -31,6 +31,7 @@ import 'dart:convert';
 final class ConversationUnderstanding {
   final String intent;
   final String relation;
+  final List<String> options;
   final List<String> questions;
   final List<String> missingFacts;
   final bool requiresAction;
@@ -39,6 +40,7 @@ final class ConversationUnderstanding {
   const ConversationUnderstanding({
     this.intent = '',
     this.relation = '',
+    this.options = const [],
     this.questions = const [],
     this.missingFacts = const [],
     this.requiresAction = false,
@@ -55,6 +57,7 @@ final class ConversationUnderstanding {
     return ConversationUnderstanding(
       intent: (json['intent'] as String?)?.trim() ?? '',
       relation: (json['relation'] as String?)?.trim() ?? '',
+      options: strings(json['options'] ?? json['suggestions']),
       questions: strings(json['questions']),
       missingFacts: strings(json['missingFacts']),
       requiresAction: json['requiresAction'] == true,

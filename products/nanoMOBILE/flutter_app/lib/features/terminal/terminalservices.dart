@@ -16,20 +16,35 @@ class TerminalServices {
   final void Function(Duration, void Function()) after;
 
   // Infrastructure
-  final IBinExecutor? shell;
-  final RootfsManager? rootfs;
+  final IBinExecutor? Function()? _getShell;
+  final RootfsManager? Function()? _getRootfs;
+  final IBinExecutor? _shell;
+  final RootfsManager? _rootfs;
+
+  IBinExecutor? get shell => _getShell?.call() ?? _shell;
+  RootfsManager? get rootfs => _getRootfs?.call() ?? _rootfs;
 
   // Device identity (populated async)
   final Map<String, dynamic>? deviceId;
 
   // Container runtimes
-  final DockerManager? docker;
-  final KaliManager? kali;
-  final ProotManager? proot;
+  final DockerManager? Function()? _getDocker;
+  final KaliManager? Function()? _getKali;
+  final ProotManager? Function()? _getProot;
+  final DockerManager? _docker;
+  final KaliManager? _kali;
+  final ProotManager? _proot;
+
+  DockerManager? get docker => _getDocker?.call() ?? _docker;
+  KaliManager? get kali => _getKali?.call() ?? _kali;
+  ProotManager? get proot => _getProot?.call() ?? _proot;
 
   // Distros Linux (UBUNTU-EXEC-02): ubuntu es UbuntuDistribution concreto;
   // el resto de distros del registry expone run/shell por su propia vía.
-  final LinuxDistribution? ubuntu;
+  final LinuxDistribution? Function()? _getUbuntu;
+  final LinuxDistribution? _ubuntu;
+
+  LinuxDistribution? get ubuntu => _getUbuntu?.call() ?? _ubuntu;
 
   // UI callbacks (thin: plugins shouldn't know about setState)
   final void Function() onClear;
@@ -68,19 +83,37 @@ class TerminalServices {
     required this.rootfsEnv,
     required this.getEngine,
     required this.audit,
-    this.shell,
-    this.rootfs,
+    IBinExecutor? shell,
+    RootfsManager? rootfs,
     this.deviceId,
-    this.docker,
-    this.kali,
-    this.proot,
-    this.ubuntu,
+    DockerManager? docker,
+    KaliManager? kali,
+    ProotManager? proot,
+    LinuxDistribution? ubuntu,
+    IBinExecutor? Function()? getShell,
+    RootfsManager? Function()? getRootfs,
+    DockerManager? Function()? getDocker,
+    KaliManager? Function()? getKali,
+    ProotManager? Function()? getProot,
+    LinuxDistribution? Function()? getUbuntu,
     this.openPty,
     void Function()? onClear,
     void Function(String)? onNavigate,
     this.mounted = true,
     Map<String, String>? helpTexts,
-  }) : onClear = onClear ?? _noop,
+  }) : _shell = shell,
+       _rootfs = rootfs,
+       _docker = docker,
+       _kali = kali,
+       _proot = proot,
+       _ubuntu = ubuntu,
+       _getShell = getShell,
+       _getRootfs = getRootfs,
+       _getDocker = getDocker,
+       _getKali = getKali,
+       _getProot = getProot,
+       _getUbuntu = getUbuntu,
+       onClear = onClear ?? _noop,
        onNavigate = onNavigate ?? _noopStr,
        helpTexts = helpTexts ?? {};
 

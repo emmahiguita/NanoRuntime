@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
+import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart'
+    show kNanoBarScrollReserve;
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
 import '../../domain/terminal_hub_card.dart';
 import '../widgets/perspective_carousel_item.dart';
 import '../widgets/perspective_hero_flight.dart';
 import '../widgets/terminal_coverflow_card.dart';
+import 'package:nanoai/features/home/buho_wallpaper.dart';
 
 /// Centro único de acceso a las herramientas de sistema.
 ///
@@ -50,13 +53,13 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
         icon: Icons.hub_rounded,
         accent: colors.accent,
         imageAsset: 'assets/promo/ad1.jpg',
-        route: '/system_logs',
+        route: '/terminal/shell',
         highlights: const [
           'Sin rastreo de telemetría de terceros ni analíticas externas',
           'Aislamiento de hardware local para máxima seguridad en el borde',
           'Integración nativa con la red neuronal mediante JNI ultrarrápido',
         ],
-        actionLabel: 'Ver Registros de Sistema',
+        actionLabel: 'Abrir Consola PTY',
       ),
       TerminalHubCard(
         id: 'shell_linux',
@@ -67,7 +70,7 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
         icon: Icons.terminal_rounded,
         accent: colors.terminalGreen,
         imageAsset: 'assets/promo/ad2.jpg',
-        route: '/terminal_session',
+        route: '/linux',
         highlights: const [
           'Emulador de terminal VT100 completo con soporte de colores',
           'Aislamiento seguro de procesos sin necesidad de root',
@@ -102,8 +105,14 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
 
     final Widget shell = NanoScreenShell(
       title: 'Terminal',
-      body: LayoutBuilder(
-        builder: (context, constraints) {
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Positioned.fill(
+            child: BuhoWallpaper(scrimOpacity: 0.52),
+          ),
+          LayoutBuilder(
+            builder: (context, constraints) {
           final width = constraints.maxWidth;
           final isDeviceLandscape =
               MediaQuery.orientationOf(context) == Orientation.landscape;
@@ -113,7 +122,7 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
               constraints.maxHeight < 520;
 
           final double carouselHeight = compactLandscape
-              ? (constraints.maxHeight - 80).clamp(190.0, 240.0)
+              ? (constraints.maxHeight - 110).clamp(175.0, 215.0)
               : (width < 600 ? 330.0 : 390.0);
 
           return CustomScrollView(
@@ -225,7 +234,7 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
               SliverPadding(
                 padding: EdgeInsets.only(
                   top: compactLandscape ? 6 : 14,
-                  bottom: compactLandscape ? 8 : 24,
+                  bottom: compactLandscape ? 84.0 : kNanoBarScrollReserve,
                 ),
                 sliver: SliverToBoxAdapter(
                   child: Column(
@@ -267,7 +276,9 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
           );
         },
       ),
-    );
+    ],
+  ),
+);
 
     return Stack(
       fit: StackFit.expand,

@@ -62,6 +62,8 @@ final class FactSelection {
       payments.isEmpty &&
       location.isEmpty;
 
+  bool get isNotEmpty => !isEmpty;
+
   String render() => buildBusinessBlock(
     products: products,
     hours: hours,

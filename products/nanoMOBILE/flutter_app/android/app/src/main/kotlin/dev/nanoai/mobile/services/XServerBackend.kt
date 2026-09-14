@@ -114,8 +114,17 @@ class InternalXvncBackend(
      *    algunos builds de Xvnc/TigerVNC.
      */
     private fun resolveGeometry(w: Int, h: Int): Pair<Int, Int> {
+        // Garantizar proporciones y longitudes reales de PC (16:9)
         var width = if (w > 0) w else 1280
         var height = if (h > 0) h else 720
+
+        // Si se reciben dimensiones verticales de smartphone (width < height),
+        // forzar inmediatamente proporciones de PC estándar 16:9 (1280x720):
+        if (width < height) {
+            width = 1280
+            height = 720
+        }
+
         val cap = 1920
         val maxDim = maxOf(width, height)
         if (maxDim > cap) {
@@ -251,17 +260,17 @@ class InternalXvncBackend(
                 return false
             }
             if (xSock.exists()) {
-                delay(2000)
+                delay(200)
                 if (!isAlive()) {
                     lastError = "Xvnc (PID $xvncPid) murió tras crear el socket X11 " +
                         "(fallo post-bind de libs/xkb)"
                     android.util.Log.e(TAG, lastError!!)
                     return false
                 }
-                android.util.Log.i(TAG, "Xvnc listo: PID vivo + socket X11 + 2s estable")
+                android.util.Log.i(TAG, "Xvnc listo: PID vivo + socket X11 estable")
                 return true
             }
-            delay(200)
+            delay(100)
         }
         lastError = "Xvnc no creó el socket X11 en $maxTimeoutMs ms"
         android.util.Log.e(TAG, lastError!!)

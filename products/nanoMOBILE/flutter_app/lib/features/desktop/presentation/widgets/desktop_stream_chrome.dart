@@ -1,11 +1,24 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import 'package:nanoai/core/theme/design_tokens.dart';
 
-enum DesktopPointerMode { touch, trackpad }
+enum DesktopPointerMode { touch, pan, trackpad }
 
-/// Chrome móvil de la sesión Linux. Mantiene navegación, estado y acciones
-/// fuera del framebuffer para que ningún control intercepte el escritorio.
+/// Window mode for mobile remote Linux desktop view.
+enum DesktopWindowMode { normal, expanded, minimized }
+
+/// Aspect ratio / screen fit mode for remote Linux desktop canvas.
+enum DesktopFitMode { fit, fill, native1to1 }
+
+// ─── Palette Extension ───────────────────────────────────────────────────────
+extension DesktopChromeExt on NanoColors {
+  Color get chromeBase => background.withValues(alpha: 0.94);
+  Color get chromeBorder => accent.withValues(alpha: 0.22);
+  Color get chromeActive => accent; // #10B981 Cyber Emerald (dark)
+}
+
+// ─── Floating Header Widget ─────────────────────────────────────────────────
+
 class DesktopStreamHeader extends StatelessWidget {
   const DesktopStreamHeader({
     super.key,
@@ -16,8 +29,11 @@ class DesktopStreamHeader extends StatelessWidget {
     required this.onBack,
     required this.onHelp,
     required this.onRefresh,
-    required this.onFullscreen,
+    this.onFullscreen,
+    this.onRotate,
+    this.onMinimize,
     this.compact = false,
+    this.floating = true,
   });
 
   final NanoColors colors;
@@ -27,103 +43,123 @@ class DesktopStreamHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onHelp;
   final VoidCallback onRefresh;
-  final VoidCallback onFullscreen;
+  final VoidCallback? onFullscreen;
+  final VoidCallback? onRotate;
+  final VoidCallback? onMinimize;
   final bool compact;
+  final bool floating;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: compact ? 56 : 68,
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: compact ? 2 : 7),
-      decoration: const BoxDecoration(
-        color: Color(0xFF06131F),
-        border: Border(bottom: BorderSide(color: Color(0xFF17637A))),
+    final h = compact ? 48.0 : 54.0;
+
+    final decoration = BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.65),
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(
+        color: colors.chromeActive.withValues(alpha: 0.22),
+        width: 0.8,
       ),
+      boxShadow: const [
+        BoxShadow(
+          color: Colors.black45,
+          blurRadius: 16,
+          offset: Offset(0, 4),
+        ),
+      ],
+    );
+
+    final content = Container(
+      height: h,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: decoration,
       child: Row(
         children: [
-          _HeaderButton(
-            icon: Icons.arrow_back_rounded,
-            label: 'Volver',
+          _NavBtn(
+            icon: Icons.arrow_back_ios_new_rounded,
+            tooltip: 'Volver',
+            colors: colors,
             onPressed: onBack,
           ),
+          const SizedBox(width: 6),
+          _StatusDot(connected: connected, busy: busy, colors: colors),
           const SizedBox(width: 8),
-          Icon(Icons.desktop_windows_rounded, color: colors.accent, size: 28),
-          const SizedBox(width: 9),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Nano Linux',
+                  'Nano Linux Workspace',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 15,
+                    fontSize: 13.5,
                     height: 1.1,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFFF2F8FC),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: connected
-                            ? const Color(0xFF23D77A)
-                            : busy
-                            ? colors.accent
-                            : const Color(0xFFFFB454),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        connected ? 'Conectado · local' : status,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 10.5,
-                          height: 1,
-                          fontWeight: FontWeight.w600,
-                          color: connected
-                              ? const Color(0xFF38E58A)
-                              : const Color(0xFF9FB3C5),
-                        ),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  connected ? 'Local RFB • 60 FPS' : status,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 10,
+                    height: 1,
+                    fontWeight: FontWeight.w600,
+                    color: connected ? colors.chromeActive : Colors.orangeAccent,
+                  ),
                 ),
               ],
             ),
           ),
-          _HeaderButton(
-            icon: Icons.info_outline_rounded,
-            label: 'Ayuda',
-            onPressed: onHelp,
-          ),
-          _HeaderButton(
-            icon: Icons.refresh_rounded,
-            label: 'Reconectar',
+          _NavBtn(
+            icon: busy ? Icons.hourglass_top_rounded : Icons.refresh_rounded,
+            tooltip: 'Reconectar',
+            colors: colors,
             onPressed: busy ? null : onRefresh,
             loading: busy,
           ),
-          _HeaderButton(
-            icon: Icons.fullscreen_rounded,
-            label: 'Pantalla completa',
-            onPressed: onFullscreen,
+          if (onMinimize != null)
+            _NavBtn(
+              icon: Icons.picture_in_picture_alt_rounded,
+              tooltip: 'Minimizar (PiP)',
+              colors: colors,
+              onPressed: onMinimize,
+            ),
+          if (onRotate != null)
+            _NavBtn(
+              icon: Icons.screen_rotation_rounded,
+              tooltip: 'Girar pantalla',
+              colors: colors,
+              onPressed: onRotate,
+            ),
+          _NavBtn(
+            icon: Icons.help_outline_rounded,
+            tooltip: 'Ayuda',
+            colors: colors,
+            onPressed: onHelp,
           ),
         ],
       ),
     );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: content,
+      ),
+    );
   }
 }
+
+// ─── Floating Bottom Dock Widget ─────────────────────────────────────────────
 
 class DesktopStreamBottomBar extends StatelessWidget {
   const DesktopStreamBottomBar({
@@ -133,12 +169,15 @@ class DesktopStreamBottomBar extends StatelessWidget {
     required this.keyboardVisible,
     required this.zoom,
     required this.onTouch,
+    this.onPan,
     required this.onTrackpad,
     required this.onKeyboard,
     required this.onZoom,
+    this.onCommands,
     required this.onApps,
     required this.onMore,
     this.compact = false,
+    this.floating = true,
   });
 
   final NanoColors colors;
@@ -146,127 +185,254 @@ class DesktopStreamBottomBar extends StatelessWidget {
   final bool keyboardVisible;
   final double zoom;
   final VoidCallback onTouch;
+  final VoidCallback? onPan;
   final VoidCallback onTrackpad;
   final VoidCallback onKeyboard;
   final VoidCallback onZoom;
+  final VoidCallback? onCommands;
   final VoidCallback onApps;
   final VoidCallback onMore;
   final bool compact;
+  final bool floating;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: compact ? 68 : 82,
-      padding: EdgeInsets.fromLTRB(6, compact ? 3 : 7, 6, compact ? 4 : 8),
-      decoration: const BoxDecoration(
-        color: Color(0xFF06131F),
-        border: Border(top: BorderSide(color: Color(0xFF17637A))),
+    final barH = compact ? 42.0 : 48.0;
+    final iconSz = compact ? 15.0 : 18.0;
+    final labelSz = compact ? 9.0 : 10.0;
+
+    final decoration = BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.70),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: colors.chromeActive.withValues(alpha: 0.25),
+        width: 0.8,
       ),
+      boxShadow: const [
+        BoxShadow(
+          color: Colors.black54,
+          blurRadius: 18,
+          offset: Offset(0, 4),
+        ),
+      ],
+    );
+
+    final content = Container(
+      height: barH,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      decoration: decoration,
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _BottomAction(
+          _BottomPill(
             icon: Icons.touch_app_rounded,
-            label: 'Táctil',
+            label: 'Touch',
             selected: pointerMode == DesktopPointerMode.touch,
-            accent: colors.accent,
+            accent: colors.chromeActive,
+            colors: colors,
+            iconSize: iconSz,
+            labelSize: labelSz,
             onTap: onTouch,
           ),
-          _BottomAction(
+          if (onPan != null)
+            _BottomPill(
+              icon: Icons.pan_tool_rounded,
+              label: 'Mover',
+              selected: pointerMode == DesktopPointerMode.pan,
+              accent: colors.chromeActive,
+              colors: colors,
+              iconSize: iconSz,
+              labelSize: labelSz,
+              onTap: onPan!,
+            ),
+          _BottomPill(
             icon: Icons.mouse_rounded,
             label: 'Mouse',
             selected: pointerMode == DesktopPointerMode.trackpad,
-            accent: colors.accent,
+            accent: colors.chromeActive,
+            colors: colors,
+            iconSize: iconSz,
+            labelSize: labelSz,
             onTap: onTrackpad,
           ),
-          _BottomAction(
+          _BottomPill(
             icon: Icons.keyboard_rounded,
-            label: 'Teclado',
+            label: 'Keyboard',
             selected: keyboardVisible,
-            accent: colors.accent,
+            accent: colors.chromeActive,
+            colors: colors,
+            iconSize: iconSz,
+            labelSize: labelSz,
             onTap: onKeyboard,
           ),
-          _BottomAction(
-            icon: Icons.zoom_in_map_rounded,
-            label: zoom == 1 ? 'Zoom' : '${zoom.toStringAsFixed(1)}×',
-            selected: zoom > 1,
-            accent: colors.accent,
+          if (onCommands != null)
+            _BottomPill(
+              icon: Icons.bolt_rounded,
+              label: 'Comandos',
+              selected: false,
+              accent: colors.chromeActive,
+              colors: colors,
+              iconSize: iconSz,
+              labelSize: labelSz,
+              onTap: onCommands!,
+            ),
+          _BottomPill(
+            icon: zoom > 1.0 ? Icons.zoom_out_map_rounded : Icons.zoom_in_rounded,
+            label: 'Zoom',
+            selected: zoom > 1.0,
+            accent: colors.chromeActive,
+            colors: colors,
+            iconSize: iconSz,
+            labelSize: labelSz,
             onTap: onZoom,
           ),
-          _BottomAction(
+          _BottomPill(
             icon: Icons.apps_rounded,
             label: 'Apps',
-            accent: colors.accent,
+            selected: false,
+            accent: colors.chromeActive,
+            colors: colors,
+            iconSize: iconSz,
+            labelSize: labelSz,
             onTap: onApps,
           ),
-          _BottomAction(
+          _BottomPill(
             icon: Icons.more_horiz_rounded,
-            label: 'Más',
-            accent: colors.accent,
+            label: 'More',
+            selected: false,
+            accent: colors.chromeActive,
+            colors: colors,
+            iconSize: iconSz,
+            labelSize: labelSz,
             onTap: onMore,
           ),
         ],
       ),
     );
-  }
-}
 
-class _HeaderButton extends StatelessWidget {
-  const _HeaderButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-    this.loading = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onPressed;
-  final bool loading;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: label,
-      child: IconButton(
-        onPressed: onPressed,
-        tooltip: label,
-        icon: loading
-            ? const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFF42D9FF),
-                ),
-              )
-            : Icon(icon),
-        color: const Color(0xFFB9EFFF),
-        disabledColor: const Color(0xFF587080),
-        iconSize: 25,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints.tightFor(width: 44, height: 48),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: content,
       ),
     );
   }
 }
 
-class _BottomAction extends StatelessWidget {
-  const _BottomAction({
+// ─── Private Components ──────────────────────────────────────────────────────
+
+class _StatusDot extends StatelessWidget {
+  const _StatusDot({
+    required this.connected,
+    required this.busy,
+    required this.colors,
+  });
+
+  final bool connected;
+  final bool busy;
+  final NanoColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    final dotColor = connected
+        ? colors.chromeActive
+        : busy
+            ? Colors.lightBlueAccent
+            : Colors.orangeAccent;
+
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        color: dotColor.withValues(alpha: 0.16),
+        shape: BoxShape.circle,
+        border: Border.all(color: dotColor.withValues(alpha: 0.45), width: 1),
+      ),
+      child: Center(
+        child: Icon(Icons.desktop_windows_rounded, size: 14, color: dotColor),
+      ),
+    );
+  }
+}
+
+class _NavBtn extends StatelessWidget {
+  const _NavBtn({
+    required this.icon,
+    required this.tooltip,
+    required this.colors,
+    required this.onPressed,
+    this.loading = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final NanoColors colors;
+  final VoidCallback? onPressed;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = Colors.white.withValues(alpha: onPressed == null ? 0.3 : 0.9);
+
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(10),
+          splashColor: colors.chromeActive.withValues(alpha: 0.2),
+          child: SizedBox(
+            width: 36,
+            height: 36,
+            child: Center(
+              child: loading
+                  ? SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(colors.chromeActive),
+                      ),
+                    )
+                  : Icon(icon, size: 18, color: iconColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BottomPill extends StatelessWidget {
+  const _BottomPill({
     required this.icon,
     required this.label,
+    required this.selected,
     required this.accent,
+    required this.colors,
+    required this.iconSize,
+    required this.labelSize,
     required this.onTap,
-    this.selected = false,
   });
 
   final IconData icon;
   final String label;
-  final Color accent;
-  final VoidCallback onTap;
   final bool selected;
+  final Color accent;
+  final NanoColors colors;
+  final double iconSize;
+  final double labelSize;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final unselectedFg = Colors.white.withValues(alpha: 0.70);
+    final unselectedBg = Colors.white.withValues(alpha: 0.06);
+    final unselectedBorder = Colors.white.withValues(alpha: 0.12);
+
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -274,42 +440,57 @@ class _BottomAction extends StatelessWidget {
           button: true,
           selected: selected,
           label: label,
-          child: Material(
-            color: selected
-                ? accent.withValues(alpha: 0.12)
-                : Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(
-                color: selected ? accent : Colors.white.withValues(alpha: 0.08),
+          child: GestureDetector(
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: selected ? accent.withValues(alpha: 0.24) : unselectedBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected ? accent.withValues(alpha: 0.8) : unselectedBorder,
+                  width: 0.9,
+                ),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: accent.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onTap,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    size: 25,
-                    color: selected ? accent : const Color(0xFFD5E2EA),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.fade,
-                    softWrap: false,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 9.5,
-                      height: 1,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-                      color: selected ? accent : const Color(0xFFBBCAD4),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      size: iconSize,
+                      color: selected ? accent : unselectedFg,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: labelSize,
+                        height: 1,
+                        fontWeight: selected ? FontWeight.bold : FontWeight.w500,
+                        color: selected ? accent : unselectedFg,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

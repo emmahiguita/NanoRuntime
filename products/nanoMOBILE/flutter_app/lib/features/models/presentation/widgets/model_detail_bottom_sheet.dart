@@ -62,6 +62,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
   }) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.35),
@@ -110,7 +111,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
             '✓ Ejecución rápida y ligera en este dispositivo.';
         break;
       case ModelViability.balanced:
-        compatibilityColor = colors.accentSky;
+        compatibilityColor = colors.metalSilver;
         compatibilityLabel = 'EQUILIBRADO';
         compatibilityDescription =
             '✓ Inferencia viable con residencia adaptativa.';
@@ -140,7 +141,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
           blurSigma: 20,
           borderStrength: 0.90,
           reflectionStrength: 0.75,
-          accent: colors.accentSky,
+          accent: colors.accentMint,
           padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -239,7 +240,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                     Icon(
                                       Icons.verified_rounded,
                                       size: 13.5,
-                                      color: colors.accentSky,
+                                      color: colors.accentMint,
                                     ),
                                     const SizedBox(width: 4),
                                     Flexible(
@@ -253,7 +254,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.w600,
                                           color: NanoTextColors.forText(
-                                            colors.accentSky,
+                                            colors.accentMint,
                                             colors,
                                           ),
                                         ),
@@ -320,7 +321,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                             value:
                                 '${verifiedInfo.vocabularySize.value ?? "-"} tokens',
                             provenance: verifiedInfo.vocabularySize.provenance,
-                            color: colors.accentSky,
+                            color: colors.metalSilver,
                           ),
                           VerifiedSpecBadge(
                             label: 'ARQUITECTURA BASE',
@@ -354,7 +355,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                             label: 'CUANTIZACIÓN',
                             value: verifiedInfo.quantization.value ?? 'GGUF',
                             provenance: verifiedInfo.quantization.provenance,
-                            color: colors.accentSky,
+                            color: colors.accentMint,
                           ),
                           VerifiedSpecBadge(
                             label: 'TAMAÑO EN DISCO',
@@ -512,7 +513,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                     color: NanoTextColors.forText(
                                       ramRatio > 0.85
                                           ? colors.error
-                                          : colors.accentSky,
+                                          : colors.accentMint,
                                       colors,
                                     ),
                                   ),
@@ -537,10 +538,10 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                         colors: ramRatio > 0.85
                                             ? [colors.warning, colors.error]
                                             : ramRatio > 0.65
-                                            ? [colors.accentSky, colors.warning]
+                                            ? [colors.info, colors.warning]
                                             : [
-                                                colors.accentMint,
-                                                colors.accentCyan,
+                                                colors.accentSky,
+                                                colors.accentBlue,
                                               ],
                                       ),
                                     ),
@@ -695,10 +696,10 @@ class ModelDetailBottomSheet extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: colors.accentSky.withValues(alpha: 0.08),
+                                color: colors.accentMint.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
-                                  color: colors.accentSky.withValues(
+                                  color: colors.accentMint.withValues(
                                     alpha: 0.20,
                                   ),
                                 ),
@@ -709,7 +710,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                   Icon(
                                     Icons.check_circle_outline_rounded,
                                     size: 15,
-                                    color: colors.accentSky,
+                                    color: colors.accentMint,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -795,7 +796,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                           blurSigma: 12,
                           borderStrength: 0.85,
                           reflectionStrength: 0.75,
-                          accent: colors.accentSky,
+                          accent: colors.accentMint,
                           onTap: () {
                             Navigator.of(context).pop();
                             onAction();
@@ -855,7 +856,7 @@ class ProvenanceBadge extends StatelessWidget {
     final Color badgeColor;
     switch (provenance) {
       case ModelDataProvenance.official:
-        badgeColor = colors.accentSky;
+        badgeColor = colors.accentMint;
         break;
       case ModelDataProvenance.huggingFace:
         badgeColor = const Color(0xFFFF9D00);
@@ -995,11 +996,11 @@ class SourceLinkTile extends StatelessWidget {
       blurSigma: 8,
       borderStrength: 0.60,
       reflectionStrength: 0.40,
-      accent: colors.accentSky,
+      accent: colors.accentMint,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: colors.accentSky),
+          Icon(icon, size: 18, color: colors.accentMint),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1038,7 +1039,7 @@ class SourceLinkTile extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.copy_rounded, size: 15),
-            color: colors.accentSky,
+            color: colors.accentMint,
             tooltip: 'Copiar enlace',
             onPressed: () {
               Clipboard.setData(ClipboardData(text: url));
@@ -1053,7 +1054,7 @@ class SourceLinkTile extends StatelessWidget {
           ),
           IconButton(
             icon: const Icon(Icons.open_in_new_rounded, size: 15),
-            color: colors.accentSky,
+            color: colors.accentMint,
             tooltip: 'Abrir en navegador',
             onPressed: () async {
               final uri = Uri.parse(url);

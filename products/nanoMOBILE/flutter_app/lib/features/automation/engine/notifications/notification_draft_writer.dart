@@ -99,6 +99,7 @@ final class RuntimeNotificationDraftWriter {
       String conversationId,
       String messageText,
       String sender,
+      String? packageName,
     )?
     routeFor,
     ConversationMemoryStore? memory,
@@ -158,6 +159,7 @@ final class RuntimeNotificationDraftWriter {
     String conversationId,
     String messageText,
     String sender,
+    String? packageName,
   )?
   _routeFor;
 
@@ -300,6 +302,7 @@ final class RuntimeNotificationDraftWriter {
         conversationId,
         msgText,
         notification.sender,
+        notification.packageName,
       );
       final role = routing?.role ?? ConversationAgentRole.general;
       debugPrint(
@@ -406,10 +409,10 @@ final class RuntimeNotificationDraftWriter {
       // WA-CONV-UNDERSTANDING-01 — invariante: !eligibleForSocialPrompt suprime
       // el social mínimo cuando el turno es narrativo/contextual/complejo.
       final social =
+          role == ConversationAgentRole.personal &&
           complexity.eligibleForSocialPrompt &&
           (isGreetingLikeMessage(msgText) ||
-              (role == ConversationAgentRole.personal &&
-                  isSocialReactionMessage(msgText) &&
+              (isSocialReactionMessage(msgText) &&
                   !(routing?.reasons.contains(productMentionedWithoutCommerce) ??
                       false)));
       // R5-PROMPT-ECO-01 — la pregunta por la actividad/estado del dueño

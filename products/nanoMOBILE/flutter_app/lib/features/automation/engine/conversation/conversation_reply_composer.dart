@@ -12,7 +12,10 @@ import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../language/language_assist.dart';
 import '../language/pragmatic_fast_path.dart';
+import '../language/turn_complexity_classifier.dart'
+    show turnComplexityClassifier;
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
+import '../messaging/messaging_package.dart';
 import '../notifications/conversation_understanding.dart';
 import '../notifications/notification_draft_writer.dart';
 import '../notifications/notification_object.dart';
@@ -44,12 +47,16 @@ final class ConversationDraftResult {
   /// true si SafeConversationRepair modificó el texto por razones de calidad.
   final bool isRepaired;
 
+  /// Opciones y variantes estilísticas de respuesta.
+  final List<String> suggestions;
+
   const ConversationDraftResult({
     required this.text,
     required this.understanding,
     required this.decision,
     required this.role,
     required this.conversationId,
+    this.suggestions = const [],
     this.isFastPath = false,
     this.isRepaired = false,
   });
@@ -136,13 +143,35 @@ final class RuntimeConversationReplyComposer
       return raw;
     }();
 
-    final fast = await _fastPath?.resolve(
-      text: targetText,
-      conversationId: conversationId,
-    ) ?? (targetText != notification.text ? await _fastPath?.resolve(
-      text: notification.text,
-      conversationId: conversationId,
-    ) : null);
+    final fullText = () {
+      final inter = notification.interpretableText.trim();
+      if (inter.isNotEmpty) return inter;
+      return notification.text.trim();
+    }();
+
+    final isBusinessChannel =
+        notification.packageName == MessagingPackage.whatsappBusiness;
+
+    // WA-INTENT-TURN: En WhatsApp, una notificación puede contener múltiples mensajes no
+    // leídos concatenados con ' · ' (MessagingStyle).
+    // INVARIANTE FUNDAMENTAL: Si el mensaje completo tiene contenido sustantivo, preguntas
+    // o intenciones de catálogo/negocio, NO permitir que un fragmento final trivial ("dale", "ok")
+    // secuestre el turno vía FastPath perdiendo el contexto previo.
+    final fullComplexity = turnComplexityClassifier.classify(fullText);
+    final allowsFastPath = !isBusinessChannel && fullComplexity.eligibleForSocialPrompt;
+
+    final fast = allowsFastPath
+        ? await _fastPath?.resolve(
+            text: targetText,
+            conversationId: conversationId,
+          ) ??
+          (targetText != notification.text
+              ? await _fastPath?.resolve(
+                  text: notification.text,
+                  conversationId: conversationId,
+                )
+              : null)
+        : null;
     if (fast != null) {
       final cleaned = LanguageAssistService.safeCleanOutput(fast.reply);
       final decision = _decisionEngine.decide(
@@ -159,12 +188,22 @@ final class RuntimeConversationReplyComposer
         '[conversation-compose:fastpath] act=${fast.act} reply="$finalText"',
       );
 
+      final fastSuggestions = <String>[finalText];
+      for (final s in fast.suggestions) {
+        final cleanS = LanguageAssistService.safeCleanOutput(s);
+        if (cleanS.isNotEmpty && !fastSuggestions.contains(cleanS)) {
+          fastSuggestions.add(cleanS);
+        }
+        if (fastSuggestions.length >= 3) break;
+      }
+
       return ConversationDraftResult(
         text: finalText,
         understanding: fast.understanding,
         decision: decision,
         role: resolvedContext.agentRole,
         conversationId: conversationId,
+        suggestions: fastSuggestions,
         isFastPath: true,
         isRepaired: isRepaired,
       );
@@ -214,12 +253,57 @@ final class RuntimeConversationReplyComposer
       'repaired=$isRepaired reply="$finalText"',
     );
 
+    final llmSuggestions = <String>[finalText];
+    for (final opt in draft.understanding.options) {
+      final cleanedOpt = LanguageAssistService.safeCleanOutput(opt);
+      if (cleanedOpt.isNotEmpty && !llmSuggestions.contains(cleanedOpt)) {
+        llmSuggestions.add(cleanedOpt);
+      }
+      if (llmSuggestions.length >= 3) break;
+    }
+
+    if (llmSuggestions.length < 3 &&
+        (finalText.contains('.') ||
+            finalText.contains('?') ||
+            finalText.contains('!'))) {
+      final sentences = finalText
+          .split(RegExp(r'(?<=[.?!])\s+'))
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (sentences.length > 1) {
+        final candidate = sentences.first;
+        final concise = LanguageAssistService.safeCleanOutput(candidate);
+        if (concise.isNotEmpty && !llmSuggestions.contains(concise)) {
+          llmSuggestions.add(concise);
+        }
+      }
+    }
+    if (llmSuggestions.length < 3) {
+      final cleanFormal = LanguageAssistService.safeCleanOutput(
+        finalText
+            .replaceAll(
+              RegExp(
+                r'\b(parce|pana|jaja|jajaja|bro)\b',
+                caseSensitive: false,
+              ),
+              '',
+            )
+            .replaceAll(RegExp(r'\s{2,}'), ' ')
+            .trim(),
+      );
+      if (cleanFormal.isNotEmpty && !llmSuggestions.contains(cleanFormal)) {
+        llmSuggestions.add(cleanFormal);
+      }
+    }
+
     return ConversationDraftResult(
       text: finalText,
       understanding: draft.understanding,
       decision: decision,
       role: resolvedContext.agentRole,
       conversationId: conversationId,
+      suggestions: llmSuggestions,
       isFastPath: false,
       isRepaired: isRepaired,
     );
@@ -239,74 +323,6 @@ final class RuntimeConversationReplyComposer
     if (baseResult == null || !baseResult.hasReply) {
       return const [];
     }
-
-    final baseText = baseResult.text.trim();
-    final suggestions = <String>[baseText];
-
-    // 1. Si es fast-path de saludo, ofrecer variantes cotidianas naturales.
-    if (baseResult.isFastPath) {
-      const naturalGreetings = [
-        'Hola, ¿cómo estás?',
-        'Buenas, ¿qué tal todo?',
-        'Hola, un gusto saludarte.',
-      ];
-      for (final g in naturalGreetings) {
-        if (!suggestions.contains(g) && suggestions.length < maxSuggestions) {
-          suggestions.add(g);
-        }
-      }
-      return suggestions.take(maxSuggestions).toList(growable: false);
-    }
-
-    // 2. Si el texto base contiene múltiples oraciones, generar variante concisa (primera oración).
-    // Evitar truncar si la primera oración omite respuestas a preguntas del mensaje original (H-09).
-    if (baseText.contains('.') ||
-        baseText.contains('?') ||
-        baseText.contains('!')) {
-      final sentences = baseText
-          .split(RegExp(r'(?<=[.?!])\s+'))
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-      if (sentences.length > 1) {
-        final inputHasQuestions = notification.text.contains('?') ||
-            notification.text.toLowerCase().contains('cuanto') ||
-            notification.text.toLowerCase().contains('precio') ||
-            notification.text.toLowerCase().contains('horario');
-        final firstIsJustGreeting = sentences.first.length < 25 &&
-            (sentences.first.toLowerCase().contains('hola') ||
-                sentences.first.toLowerCase().contains('buenas'));
-
-        final candidateSentence = (inputHasQuestions && firstIsJustGreeting && sentences.length > 1)
-            ? sentences.sublist(1).join(' ')
-            : sentences.first;
-
-        final concise = LanguageAssistService.safeCleanOutput(candidateSentence);
-        if (concise.isNotEmpty && !suggestions.contains(concise)) {
-          suggestions.add(concise);
-        }
-      }
-    }
-
-    // 3. Variante sin partículas coloquiales directas (más sobria).
-    if (suggestions.length < maxSuggestions) {
-      final cleanFormal = LanguageAssistService.safeCleanOutput(
-        baseText
-            .replaceAll(
-              RegExp(
-                r'\b(parce|pana|jaja|jajaja|bro)\b',
-                caseSensitive: false,
-              ),
-              '',
-            )
-            .replaceAll(RegExp(r'\s{2,}'), ' ')
-            .trim(),
-      );
-      if (cleanFormal.isNotEmpty && !suggestions.contains(cleanFormal)) {
-        suggestions.add(cleanFormal);
-      }
-    }
-
-    return suggestions.take(maxSuggestions).toList(growable: false);
+    return baseResult.suggestions.take(maxSuggestions).toList(growable: false);
   }
 }

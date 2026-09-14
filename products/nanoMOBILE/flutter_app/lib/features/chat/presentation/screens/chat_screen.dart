@@ -18,6 +18,7 @@ import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
+import 'package:nanoai/core/services/pdf_report_service.dart';
 
 /// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
@@ -267,6 +268,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
     final state = ref.watch(chatProvider);
     final notifier = ref.read(chatProvider.notifier);
     final mediaQuery = MediaQuery.of(context);
@@ -318,47 +320,73 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         trailing: isLandscape
             ? null
             : _chatActions(state, notifier, colors, landscape: false),
-        body: _isReadingMode
-            ? _ReadingMode(
-                messages: state.messages,
-                model: state.activeModel,
-                onExit: () => setState(() => _isReadingMode = false),
-              )
-            : isLandscape
-            ? _buildLandscapeChat(state, notifier, mediaQuery)
-            : Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: isCompactLandscape ? 1440 : 1400,
-                  ),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: _messageList(
-                          state,
-                          notifier,
-                          // NAV-FLOAT-01 — el frame ya no reserva franja:
-                          // la lista reserva su propio espacio para que la
-                          // barra flotante jamás tape el último mensaje.
-                          bottomPadding: kNanoBarScrollReserve,
-                          emptyBottomPadding: 24,
-                          sidePadding: isCompactLandscape ? 10.0 : 18.0,
-                        ),
-                      ),
-                      if (state.attachments.isNotEmpty)
-                        Positioned(
-                          left: isCompactLandscape ? 12 : 24,
-                          right: isCompactLandscape ? 12 : 24,
-                          bottom: 12,
-                          child: _AttachmentPillsStrip(
-                            attachments: state.attachments,
-                            onRemove: notifier.removeAttachment,
-                          ),
-                        ),
-                    ],
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            Positioned.fill(
+              child: RepaintBoundary(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isDark
+                          ? const [
+                              Color(0xFF090D16),
+                              Color(0xFF0B101B),
+                              Color(0xFF070A10),
+                            ]
+                          : [
+                              colors.surface,
+                              colors.background,
+                            ],
+                    ),
                   ),
                 ),
               ),
+            ),
+            Positioned.fill(
+              child: _isReadingMode
+                  ? _ReadingMode(
+                      messages: state.messages,
+                      model: state.activeModel,
+                      onExit: () => setState(() => _isReadingMode = false),
+                    )
+                  : isLandscape
+                  ? _buildLandscapeChat(state, notifier, mediaQuery)
+                  : Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: isCompactLandscape ? 1440 : 1400,
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: _messageList(
+                                state,
+                                notifier,
+                                bottomPadding: kNanoBarScrollReserve,
+                                emptyBottomPadding: 24,
+                                sidePadding: isCompactLandscape ? 10.0 : 18.0,
+                              ),
+                            ),
+                            if (state.attachments.isNotEmpty)
+                              Positioned(
+                                left: isCompactLandscape ? 12 : 24,
+                                right: isCompactLandscape ? 12 : 24,
+                                bottom: 12,
+                                child: _AttachmentPillsStrip(
+                                  attachments: state.attachments,
+                                  onRemove: notifier.removeAttachment,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -366,7 +394,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// UI-REV-16 — un solo botón ⋮ (patrón estándar): modo lectura y limpiar
   /// viven en el menú; el estado del motor es un item informativo (ya no un
   /// badge permanente que roba espacio). En vertical va en el header del
-  /// shell; en horizontal flota en cápsula de vidrio. Cero iconos sueltos.
+  /// UI-REV-16 — barra de acciones profesionales: indicador visual de estado,
+  /// acceso rápido a lectura y menú ⋮ enriquecido con exportación a PDF/MD.
   Widget _chatActions(
     ChatState state,
     ChatNotifier notifier,
@@ -378,71 +407,174 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ? colors.success
         : colors.warning;
     final engineLabel = loading
-        ? 'Motor local: cargando…'
+        ? 'Cargando…'
         : (state.engineOnline
-              ? 'Motor local: activo'
-              : 'Motor local: detenido');
-    return PopupMenuButton<_ChatMenuAction>(
-      key: const ValueKey('chat_overflow_menu'),
-      tooltip: 'Más opciones',
-      icon: Icon(
-        Icons.more_vert_rounded,
-        color: colors.onSurface.withValues(alpha: 0.75),
-        size: 20,
-      ),
-      onSelected: (action) {
-        switch (action) {
-          case _ChatMenuAction.readingMode:
-            setState(() => _isReadingMode = true);
-          case _ChatMenuAction.clearConversation:
-            _showClearDialog(notifier);
-        }
-      },
-      itemBuilder: (context) => [
-        if (state.messages.isNotEmpty)
-          const PopupMenuItem(
-            value: _ChatMenuAction.readingMode,
-            child: _ChatMenuItem(
-              icon: Icons.chrome_reader_mode_rounded,
-              label: 'Modo lectura',
-            ),
-          ),
-        if (state.messages.isNotEmpty)
-          PopupMenuItem(
-            value: _ChatMenuAction.clearConversation,
-            enabled: !state.generating,
-            child: const _ChatMenuItem(
-              icon: Icons.delete_sweep_rounded,
-              label: 'Limpiar conversación',
-            ),
-          ),
-        // Estado del motor: honesto e informativo, dentro del menú —
-        // cero espacio permanente en la toolbar.
-        PopupMenuItem(
-          enabled: false,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: engineColor,
-                  shape: BoxShape.circle,
-                ),
+              ? (state.activeModel.isNotEmpty ? state.activeModel : 'Activo')
+              : 'Detenido');
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Indicador interactivo del modelo / motor (Dynamic Island Capsule iOS Style)
+        GestureDetector(
+          onTap: () => context.go('/models'),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+            decoration: BoxDecoration(
+              color: engineColor.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: engineColor.withValues(alpha: 0.35),
+                width: 0.8,
               ),
-              const SizedBox(width: 9),
-              Text(
-                engineLabel,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: colors.onSurface.withValues(alpha: 0.75),
+              boxShadow: [
+                BoxShadow(
+                  color: engineColor.withValues(alpha: 0.15),
+                  blurRadius: 8,
+                  spreadRadius: -1,
                 ),
-              ),
-            ],
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6.5,
+                  height: 6.5,
+                  decoration: BoxDecoration(
+                    color: engineColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: engineColor,
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 86),
+                  child: Text(
+                    engineLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                      color: colors.onSurface.withValues(alpha: 0.90),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+        const SizedBox(width: 2),
+
+        // Botón directo para Modo Lectura si hay mensajes
+        if (state.messages.isNotEmpty)
+          IconButton(
+            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+            padding: const EdgeInsets.all(5),
+            tooltip: 'Modo lectura',
+            icon: Icon(
+              Icons.chrome_reader_mode_outlined,
+              size: 18,
+              color: colors.onSurface.withValues(alpha: 0.75),
+            ),
+            onPressed: () => setState(() => _isReadingMode = true),
+          ),
+
+        // Menú ⋮ con exportación y limpieza
+        PopupMenuButton<_ChatMenuAction>(
+          key: const ValueKey('chat_overflow_menu'),
+          tooltip: 'Más opciones',
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+          icon: Icon(
+            Icons.more_vert_rounded,
+            color: colors.onSurface.withValues(alpha: 0.75),
+            size: 19,
+          ),
+          onSelected: (action) async {
+            switch (action) {
+              case _ChatMenuAction.readingMode:
+                setState(() => _isReadingMode = true);
+              case _ChatMenuAction.exportPdf:
+                await _exportFullChatPdf(state);
+              case _ChatMenuAction.exportMarkdown:
+                await _exportFullChatMarkdown(state);
+              case _ChatMenuAction.clearConversation:
+                _showClearDialog(notifier);
+            }
+          },
+          itemBuilder: (context) => [
+            if (state.messages.isNotEmpty) ...[
+              const PopupMenuItem(
+                value: _ChatMenuAction.readingMode,
+                child: _ChatMenuItem(
+                  icon: Icons.chrome_reader_mode_rounded,
+                  label: 'Modo lectura',
+                ),
+              ),
+              const PopupMenuItem(
+                value: _ChatMenuAction.exportPdf,
+                child: _ChatMenuItem(
+                  icon: Icons.picture_as_pdf_rounded,
+                  label: 'Exportar chat a PDF',
+                ),
+              ),
+              const PopupMenuItem(
+                value: _ChatMenuAction.exportMarkdown,
+                child: _ChatMenuItem(
+                  icon: Icons.description_rounded,
+                  label: 'Exportar a Markdown',
+                ),
+              ),
+              const PopupMenuDivider(),
+            ],
+            if (state.messages.isNotEmpty)
+              PopupMenuItem(
+                value: _ChatMenuAction.clearConversation,
+                enabled: !state.generating,
+                child: const _ChatMenuItem(
+                  icon: Icons.delete_sweep_rounded,
+                  label: 'Limpiar conversación',
+                ),
+              ),
+          ],
+        ),
       ],
+    );
+  }
+
+  Future<void> _exportFullChatPdf(ChatState state) async {
+    final buffer = StringBuffer();
+    for (final m in state.messages) {
+      final sender = m.sender == MessageSender.user ? 'USUARIO' : 'NANO AI';
+      buffer.writeln('### $sender:\n${m.text}\n');
+    }
+    await PdfReportService.exportReport(
+      title: 'Transcripción de Conversación NanoAI',
+      content: buffer.toString(),
+      modelName: state.activeModel.isEmpty ? 'Nano Runtime' : state.activeModel,
+    );
+  }
+
+  Future<void> _exportFullChatMarkdown(ChatState state) async {
+    final buffer = StringBuffer();
+    for (final m in state.messages) {
+      final sender = m.sender == MessageSender.user ? 'Usuario' : 'Nano AI';
+      buffer.writeln('**$sender:**\n\n${m.text}\n\n---');
+    }
+    await PdfReportService.exportMarkdown(
+      title: 'Conversación NanoAI',
+      content: buffer.toString(),
+      modelName: state.activeModel.isEmpty ? 'Nano Runtime' : state.activeModel,
     );
   }
 
@@ -466,8 +598,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             state,
             notifier,
             topPadding: 52,
-            // NAV-FLOAT-01 — la barra flota en landscape: reserva propia.
-            bottomPadding: kNanoBarScrollReserve,
+            // NAV-FLOAT-01 — la barra flota en landscape compacta: reserva ergonómica de 76dp.
+            bottomPadding: 76.0,
             emptyBottomPadding: 24,
             sidePadding: 18,
           ),
@@ -557,6 +689,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               isError: isError,
               source: message.source,
               attachmentNames: message.attachmentNames,
+              suggestions: message.suggestions,
               tps: message.tps,
               onRetry: isError && !state.generating
                   ? () => notifier.retry(message.id)
@@ -564,6 +697,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               onDelete: state.generating
                   ? null
                   : () => _showDeleteDialog(notifier, message),
+              onSuggestionSelected: state.generating
+                  ? null
+                  : (sug) => notifier.send(sug),
             ),
           ),
         );
@@ -1145,6 +1281,8 @@ Widget _buildReadingAiBody(BuildContext context, String text) {
 /// única puerta de modo lectura / limpiar / ocultar-mostrar barra.
 enum _ChatMenuAction {
   readingMode,
+  exportPdf,
+  exportMarkdown,
   clearConversation,
 }
 

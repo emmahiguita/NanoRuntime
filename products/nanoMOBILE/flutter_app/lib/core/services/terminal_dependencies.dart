@@ -5,6 +5,7 @@ import 'rootfs_manager.dart';
 import 'proot_manager.dart';
 import 'kali_manager.dart';
 import 'docker_manager.dart';
+import 'ubuntu_manager.dart';
 import 'rootfs_env.dart';
 import '../linux/distributions/ubuntu_distribution.dart';
 import 'package:flutter/foundation.dart';
@@ -105,7 +106,7 @@ class TerminalDependencies {
   static UbuntuDistribution _defaultUbuntuFactory({
     required ProotManager proot,
     required IBinExecutor shell,
-  }) => UbuntuDistribution(shell: shell, proot: proot);
+  }) => UbuntuDistribution(ubuntuManager: UbuntuManager(proot: proot, shell: shell));
 
   RootfsManager? get rootfs => _rootfs;
   IBinExecutor? get shell => _shell;
@@ -122,9 +123,7 @@ class TerminalDependencies {
   /// Initialize rootfs manager (shared singleton, idempotent).
   Future<void> initRootfs() async {
     _rootfs ??= RootfsManager.instance;
-    if (!_rootfs!.isInstalled) {
-      await _rootfs!.install();
-    }
+    await _rootfs!.checkInstalled();
   }
 
   /// Initialize shell executor (requires rootfs).

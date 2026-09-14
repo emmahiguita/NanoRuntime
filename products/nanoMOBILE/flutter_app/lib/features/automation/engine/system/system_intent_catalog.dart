@@ -52,5 +52,49 @@ class SystemIntentCatalog {
       destination: SystemDestination.bluetoothSettings,
       kind: SystemIntentKind.navigation,
     ),
+    SystemDestination.displaySettings: SystemDestinationMeta(
+      destination: SystemDestination.displaySettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.soundSettings: SystemDestinationMeta(
+      destination: SystemDestination.soundSettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.batterySaverSettings: SystemDestinationMeta(
+      destination: SystemDestination.batterySaverSettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.applicationSettings: SystemDestinationMeta(
+      destination: SystemDestination.applicationSettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.dateSettings: SystemDestinationMeta(
+      destination: SystemDestination.dateSettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.internalStorageSettings: SystemDestinationMeta(
+      destination: SystemDestination.internalStorageSettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.nfcSettings: SystemDestinationMeta(
+      destination: SystemDestination.nfcSettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.networkOperatorSettings: SystemDestinationMeta(
+      destination: SystemDestination.networkOperatorSettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.deviceInfoSettings: SystemDestinationMeta(
+      destination: SystemDestination.deviceInfoSettings,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.camera: SystemDestinationMeta(
+      destination: SystemDestination.camera,
+      kind: SystemIntentKind.navigation,
+    ),
+    SystemDestination.dial: SystemDestinationMeta(
+      destination: SystemDestination.dial,
+      kind: SystemIntentKind.navigation,
+    ),
   });
 }

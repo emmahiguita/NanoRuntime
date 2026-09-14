@@ -125,24 +125,6 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          NanoOpticalSurface(
-            geometry: NanoSurfaceGeometry.circle,
-            blurSigma: 10,
-            borderStrength: 0.65,
-            reflectionStrength: 0.50,
-            accent: colors.accentCyan,
-            onTap: () => context.push('/settings'),
-            child: SizedBox(
-              width: 40,
-              height: 40,
-              child: Icon(
-                Icons.settings_rounded,
-                size: 20,
-                color: colors.textPrimary,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -151,15 +133,6 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
   Widget _buildBody(BuildContext context, NanoColors colors) {
     final distributions = _registry.getAllDistributions();
 
-    if (distributions.isEmpty) {
-      return Center(
-        child: Text(
-          'No hay distribuciones disponibles',
-          style: TextStyle(fontFamily: 'Inter', color: colors.textSecondary),
-        ),
-      );
-    }
-
     return RefreshIndicator(
       onRefresh: () async {
         setState(() {});
@@ -167,17 +140,31 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
-          child: ListView.builder(
+          child: ListView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: distributions.length,
-            itemBuilder: (context, index) {
-              final dist = distributions[index];
-              return _DistributionCard(
-                distribution: dist,
-                onTap: () => _handleDistributionTap(dist),
-              );
-            },
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 160),
+            children: [
+              if (distributions.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 8),
+                  child: Text(
+                    'DISTRIBUCIONES LINUX',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ),
+                for (final dist in distributions)
+                  _DistributionCard(
+                    distribution: dist,
+                    onTap: () => _handleDistributionTap(dist),
+                  ),
+              ],
+            ],
           ),
         ),
       ),
@@ -242,73 +229,176 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
 
   void _showDistributionOptions(LinuxDistribution dist) {
     final colors = NanoThemeExtension.of(context).colors;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: colors.backgroundElevated,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _OptionTile(
-              icon: Icons.terminal_rounded,
-              title: 'Abrir Terminal',
-              onTap: () {
-                Navigator.pop(context);
-                // UBUNTU-EXEC-03: cada distro con shell terminal real abre
-                // SU rootfs. Antes el else abría el terminal plano del rootfs
-                // Termux — engañoso: parecía Ubuntu pero era Termux.
-                final cmd = switch (dist.id) {
-                  'kali' => 'kali%20shell',
-                  'ubuntu' => 'ubuntu%20shell',
-                  _ => null,
-                };
-                if (cmd != null) {
-                  context.push('/terminal/shell?cmd=$cmd');
-                } else {
-                  context.push('/terminal/shell');
-                }
-              },
+      barrierColor: Colors.black.withValues(alpha: 0.65),
+      builder: (sheetContext) {
+        final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+        final bottomInset = MediaQuery.paddingOf(sheetContext).bottom;
+        return Container(
+          constraints: BoxConstraints(
+            maxHeight: screenHeight * 0.85,
+          ),
+          decoration: BoxDecoration(
+            color: colors.backgroundElevated,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border(
+              top: BorderSide(
+                color: colors.borderSecondaryColor.withValues(alpha: 0.5),
+                width: 1,
+              ),
             ),
-            const SizedBox(height: 8),
-            _OptionTile(
-              icon: Icons.desktop_windows_rounded,
-              title: 'Abrir Desktop (VNC)',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/desktop');
-              },
+          ),
+          child: SafeArea(
+            top: false,
+            bottom: true,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 16 + bottomInset / 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: colors.textSecondary.withValues(alpha: 0.28),
+                        borderRadius: BorderRadius.circular(2.5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      NanoOpticalSurface(
+                        geometry: NanoSurfaceGeometry.roundedRectangle,
+                        borderRadius: NanoRadius.small,
+                        blurSigma: 10,
+                        borderStrength: 0.65,
+                        reflectionStrength: 0.5,
+                        accent: colors.accentMint,
+                        child: SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: Icon(
+                            Icons.terminal_rounded,
+                            color: colors.accentMint,
+                            size: 22,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              dist.name,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: colors.textPrimary,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${dist.architecture} • ${dist.packageBackend} • Contenedor local',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: colors.textSecondary,
+                          size: 20,
+                        ),
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Divider(
+                    height: 1,
+                    color: colors.borderSecondaryColor.withValues(alpha: 0.3),
+                  ),
+                  const SizedBox(height: 16),
+                  _OptionTile(
+                    icon: Icons.terminal_rounded,
+                    title: 'Abrir Terminal',
+                    subtitle: 'Iniciar shell interactivo (${dist.defaultShell})',
+                    accentColor: colors.accentMint,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      final cmd = switch (dist.id) {
+                        'kali' => 'kali%20shell',
+                        'ubuntu' => 'ubuntu%20shell',
+                        _ => null,
+                      };
+                      if (cmd != null) {
+                        context.push('/terminal/shell?cmd=$cmd');
+                      } else {
+                        context.push('/terminal/shell');
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 10),
+                  _OptionTile(
+                    icon: Icons.desktop_windows_rounded,
+                    title: 'Abrir Desktop (VNC)',
+                    subtitle: 'Conectar a entorno gráfico XFCE / escritorio',
+                    accentColor: colors.accentSky,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      context.push('/desktop');
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _OptionTile(
+                    icon: Icons.settings_applications_rounded,
+                    title: 'Info del sistema',
+                    subtitle: 'Ver arquitectura, versión y metadatos del OS',
+                    accentColor: colors.metalSilver,
+                    onTap: () async {
+                      Navigator.of(sheetContext).pop();
+                      final info = await dist.getInfo();
+                      if (mounted) {
+                        _showDistributionInfo(dist, info);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _OptionTile(
+                    icon: Icons.delete_rounded,
+                    title: 'Desinstalar',
+                    subtitle: 'Eliminar contenedor y almacenamiento local',
+                    accentColor: colors.error,
+                    isDestructive: true,
+                    onTap: () {
+                      Navigator.of(sheetContext).pop();
+                      _confirmUninstall(dist);
+                    },
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            _OptionTile(
-              icon: Icons.settings_applications_rounded,
-              title: 'Info del sistema',
-              onTap: () async {
-                Navigator.pop(context);
-                final info = await dist.getInfo();
-                if (mounted) {
-                  _showDistributionInfo(dist, info);
-                }
-              },
-            ),
-            const SizedBox(height: 8),
-            _OptionTile(
-              icon: Icons.delete_rounded,
-              title: 'Desinstalar',
-              isDestructive: true,
-              onTap: () {
-                Navigator.pop(context);
-                _confirmUninstall(dist);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -590,12 +680,16 @@ class _StatusBadge extends StatelessWidget {
 class _OptionTile extends StatelessWidget {
   final IconData icon;
   final String title;
+  final String? subtitle;
+  final Color? accentColor;
   final bool isDestructive;
   final VoidCallback onTap;
 
   const _OptionTile({
     required this.icon,
     required this.title,
+    this.subtitle,
+    this.accentColor,
     this.isDestructive = false,
     required this.onTap,
   });
@@ -603,27 +697,84 @@ class _OptionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final color = isDestructive ? colors.error : colors.textPrimary;
+    final primaryColor = isDestructive ? colors.error : colors.textPrimary;
+    final iconAccent =
+        isDestructive ? colors.error : (accentColor ?? colors.accentMint);
+    final tileBg = isDestructive
+        ? colors.error.withValues(alpha: 0.08)
+        : colors.borderSecondaryColor.withValues(alpha: 0.12);
+    final borderColor = isDestructive
+        ? colors.error.withValues(alpha: 0.28)
+        : colors.borderSecondaryColor.withValues(alpha: 0.35);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        child: Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 14),
-            Text(
-              title,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 14.5,
-                fontWeight: FontWeight.w500,
-                color: color,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(NanoRadius.medium),
+        splashColor: iconAccent.withValues(alpha: 0.12),
+        highlightColor: iconAccent.withValues(alpha: 0.06),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+          decoration: BoxDecoration(
+            color: tileBg,
+            borderRadius: BorderRadius.circular(NanoRadius.medium),
+            border: Border.all(color: borderColor, width: 0.8),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: iconAccent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(NanoRadius.small),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: iconAccent, size: 20),
               ),
-            ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w600,
+                        color: primaryColor,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          color: isDestructive
+                              ? colors.error.withValues(alpha: 0.8)
+                              : colors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: isDestructive
+                    ? colors.error.withValues(alpha: 0.6)
+                    : colors.textSecondary.withValues(alpha: 0.4),
+                size: 20,
+              ),
+            ],
+          ),
         ),
       ),
     );

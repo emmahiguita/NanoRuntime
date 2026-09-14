@@ -11,20 +11,31 @@ import 'package:nanoai/core/providers/app_providers.dart';
 import 'package:nanoai/core/services/package_service.dart';
 import 'package:nanoai/core/services/rootfs_manager.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/features/desktop/vnc_client.dart';
+import 'package:nanoai/features/desktop/presentation/widgets/desktop_controls_overlay.dart';
+import 'package:nanoai/features/desktop/presentation/widgets/desktop_extra_keys_bar.dart';
+import 'package:nanoai/features/desktop/presentation/widgets/desktop_pip_view.dart';
+import 'package:nanoai/features/desktop/presentation/widgets/desktop_sheets.dart';
 import 'package:nanoai/features/desktop/presentation/widgets/desktop_stream_chrome.dart';
+import 'package:nanoai/features/desktop/vnc_client.dart';
+import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 
-/// Visor VNC interactivo para el escritorio Linux.
+
+enum _ConnState { connecting, connected, reconnecting, failed }
+
+enum _GestureMode { none, touch, pan, touchpad, pinch }
+
+/// Professional Mobile Linux Remote Workspace (VNC & Moonlight architecture).
 ///
-/// Estabilidad de conexión:
-/// 1. Handshake RFB 3.8 + decodificación zero-copy sin congelamientos de UI.
-/// 2. Auto-arranque resiliente: Si VNC no está activo, lanza startDesktop().
-/// 3. Reconexión automática con exponential backoff (1s → 2s → 4s → 8s → 16s → 30s).
-///    Máximo 7 intentos. Tras agotarlos, muestra botón manual.
-/// 4. Heartbeat del cliente VNC detecta caídas silenciosas del socket.
-/// 5. Chrome móvil persistente con controles grandes de teclado, zoom y apps.
-/// 6. Dos modos explícitos: táctil directo o mouse/trackpad; pinch de 2 dedos
-///    hace zoom anclado al foco y pan cuando la vista está ampliada.
+/// Features:
+/// 1. RFB 3.8 native Dart protocol client with zero-copy decoding & DES authentication.
+/// 2. Resilient auto-start: auto-provisions rootfs & Xvnc server if uninitialized.
+/// 3. Exponential backoff automatic reconnection (1s -> 2s -> 4s -> 8s -> 16s -> 30s).
+/// 4. Edge-to-edge immersive canvas taking ~90-100% of viewport with zero redundant chrome.
+/// 5. Gesture matrix: Touch mode (tap, long press right-click), Trackpad mode (hover, click, scroll wheel),
+///    Pinch zoom anchored to focal point (up to 400%), focal point pan, double tap zoom toggle.
+/// 6. Sticky PC key modifiers (Ctrl, Alt, Shift, Super) & quick X11 keysym conversion.
+/// 7. Auto-hiding Moonlight controls overlay with smooth frosted glass design tokens.
+/// 8. Draggable interactive PiP view for minimized desktop session.
 class VncScreen extends ConsumerStatefulWidget {
   final int port;
   const VncScreen({super.key, this.port = 5901});
@@ -32,10 +43,6 @@ class VncScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<VncScreen> createState() => _VncScreenState();
 }
-
-enum _ConnState { connecting, connected, reconnecting, failed }
-
-enum _GestureMode { none, touch, touchpad, pinch }
 
 class _VncScreenState extends ConsumerState<VncScreen> {
   final RootfsManager _rootfs = RootfsManager.instance;
@@ -52,20 +59,15 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   String _status = 'Comprobando servicio VNC';
   String _detail = '';
 
-  // Ayuda contextual bajo demanda; nunca bloquea la conexión inicial.
   bool _showHelp = false;
-  // DESKTOP-FULL-01: pantalla completa al conectar — barras de sistema
-  // Android ocultas + franja superior/FAB propios auto-ocultos. Tap en el
-  // borde superior restaura los controles.
-  bool _chromeHidden = false;
-  // Conserva la geometría física de la orientación que disparó el resize
-  // mientras se detiene la sesión anterior.
-  Size? _pendingDesktopGeometryPx;
   bool _adapting = false;
   int _adaptCount = 0;
-  DesktopPointerMode _pointerMode = DesktopPointerMode.touch;
 
-  // â”€â”€ Reconexión automática â”€â”€
+  DesktopPointerMode _pointerMode = DesktopPointerMode.touch;
+  DesktopWindowMode _windowMode = DesktopWindowMode.normal;
+  DesktopFitMode _fitMode = DesktopFitMode.fit;
+
+  // ── Connection state ────────────────────────────────────────────────────────
   _ConnState _connState = _ConnState.connecting;
   int _reconnectAttempts = 0;
   Timer? _reconnectTimer;
@@ -73,45 +75,52 @@ class _VncScreenState extends ConsumerState<VncScreen> {
 
   int _fbWidth = 0;
   int _fbHeight = 0;
-  Offset? _lastPanFb; // última posición fb del drag (para soltar al final)
+  Offset? _lastPanFb;
 
-  // â”€â”€ Zoom / pan profesional (pinch 2 dedos) â”€â”€
-  // _zoom: escala adicional sobre el fit (1.0 = ajuste a pantalla, máx 4.0).
-  // _panFb: desplazamiento del viewport en unidades de framebuffer.
+  // ── Zoom / Pan (Focal point anchored) ──────────────────────────────────────
   double _zoom = 1.0;
   Offset _panFb = Offset.zero;
-  static const double _maxZoom = 4.0;
+  static const double _minZoom = 0.10;
+  static const double _maxZoom = 5.00;
 
-  // Posición virtual del puntero usada en el modo Mouse/trackpad.
-  Offset _cursorFb = Offset.zero; // posición virtual del puntero (fb coords)
+  // Virtual cursor position in FB coords for Trackpad mode
+  Offset _cursorFb = Offset.zero;
 
-  // Estado del gesto en curso (un único recognizer onScale maneja 1 y 2 dedos).
+  // Gesture state
   _GestureMode _gestureMode = _GestureMode.none;
-  int _activeMask = 0; // máscara de botones RFB activa (1=izq, 4=der)
-  Offset _dragTotal = Offset.zero; // para distinguir tap de arrastre
+  int _activeMask = 0; // RFB button mask (1=left, 4=right)
+  Offset _dragTotal = Offset.zero;
   double _zoomAtGestureStart = 1.0;
   Offset _panAtGestureStart = Offset.zero;
   Offset _pinchStartFocal = Offset.zero;
+  DateTime? _lastTapTime;
+  Offset? _lastTapFb;
 
-  // U-2: long-press (550ms sin mover) = clic derecho en el punto tocado.
+  // Long press timer (550ms) for right click in touch mode
   Timer? _longPressTimer;
   bool _longPressFired = false;
 
-  // U-2: scroll de 2 dedos (wheel RFB). Sticky: el gesto decide una vez —
-  // desplazamiento vertical dominante = scroll; |scale-1| >= 0.05 = pinch.
+  // 2-finger scroll vs pinch sticky decision
   bool _pinchScroll = false;
   bool _pinchZoomed = false;
   double _scrollAccum = 0;
 
+  // Sticky modifiers
+  bool _ctrlSticky = false;
+  bool _altSticky = false;
+  bool _shiftSticky = false;
+  bool _superSticky = false;
+
   final FocusNode _keyboardFocus = FocusNode();
   final TextEditingController _keyboardInput = TextEditingController();
 
-  int _connectToken = 0; // in-flight token: cancela connects stale
+  int _connectToken = 0;
 
   @override
   void initState() {
     super.initState();
     _detail = 'Conectando a 127.0.0.1:$port vía RFB 3.8.';
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(settingsProvider.notifier).setDesktopMobileMode(true);
@@ -119,28 +128,46 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     _connect();
   }
 
-  // DESKTOP-FULL-01: entra en pantalla completa — el visor ocupa todo el
-  // panel. immersiveSticky: las barras de Android se ocultan y un swipe del
-  // usuario las revela temporalmente (Flutter recibe el cambio de
-  // viewInsets/padding sin romper el layout).
+  @override
+  void dispose() {
+    _reconnectTimer?.cancel();
+    _longPressTimer?.cancel();
+    _client?.disconnect();
+    _frame?.dispose();
+    _keyboardFocus.dispose();
+    _keyboardInput.dispose();
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
   void _enterImmersive() {
     if (!mounted) return;
-    setState(() => _chromeHidden = true);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
-  // Restaura los controles propios y las barras del sistema (edgeToEdge).
-  void _restoreChrome() {
-    if (!mounted) return;
-    setState(() => _chromeHidden = false);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  void _toggleOrientation() {
+    final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
+    if (isLandscape) {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+      ]);
+      if (_windowMode == DesktopWindowMode.expanded) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
+    } else {
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+    HapticFeedback.lightImpact();
   }
 
-  // DESKTOP-FIT-01: ¿el framebuffer quedó en una orientación distinta a la
-  // pantalla física? La geometría remota sólo debe reiniciarse por una
-  // rotación real. Las barras propias/Android cambian el aspect del área VNC
-  // sin que cambie la orientación; tratarlas como resize hacía oscilar Xvnc
-  // entre dos tamaños cada vez que el chrome aparecía o desaparecía.
   bool _fbMismatch() {
     final client = _client;
     if (client == null || !client.isInitialized) return false;
@@ -157,21 +184,12 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     return ((currentRatio / targetRatio) - 1).abs() > 0.10;
   }
 
-  // Re-arranca el escritorio con la geometría del área visible actual.
-  // stopDesktop + startDesktop: el manager re-lanza el stack completo
-  // (Xvnc, openbox, pcmanfm, tint2, terminal). Máx 3 intentos anti-loop.
   void _adaptToViewArea() {
     if (_adapting || _adaptCount >= 3) return;
     final target = _desiredDesktopGeometryPx();
     if (target == null || target.width <= 0 || target.height <= 0) return;
     _adapting = true;
     _adaptCount++;
-    _pendingDesktopGeometryPx = target;
-    debugPrint(
-      '[vnc_screen] adaptando geometría a '
-      '${target.width.round()}x${target.height.round()} '
-      '(intento $_adaptCount)',
-    );
     setState(() {
       _status = 'Adaptando pantalla...';
       _detail = 'Reiniciando escritorio con la orientación actual.';
@@ -186,12 +204,9 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     () async {
       try {
         await _pkg.stopDesktop();
-        // El stop del channel espera a que el manager mate el stack;
-        // margen corto para que el puerto RFB quede libre antes del start.
         await Future.delayed(const Duration(milliseconds: 700));
         if (mounted) _connect();
       } catch (e) {
-        debugPrint('[vnc_screen] adapt falló: $e');
         if (mounted) _connect();
       } finally {
         _adapting = false;
@@ -204,34 +219,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     final viewport = MediaQuery.sizeOf(context);
     final dpr = MediaQuery.devicePixelRatioOf(context);
     if (viewport.width <= 0 || viewport.height <= 0 || dpr <= 0) return null;
-    final padding = MediaQuery.paddingOf(context);
-    final landscape = viewport.width >= viewport.height;
-    final chromeHeight = landscape ? 124.0 : 150.0;
-    final canvasHeight =
-        (viewport.height - padding.top - padding.bottom - chromeHeight).clamp(
-          180.0,
-          viewport.height,
-        );
-    // Geometría estable del lienzo visible, no del LayoutBuilder transitorio.
-    // Mostrar el teclado o entrar a fullscreen no reinicia Xvnc; rotar sí.
-    return Size(viewport.width * dpr, canvasHeight * dpr);
+    return Size(viewport.width * dpr, viewport.height * dpr);
   }
-
-  @override
-  void dispose() {
-    _reconnectTimer?.cancel();
-    _longPressTimer?.cancel();
-    _client?.disconnect();
-    _frame?.dispose();
-    _keyboardFocus.dispose();
-    _keyboardInput.dispose();
-    // DESKTOP-FULL-01: al salir, devolver las barras del sistema al resto
-    // de la app (este screen las dejó en immersiveSticky).
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    super.dispose();
-  }
-
-  // â”€â”€ Reconexión con exponential backoff â”€â”€
 
   void _scheduleReconnect() {
     if (!mounted) return;
@@ -242,14 +231,11 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         _busy = false;
         _connected = false;
         _status = 'Conexión perdida';
-        _detail =
-            'Agotados $_maxReconnectAttempts intentos. '
-            'Verifica que el escritorio esté iniciado y toca Reconectar.';
+        _detail = 'Agotados $_maxReconnectAttempts intentos. Verifica que el escritorio esté iniciado y toca Reconectar.';
       });
       return;
     }
     _reconnectAttempts++;
-    // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s, 30s
     final seconds = math.min(math.pow(2, _reconnectAttempts - 1).toInt(), 30);
     if (mounted) {
       setState(() {
@@ -277,8 +263,6 @@ class _VncScreenState extends ConsumerState<VncScreen> {
 
     if (!mounted || token != _connectToken) return;
 
-    // Asegurar que el password VNC persistido ya se cargó (ruta launcher →
-    // visor sin pasar por Ajustes; init() es idempotente y barato).
     await ref.read(settingsProvider.notifier).init();
     if (!mounted || token != _connectToken) return;
 
@@ -295,30 +279,19 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       _detail = 'Negociando protocolo RFB 3.8 con 127.0.0.1:$port.';
     });
 
-    // VNC-6: raza stale-client. El onDone/onError de un socket viejo puede
-    // llegar DESPUÉS de crear un cliente nuevo (_connect() reemplaza _client).
-    // Antes onDisconnected era una referencia directa a _onClientDisconnected
-    // y un onDone stale disparaba _scheduleReconnect → _connect() → que
-    // desconectaba el cliente NUEVO (bucle). El guard `identical(_client,
-    // client)` descarta callbacks de clientes ya reemplazados.
     late final VncClient client;
     client = VncClient(
       host: '127.0.0.1',
       port: widget.port,
-      // Password VNC persistido en Ajustes → Escritorio. Vacío = sin auth.
       password: ref.read(settingsProvider).vncPassword,
       onStatus: (String msg) {
         if (mounted) setState(() => _detail = msg);
       },
       onFrame: (ui.Image? img) {
-        // Frame de un cliente stale no debe pintarse sobre el cliente nuevo.
         if (!identical(_client, client)) {
           img?.dispose();
           return;
         }
-        // Si el widget ya se desmontó (UI salió a otra pantalla), el bitmap
-        // (3.7 MB) se libera al instante — antes quedaba huérfano en memoria
-        // nativa hasta el GC.
         if (!mounted || img == null) {
           img?.dispose();
           return;
@@ -327,19 +300,12 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         setState(() {
           _frame = img;
           if (_fbWidth == 0) {
-            // Primer frame: puntero virtual al centro del escritorio.
             _cursorFb = Offset(client.fbWidth / 2, client.fbHeight / 2);
           }
           _fbWidth = client.fbWidth;
           _fbHeight = client.fbHeight;
           _initialized = client.isInitialized;
         });
-        // P2-7: el ui.Image anterior NUNCA se liberaba. Cada frame nuevo
-        // (1280x720x4 â‰ˆ 3.7 MB) acumulaba bitmap nativo → GC thrash →
-        // ANR "Input dispatching timed out" al tocar tras ~2 min de uso
-        // (evidencia device 2026-08-12, anr_17967/18164/18614).
-        // Dispose diferido 1 frame: el raster puede aún estar pintando
-        // la imagen vieja; liberarla ahí crashea el raster thread.
         if (prev != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) => prev.dispose());
         }
@@ -350,38 +316,24 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     );
     _client = client;
 
-    var ok = await _client!.connect();
+    // Fast-path: verificar/arrancar entorno y conectar rápidamente con probing
+    var ok = false;
+    final started = await _ensureDesktopStarted();
     if (!mounted || token != _connectToken) return;
 
-    // AUTO-ARRANQUE RESILIENTE: Si la conexión TCP falla (Xvnc no activo), lanzamos Xvnc desde la app
-    if (!ok) {
-      if (mounted) {
-        setState(() {
-          _status = 'Iniciando servidor VNC...';
-          _detail = 'Arrancando Xvnc y Openbox en loopback...';
-        });
-      }
-      try {
-        final started = await _ensureDesktopStarted();
-        if (!mounted || token != _connectToken) return;
-        if (started && mounted) {
-          await Future.delayed(const Duration(milliseconds: 800));
-          ok = await _client!.connect();
-          if (!mounted || token != _connectToken) return;
-        }
-      } catch (e) {
-        debugPrint('[vnc_screen] Auto-start VNC error: $e');
+    if (started) {
+      // Probing rápido del socket (cada 60ms) para conectar al milisegundo exacto
+      for (var attempt = 0; attempt < 25; attempt++) {
+        ok = await _client!.connect();
+        if (ok || !mounted || token != _connectToken) break;
+        await Future.delayed(const Duration(milliseconds: 60));
       }
     }
 
-    // Esperar handshake RFB completo (ServerInit)
     if (ok) {
       var waited = 0;
-      while (mounted &&
-          _client != null &&
-          !_client!.isInitialized &&
-          waited < 40) {
-        await Future.delayed(const Duration(milliseconds: 100));
+      while (mounted && _client != null && !_client!.isInitialized && waited < 40) {
+        await Future.delayed(const Duration(milliseconds: 50));
         waited++;
       }
     }
@@ -395,21 +347,17 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         _connected = isConnected;
         _initialized = _client?.isInitialized ?? false;
         if (isConnected) {
-          _reconnectAttempts = 0; // reset backoff on success
+          _reconnectAttempts = 0;
           _connState = _ConnState.connected;
           _status = 'Escritorio Linux Activo';
-          _detail =
-              '${_client!.fbWidth}x${_client!.fbHeight} — "${_client!.desktopName}"';
+          _detail = '${_client!.fbWidth}x${_client!.fbHeight} — "${_client!.desktopName}"';
+          _enterImmersive();
         } else if (ok) {
           _status = 'Handshake incompleto';
           _detail = 'Conectado pero ServerInit no recibido.';
-          // VNC-2: el Timer de 2s reintentaba SIN incrementar
-          // _reconnectAttempts → retry infinito sin tope de 7. El handshake
-          // puede completar tarde, pero tras N intentos hay que rendirse y
-          // mostrar el estado failed (no loopear para siempre).
           _reconnectAttempts++;
           if (_reconnectAttempts >= _maxReconnectAttempts) {
-            _scheduleReconnect(); // detecta el tope y pinta failed
+            _scheduleReconnect();
             return;
           }
           _reconnectTimer = Timer(const Duration(seconds: 2), () {
@@ -423,10 +371,6 @@ class _VncScreenState extends ConsumerState<VncScreen> {
           _scheduleReconnect();
         }
       });
-      // El chrome de streaming queda visible al conectar; fullscreen es una
-      // acción explícita. Así el usuario nunca aterriza en una pantalla sin
-      // navegación ni controles táctiles.
-      // DESKTOP-FIT-01: evaluar después del frame estable del visor.
       if (isConnected) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !identical(_client, client)) return;
@@ -434,6 +378,11 @@ class _VncScreenState extends ConsumerState<VncScreen> {
             _adaptToViewArea();
           } else {
             _adaptCount = 0;
+            Future.delayed(const Duration(milliseconds: 1000), () {
+              if (mounted && _connected) {
+                _typeString('nano-info\n');
+              }
+            });
           }
         });
       }
@@ -462,18 +411,16 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     if (!rootfsReady) {
       setState(() {
         _status = 'Rootfs no instalado';
-        _detail =
-            'No se pudo preparar Linux. Revisa red, almacenamiento y logcat.';
+        _detail = 'No se pudo preparar Linux. Revisa red, almacenamiento y logcat.';
       });
       return false;
     }
 
-    // VNC-7: antes se llamaba installGraphical() INCONDICIONAL en cada
-    // reconexión (dpkg + extract + postinst sobre un rootfs ya instalado).
-    // Ahora solo instala si el status reporta que falta algo — mismo gate
-    // que desktop_launch_screen (statusBefore.installed/graphicalExtras).
     final statusBefore = await _pkg.getDesktopStatus();
     if (!mounted) return false;
+    if (statusBefore.running && statusBefore.reachable) {
+      return true;
+    }
     if (!statusBefore.installed || !statusBefore.graphicalExtras) {
       setState(() {
         _status = 'Preparando entorno gráfico...';
@@ -484,8 +431,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       if (!graphicalReady) {
         setState(() {
           _status = 'Entorno gráfico incompleto';
-          _detail =
-              'No se pudo instalar Xvnc/Openbox. Revisa logcat: exec_bin y vnc-service.';
+          _detail = 'No se pudo instalar Xvnc/Openbox. Revisa logcat: exec_bin y vnc-service.';
         });
         return false;
       }
@@ -495,36 +441,13 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       _status = 'Iniciando servidor VNC...';
       _detail = 'Arrancando Xvnc y Openbox en 127.0.0.1:$port.';
     });
-    // D-1: el framebuffer nace con el aspect del viewport del device
-    // (cap 1920 en el backend) — sin franjas en portrait ni distorsión.
-    // U-9: sizeOf devuelve dp LÓGICOS (360x800 @3.0); el backend espera
-    // píxeles FÍSICOS. Sin el factor el Xvnc nacía en 360x800 — resolución
-    // enana: el HUD y las apps wrappeaban a ~20 columnas y el texto se
-    // veía roto. Multiplicar por devicePixelRatio restaura 864x1920.
-    // La geometría sale del viewport físico estable. El área del
-    // LayoutBuilder cambia con los controles y no es una señal de rotación.
-    final pendingTarget = _pendingDesktopGeometryPx;
-    final target = pendingTarget ?? _desiredDesktopGeometryPx();
-    if (target == null) {
-      setState(() {
-        _status = 'Viewport no disponible';
-        _detail = 'No se pudo medir la pantalla física para iniciar Xvnc.';
-      });
-      return false;
-    }
-    debugPrint(
-      '[vnc_screen] solicitando Xvnc ${target.width.round()}x'
-      '${target.height.round()} '
-      '(${pendingTarget != null ? 'adaptación capturada' : 'área actual'})',
-    );
+
+    // Geometría PC estándar 16:9 (1280x720) para proporciones reales de monitor PC
     final started = await _pkg.startDesktop(
       vncPassword: ref.read(settingsProvider).vncPassword,
-      width: target.width.round(),
-      height: target.height.round(),
+      width: 1280,
+      height: 720,
     );
-    if (identical(_pendingDesktopGeometryPx, pendingTarget)) {
-      _pendingDesktopGeometryPx = null;
-    }
     if (!mounted) return false;
     if (!started) {
       setState(() {
@@ -536,47 +459,119 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     return true;
   }
 
-  /// Escala de ajuste (fit) actual: la menor entre ancho y alto para que el
-  /// framebuffer completo sea visible sin recorte. null si aún no hay tamaño.
   double? _fitScale(Size widgetSize) {
     if (!_initialized || _fbWidth == 0 || _fbHeight == 0) return null;
     final scaleX = widgetSize.width / _fbWidth;
     final scaleY = widgetSize.height / _fbHeight;
-    return scaleX < scaleY ? scaleX : scaleY;
+    switch (_fitMode) {
+      case DesktopFitMode.fit:
+        return scaleX < scaleY ? scaleX : scaleY;
+      case DesktopFitMode.fill:
+        return scaleX > scaleY ? scaleX : scaleY;
+      case DesktopFitMode.native1to1:
+        return 1.0;
+    }
   }
 
-  /// Convierte coordenadas locales del widget a coordenadas del framebuffer
-  /// X11 aplicando fit + zoom + pan actuales.
+  void _toggleFullscreen() {
+    setState(() {
+      if (_windowMode == DesktopWindowMode.expanded) {
+        _windowMode = DesktopWindowMode.normal;
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      } else {
+        _windowMode = DesktopWindowMode.expanded;
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      }
+    });
+    HapticFeedback.mediumImpact();
+  }
+
+  void _toggleWindowMode() {
+    setState(() {
+      if (_windowMode == DesktopWindowMode.normal) {
+        _windowMode = DesktopWindowMode.expanded;
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      } else if (_windowMode == DesktopWindowMode.expanded) {
+        _windowMode = DesktopWindowMode.minimized;
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      } else {
+        _windowMode = DesktopWindowMode.normal;
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      }
+    });
+    HapticFeedback.lightImpact();
+  }
+
+  void _toggleFitMode() {
+    setState(() {
+      switch (_fitMode) {
+        case DesktopFitMode.fit:
+          _fitMode = DesktopFitMode.fill;
+          break;
+        case DesktopFitMode.fill:
+          _fitMode = DesktopFitMode.native1to1;
+          break;
+        case DesktopFitMode.native1to1:
+          _fitMode = DesktopFitMode.fit;
+          break;
+      }
+      _panFb = Offset.zero;
+    });
+    HapticFeedback.lightImpact();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          _fitMode == DesktopFitMode.fit
+              ? 'Ajuste: Proporcional (Fit)'
+              : _fitMode == DesktopFitMode.fill
+                  ? 'Ajuste: Llenar Pantalla (Fill)'
+                  : 'Ajuste: Píxel Nativo 1:1',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+        duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _zoomInStep() {
+    setState(() {
+      if (_zoom >= 3.5) {
+        _zoom = 1.0;
+        _panFb = Offset.zero;
+      } else {
+        _zoom = (_zoom + 0.35).clamp(_minZoom, _maxZoom);
+      }
+    });
+    HapticFeedback.lightImpact();
+  }
+
   Offset? _localToFb(Offset local, Size widgetSize) {
     final fit = _fitScale(widgetSize);
     if (fit == null) return null;
 
     final scale = fit * _zoom;
     final baseX = (widgetSize.width - _fbWidth * scale) / 2 + _panFb.dx * scale;
-    final baseY =
-        (widgetSize.height - _fbHeight * scale) / 2 + _panFb.dy * scale;
+    final baseY = (widgetSize.height - _fbHeight * scale) / 2 + _panFb.dy * scale;
 
-    final fbX = (local.dx - baseX) / scale;
-    final fbY = (local.dy - baseY) / scale;
+    final fbX = ((local.dx - baseX) / scale).clamp(0.0, _fbWidth - 1.0);
+    final fbY = ((local.dy - baseY) / scale).clamp(0.0, _fbHeight - 1.0);
 
-    if (fbX < 0 || fbY < 0 || fbX >= _fbWidth || fbY >= _fbHeight) {
-      return null;
-    }
     return Offset(fbX, fbY);
   }
 
-  /// Limita el pan para que el viewport nunca salga del framebuffer.
-  /// Con zoom <= 1 el contenido cabe entero: pan siempre cero (centrado).
-  Offset _clampPan(Offset p) {
-    if (_zoom <= 1.0) return Offset.zero;
-    final maxX = (_fbWidth * _zoom - _fbWidth) / 2;
-    final maxY = (_fbHeight * _zoom - _fbHeight) / 2;
+  Offset _clampPan(Offset p, [Size? widgetSize]) {
+    if (widgetSize == null || _fbWidth == 0 || _fbHeight == 0) return p;
+    final fit = _fitScale(widgetSize);
+    if (fit == null) return p;
+    final scale = fit * _zoom;
+    final maxX = (_fbWidth / 2) + (widgetSize.width / (2 * scale));
+    final maxY = (_fbHeight / 2) + (widgetSize.height / (2 * scale));
     return Offset(p.dx.clamp(-maxX, maxX), p.dy.clamp(-maxY, maxY));
   }
 
-  /// Pan (en fb units) para que el punto [localFocal] siga apuntando al
-  /// mismo píxel del framebuffer tras cambiar el zoom — zoom anclado al
-  /// foco del pinch, como un visor de imágenes profesional.
   Offset _panForZoomAround(
     Offset localFocal,
     double oldZoom,
@@ -592,25 +587,15 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     final fbX = (localFocal.dx - baseX) / oldScale;
     final fbY = (localFocal.dy - baseY) / oldScale;
     final newScale = fit * newZoom;
-    final panX =
-        (localFocal.dx -
-            (ws.width - _fbWidth * newScale) / 2 -
-            fbX * newScale) /
-        newScale;
-    final panY =
-        (localFocal.dy -
-            (ws.height - _fbHeight * newScale) / 2 -
-            fbY * newScale) /
-        newScale;
+    final panX = (localFocal.dx - (ws.width - _fbWidth * newScale) / 2 - fbX * newScale) / newScale;
+    final panY = (localFocal.dy - (ws.height - _fbHeight * newScale) / 2 - fbY * newScale) / newScale;
     return Offset(panX, panY);
   }
 
-  // â”€â”€ Gestos unificados (onScale: 1 dedo = touch/touchpad, 2 dedos = zoom+pan) â”€â”€
+  // ── Gesture handling ────────────────────────────────────────────────────────
 
   void _onScaleStart(ScaleStartDetails d, Size widgetSize) {
     if (d.pointerCount >= 2) {
-      // Pinch de 2 dedos: zoom anclado al foco inicial + pan por arrastre.
-      // U-2: si el desplazamiento vertical domina, es scroll de rueda.
       _gestureMode = _GestureMode.pinch;
       _zoomAtGestureStart = _zoom;
       _panAtGestureStart = _panFb;
@@ -621,44 +606,87 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       return;
     }
 
+    if (_pointerMode == DesktopPointerMode.pan) {
+      _gestureMode = _GestureMode.pan;
+      _panAtGestureStart = _panFb;
+      _pinchStartFocal = d.localFocalPoint;
+      return;
+    }
+
     final inTouchpad = _pointerMode == DesktopPointerMode.trackpad;
     _dragTotal = Offset.zero;
     _gestureMode = inTouchpad ? _GestureMode.touchpad : _GestureMode.touch;
 
-    if (inTouchpad) return; // sin clic: el arrastre mueve el puntero
+    if (inTouchpad) return;
 
     final fb = _localToFb(d.localFocalPoint, widgetSize);
     if (fb != null) {
-      _activeMask = 1;
+      _activeMask = 0; // Don't pre-fire click on down touch
       _cursorFb = fb;
       _lastPanFb = fb;
-      _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), 1);
-      // U-2: long-press = clic derecho (menú de openbox en el escritorio).
+      // Hover window buttons/icons immediately in X11
+      _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), 0);
       _longPressFired = false;
       _longPressTimer?.cancel();
-      _longPressTimer = Timer(const Duration(milliseconds: 550), () {
+      _longPressTimer = Timer(const Duration(milliseconds: 650), () {
         if (_gestureMode != _GestureMode.touch) return;
-        if (_dragTotal.distance >= 8) return;
+        if (_dragTotal.distance >= 18.0) return;
         _longPressFired = true;
         final p = _lastPanFb;
         if (p != null && _client != null) {
-          // Soltar el izquierdo antes del derecho (sin drag fantasma P2-8).
-          _client?.sendPointerEvent(p.dx.round(), p.dy.round(), 0);
-          _activeMask = 0;
-          _client?.sendPointerEvent(p.dx.round(), p.dy.round(), 4);
-          _client?.sendPointerEvent(p.dx.round(), p.dy.round(), 0);
+          final px = p.dx.round();
+          final py = p.dy.round();
+          _client?.sendPointerEvent(px, py, 4);
+          Future.delayed(const Duration(milliseconds: 40), () {
+            _client?.sendPointerEvent(px, py, 0);
+          });
           HapticFeedback.mediumImpact();
         }
       });
     }
   }
 
+  void _executeCommandFromSheet(String cmd) {
+    _typeString(cmd);
+    _client?.sendKeyEvent(0xFF0D, true);
+    _client?.sendKeyEvent(0xFF0D, false);
+  }
+
+  void _openCommandsSheet() {
+    DesktopSheets.showCommandsSheet(
+      context: context,
+      colors: NanoThemeExtension.of(context).colors,
+      onExecuteCommand: _executeCommandFromSheet,
+    );
+  }
+
   void _onScaleUpdate(ScaleUpdateDetails d, Size widgetSize) {
+    if (d.pointerCount >= 2 && _gestureMode != _GestureMode.pinch) {
+      _gestureMode = _GestureMode.pinch;
+      _zoomAtGestureStart = _zoom;
+      _panAtGestureStart = _panFb;
+      _pinchStartFocal = d.localFocalPoint;
+      _pinchScroll = false;
+      _pinchZoomed = false;
+      _scrollAccum = 0;
+      _longPressTimer?.cancel();
+      _activeMask = 0;
+    }
+
     switch (_gestureMode) {
+      case _GestureMode.pan:
+        final fit = _fitScale(widgetSize);
+        if (fit != null) {
+          setState(() {
+            _panFb = _clampPan(_panFb + (d.focalPointDelta / (fit * _zoom)), widgetSize);
+          });
+        }
+        break;
+
       case _GestureMode.pinch:
+        if (d.pointerCount < 2) return;
         final fit = _fitScale(widgetSize);
         if (fit == null) return;
-        // U-2: decidir intención UNA vez (sticky) — scroll vs pinch real.
         if (!_pinchScroll && !_pinchZoomed) {
           if ((d.scale - 1.0).abs() >= 0.05) {
             _pinchZoomed = true;
@@ -668,7 +696,6 @@ class _VncScreenState extends ConsumerState<VncScreen> {
           }
         }
         if (_pinchScroll) {
-          // Scroll de rueda: cada ~40px verticales = un paso RFB (8/16).
           _scrollAccum += d.focalPointDelta.dy;
           const notch = 40.0;
           final fb = _localToFb(d.localFocalPoint, widgetSize);
@@ -688,22 +715,18 @@ class _VncScreenState extends ConsumerState<VncScreen> {
           }
           return;
         }
-        final newZoom = (_zoomAtGestureStart * d.scale).clamp(1.0, _maxZoom);
-        var pan = _panAtGestureStart;
-        if (newZoom > 1.0) {
-          pan = _panForZoomAround(
-            _pinchStartFocal,
-            _zoomAtGestureStart,
-            _panAtGestureStart,
-            newZoom,
-            widgetSize,
-          );
-          // Pan con el arrastre de los 2 dedos (en fb units).
-          pan += d.focalPointDelta / (fit * newZoom);
-        }
+        final newZoom = (_zoomAtGestureStart * d.scale).clamp(_minZoom, _maxZoom);
+        var pan = _panForZoomAround(
+          _pinchStartFocal,
+          _zoomAtGestureStart,
+          _panAtGestureStart,
+          newZoom,
+          widgetSize,
+        );
+        pan += d.focalPointDelta / (fit * newZoom);
         setState(() {
           _zoom = newZoom;
-          _panFb = _clampPan(pan);
+          _panFb = _clampPan(pan, widgetSize);
         });
         break;
 
@@ -716,26 +739,23 @@ class _VncScreenState extends ConsumerState<VncScreen> {
           (_cursorFb.dx + delta.dx).clamp(0.0, _fbWidth - 1.0),
           (_cursorFb.dy + delta.dy).clamp(0.0, _fbHeight - 1.0),
         );
-        // Mover el puntero del servidor sin botón presionado (hover real).
-        _client?.sendPointerEvent(
-          _cursorFb.dx.round(),
-          _cursorFb.dy.round(),
-          0,
-        );
+        _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 0);
         break;
 
       case _GestureMode.touch:
         _dragTotal += d.focalPointDelta;
-        // U-2: movimiento real cancela el long-press pendiente.
-        if (_dragTotal.distance >= 8) {
+        if (_dragTotal.distance >= 18.0) {
           _longPressTimer?.cancel();
           _longPressFired = false;
+          _activeMask = 1; // Dragging active
         }
         final fb = _localToFb(d.localFocalPoint, widgetSize);
-        if (fb != null && _activeMask != 0 && !_longPressFired) {
+        if (fb != null && !_longPressFired) {
           _cursorFb = fb;
           _lastPanFb = fb;
-          _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), _activeMask);
+          if (_activeMask != 0) {
+            _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), _activeMask);
+          }
         }
         break;
 
@@ -749,38 +769,64 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       case _GestureMode.touch:
         _longPressTimer?.cancel();
         if (_longPressFired) {
-          // El clic derecho ya se envió completo en el timer; nada que soltar.
           _longPressFired = false;
           _activeMask = 0;
           break;
         }
-        // Soltar el botón izquierdo con la última posición conocida
-        // (P2-8: sin release el servidor queda con drag fantasma).
-        if (_activeMask != 0) {
-          final fb = _lastPanFb;
-          if (fb != null) {
+        final fb = _lastPanFb;
+        if (fb != null && _client != null) {
+          if (_dragTotal.distance < 18.0) {
+            // Touch Slop respected: this is a crisp Tap (or Double Tap)
+            final now = DateTime.now();
+            final isDouble = _lastTapTime != null &&
+                now.difference(_lastTapTime!).inMilliseconds < 380 &&
+                _lastTapFb != null &&
+                (fb - _lastTapFb!).distance < 24.0;
+
+            final fx = fb.dx.round();
+            final fy = fb.dy.round();
+
+            // Send ButtonPress (mask 1)
+            _client?.sendPointerEvent(fx, fy, 1);
+            // Real physical hold time (40ms) before Release so X11/GTK/Openbox event queues register it
+            Future.delayed(const Duration(milliseconds: 40), () {
+              _client?.sendPointerEvent(fx, fy, 0);
+
+              if (isDouble) {
+                // Secondary click for double-tap (opens desktop shortcuts)
+                Future.delayed(const Duration(milliseconds: 40), () {
+                  _client?.sendPointerEvent(fx, fy, 1);
+                  Future.delayed(const Duration(milliseconds: 40), () {
+                    _client?.sendPointerEvent(fx, fy, 0);
+                  });
+                });
+              }
+            });
+
+            _lastTapTime = now;
+            _lastTapFb = fb;
+            HapticFeedback.selectionClick();
+          } else if (_activeMask != 0) {
+            // Release drag
             _client?.sendPointerEvent(fb.dx.round(), fb.dy.round(), 0);
           }
-          _activeMask = 0;
         }
+        _activeMask = 0;
         break;
 
       case _GestureMode.touchpad:
-        // Tap corto en el touchpad = clic izquierdo en la posición del cursor.
-        if (_dragTotal.distance < 8) {
-          _client?.sendPointerEvent(
-            _cursorFb.dx.round(),
-            _cursorFb.dy.round(),
-            1,
-          );
-          _client?.sendPointerEvent(
-            _cursorFb.dx.round(),
-            _cursorFb.dy.round(),
-            0,
-          );
+        if (_dragTotal.distance < 18.0) {
+          final fx = _cursorFb.dx.round();
+          final fy = _cursorFb.dy.round();
+          _client?.sendPointerEvent(fx, fy, 1);
+          Future.delayed(const Duration(milliseconds: 40), () {
+            _client?.sendPointerEvent(fx, fy, 0);
+          });
+          HapticFeedback.selectionClick();
         }
         break;
 
+      case _GestureMode.pan:
       case _GestureMode.pinch:
         _pinchScroll = false;
         _pinchZoomed = false;
@@ -792,31 +838,35 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     _gestureMode = _GestureMode.none;
   }
 
-  /// Clic derecho (máscara RFB 4) en la posición actual del puntero virtual.
-  /// Útil para el menú de openbox (clic derecho en el escritorio).
-  void _sendRightClick() {
-    _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 4);
-    _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 0);
-  }
-
-  /// Clic izquierdo explícito en el puntero virtual (botón de la barra).
-  void _sendLeftClick() {
-    _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 1);
-    _client?.sendPointerEvent(_cursorFb.dx.round(), _cursorFb.dy.round(), 0);
-  }
-
-  // â”€â”€ Teclas rápidas X11 (U-3) â”€â”€
-  // El IME móvil no tiene Esc/Tab/Ctrl/Alt/flechas — sin esto, cerrar
-  // diálogos o hacer Ctrl+C en la terminal es imposible sin teclado físico.
-
-  // X11 keysyms: Esc=0xFF1B, Tab=0xFF09, Return=0xFF0D, Ctrl_L=0xFFE3,
-  // Alt_L=0xFFE9, Left=0xFF51, Up=0xFF52, Right=0xFF53, Down=0xFF54.
-  bool _ctrlSticky = false;
-  bool _altSticky = false;
+  // ── X11 keysyms & modifiers ──────────────────────────────────────────────────
 
   void _sendQuickKey(int keysym) {
     _client?.sendKeyEvent(keysym, true);
     _client?.sendKeyEvent(keysym, false);
+  }
+
+  void _typeString(String text) {
+    if (_client == null) return;
+    for (final char in text.codeUnits) {
+      if (char == 0x0A || char == 0x0D) {
+        _client?.sendKeyEvent(0xFF0D, true);
+        _client?.sendKeyEvent(0xFF0D, false);
+      } else {
+        final keysym = _x11Keysym(char);
+        _client?.sendKeyEvent(keysym, true);
+        _client?.sendKeyEvent(keysym, false);
+      }
+    }
+  }
+
+  void _sendCombo(List<int> keys) {
+    for (final k in keys) {
+      _client?.sendKeyEvent(k, true);
+    }
+    for (final k in keys.reversed) {
+      _client?.sendKeyEvent(k, false);
+    }
+    HapticFeedback.selectionClick();
   }
 
   void _toggleCtrl() {
@@ -831,21 +881,30 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     HapticFeedback.selectionClick();
   }
 
-  /// Scroll de rueda RFB en la posición del puntero virtual.
-  /// Máscaras: 8 = rueda arriba, 16 = rueda abajo (RFB 3.8).
-  void _sendWheel(bool up) {
-    final x = _cursorFb.dx.round();
-    final y = _cursorFb.dy.round();
-    _client?.sendPointerEvent(x, y, up ? 8 : 16);
-    _client?.sendPointerEvent(x, y, 0);
+  void _toggleShift() {
+    setState(() => _shiftSticky = !_shiftSticky);
+    _client?.sendKeyEvent(0xFFE1, _shiftSticky);
+    HapticFeedback.selectionClick();
   }
 
-  /// Zoom por botón: factor multiplicativo anclado al centro del viewport.
-  void _zoomBy(double factor) {
-    final newZoom = (_zoom * factor).clamp(1.0, _maxZoom);
+  void _toggleSuper() {
+    setState(() => _superSticky = !_superSticky);
+    _client?.sendKeyEvent(0xFFEB, _superSticky);
+    HapticFeedback.selectionClick();
+  }
+
+  void _setPointerMode(DesktopPointerMode mode) {
+    if (_pointerMode == mode) return;
+    setState(() => _pointerMode = mode);
+    HapticFeedback.selectionClick();
+  }
+
+  void _setZoom(double value) {
+    final newZoom = value.clamp(_minZoom, _maxZoom);
     if (newZoom == _zoom) return;
     setState(() {
-      _panFb = _clampPan(_panFb * (newZoom / _zoom));
+      final ws = MediaQuery.sizeOf(context);
+      _panFb = _clampPan(_panFb * (newZoom / _zoom), ws);
       _zoom = newZoom;
     });
   }
@@ -857,200 +916,6 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     });
   }
 
-  void _setPointerMode(DesktopPointerMode mode) {
-    if (_pointerMode == mode) return;
-    setState(() => _pointerMode = mode);
-    HapticFeedback.selectionClick();
-  }
-
-  void _setZoom(double value) {
-    final newZoom = value.clamp(1.0, _maxZoom);
-    if (newZoom == _zoom) return;
-    setState(() {
-      _panFb = newZoom == 1.0
-          ? Offset.zero
-          : _clampPan(_panFb * (newZoom / _zoom));
-      _zoom = newZoom;
-    });
-  }
-
-  void _openZoomControls() {
-    final colors = NanoThemeExtension.of(context).colors;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (context, setSheetState) => Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-          decoration: BoxDecoration(
-            color: const Color(0xFF081722),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border(top: BorderSide(color: colors.outlineVariant)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.zoom_in_map_rounded,
-                      color: Color(0xFF42D9FF),
-                      size: 24,
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Zoom del escritorio',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${_zoom.toStringAsFixed(2)}×',
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF42D9FF),
-                      ),
-                    ),
-                  ],
-                ),
-                Slider(
-                  value: _zoom,
-                  min: 1,
-                  max: _maxZoom,
-                  divisions: 24,
-                  activeColor: colors.accent,
-                  onChanged: (value) {
-                    _setZoom(value);
-                    setSheetState(() {});
-                  },
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          _zoomBy(1 / 1.25);
-                          setSheetState(() {});
-                        },
-                        icon: const Icon(Icons.remove_rounded),
-                        label: const Text('Alejar'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          _resetZoom();
-                          setSheetState(() {});
-                        },
-                        child: const Text('Ajustar 100%'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: () {
-                          _zoomBy(1.25);
-                          setSheetState(() {});
-                        },
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Acercar'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openMoreControls() {
-    final colors = NanoThemeExtension.of(context).colors;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF081722),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          border: Border(top: BorderSide(color: colors.outlineVariant)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Text(
-                  'Mouse y teclas de sistema',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              _MouseControlBar(
-                colors: colors,
-                zoom: _zoom,
-                onLeftClick: _sendLeftClick,
-                onRightClick: _sendRightClick,
-                onWheelUp: () => _sendWheel(true),
-                onWheelDown: () => _sendWheel(false),
-                onZoomIn: () => _zoomBy(1.25),
-                onZoomOut: () => _zoomBy(1 / 1.25),
-                onResetZoom: _resetZoom,
-                onQuickKey: _sendQuickKey,
-                ctrlActive: _ctrlSticky,
-                altActive: _altSticky,
-                onToggleCtrl: _toggleCtrl,
-                onToggleAlt: _toggleAlt,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Lanza una app gráfica permitida por la capa nativa. La ventana aparece
-  /// dentro del framebuffer Linux real.
   Future<void> _launchApp(String app) async {
     final ok = await _pkg.launchApp(app);
     if (!ok && mounted) {
@@ -1063,172 +928,20 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     }
   }
 
-  void _openHelp() {
-    setState(() {
-      _showHelp = true;
-    });
-  }
-
-  /// Selector compacto de apps reales del escritorio.
-  void _openAppsSheet() {
-    final colors = NanoThemeExtension.of(context).colors;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => Container(
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-          border: Border(top: BorderSide(color: colors.outlineVariant)),
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    color: colors.outline,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              Text(
-                'Apps del escritorio',
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: colors.onSurface,
-                ),
-              ),
-              const SizedBox(height: 10),
-              _appTile(
-                icon: Icons.terminal_rounded,
-                label: 'Terminal',
-                sub: 'lxterminal',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _launchApp('lxterminal');
-                },
-              ),
-              _appTile(
-                icon: Icons.folder_rounded,
-                label: 'Archivos',
-                sub: 'pcmanfm',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _launchApp('pcmanfm');
-                },
-              ),
-              _appTile(
-                icon: Icons.edit_note_rounded,
-                label: 'Editor',
-                sub: 'mousepad',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _launchApp('mousepad');
-                },
-              ),
-              Divider(height: 20, color: colors.outlineVariant),
-              _appTile(
-                icon: Icons.gesture_rounded,
-                label: 'Guía de gestos',
-                sub: 'zoom, pan, clics',
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _openHelp();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _appTile({
-    required IconData icon,
-    required String label,
-    required String sub,
-    required VoidCallback onTap,
-  }) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: colors.accent.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(11),
-              ),
-              child: Icon(icon, color: colors.accent, size: 21),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: colors.onSurface,
-                    ),
-                  ),
-                  Text(
-                    sub,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 11,
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: colors.onSurfaceVariant,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _dismissHelp() {
-    setState(() => _showHelp = false);
-  }
-
   void _toggleKeyboard() {
     setState(() => _showKeyboard = !_showKeyboard);
     if (_showKeyboard) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       _keyboardFocus.requestFocus();
     } else {
       _keyboardFocus.unfocus();
-      // Al ocultar, descartar el texto pendiente del buffer sin reenviarlo.
       _clearKeyboardBuffer();
+      if (_connected) {
+        _enterImmersive();
+      }
     }
   }
 
-  /// Vacía el buffer del TextField oculto sin disparar _onKeyInput (el flag
-  /// evita que el clear se interprete como borrado y envíe backspaces).
   void _clearKeyboardBuffer() {
     _keyboardClearing = true;
     _keyboardInput.clear();
@@ -1236,95 +949,105 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     _keyboardClearing = false;
   }
 
-  /// Enter del IME: Return en el escritorio y buffer limpio. El teclado
-  /// sigue abierto (textInputAction.send) para poder seguir escribiendo.
-  void _onKeyboardSubmit(String _) {
+  Future<void> _pasteClipboardToLinux() async {
+    final data = await Clipboard.getData('text/plain');
+    final text = data?.text;
+    if (text == null || text.isEmpty || _client == null) return;
+
+    // Sincronizar directamente con el portapapeles X11 (RFC 6143 ClientCutText)
+    _client?.sendClientCutText(text);
+
+    // Escribir en sesión activa
+    if (text.length <= 160 && !text.contains('\n')) {
+      _typeString(text);
+    } else {
+      // Párrafos grandes: simular Shift + Insert (pegar nativo en terminal/apps X11)
+      _client?.sendKeyEvent(0xFFE1, true); // Shift
+      _client?.sendKeyEvent(0xFF63, true); // Insert
+      _client?.sendKeyEvent(0xFF63, false);
+      _client?.sendKeyEvent(0xFFE1, false);
+    }
+    HapticFeedback.lightImpact();
+  }
+
+  void _onKeyboardSubmit(String text) {
+    if (_client == null) return;
+    // Si el texto tiene contenido pendiente no transmitido por eventos previos de IME
+    if (text.isNotEmpty && text != _lastKeyboardText) {
+      if (text.startsWith(_lastKeyboardText)) {
+        _typeString(text.substring(_lastKeyboardText.length));
+      } else {
+        _typeString(text);
+      }
+    }
     _client?.sendKeyEvent(0xFF0D, true);
     _client?.sendKeyEvent(0xFF0D, false);
     _clearKeyboardBuffer();
   }
 
-  /// Mapea un codeUnit UTF-16 a su keysym X11 (X11/keysymdef.h).
-  /// El codeUnit crudo solo coincide con el keysym para ASCII imprimible
-  /// (0x20-0x7E) y Latin-1 (0xA0-0xFF, donde el keysym es el codepoint).
-  /// Controles y el resto del BMP necesitan tabla o el prefijo Unicode.
   int _x11Keysym(int codeUnit) {
     switch (codeUnit) {
       case 0x08:
-        return 0xFF08; // XK_BackSpace
+        return 0xFF08;
       case 0x09:
-        return 0xFF09; // XK_Tab
-      case 0x0A: // LF — mismo comportamiento que CR (Return)
+        return 0xFF09;
+      case 0x0A:
       case 0x0D:
-        return 0xFF0D; // XK_Return
+        return 0xFF0D;
       case 0x1B:
-        return 0xFF1B; // XK_Escape
+        return 0xFF1B;
       case 0x7F:
-        return 0xFFFF; // XK_Delete
+        return 0xFFFF;
     }
-    if (codeUnit >= 0x20 && codeUnit <= 0x7E) return codeUnit; // ASCII
-    if (codeUnit >= 0xA0 && codeUnit <= 0xFF) return codeUnit; // Latin-1
-    return 0x01000000 + codeUnit; // Unicode keysym (XK_ prefix 0x01000000)
+    if (codeUnit >= 0x20 && codeUnit <= 0x7E) return codeUnit;
+    if (codeUnit >= 0xA0 && codeUnit <= 0xFF) return codeUnit;
+    return 0x01000000 + codeUnit;
   }
 
-  // U-8: el IME entrega en onChanged el texto COMPLETO del campo, no el
-  // carácter tecleado. Enviar el texto entero en cada pulsación repetía
-  // letras (teclear "abc" mandaba a→ab→abc al escritorio) y hacer clear()
-  // a mitad de composición rompía el IME: el teclado "no escribía".
-  // Fix: diff contra el texto previo — backspaces por lo borrado y solo
-  // los caracteres NUEVOS al escritorio. El buffer se limpia al ocultar el
-  // teclado o al llegar al tope, no en cada tecla.
   String _lastKeyboardText = '';
   bool _keyboardClearing = false;
 
   void _onKeyInput(String text) {
     if (_keyboardClearing || _client == null) return;
+
+    // Si se pegó o ingresó un bloque grande (> 80 chars o multilínea), sincronizar con portapapeles X11
+    if (text.length > 80 || text.contains('\n')) {
+      _client?.sendClientCutText(text);
+    }
+
     final prevUnits = _lastKeyboardText.codeUnits;
     final newUnits = text.codeUnits;
-    // Prefijo común: todo lo anterior ya fue enviado.
     int common = 0;
     while (common < prevUnits.length &&
         common < newUnits.length &&
         prevUnits[common] == newUnits[common]) {
       common++;
     }
-    // Lo que desapareció del prefijo = borrados en el escritorio.
     for (var d = common; d < prevUnits.length; d++) {
       _client!.sendKeyEvent(0xFF08, true);
       _client!.sendKeyEvent(0xFF08, false);
     }
-    // Lo nuevo = solo estos caracteres se envían.
     for (var i = common; i < newUnits.length; i++) {
       final char = newUnits[i];
-      // Pares surrogados UTF-16 (emoji, etc.): sin keysym directo en X11.
       if (char >= 0xD800 && char <= 0xDFFF) continue;
       final keysym = _x11Keysym(char);
       _client!.sendKeyEvent(keysym, true);
       _client!.sendKeyEvent(keysym, false);
     }
     _lastKeyboardText = text;
-    // Tope: buffer largo cansa al IME y no aporta — limpiar sin reenviar.
-    if (text.length > 120) _clearKeyboardBuffer();
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final compactChrome =
-        MediaQuery.sizeOf(context).width >= MediaQuery.sizeOf(context).height;
+    final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
 
-    // DESKTOP-FIT-01: rotación con sesión viva → adaptar geometría. Mostrar
-    // u ocultar controles no cambia la orientación y no reinicia Xvnc.
-    if (_connected && !_adapting && _fbMismatch()) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _adaptToViewArea();
-      });
-    }
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
+          SystemChrome.setPreferredOrientations(DeviceOrientation.values);
           if (context.canPop()) {
             context.pop();
           } else {
@@ -1333,166 +1056,288 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: colors.background,
-        // En modo inmersivo SafeArea seguía conservando el viewPadding físico
-        // del status bar aun después de ocultarlo. Eso reducía el framebuffer
-        // a 1032x2293 dentro de una pantalla 1080x2400 y producía una franja
-        // negra visible. Con los cuatro lados desactivados la proyección usa
-        // exactamente todo el panel; fuera del stream conserva la protección.
-        body: SafeArea(
-          top: !(_chromeHidden && _connected),
-          bottom: !(_chromeHidden && _connected),
-          left: !(_chromeHidden && _connected),
-          right: !(_chromeHidden && _connected),
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  if (!(_chromeHidden && _connected))
-                    DesktopStreamHeader(
-                      colors: colors,
-                      compact: compactChrome,
-                      status: _status,
-                      connected: _connected,
-                      busy: _busy,
-                      onBack: () {
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.go('/desktop');
-                        }
-                      },
-                      onHelp: _openHelp,
-                      onRefresh: () {
-                        _reconnectAttempts = 0;
-                        _connect();
-                      },
-                      onFullscreen: _enterImmersive,
-                    ),
+        resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Background visual wallpaper
+            const Positioned.fill(
+              child: NanoAmbientBackground(),
+            ),
 
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final widgetSize = Size(
-                          constraints.maxWidth,
-                          constraints.maxHeight,
-                        );
-                        return _buildContent(colors, widgetSize);
-                      },
-                    ),
-                  ),
+            // Main Desktop Viewport Canvas or PiP player
+            Positioned.fill(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final widgetSize = Size(constraints.maxWidth, constraints.maxHeight);
 
-                  if (_connected && _frame != null && !_chromeHidden)
-                    DesktopStreamBottomBar(
-                      colors: colors,
-                      compact: compactChrome,
-                      pointerMode: _pointerMode,
-                      keyboardVisible: _showKeyboard,
-                      zoom: _zoom,
-                      onTouch: () => _setPointerMode(DesktopPointerMode.touch),
-                      onTrackpad: () =>
-                          _setPointerMode(DesktopPointerMode.trackpad),
-                      onKeyboard: _toggleKeyboard,
-                      onZoom: _openZoomControls,
-                      onApps: _openAppsSheet,
-                      onMore: _openMoreControls,
-                    ),
-                ],
-              ),
-
-              // Control mínimo estilo streaming. La zona anterior ocupaba el
-              // ancho completo y robaba taps a los launchers de tint2. Este
-              // tirador central conserva un target táctil de 48dp sin tapar el
-              // escritorio completo.
-              if (_chromeHidden && _connected)
-                Positioned(
-                  top: 2,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Semantics(
-                      button: true,
-                      label: 'Mostrar controles del escritorio',
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _restoreChrome,
-                        child: SizedBox(
-                          width: 88,
-                          height: 48,
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: Container(
-                              width: 42,
-                              height: 4,
-                              margin: const EdgeInsets.only(top: 5),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.52),
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                            ),
-                          ),
+                  if (_windowMode == DesktopWindowMode.minimized) {
+                    return Stack(
+                      children: [
+                        _buildMinimizedPlaceholder(colors),
+                        DesktopPipView(
+                          frame: _frame,
+                          screenSize: widgetSize,
+                          colors: colors,
+                          onRestore: () => setState(() => _windowMode = DesktopWindowMode.normal),
+                          onClose: () {
+                            SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+                            if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go('/desktop');
+                            }
+                          },
                         ),
+                      ],
+                    );
+                  }
+
+                  return _buildContent(colors, widgetSize);
+                },
+              ),
+            ),
+
+            // Live Linux Command & Extra PC Keys Panel when Keyboard is visible
+            if (_showKeyboard && _connected && _windowMode != DesktopWindowMode.minimized)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF070A11).withValues(alpha: 0.94),
+                    border: Border(
+                      top: BorderSide(
+                        color: colors.chromeActive.withValues(alpha: 0.35),
+                        width: 1,
                       ),
                     ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black87,
+                        blurRadius: 16,
+                      ),
+                    ],
                   ),
-                ),
-
-              // La ayuda es explícita: nunca bloquea la sesión recién abierta.
-              if (_showHelp)
-                Positioned.fill(child: _HelpOverlay(onDismiss: _dismissHelp)),
-
-              // TextField oculto para capturar el teclado nativo del móvil
-              Positioned(
-                left: -9999,
-                top: -9999,
-                child: SizedBox(
-                  width: 1,
-                  height: 1,
-                  child: TextField(
-                    controller: _keyboardInput,
-                    focusNode: _keyboardFocus,
-                    autofocus: false,
-                    enableSuggestions: false,
-                    autocorrect: false,
-                    // send: la tecla Enter del IME envía Return y el teclado
-                    // sigue abierto (done lo cerraría y cortaría el acceso).
-                    textInputAction: TextInputAction.send,
-                    onChanged: _onKeyInput,
-                    onSubmitted: _onKeyboardSubmit,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Interactive Linux Live Input Bar
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: isLandscape ? 8 : 10, vertical: isLandscape ? 3 : 6),
+                        color: Colors.white.withValues(alpha: 0.04),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.terminal_rounded,
+                              size: isLandscape ? 16 : 18,
+                              color: colors.chromeActive,
+                            ),
+                            SizedBox(width: isLandscape ? 6 : 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _keyboardInput,
+                                focusNode: _keyboardFocus,
+                                autofocus: true,
+                                enableSuggestions: false,
+                                autocorrect: false,
+                                textInputAction: TextInputAction.send,
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: isLandscape ? 12 : 13.5,
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Escribir comando o texto en Linux...',
+                                  hintStyle: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: isLandscape ? 11 : 12.5,
+                                    color: Colors.white.withValues(alpha: 0.45),
+                                  ),
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: isLandscape ? 5 : 8),
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(alpha: 0.07),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(isLandscape ? 8 : 10),
+                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(isLandscape ? 8 : 10),
+                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(isLandscape ? 8 : 10),
+                                    borderSide: BorderSide(color: colors.chromeActive),
+                                  ),
+                                ),
+                                onChanged: _onKeyInput,
+                                onSubmitted: _onKeyboardSubmit,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: Icon(Icons.content_paste_rounded, size: isLandscape ? 16 : 18),
+                              color: colors.chromeActive,
+                              tooltip: 'Pegar portapapeles a Linux',
+                              constraints: isLandscape ? const BoxConstraints(minWidth: 28, minHeight: 28) : null,
+                              padding: isLandscape ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
+                              onPressed: _pasteClipboardToLinux,
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.send_rounded, size: isLandscape ? 16 : 18),
+                              color: colors.chromeActive,
+                              tooltip: 'Enviar Enter',
+                              constraints: isLandscape ? const BoxConstraints(minWidth: 28, minHeight: 28) : null,
+                              padding: isLandscape ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
+                              onPressed: () => _onKeyboardSubmit(_keyboardInput.text),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.keyboard_hide_rounded, size: isLandscape ? 18 : 20),
+                              color: Colors.white70,
+                              tooltip: 'Ocultar teclado',
+                              constraints: isLandscape ? const BoxConstraints(minWidth: 28, minHeight: 28) : null,
+                              padding: isLandscape ? const EdgeInsets.all(4) : const EdgeInsets.all(8),
+                              onPressed: _toggleKeyboard,
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Extra PC Keys Bar
+                      DesktopExtraKeysBar(
+                        colors: colors,
+                        compact: isLandscape,
+                        ctrlSticky: _ctrlSticky,
+                        altSticky: _altSticky,
+                        shiftSticky: _shiftSticky,
+                        superSticky: _superSticky,
+                        onToggleCtrl: _toggleCtrl,
+                        onToggleAlt: _toggleAlt,
+                        onToggleShift: _toggleShift,
+                        onToggleSuper: _toggleSuper,
+                        onQuickKey: _sendQuickKey,
+                        onCombo: _sendCombo,
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+
+            // Floating Top-Left Halo Hamburger & Top-Center 7-Control Pill Toolbar
+            if (_connected && _frame != null && _windowMode != DesktopWindowMode.minimized)
+              Positioned.fill(
+                child: DesktopControlsOverlay(
+                  colors: colors,
+                  status: _status,
+                  connected: _connected,
+                  busy: _busy,
+                  pointerMode: _pointerMode,
+                  windowMode: _windowMode,
+                  fitMode: _fitMode,
+                  keyboardVisible: _showKeyboard,
+                  zoom: _zoom,
+                  isLandscape: isLandscape,
+                  onBack: () {
+                    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+                    if (context.canPop()) {
+                      context.pop();
+                    } else {
+                      context.go('/desktop');
+                    }
+                  },
+                  onHelp: () => setState(() => _showHelp = true),
+                  onRefresh: () {
+                    _reconnectAttempts = 0;
+                    _connect();
+                  },
+                  onFullscreen: _toggleFullscreen,
+                  onWindowModeToggle: _toggleWindowMode,
+                  onAspectModeToggle: _toggleFitMode,
+                  onZoomIn: _zoomInStep,
+                  onRotate: _toggleOrientation,
+                  onMinimize: () => setState(() {
+                    _windowMode = DesktopWindowMode.minimized;
+                    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                  }),
+                  onTouch: () => _setPointerMode(DesktopPointerMode.touch),
+                  onPan: () => _setPointerMode(DesktopPointerMode.pan),
+                  onTrackpad: () => _setPointerMode(DesktopPointerMode.trackpad),
+                  onKeyboard: _toggleKeyboard,
+                  onCommands: _openCommandsSheet,
+                  onZoom: () => DesktopSheets.showZoomSheet(
+                    context: context,
+                    colors: colors,
+                    currentZoom: _zoom,
+                    onZoomChanged: _setZoom,
+                    onResetZoom: _resetZoom,
+                  ),
+                  onApps: () => DesktopSheets.showAppsSheet(
+                    context: context,
+                    colors: colors,
+                    onLaunchApp: _launchApp,
+                    onOpenHelp: () => setState(() => _showHelp = true),
+                  ),
+                  onMore: () => DesktopSheets.showMoreSheet(
+                    context: context,
+                    colors: colors,
+                    status: _status,
+                    connected: _connected,
+                    fbWidth: _fbWidth,
+                    fbHeight: _fbHeight,
+                    onFullscreen: _toggleFullscreen,
+                    onRotate: _toggleOrientation,
+                    onMinimize: () => setState(() {
+                      _windowMode = DesktopWindowMode.minimized;
+                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                    }),
+                    onReconnect: () {
+                      _reconnectAttempts = 0;
+                      _connect();
+                    },
+                    onDisconnect: () {
+                      _client?.disconnect();
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go('/desktop');
+                      }
+                    },
+                    onOpenHelp: () => setState(() => _showHelp = true),
+                  ),
+                ),
+              ),
+
+            // Gesture Guide Overlay
+            if (_showHelp)
+              Positioned.fill(
+                child: _HelpOverlay(onDismiss: () => setState(() => _showHelp = false)),
+              ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildContent(NanoColors colors, Size widgetSize) {
-    // Animación de carga organizada en dos casos, MISMO diseño (spinner +
-    // título + detalle): 1) conectando/reconectando (_busy) y 2) conectado
-    // pero aguardando el primer frame — antes el spinner saltaba al UI de
-    // "Reintentar" durante los milisegundos que tarda en decodificarse.
-    final waitingFirstFrame =
-        _initialized && _connState == _ConnState.connected && _frame == null;
+    final waitingFirstFrame = _initialized && _connState == _ConnState.connected && _frame == null;
     if ((_busy || waitingFirstFrame) && _frame == null) {
-      // Estado "sin señal" del área del framebuffer: se mantiene oscuro
-      // (video chrome) aunque la app esté en modo claro.
       return Container(
-        color: const Color(0xFF0A0D14),
+        color: const Color(0xFF07090E),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(color: colors.accent),
+              CircularProgressIndicator(color: colors.chromeActive),
               const SizedBox(height: 16),
               Text(
                 _status,
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
@@ -1512,10 +1357,8 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     }
 
     if (!_connected || _frame == null) {
-      // Estado de error del área del framebuffer: se mantiene oscuro
-      // (video chrome); el botón usa tokens para legibilidad en ambos modos.
       return Container(
-        color: const Color(0xFF0A0D14),
+        color: const Color(0xFF07090E),
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -1540,7 +1383,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                   style: const TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
@@ -1561,24 +1404,13 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                     _connect();
                   },
                   style: ElevatedButton.styleFrom(
-                    // D-FIX: verde 0xFF10B981 era inconsistente con la paleta
-                    // Nano — commit 50c384d unificó 'Reintentar' a cyan; hoy
-                    // colors.accent (0xFF42D9FF oscuro / 0xFF0EA5E9 claro).
-                    backgroundColor: colors.accent,
-                    foregroundColor: colors.onAccent,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    backgroundColor: colors.chromeActive,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text(
-                    'Reintentar Conexión',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  label: const Text('Reintentar Conexión', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -1587,28 +1419,32 @@ class _VncScreenState extends ConsumerState<VncScreen> {
       );
     }
 
-    // Framebuffer VNC con zoom/pan profesional (fit → zoom → pan en fb units).
-    // Un único recognizer onScale maneja 1 dedo (touch/touchpad) y 2 (pinch):
-    // separar recognizers en Android compite por la arena de gestos y hace
-    // que el pan de 2 dedos robe eventos al pinch.
-    final fit = _fitScale(widgetSize);
+    return _buildCanvas(widgetSize);
+  }
+
+  /// Builds the 100% edge-to-edge interactive remote Linux desktop canvas.
+  Widget _buildCanvas(Size canvasSize) {
+    final fit = _fitScale(canvasSize);
     if (fit == null) return Container(color: Colors.black);
 
     final scale = fit * _zoom;
     final fbW = (_fbWidth * scale).roundToDouble();
     final fbH = (_fbHeight * scale).roundToDouble();
-    final left = ((widgetSize.width - fbW) / 2 + _panFb.dx * scale)
-        .roundToDouble();
-    final top = ((widgetSize.height - fbH) / 2 + _panFb.dy * scale)
-        .roundToDouble();
+    final left = ((canvasSize.width - fbW) / 2 + _panFb.dx * scale).roundToDouble();
+    final top = ((canvasSize.height - fbH) / 2 + _panFb.dy * scale).roundToDouble();
+
+    final isExpanded = _windowMode == DesktopWindowMode.expanded;
+    final isZoomedOrExpanded = isExpanded || _zoom > 1.05;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onScaleStart: (d) => _onScaleStart(d, widgetSize),
-      onScaleUpdate: (d) => _onScaleUpdate(d, widgetSize),
-      onScaleEnd: (d) => _onScaleEnd(d, widgetSize),
+      onScaleStart: (d) => _onScaleStart(d, canvasSize),
+      onScaleUpdate: (d) => _onScaleUpdate(d, canvasSize),
+      onScaleEnd: (d) => _onScaleEnd(d, canvasSize),
       child: Container(
-        decoration: const BoxDecoration(color: Color(0xFF0F172A)),
+        width: canvasSize.width,
+        height: canvasSize.height,
+        color: Colors.black,
         child: Stack(
           clipBehavior: Clip.hardEdge,
           children: [
@@ -1617,13 +1453,118 @@ class _VncScreenState extends ConsumerState<VncScreen> {
               top: top,
               width: fbW,
               height: fbH,
-              // Superficie full-bleed: sin marco, radio ni sombra de "ventana
-              // VNC". La imagen remota es la pantalla, igual que un stream.
-              child: RawImage(
-                image: _frame,
-                fit: BoxFit.fill,
-                filterQuality: FilterQuality.medium,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(isZoomedOrExpanded ? 0 : 10),
+                  border: Border.all(
+                    color: isZoomedOrExpanded
+                        ? Colors.transparent
+                        : const Color(0xFF0EA5E9).withValues(alpha: 0.50),
+                    width: isZoomedOrExpanded ? 0 : 1.4,
+                  ),
+                  boxShadow: isZoomedOrExpanded
+                      ? null
+                      : [
+                          BoxShadow(
+                            color: const Color(0xFF0EA5E9).withValues(alpha: 0.25),
+                            blurRadius: 18,
+                            spreadRadius: 1,
+                          ),
+                          const BoxShadow(
+                            color: Colors.black87,
+                            blurRadius: 24,
+                            spreadRadius: 6,
+                          ),
+                        ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(isZoomedOrExpanded ? 0 : 9),
+                  child: RepaintBoundary(
+                    child: RawImage(
+                      image: _frame,
+                      fit: BoxFit.fill,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  ),
+                ),
               ),
+            ),
+
+            // Virtual Trackpad Mouse Cursor
+            if (_pointerMode == DesktopPointerMode.trackpad)
+              Positioned(
+                left: left + _cursorFb.dx * scale - 2,
+                top: top + _cursorFb.dy * scale - 2,
+                child: IgnorePointer(
+                  child: Transform.rotate(
+                    angle: -math.pi / 4,
+                    child: const Icon(
+                      Icons.navigation_rounded,
+                      size: 20,
+                      color: Color(0xFF0EA5E9),
+                      shadows: [
+                        Shadow(color: Colors.black87, blurRadius: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMinimizedPlaceholder(NanoColors colors) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.65),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: colors.chromeActive.withValues(alpha: 0.35),
+            width: 0.8,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 16,
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: colors.chromeActive,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Sesión Linux Activa',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 14),
+            TextButton.icon(
+              onPressed: () => setState(() => _windowMode = DesktopWindowMode.normal),
+              style: TextButton.styleFrom(
+                foregroundColor: colors.chromeActive,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              ),
+              icon: const Icon(Icons.fullscreen_rounded, size: 16),
+              label: const Text('Restaurar', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
             ),
           ],
         ),
@@ -1632,210 +1573,6 @@ class _VncScreenState extends ConsumerState<VncScreen> {
   }
 }
 
-/// Panel secundario con acciones avanzadas de mouse y teclas de sistema.
-class _MouseControlBar extends StatelessWidget {
-  final VoidCallback onLeftClick;
-  final VoidCallback onRightClick;
-  final VoidCallback onWheelUp;
-  final VoidCallback onWheelDown;
-  final VoidCallback onZoomIn;
-  final VoidCallback onZoomOut;
-  final VoidCallback onResetZoom;
-  final void Function(int keysym) onQuickKey;
-  final bool ctrlActive;
-  final bool altActive;
-  final VoidCallback onToggleCtrl;
-  final VoidCallback onToggleAlt;
-  final double zoom;
-  final NanoColors colors;
-
-  const _MouseControlBar({
-    required this.colors,
-    required this.onLeftClick,
-    required this.onRightClick,
-    required this.onWheelUp,
-    required this.onWheelDown,
-    required this.onZoomIn,
-    required this.onZoomOut,
-    required this.onResetZoom,
-    required this.onQuickKey,
-    required this.ctrlActive,
-    required this.altActive,
-    required this.onToggleCtrl,
-    required this.onToggleAlt,
-    required this.zoom,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // U-6: ancho fijo al 94% de la pantalla (máx 1200).
-    // D-FIX overflow: 8 botones fijos de 40dp + separadores + padding =
-    // 338dp vs 338.4dp disponibles en 360dp de pantalla — margen 0.4dp que
-    // desbordaba con cualquier redondeo. Botones ahora Expanded (min 32dp):
-    // se reparten el ancho real y NO desbordan en ninguna resolución.
-    final barWidth = math.min(MediaQuery.sizeOf(context).width * 0.94, 1200.0);
-
-    return Container(
-      width: barWidth,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-      decoration: BoxDecoration(
-        color: colors.surface.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.outlineVariant),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black45,
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Clics, rueda y zoom, todos funcionales y sin acciones fantasma.
-          Row(
-            children: [
-              Expanded(
-                child: _barButton(
-                  Icons.mouse_rounded,
-                  'Clic izquierdo',
-                  onLeftClick,
-                ),
-              ),
-              Expanded(
-                child: _barButton(
-                  Icons.ads_click_rounded,
-                  'Clic derecho',
-                  onRightClick,
-                ),
-              ),
-              _separator(),
-              Expanded(
-                child: _barButton(
-                  Icons.arrow_upward_rounded,
-                  'Rueda arriba',
-                  onWheelUp,
-                ),
-              ),
-              Expanded(
-                child: _barButton(
-                  Icons.arrow_downward_rounded,
-                  'Rueda abajo',
-                  onWheelDown,
-                ),
-              ),
-              _separator(),
-              Expanded(
-                child: _barButton(Icons.zoom_out_rounded, 'Alejar', onZoomOut),
-              ),
-              Expanded(
-                child: _barButton(Icons.zoom_in_rounded, 'Acercar', onZoomIn),
-              ),
-              Expanded(
-                child: _barButton(
-                  Icons.zoom_out_map_rounded,
-                  'Zoom 100%',
-                  zoom > 1.0 ? onResetZoom : null,
-                ),
-              ),
-            ],
-          ),
-          // Fila 2: teclas rápidas X11 — el IME móvil no trae Esc/Tab/Ctrl/
-          // Alt/flechas; sin ellas no hay Ctrl+C ni diálogo cerrable.
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              _keyChip('Esc', () => onQuickKey(0xFF1B)),
-              _keyChip('Tab', () => onQuickKey(0xFF09)),
-              _keyChip('Ctrl', onToggleCtrl, active: ctrlActive),
-              _keyChip('Alt', onToggleAlt, active: altActive),
-              _keyChip('↵', () => onQuickKey(0xFF0D)),
-              _keyChip('←', () => onQuickKey(0xFF51)),
-              _keyChip('↑', () => onQuickKey(0xFF52)),
-              _keyChip('↓', () => onQuickKey(0xFF54)),
-              _keyChip('→', () => onQuickKey(0xFF53)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _separator() => Container(
-    width: 1,
-    height: 28,
-    margin: const EdgeInsets.symmetric(horizontal: 1),
-    color: colors.outlineVariant,
-  );
-
-  Widget _barButton(
-    IconData icon,
-    String tooltip,
-    VoidCallback? onTap, {
-    bool highlighted = false,
-  }) {
-    final enabled = onTap != null;
-    return IconButton(
-      onPressed: onTap,
-      icon: Icon(
-        icon,
-        color: highlighted
-            ? colors.accent
-            : enabled
-            ? colors.onSurfaceVariant
-            : colors.onSurface.withValues(alpha: 0.24),
-        size: 22,
-      ),
-      tooltip: tooltip,
-      // D-FIX: minWidth 40dp fijo desbordaba la fila en 360dp (8×40 +
-      // separadores = 326 vs 326.4 disponibles). El Expanded del Row reparte
-      // el ancho; minWidth 32 es solo el piso (350dp/9 slots ≈ 39dp reales).
-      // Alto 44 conserva el piso táctil práctico.
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 44),
-      padding: EdgeInsets.zero,
-      style: IconButton.styleFrom(
-        minimumSize: const Size(32, 44),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
-
-  // Chip de tecla expandido uniformemente: ancho real de ~100px en 1080 de
-  // pantalla, altura táctil 44. Nada de texto de 12px apretado.
-  Widget _keyChip(String label, VoidCallback onTap, {bool active = false}) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3),
-        child: Material(
-          color: active
-              ? colors.accent.withValues(alpha: 0.25)
-              : colors.onSurface.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              alignment: Alignment.center,
-              constraints: const BoxConstraints(minHeight: 44),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: active ? colors.accent : colors.onSurface,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Overlay semitransparente con la guía de gestos, abierto bajo demanda.
 class _HelpOverlay extends StatelessWidget {
   final VoidCallback onDismiss;
 
@@ -1845,13 +1582,13 @@ class _HelpOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     return Container(
-      color: Colors.black.withValues(alpha: 0.62),
+      color: Colors.black.withValues(alpha: 0.75),
       child: Center(
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 28),
+          margin: const EdgeInsets.symmetric(horizontal: 24),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22),
+            color: const Color(0xFF111622),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
             boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 24)],
@@ -1862,45 +1599,26 @@ class _HelpOverlay extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.gesture_rounded, color: colors.accent, size: 22),
+                  Icon(Icons.gesture_rounded, color: colors.chromeActive, size: 22),
                   const SizedBox(width: 8),
                   const Text(
-                    'Gestos del escritorio',
+                    'Gestos del Escritorio Linux',
                     style: TextStyle(
                       fontFamily: 'Inter',
                       fontSize: 17,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 14),
-              _helpRow(
-                Icons.touch_app_rounded,
-                'Modo táctil:',
-                'tap y arrastre directos sobre Linux',
-              ),
-              _helpRow(
-                Icons.linear_scale_rounded,
-                'Modo mouse:',
-                'arrastra el cursor · tap = clic',
-              ),
-              _helpRow(
-                Icons.pinch_rounded,
-                'Pellizco 2 dedos:',
-                'zoom hasta 400%',
-              ),
-              _helpRow(
-                Icons.swipe_rounded,
-                '2 dedos con zoom:',
-                'desplazar la vista (pan)',
-              ),
-              _helpRow(
-                Icons.mouse_rounded,
-                'Barra inferior:',
-                'modo, teclado, zoom, apps y accesos',
-              ),
+              _helpRow(Icons.touch_app_rounded, 'Modo táctil:', 'tap y arrastre directos sobre Linux'),
+              _helpRow(Icons.touch_app_outlined, 'Clic derecho:', 'mantén presionado 550ms sin mover'),
+              _helpRow(Icons.mouse_rounded, 'Modo trackpad:', 'arrastra el cursor · tap = clic'),
+              _helpRow(Icons.pinch_rounded, 'Pellizco 2 dedos:', 'zoom anclado al foco hasta 400%'),
+              _helpRow(Icons.swipe_rounded, '2 dedos con zoom:', 'desplazar la vista (pan)'),
+              _helpRow(Icons.center_focus_strong_rounded, 'Doble / Triple tap:', 'doble tap = zoom 2x · triple = 100% fit'),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -1909,12 +1627,10 @@ class _HelpOverlay extends StatelessWidget {
                   icon: const Icon(Icons.check_rounded, size: 18),
                   label: const Text('Entendido'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: colors.accent,
-                    foregroundColor: colors.onAccent,
+                    backgroundColor: colors.chromeActive,
+                    foregroundColor: Colors.black,
                     minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -1945,7 +1661,7 @@ class _HelpOverlay extends StatelessWidget {
                   TextSpan(
                     text: '$title ',
                     style: const TextStyle(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
                   ),

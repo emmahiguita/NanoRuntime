@@ -1111,6 +1111,60 @@ class _PendingReplyCardState extends ConsumerState<_PendingReplyCard> {
                   fontStyle: FontStyle.italic,
                 ),
               ),
+              if (reply.suggestions.length > 1) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    for (int i = 0; i < reply.suggestions.length; i++)
+                      () {
+                        final opt = reply.suggestions[i];
+                        final isSelected = reply.draftText.trim() == opt.trim();
+                        return ActionChip(
+                          avatar: Icon(
+                            isSelected
+                                ? Icons.check_circle_rounded
+                                : Icons.chat_bubble_outline_rounded,
+                            size: 12,
+                            color: isSelected ? Colors.white : colors.primary,
+                          ),
+                          label: Text(
+                            'Opción ${i + 1}: ${opt.length > 22 ? "${opt.substring(0, 22)}..." : opt}',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight:
+                                  isSelected ? FontWeight.w600 : FontWeight.w500,
+                              color: isSelected ? Colors.white : colors.onSurface,
+                            ),
+                          ),
+                          backgroundColor: isSelected
+                              ? colors.primary
+                              : colors.surfaceVariant.withValues(alpha: 0.35),
+                          side: BorderSide(
+                            color: isSelected
+                                ? colors.primary
+                                : colors.surfaceVariant.withValues(alpha: 0.6),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          onPressed: _isSending
+                              ? null
+                              : () async {
+                                  if (!isSelected) {
+                                    await ref
+                                        .read(pendingReplyStoreProvider)
+                                        .updateDraftText(reply.id, opt);
+                                    ref.invalidate(pendingRepliesProvider);
+                                  }
+                                },
+                        );
+                      }(),
+                  ],
+                ),
+              ],
               const SizedBox(height: NanoSpacing.xs),
               Row(
                 children: [

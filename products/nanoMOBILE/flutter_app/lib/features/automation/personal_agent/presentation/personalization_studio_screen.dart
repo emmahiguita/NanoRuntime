@@ -1259,7 +1259,9 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
       if (e['tone'] case final String raw) {
         tone = ToneProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       }
-    } catch (_) {}
+    } catch (err) {
+      debugPrint('[PersonalizationStudio] Error decoding tone profile JSON: $err');
+    }
   }
 
   @override

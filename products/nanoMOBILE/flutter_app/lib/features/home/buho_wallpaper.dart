@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 
 /// BUHO-WALLPAPER-01 — fondo rotativo de publicidad del Búho (Inicio).
 ///
@@ -28,7 +29,7 @@ class BuhoWallpaper extends StatefulWidget {
 }
 
 class _BuhoWallpaperState extends State<BuhoWallpaper> {
-  static const int _portraitCount = 4;
+  static const int _portraitCount = 5;
   static const int _landscapeCount = 11;
   static const Duration _rotateEvery = Duration(seconds: 60);
 
@@ -74,6 +75,7 @@ class _BuhoWallpaperState extends State<BuhoWallpaper> {
           key: ValueKey<String>(path),
           fit: BoxFit.cover,
           filterQuality: FilterQuality.medium,
+          errorBuilder: (context, error, stackTrace) => const NanoAmbientBackground(),
         ),
         ColoredBox(color: Colors.black.withValues(alpha: scrim)),
       ],

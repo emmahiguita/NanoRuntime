@@ -380,6 +380,7 @@ class RuleDispatcher {
         );
         // WA-AGENT-09 — reply dinámico: composición y comprensión contextual única.
         var text = rule.message;
+        ConversationDraftResult? dynamicDraftResult;
         if (text.trim().isEmpty && rule.dynamicReply) {
           final composer = _composer;
           if (composer == null) {
@@ -401,6 +402,7 @@ class RuleDispatcher {
               reason: 'regla dinámica: el motor local no produjo borrador',
             );
           }
+          dynamicDraftResult = result;
 
           final currentVersion = supersedeGuard == null
               ? 0
@@ -434,6 +436,7 @@ class RuleDispatcher {
                 rule,
                 notif,
                 result.text,
+                suggestions: result.suggestions,
                 reason: result.decision.reasons.join('; '),
               );
             }
@@ -465,7 +468,13 @@ class RuleDispatcher {
               reason: 'la política cambió durante el borrador',
             );
           }
-          return _retainDraft(rule, notif, text, reason: 'modo sugerencias');
+          return _retainDraft(
+            rule,
+            notif,
+            text,
+            suggestions: dynamicDraftResult?.suggestions ?? const [],
+            reason: 'modo sugerencias',
+          );
         }
         final capability = ReplyCapabilityRef.fromNotification(notif);
         if (capability == null || !capability.isUsable) {
@@ -617,6 +626,7 @@ class RuleDispatcher {
     ScheduledRule rule,
     NotificationObject notification,
     String text, {
+    List<String> suggestions = const [],
     String reason = 'borrador preparado para aprobación',
   }) async {
     final store = _pendingReplyStore;
@@ -637,6 +647,7 @@ class RuleDispatcher {
         sender: notification.sender,
         originalMessage: notification.text,
         draftText: text.trim(),
+        suggestions: suggestions.isNotEmpty ? suggestions : [text.trim()],
         sourceRuleId: rule.id,
         notificationKey: notification.key,
         notificationPostTime: notification.postTime,

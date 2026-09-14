@@ -24,6 +24,18 @@ abstract final class MessagingPackage {
   static const String whatsappBusiness = 'com.whatsapp.w4b';
   static const String telegram = 'com.telegram.messenger';
   static const String telegramOrg = 'org.telegram.messenger';
+  static const String signal = 'org.thoughtcrime.securesms';
+  static const String instagram = 'com.instagram.android';
+  static const String messenger = 'com.facebook.orca';
+  static const String messengerLite = 'com.facebook.mlite';
+  static const String googleMessages = 'com.google.android.apps.messaging';
+  static const String androidMms = 'com.android.mms';
+  static const String samsungMessages = 'com.samsung.android.messaging';
+  static const String discord = 'com.discord';
+  static const String slack = 'com.Slack';
+  static const String gmail = 'com.google.android.gm';
+  static const String outlook = 'com.microsoft.office.outlook';
+  static const String twitter = 'com.twitter.android';
 
   /// Todos los paquetes de mensajería conocidos.
   static const Set<String> known = {
@@ -31,6 +43,18 @@ abstract final class MessagingPackage {
     whatsappBusiness,
     telegram,
     telegramOrg,
+    signal,
+    instagram,
+    messenger,
+    messengerLite,
+    googleMessages,
+    androidMms,
+    samsungMessages,
+    discord,
+    slack,
+    gmail,
+    outlook,
+    twitter,
   };
 }
 

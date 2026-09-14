@@ -6,6 +6,7 @@ import '../../core/services/pty_shell.dart';
 import '../../core/services/rootfs_manager.dart';
 import '../../core/services/terminal_audit_logger.dart';
 import 'ansi_terminal.dart';
+import 'i_bin_executor.dart';
 
 /// Single-responsibility: owns the PTY session lifecycle.
 /// Extracted from _TermState. Handles open, close, resize, signal,
@@ -26,6 +27,7 @@ class PtyManager {
 
   // Injected dependencies (constructor-injected, not late-init)
   final RootfsManager? rootfs;
+  final IBinExecutor? shell;
   final Map<String, String> Function({
     String? ldPreload,
     Map<String, String>? extra,
@@ -46,6 +48,7 @@ class PtyManager {
 
   PtyManager({
     this.rootfs,
+    this.shell,
     required this.rootfsEnv,
     this.onTitle,
     this.onCwd,
@@ -61,8 +64,8 @@ class PtyManager {
   bool _disposed = false;
   Future<void>? _closeFuture;
 
-  /// Open a PTY session with the given command. Fails gracefully if rootfs
-  /// isn't available or the binary doesn't exist.
+  /// Open a PTY session with the given command. Fails gracefully if no
+  /// valid executable binary can be resolved.
   Future<bool> open(
     List<String> argv, {
     Map<String, String>? env,
@@ -89,15 +92,6 @@ class PtyManager {
     try {
       await close(); // ensure clean state
 
-      if (rootfs == null || !rootfs!.isInstalled) {
-        logger?.event(
-          'pty.manager.open.no_rootfs',
-          layer: 'pty-manager',
-          traceId: traceId,
-          argv: argv,
-        );
-        return false;
-      }
       final resolvedArgv = _resolveExecutableArgv(argv);
       if (resolvedArgv == null) {
         logger?.event(
@@ -115,13 +109,16 @@ class PtyManager {
         argv: resolvedArgv,
       );
 
-      final defaultEnv = rootfsEnv(ldPreload: ldPreload);
+      // Solo activar fakechroot con libnanoroot.so si el rootfs está instalado
+      final effectiveLdPreload =
+          (rootfs?.isInstalled == true) ? ldPreload : null;
+      final defaultEnv = rootfsEnv(ldPreload: effectiveLdPreload);
       if (env != null) defaultEnv.addAll(env);
 
       final ses = await PtySession.open(
         argv: resolvedArgv,
         env: defaultEnv,
-        ldPreload: ldPreload,
+        ldPreload: effectiveLdPreload,
         rows: 24,
         cols: 80,
         logger: logger,
@@ -200,24 +197,68 @@ class PtyManager {
     if (argv.isEmpty) return null;
     final executable = argv.first;
     if (executable.startsWith('/')) {
-      return File(executable).existsSync() ? argv : null;
+      if (File(executable).existsSync()) return argv;
     }
 
+    final candidates = <String>[];
     final usr = rootfs?.usrDir;
-    if (usr == null || usr.isEmpty) return null;
-    final candidates = [
-      '$usr/bin/$executable',
-      '$usr/bin/applets/$executable',
-      '$usr/sbin/$executable',
-      '$usr/libexec/$executable',
-      '$usr/../bin/$executable',
-    ];
+    if (usr != null && usr.isNotEmpty) {
+      candidates.addAll([
+        '$usr/bin/$executable',
+        '$usr/bin/applets/$executable',
+        '$usr/sbin/$executable',
+        '$usr/libexec/$executable',
+        '$usr/../bin/$executable',
+      ]);
+    }
+    final shellBin = shell?.binDir;
+    if (shellBin != null && shellBin.isNotEmpty) {
+      candidates.add('$shellBin/$executable');
+    }
+    final shellBase = shell?.baseDir;
+    if (shellBase != null && shellBase.isNotEmpty) {
+      candidates.add('$shellBase/$executable');
+    }
+
+    // Rutas estándar del sistema
+    if (Platform.isAndroid) {
+      candidates.addAll([
+        '/system/bin/$executable',
+        '/system/xbin/$executable',
+      ]);
+    } else {
+      candidates.addAll([
+        '/bin/$executable',
+        '/usr/bin/$executable',
+        '/usr/local/bin/$executable',
+      ]);
+    }
+
     for (final candidate in candidates) {
-      if (File(candidate).existsSync()) {
-        return [candidate, ...argv.skip(1)];
+      try {
+        if (File(candidate).existsSync()) {
+          return [candidate, ...argv.skip(1)];
+        }
+      } catch (_) {}
+    }
+
+    // Fallback: si se pidió 'bash' pero no existe, recurrir al shell 'sh' disponible
+    if (executable == 'bash') {
+      const shFallbacks = [
+        '/system/bin/sh',
+        '/bin/sh',
+        '/usr/bin/sh',
+      ];
+      for (final sh in shFallbacks) {
+        try {
+          if (File(sh).existsSync()) {
+            return [sh, ...argv.skip(1)];
+          }
+        } catch (_) {}
       }
     }
-    return null;
+
+    return argv;
   }
 
   /// Limpia el estado interno tras el fin/cierre de la sesión.
@@ -314,6 +355,24 @@ class PtyManager {
   /// Reanuda el polling PTY (pestaña visible de nuevo). Ignorada si la
   /// sesión ya cerró o pausar nunca llegó a aplicarse.
   void resumePolling() => _session?.resumePolling();
+
+  /// Gestiona transiciones de ciclo de vida de la app para evitar procesos zombi
+  /// y consumo de CPU innecesario en segundo plano.
+  void handleLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        pausePolling();
+        break;
+      case AppLifecycleState.resumed:
+        resumePolling();
+        break;
+      case AppLifecycleState.detached:
+        dispose();
+        break;
+    }
+  }
 
   void dispose() {
     if (_disposed) return;

@@ -410,6 +410,93 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
         ),
       },
     ),
+    ConversationSurfaceProfile(
+      id: 'telegram-conversation',
+      packageNames: {
+        MessagingPackage.telegram,
+        MessagingPackage.telegramOrg,
+      },
+      elements: {
+        SurfaceElementKind.messageInput: SurfaceElementProfile(
+          roles: {SemanticRole.textField},
+          terms: ['mensaje', 'message', 'escribe un mensaje', 'type a message'],
+        ),
+        SurfaceElementKind.searchInput: SurfaceElementProfile(
+          roles: {SemanticRole.searchField},
+          terms: ['buscar', 'search'],
+        ),
+        SurfaceElementKind.sendAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          terms: ['enviar', 'send', 'enviar mensaje'],
+        ),
+        SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          terms: ['atrás', 'atras', 'volver', 'back'],
+        ),
+        SurfaceElementKind.conversationHomeAction: SurfaceElementProfile(
+          roles: {SemanticRole.tab, SemanticRole.button, SemanticRole.text},
+          terms: ['chats', 'mensajes'],
+        ),
+      },
+    ),
+    ConversationSurfaceProfile(
+      id: 'messages-conversation',
+      packageNames: {
+        MessagingPackage.googleMessages,
+        MessagingPackage.androidMms,
+        MessagingPackage.samsungMessages,
+      },
+      elements: {
+        SurfaceElementKind.messageInput: SurfaceElementProfile(
+          roles: {SemanticRole.textField},
+          terms: ['mensaje de texto', 'text message', 'escribe un mensaje', 'chat'],
+        ),
+        SurfaceElementKind.sendAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          terms: ['enviar sms', 'send sms', 'enviar', 'send'],
+        ),
+        SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          terms: ['atrás', 'atras', 'volver', 'navegar hacia arriba', 'back'],
+        ),
+      },
+    ),
+    ConversationSurfaceProfile(
+      id: 'instagram-conversation',
+      packageNames: {
+        MessagingPackage.instagram,
+      },
+      elements: {
+        SurfaceElementKind.messageInput: SurfaceElementProfile(
+          roles: {SemanticRole.textField},
+          terms: ['enviar mensaje', 'message...', 'escribe un mensaje'],
+        ),
+        SurfaceElementKind.sendAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          terms: ['enviar', 'send'],
+        ),
+        SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          terms: ['atrás', 'atras', 'volver', 'back'],
+        ),
+      },
+    ),
+    ConversationSurfaceProfile(
+      id: 'signal-conversation',
+      packageNames: {
+        MessagingPackage.signal,
+      },
+      elements: {
+        SurfaceElementKind.messageInput: SurfaceElementProfile(
+          roles: {SemanticRole.textField},
+          terms: ['mensaje de signal', 'signal message', 'escribe un mensaje'],
+        ),
+        SurfaceElementKind.sendAction: SurfaceElementProfile(
+          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          terms: ['enviar', 'send'],
+        ),
+      },
+    ),
   ];
 
   @override

@@ -37,6 +37,7 @@ class NanoAttachSheet {
   static Future<NanoAttachResult?> show(BuildContext context) async {
     final kind = await showModalBottomSheet<NanoAttachKind>(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const _AttachSheet(),
     );
@@ -145,7 +146,7 @@ class _AttachSheet extends StatelessWidget {
               const SizedBox(height: 12),
               _AttachTile(
                 icon: Icons.photo_camera_outlined,
-                iconColor: const Color(0xFF38BDF8),
+                iconColor: const Color(0xFF10B981),
                 title: 'Foto',
                 subtitle: 'Imagen de tu galería',
                 onTap: () => Navigator.of(context).pop(NanoAttachKind.photo),

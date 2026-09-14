@@ -129,14 +129,17 @@ static void _daemon_mark_reaped(pid_t pid) {
 
 static void* _single_reaper_loop(void* arg) {
     while (1) {
+        int active_daemons = 0;
         pthread_mutex_lock(&g_daemons_lock);
         for (int i = 0; i < MAX_TRACKED_DAEMONS; i++) {
             pid_t pid = g_daemons[i].pid;
             if (pid > 0) {
+                active_daemons++;
                 int status;
                 pid_t result = waitpid(pid, &status, WNOHANG);
                 if (result == pid) {
                     g_daemons[i].pid = 0; // _daemon_mark_reaped inline
+                    active_daemons--;
                     if (WIFSIGNALED(status)) {
                         __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",
                             "reaped detached pid=%d signal=%d%s", pid, WTERMSIG(status),
@@ -149,7 +152,13 @@ static void* _single_reaper_loop(void* arg) {
             }
         }
         pthread_mutex_unlock(&g_daemons_lock);
-        usleep(250000); // 250ms polling interval
+        // Ahorro de CPU y batería: solo poll rápido (250ms) si hay daemons vivos.
+        // Cuando no hay daemons activos, duerme 2 segundos.
+        if (active_daemons > 0) {
+            usleep(250000);
+        } else {
+            sleep(2);
+        }
     }
     return NULL;
 }

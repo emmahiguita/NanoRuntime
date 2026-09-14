@@ -15,6 +15,7 @@ import '../../features/desktop/presentation/screens/desktop_audit_screen.dart';
 import '../../features/automation/presentation/screens/automation_screen.dart';
 import '../../features/automation/presentation/screens/automation_messages_screen.dart';
 import '../../features/automation/presentation/screens/whatsapp_onboarding_screen.dart';
+import '../../features/automation/presentation/screens/mcp_skills_hub_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
@@ -125,6 +126,11 @@ class AppRouter {
       GoRoute(
         path: '/automation/whatsapp-onboarding',
         pageBuilder: (_, __) => _glassMorph(const WhatsAppOnboardingScreen()),
+      ),
+      // /automation/skills-mcp → Hub visual de MCP, Skills y Grafo Vivo
+      GoRoute(
+        path: '/automation/skills-mcp',
+        pageBuilder: (_, __) => _glassMorph(const McpSkillsHubScreen()),
       ),
       GoRoute(
         path: '/desktop/audit',

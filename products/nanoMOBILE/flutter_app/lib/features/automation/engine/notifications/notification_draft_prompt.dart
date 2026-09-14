@@ -126,12 +126,13 @@ Respondes en WhatsApp como lo haría el dueño: su estilo, su tono, su forma
 de conversar. Responde al mensaje del bloque <NOTIFICACION> en el idioma
 del cliente, breve y natural.
 
-Comprensión:
+Comprensión universal (desde un saludo simple hasta párrafos extensos):
+- Entiende con total precisión desde un simple "Hola" o saludo informal hasta párrafos extensos con múltiples oraciones y solicitudes.
 - Los fragmentos consecutivos son un único turno: interprétalos en orden.
   Una corrección o negación posterior prevalece; conserva el contexto anterior.
 - Lee el mensaje COMPLETO: puede traer relato de lo que hace el cliente, varias
   dudas y varias preguntas mezcladas. Responde primero a lo que contó y atiende
-  sus preguntas en orden.
+  sus preguntas en orden sin ignorar ninguna inquietud clave.
 - Conecta hechos recientes de <CONVERSACION PREVIA> cuando sean relevantes
   (ej: si antes dijo que estaba programando y luego dice que fue al gym y está
   cansado, relaciona el cansancio con ambas cosas en vez de responder como si
@@ -165,7 +166,7 @@ Naturalidad:
   necesario para responder, pídelo en una pregunta corta.
 
 Formato de salida EXACTO (JSON; nada fuera del objeto):
-{"intent":"","relation":"","reply":"","questions":[],"missingFacts":[],"requiresAction":false}
+{"intent":"","relation":"","reply":"","options":[],"questions":[],"missingFacts":[],"requiresAction":false}
 
 Campos (escríbelos EN ESTE ORDEN, empezando por reply):
 - intent: resumen de lo que quiere el cliente.
@@ -175,12 +176,13 @@ Campos (escríbelos EN ESTE ORDEN, empezando por reply):
   propuesta), "cambia" (cambia de tema) o "" si no hay conversación previa.
 - reply: si falta un dato o requiere acción, UNA pregunta corta y concreta;
   si no, la respuesta natural. Escapa las comillas internas así: \\"
+- options: 1 o 2 variantes breves y naturales de respuesta alternativa (sin frases robóticas).
 - questions: cada pregunta explícita del mensaje, en orden.
 - missingFacts: datos reales (precio, stock, envío, fechas) necesarios y
   ausentes de la conversación y del mensaje.
 - requiresAction: true si responder con verdad exige consultar un dato
   externo (stock, precio, pedido); false si el contexto alcanza.
-WA-UNIV-04 — reply va JUSTO tras intent y relation (campo 3 de 6): con
+WA-UNIV-04 — reply va JUSTO tras intent y relation (campo 3 de 7): con
 maxTokens 320 la salida se recorta y el reply (antes último campo) moría
 cortado o ausente (evidencia Oppo 2026-09-06: dos drafts de "hola" con
 reply vacío). El modelo completa en orden: reply temprano = reply siempre
@@ -366,12 +368,10 @@ String? _usableStyle(String? style) {
 /// Bounded y honesto: cada entrada conserva su grado real de verificación.
 /// Vacío → marcador explícito (el agente no asume contexto que no existe).
 ///
-/// WA-UNIV-03 — máx 3 entradas y 80 chars por entrada: con ctx=256 del
-/// survival_fit el sliding window evicta las reglas del system y el modelo
-/// solo ve el diálogo del historial → lo CONTINÚA como respuesta (eco
-/// verificado en Oppo 2026-09-06: reply = copia de la conversación previa,
-/// mensaje real ignorado). Historial mínimo: alcanza para referencias
-/// ("ese", "la negra") sin darle al 1.5B un patrón de diálogo que copiar.
+/// WA-UNIV-03 — máx 3 entradas y hasta 280 chars por entrada: permite retener
+/// párrafos explicativos y preguntas previas del cliente sin recortar contexto clave,
+/// protegiendo el sliding window contra desbordamiento. Historial óptimo:
+/// alcanza para referencias ("ese", "la negra") y dudas compuestas.
 String formatConversationHistory(
   List<ConversationMemoryEntry> entries, {
   int maxEntries = 3,
@@ -384,7 +384,8 @@ String formatConversationHistory(
 }
 
 String _formatEntry(ConversationMemoryEntry e) {
-  final t = e.text.length <= 80 ? e.text : e.text.substring(0, 80);
+  final clean = e.text.trim();
+  final t = clean.length <= 280 ? clean : '${clean.substring(0, 277)}...';
   return switch (e.kind) {
     ConversationMemoryEntryKind.inbound =>
       '${e.sender.isEmpty ? 'Cliente' : e.sender}: $t',

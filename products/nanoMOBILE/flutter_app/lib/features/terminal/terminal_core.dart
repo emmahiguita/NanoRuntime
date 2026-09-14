@@ -21,6 +21,7 @@ import '../../core/services/terminal_dependencies.dart';
 import 'i_bin_executor.dart';
 import 'keyboard_mapper.dart';
 import 'command_executor.dart';
+import 'terminal_session_controller.dart';
 import 'command_tagger.dart';
 import 'noar_persistence.dart';
 import 'noar_builtin_commands.dart';
@@ -96,17 +97,17 @@ class NanoTerminalState extends State<NanoTerminal> {
     rootfsEnv: _deps.rootfsEnv,
     getEngine: () => _engine,
     audit: (cmd, tag, data) {},
-    shell: _shell,
-    rootfs: _rootfs,
-    docker: _docker,
-    kali: _kali,
-    proot: _proot,
-    ubuntu: _ubuntu,
+    getShell: () => _shell,
+    getRootfs: () => _rootfs,
+    getDocker: () => _docker,
+    getKali: () => _kali,
+    getProot: () => _proot,
+    getUbuntu: () => _ubuntu,
     openPty: (argv, {env, ldPreload}) =>
         _ptyOpen(argv, env: env, ldPreload: ldPreload),
     deviceId: _devId,
     onClear: () {
-      if (mounted) setState(() => _lines.clear());
+      if (mounted) _controller.clear();
     },
     onNavigate: (route) {
       if (!mounted) return;
@@ -127,7 +128,9 @@ class NanoTerminalState extends State<NanoTerminal> {
   late final FocusNode _localFn = FocusNode();
   late final TextEditingController _localIn = TextEditingController();
   final ScrollController _sc = ScrollController();
-  final _lines = <TL>[], _hist = <String>[], _timers = <Timer>[];
+  final _controller = TerminalSessionController();
+  List<TL> get _lines => _controller.lines;
+  final _hist = <String>[], _timers = <Timer>[];
   final _ctx = TerminalCtx();
   // Ref: el CommandExecutor muta estos campos en la instancia de CmdExecCtx
   // que recibe por copia; el holder compartido conserva la mutación.
@@ -157,13 +160,12 @@ class NanoTerminalState extends State<NanoTerminal> {
 
   String get _usrDir => _shell?.usrDir ?? _rootfs?.usrDir ?? '';
 
-  Offset _fabOffset = Offset.zero;
   bool _fabInit = false;
   // TER-12/14: FAB pill compacta (icono + "Noar") que colapsa a círculo.
   static const double _fabW = 104;
   static const double _fabH = 44;
   // TER-13: paleta pizarra/cian del FAB (sin verde neón en botones).
-  static const Color _accent = Color(0xFF38BDF8);
+  static const Color _accent = Color(0xFF10B981);
   static const Color _fabText = Color(0xFFE2E8F0);
 
   final _bashCwd = Ref<String>('/');
@@ -188,21 +190,12 @@ class NanoTerminalState extends State<NanoTerminal> {
     return 'nanoai@$h:$home\$ ';
   }
 
-  static const int _maxLines = 10000;
   bool _scrollPending = false;
 
   void _out(String t, Ln ty) {
     if (t.isEmpty && ty == Ln.stdout) return;
-    // TER-25: continuaciones async (initAll onProgress, _ptyOpen post-await)
-    // pueden reanudar tras dispose del tab → "setState() called after
-    // dispose()". Guard único aquí cubre todas las vías de salida.
     if (!mounted) return;
-    setState(() {
-      _lines.add(TL(t, ty));
-      if (_lines.length > _maxLines) {
-        _lines.removeRange(0, _lines.length - _maxLines);
-      }
-    });
+    _controller.out(t, ty);
     if (!_scrollPending) {
       _scrollPending = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -237,9 +230,7 @@ class NanoTerminalState extends State<NanoTerminal> {
     _noar.load(); // async: carga librerÃ­a de comandos guardados
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_fabInit && mounted) {
-        final sz = MediaQuery.of(context).size;
         setState(() {
-          _fabOffset = Offset(sz.width - _fabW - 12, sz.height * 0.35);
           _fabInit = true;
         });
         _restartFabTimer();
@@ -250,6 +241,10 @@ class NanoTerminalState extends State<NanoTerminal> {
     _out('', Ln.stdout);
     _loadHistory();
     HardwareKeyboard.instance.addHandler(_onKey);
+  }
+
+  void handleLifecycleState(AppLifecycleState state) {
+    _ptyManager?.handleLifecycleState(state);
   }
 
   @override
@@ -311,8 +306,12 @@ class NanoTerminalState extends State<NanoTerminal> {
 
   /// Extrae bash y toybox de assets/bin/ al dir privado de la app y los marca ejecutables. Luego verifica/instala el rootfs Termux completo.  Â¡IMPORTANTE! ShellExecutor y terminal_core comparten la MISMA instancia de RootfsManager para que el estado de instalaciÃ³n estÃ© sincronizado.
   Future<void> _initShell() async {
-    if (_deps.rootfs == null) {
-      await _deps.initAll(onProgress: (msg) => _out('[init] $msg', Ln.system));
+    try {
+      if (_deps.rootfs == null) {
+        await _deps.initAll(onProgress: (msg) => _out('[init] $msg', Ln.system));
+      }
+    } catch (e) {
+      _out('[init] inicio parcial ($e)', Ln.warn);
     }
     _dispatcher = CommandDispatcher(
       shell: _shell,
@@ -325,16 +324,17 @@ class NanoTerminalState extends State<NanoTerminal> {
     _dispatcher!.buildRegistry();
     _ptyManager = PtyManager(
       rootfs: _rootfs,
+      shell: _shell,
       rootfsEnv: _deps.rootfsEnv,
       onTitle: widget.onTitle,
       // TER-21: cwd real del bash (OSC 7) → línea de estado.
       onCwd: _onBashCwd,
-      // P1: sin este callback, _ansi seguÃ­a apuntando al ChangeNotifier ya
-      // dispuesto por el manager tras el fin de la sesiÃ³n (Ctrl-D/exit) â€”
-      // cualquier rebuild posterior lanzaba "used after being disposed".
       onSessionEnd: () {
         if (!mounted) return;
-        setState(() => _ansi = null);
+        setState(() {
+          _ansi = null;
+          _pty = null;
+        });
       },
     );
     if (_shell?.initialized == true) {
@@ -376,17 +376,12 @@ class NanoTerminalState extends State<NanoTerminal> {
           Directory('$usr/var/log').createSync(recursive: true);
         } catch (_) {}
       }
-      // Sin comando inicial inyectado: bash PTY automÃ¡tico. Con comando
-      // inicial (ej: kali shell), el dispatcher y su stream proot son el
-      // dueÃ±o del terminal; abrir bash encima mezclarÃ­a las dos sesiones.
-      // TER-27: gateado por visible — un tab oculto al nacer spawneaba
-      // bash + polling 20Hz para siempre ocupando 1 de los 8 slots
-      // nativos. El tab oculto abre lazy en didUpdateWidget.
-      if (widget.initialCommand == null && widget.visible) {
-        _autoOpenBash();
-      }
     } else {
-      _out('[rootfs] no instalado. Ejecuta "bootstrap".', Ln.info);
+      _out('[rootfs] no instalado. Usa bootstrap si requieres apt/dpkg.', Ln.info);
+    }
+    // Auto-apertura PTY en la sesión activa: disponible con rootfs o con shell local
+    if (widget.initialCommand == null && widget.visible) {
+      _autoOpenBash();
     }
     if (_proot != null && _proot!.isReady) {
       _out('[proot] listo â†’ chroot sin root disponible', Ln.system);
@@ -447,6 +442,8 @@ class NanoTerminalState extends State<NanoTerminal> {
     _alive = false;
     _fabTimer?.cancel();
     _ptyClose(notify: false);
+    _ptyManager?.dispose();
+    _ptyManager = null;
     for (final t in _timers) {
       t.cancel();
     }
@@ -457,6 +454,7 @@ class NanoTerminalState extends State<NanoTerminal> {
     // se cierra sin `stop` explícito. El ShellExecutor pertenece a
     // TerminalDependencies (singleton); solo matamos los tags de ESTA sesión.
     _dispatcher?.dispose();
+    _realFs.killActiveProcess();
     // El shell y el runtime Docker pertenecen a TerminalDependencies
     // (singleton compartido entre pestañas). Cerrar UNA pestaña no debe
     // matar los workers FFI ni el runtime de las demás sesiones: el dueño
@@ -488,16 +486,11 @@ class NanoTerminalState extends State<NanoTerminal> {
       execCmd: (raw) => CommandExecutor.execute(raw, _execCtx()),
       isAlive: () => _alive,
     )..register(r, _out);
-    // pty REAL: abre sesiÃ³n interactiva via _ptyOpen (el stub del plugin
-    // nunca finge apertura â€” este registro lo reemplaza por el real).
+    // pty REAL: abre sesión interactiva via _ptyOpen (el stub del plugin
+    // nunca finge apertura — este registro lo reemplaza por el real).
     _cmds['pty'] = (a, c, o, af) {
-      final usr = _rootfs?.usrDir;
-      if (usr == null) {
-        o('pty: rootfs no instalado', Ln.stderr);
-        return;
-      }
-      final bashPath = a.isNotEmpty ? a[0] : '$usr/bin/bash';
-      _ptyOpen([bashPath, ...a.sublist(1)], o: o);
+      final cmd = a.isNotEmpty ? a[0] : 'bash';
+      _ptyOpen([cmd, ...a.skip(1)], o: o);
     };
     _cmds['stat'] = (a, c, o, af) async {
       final all = a.contains('--all'),
@@ -783,11 +776,12 @@ class NanoTerminalState extends State<NanoTerminal> {
       _exec(cmd);
     }
   }
-  
-  /// Expone la ejecución de comandos para que la Barra Cósmica global
+
+  /// Expone la ejecución de comandos para que la Barra Universal
   /// pueda inyectar comandos directamente en la sesión activa.
-  void executeCommand(String cmd) {
-    _useCommand(cmd);
+  Future<void> executeCommand(String cmd) async {
+    if (!_alive || !mounted) return;
+    await CommandExecutor.execute(cmd, _execCtx());
   }
 
   bool get _ptyActive => _pty != null && !_pty!.isClosed;
@@ -819,7 +813,7 @@ class NanoTerminalState extends State<NanoTerminal> {
     });
   }
 
-  /// Abre una sesiÃ³n PTY con [argv]. Si falla, vuelca error por [o].
+  /// Abre una sesión PTY con [argv]. Si falla, vuelca error por [o].
   Future<void> _ptyOpen(
     List<String> argv, {
     Map<String, String>? env,
@@ -827,29 +821,11 @@ class NanoTerminalState extends State<NanoTerminal> {
     void Function(String, Ln)? o,
   }) async {
     final out = o ?? _out;
-    // DiagnÃ³stico temprano: binario ausente â†’ sugerir pkg install.
-    if (argv.isNotEmpty && argv.first.contains('/')) {
-      try {
-        if (!File(argv.first).existsSync()) {
-          final name = argv.first.split('/').last;
-          out(
-            'pty: "$name" no estÃ¡ en el rootfs. Ejecuta "pkg install $name".',
-            Ln.stderr,
-          );
-          return;
-        }
-      } catch (_) {}
-    }
     final pm = _ptyManager;
     if (pm == null) {
       out('[pty] gestor de sesiones no inicializado.', Ln.stderr);
       return;
     }
-    // Los binarios del rootfs Termux enlazan rutas hardcodeadas y SELinux
-    // deniega el execve directo desde el contexto PTY sin interceptación:
-    // el mismo bash sin libnanoroot.so deja "ls: Permission denied" en
-    // cualquier binario del rootfs. El hijo necesita fakechroot — mismo
-    // preload que ya usan los caminos `!` y shell-ops.
     final ok = await pm.open(
       argv,
       env: env,
@@ -857,45 +833,26 @@ class NanoTerminalState extends State<NanoTerminal> {
           ldPreload ?? (_rootfs?.isInstalled == true ? 'libnanoroot.so' : null),
     );
     if (!ok) {
-      // Un Ãºnico camino de apertura. El fallback histÃ³rico abrÃ­a una segunda
-      // sesiÃ³n PtySession paralela duplicando el ciclo de vida del
-      // AnsiTerminal y sus listeners (riesgo de doble dispose). El error se
-      // reporta y PtyManager deja el estado limpio.
-      out('[pty] no se pudo abrir la sesiÃ³n interactiva.', Ln.stderr);
+      out('[pty] no se pudo abrir la sesión interactiva.', Ln.stderr);
       return;
     }
     _pty = pm.session;
     _ansi = pm.ansi;
     if (mounted) setState(() {});
     out(
-      'â€” terminal interactivo (Ctrl+C para SIGINT, escribe "exit") â€”',
+      '— terminal interactivo (Ctrl+C para SIGINT, escribe "exit") —',
       Ln.system,
     );
     out('pty> ', Ln.prompt);
   }
 
   Future<void> _ptyClose({bool notify = true}) async {
-    final p = _pty;
     _pty = null;
-    _ptyLines.clear();
-    // Defer AnsiTerminal dispose to post-frame so AnsiTerminalView can
-    // removeListener() during its own dispose() before the ChangeNotifier dies.
-    final oldAnsi = _ansi;
     _ansi = null;
-    if (oldAnsi != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        try {
-          oldAnsi.dispose();
-        } catch (_) {}
-      });
-    }
-    if (p != null) {
-      try {
-        await p.signal(2);
-      } catch (_) {}
-      try {
-        await p.close();
-      } catch (_) {}
+    _ptyLines.clear();
+    final pm = _ptyManager;
+    if (pm != null) {
+      await pm.close();
     }
     if (notify && mounted) setState(() {});
   }
@@ -1028,7 +985,7 @@ class NanoTerminalState extends State<NanoTerminal> {
       return bytes != null;
     }
     if (_ctrl && e.logicalKey == LogicalKeyboardKey.keyL) {
-      setState(() => _lines.clear());
+      _controller.clear();
       _ctrl = false;
       return true;
     }
@@ -1039,12 +996,6 @@ class NanoTerminalState extends State<NanoTerminal> {
       return true;
     }
     return false;
-  }
-
-  List<String> _sug() {
-    final p = _in.text.trim();
-    if (p.isEmpty) return _cmds.keys.take(8).toList();
-    return _cmds.keys.where((c) => c.startsWith(p)).take(10).toList();
   }
 
   Future<void> _loadHistory() async {
@@ -1084,22 +1035,19 @@ class NanoTerminalState extends State<NanoTerminal> {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final chrome = dark ? const Color(0xFF07192B) : c.terminalBg;
     final fg = dark ? const Color(0xFF21F2B2) : c.terminalGreen;
-    final sug = _sug();
     // TER-22: 3 estados honestos. Antes todo _ptyActive==false pintaba
     // "OFFLINE (rootfs no instalado)" aunque bash+toybox funcionaran
     // (kali shell vía dispatcher, o sesión PTY terminada con Ctrl+D) —
     // etiqueta mentirosa. Ahora distingue ausencia real de rootfs.
     final rootfsOk = _rootfs?.isInstalled == true;
     final headerLabel = _ptyActive
-        ? 'PTY: bash (rootfs real)'
+        ? (rootfsOk ? 'PTY: bash (rootfs real)' : 'PTY: consola interactiva')
         : rootfsOk
         ? 'bash + toybox (modo comando)'
-        : 'OFFLINE (rootfs no instalado)';
+        : 'Terminal local (modo comando)';
     final headerColor = _ptyActive
         ? c.success
-        : rootfsOk
-        ? fg.withValues(alpha: 0.6)
-        : c.warning;
+        : fg.withValues(alpha: 0.6);
     return Column(
       children: [
         // TER-15: header glass — gradiente pizarra + dot de estado con
@@ -1196,63 +1144,63 @@ class NanoTerminalState extends State<NanoTerminal> {
                     child: LayoutBuilder(
                       builder: (context, cons) {
                         _applyPtySize(cons.maxWidth, cons.maxHeight);
-                        return SelectionArea(
-                          child: AnsiTerminalView(_ansi!),
-                        );
+                        return SelectionArea(child: AnsiTerminalView(_ansi!));
                       },
                     ),
                   ),
                 )
               else
                 SelectionArea(
-                  child: InteractiveViewer(
-                    minScale: 0.8,
-                    maxScale: 2.5,
-                    child: GestureDetector(
-                      onTap: () => _fn.requestFocus(),
-                      child: ListView.builder(
-                        controller: _sc,
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        itemCount: _lines.length,
-                        itemBuilder: (_, i) {
-                          final line = _lines[i];
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 1.5),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 32,
-                                  child: Text(
-                                    '${i + 1}',
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrainsMono',
-                                      fontSize: 10,
-                                      color: fg.withValues(alpha: 0.15),
-                                      height: 1.6,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _fn.requestFocus(),
+                    child: ListenableBuilder(
+                      listenable: _controller,
+                      builder: (context, _) {
+                        return ListView.builder(
+                          controller: _sc,
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          itemCount: _lines.length,
+                          itemBuilder: (_, i) {
+                            final line = _lines[i];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 1.5),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 32,
+                                    child: Text(
+                                      '${i + 1}',
+                                      style: TextStyle(
+                                        fontFamily: 'JetBrainsMono',
+                                        fontSize: 10,
+                                        color: fg.withValues(alpha: 0.15),
+                                        height: 1.6,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    line.text,
-                                    style: TextStyle(
-                                      fontFamily: 'JetBrainsMono',
-                                      fontSize: 12.5,
-                                      color: _c(line.type, fg, c),
-                                      height: 1.6,
+                                  Expanded(
+                                    child: Text(
+                                      line.text,
+                                      style: TextStyle(
+                                        fontFamily: 'JetBrainsMono',
+                                        fontSize: 12.5,
+                                        color: _c(line.type, fg, c),
+                                        height: 1.6,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -1272,8 +1220,7 @@ class NanoTerminalState extends State<NanoTerminal> {
             },
             onWriteBytes: (bytes) => _pty?.writeBytes(bytes),
             onWrite: (text) => _pty?.write(text),
-            bracketedPasteEnabled:
-                _ansi?.screen.bracketedPasteMode ?? false,
+            bracketedPasteEnabled: _ansi?.screen.bracketedPasteMode ?? false,
           ),
       ],
     );
@@ -1309,8 +1256,7 @@ class NanoTerminalState extends State<NanoTerminal> {
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(_fabH / 2),
-                    onHighlightChanged: (h) =>
-                        setState(() => _fabPressed = h),
+                    onHighlightChanged: (h) => setState(() => _fabPressed = h),
                     onTap: _fabTap,
                     child: AnimatedContainer(
                       width: _fabCollapsed ? _fabH : _fabW,
@@ -1345,10 +1291,7 @@ class NanoTerminalState extends State<NanoTerminal> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(_fabH / 2),
                         child: BackdropFilter(
-                          filter: ImageFilter.blur(
-                            sigmaX: 12,
-                            sigmaY: 12,
-                          ),
+                          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
                           child: Stack(
                             children: [
                               const Positioned(
@@ -1366,9 +1309,7 @@ class NanoTerminalState extends State<NanoTerminal> {
                                 top: 0,
                                 bottom: 0,
                                 child: AnimatedOpacity(
-                                  duration: const Duration(
-                                    milliseconds: 180,
-                                  ),
+                                  duration: const Duration(milliseconds: 180),
                                   opacity: _fabCollapsed ? 0.0 : 1.0,
                                   child: const Align(
                                     alignment: Alignment.centerLeft,

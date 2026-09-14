@@ -47,6 +47,7 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart'
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
+import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
 import 'package:nanoai/features/automation/engine/storage/automation_db_store_client.dart';
@@ -411,7 +412,7 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
 
 /// Registro de reglas persistentes (T3.1): shared_prefs JSON. La carga es
 /// asíncrona (arranque); el pipeline consulta `rules` en memoria.
-final ruleRegistryProvider = Provider<RuleRegistry>((ref) {
+final ruleRegistryProvider = ChangeNotifierProvider<RuleRegistry>((ref) {
   final registry = RuleRegistry(SharedPrefsRuleStore());
   return registry;
 });
@@ -487,6 +488,7 @@ ConversationDecisionContext _buildConversationDecisionContext(
     hasActiveProduct: hasActiveProduct,
     ownerName: ref.read(personaContextProvider).ownerName,
     hasPendingQuestion: hasPendingQuestion,
+    isBusinessChannel: notif.packageName == MessagingPackage.whatsappBusiness,
   );
   final mode = ConversationAutonomyModeName.fromName(
     ref.read(settingsProvider).waAutonomyMode,
@@ -530,7 +532,7 @@ final conversationReplyComposerProvider =
 /// El dispatcher ejecuta el goal por el MISMO coordinator (nunca un motor aparte).
 final rulePipelineProvider = Provider<RulePipeline>((ref) {
   return RulePipeline(
-    registry: ref.watch(ruleRegistryProvider),
+    registry: ref.read(ruleRegistryProvider),
     engine: const RuleEngine(),
     dedupe: ref.watch(eventDedupeStoreProvider),
     memory: ref.watch(conversationMemoryStoreProvider),

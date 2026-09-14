@@ -66,11 +66,13 @@ final class FastPathCandidate {
   final String act;
   final String reply;
   final ConversationUnderstanding understanding;
+  final List<String> suggestions;
 
   const FastPathCandidate({
     required this.act,
     required this.reply,
     required this.understanding,
+    this.suggestions = const [],
   });
 }
 
@@ -172,7 +174,7 @@ final class PragmaticFastPath {
     }
 
     // 5. Componer la respuesta unificada y natural
-    final reply = _composeUnifiedReply(
+    final result = _composeUnifiedReply(
       intents: intents,
       normalized: normalized,
       tokens: tokens,
@@ -182,14 +184,16 @@ final class PragmaticFastPath {
       metrics: metrics,
     );
 
-    if (reply == null || reply.trim().isEmpty) return null;
+    if (result == null || result.reply.trim().isEmpty) return null;
 
     final actLabel = intents.map((i) => i.name).join('+');
     return FastPathCandidate(
       act: actLabel,
-      reply: reply,
+      reply: result.reply,
+      suggestions: result.suggestions,
       understanding: ConversationUnderstanding(
-        reply: reply,
+        reply: result.reply,
+        options: result.suggestions,
         intent: actLabel,
         relation: intents.contains(ConversationIntent.reciprocalQuestion) ||
                 intents.contains(ConversationIntent.userWellbeing) ||
@@ -590,8 +594,8 @@ final class PragmaticFastPath {
     return false;
   }
 
-  /// Compone una única respuesta fluida, auténtica y armónica.
-  String? _composeUnifiedReply({
+  /// Compone una única respuesta fluida, auténtica y armónica junto con opciones.
+  ({String reply, List<String> suggestions})? _composeUnifiedReply({
     required Set<ConversationIntent> intents,
     required String normalized,
     required Set<String> tokens,
@@ -936,13 +940,19 @@ final class PragmaticFastPath {
         final withGreeting =
             intents.contains(ConversationIntent.greeting) && !recentlyGreeted;
         if (charging) {
-          return withGreeting
+          final reply = withGreeting
               ? '¡Hola! Tengo el $pct% y está cargando.'
               : 'Tengo el $pct% y está cargando.';
+          final alt1 = 'Está en $pct% (cargando).';
+          final alt2 = 'Tengo el $pct%.';
+          return (reply: reply, suggestions: [reply, alt1, alt2]);
         } else {
-          return withGreeting
+          final reply = withGreeting
               ? '¡Hola! Tengo el $pct% de batería por ahora.'
               : 'Tengo el $pct% de batería por ahora.';
+          final alt1 = 'Tengo el $pct%.';
+          final alt2 = 'Por ahora está en $pct%.';
+          return (reply: reply, suggestions: [reply, alt1, alt2]);
         }
       } else {
         // Hardware no reportó datos válidos: null para no inventar
@@ -953,13 +963,19 @@ final class PragmaticFastPath {
     return null;
   }
 
-  /// Selecciona de manera determinista y temporal un candidato que no repita el último mensaje.
-  String _selectCandidate(
+  /// Selecciona de manera determinista y temporal un candidato que no repita el último mensaje,
+  /// y provee hasta 3 sugerencias alternativas del mismo conjunto.
+  ({String reply, List<String> suggestions}) _selectCandidate(
     List<String> pool,
     String conversationId,
     String? lastOutboundText,
   ) {
-    if (pool.isEmpty) return 'Todo bien por acá.';
+    if (pool.isEmpty) {
+      return (
+        reply: 'Todo bien por acá.',
+        suggestions: const ['Todo bien por acá.'],
+      );
+    }
 
     final minuteBucket = DateTime.now().millisecondsSinceEpoch ~/ 60000;
     final seed = (conversationId.hashCode ^ minuteBucket).abs();
@@ -968,6 +984,13 @@ final class PragmaticFastPath {
         pool.where((c) => c.trim() != lastOutboundText?.trim()).toList();
     final listToUse = available.isNotEmpty ? available : pool;
 
-    return listToUse[seed % listToUse.length];
+    final selected = listToUse[seed % listToUse.length];
+    final suggestions = <String>[selected];
+    for (final c in pool) {
+      if (!suggestions.contains(c) && suggestions.length < 3) {
+        suggestions.add(c);
+      }
+    }
+    return (reply: selected, suggestions: suggestions);
   }
 }

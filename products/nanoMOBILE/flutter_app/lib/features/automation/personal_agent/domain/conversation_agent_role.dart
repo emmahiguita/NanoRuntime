@@ -22,7 +22,7 @@ library;
 
 import '../../engine/business/business_facts.dart';
 import '../../engine/business/fact_selector.dart'
-    show normalizeText, tokenizeText;
+    show normalizeText, selectFactsForMessage, tokenizeText;
 import '../../engine/language/turn_complexity_classifier.dart'
     show turnComplexityClassifier;
 import '../../engine/messaging/conv_turn_state.dart'
@@ -272,36 +272,7 @@ const Set<String> presenceVerbs = {
   'encuentra',
 };
 
-/// AUTO-02 — routing híbrido determinista (DETERMINISTIC SIGNALS; el
-/// STRUCTURED UNDERSTANDING del LLM no añade otra pasada: alimenta la
-/// decisión en el engine, no el routing).
-///
-/// Señales, en orden (el mensaje actual manda — P0-ROUTE):
-/// 1. Corrección meta-conversacional ("¿de qué hablas?") → PERSONAL.
-/// 2. Menciona al dueño por nombre ("¿está Emmanuel?") → PERSONAL/IDENTIDAD.
-/// 3. Rechazo de ayuda ("no quiero que me ayudes") → PERSONAL (social).
-/// 4. Queja de pedido ("mi pedido llegó malo") → SUPPORT.
-/// 5. Producto explícito (selector REAL de WA-BUSINESS-02, misma fuente que
-///    el gating) Y señal comercial (precio/stock/envío) → SALES. Producto
-///    SIN señal comercial NO es venta (invariante NO COMMERCIAL = NO SALES).
-/// 6. Saludo puro (isPureGreeting de CONTEXT-GATE-01) → PERSONAL SIEMPRE
-///    (P0: "hola"/"como estas"/"oe"/"estas ahi"/"todo bien?" son social
-///    puro; jamás call-center general). Evidencia del fallo anterior:
-///    la rama "saludo puro sin relación registrada" → GENERAL.
-/// 7. Referencia/respuesta corta con producto activo en la conversación
-///    ("¿y ese todavía está?") → SALES (A05).
-/// 8. Social casual corto ("que haces", "jajaja", "bro") → PERSONAL.
-/// 9. Reacción social más larga ("me alegra que estes bien", "gracias",
-///    "dale") → PERSONAL (P0-SOCIAL-2, sin límite de tokens).
-/// 10. Familia del dueño con verbo de presencia ("¿está tu papá?") →
-///    PERSONAL (identidad doméstica).
-/// 11. Respuesta a la pregunta pendiente de Nano (≤3 tokens): el cliente
-///    devuelve el dato pedido ("M", "mañana", "la negra") → jamás GENERAL.
-///    Con producto explícito → SALES (la elección pide facts del producto
-///    activo); sin producto → PERSONAL con [ConversationAgentRouting.pendingReply].
-/// 12. Contacto con relación registrada, sin señal comercial → PERSONAL
-///    (A02 "Hola bro qué haces", A04 "gracias bro").
-/// 13. Resto → GENERAL.
+/// AUTO-02 — routing híbrido determinista (DETERMINISTIC SIGNALS).
 ConversationAgentRouting routeConversationAgent({
   required String messageText,
   required BusinessFacts facts,
@@ -309,15 +280,22 @@ ConversationAgentRouting routeConversationAgent({
   required bool hasActiveProduct,
   String ownerName = '',
   bool hasPendingQuestion = false,
+  bool isBusinessChannel = false,
 }) {
   final reasons = <String>[];
   final normalized = normalizeText(messageText);
   final tokens = tokenizeText(normalized);
   final signals = contextSignalsFor(messageText, facts);
-  // P0-MULTI — intención comercial ORTOGONAL al rol: se calcula UNA vez y
-  // viaja en el routing aunque el rol final sea personal (turno mixto).
+  final factsSelection = selectFactsForMessage(messageText, facts);
+  final hasBusinessFactsMatch = factsSelection.isNotEmpty && !facts.isEmpty;
+
+  // P0-MULTI — intención comercial:
+  // Se activa si es canal de WhatsApp Business, si hay producto + señal comercial,
+  // o si el mensaje consulta hechos del negocio (horario, envío, pagos, ubicación, catálogo).
   final commercialIntent =
-      signals.explicitProduct && tokens.any(commercialIntentTokens.contains);
+      isBusinessChannel ||
+      (signals.explicitProduct && tokens.any(commercialIntentTokens.contains)) ||
+      hasBusinessFactsMatch;
 
   if (correctionPhrases.any(normalized.contains)) {
     reasons.add('corrección del cliente (meta-conversación)');
@@ -327,19 +305,19 @@ ConversationAgentRouting routeConversationAgent({
     );
   }
 
-  // P0-ROUTE — identidad: el dueño es mencionado por su nombre. No se mira
-  // el catálogo ni la relación: preguntar por Emmanuel es SIEMPRE personal.
-  final ownerToken = ownerName.trim().split(' ').first.toLowerCase();
-  if (ownerToken.length >= 3 && tokens.contains(ownerToken)) {
-    reasons.add('menciona al dueño por nombre (identidad)');
-    return ConversationAgentRouting(
-      role: ConversationAgentRole.personal,
-      reasons: reasons,
-    );
+  // P0-ROUTE — identidad: en canal personal, si mencionan al dueño por nombre
+  if (!isBusinessChannel) {
+    final ownerToken = ownerName.trim().split(' ').first.toLowerCase();
+    if (ownerToken.length >= 3 && tokens.contains(ownerToken)) {
+      reasons.add('menciona al dueño por nombre (identidad)');
+      return ConversationAgentRouting(
+        role: ConversationAgentRole.personal,
+        reasons: reasons,
+      );
+    }
   }
 
-  // P0-ROUTE — rechazo de ayuda: señal social explícita ("no quiero que me
-  // ayudes"). Personal incluso sin relación registrada: el límite manda.
+  // P0-ROUTE — rechazo de ayuda: señal social explícita
   if (tokens.contains('no') &&
       (tokens.contains('quiero') || tokens.contains('necesito')) &&
       tokens.any((t) => t.startsWith('ayud'))) {
@@ -358,8 +336,20 @@ ConversationAgentRouting routeConversationAgent({
     );
   }
 
-  if (commercialIntent) {
-    reasons.add('producto explícito + señal comercial');
+  // En WhatsApp Business, toda interacción que no sea queja/corrección es de atención comercial
+  if (isBusinessChannel) {
+    reasons.add('canal comercial WhatsApp Business');
+    return ConversationAgentRouting(
+      role: ConversationAgentRole.sales,
+      reasons: reasons,
+      commercialIntent: true,
+    );
+  }
+
+  if (commercialIntent && (signals.explicitProduct || hasBusinessFactsMatch)) {
+    reasons.add(hasBusinessFactsMatch
+        ? 'consulta sobre datos/hechos del negocio'
+        : 'producto explícito + señal comercial');
     return ConversationAgentRouting(
       role: ConversationAgentRole.sales,
       reasons: reasons,
@@ -367,9 +357,6 @@ ConversationAgentRouting routeConversationAgent({
     );
   }
   if (signals.explicitProduct) {
-    // P0-ROUTE — producto SIN intención comercial: la entidad existe
-    // lingüísticamente pero el turno NO es de venta. Cae a las señales
-    // sociales (relación → PERSONAL; sin relación → GENERAL).
     reasons.add(productMentionedWithoutCommerce);
   }
   if (isGreetingLikeMessage(messageText)) {

@@ -37,12 +37,14 @@ String _semanticForDestination(SystemDestination d) => switch (d) {
   SystemDestination.settings => 'open_system_settings',
   SystemDestination.wifiSettings => 'open_wifi_settings',
   SystemDestination.bluetoothSettings => 'open_bluetooth_settings',
+  _ => 'open_${d.wireId}',
 };
 
 SystemCapability? _capabilityForDestination(SystemDestination d) => switch (d) {
   SystemDestination.settings => SystemCapability.openSystemSettings,
   SystemDestination.wifiSettings => SystemCapability.openWifiSettings,
   SystemDestination.bluetoothSettings => SystemCapability.openBluetoothSettings,
+  _ => null,
 };
 
 /// Deriva args canónicos (A4) desde un [ToolCall] (args si ya existen, o desde

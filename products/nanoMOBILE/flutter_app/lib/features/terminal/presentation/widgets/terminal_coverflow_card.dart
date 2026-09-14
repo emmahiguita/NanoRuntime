@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 
+import 'package:nanoai/features/home/buho_wallpaper.dart';
 import '../../domain/terminal_hub_card.dart';
 import 'interactive_3d_turntable_box.dart';
 import 'perspective_hero_flight.dart';
 
-/// Miniatura física estilo GameCube Case para el carrusel Cover Flow.
+/// Miniatura física de portada para el carrusel Cover Flow (Full-Bleed Campaign Artwork).
 class TerminalCover extends StatelessWidget {
   const TerminalCover({
     super.key,
@@ -23,10 +24,9 @@ class TerminalCover extends StatelessWidget {
     final isDark = colors is NanoDarkColors;
 
     return Container(
-      padding: const EdgeInsets.all(2.0),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF090D18) : colors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark ? const Color(0xFF25334D) : colors.borderSecondaryColor,
           width: 2.2,
@@ -34,191 +34,45 @@ class TerminalCover extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.65),
-            blurRadius: 18,
-            offset: const Offset(0, 9),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
           BoxShadow(
-            color: card.accent.withValues(alpha: 0.22),
-            blurRadius: 22,
+            color: card.accent.withValues(alpha: 0.28),
+            blurRadius: 24,
             spreadRadius: -2,
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(13.8),
         child: Stack(
+          fit: StackFit.expand,
           children: [
+            // Arte de campaña en alta definición
             if (card.imageAsset != null)
-              Positioned.fill(
-                child: Image.asset(
-                  card.imageAsset!,
-                  fit: BoxFit.cover,
-                ),
+              Image.asset(
+                card.imageAsset!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildFallbackCover(colors, isDark),
               )
-            else ...[
-              // Fondo con degradado armónico jerárquico
-              Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isDark
-                        ? const [
-                            Color(0xFF162032),
-                            Color(0xFF080C14),
-                          ]
-                        : [
-                            colors.surface,
-                            colors.backgroundIce,
-                          ],
-                  ),
-                ),
-              ),
-            ),
+            else
+              _buildFallbackCover(colors, isDark),
 
-            // Halo central con el color de acento del módulo
-            Center(
-              child: Container(
-                width: 62,
-                height: 62,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: card.accent.withValues(alpha: isDark ? 0.22 : 0.12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: card.accent.withValues(alpha: isDark ? 0.38 : 0.20),
-                      blurRadius: 26,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Contenido gráfico de la portada
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Banner superior estilo GameCube: NANO RUNTIME
-                  Container(
-                    height: 18,
-                    padding: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Colors.black.withValues(alpha: 0.85)
-                          : colors.surfaceVariant.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(3),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.20)
-                            : colors.borderSecondaryColor,
-                        width: 0.7,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.grid_view_rounded,
-                          size: 9,
-                          color: card.accent,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'NANO RUNTIME',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.90)
-                                : colors.textPrimary,
-                            fontSize: 7,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  // Icono central del módulo
-                  Center(
-                    child: Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: card.accent.withValues(alpha: 0.20),
-                        border: Border.all(
-                          color: card.accent.withValues(alpha: 0.70),
-                          width: 1.6,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: card.accent.withValues(alpha: 0.35),
-                            blurRadius: 18,
-                          ),
-                        ],
-                      ),
-                      child: Icon(
-                        card.icon,
-                        color: card.accent,
-                        size: 28,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Subtítulo y título de la portada
-                  Text(
-                    card.eyebrow,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: card.accent,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  Text(
-                    card.title.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      color: colors.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.3,
-                      shadows: isDark
-                          ? const [
-                              Shadow(
-                                color: Colors.black,
-                                blurRadius: 6,
-                                offset: Offset(0, 1),
-                              ),
-                            ]
-                          : null,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            ],
-
-            // Brillo especular shrinkwrap cellophane
+            // Brillo especular sutil en la superficie
             Positioned.fill(
               child: IgnorePointer(
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      begin: const Alignment(-1.2, -1.0),
-                      end: const Alignment(1.2, 1.0),
-                      stops: const [0.0, 0.30, 0.40, 0.50, 1.0],
+                      begin: const Alignment(-1.0, -1.0),
+                      end: const Alignment(1.0, 1.0),
+                      stops: const [0.0, 0.25, 0.45, 1.0],
                       colors: [
+                        Colors.white.withValues(alpha: 0.12),
                         Colors.transparent,
-                        Colors.transparent,
-                        Colors.white.withValues(alpha: 0.15),
-                        Colors.transparent,
+                        Colors.white.withValues(alpha: 0.04),
                         Colors.transparent,
                       ],
                     ),
@@ -231,6 +85,27 @@ class TerminalCover extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildFallbackCover(NanoColors colors, bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF162032), Color(0xFF080C14)]
+              : [colors.surface, colors.backgroundIce],
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          card.icon,
+          size: 48,
+          color: card.accent,
+        ),
+      ),
+    );
+  }
 }
 
 /// Tarjeta del carrusel 3D Cover Flow.
@@ -239,52 +114,70 @@ class TerminalHubSmallCard extends StatelessWidget {
     super.key,
     required this.card,
     this.compact = false,
+    this.titleOpacity = 1.0,
   });
 
   final TerminalHubCard card;
   final bool compact;
+  final double titleOpacity;
 
   @override
   Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-
     return AspectRatio(
       aspectRatio: 0.66,
       child: Column(
         children: [
           Expanded(
-            flex: 7,
             child: TerminalCover(card: card),
           ),
-          const SizedBox(height: 8),
-          Text(
-            card.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w800,
-              fontSize: compact ? 13.5 : 15.5,
-              letterSpacing: -0.3,
+          const SizedBox(height: 10),
+          Opacity(
+            opacity: titleOpacity.clamp(0.0, 1.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: compact ? 18 : 22,
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        card.title,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w800,
+                          fontSize: compact ? 14 : 16,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                SizedBox(
+                  height: compact ? 14 : 16,
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        card.eyebrow,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: card.accent,
+                          fontFamily: 'Inter',
+                          fontSize: compact ? 10 : 11.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            card.eyebrow,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: card.accent.withValues(alpha: 0.90),
-              fontFamily: 'Inter',
-              fontSize: compact ? 9 : 10.5,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 4),
         ],
       ),
     );
@@ -340,7 +233,10 @@ class TerminalHubDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Size screen = MediaQuery.sizeOf(context);
-    final double width = math.min(screen.width, 500);
+    final bool isLandscape = screen.width > screen.height && screen.height < 550;
+    final double width = isLandscape
+        ? math.min(screen.width * 0.92, 780.0)
+        : math.min(screen.width, 500.0);
     final colors = NanoThemeExtension.of(context).colors;
     final isDark = colors is NanoDarkColors;
 
@@ -348,18 +244,24 @@ class TerminalHubDetailScreen extends StatelessWidget {
       type: MaterialType.transparency,
       child: Stack(
         children: [
-          // Fondo cinematográfico adaptativo con desenfoque de cristal óptico
+          // Fondo cinematográfico con el wallpaper del Búho y desenfoque de cristal óptico
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => Navigator.pop(context),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                child: ColoredBox(
-                  color: isDark 
-                      ? Colors.black.withValues(alpha: 0.82)
-                      : colors.surface.withValues(alpha: 0.75),
-                ),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const BuhoWallpaper(scrimOpacity: 0.35),
+                  BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    child: ColoredBox(
+                      color: isDark 
+                          ? Colors.black.withValues(alpha: 0.55)
+                          : colors.surface.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -405,9 +307,182 @@ class TerminalHubDetailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
+    final isLandscape = screen.width > screen.height && screen.height < 550;
     final isCompact = screen.height < 600;
     final colors = NanoThemeExtension.of(context).colors;
     final isDark = colors is NanoDarkColors;
+
+    if (isLandscape) {
+      return Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Columna Izquierda: Visor 3D Turntable Box centrado
+                Expanded(
+                  flex: 4,
+                  child: Center(
+                    child: Interactive3DTurntableBox(
+                      card: card,
+                      width: 145,
+                      height: 205,
+                      depth: 22,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 18),
+                // Columna Derecha: Información y botón de ejecución
+                Expanded(
+                  flex: 6,
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.only(top: 8, bottom: 8, right: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          card.title,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: colors.textPrimary,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.6,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Icon(
+                              card.icon,
+                              size: 13,
+                              color: card.accent,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${card.eyebrow} • 2026',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: colors.textSecondary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          card.description,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: colors.textSecondary,
+                            fontSize: 12.5,
+                            height: 1.35,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        for (final highlight in card.highlights)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 5),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  size: 13,
+                                  color: card.accent,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    highlight,
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      color: colors.textPrimary,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: FilledButton.icon(
+                            onPressed: () {
+                              final router = GoRouter.of(context);
+                              Navigator.of(context, rootNavigator: true).pop();
+                              router.push(card.route);
+                            },
+                            icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                            label: Text(
+                              card.actionLabel,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: colors.onAccent,
+                              ),
+                            ),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: card.accent,
+                              foregroundColor: colors.onAccent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: isDark ? 4 : 2,
+                              shadowColor: card.accent.withValues(alpha: 0.35),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 6,
+            right: 6,
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : colors.surface.withValues(alpha: 0.90),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.20)
+                          : colors.borderSecondaryColor,
+                    ),
+                  ),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      color: isDark ? Colors.white : colors.textPrimary,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
 
     return Stack(
       children: [
@@ -431,8 +506,8 @@ class TerminalHubDetailCard extends StatelessWidget {
                 child: Center(
                   child: Interactive3DTurntableBox(
                     card: card,
-                    width: isCompact ? 165 : 200,
-                    height: isCompact ? 225 : 275,
+                    width: isCompact ? 175 : 210,
+                    height: isCompact ? 250 : 300,
                     depth: 26,
                   ),
                 ),
@@ -637,8 +712,9 @@ class TerminalHubDetailCard extends StatelessWidget {
                 height: 52,
                 child: FilledButton.icon(
                   onPressed: () {
-                    Navigator.pop(context);
-                    context.push(card.route);
+                    final router = GoRouter.of(context);
+                    Navigator.of(context, rootNavigator: true).pop();
+                    router.push(card.route);
                   },
                   icon: const Icon(Icons.play_arrow_rounded, size: 22),
                   label: Text(

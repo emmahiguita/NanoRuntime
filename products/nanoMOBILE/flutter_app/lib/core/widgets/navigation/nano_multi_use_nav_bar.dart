@@ -25,6 +25,7 @@ class NanoMultiUseNavBar extends StatefulWidget {
     this.onSearch,
     this.onVoice,
     this.onAvatarTap,
+    this.onCollapse,
     this.searchHint = 'Buscar, conversar o ejecutar en Nano AI...',
     this.brightness,
     this.compact = false,
@@ -37,6 +38,7 @@ class NanoMultiUseNavBar extends StatefulWidget {
   final ValueChanged<String>? onSearch;
   final VoidCallback? onVoice;
   final VoidCallback? onAvatarTap;
+  final VoidCallback? onCollapse;
   final String searchHint;
   final Brightness? brightness;
   final bool compact;
@@ -133,6 +135,10 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
   void dispose() {
     _focusNode.removeListener(_onFocus);
     _controller.removeListener(_onText);
+    if (_dictating) {
+      _dictating = false;
+      NanoRuntimeApi.instance.stopSpeech();
+    }
     _voiceSub?.cancel();
     _internalController.dispose();
     _internalFocusNode.dispose();
@@ -217,10 +223,11 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
         final isCompactLandscape =
             mediaSize.width > mediaSize.height && mediaSize.height < 520;
         final width = constraints.maxWidth;
+        final isLandscapeRow = isCompactLandscape && width >= 500;
         final narrow = width < 480 || widget.compact || isCompactLandscape;
-        final radius = narrow ? 28.0 : 32.0;
-        final vertTop = isCompactLandscape ? 5.0 : (narrow ? 8.0 : 10.0);
-        final vertBottom = isCompactLandscape ? 4.0 : (narrow ? 6.0 : 8.0);
+        final radius = isLandscapeRow ? 24.0 : (narrow ? 28.0 : 32.0);
+        final vertTop = isLandscapeRow ? 4.0 : (isCompactLandscape ? 5.0 : (narrow ? 8.0 : 10.0));
+        final vertBottom = isLandscapeRow ? 4.0 : (isCompactLandscape ? 4.0 : (narrow ? 6.0 : 8.0));
         final gap = isCompactLandscape ? 3.0 : (narrow ? 5.0 : 7.0);
 
         return Semantics(
@@ -239,8 +246,8 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                   offset: const Offset(0, 8),
                 ),
                 BoxShadow(
-                  color: NanoNavTokens.accentAmber.withValues(
-                    alpha: isDark ? 0.20 : 0.08,
+                  color: NanoNavTokens.activeAccent(b).withValues(
+                    alpha: isDark ? 0.22 : 0.08,
                   ),
                   blurRadius: 18,
                   spreadRadius: -4,
@@ -283,7 +290,7 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                             : NanoNavTokens.shellGradientLight),
                     border: Border.all(
                       color: _focused
-                          ? NanoNavTokens.accentAmber.withValues(alpha: 0.92)
+                          ? NanoNavTokens.activeAccent(b).withValues(alpha: 0.92)
                           : (isDark
                               ? Colors.white.withValues(alpha: 0.22)
                               : Colors.white.withValues(alpha: 0.65)),
@@ -311,50 +318,141 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
                           ),
                         ),
                       ),
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          narrow ? 10 : 12,
-                          vertTop,
-                          narrow ? 10 : 12,
-                          vertBottom,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _SearchRow(
-                              brightness: b,
-                              controller: _controller,
-                              focusNode: _focusNode,
-                              hint: effectiveHint,
-                              hasText: _hasText,
-                              onAttach: config?.onAttach,
-                              onSubmitted: _handleSearchSubmit,
-                              onClear: () {
-                                _controller.clear();
-                                setState(() => _hasText = false);
-                              },
-                              onVoice:
-                                  config?.onVoice ??
-                                  widget.onVoice ??
-                                  _toggleDefaultDictation,
-                              listening:
-                                  (config?.isListening ?? false) || _dictating,
-                              compact: narrow,
-                              transparent: widget.transparent,
-                            ),
-                            if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
-                              SizedBox(height: gap),
-                              _DestinationsDock(
-                                brightness: b,
-                                selected: widget.selected,
-                                compact: narrow,
-                                onSelected: (d) {
-                                  HapticFeedback.selectionClick();
-                                  widget.onDestinationSelected(d);
-                                },
-                              ),
-                            ],
-                          ],
+                      GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onVerticalDragUpdate: (details) {
+                          if (details.primaryDelta != null &&
+                              details.primaryDelta! > 7) {
+                            widget.onCollapse?.call();
+                          }
+                        },
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            narrow ? 10 : 12,
+                            vertTop,
+                            narrow ? 10 : 12,
+                            vertBottom,
+                          ),
+                          child: isLandscapeRow
+                              ? Row(
+                                  children: [
+                                    if (widget.onCollapse != null)
+                                      GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () {
+                                          HapticFeedback.lightImpact();
+                                          widget.onCollapse?.call();
+                                        },
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(right: 6, left: 2),
+                                          child: Icon(
+                                            Icons.unfold_less_rounded,
+                                            size: 20,
+                                            color: isDark
+                                                ? Colors.white.withValues(alpha: 0.45)
+                                                : Colors.black.withValues(alpha: 0.35),
+                                          ),
+                                        ),
+                                      ),
+                                    Expanded(
+                                      child: _SearchRow(
+                                        brightness: b,
+                                        controller: _controller,
+                                        focusNode: _focusNode,
+                                        hint: effectiveHint,
+                                        hasText: _hasText,
+                                        onAttach: config?.onAttach,
+                                        onSubmitted: _handleSearchSubmit,
+                                        onClear: () {
+                                          _controller.clear();
+                                          setState(() => _hasText = false);
+                                        },
+                                        onVoice: config?.onVoice ??
+                                            widget.onVoice ??
+                                            _toggleDefaultDictation,
+                                        listening: (config?.isListening ?? false) ||
+                                            _dictating,
+                                        compact: true,
+                                        transparent: widget.transparent,
+                                      ),
+                                    ),
+                                    if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
+                                      const SizedBox(width: 8),
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(maxWidth: 340),
+                                        child: _DestinationsDock(
+                                          brightness: b,
+                                          selected: widget.selected,
+                                          compact: true,
+                                          onSelected: (d) {
+                                            HapticFeedback.selectionClick();
+                                            widget.onDestinationSelected(d);
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (widget.onCollapse != null)
+                                      GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () {
+                                          HapticFeedback.lightImpact();
+                                          widget.onCollapse?.call();
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.only(bottom: 6),
+                                          alignment: Alignment.center,
+                                          child: Container(
+                                            width: 34,
+                                            height: 3.5,
+                                            decoration: BoxDecoration(
+                                              borderRadius: BorderRadius.circular(2),
+                                              color: isDark
+                                                  ? Colors.white.withValues(alpha: 0.28)
+                                                  : Colors.black.withValues(alpha: 0.20),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    _SearchRow(
+                                      brightness: b,
+                                      controller: _controller,
+                                      focusNode: _focusNode,
+                                      hint: effectiveHint,
+                                      hasText: _hasText,
+                                      onAttach: config?.onAttach,
+                                      onSubmitted: _handleSearchSubmit,
+                                      onClear: () {
+                                        _controller.clear();
+                                        setState(() => _hasText = false);
+                                      },
+                                      onVoice:
+                                          config?.onVoice ??
+                                          widget.onVoice ??
+                                          _toggleDefaultDictation,
+                                      listening:
+                                          (config?.isListening ?? false) || _dictating,
+                                      compact: narrow,
+                                      transparent: widget.transparent,
+                                    ),
+                                    if (MediaQuery.viewInsetsOf(context).bottom == 0) ...[
+                                      SizedBox(height: gap),
+                                      _DestinationsDock(
+                                        brightness: b,
+                                        selected: widget.selected,
+                                        compact: narrow,
+                                        onSelected: (d) {
+                                          HapticFeedback.selectionClick();
+                                          widget.onDestinationSelected(d);
+                                        },
+                                      ),
+                                    ],
+                                  ],
+                                ),
                         ),
                       ),
                     ],
@@ -422,7 +520,7 @@ class _SearchRow extends StatelessWidget {
               borderRadius: BorderRadius.circular(compact ? 22 : 24),
               border: Border.all(
                 color: focusNode.hasFocus
-                    ? NanoNavTokens.accentAmber.withValues(alpha: 0.95)
+                    ? NanoNavTokens.activeAccent(brightness).withValues(alpha: 0.95)
                     : (dark
                         ? Colors.white.withValues(alpha: 0.18)
                         : Colors.black.withValues(alpha: 0.09)),
@@ -431,7 +529,7 @@ class _SearchRow extends StatelessWidget {
               boxShadow: focusNode.hasFocus
                   ? [
                       BoxShadow(
-                        color: NanoNavTokens.accentAmber.withValues(alpha: 0.22),
+                        color: NanoNavTokens.activeAccent(brightness).withValues(alpha: 0.22),
                         blurRadius: 16,
                         spreadRadius: -1,
                       ),
@@ -458,7 +556,7 @@ class _SearchRow extends StatelessWidget {
                     Icons.search_rounded,
                     size: compact ? 19 : 21,
                     color: focusNode.hasFocus
-                        ? NanoNavTokens.accentAmber
+                        ? NanoNavTokens.activeAccent(brightness)
                         : (dark
                             ? const Color(0xFFA0B4D2)
                             : const Color(0xFF2C5282)),
@@ -472,7 +570,7 @@ class _SearchRow extends StatelessWidget {
                     textInputAction: TextInputAction.send,
                     minLines: 1,
                     maxLines: compact ? 3 : 5,
-                    cursorColor: NanoNavTokens.accentAmber,
+                    cursorColor: NanoNavTokens.activeAccent(brightness),
                     cursorWidth: 2.0,
                     cursorRadius: const Radius.circular(2),
                     style: TextStyle(
@@ -570,18 +668,22 @@ class _SearchRow extends StatelessWidget {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFF38BDF8),
-                                    Color(0xFF2563EB),
-                                    Color(0xFF1D4ED8),
-                                  ],
-                                ),
+                                gradient: dark
+                                    ? NanoNavTokens.sendButtonGradient
+                                    : const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color(0xFF38BDF8),
+                                          Color(0xFF2563EB),
+                                          Color(0xFF1D4ED8),
+                                        ],
+                                      ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0xFF2563EB)
+                                    color: (dark
+                                            ? NanoNavTokens.activeAccent(brightness)
+                                            : const Color(0xFF2563EB))
                                         .withValues(alpha: 0.50),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
@@ -591,7 +693,7 @@ class _SearchRow extends StatelessWidget {
                               child: Icon(
                                 Icons.arrow_upward_rounded,
                                 size: compact ? 17 : 19,
-                                color: Colors.white,
+                                color: dark ? Colors.black87 : Colors.white,
                               ),
                             ),
                           ),
@@ -622,7 +724,7 @@ class _SearchRow extends StatelessWidget {
                               color: listening
                                   ? const Color(0xFFEF4444)
                                   : (dark
-                                      ? NanoNavTokens.accentAmber
+                                      ? NanoNavTokens.activeAccent(brightness)
                                       : const Color(0xFF2563EB)),
                             ),
                           ),
@@ -705,21 +807,18 @@ class _DestinationsDock extends StatelessWidget {
                     height: 2.8,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(99),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF38BDF8),
-                          Color(0xFF2563EB),
-                          Color(0xFF1D4ED8),
-                        ],
-                      ),
+                      gradient: NanoNavTokens.activeGradient(brightness),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF38BDF8).withValues(alpha: 0.90),
+                          color: NanoNavTokens.activeAccent(brightness).withValues(alpha: 0.90),
                           blurRadius: 8,
                           spreadRadius: 0.5,
                         ),
                         BoxShadow(
-                          color: const Color(0xFF2563EB).withValues(alpha: 0.60),
+                          color: (brightness == Brightness.dark
+                                  ? const Color(0xFF059669)
+                                  : const Color(0xFF2563EB))
+                              .withValues(alpha: 0.60),
                           blurRadius: 12,
                         ),
                       ],

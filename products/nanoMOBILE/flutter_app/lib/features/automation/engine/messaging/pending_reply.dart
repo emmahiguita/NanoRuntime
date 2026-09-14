@@ -21,6 +21,7 @@ final class PendingReply {
   final String sender;
   final String originalMessage;
   final String draftText;
+  final List<String> suggestions;
   final String sourceRuleId;
   final String notificationKey;
   final int notificationPostTime;
@@ -41,6 +42,7 @@ final class PendingReply {
     required this.sender,
     required this.originalMessage,
     required this.draftText,
+    this.suggestions = const [],
     this.sourceRuleId = '',
     this.notificationKey = '',
     this.notificationPostTime = 0,
@@ -125,6 +127,7 @@ final class PendingReply {
     String? sender,
     String? originalMessage,
     String? draftText,
+    List<String>? suggestions,
     String? sourceRuleId,
     String? notificationKey,
     int? notificationPostTime,
@@ -142,6 +145,7 @@ final class PendingReply {
       sender: sender ?? this.sender,
       originalMessage: originalMessage ?? this.originalMessage,
       draftText: draftText ?? this.draftText,
+      suggestions: suggestions ?? this.suggestions,
       sourceRuleId: sourceRuleId ?? this.sourceRuleId,
       notificationKey: notificationKey ?? this.notificationKey,
       notificationPostTime: notificationPostTime ?? this.notificationPostTime,
@@ -161,6 +165,7 @@ final class PendingReply {
     'sender': sender,
     'originalMessage': originalMessage,
     'draftText': draftText,
+    'suggestions': suggestions,
     'sourceRuleId': sourceRuleId,
     'notificationKey': notificationKey,
     'notificationPostTime': notificationPostTime,
@@ -180,6 +185,10 @@ final class PendingReply {
       sender: json['sender'] as String? ?? '',
       originalMessage: json['originalMessage'] as String? ?? '',
       draftText: json['draftText'] as String? ?? '',
+      suggestions: ((json['suggestions'] as List?) ?? const [])
+          .map((e) => '$e')
+          .where((e) => e.isNotEmpty)
+          .toList(),
       sourceRuleId: json['sourceRuleId'] as String? ?? '',
       notificationKey: json['notificationKey'] as String? ?? '',
       notificationPostTime: (json['notificationPostTime'] as num?)?.toInt() ?? 0,

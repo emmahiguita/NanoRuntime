@@ -6,9 +6,9 @@ import '../theme/nano_motion.dart';
 import '../router/app_router.dart';
 import '../theme/nano_breakpoint.dart';
 import '../widgets/liquid_fluid_background.dart';
-import '../widgets/nano_ambient_background.dart';
 import '../widgets/navigation/nano_destination.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
+import '../../features/home/buho_wallpaper.dart';
 
 /// Shell principal: conserva los stacks de cada pestaña y entrega la
 /// navegación visual al único FAB glass compartido por toda la aplicación.
@@ -56,20 +56,21 @@ class ScaffoldShell extends StatelessWidget {
     );
 
     return PopScope(
-      canPop: currentIndex == 0 || branchCanPop,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && currentIndex != 0) shell.goBranch(0);
+      canPop: !branchCanPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && branchCanPop) {
+          AppRouter.branchKeys[currentIndex].currentState?.pop();
+        }
       },
       child: Scaffold(
-        // KEYBOARD-FIX-01 — el frame ya mueve la barra sobre el teclado
-        // (floatingBottom = keyboardInset). Si el Scaffold del shell también
-        // encoge el body, todo el layout se comprime dos veces al escribir:
-        // solape + franja oscura de la ventana Flutter bajo el teclado.
-        resizeToAvoidBottomInset: false,
         backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
         body: Stack(
           fit: StackFit.expand,
           children: [
+            const Positioned.fill(
+              child: BuhoWallpaper(scrimOpacity: 0.52),
+            ),
             Positioned.fill(
               child: AnimatedSwitcher(
                 duration: NanoMotionDurations.standard,
@@ -77,7 +78,7 @@ class ScaffoldShell extends StatelessWidget {
                     ? const LiquidFluidBackground(
                         key: ValueKey('liquid_fluid_bg'),
                       )
-                    : const NanoAmbientBackground(key: ValueKey('ambient_bg')),
+                    : const SizedBox.shrink(),
               ),
             ),
             // NAV-UI-AUDIT-01 — el SafeArea vive DENTRO del frame (fuente
@@ -87,6 +88,7 @@ class ScaffoldShell extends StatelessWidget {
             // encaje completo. El dock transparente ahora es GLOBAL (todas
             // las pantallas ven el mismo fondo detrás de la barra).
             NanoFloatingNavigationFrame(
+              allowSideDock: true,
               selectedIndex: currentIndex,
               // HOME-BLEED-01 — Inicio (wallpaper) pinta completo.
               fullBleed: currentIndex == NanoDestination.home.index,

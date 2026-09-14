@@ -67,7 +67,8 @@ android {
                 storePassword = System.getenv("NANOAI_KEYSTORE_PASS")
                 keyAlias = System.getenv("NANOAI_KEY_ALIAS")
                 keyPassword = System.getenv("NANOAI_KEY_PASS")
-                println("NanoAI: release signing con keystore externo: $keystorePath")
+                // B-003 FIX: no loguear el path del keystore (exposición en logs de CI/CD).
+                println("NanoAI: release signing con keystore externo.")
             } else {
                 // Fallback a debug keystore para `flutter run --release` en desarrollo.
                 // ⚠️ NO distribuir APKs firmadas con este certificado.
@@ -77,6 +78,14 @@ android {
                 keyPassword = signingConfigs.getByName("debug").keyPassword
                 println("NanoAI: release signing con debug keystore (SOLO DESARROLLO)")
             }
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            pickFirsts += "assets/mlkit-google-ocr-models/**"
+            pickFirsts += "assets/mlkit_label_default_model/**"
         }
     }
 

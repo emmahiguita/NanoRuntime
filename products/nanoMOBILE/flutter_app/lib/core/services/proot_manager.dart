@@ -228,10 +228,30 @@ class ProotManager {
       defaultBinds.add('${_shell.usrDir}:/usr/termux');
     }
 
+    // Acceso directo al almacenamiento real del teléfono (Zero-Inflation / Shared Storage)
+    for (final storagePath in ['/sdcard', '/storage/emulated/0']) {
+      if (Directory(storagePath).existsSync()) {
+        defaultBinds.add('$storagePath:/sdcard');
+        defaultBinds.add('$storagePath:/storage/emulated/0');
+        defaultBinds.add('$storagePath:/root/storage');
+        defaultBinds.add('$storagePath:/home/nanoai/storage');
+        break;
+      }
+    }
+
     final allBinds = <String>[...defaultBinds, ...?bindMounts];
 
     // Validar bind mounts contra allowlist
-    final allowedPaths = ['/dev', '/proc', '/sys', '/data/data/'];
+    final allowedPaths = [
+      '/dev',
+      '/proc',
+      '/sys',
+      '/data/data/',
+      '/data/user/',
+      '/sdcard',
+      '/storage',
+      Directory.systemTemp.path,
+    ];
     for (final bind in allBinds) {
       final src = bind.split(':').first;
       var isAllowed = false;

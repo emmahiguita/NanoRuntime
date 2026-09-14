@@ -80,6 +80,23 @@ class ShellExecutor implements IBinExecutor {
     }
     _assetBinDir = _baseDir;
 
+    // Limpieza de archivos temporales huérfanos de ejecuciones previas
+    try {
+      final dir = Directory(_baseDir!);
+      if (dir.existsSync()) {
+        for (final entity in dir.listSync()) {
+          final name = entity.path.split(Platform.pathSeparator).last;
+          if (name.startsWith('worker_out_') ||
+              name.startsWith('worker_err_') ||
+              name.startsWith('worker_rc_')) {
+            try {
+              entity.deleteSync();
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+
     // 2. NanoShell: cargar libnanoshell.so para ejecución real vía BusyBox.
     //    Esto NO requiere assets, channels, ni symlinks.
     try {

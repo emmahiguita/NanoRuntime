@@ -67,7 +67,9 @@ class _WhatsAppOnboardingScreenState
           _automationStatus = status;
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[WhatsAppOnboardingScreen] Error refreshing background status: $e');
+    }
   }
 
   @override

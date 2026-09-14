@@ -28,6 +28,7 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
   late final TextEditingController _message;
   late final TextEditingController _contact;
   late final TextEditingController _textMatch;
+  late final TextEditingController _excludedContact;
   late TimeOfDay _time;
   late Set<int> _weekdays;
   late bool _dynamicReply;
@@ -55,6 +56,9 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
     _packageName = notif?.packageName;
     _contact = TextEditingController(text: notif?.senderMatch ?? '');
     _textMatch = TextEditingController(text: notif?.textMatch ?? '');
+    _excludedContact = TextEditingController(
+      text: notif?.excludedSenderMatch ?? '',
+    );
   }
 
   @override
@@ -62,6 +66,7 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
     _message.dispose();
     _contact.dispose();
     _textMatch.dispose();
+    _excludedContact.dispose();
     super.dispose();
   }
 
@@ -95,6 +100,9 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
         textMatch: _textMatch.text.trim().isEmpty
             ? null
             : _textMatch.text.trim(),
+        excludedSenderMatch: _excludedContact.text.trim().isEmpty
+            ? null
+            : _excludedContact.text.trim(),
       );
     } else {
       // Conectividad/batería: sin productor de eventos todavía. Se conserva
@@ -305,6 +313,12 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
               _EditorField(
                 controller: _textMatch,
                 hint: 'ej: noche, precio, salir (separadas por comas)',
+              ),
+              const SizedBox(height: 12),
+              const _FieldLabel('Excluir Contactos / Palabras (opcional)'),
+              _EditorField(
+                controller: _excludedContact,
+                hint: 'ej: Mamá, Jefe, Grupo (separados por comas)',
               ),
               const SizedBox(height: 16),
             ] else ...[

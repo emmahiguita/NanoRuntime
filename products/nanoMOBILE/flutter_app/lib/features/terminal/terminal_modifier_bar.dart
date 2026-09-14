@@ -36,7 +36,7 @@ class TerminalModifierBar extends StatelessWidget {
   static const Color _keyBgLight = Color(0xFFD3D9E5);
   static const Color _keyFg = Color(0xFF9FB3C8);
   static const Color _keyFgLight = Color(0xFF46536B);
-  static const Color _accent = Color(0xFF38BDF8);
+  static const Color _accent = Color(0xFF10B981);
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +67,91 @@ class TerminalModifierBar extends StatelessWidget {
       );
     }
 
+    final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
+
+    if (isLandscape) {
+      return Container(
+        decoration: BoxDecoration(
+          color: chrome,
+          border: Border(
+            top: BorderSide(color: fg.withValues(alpha: 0.08)),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: [
+              key('Esc', () => onWriteBytes([0x1b])),
+              const SizedBox(width: 4),
+              key(
+                'Ctrl',
+                onToggleCtrl,
+                longLabel: ctrlActive ? 'Ctrl ON' : 'Ctrl',
+                active: ctrlActive,
+              ),
+              const SizedBox(width: 4),
+              key('Tab', () => onWriteBytes([0x09])),
+              divider(),
+              key('←', () => onWriteBytes([0x1b, 0x5b, 0x44])),
+              const SizedBox(width: 4),
+              key('↓', () => onWriteBytes([0x1b, 0x5b, 0x42])),
+              const SizedBox(width: 4),
+              key('↑', () => onWriteBytes([0x1b, 0x5b, 0x41])),
+              const SizedBox(width: 4),
+              key('→', () => onWriteBytes([0x1b, 0x5b, 0x43])),
+              divider(),
+              key('Ctrl+C', () => onWriteBytes([0x03])),
+              const SizedBox(width: 4),
+              key('Ctrl+D', () => onWriteBytes([0x04])),
+              const SizedBox(width: 4),
+              key('Ctrl+Z', () => onWriteBytes([0x1a])),
+              const SizedBox(width: 4),
+              key('Paste', () async {
+                final data = await Clipboard.getData(Clipboard.kTextPlain);
+                final text = data?.text;
+                if (text == null) return;
+                if (bracketedPasteEnabled) onWrite('\x1b[200~');
+                onWriteBytes(utf8.encode(text));
+                if (bracketedPasteEnabled) onWrite('\x1b[201~');
+              }),
+              divider(),
+              key('Home', () => onWriteBytes([0x1b, 0x5b, 0x48])),
+              const SizedBox(width: 4),
+              key('End', () => onWriteBytes([0x1b, 0x5b, 0x46])),
+              const SizedBox(width: 4),
+              key('PgUp', () => onWriteBytes([0x1b, 0x5b, 0x35, 0x7e])),
+              const SizedBox(width: 4),
+              key('PgDn', () => onWriteBytes([0x1b, 0x5b, 0x36, 0x7e])),
+              divider(),
+              key('Del', () => onWriteBytes([0x1b, 0x5b, 0x33, 0x7e])),
+              const SizedBox(width: 4),
+              key('/', () => onWriteBytes([0x2f])),
+              const SizedBox(width: 4),
+              key('-', () => onWriteBytes([0x2d])),
+              const SizedBox(width: 4),
+              key('|', () => onWriteBytes([0x7c])),
+              const SizedBox(width: 4),
+              key('~', () => onWriteBytes([0x7e])),
+              const SizedBox(width: 4),
+              key('\$', () => onWriteBytes([0x24])),
+              const SizedBox(width: 4),
+              key('&', () => onWriteBytes([0x26])),
+              divider(),
+              key('F1', () => onWriteBytes([0x1b, 0x4f, 0x50])),
+              const SizedBox(width: 4),
+              key('F2', () => onWriteBytes([0x1b, 0x4f, 0x51])),
+              const SizedBox(width: 4),
+              key('F3', () => onWriteBytes([0x1b, 0x4f, 0x52])),
+              const SizedBox(width: 4),
+              key('F4', () => onWriteBytes([0x1b, 0x4f, 0x53])),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: chrome,
@@ -74,7 +159,7 @@ class TerminalModifierBar extends StatelessWidget {
           top: BorderSide(color: fg.withValues(alpha: 0.08)),
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -99,6 +184,14 @@ class TerminalModifierBar extends StatelessWidget {
                 key('Ctrl+D', () => onWriteBytes([0x04])),
                 const SizedBox(width: 4),
                 key('Ctrl+Z', () => onWriteBytes([0x1a])),
+                const SizedBox(width: 4),
+                key('Ctrl+L', () => onWriteBytes([0x0c])),
+                const SizedBox(width: 4),
+                key('Ctrl+A', () => onWriteBytes([0x01])),
+                const SizedBox(width: 4),
+                key('Ctrl+E', () => onWriteBytes([0x05])),
+                const SizedBox(width: 4),
+                key('Ctrl+R', () => onWriteBytes([0x12])),
                 divider(),
                 key('Paste', () async {
                   final data = await Clipboard.getData(Clipboard.kTextPlain);
@@ -121,7 +214,7 @@ class TerminalModifierBar extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -148,6 +241,12 @@ class TerminalModifierBar extends StatelessWidget {
                 key('-', () => onWriteBytes([0x2d])),
                 const SizedBox(width: 4),
                 key('|', () => onWriteBytes([0x7c])),
+                const SizedBox(width: 4),
+                key('~', () => onWriteBytes([0x7e])),
+                const SizedBox(width: 4),
+                key('\$', () => onWriteBytes([0x24])),
+                const SizedBox(width: 4),
+                key('&', () => onWriteBytes([0x26])),
               ],
             ),
           ),
@@ -198,7 +297,7 @@ class _AnimatedKeyState extends State<_AnimatedKey> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           curve: Curves.easeOutCubic,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
           decoration: BoxDecoration(
             color: active
                 ? widget.accent.withValues(alpha: 0.16)

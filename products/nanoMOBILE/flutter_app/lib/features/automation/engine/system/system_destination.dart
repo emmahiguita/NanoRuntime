@@ -17,7 +17,18 @@ enum SystemIntentKind { navigation, stateChange }
 enum SystemDestination {
   settings('settings', 'Ajustes del sistema'),
   wifiSettings('wifi_settings', 'Ajustes de Wi-Fi'),
-  bluetoothSettings('bluetooth_settings', 'Ajustes de Bluetooth');
+  bluetoothSettings('bluetooth_settings', 'Ajustes de Bluetooth'),
+  displaySettings('display_settings', 'Ajustes de Pantalla'),
+  soundSettings('sound_settings', 'Ajustes de Sonido'),
+  batterySaverSettings('battery_saver_settings', 'Ajustes de Batería y Ahorro'),
+  applicationSettings('application_settings', 'Ajustes de Aplicaciones'),
+  dateSettings('date_settings', 'Ajustes de Fecha y Hora'),
+  internalStorageSettings('internal_storage_settings', 'Ajustes de Almacenamiento'),
+  nfcSettings('nfc_settings', 'Ajustes de NFC y Conexiones'),
+  networkOperatorSettings('network_operator_settings', 'Ajustes de Red Móvil'),
+  deviceInfoSettings('device_info_settings', 'Información del Teléfono'),
+  camera('camera', 'Cámara del Dispositivo'),
+  dial('dial', 'Teclado Telefónico');
 
   /// Id que viaja por el canal `com.nanoai/system` (allowlist nativa).
   final String wireId;

@@ -269,19 +269,60 @@ class RealFsShell {
     await _pump(process, out);
   }
 
+  Process? _activeProcess;
+
+  /// Termina de inmediato cualquier proceso del host en ejecución para evitar procesos zombies.
+  void killActiveProcess() {
+    try {
+      _activeProcess?.kill(ProcessSignal.sigkill);
+      _activeProcess = null;
+    } catch (_) {}
+  }
+
   /// Vuelca stdout/stderr de [process] línea a línea por [out] y espera el
-  /// exit code. Sin salida y con rc != 0 no se inventa nada: un shell real
-  /// también vuelve en silencio (p. ej. `grep` sin coincidencias).
-  Future<void> _pump(Process process, void Function(String, Ln) out) async {
-    process.stdout
+  /// exit code con timeout protector contra procesos colgados.
+  Future<void> _pump(
+    Process process,
+    void Function(String, Ln) out, {
+    Duration timeout = const Duration(seconds: 45),
+  }) async {
+    _activeProcess = process;
+    final subOut = process.stdout
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((l) => out(l, Ln.stdout));
-    process.stderr
+    final subErr = process.stderr
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen((l) => out(l, Ln.stderr));
-    await process.exitCode;
+
+    try {
+      await process.exitCode.timeout(
+        timeout,
+        onTimeout: () {
+          try {
+            process.kill(ProcessSignal.sigterm);
+            Future.delayed(const Duration(milliseconds: 500), () {
+              try {
+                process.kill(ProcessSignal.sigkill);
+              } catch (_) {}
+            });
+          } catch (_) {}
+          out('sh: proceso interrumpido por timeout (${timeout.inSeconds}s)', Ln.stderr);
+          return -1;
+        },
+      );
+    } catch (_) {
+      try {
+        process.kill(ProcessSignal.sigkill);
+      } catch (_) {}
+    } finally {
+      await subOut.cancel();
+      await subErr.cancel();
+      if (_activeProcess == process) {
+        _activeProcess = null;
+      }
+    }
   }
 
   // ── resolución de paths ──

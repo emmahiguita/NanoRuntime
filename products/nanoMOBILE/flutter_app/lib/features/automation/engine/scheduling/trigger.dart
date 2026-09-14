@@ -41,10 +41,15 @@ class NotificationTrigger extends Trigger {
   /// null = cualquier contenido.
   final String? textMatch;
 
+  /// Remitentes o palabras clave excluidas (ej: "Mamá, Jefe, 12345").
+  /// Si coincide con el remitente o título, la regla NO dispara.
+  final String? excludedSenderMatch;
+
   const NotificationTrigger({
     this.packageName,
     this.senderMatch,
     this.textMatch,
+    this.excludedSenderMatch,
   });
 }
 
@@ -130,7 +135,21 @@ bool evaluateTrigger(Trigger trigger, TriggerEvent event) {
       if (keywords.isEmpty) return true;
       return keywords.any((k) => evText.contains(k));
     }();
-    return pkgOk && senderOk && textOk;
+
+    final excludedMatch = trigger.excludedSenderMatch;
+    final excludedOk = () {
+      if (excludedMatch == null || excludedMatch.trim().isEmpty) return true;
+      final who = '${event.sender ?? ''} ${event.conversationTitle ?? ''}'
+          .toLowerCase();
+      final excludedTokens = excludedMatch
+          .split(RegExp(r'[,|]'))
+          .map((k) => k.trim().toLowerCase())
+          .where((k) => k.isNotEmpty);
+      if (excludedTokens.isEmpty) return true;
+      return !excludedTokens.any((token) => who.contains(token));
+    }();
+
+    return pkgOk && senderOk && textOk && excludedOk;
   }
   if (trigger is ConnectivityTrigger && event is ConnectivityEvent) {
     return !trigger.wifiOnly || event.wifiConnected;
@@ -154,6 +173,7 @@ Map<String, dynamic> triggerToJson(Trigger t) => switch (t) {
     'packageName': t.packageName,
     'senderMatch': t.senderMatch,
     'textMatch': t.textMatch,
+    'excludedSenderMatch': t.excludedSenderMatch,
   },
   ConnectivityTrigger() => {'type': 'connectivity', 'wifiOnly': t.wifiOnly},
   BatteryTrigger() => {'type': 'battery', 'belowPercent': t.belowPercent},
@@ -174,6 +194,7 @@ Trigger triggerFromJson(Map<String, dynamic> m) {
         packageName: m['packageName'] as String?,
         senderMatch: m['senderMatch'] as String?,
         textMatch: m['textMatch'] as String?,
+        excludedSenderMatch: m['excludedSenderMatch'] as String?,
       );
     case 'connectivity':
       return ConnectivityTrigger(wifiOnly: m['wifiOnly'] == true);

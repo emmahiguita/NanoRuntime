@@ -103,7 +103,8 @@ class NotificationAutomationService : NotificationListenerService() {
             val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
             val raw = prefs.getString("flutter.automation.eligible_packages", null)
             if (raw == null) {
-                pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b"
+                pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" ||
+                    pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger"
             } else if (raw == "*" || raw.contains("*")) {
                 true
             } else {
@@ -111,7 +112,8 @@ class NotificationAutomationService : NotificationListenerService() {
                 pkg in allowed
             }
         } catch (e: Exception) {
-            pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b"
+            pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" ||
+                pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger"
         }
     }
 

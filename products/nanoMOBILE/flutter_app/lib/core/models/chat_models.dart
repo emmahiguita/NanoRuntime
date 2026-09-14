@@ -60,6 +60,9 @@ class ChatMessage {
   /// mostrar chips tras recargar la app; el contenido no se persiste).
   final List<String> attachmentNames;
 
+  /// Opciones interactivas de respuesta rápida sugeridas para el usuario.
+  final List<String> suggestions;
+
   const ChatMessage({
     required this.id,
     required this.sender,
@@ -69,6 +72,7 @@ class ChatMessage {
     this.status = MessageStatus.sent,
     this.source = MessageSource.model,
     this.attachmentNames = const [],
+    this.suggestions = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -80,6 +84,7 @@ class ChatMessage {
     'status': status.name,
     'source': source.name,
     'attachmentNames': attachmentNames,
+    'suggestions': suggestions,
   };
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
@@ -96,6 +101,8 @@ class ChatMessage {
     ),
     attachmentNames:
         (json['attachmentNames'] as List?)?.cast<String>() ?? const [],
+    suggestions:
+        (json['suggestions'] as List?)?.cast<String>() ?? const [],
   );
 }
 

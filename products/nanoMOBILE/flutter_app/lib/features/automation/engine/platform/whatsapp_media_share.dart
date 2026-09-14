@@ -32,18 +32,20 @@ class WhatsAppMediaShare {
     }
   }
 
-  /// Abre WhatsApp con el archivo [path], contacto [contact] y caption.
+  /// Abre WhatsApp con el archivo [path], contacto [contact], caption y opcionalmente [packageName].
   /// false = no se lanzó (sin archivo, sin contacto, WhatsApp ausente).
   Future<bool> shareFile({
     required String path,
     required String contact,
     String caption = '',
+    String? packageName,
   }) async {
     try {
       final ok = await _channel.invokeMethod<bool>('shareFile', {
         'path': path,
         'contact': contact,
         'caption': caption,
+        if (packageName != null) 'packageName': packageName,
       });
       return ok == true;
     } on PlatformException {

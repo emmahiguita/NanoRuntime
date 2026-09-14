@@ -1,10 +1,10 @@
-/// AgentLoop ÔÇö orquestador del ciclo del agente m├│vil.
+/// AgentLoop — orquestador del ciclo del agente móvil.
 ///
-/// Cierra el bucle OBSERVE ÔåÆ RESOLVE ÔåÆ ACT ÔåÆ VERIFY ÔåÆ RECORD que las piezas
+/// Cierra el bucle OBSERVE → RESOLVE → ACT → VERIFY → RECORD que las piezas
 /// (`NanoAgentExecutor`, `ActionVerifier`, `NanoSelectorEngine`) ya cubren por
-/// separado. Aqu├¡ solo se ORQUESTA: el loop no ejecuta ni verifica nada
+/// separado. Aquí solo se ORQUESTA: el loop no ejecuta ni verifica nada
 /// directamente (SRP), depende de abstracciones inyectables (DIP), y acepta
-/// nuevos tipos de paso/acci├│n sin modificarse (OCP).
+/// nuevos tipos de paso/acción sin modificarse (OCP).
 library;
 
 import 'action_verifier.dart';
@@ -12,11 +12,11 @@ import 'agent_executor.dart';
 import 'agent_result.dart';
 import '../perception/nano_selector.dart';
 
-/// Acciones que el loop puede orquestar (ISP: la m├¡nima necesaria).
+/// Acciones que el loop puede orquestar (ISP: la mínima necesaria).
 enum AgentAction { tap, setText }
 
-/// Un paso at├│mico del plan: qu├® actuar + qu├® verificar despu├®s.
-/// Value object puro ÔÇö no ejecuta nada (SRP).
+/// Un paso atómico del plan: qué actuar + qué verificar después.
+/// Value object puro — no ejecuta nada (SRP).
 class AgentStep {
   /// Identificador legible para traces y el resumen de fallo.
   final String id;
@@ -24,13 +24,13 @@ class AgentStep {
   /// Selector del nodo objetivo (RESOLVE).
   final NanoSelector selector;
 
-  /// Acci├│n a ejecutar.
+  /// Acción a ejecutar.
   final AgentAction action;
 
-  /// Texto a escribir ÔÇö solo para [AgentAction.setText].
+  /// Texto a escribir — solo para [AgentAction.setText].
   final String? text;
 
-  /// Postcondiciones a verificar tras la acci├│n.
+  /// Postcondiciones a verificar tras la acción.
   final ActionExpectation expectation;
 
   /// Se conserva para compatibilidad de planes serializados previos. El loop
@@ -49,9 +49,9 @@ class AgentStep {
   });
 }
 
-/// Resultado de un paso: ejecuci├│n + verificaci├│n + reintentos (evidencia
-/// completa para RECORD). [verification] es null si la ACT fall├│ y no se
-/// lleg├│ a verificar.
+/// Resultado de un paso: ejecución + verificación + reintentos (evidencia
+/// completa para RECORD). [verification] es null si la ACT falló y no se
+/// llegó a verificar.
 class AgentStepResult {
   final AgentStep step;
   final AgentExecutionResult execution;
@@ -75,10 +75,10 @@ class AgentLoopResult {
   /// Resultados de los pasos ejecutados (hasta el fallo, inclusive).
   final List<AgentStepResult> steps;
 
-  /// Paso que abort├│ el plan (null si [completed]).
+  /// Paso que abortó el plan (null si [completed]).
   final AgentStepResult? failedStep;
 
-  /// Resumen legible en espa├▒ol para UI/traces.
+  /// Resumen legible en español para UI/traces.
   final String summary;
 
   const AgentLoopResult({
@@ -99,7 +99,7 @@ class AgentLoopResult {
 /// );
 /// ```
 ///
-/// El loop no instancia el verifier por s├¡ mismo: el caller decide c├│mo se
+/// El loop no instancia el verifier por sí mismo: el caller decide cómo se
 /// cablea el snapshot (DIP).
 class AgentLoop {
   AgentLoop({required AgentExecutor executor, required AgentVerifier verifier})
@@ -111,7 +111,7 @@ class AgentLoop {
 
   /// Ejecuta el plan paso a paso. Un paso no-verificado aborta el plan con
   /// [AgentLoopResult.failedStep]. No lanza: todo fallo es un resultado
-  /// tipado, nunca una excepci├│n.
+  /// tipado, nunca una excepción.
   Future<AgentLoopResult> run(List<AgentStep> steps) async {
     final results = <AgentStepResult>[];
 
@@ -194,7 +194,7 @@ class AgentLoop {
 
   String _failureSummary(AgentStepResult r) {
     if (!r.execution.ok) {
-      return 'Paso "${r.step.id}" fall├│ (${r.execution.errorCode}) tras '
+      return 'Paso "${r.step.id}" falló (${r.execution.errorCode}) tras '
           '${r.attempts} intento(s): ${r.execution.reason}';
     }
     return 'Paso "${r.step.id}" no verificado tras ${r.attempts} intento(s): '

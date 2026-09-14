@@ -85,8 +85,10 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // Sin lógica reactiva en v1: el agente consulta dumpScreen() on demand.
-        // El evento solo mantiene el service vivo y despierta el árbol.
+        if (event == null) return
+        val pkg = event.packageName?.toString() ?: ""
+        val cls = event.className?.toString() ?: ""
+        AgentAccessibilityBridge.notifyEvent(event.eventType, pkg, cls, event.eventTime)
     }
 
     override fun onInterrupt() = Unit
@@ -571,13 +573,13 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Captura pantalla (A9, OCR dirigido). API 30+ (AccessibilityService
-     * takeScreenshot). callback(null) si no soportado o falla.
+     * Captura pantalla detallada (A9/B2). Reporta el bitmap y el código de error
+     * exacto (p. ej. ERROR_TAKE_SCREENSHOT_SECURE_WINDOW ante ventanas protegidas).
      */
-    fun takeScreenshot(callback: (Bitmap?) -> Unit) {
+    fun takeScreenshotDetailed(callback: (Bitmap?, Int) -> Unit) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             Log.w(TAG, "takeScreenshot: requiere API 30+")
-            callback(null)
+            callback(null, -1)
             return
         }
         takeScreenshot(
@@ -595,15 +597,23 @@ class AgentAccessibilityService : AccessibilityService() {
                     } finally {
                         screenshot.hardwareBuffer.close()
                     }
-                    callback(bitmap)
+                    callback(bitmap, 0)
                 }
 
                 override fun onFailure(errorCode: Int) {
                     Log.w(TAG, "takeScreenshot onFailure: $errorCode")
-                    callback(null)
+                    callback(null, errorCode)
                 }
             },
         )
+    }
+
+    /**
+     * Captura pantalla (A9, OCR dirigido). API 30+ (AccessibilityService
+     * takeScreenshot). callback(null) si no soportado o falla.
+     */
+    fun takeScreenshot(callback: (Bitmap?) -> Unit) {
+        takeScreenshotDetailed { bitmap, _ -> callback(bitmap) }
     }
 
     /** estado del servicio para el handshake. NO toca el árbol (el binder
@@ -677,6 +687,23 @@ class AgentAccessibilityService : AccessibilityService() {
 }
 
 /**
+ * Snapshot inmutable del evento de ventana/UI registrado.
+ */
+data class WindowEventSnapshot(
+    val eventType: Int,
+    val packageName: String,
+    val className: String,
+    val timestamp: Long,
+)
+
+/**
+ * Listener reactivo de eventos de accesibilidad para evitar esperas y polling ciego.
+ */
+fun interface AccessibilityEventListener {
+    fun onEvent(event: WindowEventSnapshot)
+}
+
+/**
  * Bridge estático service ↔ canal Flutter.
  *
  * El AccessibilityService corre en el mismo proceso que MainActivity, así que
@@ -688,11 +715,39 @@ object AgentAccessibilityBridge {
     var service: AgentAccessibilityService? = null
         private set
 
+    @Volatile
+    var lastEvent: WindowEventSnapshot? = null
+        private set
+
+    private val listeners = java.util.concurrent.CopyOnWriteArrayList<AccessibilityEventListener>()
+
+    fun addListener(listener: AccessibilityEventListener) {
+        listeners.add(listener)
+    }
+
+    fun removeListener(listener: AccessibilityEventListener) {
+        listeners.remove(listener)
+    }
+
     fun onConnected(s: AgentAccessibilityService) {
         service = s
     }
 
     fun onDisconnected() {
         service = null
+        lastEvent = null
+        listeners.clear()
+    }
+
+    fun notifyEvent(eventType: Int, packageName: String, className: String, timestamp: Long) {
+        val snapshot = WindowEventSnapshot(eventType, packageName, className, timestamp)
+        lastEvent = snapshot
+        for (listener in listeners) {
+            try {
+                listener.onEvent(snapshot)
+            } catch (e: Exception) {
+                Log.w("nanoagent", "Error notificando listener de a11y: ${e.message}")
+            }
+        }
     }
 }

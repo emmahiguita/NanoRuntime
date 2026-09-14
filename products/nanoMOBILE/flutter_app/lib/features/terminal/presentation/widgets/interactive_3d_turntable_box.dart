@@ -46,16 +46,22 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
     with SingleTickerProviderStateMixin {
   late final AnimationController _animController;
 
-  // Ángulos en radianes
-  double _yaw = 0.0;
-  double _pitch = -0.06; // Ligera inclinación hacia adelante (~-3.5°)
-  double _roll = -0.0108; // Coherente con pitch * 0.18 desde el primer frame.
+  // Ángulos en radianes: orientación showcase para vitrina 3D
+  static const double _showcaseYaw = 0.20; // ~11.5°: frontal dominante clara + lomo visible con volumen 3D
+  static const double _showcasePitch = -0.06; // Inclinación suave hacia adelante (~-3.5°)
+  static const double _showcaseRoll = -0.0108; // Coherente con pitch * 0.18
+
+  double _yaw = _showcaseYaw;
+  double _pitch = _showcasePitch;
+  double _roll = _showcaseRoll;
 
   // Físicas de inercia y momento angular
   double _angularVelocity = 0.0;
   bool _isDragging = false;
   Duration? _lastTick;
   double? _targetYaw;
+  double _swayPhase = 0.0;
+  bool _userControlled = false;
   static const _perspective = 0.00125;
   static const double _borderWidth = 1.6;
 
@@ -95,7 +101,7 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
       final distance = target - _yaw;
       setState(() {
         _yaw += distance * (1 - math.exp(-14 * dt));
-        if (distance.abs() < 0.002) {
+        if (distance.abs() < 0.003) {
           _yaw = target;
           _targetYaw = null;
         }
@@ -111,10 +117,14 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
         _angularVelocity *= math.pow(0.94, dt * 60);
       });
       _notifyRotation();
-    } else if (widget.autoRotate) {
-      // Rotación continua muy suave tipo vitrina de exhibición
+    } else if (!_userControlled && widget.autoRotate) {
+      // Balanceo sutil showcase: la caja flota y respira en 3D
+      // pero mantiene la portada publicitaria SIEMPRE nítida, legible y de frente.
+      _swayPhase += 1.3 * dt;
       setState(() {
-        _yaw = (_yaw + 0.36 * dt) % (2 * math.pi);
+        _yaw = _showcaseYaw + 0.12 * math.sin(_swayPhase);
+        _pitch = _showcasePitch + 0.02 * math.cos(_swayPhase * 0.85);
+        _roll = _pitch * 0.18;
       });
       _notifyRotation();
     }
@@ -127,6 +137,7 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
 
   void _onPanStart(DragStartDetails details) {
     _isDragging = true;
+    _userControlled = true;
     _angularVelocity = 0.0;
     _targetYaw = null;
   }
@@ -151,8 +162,9 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
 
   void flipTo({required bool showFront}) {
     setState(() {
-      _yaw = showFront ? 0.0 : math.pi;
-      _targetYaw = null;
+      _targetYaw = showFront ? _showcaseYaw : math.pi;
+      _userControlled = !showFront; // Si vuelve al frente, reactiva el suave showcase
+      _swayPhase = 0.0;
       _angularVelocity = 0.0;
     });
     _notifyRotation();
@@ -605,247 +617,60 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
     Alignment holoAlign,
     double light,
   ) {
-    final double shadowIntensity = ((1.0 - light) * 0.55).clamp(0.0, 0.55);
+    final double shadowIntensity = ((1.0 - light) * 0.35).clamp(0.0, 0.35);
     final Color borderColor = _casingBorderColor(light);
+    final bool hasImage = widget.card.imageAsset != null;
 
     return Container(
       width: widget.width,
       height: widget.height,
       decoration: BoxDecoration(
         color: const Color(0xFF090D18),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: borderColor, width: _borderWidth),
+        boxShadow: [
+          BoxShadow(
+            color: widget.card.accent.withValues(alpha: 0.24),
+            blurRadius: 20,
+            spreadRadius: 1,
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Arte de fondo con gradientes oscuros obsidian
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF162032), Color(0xFF080C14)],
-                ),
+          // 1. Arte Publicitario Principal o Gráficos de Respaldo
+          if (hasImage) ...[
+            // Publicidad de la campaña: 100% nítida, brillante y legible
+            Positioned.fill(
+              child: Image.asset(
+                widget.card.imageAsset!,
+                fit: BoxFit.cover,
+                filterQuality: FilterQuality.high,
+                errorBuilder: (context, error, stackTrace) =>
+                    _buildProceduralArtwork(colors, isDark),
               ),
             ),
-          ),
-
-          // Halo central con el color de acento
-          Positioned(
-            top: 45,
-            left: 16,
-            right: 16,
-            bottom: 40,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: widget.card.accent.withValues(alpha: 0.20),
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.card.accent.withValues(alpha: 0.38),
-                    blurRadius: 46,
-                    spreadRadius: 8,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Marco interior con contenido gráfico escalable
-          Positioned.fill(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: SizedBox(
-                  width: 184.0,
-                  height: 275.0,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // BANNER SUPERIOR ESTILO GAMECUBE: "NANO RUNTIME"
-                      Container(
-                        height: 24,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.85),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.22),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.grid_view_rounded,
-                              size: 12,
-                              color: widget.card.accent,
-                            ),
-                            const SizedBox(width: 5),
-                            Expanded(
-                              child: Text(
-                                'NANO RUNTIME',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  color: Colors.white.withValues(alpha: 0.95),
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1.2,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: widget.card.accent.withValues(alpha: 0.30),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                'ARM64',
-                                style: TextStyle(
-                                  color: widget.card.accent,
-                                  fontSize: 7.5,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const Spacer(flex: 2),
-
-                      // ILUSTRACIÓN CENTRAL / ICONO PRINCIPAL DEL MÓDULO
-                      Center(
-                        child: Container(
-                          width: 88,
-                          height: 88,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: RadialGradient(
-                              colors: [
-                                widget.card.accent.withValues(alpha: 0.32),
-                                widget.card.accent.withValues(alpha: 0.05),
-                              ],
-                            ),
-                            border: Border.all(
-                              color: widget.card.accent.withValues(alpha: 0.75),
-                              width: 2.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: widget.card.accent.withValues(alpha: 0.45),
-                                blurRadius: 30,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            widget.card.icon,
-                            size: 48,
-                            color: widget.card.accent,
-                          ),
-                        ),
-                      ),
-
-                      const Spacer(flex: 3),
-
-                      // TÍTULO DEL MÓDULO ESTILO PORTADA
-                      Text(
-                        widget.card.eyebrow,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          color: widget.card.accent,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.8,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.card.title.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          color: Colors.white,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black,
-                              blurRadius: 10,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      // PIE DE PORTADA CON SELLO DE CALIDAD NANO
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          // Badge tipo ESRB "DEV"
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                            child: const Text(
-                              'DEV',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ),
-                          // Sello Nano
-                          Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: widget.card.accent,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'NANO AI',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.0,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
+            // Bisel protector interior de acrílico/policarbonato físico
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(2.5),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      width: 1.0,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+          ] else
+            Positioned.fill(
+              child: _buildProceduralArtwork(colors, isDark),
+            ),
 
-          // BRILLO ESPECULAR PLÁSTICO CELLOPHANE / SHRINKWRAP GLOSS REALISTA
+          // 2. Reflejo especular plástico sutil (cellophane / shrinkwrap gloss)
           Positioned.fill(
             child: IgnorePointer(
               child: Container(
@@ -857,10 +682,10 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
                     colors: [
                       Colors.transparent,
                       Colors.transparent,
-                      Colors.white.withValues(alpha: 0.14),
-                      Colors.white.withValues(alpha: 0.05),
+                      Colors.white.withValues(alpha: hasImage ? 0.08 : 0.14),
+                      Colors.white.withValues(alpha: hasImage ? 0.03 : 0.05),
                       Colors.transparent,
-                      Colors.white.withValues(alpha: 0.08),
+                      Colors.white.withValues(alpha: hasImage ? 0.05 : 0.08),
                       Colors.transparent,
                     ],
                   ),
@@ -869,7 +694,7 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
             ),
           ),
 
-          // REFLEJO HOLOGRÁFICO ESPECULAR (IRIDESCENT SHADER)
+          // 3. Destello holográfico angular suave
           Positioned.fill(
             child: IgnorePointer(
               child: Container(
@@ -879,9 +704,9 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
                     end: -holoAlign,
                     colors: [
                       Colors.transparent,
-                      Colors.cyanAccent.withValues(alpha: 0.16),
-                      Colors.purpleAccent.withValues(alpha: 0.18),
-                      Colors.amberAccent.withValues(alpha: 0.16),
+                      widget.card.accent.withValues(alpha: hasImage ? 0.08 : 0.16),
+                      Colors.cyanAccent.withValues(alpha: hasImage ? 0.06 : 0.18),
+                      Colors.amberAccent.withValues(alpha: hasImage ? 0.04 : 0.16),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.35, 0.50, 0.65, 1.0],
@@ -891,16 +716,252 @@ class _Interactive3DTurntableBoxState extends State<Interactive3DTurntableBox>
             ),
           ),
 
-          // CAPA DE ILUMINACIÓN FÍSICA DIRECCIONAL 3D (SOMBRA ORGÁNICA)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                color: Colors.black.withValues(alpha: shadowIntensity),
+          // 4. Capa de iluminación direccional física (da volumen 3D sin tapar la publicidad)
+          if (shadowIntensity > 0.02)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: shadowIntensity),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Gráficos de portada generativos de respaldo cuando no existe imagen publicitaria.
+  Widget _buildProceduralArtwork(NanoColors colors, bool isDark) {
+    return Stack(
+      children: [
+        // Arte de fondo con gradientes oscuros obsidian
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF162032), Color(0xFF080C14)],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+
+        // Halo central con el color de acento
+        Positioned(
+          top: 45,
+          left: 16,
+          right: 16,
+          bottom: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.card.accent.withValues(alpha: 0.20),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.card.accent.withValues(alpha: 0.38),
+                  blurRadius: 46,
+                  spreadRadius: 8,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Marco interior con contenido gráfico escalable
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 7, 8, 8),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SizedBox(
+                width: 184.0,
+                height: 275.0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // BANNER SUPERIOR ESTILO GAMECUBE: "NANO RUNTIME"
+                    Container(
+                      height: 24,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.grid_view_rounded,
+                            size: 12,
+                            color: widget.card.accent,
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              'NANO RUNTIME',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: Colors.white.withValues(alpha: 0.95),
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: widget.card.accent.withValues(alpha: 0.30),
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                            child: Text(
+                              'ARM64',
+                              style: TextStyle(
+                                color: widget.card.accent,
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const Spacer(flex: 2),
+
+                    // ILUSTRACIÓN CENTRAL / ICONO PRINCIPAL DEL MÓDULO
+                    Center(
+                      child: Container(
+                        width: 88,
+                        height: 88,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [
+                              widget.card.accent.withValues(alpha: 0.32),
+                              widget.card.accent.withValues(alpha: 0.05),
+                            ],
+                          ),
+                          border: Border.all(
+                            color: widget.card.accent.withValues(alpha: 0.75),
+                            width: 2.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: widget.card.accent.withValues(alpha: 0.45),
+                              blurRadius: 30,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          widget.card.icon,
+                          size: 48,
+                          color: widget.card.accent,
+                        ),
+                      ),
+                    ),
+
+                    const Spacer(flex: 3),
+
+                    // TÍTULO DEL MÓDULO ESTILO PORTADA
+                    Text(
+                      widget.card.eyebrow,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: widget.card.accent,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 1.8,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.card.title.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black,
+                            blurRadius: 10,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // PIE DE PORTADA CON SELLO DE CALIDAD NANO
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Badge tipo ESRB "DEV"
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: const Text(
+                            'DEV',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                        ),
+                        // Sello Nano
+                        Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: widget.card.accent,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'NANO AI',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontSize: 8,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

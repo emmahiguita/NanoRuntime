@@ -46,7 +46,11 @@ app.*.map.json
 
 # Debug artifacts (screenshots + logs)
 screen*.png
+*.png
 *_logcat*.txt
 *vnc_log*.txt
 *xvnc*.txt
 logcat*.txt
+packages_*.txt
+patch.py
+temp_debs/

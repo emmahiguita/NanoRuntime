@@ -23,9 +23,8 @@
 #include <sys/wait.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <string.h>
-#include <stdio.h>
+#include <fcntl.h>  // O_WRONLY, O_CREAT, O_TRUNC
+#include <string.h> // strdup, strcmp, strlen, strrchr, etc.
 #include <errno.h>
 #include <limits.h>
 #include <poll.h>
@@ -616,8 +615,12 @@ static int _spawn_internal(
         // BusyBox compilado como librería (libbusybox.so de Termux) exporta
         // lbb_main(char**) SIN argc: firma distinta de main_fn.
         typedef int (*lbb_main_fn)(char**);
-        static int _use_stack_entry = 0;
-        static void* _stack_entry = NULL;
+        // T-002 FIX: NO static — las variables deben reiniciarse en cada llamada
+        // a _spawn_internal. Si fueran static, el estado del primer spawn C++
+        // (e_entry) contaminaria las llamadas posteriores con binarios que
+        // sí exportan "main", haciendo que salten al entry incorrecto.
+        int _use_stack_entry = 0;
+        void* _stack_entry = NULL;
         main_fn entry = NULL;
         lbb_main_fn lbb_entry = NULL;
 
@@ -725,6 +728,12 @@ static int _spawn_internal(
         return -1;
     }
 
+    // M-001 FIX: límite máximo de buffer para prevenir OOM del proceso worker.
+    // Un proceso sin límite (find /, cat archivo_grande) puede agotar la RAM.
+    // 50MB por stream es suficiente para cualquier salida de herramientas CLI.
+    static const size_t kMaxOutputBytes = 50 * 1024 * 1024; // 50 MB
+    static const char kTruncMsg[] = "\n[SALIDA TRUNCADA a 50MB]\n";
+
     int out_eof = 0, err_eof = 0;
     struct pollfd fds[2];
     fds[0].fd = out_pipe[0]; fds[0].events = POLLIN;
@@ -743,37 +752,76 @@ static int _spawn_internal(
 
         // stdout
         if (fds[0].revents & (POLLIN | POLLHUP)) {
-            ssize_t n = read(out_pipe[0],
-                stdout_buf + out_len, out_cap - out_len - 1);
-            if (n > 0) {
-                out_len += n;
-                if (out_len >= out_cap - 1) {
-                    out_cap *= 2;
-                    char* nb = realloc(stdout_buf, out_cap);
-                    if (!nb) break;
-                    stdout_buf = nb;
+            if (out_len >= kMaxOutputBytes) {
+                // Truncar: sellar el fd, añadir marcador, dejar de leer.
+                if (!out_eof) {
+                    size_t tlen = sizeof(kTruncMsg) - 1;
+                    if (out_len + tlen < out_cap) {
+                        memcpy(stdout_buf + out_len, kTruncMsg, tlen);
+                        out_len += tlen;
+                    }
                 }
-            } else {
                 out_eof = 1;
-                fds[0].fd = -1; // stop polling this fd
+                fds[0].fd = -1;
+            } else {
+                ssize_t n = read(out_pipe[0],
+                    stdout_buf + out_len, out_cap - out_len - 1);
+                if (n > 0) {
+                    out_len += n;
+                    if (out_len >= out_cap - 1) {
+                        if (out_cap >= kMaxOutputBytes) {
+                            out_eof = 1;
+                            fds[0].fd = -1;
+                        } else {
+                            size_t new_cap = out_cap * 2;
+                            if (new_cap > kMaxOutputBytes + 256) new_cap = kMaxOutputBytes + 256;
+                            char* nb = realloc(stdout_buf, new_cap);
+                            if (!nb) break;
+                            stdout_buf = nb;
+                            out_cap = new_cap;
+                        }
+                    }
+                } else {
+                    out_eof = 1;
+                    fds[0].fd = -1; // stop polling this fd
+                }
             }
         }
 
         // stderr
         if (fds[1].revents & (POLLIN | POLLHUP)) {
-            ssize_t n = read(err_pipe[0],
-                stderr_buf + err_len, err_cap - err_len - 1);
-            if (n > 0) {
-                err_len += n;
-                if (err_len >= err_cap - 1) {
-                    err_cap *= 2;
-                    char* nb = realloc(stderr_buf, err_cap);
-                    if (!nb) break;
-                    stderr_buf = nb;
+            if (err_len >= kMaxOutputBytes) {
+                if (!err_eof) {
+                    size_t tlen = sizeof(kTruncMsg) - 1;
+                    if (err_len + tlen < err_cap) {
+                        memcpy(stderr_buf + err_len, kTruncMsg, tlen);
+                        err_len += tlen;
+                    }
                 }
-            } else {
                 err_eof = 1;
                 fds[1].fd = -1;
+            } else {
+                ssize_t n = read(err_pipe[0],
+                    stderr_buf + err_len, err_cap - err_len - 1);
+                if (n > 0) {
+                    err_len += n;
+                    if (err_len >= err_cap - 1) {
+                        if (err_cap >= kMaxOutputBytes) {
+                            err_eof = 1;
+                            fds[1].fd = -1;
+                        } else {
+                            size_t new_cap = err_cap * 2;
+                            if (new_cap > kMaxOutputBytes + 256) new_cap = kMaxOutputBytes + 256;
+                            char* nb = realloc(stderr_buf, new_cap);
+                            if (!nb) break;
+                            stderr_buf = nb;
+                            err_cap = new_cap;
+                        }
+                    }
+                } else {
+                    err_eof = 1;
+                    fds[1].fd = -1;
+                }
             }
         }
     }
