@@ -210,7 +210,7 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
                                   color: Colors.transparent,
                                   child: TerminalHubSmallCard(
                                     card: card,
-                                    compact: compactLandscape || width < 380,
+                                    compact: compactLandscape,
                                   ),
                                 ),
                               ),
