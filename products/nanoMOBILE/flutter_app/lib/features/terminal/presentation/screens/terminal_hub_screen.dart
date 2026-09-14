@@ -9,7 +9,6 @@ import '../../domain/terminal_hub_card.dart';
 import '../widgets/perspective_carousel_item.dart';
 import '../widgets/perspective_hero_flight.dart';
 import '../widgets/terminal_coverflow_card.dart';
-import 'package:nanoai/features/home/buho_wallpaper.dart';
 
 /// Centro único de acceso a las herramientas de sistema.
 ///
@@ -105,13 +104,7 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
 
     final Widget shell = NanoScreenShell(
       title: 'Terminal',
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const Positioned.fill(
-            child: BuhoWallpaper(scrimOpacity: 0.52),
-          ),
-          LayoutBuilder(
+      body: LayoutBuilder(
             builder: (context, constraints) {
           final width = constraints.maxWidth;
           final isDeviceLandscape =
@@ -122,7 +115,7 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
               constraints.maxHeight < 520;
 
           final double carouselHeight = compactLandscape
-              ? (constraints.maxHeight - 110).clamp(175.0, 215.0)
+              ? (constraints.maxHeight - 127).clamp(140.0, 180.0)
               : (width < 600 ? 330.0 : 390.0);
 
           return CustomScrollView(
@@ -276,9 +269,7 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
           );
         },
       ),
-    ],
-  ),
-);
+    );
 
     return Stack(
       fit: StackFit.expand,

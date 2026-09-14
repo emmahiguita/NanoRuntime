@@ -123,63 +123,146 @@ class TerminalHubSmallCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (compact) return _buildLandscape();
+    return _buildPortrait();
+  }
+
+  /// Layout portrait estándar — AspectRatio vertical con imagen + título abajo.
+  Widget _buildPortrait() {
     return AspectRatio(
       aspectRatio: 0.66,
       child: Column(
         children: [
-          Expanded(
-            child: TerminalCover(card: card),
-          ),
+          Expanded(child: TerminalCover(card: card)),
           const SizedBox(height: 10),
           Opacity(
             opacity: titleOpacity.clamp(0.0, 1.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  height: compact ? 18 : 22,
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        card.title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
-                          fontSize: compact ? 14 : 16,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
+            child: _TitleBlock(card: card, compact: false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Layout landscape compacto — Row: imagen cuadrada | info a la derecha.
+  Widget _buildLandscape() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 1.0,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: TerminalCover(card: card),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Opacity(
+              opacity: titleOpacity.clamp(0.0, 1.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    card.eyebrow,
+                    style: TextStyle(
+                      color: card.accent,
+                      fontFamily: 'Inter',
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.0,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(height: 2),
-                SizedBox(
-                  height: compact ? 14 : 16,
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        card.eyebrow,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: card.accent,
-                          fontFamily: 'Inter',
-                          fontSize: compact ? 10 : 11.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
+                  const SizedBox(height: 4),
+                  Text(
+                    card.title,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 17,
+                      letterSpacing: -0.3,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    card.description,
+                    style: const TextStyle(
+                      color: Color(0xFF9CA3AF),
+                      fontFamily: 'Inter',
+                      fontSize: 11.5,
+                      height: 1.35,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TitleBlock extends StatelessWidget {
+  const _TitleBlock({required this.card, required this.compact});
+  final TerminalHubCard card;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: compact ? 18 : 22,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                card.title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w800,
+                  fontSize: compact ? 14 : 16,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 2),
+        SizedBox(
+          height: compact ? 14 : 16,
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                card.eyebrow,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: card.accent,
+                  fontFamily: 'Inter',
+                  fontSize: compact ? 10 : 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
