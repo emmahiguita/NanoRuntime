@@ -152,7 +152,10 @@ class DeviceMetricsProvider(private val context: Context) {
         return identity
     }
 
+    private var sysfsThermalBlocked = false
+
     private fun readCpuTemp(): Double? {
+        if (sysfsThermalBlocked) return null
         val paths = listOf(
             "/sys/class/thermal/thermal_zone0/temp",
             "/sys/class/thermal/thermal_zone1/temp",
@@ -160,13 +163,17 @@ class DeviceMetricsProvider(private val context: Context) {
         )
         for (path in paths) {
             try {
-                val raw = File(path).readText().trim().toDoubleOrNull()
-                if (raw != null) {
-                    return if (raw > 200) raw / 1000.0 else raw
+                val file = File(path)
+                if (file.exists() && file.canRead()) {
+                    val raw = file.readText().trim().toDoubleOrNull()
+                    if (raw != null) {
+                        return if (raw > 200) raw / 1000.0 else raw
+                    }
                 }
             } catch (_: Exception) {
             }
         }
+        sysfsThermalBlocked = true
         return null
     }
 }

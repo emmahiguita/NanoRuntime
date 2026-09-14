@@ -141,8 +141,11 @@ class DeviceInfo {
     return double.tryParse(u.split(RegExp(r'\s')).first);
   }
 
+  static bool _sysfsThermalBlocked = false;
+
   /// Read CPU temperature from thermal zones.
   static double? readCpuTemp() {
+    if (_sysfsThermalBlocked) return null;
     const paths = [
       '/sys/class/thermal/thermal_zone0/temp',
       '/sys/class/thermal/thermal_zone1/temp',
@@ -156,6 +159,7 @@ class DeviceInfo {
       if (v == null) continue;
       return v > 200 ? v / 1000.0 : v;
     }
+    _sysfsThermalBlocked = true;
     return null;
   }
 

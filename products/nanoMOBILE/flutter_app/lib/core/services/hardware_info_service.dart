@@ -36,8 +36,11 @@ class HardwareInfoService {
     return await compute(_readCpuTempSync, null);
   }
 
+  static bool _sysfsThermalBlocked = false;
+
   /// Implementación síncrona interna (ejecutada en isolate).
   static double? _readCpuTempSync(void _) {
+    if (_sysfsThermalBlocked) return null;
     const paths = [
       '/sys/class/thermal/thermal_zone0/temp',
       '/sys/class/thermal/thermal_zone1/temp',
@@ -46,13 +49,17 @@ class HardwareInfoService {
     ];
     for (final p in paths) {
       try {
-        final raw = File(p).readAsStringSync().trim();
-        final v = double.tryParse(raw);
-        if (v == null) continue;
-        // > 200 probablemente es millidegrees (ej: 38500 = 38.5°C)
-        return v > 200 ? v / 1000.0 : v;
+        final f = File(p);
+        if (f.existsSync()) {
+          final raw = f.readAsStringSync().trim();
+          final v = double.tryParse(raw);
+          if (v != null) {
+            return v > 200 ? v / 1000.0 : v;
+          }
+        }
       } catch (_) {}
     }
+    _sysfsThermalBlocked = true;
     return null;
   }
 
