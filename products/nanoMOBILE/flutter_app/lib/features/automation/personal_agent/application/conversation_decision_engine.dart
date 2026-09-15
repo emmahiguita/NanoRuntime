@@ -571,7 +571,9 @@ final class ConversationDecisionEngine {
   static String _normalizedEcho(String s) {
     var t = _fold(s)
         .replaceAll('?', ' ')
+        .replaceAll('¿', ' ')
         .replaceAll('!', ' ')
+        .replaceAll('¡', ' ')
         .replaceAll('.', ' ')
         .replaceAll(',', ' ');
     return t.trim().replaceAll(RegExp(r'\s+'), ' ');

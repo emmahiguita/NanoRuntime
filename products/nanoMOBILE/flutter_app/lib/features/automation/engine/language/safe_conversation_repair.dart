@@ -141,17 +141,23 @@ final class SafeConversationRepair {
     cleaned = cleaned.replaceAll(RegExp(r'[,.\s]+$'), '').trim();
 
     final lower = cleaned.toLowerCase();
+    final u = userText?.trim().toLowerCase() ?? '';
     if (lower == 'hola' || lower == '¡hola!' || lower == 'hola!') {
-      return _pick(['¡Hola!', 'Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?'], userText);
+      final options = (u == 'hola' || u == '¡hola!' || u == 'hola!')
+          ? const ['Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?']
+          : const ['¡Hola!', 'Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?'];
+      return _pick(options, userText);
     }
 
     if (cleaned.isNotEmpty && cleaned.length >= 2) {
       return cleaned;
     }
 
-    final u = userText?.trim().toLowerCase() ?? '';
     if (u.contains('hola') || u.contains('buenas') || u.contains('buenos')) {
-      return _pick(['¡Hola!', 'Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?'], userText);
+      final options = (u == 'hola' || u == '¡hola!' || u == 'hola!')
+          ? const ['Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?']
+          : const ['¡Hola!', 'Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?'];
+      return _pick(options, userText);
     }
 
     return null;

@@ -313,6 +313,7 @@ ConversationAgentRouting routeConversationAgent({
       return ConversationAgentRouting(
         role: ConversationAgentRole.personal,
         reasons: reasons,
+        commercialIntent: commercialIntent,
       );
     }
   }
