@@ -1,0 +1,96 @@
+/* ==========================================================================
+   NANO AI — DESIGN TOKENS: ULTRA-CLEAN PROFESSIONAL (CHATGPT / DEEPSEEK STYLE)
+   ========================================================================== */
+
+:root {
+  /* Paleta Base Limpia (Minimal Slate / Ivory Studio) */
+  --bg-primary: #F9FAFB;
+  --bg-secondary: #F8FAFC;
+  --bg-surface: #FFFFFF;
+  --bg-hover: #F1F5F9;
+  --bg-active: #E2E8F0;
+  --bg-composer: #FFFFFF;
+
+  /* Tipografía y Textos de Alto Contraste Profesional */
+  --text-primary: #0F172A;
+  --text-secondary: #475467;
+  --text-tertiary: #94A3B8;
+  --text-muted: #64748B;
+
+  /* Acentos Funcionales (DeepSeek / ChatGPT) */
+  --accent-primary: #2563EB;
+  --accent-primary-hover: #1D4ED8;
+  --accent-primary-soft: #EFF6FF;
+  
+  --accent-thinking: #4F46E5;
+  --accent-thinking-soft: #EEF2FF;
+  --accent-thinking-border: #C7D2FE;
+  
+  --accent-status: #10B981;
+  --accent-status-soft: #ECFDF5;
+  --accent-warning: #F59E0B;
+  --accent-error: #EF4444;
+
+  /* Bordes Suaves y Precisos */
+  --border-subtle: #F1F5F9;
+  --border-normal: #E2E8F0;
+  --border-focus: #3B82F6;
+  --border-active: #94A3B8;
+
+  /* Sombras Modernas y Limpias */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+  --shadow-composer: 0 4px 24px rgba(15, 23, 42, 0.08);
+
+  /* Radios de Esquinas */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Tipografía */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Transiciones */
+  --transition-fast: 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-normal: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --transition-sidebar: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Modo Oscuro Minimalista Profesional */
+[data-theme="dark"] {
+  --bg-primary: #0D1117;
+  --bg-secondary: #161B22;
+  --bg-surface: #21262D;
+  --bg-hover: #30363D;
+  --bg-active: #38404A;
+  --bg-composer: #161B22;
+
+  --text-primary: #F0F6FC;
+  --text-secondary: #C9D1D9;
+  --text-tertiary: #8B949E;
+  --text-muted: #8B949E;
+
+  --accent-primary: #388BFD;
+  --accent-primary-hover: #58A6FF;
+  --accent-primary-soft: rgba(56, 139, 253, 0.15);
+
+  --accent-thinking: #818CF8;
+  --accent-thinking-soft: rgba(99, 102, 241, 0.15);
+  --accent-thinking-border: rgba(99, 102, 241, 0.4);
+
+  --border-subtle: #21262D;
+  --border-normal: #30363D;
+  --border-focus: #58A6FF;
+  --border-active: #484F58;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
+  --shadow-composer: 0 8px 32px rgba(0, 0, 0, 0.6);
+}

@@ -16,6 +16,7 @@ import '../../features/automation/presentation/screens/automation_screen.dart';
 import '../../features/automation/presentation/screens/automation_messages_screen.dart';
 import '../../features/automation/presentation/screens/whatsapp_onboarding_screen.dart';
 import '../../features/automation/presentation/screens/mcp_skills_hub_screen.dart';
+import '../../features/browser/presentation/screens/browser_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
@@ -106,6 +107,14 @@ class AppRouter {
             ],
           ),
         ],
+      ),
+      // /browser → Navegador Web Real integrado de Nano AI
+      GoRoute(
+        path: '/browser',
+        pageBuilder: (context, state) {
+          final url = state.uri.queryParameters['url'];
+          return _glassMorph(BrowserScreen(initialUrl: url));
+        },
       ),
       // /desktop → pantalla de lanzamiento (instala + arranca Xvnc + espera TCP)
       GoRoute(

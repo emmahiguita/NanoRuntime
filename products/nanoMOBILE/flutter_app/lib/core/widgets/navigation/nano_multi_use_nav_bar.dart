@@ -115,7 +115,11 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
         nextInit != oldInit &&
         nextInit != _controller.text) {
       _controller.text = nextInit;
+      _controller.selection = TextSelection.collapsed(offset: nextInit.length);
       _hasText = nextInit.trim().isNotEmpty;
+      if (_hasText) {
+        _focusNode.requestFocus();
+      }
     } else if (widget.selected != oldWidget.selected &&
         (widget.inputConfig?.initialText == null ||
             widget.inputConfig!.initialText!.isEmpty)) {
@@ -606,12 +610,12 @@ class _SearchRow extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 2),
                     child: IconButton(
                       icon: Icon(
-                        Icons.attach_file_rounded,
-                        size: compact ? 18 : 20,
+                        Icons.add_rounded,
+                        size: compact ? 20 : 22,
                         color: muted,
                       ),
                       onPressed: onAttach,
-                      tooltip: 'Adjuntar archivo',
+                      tooltip: 'Inyectar IA, MCP o adjuntar (+)',
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints.tightFor(

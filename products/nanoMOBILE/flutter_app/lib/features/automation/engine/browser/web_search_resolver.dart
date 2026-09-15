@@ -16,12 +16,14 @@ class WebSearchPlan {
   final GoalExpectation expectation;
   final String query;
   final String targetUrl;
+  final bool inApp;
 
   const WebSearchPlan({
     required this.call,
     required this.expectation,
     required this.query,
     required this.targetUrl,
+    this.inApp = true,
   });
 }
 
@@ -32,8 +34,8 @@ class WebSearchResolver {
   static const String searchUrlPrefix = 'https://www.google.com/search?q=';
 
   /// Resuelve si [goal] es una búsqueda web dirigida a Chrome, Google o Internet.
-  /// Devuelve [WebSearchPlan] si coincide, o `null` si no es una búsqueda web determinista.
-  WebSearchPlan? resolve(String goal) {
+  /// Devuelve [WebSearchPlan] con respuesta sintetizada in-app dentro de Nano por defecto.
+  WebSearchPlan? resolve(String goal, {bool inApp = true}) {
     final raw = goal.trim();
     if (raw.isEmpty) return null;
 
@@ -46,17 +48,30 @@ class WebSearchResolver {
     return WebSearchPlan(
       query: query,
       targetUrl: targetUrl,
-      call: ToolCall(
-        tool: 'open_url',
-        text: targetUrl,
-        args: {
-          'url': targetUrl,
-          'packageName': chromePackage,
-        },
-      ),
-      expectation: const GoalExpectation(
-        expectedPackage: chromePackage,
-      ),
+      inApp: inApp,
+      call: inApp
+          ? ToolCall(
+              tool: 'search_knowledge',
+              text: query,
+              args: {
+                'query': query,
+                'targetUrl': targetUrl,
+                'inApp': true,
+              },
+            )
+          : ToolCall(
+              tool: 'open_url',
+              text: targetUrl,
+              args: {
+                'url': targetUrl,
+                'packageName': chromePackage,
+              },
+            ),
+      expectation: inApp
+          ? const GoalExpectation()
+          : const GoalExpectation(
+              expectedPackage: chromePackage,
+            ),
     );
   }
 

@@ -74,9 +74,54 @@ final class ConversationDecisionContext {
   });
 }
 
+/// Categorías de decisión conversacional (Taxonomía de 13 acciones).
+enum DialogueDecisionAction {
+  /// Enviar respuesta inmediata (confianza alta, fast path o LLM seguro).
+  replyNow,
+
+  /// Agrupar ráfagas en cola (BurstTurnGate activo).
+  wait,
+
+  /// Mensaje duplicado o sin efecto (EventDedupeStore / Eco).
+  ignore,
+
+  /// Reacción o cierre social breve sin re-preguntar.
+  acknowledge,
+
+  /// Aclaración honesta ante ambigüedad o referencia rota.
+  askClarification,
+
+  /// Preparar borrador para revisión humana (PendingReplyStore).
+  prepareDraft,
+
+  /// Notificar al usuario por asunto importante o urgencia.
+  notifyOwner,
+
+  /// Solicitar al propietario un hecho no registrado.
+  requestOwnerFact,
+
+  /// Transferir el control completo al propietario (asuntos sensibles).
+  transferToOwner,
+
+  /// (Negocios) Solicitar dato obligatorio ausente.
+  askRequiredDetail,
+
+  /// (Negocios) Recomendar producto o servicio de catálogo.
+  recommendProduct,
+
+  /// (Negocios) Registrar transacción u operación confirmada.
+  executeOperation,
+
+  /// Cierre de flujo comercial o tema.
+  closeFlow,
+}
+
 final class ConversationDecision {
   final ConversationDisposition disposition;
   final ConversationRisk risk;
+
+  /// Acción específica determinada dentro de la taxonomía de 13 opciones.
+  final DialogueDecisionAction action;
 
   /// Confianza derivada SOLO de señales verificables (0..1). Fórmula fija
   /// del engine — jamás un número emitido por el modelo.
@@ -94,6 +139,7 @@ final class ConversationDecision {
     required this.risk,
     required this.confidence,
     required this.reasons,
+    this.action = DialogueDecisionAction.replyNow,
     this.repairedText,
   });
 

@@ -124,6 +124,20 @@ class ToolRegistry {
       'estado_dispositivo': 'device_state',
       'abrir': 'launch_app',
       'abrir_app': 'launch_app',
+      'url': 'open_url',
+      'web': 'fetch_web',
+      'fetch': 'fetch_web',
+      'buscar': 'search_knowledge',
+      'search': 'search_knowledge',
+      'search_web': 'search_knowledge',
+      'google': 'search_knowledge',
+      'conocimiento': 'search_knowledge',
+      'gemini': 'browser_ai_query',
+      'chatgpt': 'browser_ai_query',
+      'gpt': 'browser_ai_query',
+      'deepseek': 'browser_ai_query',
+      'claude': 'browser_ai_query',
+      'browser_ai': 'browser_ai_query',
       'mcp': 'mcp.read',
     },
   );
@@ -270,6 +284,25 @@ class ToolRegistry {
       name: 'open_url',
       timeout: Duration(seconds: 10),
       description: 'Abrir una URL http/https en el navegador',
+    ),
+    ToolDefinition(
+      name: 'fetch_web',
+      timeout: Duration(seconds: 15),
+      description: 'Consultar contenido o texto de una página web o API en internet',
+      promptSyntax: '{"tool":"fetch_web","url":"<url>"}',
+    ),
+    ToolDefinition(
+      name: 'search_knowledge',
+      timeout: Duration(seconds: 15),
+      description: 'Buscar y sintetizar conocimiento de internet directamente dentro de Nano',
+      promptSyntax: '{"tool":"search_knowledge","query":"<consulta>"}',
+    ),
+    ToolDefinition(
+      name: 'browser_ai_query',
+      timeout: Duration(minutes: 3),
+      description:
+          'Consultar a modelos de IA en navegador web (Gemini, ChatGPT, DeepSeek, Claude) en segundo plano (headless) sin abrir ventanas visibles',
+      promptSyntax: '{"tool":"browser_ai_query","provider":"gemini|chatgpt|deepseek|claude","prompt":"<consulta>"}',
     ),
     // A14.4: Shizuku TIPADO. Solo capacidad read (queryPackage). El resto
     // (install/forceStop/grant) queda sin registrar hasta validar en device.

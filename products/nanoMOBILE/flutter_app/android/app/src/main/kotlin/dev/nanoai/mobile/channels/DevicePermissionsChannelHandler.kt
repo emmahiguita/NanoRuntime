@@ -16,6 +16,9 @@ import android.content.ServiceConnection
 import android.content.Context
 import android.media.AudioManager
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
@@ -234,10 +237,8 @@ class DevicePermissionsChannelHandler(
 
     /**
      * A14.5.4 — estado semántico factual del sistema (media reproduciéndose,
-     * Bluetooth on/off, WiFi on/off). Lectura pasiva: no cambia nada. Los
-     * APIs isMusicActive/isWifiEnabled están deprecated en API moderna pero
-     * siguen funcionales; Bluetooth requiere permiso en API 31+ → try/catch
-     * devuelve false (honesto) si no es observable.
+     * A14.5.4 — estado semántico factual del sistema (media reproduciéndose,
+     * Bluetooth on/off, WiFi on/off, conectividad de red). Lectura pasiva.
      */
     private fun systemState(): Map<String, Any?> {
         val context = activity.applicationContext
@@ -248,20 +249,44 @@ class DevicePermissionsChannelHandler(
             false
         }
         val bluetoothEnabled = try {
-            BluetoothAdapter.getDefaultAdapter()?.isEnabled ?: false
+            val bm = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val adapter = bm?.adapter ?: BluetoothAdapter.getDefaultAdapter()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                if (context.checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                    adapter?.isEnabled
+                } else {
+                    null
+                }
+            } else {
+                adapter?.isEnabled
+            }
         } catch (_: Throwable) {
-            false
+            null
         }
+
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val activeNetwork = cm?.activeNetwork
+        val caps = activeNetwork?.let { cm.getNetworkCapabilities(it) }
+        val wifiConnected = caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+        val cellularConnected = caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
+        val ethernetConnected = caps?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true
+        val isOnline = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+
+        val wifiManager = context.getSystemService(Context.WIFI_SERVICE) as? WifiManager
         val wifiEnabled = try {
-            (context.getSystemService(Context.WIFI_SERVICE) as WifiManager)
-                .isWifiEnabled
+            wifiManager?.isWifiEnabled == true || wifiConnected
         } catch (_: Throwable) {
-            false
+            wifiConnected
         }
+
         return mapOf(
             "mediaPlaying" to mediaPlaying,
             "bluetoothEnabled" to bluetoothEnabled,
             "wifiEnabled" to wifiEnabled,
+            "wifiConnected" to wifiConnected,
+            "cellularConnected" to cellularConnected,
+            "ethernetConnected" to ethernetConnected,
+            "isOnline" to isOnline,
         )
     }
 

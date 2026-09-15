@@ -157,8 +157,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   /// ver imágenes todavía. Binarios o archivos ilegibles se reportan, no se
   /// inventa texto.
   Future<void> _attachFile() async {
-    final picked = await NanoAttachSheet.show(context);
-    if (picked == null || !mounted) return;
+    final selection = await NanoAttachSheet.show(context);
+    if (selection == null || !mounted) return;
+
+    if (selection.type == NanoAttachSelectionType.command &&
+        selection.command != null) {
+      final cmd = selection.command!;
+      setState(() => _dictatedText = cmd);
+      return;
+    }
+
+    final picked = selection.attachment;
+    if (picked == null) return;
     final notifier = ref.read(chatProvider.notifier);
     switch (picked.kind) {
       case NanoAttachKind.photo:

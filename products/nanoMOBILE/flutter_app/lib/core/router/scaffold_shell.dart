@@ -6,7 +6,6 @@ import '../theme/nano_motion.dart';
 import '../router/app_router.dart';
 import '../theme/nano_breakpoint.dart';
 import '../widgets/liquid_fluid_background.dart';
-import '../widgets/navigation/nano_destination.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
 import '../../features/home/buho_wallpaper.dart';
 
@@ -38,9 +37,12 @@ class ScaffoldShell extends StatelessWidget {
     final isDark = shellColors is NanoDarkColors;
     final useLiquid = !isDark || shellColors.isClassicOrange;
 
+    final location = GoRouterState.of(context).matchedLocation;
+    final isDashboardHome = location == '/dashboard';
+
     final shellContent = MediaQuery.removePadding(
       context: context,
-      removeTop: true,
+      removeTop: false,
       removeBottom: true,
       removeLeft: true,
       removeRight: true,
@@ -81,22 +83,13 @@ class ScaffoldShell extends StatelessWidget {
                     : const SizedBox.shrink(),
               ),
             ),
-            // NAV-UI-AUDIT-01 — el SafeArea vive DENTRO del frame (fuente
-            // única para shell y pantallas empujadas).
-            // HOME-BLEED-01 — Inicio es una pantalla-fondo (wallpaper del
-            // Búho): sin franja reservada (fullBleed) para que el fondo
-            // encaje completo. El dock transparente ahora es GLOBAL (todas
-            // las pantallas ven el mismo fondo detrás de la barra).
             NanoFloatingNavigationFrame(
               allowSideDock: true,
               selectedIndex: currentIndex,
-              // HOME-BLEED-01 — Inicio (wallpaper) pinta completo.
-              fullBleed: currentIndex == NanoDestination.home.index,
-              // NAV-FLOAT-01 — el resto de pestañas con scroll pinta a pantalla
-              // completa con la barra flotando encima.
-              floatOverContent: currentIndex != NanoDestination.home.index,
+              fullBleed: isDashboardHome,
+              floatOverContent: !isDashboardHome,
               transparentDock: true,
-              protectTop: true,
+              protectTop: !isDashboardHome,
               onDestinationSelected: (index) {
                 if (index == _automationShortcutIndex) {
                   context.push('/automation');

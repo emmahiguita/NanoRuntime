@@ -194,7 +194,6 @@ ConversationIdentity conversationIdentityFor({
       effectiveTitle,
       if (!isGroup && cleanSender.isNotEmpty && cleanSender != effectiveTitle)
         cleanSender,
-      if (notificationKey.isNotEmpty) notificationKey,
     ].join('|');
     return ConversationIdentity(
       key: key('title:$context'),

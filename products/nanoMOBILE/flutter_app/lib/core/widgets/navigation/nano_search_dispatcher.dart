@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/chat_provider.dart';
+import '../../../features/browser/application/browser_tab_notifier.dart';
+import '../../../features/browser/domain/browser_url_resolver.dart';
 
 /// Despachador inteligente de comandos y búsquedas universales de Nano AI.
 ///
@@ -19,7 +21,35 @@ class NanoSearchDispatcher {
 
     final lower = query.toLowerCase();
 
-    // 1. Detección de comandos de consola/terminal explícitos
+    // 1. Detección de URLs o intenciones de navegación web directa
+    if (query.startsWith('http://') ||
+        query.startsWith('https://') ||
+        query.startsWith('www.') ||
+        lower.startsWith('web:') ||
+        lower.startsWith('search:') ||
+        (lower == 'navegador' ||
+            lower == 'browser' ||
+            lower == 'internet' ||
+            lower == 'google' ||
+            lower == 'youtube' ||
+            lower == 'chatgpt' ||
+            lower == 'deepseek') ||
+        _isUrlOrDomain(query)) {
+      final cleanUrl = query.replaceFirst(RegExp(r'^(web:|search:)\s*', caseSensitive: false), '').trim();
+      final resolvedUrl = BrowserUrlResolver.resolveUrl(cleanUrl.isEmpty ? query : cleanUrl);
+      try {
+        if (ref != null) {
+          ref.read(browserTabProvider.notifier).updateActiveTab(url: resolvedUrl, isLoading: true);
+        } else {
+          final container = ProviderScope.containerOf(context, listen: false);
+          container.read(browserTabProvider.notifier).updateActiveTab(url: resolvedUrl, isLoading: true);
+        }
+      } catch (_) {}
+      context.push('/browser?url=${Uri.encodeComponent(resolvedUrl)}');
+      return;
+    }
+
+    // 2. Detección de comandos de consola/terminal explícitos
     if (query.startsWith('/') ||
         query.startsWith('>') ||
         query.startsWith('\$') ||
@@ -29,7 +59,7 @@ class NanoSearchDispatcher {
       return;
     }
 
-    // 2. Navegación directa a Terminal / Shell
+    // 3. Navegación directa a Terminal / Shell
     if ((lower == 'terminal' || lower == 'consola' || lower == 'shell' || lower == 'kali') && query.length < 20) {
       context.push('/terminal/shell');
       return;
@@ -96,5 +126,14 @@ class NanoSearchDispatcher {
     };
     final firstWord = text.split(RegExp(r'\s+')).first;
     return commonCommands.contains(firstWord);
+  }
+
+  static bool _isUrlOrDomain(String text) {
+    if (text.contains(' ')) return false;
+    final domainRegex = RegExp(
+      r'^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(:\d+)?(\/.*)?$',
+      caseSensitive: false,
+    );
+    return domainRegex.hasMatch(text);
   }
 }

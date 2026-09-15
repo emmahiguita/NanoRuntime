@@ -13,416 +13,52 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../../../../core/services/device_metrics.dart';
 import '../../../../core/services/nano_runtime_api.dart';
+import '../governance/action_confirmation.dart';
+import '../governance/rule_execution_authority.dart';
+import '../governance/semantic_policy.dart';
+import '../mcp/mcp_connection_registry.dart';
+import '../orchestration/execution_journal.dart';
+import '../perception/current_situation.dart';
+import '../platform/linux_tool_adapter.dart';
+import '../system/installed_app_catalog.dart';
+import '../system/system_graph.dart' show SystemGraph;
+import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
+import '../voice/execution_cancellation.dart';
 import 'action_path_router.dart';
 import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_loop.dart';
-import '../browser/chrome_content_extractor.dart' show ChromeContentExtractor;
-import '../platform/linux_tool_adapter.dart';
-import '../perception/nano_selector.dart';
-import '../perception/nano_snapshot.dart' as nano_snapshot;
-import '../system/capabilities_report.dart';
+import 'handlers/browser_agent_tool_handler.dart';
+import 'handlers/device_system_handler.dart';
+import 'handlers/linux_tool_handler.dart';
+import 'handlers/mcp_tool_handler.dart';
+import 'handlers/notification_tool_handler.dart';
+import 'handlers/shizuku_tool_handler.dart';
+import 'handlers/ui_tool_handler.dart';
+import 'handlers/web_tool_handler.dart';
 import 'platform_verification.dart';
-import '../system/system_destination.dart' show SystemDestination;
-import '../system/system_graph.dart' show SystemGraph;
-import '../system/system_intent_launcher.dart' show SystemIntentLauncher;
-import '../governance/action_confirmation.dart';
-import '../governance/rule_execution_authority.dart';
-import '../governance/semantic_policy.dart';
-import '../mcp/mcp_client_port.dart';
-import '../mcp/mcp_connection_registry.dart';
-import '../messaging/reply_capability.dart' show ReplyCapabilityRef;
-import '../notifications/notification_object.dart' show NotificationObject;
-import '../orchestration/execution_journal.dart';
-import '../perception/current_situation.dart';
-import '../system/installed_app_catalog.dart';
-import '../voice/execution_cancellation.dart';
+import 'plan_execution_coordinator.dart';
+import 'tool_call.dart';
+import 'tool_outcome.dart';
 import 'tool_registry.dart';
 
-/// Llamada a herramienta extraída de una respuesta del LLM.
-class ToolCall {
-  final String tool;
-  final String? selector;
-  final String? text;
-  final String? key;
-
-  /// Postcondiciones declaradas por el llamador (LLM o comando @):
-  /// `{package, appear, disappear, text, forbidden}` — ver [ActionVerifier].
-  final Map<String, dynamic>? expect;
-
-  /// Argumentos tipados (A1, canónico desde A4): `args` es la vía preferente.
-  /// `selector`/`text`/`key` quedan como aliases legacy (compat) leídos a
-  /// través de los getters tipados de abajo.
-  final Map<String, Object?>? args;
-  const ToolCall({
-    required this.tool,
-    this.selector,
-    this.text,
-    this.key,
-    this.expect,
-    this.args,
-  });
-
-  // ── Getters tipados (args primero, fallback legacy) ──────────────────────
-  // El dispatcher y el planner leen SOLO estos getters. Un tool nuevo puede
-  // definir su propio getter (p. ej. `destinationArg`) sin sobrecargar
-  // `selector`/`text`. A4 establece `args` como contrato canónico.
-
-  /// Selector UI (tap/write/resolve). `args.selector` o `selector` legacy.
-  String? get selectorArg => (args?['selector'] as String?) ?? selector;
-
-  /// Texto de acción (write/reply). `args.text` o `text` legacy.
-  String? get textArg => (args?['text'] as String?) ?? text;
-
-  /// Key de notificación (reply_notification). `args.key` o `key` legacy.
-  String? get keyArg => (args?['key'] as String?) ?? key;
-
-  /// packageName para launch_app (A2). `args.packageName` o `selector` legacy.
-  String? get packageNameArg => (args?['packageName'] as String?) ?? selector;
-
-  /// destination para open_system (A3). Solo `args.destination`.
-  String? get destinationArg => args?['destination'] as String?;
-
-  /// path para herramientas Linux / FS. `args.path` o `textArg` / `selectorArg`.
-  String? get pathArg => (args?['path'] as String?) ?? textArg ?? selectorArg;
-
-  /// command para linux.run. `args.command` o `textArg`.
-  String? get commandArg => (args?['command'] as String?) ?? textArg;
-
-  /// Lee un input declarado por la política sin depender de si el caller usa
-  /// `args` canónico o los aliases legacy. Esta validación ocurre de nuevo en
-  /// el dispatcher para que el origen del plan no pueda omitirla.
-  Object? inputValue(String input) => switch (input) {
-    'selector' => selectorArg,
-    'text' => textArg,
-    'key' => keyArg,
-    'packageName' => packageNameArg,
-    'destination' => destinationArg,
-    'url' || 'path' || 'command' || 'apkPath' => args?[input] ?? textArg,
-    _ => args?[input],
-  };
-
-  bool hasInput(String input) {
-    final value = inputValue(input);
-    if (value == null) return false;
-    return value is! String || value.trim().isNotEmpty;
-  }
-
-  /// Firma canónica para vincular una aprobación a esta llamada exacta.
-  /// Incluye argumentos y postcondiciones; cambiar cualquier campo invalida
-  /// el consentimiento pendiente.
-  String get confirmationSignature => canonicalFingerprint({
-    'tool': tool,
-    'selector': selector,
-    'text': text,
-    'key': key,
-    'expect': expect,
-    'args': args,
-  });
-}
-
-/// Parseo tolerante del bloque JSON de herramientas en texto generado.
-abstract final class AgentToolProtocol {
-  /// Localiza y decodifica el objeto JSON con clave "tool" si la respuesta
-  /// es una llamada a herramienta del agente.
-  ///
-  /// Tolerancia: el modelo puede rodear el JSON de markdown (` ```json `).
-  /// Si el texto es una explicación conversacional larga con texto sustancial
-  /// antes del JSON, se considera respuesta normal de texto y no tool call.
-  static ToolCall? extractToolCall(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return null;
-
-    // Normalizar si viene envuelto en bloque de código markdown ```json ... ```
-    var cleaned = trimmed;
-    if (cleaned.startsWith('```json')) {
-      cleaned = cleaned.substring(7).trim();
-      if (cleaned.endsWith('```')) {
-        cleaned = cleaned.substring(0, cleaned.length - 3).trim();
-      }
-    } else if (cleaned.startsWith('```')) {
-      cleaned = cleaned.substring(3).trim();
-      if (cleaned.endsWith('```')) {
-        cleaned = cleaned.substring(0, cleaned.length - 3).trim();
-      }
-    }
-
-    final startMatch = RegExp(r'\{[^{}\n]*"tool"\s*:').firstMatch(cleaned);
-    if (startMatch == null) return null;
-
-    // Si hay más de 50 caracteres de prosa explicativa antes del primer {,
-    // es una respuesta conversacional que cita JSON, no un tool call directo.
-    if (startMatch.start > 50) return null;
-
-    final start = startMatch.start;
-    var depth = 0;
-    var end = -1;
-    for (var i = start; i < cleaned.length; i++) {
-      final c = cleaned[i];
-      if (c == '{') depth++;
-      if (c == '}') {
-        depth--;
-        if (depth == 0) {
-          end = i;
-          break;
-        }
-      }
-    }
-    final candidate = end >= 0
-        ? cleaned.substring(start, end + 1)
-        : cleaned.substring(start);
-    return _parseToolObject(candidate);
-  }
-
-  static Map<String, dynamic> jsonDecodeTolerant(String s) =>
-      (jsonDecode(s) as Map).cast<String, dynamic>();
-
-  /// Extrae TODAS las llamadas a herramienta de la respuesta: un array JSON
-  /// (`[{"tool":"tap",...},{"tool":"back"}]`) o un objeto único. Devuelve la
-  /// lista vacía si no hay ninguna. Mantiene el contrato single de
-  /// [extractToolCall] (este método devuelve esa misma llamada como lista).
-  static List<ToolCall> extractToolCalls(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return const [];
-
-    var cleaned = trimmed;
-    if (cleaned.startsWith('```json')) {
-      cleaned = cleaned.substring(7).trim();
-      if (cleaned.endsWith('```')) {
-        cleaned = cleaned.substring(0, cleaned.length - 3).trim();
-      }
-    } else if (cleaned.startsWith('```')) {
-      cleaned = cleaned.substring(3).trim();
-      if (cleaned.endsWith('```')) {
-        cleaned = cleaned.substring(0, cleaned.length - 3).trim();
-      }
-    }
-
-    // ¿Array JSON de tools?
-    final arrayStart = cleaned.indexOf('[');
-    if (arrayStart >= 0) {
-      // No interpretar prosa con un [ fuera de contexto: el array debe
-      // contener "tool" como primera clave de un objeto.
-      final probe = cleaned.substring(arrayStart);
-      if (RegExp(r'\[[^\[\]]*"tool"\s*:').hasMatch(probe)) {
-        final arrayEnd = _findBalanced(cleaned, arrayStart, '[', ']');
-        if (arrayEnd > arrayStart) {
-          final inner = cleaned.substring(arrayStart + 1, arrayEnd);
-          final calls = <ToolCall>[];
-          for (final part in _splitTopLevel(inner)) {
-            final call = _parseToolObject(part);
-            if (call != null) calls.add(call);
-          }
-          if (calls.isNotEmpty) return calls;
-        }
-      }
-    }
-
-    // Fallback: objeto único (contrato original).
-    final single = extractToolCall(text);
-    return single == null ? const [] : [single];
-  }
-
-  /// Parsea un objeto JSON de herramienta a [ToolCall]; null si no tiene
-  /// clave "tool" válida.
-  static ToolCall? _parseToolObject(String candidate) {
-    final trimmed = candidate.trim();
-    if (trimmed.isEmpty) return null;
-    try {
-      final map = jsonDecodeTolerant(trimmed);
-      final tool = map['tool'] as String?;
-      if (tool == null || tool.isEmpty) return null;
-
-      final argsMap = <String, Object?>{};
-      if (map['args'] is Map) {
-        argsMap.addAll((map['args'] as Map).cast<String, Object?>());
-      } else if (map['args'] is List) {
-        final list = (map['args'] as List).map((e) => '$e').toList();
-        argsMap['arguments'] = list;
-        argsMap['args'] = list;
-      }
-
-      // Preserva claves top-level para no descartar path, command, content,
-      // cwd, timeout, etc. anunciadas en ToolDefinition (ToolRegistry).
-      for (final entry in map.entries) {
-        if (entry.key != 'tool' &&
-            entry.key != 'args' &&
-            entry.key != 'expect' &&
-            !argsMap.containsKey(entry.key)) {
-          argsMap[entry.key] = entry.value;
-        }
-      }
-
-      final selector = (map['selector'] as String?) ?? (map['path'] as String?);
-      final text = (map['text'] as String?) ??
-          (map['command'] as String?) ??
-          (map['path'] as String?);
-
-      final rawTool = tool.trim();
-      final canonicalTool = switch (rawTool.toLowerCase()) {
-        'linux.readfile' => 'linux.readFile',
-        'linux.writefile' => 'linux.writeFile',
-        final other => other,
-      };
-
-      return ToolCall(
-        tool: canonicalTool,
-        selector: selector,
-        text: text,
-        key: map['key'] as String?,
-        expect: map['expect'] is Map
-            ? (map['expect'] as Map).cast<String, dynamic>()
-            : null,
-        args: argsMap.isNotEmpty ? argsMap : null,
-      );
-    } catch (_) {
-      final rawTool = _field(trimmed, 'tool');
-      if (rawTool == null) return null;
-      final canonicalTool = switch (rawTool.trim().toLowerCase()) {
-        'linux.readfile' => 'linux.readFile',
-        'linux.writefile' => 'linux.writeFile',
-        final other => other,
-      };
-      final command = _field(trimmed, 'command');
-      final path = _field(trimmed, 'path');
-      final content = _field(trimmed, 'content');
-      final selector = _field(trimmed, 'selector') ?? path;
-      final text = _field(trimmed, 'text') ?? command ?? path;
-      final key = _field(trimmed, 'key');
-      final argsMap = <String, Object?>{};
-      if (command != null) argsMap['command'] = command;
-      if (path != null) argsMap['path'] = path;
-      if (content != null) argsMap['content'] = content;
-      return ToolCall(
-        tool: canonicalTool,
-        selector: selector,
-        text: text,
-        key: key,
-        args: argsMap.isNotEmpty ? argsMap : null,
-      );
-    }
-  }
-
-  /// Encuentra el índice del cierre balanceado de [open]/[close] a partir de
-  /// [start] (que apunta al carácter abierto). -1 si no cierra.
-  static int _findBalanced(String s, int start, String open, String close) {
-    var depth = 0;
-    for (var i = start; i < s.length; i++) {
-      final c = s[i];
-      if (c == open) {
-        depth++;
-      } else if (c == close) {
-        depth--;
-        if (depth == 0) return i;
-      }
-    }
-    return -1;
-  }
-
-  /// Divide el interior de un array JSON en sus objetos top-level.
-  static List<String> _splitTopLevel(String inner) {
-    final parts = <String>[];
-    var depth = 0;
-    var start = 0;
-    for (var i = 0; i < inner.length; i++) {
-      final c = inner[i];
-      if (c == '{') depth++;
-      if (c == '}') depth--;
-      if (c == ',' && depth == 0) {
-        parts.add(inner.substring(start, i));
-        start = i + 1;
-      }
-    }
-    final tail = inner.substring(start).trim();
-    if (tail.isNotEmpty) parts.add(tail);
-    return parts;
-  }
-
-  static String? _field(String s, String key) {
-    final m = RegExp('"$key"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"').firstMatch(s);
-    return m?.group(1)?.replaceAll(r'\"', '"');
-  }
-}
-
-/// Resultado tipado de [AgentToolDispatcher.runToolGuarded]: el veredicto
-/// de la política y el feedback legible para el chat/trace. Si
-/// [needsConfirmation], [pendingCall] guarda la llamada a re-ejecutar con
-/// `confirmed: true` cuando el usuario apruebe.
-enum ToolExecutionStatus {
-  notExecuted,
-  completed,
-  completedUnverified,
-  outcomeUnknown,
-  failed,
-}
-
-class ToolOutcome {
-  const ToolOutcome({
-    required this.verdict,
-    required this.feedback,
-    this.pendingCall,
-    this.executionStatus = ToolExecutionStatus.notExecuted,
-  });
-
-  final PolicyVerdict verdict;
-  final String feedback;
-  final ToolCall? pendingCall;
-  final ToolExecutionStatus executionStatus;
-
-  bool get needsConfirmation => verdict == PolicyVerdict.needsConfirmation;
-  bool get executionFailed =>
-      executionStatus == ToolExecutionStatus.failed ||
-      executionStatus == ToolExecutionStatus.outcomeUnknown;
-}
-
-/// Presupuesto mutable perteneciente a una sola invocación/plan.
-/// Nunca se almacena en el dispatcher compartido.
-final class ToolExecutionBudget {
-  int _stepsUsed = 0;
-
-  int get stepsUsed => _stepsUsed;
-
-  void recordExecution() => _stepsUsed++;
-}
-
-/// Resultado de ejecutar un plan multi-paso ([AgentToolDispatcher.runPlanGuarded]).
-///
-/// Distingue tres terminaciones: [completed] (todo verificado), [pauseIndex]
-/// (un paso pidió confirmación humana — el plan queda en pausa y se reanuda
-/// desde ahí con `confirmed: true`), o fallo tipado (política denegada o paso
-/// no verificado → el plan se aborta).
-class PlanOutcome {
-  final bool completed;
-  final List<ToolOutcome> steps;
-  final int? pauseIndex;
-  final ToolCall? pauseCall;
-  final ActionConfirmation? confirmation;
-  final String summary;
-
-  /// Ruta de ejecución elegida por cada paso (paralelo a [steps]) — C6
-  /// ActionPathRouter. Visible en UI como "Execution path".
-  final List<ExecutionPath> paths;
-
-  const PlanOutcome({
-    required this.completed,
-    required this.steps,
-    this.pauseIndex,
-    this.pauseCall,
-    this.confirmation,
-    required this.summary,
-    this.paths = const [],
-  });
-
-  bool get hasUnverifiedSteps => steps.any(
-    (step) => step.executionStatus == ToolExecutionStatus.completedUnverified,
-  );
-}
+export 'agent_tool_protocol.dart';
+export 'handlers/browser_agent_tool_handler.dart';
+export 'handlers/device_system_handler.dart';
+export 'handlers/linux_tool_handler.dart';
+export 'handlers/mcp_tool_handler.dart';
+export 'handlers/notification_tool_handler.dart';
+export 'handlers/shizuku_tool_handler.dart';
+export 'handlers/ui_tool_handler.dart';
+export 'handlers/web_tool_handler.dart';
+export 'plan_execution_coordinator.dart';
+export 'tool_call.dart';
+export 'tool_loop_detector.dart';
+export 'tool_outcome.dart';
 
 /// Ejecutor de comandos `@` y de [ToolCall] del LLM.
 ///
@@ -458,11 +94,18 @@ class AgentToolDispatcher {
     bool Function()? voiceOutputEnabled,
     McpConnectionRegistry? mcpConnectionRegistry,
     InstalledAppCatalog? installedAppCatalog,
+    UiToolHandler? uiHandler,
+    DeviceSystemHandler? deviceHandler,
+    ShizukuToolHandler? shizukuHandler,
+    NotificationToolHandler? notificationHandler,
+    LinuxToolHandler? linuxHandler,
+    McpToolHandler? mcpHandler,
+    WebToolHandler? webHandler,
+    BrowserAgentToolHandler? browserAgentHandler,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
        _router = router ?? ActionPathRouter(),
-       _linux = linuxAdapter,
        _launchPackage =
            launchPackage ?? NanoRuntimeApi.instance.agentLaunchPackage,
        _globalAction =
@@ -470,16 +113,35 @@ class AgentToolDispatcher {
        _swipe = swipe ?? NanoRuntimeApi.instance.agentSwipe,
        _longPress = longPress ?? NanoRuntimeApi.instance.agentLongPressAt,
        _systemIntentLauncher = systemIntentLauncher,
-       _systemGraphSource = systemGraphSource,
-       _devicePermissionsSource = devicePermissionsSource,
-       _shizukuStatusSource = shizukuStatusSource,
-       _openPermissionSource = openPermissionSource,
        _platformStateReader = platformStateReader,
        _executionJournal = executionJournal,
        _currentSituationSource = currentSituationSource,
-       _voiceOutputEnabled = voiceOutputEnabled ?? (() => true),
-       _mcpConnectionRegistry = mcpConnectionRegistry,
-       _installedAppCatalog = installedAppCatalog;
+       _customUiHandler = uiHandler,
+       _webHandler = webHandler ?? WebToolHandler(),
+       _browserAgentHandler = browserAgentHandler ?? const BrowserAgentToolHandler(),
+       _shizukuHandler = shizukuHandler ?? ShizukuToolHandler(),
+       _notificationHandler = notificationHandler ?? NotificationToolHandler(),
+       _linuxHandler = linuxHandler ??
+           LinuxToolHandler(
+             adapter: linuxAdapter,
+             platformStateReader: platformStateReader,
+           ),
+       _mcpHandler = mcpHandler ??
+           McpToolHandler(
+             mcpConnectionRegistry: mcpConnectionRegistry,
+           ),
+       _deviceHandler = deviceHandler ??
+           DeviceSystemHandler(
+             systemGraphSource: systemGraphSource,
+             devicePermissionsSource: devicePermissionsSource,
+             shizukuStatusSource: shizukuStatusSource,
+             openPermissionSource: openPermissionSource,
+             voiceOutputEnabled: voiceOutputEnabled,
+             installedAppCatalog: installedAppCatalog,
+             webHandler: webHandler ?? WebToolHandler(),
+             shizukuHandler: shizukuHandler ?? ShizukuToolHandler(),
+           );
+
   final AgentExecutor _executor;
   final PolicyEngine _policy;
   AgentVerifier? _verifier;
@@ -496,16 +158,21 @@ class AgentToolDispatcher {
   /// una lista ciega. Debe pasar por TaskOrchestrator, que observa y clasifica
   /// de nuevo la superficie después de cada acción.
   bool requiresGoalDirectedExecution(List<ToolCall> plan) =>
-      plan.where((call) => _uiStateSensitiveTools.contains(call.tool)).length >
-      1;
+      PlanExecutionCoordinator.requiresGoalDirectedExecution(plan);
+
+  late final PlanExecutionCoordinator _planCoordinator =
+      PlanExecutionCoordinator(
+        policy: _policy,
+        router: _router,
+        executor: _executor,
+        runToolGuarded: runToolGuarded,
+        executeWithTimeout: _executeWithTimeout,
+        executionJournal: _executionJournal,
+      );
 
   /// Router de ruta de ejecución (C6): etiqueta cada paso del plan con el
   /// mecanismo más eficiente (Intent / Linux / Accessibility / ...).
   final ActionPathRouter _router;
-
-  /// Adaptador Linux (C9). null = subsistema no disponible (los tools
-  /// linux.* devuelven fallo tipado, nunca crashean).
-  final LinuxToolAdapter? _linux;
 
   /// Transporte inyectable para abrir una app mediante Intent Android.
   /// Producción usa el MethodChannel real; los tests verifican sin simular UI.
@@ -522,15 +189,6 @@ class AgentToolDispatcher {
   /// Navegación de sistema allowlisted (A3). null = no conectada.
   final SystemIntentLauncher? _systemIntentLauncher;
 
-  /// A14.5 — fuentes opcionales para el informe ejecutivo (@capacidades) y la
-  /// apertura de pantallas de permiso (@conceder_<x>). Inyectadas solo en
-  /// producción; ausentes en tests → el comando devuelve "no configurado" sin
-  /// crashear.
-  final Future<SystemGraph> Function()? _systemGraphSource;
-  final Future<Map<dynamic, dynamic>> Function()? _devicePermissionsSource;
-  final Future<Map<dynamic, dynamic>> Function()? _shizukuStatusSource;
-  final Future<bool> Function(String kind)? _openPermissionSource;
-
   /// A14.5 — lector de estado de plataforma para verificar postcondiciones
   /// no-UI (archivo Linux, app fuera de foco). null = no se puede afirmar
   /// verificación de plataforma (se reporta "solo aceptado").
@@ -540,17 +198,31 @@ class AgentToolDispatcher {
   /// inyecta desde el composition root; si falta, una acción irreversible se
   /// bloquea antes de tocar el dispositivo.
   final ExecutionJournal? _executionJournal;
-  Future<void>? _journalRecovery;
 
   /// Observación factual inmediatamente anterior a cualquier navegación.
   /// Ausente o sin estructura = navegación denegada (fail closed).
   final CurrentSituationSource? _currentSituationSource;
 
-  /// Gate de salida TTS inyectado por el composition root. Mantiene el
-  /// comando @habla bajo la misma preferencia global que las respuestas.
-  final bool Function() _voiceOutputEnabled;
-  final McpConnectionRegistry? _mcpConnectionRegistry;
-  final InstalledAppCatalog? _installedAppCatalog;
+  // ── Manejadores Modulares (Clean Architecture / SRP) ──────────────────────
+  UiToolHandler? _customUiHandler;
+  UiToolHandler get _uiHandler =>
+      _customUiHandler ??= UiToolHandler(
+        executor: _executor,
+        verifier: verifier,
+        loop: loop,
+        globalAction: _globalAction,
+        swipe: _swipe,
+        longPress: _longPress,
+        systemIntentLauncher: _systemIntentLauncher,
+      );
+
+  final DeviceSystemHandler _deviceHandler;
+  final ShizukuToolHandler _shizukuHandler;
+  final NotificationToolHandler _notificationHandler;
+  final LinuxToolHandler _linuxHandler;
+  final McpToolHandler _mcpHandler;
+  final WebToolHandler _webHandler;
+  final BrowserAgentToolHandler _browserAgentHandler;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -607,7 +279,7 @@ class AgentToolDispatcher {
     resetTurn();
 
     final space = t.indexOf(RegExp(r'\s'));
-    final verb = (space < 0 ? t : t.substring(0, space)).substring(1);
+    final verb = (space < 0 ? t : t.substring(0, space)).substring(1).toLowerCase();
     final rest = space < 0 ? '' : t.substring(space + 1).trim();
 
     final ToolCall? call;
@@ -619,7 +291,7 @@ class AgentToolDispatcher {
       // el top de nodos). Base de "dime qué dice esta página".
       case 'leer':
       case 'leer_pantalla':
-        return _readScreenText();
+        return _uiHandler.readScreenText();
       case 'resolver':
       case 'resolve':
         call = ToolCall(tool: 'resolve', selector: rest);
@@ -649,7 +321,28 @@ class AgentToolDispatcher {
       case 'battery':
       case 'dispositivo':
       case 'device_state':
-        return _deviceState();
+      case 'wifi':
+      case 'red':
+        return _deviceHandler.deviceState();
+      case 'diagnostics':
+      case 'device.diagnostics':
+      case 'device_diagnostics':
+        return _mcpHandler.handleMcpCommand(
+          'call device.diagnostics',
+          runGuarded: runToolGuarded,
+          executionId: executionId,
+          cancellation: cancellation,
+        );
+      case 'git':
+        return (await runToolGuarded(
+          ToolCall(
+            tool: 'linux.run',
+            args: {'command': rest.isEmpty ? 'git status' : 'git $rest'},
+          ),
+          humanInitiated: true,
+          executionId: executionId,
+          cancellation: cancellation,
+        )).feedback;
       case 'home':
       case 'inicio':
         call = const ToolCall(tool: 'home');
@@ -667,55 +360,90 @@ class AgentToolDispatcher {
       case 'capacidades':
       case 'capabilities':
       case 'resumen':
-        return _runCapabilitiesReport();
-      // A16 — entrada por voz: transcribe y devuelve el texto. El texto entra al
-      // MISMO motor (puedes copiarlo o confirmarlo como orden).
+        return _deviceHandler.runCapabilitiesReport();
+      // A16 — entrada por voz: transcribe y devuelve el texto.
       case 'escuchar':
       case 'voz':
-        return _listenVoice();
+        return _deviceHandler.listenVoice();
       // A16 — salida por voz (TTS): habla el texto.
       case 'habla':
-        return _speak(rest);
-      // A14.5 — "acción que solicite permisos para continuar". Abre la pantalla
-      // del sistema que concede el permiso faltante (accessibility, notificaciones,
-      // archivos, runtime). Sintaxis: @conceder <accessibility|notificaciones|archivos|runtime>.
+        return _deviceHandler.speak(rest);
+      // A14.5 — "acción que solicite permisos para continuar".
       case 'conceder':
-        return _runGrantPermission(rest);
+        return _deviceHandler.runGrantPermission(rest);
       case 'conceder_accessibility':
-        return _runGrantPermission('accessibility');
+        return _deviceHandler.runGrantPermission('accessibility');
       case 'conceder_notificaciones':
-        return _runGrantPermission('notificaciones');
+        return _deviceHandler.runGrantPermission('notificaciones');
       case 'conceder_archivos':
-        return _runGrantPermission('archivos');
+        return _deviceHandler.runGrantPermission('archivos');
       case 'conceder_runtime':
-        return _runGrantPermission('runtime');
-      // Automatiza la CONEXIÓN con Shizuku: Nano dispara la solicitud; el
-      // diálogo de Shizuku pide tocar "Permitir". @conceder shizuku.
+        return _deviceHandler.runGrantPermission('runtime');
       case 'conceder_shizuku':
-        return _runGrantShizuku();
+        return _shizukuHandler.grantShizuku();
       // A14.5 — contestar una notificación desde el chat con control humano.
-      // Sintaxis: @responder <texto> (a la primera respondible) o
-      // @responder <indice> <texto> (a la notificación en esa posición tal como
-      // se numeró en @notificaciones). Autoría humana → pasa la política.
       case 'responder':
       case 'reply':
-        return _respond(rest);
+        return _notificationHandler.respond(rest);
+      case 'cuenta':
+      case 'mi_cuenta':
+      case 'google_account':
+        return _webHandler.getGoogleAccountInfo();
+      case 'ip':
+      case 'mi_ip':
+        return _webHandler.fetchIp();
+      case 'web':
+      case 'fetch':
+        return _webHandler.fetchWeb(rest);
+      case 'url':
+      case 'navegar':
+        final u = rest.trim();
+        if (u.isEmpty) return 'Sintaxis: @url <enlace>. Ej: @url https://google.com';
+        final full = u.startsWith('http://') || u.startsWith('https://') ? u : 'https://$u';
+        return _webHandler.openUrl(full);
+      case 'buscar':
+      case 'google':
+      case 'search':
+        return _webHandler.searchKnowledge(rest);
       case 'abrir':
       case 'launch':
       case 'launch_app':
-        return _handleOpenAppCommand(
+        return _deviceHandler.handleOpenAppCommand(
           rest,
+          runGuarded: runToolGuarded,
           executionId: executionId,
           cancellation: cancellation,
         );
       case 'mcp':
-        return _handleMcpCommand(
+        return _mcpHandler.handleMcpCommand(
           rest,
+          runGuarded: runToolGuarded,
           executionId: executionId,
           cancellation: cancellation,
         );
+      case 'gemini':
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@gemini $rest' : '@gemini .',
+        );
+      case 'gpt':
+      case 'chatgpt':
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@chatgpt $rest' : '@chatgpt .',
+        );
+      case 'deepseek':
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@deepseek $rest' : '@deepseek .',
+        );
+      case 'claude':
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@claude $rest' : '@claude .',
+        );
+      case 'browser_ai':
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@browser_ai $rest' : '@browser_ai .',
+        );
       default:
-        return 'Comando desconocido "@$verb". Disponibles: @abrir <app>, @mcp <list|call>, @pantalla, @leer_pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso|shizuku>.';
+        return 'Comando desconocido "@$verb". Disponibles: @ip, @gemini <prompt>, @gpt <prompt>, @deepseek <prompt>, @claude <prompt>, @browser_ai, @web <url>, @url <enlace>, @buscar <consulta>, @abrir <app>, @mcp <list|call>, @pantalla, @leer_pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso|shizuku>.';
     }
     return (await runToolGuarded(
       call,
@@ -723,198 +451,6 @@ class AgentToolDispatcher {
       executionId: executionId,
       cancellation: cancellation,
     )).feedback;
-  }
-
-  /// A16 — escucha la voz y devuelve el texto transcrito (sistema Android).
-  /// El texto NO se ejecuta solo aquí: se devuelve para que el usuario lo
-  /// confirme/copie como orden (o el chat_provider lo inyecte al motor).
-  Future<String> _listenVoice() async {
-    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
-    if (text == null || text.trim().isEmpty) {
-      return 'No se pudo escuchar: audio no disponible o reconocimiento sin '
-          'resultado. Concede el micrófono con @conceder_runtime e inténtalo.';
-    }
-    return 'Escuchado: "$text".';
-  }
-
-  /// A16 — habla el texto (TTS). Devuelve el resultado del motor de voz.
-  Future<String> _speak(String text) async {
-    final t = text.trim();
-    if (t.isEmpty) return 'Uso: @habla <texto>.';
-    if (!_voiceOutputEnabled()) {
-      return 'Audio de voz desactivado. Nano responderá solo con texto.';
-    }
-    final ok = await NanoRuntimeApi.instance.speak(t);
-    return ok ? 'Hablado.' : 'No se pudo hablar (TTS no disponible).';
-  }
-
-  /// Informe ejecutivo factual (A14.5). Lee fuentes reales y formatea; si las
-  /// fuentes no están inyectadas devuelve un aviso honesto (no simula datos).
-  Future<String> _runCapabilitiesReport() async {
-    if (_systemGraphSource == null ||
-        _devicePermissionsSource == null ||
-        _shizukuStatusSource == null) {
-      return 'Informe de capacidades no configurado en este perfil.';
-    }
-    final graph = await _systemGraphSource();
-    final perms = await _devicePermissionsSource();
-    final shizuku = await _shizukuStatusSource();
-    return buildCapabilitiesReport(graph, perms, shizuku);
-  }
-
-  /// Abre la pantalla de concesión del permiso indicado (A14.5). Reutiliza los
-  /// transportes de NanoRuntimeApi que ya existen; no ejecuta nada más.
-  Future<String> _runGrantPermission(String kind) async {
-    // `@conceder shizuku` llega aquí vía `case 'conceder'` con kind=shizuku.
-    // Delega al flujo de conexión Shizuku (diálogo Shizuku), no a una pantalla
-    // de settings.
-    if (kind == 'shizuku') {
-      return _runGrantShizuku();
-    }
-    const labels = {
-      'accessibility': 'Accesibilidad',
-      'notificaciones': 'Notificaciones',
-      'archivos': 'Todos los archivos',
-      'runtime': 'Permisos de runtime',
-    };
-    final label = labels[kind] ?? kind;
-    if (_openPermissionSource == null) {
-      return 'Apertura de permisos no configurada en este perfil.';
-    }
-    final ok = await _openPermissionSource(kind);
-    return ok
-        ? 'Abriendo $label... Concede el permiso y vuelve a la app.'
-        : 'No se pudo abrir la pantalla de $label.';
-  }
-
-  /// Automatiza el EMPAREJAMIENTO con Shizuku (A14.4): Nano dispara la
-  /// solicitud de permiso; el diálogo de Shizuku pide tocar "Permitir".
-  Future<String> _runGrantShizuku() async {
-    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
-    if (shizuku['installed'] != true) {
-      return '[shizukuNotInstalled] Shizuku no está instalado en el dispositivo.';
-    }
-    final granted = await NanoRuntimeApi.instance.shizukuRequestPermission();
-    if (granted) {
-      return 'Shizuku ya estaba autorizado. Conectado con privilegios.';
-    }
-    return 'Solicitud de conexión enviada. Toca "Permitir" en el diálogo de '
-        'Shizuku y vuelve.';
-  }
-
-  /// Ejecución directa de apertura de apps desde el chat / consola.
-  Future<String> _handleOpenAppCommand(
-    String rest, {
-    String? executionId,
-    ExecutionCancellationToken? cancellation,
-  }) async {
-    final query = rest.trim();
-    if (query.isEmpty) {
-      return 'Sintaxis: @abrir <paquete|nombre_app>. Ej: @abrir com.android.settings o @abrir ajustes';
-    }
-
-    String targetPackage = query;
-    final appCatalog = _installedAppCatalog;
-    if (!query.contains('.') && appCatalog != null) {
-      final match = await appCatalog.findApp(query);
-      switch (match) {
-        case AppMatchResolved(:final app):
-          targetPackage = app.packageName;
-        case AppMatchAmbiguous(:final candidates):
-          final options = candidates
-              .take(4)
-              .map((c) => '${c.label} (${c.packageName})')
-              .join(', ');
-          return 'Múltiples apps encontradas para "$query": $options. Especifica el nombre completo o paquete.';
-        case AppMatchNotFound():
-          targetPackage = query;
-      }
-    }
-
-    final call = ToolCall(
-      tool: 'launch_app',
-      args: {'packageName': targetPackage},
-    );
-    return (await runToolGuarded(
-      call,
-      humanInitiated: true,
-      executionId: executionId,
-      cancellation: cancellation,
-    )).feedback;
-  }
-
-  /// Ejecución e inspección directa de servidores y herramientas MCP.
-  Future<String> _handleMcpCommand(
-    String rest, {
-    String? executionId,
-    ExecutionCancellationToken? cancellation,
-  }) async {
-    final query = rest.trim();
-    final parts = query.split(RegExp(r'\s+'));
-    final sub = parts.isEmpty ? '' : parts.first.toLowerCase();
-
-    final mcpReg = _mcpConnectionRegistry;
-    if (mcpReg == null) {
-      return 'Registro MCP no configurado en este perfil.';
-    }
-
-    if (query.isEmpty || sub == 'list' || sub == 'listar') {
-      final snapshot = await mcpReg.refreshTools();
-      final buf = StringBuffer('🔌 Servidores y herramientas MCP conectadas:\n');
-      for (final s in mcpReg.servers) {
-        buf.writeln('• Servidor "${s.id}" (${s.displayName}) [${s.transport.name}]');
-      }
-      if (snapshot.tools.isEmpty) {
-        buf.writeln('  (Sin herramientas descubiertas)');
-      } else {
-        for (final entry in snapshot.tools.entries) {
-          buf.writeln('  - ${entry.key}: ${entry.value.description}');
-        }
-      }
-      if (snapshot.failures.isNotEmpty) {
-        buf.writeln('\n⚠️ Fallos de descubrimiento:');
-        for (final f in snapshot.failures) {
-          buf.writeln('  • ${f.serverId}: ${f.reason}');
-        }
-      }
-      return buf.toString().trim();
-    }
-
-    if (sub == 'call' || sub == 'ejecutar') {
-      if (parts.length < 2) {
-        return 'Sintaxis: @mcp call <tool_name> [json_args]. Ej: @mcp call device.diagnostics';
-      }
-      final toolName = parts[1];
-      Map<String, Object?> args = {};
-      if (parts.length > 2) {
-        final rawJson = query.substring(query.indexOf(toolName) + toolName.length).trim();
-        if (rawJson.isNotEmpty) {
-          try {
-            final decoded = jsonDecode(rawJson);
-            if (decoded is Map<String, dynamic>) {
-              args = Map<String, Object?>.from(decoded);
-            }
-          } catch (_) {
-            args = {'input': rawJson};
-          }
-        }
-      }
-
-      final call = ToolCall(
-        tool: 'mcp.read',
-        args: {'mcpTool': toolName, ...args},
-      );
-      return (await runToolGuarded(
-        call,
-        humanInitiated: true,
-        executionId: executionId,
-        cancellation: cancellation,
-      )).feedback;
-    }
-
-    return 'Comandos MCP disponibles:\n'
-        '• @mcp list — Lista servidores y herramientas MCP descubiertas\n'
-        '• @mcp call <herramienta> [args] — Ejecuta una herramienta MCP';
   }
 
   // ── Tool-calling LLM ──────────────────────────────────────────────────────
@@ -1015,9 +551,7 @@ class AgentToolDispatcher {
     if (decision.needsConfirmation) {
       // WA-AUTH-04: la autoridad standing de una regla salta la confirmación
       // SOLO para la acción exacta autorizada (tool + texto fijo). Cualquier
-      // otra llamada del plan conserva su confirmación. La verificación de
-      // paquete/conversación real ocurre en _validateContextLock, contra la
-      // notificación observada, antes de enviar.
+      // otra llamada del plan conserva su confirmación.
       final standingGranted =
           authority != null &&
           authority.satisfiesCall(call.tool, call.textArg ?? '');
@@ -1030,7 +564,7 @@ class AgentToolDispatcher {
         );
       }
     }
-    final contextLockFailure = await _validateContextLock(
+    final contextLockFailure = await _notificationHandler.validateContextLock(
       call,
       tool,
       authority: authority,
@@ -1070,7 +604,7 @@ class AgentToolDispatcher {
       }
     }
     if (tool.irreversible) {
-      return _runIrreversibleTool(
+      return _planCoordinator.runIrreversibleTool(
         call,
         tool,
         runBudget,
@@ -1088,216 +622,11 @@ class AgentToolDispatcher {
     return ToolOutcome(
       verdict: PolicyVerdict.allow,
       feedback: feedback,
-      executionStatus: _executionStatusFor(feedback),
-    );
-  }
-
-  Future<ToolOutcome> _runIrreversibleTool(
-    ToolCall call,
-    ToolDefinition tool,
-    ToolExecutionBudget budget, {
-    String? executionId,
-    ExecutionJournalEntry? executionIntent,
-    bool allowPreviouslyUncertain = false,
-    ExecutionCancellationToken? cancellation,
-    void Function()? onPhysicalEffectDispatched,
-  }) async {
-    final journal = _executionJournal;
-    if (journal == null) {
-      return const ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[journalUnavailable] Acción irreversible bloqueada: no hay journal durable.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-
-    try {
-      await (_journalRecovery ??= journal.recoverInterrupted());
-    } on Object catch (error) {
-      return ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[journalUnavailable] Acción irreversible bloqueada: no se pudo recuperar el journal ($error).',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-
-    final actionSignature = call.confirmationSignature;
-    final now = DateTime.now().toUtc();
-    ExecutionJournalEntry authorizedEntry;
-    if (executionIntent != null) {
-      final ExecutionJournalEntry? persisted;
-      try {
-        persisted = await journal.load(executionIntent.runId);
-      } on Object catch (error) {
-        return ToolOutcome(
-          verdict: PolicyVerdict.denied,
-          feedback:
-              '[journalUnavailable] No se pudo validar la intención autorizada: $error.',
-          executionStatus: ToolExecutionStatus.notExecuted,
-        );
-      }
-      if (persisted == null ||
-          persisted.status != ExecutionJournalStatus.authorized ||
-          !persisted.irreversible ||
-          persisted.planSignature != executionIntent.planSignature ||
-          persisted.currentStep != executionIntent.currentStep ||
-          persisted.stepId != executionIntent.stepId ||
-          persisted.actionSignature != executionIntent.actionSignature) {
-        return const ToolOutcome(
-          verdict: PolicyVerdict.denied,
-          feedback:
-              '[journalIntentMismatch] La intención autorizada no coincide con el journal durable.',
-          executionStatus: ToolExecutionStatus.notExecuted,
-        );
-      }
-      authorizedEntry = persisted;
-    } else {
-      final plannedEntry = ExecutionJournalEntry(
-        // La acción física conserva el owner del AutomationRun. El fallback
-        // solo cubre usos standalone fuera del composition root productivo.
-        runId: executionId ?? _newRunId(),
-        planSignature: canonicalFingerprint({'action': actionSignature}),
-        goalFingerprint: actionSignature,
-        currentStep: 0,
-        stepId: 'tool:0',
-        status: ExecutionJournalStatus.planned,
-        irreversible: true,
-        actionSignature: actionSignature,
-        verificationState: 'acción planificada; aún no autorizada',
-        timestamp: now,
-      );
-      try {
-        await journal.save(plannedEntry);
-        authorizedEntry = plannedEntry.copyWith(
-          status: ExecutionJournalStatus.authorized,
-          verificationState: 'política satisfecha; acción aún no iniciada',
-          timestamp: DateTime.now().toUtc(),
-        );
-        await journal.save(authorizedEntry);
-      } on Object catch (error) {
-        return ToolOutcome(
-          verdict: PolicyVerdict.denied,
-          feedback:
-              '[journalUnavailable] Acción irreversible bloqueada antes de autorizar: $error.',
-          executionStatus: ToolExecutionStatus.notExecuted,
-        );
-      }
-    }
-    final executingEntry = authorizedEntry.copyWith(
-      status: ExecutionJournalStatus.executing,
-      verificationState: 'acción reclamada; aún sin resultado',
-      timestamp: DateTime.now().toUtc(),
-    );
-
-    try {
-      final claimed = await journal.tryBeginIrreversible(
-        executingEntry,
-        // Solo una confirmación nueva, ligada a este run y ya consumida en el
-        // journal, autoriza repetir una acción histórica cuyo resultado quedó
-        // incierto. Los reintentos internos y las llamadas sin token continúan
-        // bloqueados exactamente igual que antes.
-        allowPreviouslyUncertain: allowPreviouslyUncertain,
-      );
-      if (!claimed) {
-        return const ToolOutcome(
-          verdict: PolicyVerdict.allow,
-          feedback:
-              '[outcomeUnknown] Existe una ejecución no reconciliada de esta acción; no se repite automáticamente.',
-          executionStatus: ToolExecutionStatus.outcomeUnknown,
-        );
-      }
-    } on Object catch (error) {
-      return ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[journalUnavailable] Acción irreversible bloqueada antes de ejecutar: $error.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-
-    if (cancellation?.isCancelled ?? false) {
-      // The journal may have awaited IO after the previous version check.
-      // No native send has started: close honestly as failed, never unknown.
-      await journal.save(
-        executingEntry.copyWith(
-          status: ExecutionJournalStatus.failed,
-          verificationState: 'turno superado o cancelado antes del efecto',
-          timestamp: DateTime.now().toUtc(),
-        ),
-      );
-      return const ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback: '[superseded] turno superado o cancelado antes del envío',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-    onPhysicalEffectDispatched?.call();
-    final feedback = await _executeWithTimeout(call, tool, budget);
-    final executionStatus = _executionStatusFor(feedback);
-    final executedEntry = executingEntry.copyWith(
-      status: ExecutionJournalStatus.executed,
-      verificationState: 'efecto ejecutado; verificación pendiente',
-      timestamp: DateTime.now().toUtc(),
-    );
-    final verifyingEntry = executedEntry.copyWith(
-      status: ExecutionJournalStatus.verifying,
-      verificationState: 'verificación en curso',
-      timestamp: DateTime.now().toUtc(),
-    );
-    try {
-      await journal.save(executedEntry);
-      await journal.save(verifyingEntry);
-    } on Object catch (error) {
-      return ToolOutcome(
-        verdict: PolicyVerdict.allow,
-        feedback:
-            '[outcomeUnknown] La acción pudo ejecutarse, pero no se pudo persistir su verificación ($error). No debe repetirse.',
-        executionStatus: ToolExecutionStatus.outcomeUnknown,
-      );
-    }
-    if (executionIntent != null) {
-      return ToolOutcome(
-        verdict: PolicyVerdict.allow,
-        feedback: feedback,
-        executionStatus: executionStatus,
-      );
-    }
-    final terminalStatus = _journalStatusFor(
-      executionStatus,
-      notExecutedAs: ExecutionJournalStatus.failed,
-    );
-    try {
-      await journal.save(
-        verifyingEntry.copyWith(
-          status: terminalStatus,
-          verificationState: feedback,
-          timestamp: DateTime.now().toUtc(),
-        ),
-      );
-    } on Object catch (error) {
-      return ToolOutcome(
-        verdict: PolicyVerdict.allow,
-        feedback:
-            '[outcomeUnknown] La acción pudo ejecutarse, pero no se pudo cerrar el journal ($error). No debe repetirse.',
-        executionStatus: ToolExecutionStatus.outcomeUnknown,
-      );
-    }
-    return ToolOutcome(
-      verdict: PolicyVerdict.allow,
-      feedback: feedback,
-      executionStatus: executionStatus,
+      executionStatus: PlanExecutionCoordinator.executionStatusFor(feedback),
     );
   }
 
   /// Resultado de ejecutar un plan multi-paso ([runPlanGuarded]).
-  ///
-  /// Distingue tres terminaciones: [completed] (todo verificado), [pauseIndex]
-  /// (el primer paso sensible pidió confirmación humana — el plan queda en
-  /// pausa y el caller reanuda desde ahí con `confirmed: true`), o fallo
-  /// tipado (política denegada, bucle detectado o paso no verificado → el
-  /// plan se aborta).
   Future<PlanOutcome> runPlanGuarded(
     List<ToolCall> plan, {
     bool humanInitiated = false,
@@ -1308,465 +637,29 @@ class AgentToolDispatcher {
     void Function(int stepIndex)? onStep,
     RuleExecutionAuthority? authority,
     void Function()? onPhysicalEffectDispatched,
-  }) async {
-    if (requiresGoalDirectedExecution(plan)) {
-      const denied = ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[goalDirectedRequired] Plan UI multipaso bloqueado: requiere '
-            'observar, clasificar y verificar la superficie entre acciones.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-      return const PlanOutcome(
-        completed: false,
-        steps: [denied],
-        summary:
-            '[goalDirectedRequired] Plan UI multipaso bloqueado: requiere '
-            'TaskOrchestrator y nueva observación entre acciones.',
-      );
-    }
-    final outcomes = <ToolOutcome>[];
-    final feedbacks = <String>[];
-    final paths = <ExecutionPath>[];
-    final total = plan.length;
-    final loopDetector = ToolLoopDetector();
-    final budget = ToolExecutionBudget();
-    final planSignature = _planSignature(plan);
-    final runId = executionId ?? confirmation?.executionId ?? _newRunId();
-    final journal = _executionJournal;
-    ExecutionJournalEntry? authorizedEntry;
-    var validConfirmation = false;
-    if (confirmation != null &&
-        confirmation.stepIndex >= 0 &&
-        confirmation.stepIndex < plan.length) {
-      if (journal != null) {
-        try {
-          authorizedEntry = await journal.consumeConfirmation(confirmation);
-          validConfirmation = authorizedEntry != null;
-        } on Object {
-          validConfirmation = false;
-        }
-      } else {
-        validConfirmation = confirmation.consumeIfAuthorizes(
-          executionId: runId,
-          planSignature: planSignature,
-          stepIndex: confirmation.stepIndex,
-          stepId: 'tool:${confirmation.stepIndex}',
-          actionSignature: plan[confirmation.stepIndex].confirmationSignature,
-        );
-      }
-    }
-    if (confirmation != null && !validConfirmation) {
-      const denied = ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[confirmationInvalid] Confirmación inválida, expirada, consumida o no pendiente en el journal.',
-      );
-      return const PlanOutcome(
-        completed: false,
-        steps: [denied],
-        summary:
-            '[confirmationInvalid] Confirmación inválida, expirada, consumida o no pendiente en el journal.',
-      );
-    }
-    final confirmedStepIndex = validConfirmation
-        ? confirmation!.stepIndex
-        : null;
-    final startIndex = confirmedStepIndex ?? 0;
-    for (var i = startIndex; i < total; i++) {
-      cancellation?.throwIfCancelled();
-      onStep?.call(i);
-      final call = plan[i];
-      paths.add(_router.route(call).path);
-      // Detección de bucle (C5): abortar ANTES de repetir una acción contra
-      // el mismo estado (A→B→A→B o misma acción 3+ en plan de 5+).
-      final fp = await _loopFingerprint(call);
-      if (loopDetector.isLoop(fp)) {
-        final loopOutcome = ToolOutcome(
-          verdict: PolicyVerdict.denied,
-          feedback:
-              '[loopDetected] Ciclo en el plan '
-              '("${call.tool} ${call.selectorArg ?? ''}${call.textArg != null ? ' ${call.textArg!}' : ''}"). '
-              'El mundo no avanza: se aborta en lugar de repetir la acción.',
-        );
-        outcomes.add(loopOutcome);
-        return PlanOutcome(
-          completed: false,
-          steps: outcomes,
-          summary: [...feedbacks, loopOutcome.feedback].join('\n'),
-          paths: paths,
-        );
-      }
-
-      // Sólo un token exacto y consumido autoriza. `confirmed` se conserva en
-      // la firma pública por compatibilidad, pero nunca eleva privilegios.
-      final stepConfirmed = i == confirmedStepIndex;
-      final tool = _policy.registry.lookup(call.tool);
-      ExecutionJournalEntry? executionIntent;
-      if (stepConfirmed && authorizedEntry != null && tool != null) {
-        if (tool.irreversible) {
-          executionIntent = authorizedEntry;
-        } else if (journal != null) {
-          final executing = authorizedEntry.copyWith(
-            status: ExecutionJournalStatus.executing,
-            verificationState: 'acción autorizada; ejecución en curso',
-            timestamp: DateTime.now().toUtc(),
-          );
-          await journal.save(executing);
-          authorizedEntry = executing;
-        }
-      }
-      final outcome = await runToolGuarded(
-        call,
+  }) =>
+      _planCoordinator.runPlanGuarded(
+        plan,
         humanInitiated: humanInitiated,
-        confirmed: stepConfirmed,
-        executionId: runId,
-        budget: budget,
+        confirmation: confirmation,
+        executionId: executionId,
+        confirmed: confirmed,
         cancellation: cancellation,
-        executionIntent: executionIntent,
+        onStep: onStep,
         authority: authority,
         onPhysicalEffectDispatched: onPhysicalEffectDispatched,
       );
-      outcomes.add(outcome);
-
-      if (outcome.needsConfirmation) {
-        final request = ActionConfirmation(
-          executionId: runId,
-          planSignature: planSignature,
-          stepIndex: i,
-          stepId: 'tool:$i',
-          actionSignature: call.confirmationSignature,
-        );
-        final pendingTool = _policy.registry.lookup(call.tool);
-        if (journal != null && pendingTool != null) {
-          try {
-            final planned = ExecutionJournalEntry(
-              runId: runId,
-              planSignature: planSignature,
-              goalFingerprint: canonicalFingerprint({'plan': planSignature}),
-              currentStep: i,
-              stepId: 'tool:$i',
-              status: ExecutionJournalStatus.planned,
-              irreversible: pendingTool.irreversible,
-              actionSignature: call.confirmationSignature,
-              verificationState: 'acción planificada; aún no autorizada',
-              timestamp: DateTime.now().toUtc(),
-            );
-            await journal.save(planned);
-            await journal.save(
-              planned.copyWith(
-                status: ExecutionJournalStatus.waitingConfirmation,
-                verificationState: 'acción pendiente de confirmación explícita',
-                timestamp: DateTime.now().toUtc(),
-                pendingConfirmation: request,
-              ),
-            );
-          } on Object catch (error) {
-            final denied = ToolOutcome(
-              verdict: PolicyVerdict.denied,
-              feedback:
-                  '[journalUnavailable] No se pudo persistir la confirmación: $error.',
-            );
-            outcomes[outcomes.length - 1] = denied;
-            return PlanOutcome(
-              completed: false,
-              steps: outcomes,
-              summary: [...feedbacks, denied.feedback].join('\n'),
-              paths: paths,
-            );
-          }
-        }
-        return PlanOutcome(
-          completed: false,
-          steps: outcomes,
-          pauseIndex: i,
-          pauseCall: call,
-          confirmation: request,
-          summary: [...feedbacks, outcome.feedback].join('\n'),
-          paths: paths,
-        );
-      }
-      if (stepConfirmed &&
-          authorizedEntry != null &&
-          tool != null &&
-          journal != null) {
-        final ExecutionJournalEntry verifying;
-        if (tool.irreversible) {
-          final persisted = await journal.load(authorizedEntry.runId);
-          if (persisted == null ||
-              persisted.status != ExecutionJournalStatus.verifying) {
-            return PlanOutcome(
-              completed: false,
-              steps: outcomes,
-              summary:
-                  '[outcomeUnknown] El journal no conserva la fase de verificación de la acción.',
-              paths: paths,
-            );
-          }
-          verifying = persisted;
-        } else {
-          final executed = authorizedEntry.copyWith(
-            status: ExecutionJournalStatus.executed,
-            verificationState: 'efecto ejecutado; verificación pendiente',
-            timestamp: DateTime.now().toUtc(),
-          );
-          verifying = executed.copyWith(
-            status: ExecutionJournalStatus.verifying,
-            verificationState: 'verificación en curso',
-            timestamp: DateTime.now().toUtc(),
-          );
-          await journal.save(executed);
-          await journal.save(verifying);
-        }
-        await journal.save(
-          verifying.copyWith(
-            status: _journalStatusFor(
-              outcome.executionStatus,
-              notExecutedAs: ExecutionJournalStatus.cancelled,
-            ),
-            verificationState: outcome.feedback,
-            timestamp: DateTime.now().toUtc(),
-          ),
-        );
-      }
-      feedbacks.add('${i + 1}/$total ${outcome.feedback}');
-      if (outcome.verdict != PolicyVerdict.allow || outcome.executionFailed) {
-        // Denegado por política o fallo de ejecución/verificación → abortar.
-        return PlanOutcome(
-          completed: false,
-          steps: outcomes,
-          summary: feedbacks.join('\n'),
-          paths: paths,
-        );
-      }
-    }
-
-    return PlanOutcome(
-      completed: true,
-      steps: outcomes,
-      summary: feedbacks.join('\n'),
-      paths: paths,
-    );
-  }
-
-  /// Huella de una acción del plan (tool + selector + texto).
-  static String _fingerprint(ToolCall c) => c.confirmationSignature;
-
-  static const _uiStateSensitiveTools = {
-    'tap',
-    'back',
-    'launch_app',
-    'write',
-    'home',
-    'recents',
-    'open_notifications',
-    'open_quick_settings',
-    'swipe',
-    'scroll',
-    'long_press',
-  };
-
-  /// Revalida inmediatamente antes de ejecutar cualquier herramienta cuya
-  /// política exige bloquear el contexto. La plataforma vuelve a comprobar
-  /// la misma identidad al hacer el commit, cerrando también la carrera entre
-  /// esta lectura y el transporte nativo.
-  Future<ToolOutcome?> _validateContextLock(
-    ToolCall call,
-    ToolDefinition tool, {
-    RuleExecutionAuthority? authority,
-  }) async {
-    if (!tool.requiresContextLock) return null;
-    if (call.tool != 'reply_notification') {
-      return const ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[contextLockUnavailable] Acción bloqueada: no existe un validador '
-            'de contexto para esta herramienta.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-
-    final key = call.keyArg;
-    if (key == null || key.isEmpty) {
-      return const ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[contextChanged] La notificación ya no tiene una identidad válida.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-    try {
-      final status = await NanoRuntimeApi.instance.notificationStatus();
-      if (status['accessGranted'] != true || status['connected'] != true) {
-        return const ToolOutcome(
-          verdict: PolicyVerdict.denied,
-          feedback:
-              '[contextChanged] No se puede revalidar la notificación: el '
-              'servicio no está conectado.',
-          executionStatus: ToolExecutionStatus.notExecuted,
-        );
-      }
-      final rows = await NanoRuntimeApi.instance.listActiveNotifications(
-        limit: 100,
-      );
-      final current = rows.whereType<Map>().where(
-        (row) => '${row['key'] ?? ''}' == key,
-      );
-      if (current.length != 1 || current.single['canReply'] != true) {
-        return const ToolOutcome(
-          verdict: PolicyVerdict.denied,
-          feedback:
-              '[contextChanged] La notificación cambió, desapareció o ya no '
-              'admite respuesta. No se envió nada.',
-          executionStatus: ToolExecutionStatus.notExecuted,
-        );
-      }
-      // WA-AUTH-04: si la ejecución va bajo autoridad standing de una regla,
-      // el paquete y la conversación REALES de la notificación deben caer
-      // dentro del scope autorizado. Fuera de scope → fail-closed, nada se
-      // envía (aunque la regla haya matcheado, el mundo cambió).
-      if (authority != null) {
-        final row = current.single;
-        if (!authority.satisfiesPackage('${row['package'] ?? ''}')) {
-          return ToolOutcome(
-            verdict: PolicyVerdict.denied,
-            feedback:
-                '[scopeMismatch] La notificación ya no pertenece al paquete '
-                'autorizado por la regla (${row['package']}). No se envió nada.',
-            executionStatus: ToolExecutionStatus.notExecuted,
-          );
-        }
-        if (!authority.satisfiesConversation(
-          '${row['sender'] ?? ''}',
-          '${row['conversationTitle'] ?? ''}',
-        )) {
-          return const ToolOutcome(
-            verdict: PolicyVerdict.denied,
-            feedback:
-                '[scopeMismatch] La notificación ya no pertenece a la '
-                'conversación autorizada por la regla. No se envió nada.',
-            executionStatus: ToolExecutionStatus.notExecuted,
-          );
-        }
-      }
-      return null;
-    } on Object catch (error) {
-      return ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[contextLockUnavailable] No se pudo revalidar la notificación: '
-            '$error.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-  }
-
-  /// El mismo gesto sobre un estado diferente puede ser progreso legítimo.
-  /// Sólo las acciones UI capturan estado; notificaciones/Linux conservan una
-  /// huella barata y no dependen de que Accessibility esté conectado.
-  Future<String> _loopFingerprint(ToolCall call) async {
-    final action = _fingerprint(call);
-    if (!_uiStateSensitiveTools.contains(call.tool)) return action;
-    final snapshot = await _executor.snapshot();
-    if (snapshot == null) {
-      return canonicalFingerprint({'action': action, 'state': 'unavailable'});
-    }
-    return canonicalFingerprint({
-      'action': action,
-      'state': {
-        'package': snapshot.package,
-        'truncated': snapshot.truncated,
-        'nodes': [
-          for (final node in snapshot.visibleNodes)
-            '${node.windowId}:${node.id}:${node.type}:${node.text}:'
-                '${node.description}:${node.bounds}',
-        ],
-      },
-    });
-  }
-
-  static String _planSignature(List<ToolCall> plan) => canonicalFingerprint(
-    plan.map((call) => call.confirmationSignature).toList(growable: false),
-  );
-
-  static int _runSequence = 0;
-  static String _newRunId() =>
-      'tool-${DateTime.now().microsecondsSinceEpoch}-${++_runSequence}';
-
-  /// Un feedback de ejecución que no representa éxito. El contrato visible
-  /// del dispatcher es tipado: cualquier feedback que ARRANCA con un código
-  /// entre corchetes (`[notFound]`, `[verify:...]`, `[policy]`, `[timeout]`,
-  /// `[tool]`, `[ambiguousTarget]`, `[serviceOff]`, ...) es un fallo o
-  /// denegación. Los éxitos nunca empiezan con `[`.
-  static bool _isFailedFeedback(String feedback) {
-    return RegExp(r'^\[[a-zA-Z]+(:|\])').hasMatch(feedback);
-  }
-
-  static ToolExecutionStatus _executionStatusFor(String feedback) {
-    // REVIEW-01: '[completed]' es el ÚNICO marcador de ÉXITO que lleva
-    // corchetes (reply con evidencia reconciliada, L2176). El regex genérico
-    // de _isFailedFeedback lo clasificaría como fallo — tratarlo ANTES:
-    // un envío verificado jamás puede quedar 'failed' en el journal durable.
-    if (feedback.startsWith('[completed]')) {
-      return ToolExecutionStatus.completed;
-    }
-    if (feedback.startsWith('[completedUnverified]')) {
-      return ToolExecutionStatus.completedUnverified;
-    }
-    if (feedback.startsWith('[timeoutOutcomeUnknown]')) {
-      return ToolExecutionStatus.outcomeUnknown;
-    }
-    if (_isFailedFeedback(feedback)) return ToolExecutionStatus.failed;
-    return ToolExecutionStatus.completed;
-  }
-
-  /// Mapeo único ToolExecutionStatus → ExecutionJournalStatus. Antes había
-  /// dos tablas duplicadas en este archivo que YA habían divergido en
-  /// notExecuted. [notExecutedAs] hace la diferencia de ruta explícita y
-  /// documentada: standalone reporta failed (acción suelta no llegó a
-  /// ejecutarse), el plan reporta cancelled (paso del plan descartado).
-  static ExecutionJournalStatus _journalStatusFor(
-    ToolExecutionStatus s, {
-    required ExecutionJournalStatus notExecutedAs,
-  }) => switch (s) {
-    ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
-    ToolExecutionStatus.completedUnverified =>
-      ExecutionJournalStatus.completedUnverified,
-    ToolExecutionStatus.outcomeUnknown => ExecutionJournalStatus.outcomeUnknown,
-    ToolExecutionStatus.failed => ExecutionJournalStatus.failed,
-    ToolExecutionStatus.notExecuted => notExecutedAs,
-  };
-
-  /// TER-AUT-02: true si [command] contiene operadores que solo bash puede
-  /// interpretar (pipe, semicolon, AND/OR, subshell, redirect, heredoc).
-  /// Un string sin estos operadores es un ejecutable simple y se dirige a
-  /// [runStructured] → execRootfs sin shell intermediario.
-  static bool _hasShellOperators(String command) {
-    // Operadores shell fundamentales: | ; & > < ` $( newline
-    // Se usa contains para no cargar un RegExp en el hot-path.
-    return command.contains('|') ||
-        command.contains(';') ||
-        command.contains('&&') ||
-        command.contains('||') ||
-        command.contains(r'$(') ||
-        command.contains('`') ||
-        command.contains('>') ||
-        command.contains('<') ||
-        command.contains('\n');
-  }
 
 
   /// Compatibilidad: ejecuta bajo política y degrada el estado de
   /// confirmación a texto (llamadores que no manejan el diálogo).
-  /// Invocación standalone = turno propio (presupuesto fresco).
   Future<String> runTool(ToolCall call) async {
     resetTurn();
     final outcome = await runToolGuarded(call);
     return outcome.feedback;
   }
 
-  /// Ejecución real con timeout del registro. Un tool colgado nunca congela
-  /// el turno: degrada a feedback legible y el modelo puede corregirse.
+  /// Ejecución real con timeout del registro.
   Future<String> _executeWithTimeout(
     ToolCall call,
     ToolDefinition tool,
@@ -1776,8 +669,6 @@ class AgentToolDispatcher {
     final explicitTimeoutSeconds = call.args?['timeout'] is num
         ? (call.args!['timeout'] as num).toInt()
         : int.tryParse('${call.args?['timeout']}');
-    // Solo linux.run admite extensión dinámica en args['timeout'].
-    // Todas las demás herramientas respetan estrictamente su tool.timeout.
     final Duration effectiveTimeout;
     if (call.tool.toLowerCase() == 'linux.run' &&
         explicitTimeoutSeconds != null &&
@@ -1807,59 +698,93 @@ class AgentToolDispatcher {
     }
   }
 
-  /// Ejecución de la herramienta (sin política — la puerta es [_policy]).
+  /// Ejecución de la herramienta delegada a los handlers especializados.
   Future<String> _executeTool(ToolCall call) async {
     switch (call.tool) {
       case 'screen':
         if (call.args?['readText'] == true || call.args?['mode'] == 'text') {
-          return _readScreenText();
+          return _uiHandler.readScreenText();
         }
-        return _describeScreen();
+        return _uiHandler.describeScreen();
       case 'read_screen':
-        return _readScreenText();
+        return _uiHandler.readScreenText();
       case 'resolve':
         if (call.selectorArg == null || call.selectorArg!.isEmpty) {
           return '[tool] resolve requiere "selector".';
         }
-        return _resolve(call.selectorArg!);
+        return _uiHandler.resolve(call.selectorArg!);
       case 'tap':
         if (call.selectorArg == null || call.selectorArg!.isEmpty) {
           return '[tool] tap requiere "selector".';
         }
-        return _tap(call);
+        return _uiHandler.tap(call);
       case 'write':
         if (call.selectorArg == null || call.selectorArg!.isEmpty) {
           return '[tool] write requiere "selector".';
         }
-        return _write(call);
+        return _uiHandler.write(call);
       case 'back':
-        return _back(call);
+        return _uiHandler.back(call);
       case 'home':
-        return _navigate(call, 'Pantalla de inicio', 'home');
+        return _uiHandler.navigate(call, 'Pantalla de inicio', 'home');
       case 'recents':
-        return _navigate(call, 'Recientes', 'recents');
+        return _uiHandler.navigate(call, 'Recientes', 'recents');
       case 'open_notifications':
-        return _navigate(call, 'Sombra de notificaciones', 'notifications');
+        return _uiHandler.navigate(call, 'Sombra de notificaciones', 'notifications');
       case 'open_quick_settings':
-        return _navigate(call, 'Ajustes rápidos', 'quick_settings');
+        return _uiHandler.navigate(call, 'Ajustes rápidos', 'quick_settings');
       case 'swipe':
-        return _doSwipe(call);
+        return _uiHandler.doSwipe(call);
       case 'scroll':
-        return _doScroll(call);
+        return _uiHandler.doScroll(call);
       case 'long_press':
-        return _doLongPress(call);
+        return _uiHandler.doLongPress(call);
       case 'open_system':
-        return _openSystem(call);
+        return _uiHandler.openSystem(call);
       case 'open_url':
         final urlArg = (call.textArg ?? call.selectorArg ?? '').trim();
         if (urlArg.isEmpty) {
           return '[tool] open_url requiere <url>.';
         }
         final pkgArg = (call.args?['packageName'] as String?)?.trim();
-        return _openUrl(urlArg, packageName: pkgArg);
+        return _webHandler.openUrl(urlArg, packageName: pkgArg);
+      case 'fetch_web':
+      case 'web_fetch':
+      case 'http_get':
+        final urlArg = (call.textArg ??
+                call.selectorArg ??
+                (call.args?['url'] as String?) ??
+                '')
+            .trim();
+        if (urlArg.isEmpty) {
+          return '[tool] fetch_web requiere <url>.';
+        }
+        return _webHandler.fetchWeb(urlArg);
+      case 'search_knowledge':
+      case 'search_web':
+        final q = (call.textArg ??
+                call.selectorArg ??
+                (call.args?['query'] as String?) ??
+                '')
+            .trim();
+        if (q.isEmpty) {
+          return '[tool] search_knowledge requiere "query" o texto.';
+        }
+        return _webHandler.searchKnowledge(q);
+      case 'browser_ai_query':
+      case 'reverse_agent_query':
+        final provider = (call.args?['provider'] as String?)?.trim() ?? 'gemini';
+        final prompt = (call.args?['prompt'] as String?) ??
+            call.textArg ??
+            call.selectorArg ??
+            '';
+        final headless = call.args?['headless'] != false;
+        return _browserAgentHandler.executeQuery(
+          provider: provider,
+          prompt: prompt,
+          headless: headless,
+        );
       case 'launch_app':
-        // A2: el package grounded viaja en args (flujo del catálogo). Fallback a
-        // selector solo para el contrato legacy (catálogo estático 'chrome').
         final packageName = call.packageNameArg?.trim() ?? '';
         if (packageName.isEmpty) {
           return '[tool] launch_app requiere args {packageName}.';
@@ -1869,42 +794,45 @@ class AgentToolDispatcher {
           return '[launchFailed] Android no pudo abrir el paquete '
               '"$packageName".';
         }
-        final expectation = _expectationFor(
+        final expectation = _uiHandler.expectationFor(
           call,
         ).copyWith(expectedPackage: packageName);
-        return _verifiedFeedback(
+        return _uiHandler.verifiedFeedback(
           'Aplicación abierta por Intent: $packageName.',
           expectation,
         );
       case 'notifications':
-        return _notifications();
+        return _notificationHandler.listNotifications();
       case 'device_state':
-        return _deviceState();
+        return _deviceHandler.deviceState();
       case 'shizuku_query_package':
         final pkgArg = (call.textArg ?? call.selectorArg ?? '').trim();
         if (pkgArg.isEmpty) {
           return '[tool] shizuku_query_package requiere <packageName>.';
         }
-        return _shizukuQueryPackage(pkgArg);
+        return _shizukuHandler.queryPackage(pkgArg);
       case 'force_stop_package':
         final pkgArg2 = (call.textArg ?? call.selectorArg ?? '').trim();
         if (pkgArg2.isEmpty) {
           return '[tool] force_stop_package requiere <packageName>.';
         }
-        return _shizukuForceStop(pkgArg2);
+        return _shizukuHandler.forceStop(
+          pkgArg2,
+          platformStateReader: _platformStateReader,
+        );
       case 'install_package':
         final apkArg = (call.textArg ?? call.selectorArg ?? '').trim();
         if (apkArg.isEmpty) {
           return '[tool] install_package requiere <apkPath>.';
         }
-        return _shizukuInstall(apkArg);
+        return _shizukuHandler.install(apkArg);
       case 'grant_specific_permission':
         final pkgArg3 = (call.textArg ?? call.selectorArg ?? '').trim();
         final permArg = ((call.args?['permission'] as String?) ?? '').trim();
         if (pkgArg3.isEmpty || permArg.isEmpty) {
           return '[tool] grant_specific_permission requiere <packageName> y permission.';
         }
-        return _shizukuGrant(pkgArg3, permArg);
+        return _shizukuHandler.grantPermission(pkgArg3, permArg);
       case 'reply_notification':
         final key = call.keyArg?.trim() ?? '';
         final text = call.textArg?.trim() ?? '';
@@ -1914,11 +842,9 @@ class AgentToolDispatcher {
         if (text.isEmpty) {
           return '[tool] reply_notification requiere "text".';
         }
-        // WA-RI-05: la capacidad observada viaja con la llamada (candidato
-        // grounded). El nativo la revalida contra la notificación activa.
         final rawActionIndex = call.args?['actionIndex'];
         final rawPostTime = call.args?['postTime'];
-        return _replyNotification(
+        return _notificationHandler.replyNotification(
           key: key,
           text: text,
           actionIndex: rawActionIndex is num ? rawActionIndex.toInt() : null,
@@ -1933,1026 +859,14 @@ class AgentToolDispatcher {
       case 'linux.writeFile':
       case 'linux.writefile':
       case 'linux.run':
-        return _linuxTool(call);
+        return _linuxHandler.executeLinuxTool(call, registry);
       case 'mcp.read':
       case 'mcp.device':
       case 'mcp.externalWrite':
       case 'mcp.privileged':
-        return _mcpTool(call);
+        return _mcpHandler.executeMcpTool(call);
       default:
         return '[tool] Herramienta desconocida "${call.tool}".';
     }
-  }
-
-  /// Ejecuta una herramienta MCP a través de McpConnectionRegistry.
-  Future<String> _mcpTool(ToolCall call) async {
-    final mcpTool = (call.args?['mcpTool'] as String?) ??
-        (call.args?['tool'] as String?) ??
-        call.selectorArg ??
-        call.textArg ??
-        '';
-    if (mcpTool.isEmpty) {
-      return '[tool] Llamada MCP requiere argumento "mcpTool".';
-    }
-
-    final mcpReg = _mcpConnectionRegistry;
-    if (mcpReg == null) {
-      return '[tool] MCP no disponible: registry no configurado.';
-    }
-
-    String serverId;
-    String toolName;
-    if (mcpTool.contains('/')) {
-      final split = mcpTool.split('/');
-      serverId = split[0];
-      toolName = split.sublist(1).join('/');
-    } else if (mcpTool.contains('.')) {
-      final split = mcpTool.split('.');
-      serverId = split[0];
-      toolName = split.sublist(1).join('.');
-    } else {
-      serverId = 'device';
-      toolName = mcpTool;
-    }
-
-    var client = mcpReg.client(serverId);
-    if (client == null && mcpReg.servers.isNotEmpty) {
-      client = mcpReg.client(mcpReg.servers.first.id);
-      serverId = mcpReg.servers.first.id;
-    }
-
-    if (client == null) {
-      return '[mcpError] No se encontró servidor MCP para "$serverId".';
-    }
-
-    final toolArgs = Map<String, Object?>.from(call.args ?? {})
-      ..remove('mcpTool');
-
-    final result = await client.callTool(
-      McpToolCall(
-        serverId: serverId,
-        toolName: toolName,
-        arguments: toolArgs,
-      ),
-    );
-
-    if (!result.success) {
-      return '[mcpError] Error ejecutando $mcpTool: '
-          '${result.message ?? result.errorCode ?? result.status.name}';
-    }
-
-    final textItems = result.content
-        .where((c) => c.text != null && c.text!.isNotEmpty)
-        .map((c) => c.text!)
-        .join('\n');
-
-    if (textItems.isNotEmpty) {
-      return textItems;
-    }
-
-    if (result.structuredContent != null) {
-      return jsonEncode(result.structuredContent);
-    }
-
-    return '[mcpSuccess] Herramienta $mcpTool ejecutada correctamente.';
-  }
-
-  /// Ejecuta un tool del subsistema Linux (C9) con resultado estructurado.
-  /// Sin adaptador (Linux no disponible) → fallo tipado, nunca excepción.
-  Future<String> _linuxTool(ToolCall call) async {
-    final adapter = _linux;
-    if (adapter == null) {
-      return '[linuxOff] Subsistema Linux no disponible: sin distribución '
-          'registrada o sin adaptador configurado.';
-    }
-    final pathArg = (call.args?['path'] as String?)?.trim();
-    final commandArg = (call.args?['command'] as String?)?.trim();
-    final arg = (pathArg != null && pathArg.isNotEmpty)
-        ? pathArg
-        : (commandArg != null && commandArg.isNotEmpty)
-            ? commandArg
-            : (call.textArg ?? call.selectorArg ?? '').trim();
-    if (arg.isEmpty) {
-      return '[tool] ${call.tool} requiere "path", "command", "text" o "selector" con el '
-          'argumento.';
-    }
-    // LINUX-EXEC-01: la ToolDefinition registrada fija el timeout base por tool.
-    // Solo linux.run admite extensión dinámica de timeout en args['timeout']
-    // (hasta 600s para compilaciones o descargas largas). Para operaciones
-    // de archivo (list, readFile, writeFile), el timeout se limita estrictamente
-    // al valor de su ToolDefinition para no inflar esperas de I/O a 10 minutos.
-    final def = registry.lookup(call.tool);
-    final rawTimeout = call.args?['timeout'] is num
-        ? (call.args!['timeout'] as num).toInt()
-        : int.tryParse('${call.args?['timeout']}');
-    final Duration? timeout;
-    if (call.tool.toLowerCase() == 'linux.run' &&
-        rawTimeout != null &&
-        rawTimeout > 0) {
-      final seconds = rawTimeout > 1000 ? (rawTimeout / 1000).round() : rawTimeout;
-      timeout = Duration(seconds: seconds.clamp(1, 600));
-    } else {
-      timeout = def?.timeout;
-    }
-    final rawCwd = (call.args?['cwd'] as String?)?.trim();
-    final cwd = (rawCwd != null && rawCwd.isNotEmpty) ? rawCwd : null;
-    final envRaw = call.args?['environment'];
-    final environment = envRaw is Map<String, dynamic>
-        ? envRaw.map((k, v) => MapEntry(k, '$v'))
-        : null;
-    final LinuxCommandResult result;
-    switch (call.tool.toLowerCase()) {
-      case 'linux.list':
-        result = await adapter.list(
-          arg,
-          cwd: cwd,
-          environment: environment,
-          timeout: timeout,
-        );
-      case 'linux.readfile':
-        result = await adapter.readFile(
-          arg,
-          cwd: cwd,
-          environment: environment,
-          timeout: timeout,
-        );
-      case 'linux.writefile':
-        // path viene de `arg` (path / textArg); content viene de args['content'] (A4
-        // canónico) con fallback a `text`. No reusar arg como content.
-        final content = (call.args?['content'] as String?) ?? call.text ?? '';
-        result = await adapter.writeFile(
-          arg,
-          content,
-          cwd: cwd,
-          environment: environment,
-          timeout: timeout,
-        );
-      default:
-        // TER-AUT-02: separación estructurada vs. script bash.
-        //
-        // Si el LLM provee `arguments` como lista, el comando es estructurado:
-        // executable + args[] sin pasar por bash → los operadores shell del LLM
-        // (`;`, `|`, `&&`, `$(`) quedan como literales de argumento, nunca
-        // como instrucciones. Ruta: runStructured() → _exec() → toybox/execRootfs.
-        //
-        // Si el string de `command` contiene operadores shell (pipe, semicolon,
-        // subshell, redirect, AND/OR), se asume script compuesto y se delega a
-        // runCommand() → bash -c. La política (confirmación, risk=device) ya
-        // fue aplicada aguas arriba por PolicyEngine antes de llegar aquí.
-        final extraArgs = call.args?['arguments'] ?? call.args?['args'];
-        if (extraArgs is List && extraArgs.isNotEmpty) {
-          // Ruta estructurada: sin bash intermediario.
-          final typedArgs = extraArgs.map((a) => a.toString()).toList();
-          result = await adapter.runStructured(
-            arg,
-            typedArgs,
-            cwd: cwd,
-            environment: environment,
-            timeout: timeout,
-          );
-        } else if (_hasShellOperators(arg)) {
-          // Script compuesto con operadores: delegar a bash -c.
-          result = await adapter.runCommand(
-            arg,
-            cwd: cwd,
-            environment: environment,
-            timeout: timeout,
-          );
-        } else {
-          // Comando simple sin args adicionales y sin operadores shell:
-          // tratar como `executable` solo (sin args), ruta estructurada.
-          result = await adapter.runStructured(
-            arg,
-            const [],
-            cwd: cwd,
-            environment: environment,
-            timeout: timeout,
-          );
-        }
-    }
-    if (!result.ok) {
-      final err = (result.infrastructureError ?? result.stderr).trim();
-      if (call.tool.toLowerCase() == 'linux.run' &&
-          (err.contains('cancellation unconfirmed') ||
-              (result.exitCode == -1 && err.contains('worker timeout')))) {
-        return '[timeoutOutcomeUnknown] linux.run excedió el tiempo límite y su cancelación '
-            'no pudo confirmarse de inmediato; resultado desconocido: $err';
-      }
-      return '[linux] ${result.infrastructureError}';
-    }
-    // T1.5: exitCode != 0 = el comando falló (no es infraestructura). Se
-    // reporta como fallo factual (con stderr), NO como éxito. exitCode == null
-    // (vía legacy sin código determinable) se tolera como "se ejecutó".
-    if (result.exitCode != null && result.exitCode != 0) {
-      final err = result.stderr.trim();
-      if (call.tool.toLowerCase() == 'linux.run' &&
-          (err.contains('cancellation unconfirmed') ||
-              (result.exitCode == -1 && err.contains('worker timeout')))) {
-        return '[timeoutOutcomeUnknown] linux.run excedió el tiempo límite y su cancelación '
-            'no pudo confirmarse de inmediato; resultado desconocido: $err';
-      }
-      return '[linux] comando terminó con exitCode=${result.exitCode}'
-          '${err.isNotEmpty ? ': $err' : ''}';
-    }
-    // A14.5 — postcondición de plataforma. Para writeFile, si el lector puede
-    // confirmar que el archivo existe, la escritura queda VERIFICADA (no solo
-    // "ok" del backend). Si no es observable, se reporta solo "escrito".
-    if (call.tool == 'linux.writeFile' && _platformStateReader != null) {
-      final r = await _platformStateReader.evaluate(FileExists(arg));
-      if (r is PlatformPredicateSatisfied) {
-        return 'Archivo escrito y verificado en "$arg".';
-      }
-    }
-    final out = result.stdout.trim();
-    final tail = out.length > 800 ? '${out.substring(0, 800)}…' : out;
-    // El dispatcher reserva el prefijo `[codigo]` para fallos. Un resultado
-    // Linux correcto no puede usarlo, o `runPlanGuarded` abortaría aunque el
-    // adaptador hubiera completado la operación.
-    return 'Linux ${call.tool} →\n${tail.isEmpty ? '(sin salida)' : tail}';
-  }
-
-  // ── Implementaciones ──────────────────────────────────────────────────────
-
-  Future<String> _describeScreen() async {
-    final snap = await _executor.snapshot();
-    if (snap == null) {
-      return '[serviceOff] Accesibilidad apagada o canal sin respuesta.';
-    }
-    if (snap.isEmpty) {
-      return '[snapshotEmpty] Sin ventana activa (rebind en curso).';
-    }
-    final visible = snap.visibleNodes;
-    final top = visible
-        .take(10)
-        .map(
-          (n) =>
-              '${n.depth} ${n.label} '
-              '@(${n.bounds.centerX.round()},${n.bounds.centerY.round()})',
-        );
-    return 'Pantalla "${snap.package}" · ${snap.nodes.length} nodos '
-        '(${visible.length} visibles). Top visibles:\n${top.join('\n')}';
-  }
-
-  /// A16 — extrae todo el texto visible de la pantalla (label/text/description),
-  /// sin coordenadas. Es la base de "dime qué dice esta página" (observación de
-  /// contenido, no solo estructura).
-  Future<String> _readScreenText() async {
-    final snap = await _executor.snapshot();
-    if (snap == null) {
-      return '[serviceOff] Accesibilidad apagada o canal sin respuesta.';
-    }
-    if (snap.isEmpty) {
-      return '[snapshotEmpty] Sin ventana activa (rebind en curso).';
-    }
-    if (snap.package == 'com.android.chrome') {
-      final web = const ChromeContentExtractor().extract(snap);
-      if (web.isNotEmpty) {
-        final buffer = StringBuffer('Contenido web en Chrome');
-        if (web.title.isNotEmpty) buffer.write(' — "${web.title}"');
-        if (web.url != null && web.url!.isNotEmpty) buffer.write(' (${web.url})');
-        buffer.write(':\n\n${web.rawText}');
-        return buffer.toString();
-      }
-    }
-    final texts = <String>[];
-    for (final n in snap.visibleNodes) {
-      final t = n.label.isNotEmpty
-          ? n.label
-          : (n.text.isNotEmpty ? n.text : n.description);
-      if (t.isNotEmpty && !texts.contains(t)) texts.add(t);
-    }
-    if (texts.isEmpty) {
-      return 'No hay texto visible en "${snap.package}".';
-    }
-    return 'Texto visible en "${snap.package}":\n${texts.join('\n')}';
-  }
-
-  Future<String> _resolve(String expr) async {
-    final (selector, err) = _tryParse(expr);
-    if (selector == null) return err!;
-    final outcome = await _executor.resolve(selector);
-    if (!outcome.isResolved) {
-      return '[${outcome.status.name}] ${outcome.reason}';
-    }
-    final top = outcome.candidates
-        .take(5)
-        .map(
-          (e) =>
-              '• "${e.node.label}" — ${e.score} pts [${e.matchedCriteria.join(',')}]',
-        );
-    return 'Resuelto: "${outcome.best!.node.label}" '
-        '(${outcome.best!.score} pts).\n${top.join('\n')}';
-  }
-
-  Future<String> _tap(ToolCall call) async {
-    final (selector, err) = _tryParse(call.selectorArg!);
-    if (selector == null) return err!;
-    // Postcondición por defecto: la pantalla debe cambiar (un tap que no
-    // cambia nada es sospechoso aunque el gesto devuelva true).
-    final expectation = _expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
-    // AgentLoop ejecuta una vez y verifica. Repetir un gesto podría generar
-    // un doble-tap o confirmar un envío externo.
-    final result = await loop.run([
-      AgentStep(
-        id: 'tap(${call.selectorArg})',
-        selector: selector,
-        action: AgentAction.tap,
-        expectation: expectation,
-      ),
-    ]);
-    final sr = result.steps.first;
-    if (!sr.execution.ok) {
-      return '[${sr.execution.errorCode!.name}] ${sr.execution.reason}';
-    }
-    final b = sr.execution.targetNode!.bounds;
-    final base =
-        'tap en "${sr.execution.targetNode!.label}" '
-        '@(${b.centerX.round()},${b.centerY.round()})';
-    if (result.completed) return base;
-    return '[completedUnverified] $base — la acción fue despachada, pero la '
-        'postcondición no pudo verificarse: ${sr.verification?.reason}';
-  }
-
-  Future<String> _write(ToolCall call) async {
-    final text = (call.textArg ?? '').trim();
-    if (text.isEmpty) {
-      return 'Texto vacío en @escribir.';
-    }
-    final (selector, err) = _tryParse(call.selectorArg!);
-    if (selector == null) return err!;
-    // AgentLoop exige observar el borrador. Si la verificación queda incierta,
-    // no reescribe: el usuario conserva el control de cualquier efecto externo.
-    final expectation = _expectationFor(
-      call,
-    ).copyWith(expectedText: text, expectedTextTarget: selector);
-    final result = await loop.run([
-      AgentStep(
-        id: 'write(${call.selectorArg})',
-        selector: selector,
-        action: AgentAction.setText,
-        text: text,
-        expectation: expectation,
-      ),
-    ]);
-    final sr = result.steps.first;
-    if (!sr.execution.ok) {
-      return '[${sr.execution.errorCode!.name}] ${sr.execution.reason}';
-    }
-    final base = '"$text" escrito en "${sr.execution.targetNode!.label}"';
-    if (result.completed) return base;
-    return '[verify:${sr.verification?.status.name}] $base — '
-        '${sr.verification?.reason}';
-  }
-
-  Future<String> _back(ToolCall call) async {
-    final pre = await _executor.snapshot();
-    final ok = await _globalAction('back');
-    if (!ok) return '[gestureFailed] Back falló.';
-    // Postcondición por defecto: la pantalla debe cambiar.
-    final expectation = _expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
-    return _verifiedFeedback(
-      'Botón atrás ejecutado.',
-      expectation,
-      preSnapshot: pre,
-    );
-  }
-
-  /// Global action de navegación (home/recents/shade/quick_settings). Aceptar
-  /// el gesto (`performGlobalAction == true`) NO es el objetivo: se exige
-  /// cambio observable de snapshot antes de reportar éxito limpio.
-  Future<String> _navigate(ToolCall call, String label, String action) async {
-    final pre = await _executor.snapshot();
-    final ok = await _globalAction(action);
-    if (!ok) return '[gestureFailed] $label falló.';
-    final expectation = _expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
-    return _verifiedFeedback(
-      '$label ejecutado.',
-      expectation,
-      preSnapshot: pre,
-    );
-  }
-
-  /// Swipe por coordenadas explícitas. `args` = {startX,startY,endX,endY,
-  /// durationMs?}. Las coordenadas son infraestructura (A1): Candidate-First
-  /// (A5/A6) será quien las gobierne; el LLM no tiene acceso a este tool.
-  Future<String> _doSwipe(ToolCall call) async {
-    final a = call.args ?? const {};
-    final x1 = _argInt(a, 'startX');
-    final y1 = _argInt(a, 'startY');
-    final x2 = _argInt(a, 'endX');
-    final y2 = _argInt(a, 'endY');
-    if (x1 == null || y1 == null || x2 == null || y2 == null) {
-      return '[tool] swipe requiere args {startX,startY,endX,endY} '
-          '(y durationMs opcional).';
-    }
-    final duration = _argInt(a, 'durationMs') ?? 300;
-    final pre = await _executor.snapshot();
-    final ok = await _swipe(x1, y1, x2, y2, durationMs: duration);
-    if (!ok) return '[gestureFailed] swipe falló.';
-    final expectation = _expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
-    return _verifiedFeedback(
-      'Deslizamiento ejecutado.',
-      expectation,
-      preSnapshot: pre,
-    );
-  }
-
-  /// Scroll semántico: `args` = {direction: up|down|left|right}. Las
-  /// coordenadas se resuelven respecto al viewport real (bounds máximo del
-  /// snapshot), nunca las inventa el llamador.
-  Future<String> _doScroll(ToolCall call) async {
-    final direction = call.args?['direction']?.toString().toLowerCase() ?? '';
-    if (direction.isEmpty) {
-      return '[tool] scroll requiere args {direction: up|down|left|right}.';
-    }
-    final snap = await _executor.snapshot();
-    if (snap == null || snap.isEmpty) {
-      return '[snapshotEmpty] Sin ventana activa para calcular el scroll.';
-    }
-    var sw = 0;
-    var sh = 0;
-    for (final n in snap.nodes) {
-      if (n.bounds.right > sw) sw = n.bounds.right;
-      if (n.bounds.bottom > sh) sh = n.bounds.bottom;
-    }
-    if (sw <= 0 || sh <= 0) {
-      return '[snapshotEmpty] Sin bounds de pantalla para calcular el scroll.';
-    }
-    final cx = sw ~/ 2;
-    final cy = sh ~/ 2;
-    final dx = (sw * 0.6).round();
-    final dy = (sh * 0.6).round();
-    final coords = _scrollCoords(direction, cx, cy, dx, dy);
-    if (coords == null) {
-      return '[tool] scroll direction inválida "$direction" '
-          '(up|down|left|right).';
-    }
-    final ok = await _swipe(
-      coords.x1,
-      coords.y1,
-      coords.x2,
-      coords.y2,
-      durationMs: 300,
-    );
-    if (!ok) return '[gestureFailed] scroll falló.';
-    final expectation = _expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
-    return _verifiedFeedback(
-      'Scroll $direction ejecutado.',
-      expectation,
-      preSnapshot: snap,
-    );
-  }
-
-  /// Long press: `args` = {x,y,durationMs?}.
-  Future<String> _doLongPress(ToolCall call) async {
-    final a = call.args ?? const {};
-    final x = _argInt(a, 'x');
-    final y = _argInt(a, 'y');
-    if (x == null || y == null) {
-      return '[tool] long_press requiere args {x,y} (y durationMs opcional).';
-    }
-    final duration = _argInt(a, 'durationMs') ?? 600;
-    final pre = await _executor.snapshot();
-    final ok = await _longPress(x, y, durationMs: duration);
-    if (!ok) return '[gestureFailed] long_press falló.';
-    final expectation = _expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
-    return _verifiedFeedback(
-      'Pulsación larga ejecutada.',
-      expectation,
-      preSnapshot: pre,
-    );
-  }
-
-  /// A3: navegación de sistema allowlisted. El destino viaja como ID semántico
-  /// (args{destination}); [SystemDestination.fromWireId] rechaza cualquier
-  /// string que no esté en la allowlist (nunca un Intent crudo inventable).
-  /// A14.9 — abrir una URL externa (solo http/https). El nativo valida el
-  /// esquema para evitar intents arbitrarios (anti-SSRF).
-  Future<String> _openUrl(String url, {String? packageName}) async {
-    final ok = await NanoRuntimeApi.instance.openUrl(
-      url,
-      packageName: packageName,
-    );
-    return ok
-        ? 'Abriendo $url...'
-        : '[openUrl:failed] No se pudo abrir la URL (debe ser http/https).';
-  }
-
-  Future<String> _openSystem(ToolCall call) async {
-    final raw = call.args?['destination']?.toString() ?? '';
-    final destination = SystemDestination.fromWireId(raw);
-    if (destination == null) {
-      return '[tool] open_system requiere args {destination} allowlisted '
-          '(settings|wifi_settings|bluetooth_settings).';
-    }
-    final launcher = _systemIntentLauncher;
-    if (launcher == null) {
-      return '[unavailable] Navegación de sistema no disponible.';
-    }
-    final pre = await _executor.snapshot();
-    final res = await launcher.open(destination);
-    if (!res.opened) {
-      return '[launchFailed] No se pudo abrir ${destination.description}: '
-          '${res.reason}';
-    }
-    final expectation = _expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
-    return _verifiedFeedback(
-      '${destination.description} abiertos.',
-      expectation,
-      preSnapshot: pre,
-    );
-  }
-
-  /// Coordenadas de scroll según dirección del gesto (movimiento del dedo):
-  /// up = dedo hacia arriba (contenido baja), down = dedo hacia abajo, etc.
-  /// null si [direction] no es válida.
-  ({int x1, int y1, int x2, int y2})? _scrollCoords(
-    String direction,
-    int cx,
-    int cy,
-    int dx,
-    int dy,
-  ) {
-    return switch (direction) {
-      'up' => (x1: cx, y1: cy + dy ~/ 2, x2: cx, y2: cy - dy ~/ 2),
-      'down' => (x1: cx, y1: cy - dy ~/ 2, x2: cx, y2: cy + dy ~/ 2),
-      'left' => (x1: cx + dx ~/ 2, y1: cy, x2: cx - dx ~/ 2, y2: cy),
-      'right' => (x1: cx - dx ~/ 2, y1: cy, x2: cx + dx ~/ 2, y2: cy),
-      _ => null,
-    };
-  }
-
-  /// Lee un entero de [args] (num o String numérica). null si ausente/inválido.
-  int? _argInt(Map<String, Object?> args, String key) {
-    final v = args[key];
-    if (v is num) return v.toInt();
-    if (v is String) return int.tryParse(v);
-    return null;
-  }
-
-  // ── Verificación de postcondiciones ───────────────────────────────────────
-
-  /// Construye la expectativa declarada en `call.expect`
-  /// (`{package, appear, disappear, text, forbidden}`). Selectores inválidos
-  /// se ignoran con warning en el feedback — no rompen la acción.
-  ActionExpectation _expectationFor(ToolCall call) {
-    final e = call.expect;
-    if (e == null) return const ActionExpectation();
-    NanoSelector? parse(Object? raw) {
-      if (raw is! String || raw.trim().isEmpty) return null;
-      try {
-        return NanoSelector.parse(raw);
-      } on SelectorFormatException {
-        return null;
-      }
-    }
-
-    String? str(String key) {
-      final v = e[key];
-      return v is String && v.trim().isNotEmpty ? v.trim() : null;
-    }
-
-    return ActionExpectation(
-      expectedPackage: str('package'),
-      mustAppear: parse(e['appear']),
-      mustDisappear: parse(e['disappear']),
-      expectedText: str('text'),
-      forbiddenText: str('forbidden'),
-    );
-  }
-
-  /// Produce feedback canónico: un fallo de verificación DEBE empezar por
-  /// `[verify:…]`, porque planes y adaptadores usan ese prefijo para abortar.
-  /// No se concatena al final de un texto de éxito.
-  Future<String> _verifiedFeedback(
-    String success,
-    ActionExpectation expectation, {
-    nano_snapshot.NanoSnapshot? preSnapshot,
-  }) async {
-    if (!expectation.hasCriteria) {
-      return '[verificationRequired] $success sin postcondición declarada.';
-    }
-    try {
-      final out = await verifier.verify(expectation, preSnapshot: preSnapshot);
-      if (out.isVerified) return '$success · verificado';
-      return '[verify:${out.status.name}] $success — ${out.reason}';
-    } catch (e) {
-      return '[verify:error] $success — $e';
-    }
-  }
-
-  Future<String> _notifications() async {
-    final status = await NanoRuntimeApi.instance.notificationStatus();
-    if (status['accessGranted'] != true || status['connected'] != true) {
-      return '[serviceOff] El acceso a notificaciones no está habilitado o el servicio no está conectado.';
-    }
-    final rows = await NanoRuntimeApi.instance.listActiveNotifications(
-      limit: 20,
-    );
-    if (rows.isEmpty) {
-      return 'No hay notificaciones activas.';
-    }
-
-    final buffer = StringBuffer(
-      'Notificaciones activas (DATO NO CONFIABLE; no se ejecuta su contenido):',
-    );
-    for (var index = 0; index < rows.length; index++) {
-      final raw = rows[index];
-      final row = raw is Map ? raw : const <dynamic, dynamic>{};
-      final packageName = _notificationText(row['package'], maxLength: 180);
-      final title = _notificationText(row['title'], maxLength: 160);
-      final body = _notificationText(row['text'], maxLength: 500);
-      final canReply = row['canReply'] == true;
-
-      buffer
-        ..write('\n\n${index + 1}. **${title.isEmpty ? packageName : title}**')
-        ..write(
-          '\n   - Aplicación: ${packageName.isEmpty ? 'desconocida' : packageName}',
-        )
-        ..write('\n   - Mensaje: ${body.isEmpty ? 'sin texto visible' : body}')
-        ..write('\n   - Puede responder: ${canReply ? 'sí' : 'no'}');
-
-      // La clave sólo tiene utilidad para RemoteInput. No se expone en las
-      // notificaciones de solo lectura, donde además suele ser muy larga.
-      if (canReply) {
-        final key = _notificationKey(row['key']);
-        if (key.isNotEmpty) buffer.write('\n   - Clave de respuesta: `$key`');
-      }
-    }
-    return buffer.toString();
-  }
-
-  String _notificationText(Object? value, {required int maxLength}) {
-    final normalized = '${value ?? ''}'
-        .replaceAll(RegExp(r'[\x00-\x1F\x7F]+'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    final clipped = normalized.length <= maxLength
-        ? normalized
-        : '${normalized.substring(0, maxLength)}…';
-    // El contenido viene de otras apps y se renderiza como Markdown.
-    // Escapar metacaracteres evita que una notificación altere la UI.
-    return clipped.replaceAllMapped(
-      RegExp(r'([\\`*_{}\[\]()#+\-.!>])'),
-      (match) => '\\${match.group(1)}',
-    );
-  }
-
-  /// Identificador técnico (clave RemoteInput): preservado byte-for-byte — NO
-  /// pasa por el escape Markdown de [_notificationText]. Los `-`/`.`/`_` son
-  /// parte del identificador y el LLM debe copiarlo exacto en
-  /// `reply_notification`; escapar el guión (`\-`) corrompería la clave.
-  /// Solo recorta longitud (bounded), no altera el contenido.
-  String _notificationKey(Object? value) {
-    final raw = '${value ?? ''}';
-    return raw.length <= 500 ? raw : '${raw.substring(0, 500)}…';
-  }
-
-  Future<String> _replyNotification({
-    required String key,
-    required String text,
-    int? actionIndex,
-    String? remoteInputKey,
-    String? contextFingerprint,
-    int? postTime,
-  }) async {
-    if (text.length > 2000) {
-      return '[tool] reply_notification excede 2000 caracteres.';
-    }
-    final result = await NanoRuntimeApi.instance.replyToNotification(
-      key: key,
-      text: text,
-      confirmed: true,
-      actionIndex: actionIndex,
-      remoteInputKey: remoteInputKey,
-      contextFingerprint: contextFingerprint,
-      postTime: postTime,
-    );
-    if (result['ok'] == true) {
-      final code = result['code'] ?? 'REMOTE_INPUT_ACCEPTED';
-      // WA-VERIFY-06 — reconciliación post-dispatch: NUNCA reenvía. Solo
-      // OBSERVA si la notificación de la misma conversación pasó a mostrar
-      // el texto enviado (WhatsApp actualiza el MessagingStyle tras recibir
-      // el RemoteInput). Sin esa evidencia queda completedUnverified honesto.
-      if (code == 'REMOTE_INPUT_ACCEPTED') {
-        final evidence = await _reconcileLocalSend(
-          key,
-          text,
-          contextFingerprint: contextFingerprint,
-        );
-        if (evidence != null) {
-          return '[completed] $evidence';
-        }
-        return '[completedUnverified] Android aceptó la respuesta mediante '
-            'RemoteInput ($code); la entrega final del mensaje no está '
-            'verificada.';
-      }
-      return '[completedUnverified] Android aceptó la respuesta mediante '
-          'RemoteInput ($code); la entrega final del mensaje no está '
-          'verificada.';
-    }
-    final code = result['code'] ?? 'UNKNOWN';
-    return '[notificationReply:$code] No se pudo enviar la respuesta.';
-  }
-
-  /// WA-VERIFY-06 — reconciliación local de un envío RemoteInput aceptado.
-  ///
-  /// Después de que Android entregó la acción a la app origen, la app suele
-  /// actualizar la notificación de la conversación con el mensaje saliente.
-  /// Evidencia positiva: la MISMA key sigue activa y su último texto es el
-  /// enviado (mismo fingerprint de contexto si el caller lo observó).
-  /// Devuelve null si no hay evidencia (outcome honesto: dispatched sin
-  /// confirmación local). Jamás reintenta el envío.
-  Future<String?> _reconcileLocalSend(
-    String key,
-    String text, {
-    String? contextFingerprint,
-  }) async {
-    try {
-      // Ventana corta para que la app origen procese el RemoteInput y
-      // publique la actualización. Solo lectura; nunca un segundo envío.
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
-      final rows = await NanoRuntimeApi.instance.listActiveNotifications(
-        limit: 100,
-      );
-      final expected = text.trim().toLowerCase();
-      for (final row in rows.whereType<Map>()) {
-        if ('${row['key'] ?? ''}' != key) continue;
-        if (row['canReply'] != true) continue;
-        final shown = '${row['messageText'] ?? ''}'.trim().toLowerCase();
-        if (shown.isEmpty || shown != expected) continue;
-        if (contextFingerprint != null && contextFingerprint.isNotEmpty) {
-          final current = ReplyCapabilityRef.fromNotification(
-            NotificationObject.fromMap(row.cast<dynamic, dynamic>()),
-          )?.contextFingerprint;
-          if (current == null || current != contextFingerprint) continue;
-        }
-        return 'Verificado localmente: la notificación de la conversación '
-            'muestra el mensaje enviado.';
-      }
-      return null;
-    } on Object {
-      return null; // Sin evidencia: completedUnverified (no se inventa).
-    }
-  }
-
-  /// Consulta de estado físico bajo demanda (Nivel 2/3).
-  Future<String> _deviceState() async {
-    try {
-      final metrics = await DeviceMetrics.fetch();
-      final system = await NanoRuntimeApi.instance.systemState();
-      final battery = metrics.batteryPct >= 0
-          ? '${metrics.batteryPct.round()}%'
-          : 'desconocida';
-      final charging = metrics.isCharging ? 'sí' : 'no';
-      final wifi =
-          system['wifiEnabled'] == true ? 'conectado' : 'desconectado';
-      final media =
-          system['mediaPlaying'] == true ? 'reproduciendo' : 'inactivo';
-      return '[device_state] Batería: $battery, Cargando: $charging, WiFi: $wifi, Audio: $media.';
-    } catch (e) {
-      return '[device_state] Error al consultar hardware: $e';
-    }
-  }
-
-  /// A14.4 — acción Shizuku TIPADA de bajo riesgo: consultar metadatos de un
-  /// paquete (read-only, `cmd package dump`). NUNCA acepta comando/shell libre.
-  /// Verifica disponibilidad + autorización ANTES de ejecutar: sin Shizuku
-  /// instalado/autorizado devuelve error tipado, no intenta ejecutar.
-  Future<String> _shizukuQueryPackage(String packageName) async {
-    final pkg = packageName.trim();
-    if (pkg.isEmpty ||
-        pkg.length > 255 ||
-        !RegExp(r'^[a-zA-Z][a-zA-Z0-9._]*$').hasMatch(pkg)) {
-      return '[tool] shizuku_query_package: paquete inválido.';
-    }
-    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
-    if (shizuku['installed'] != true) {
-      return '[shizukuNotInstalled] Shizuku no está instalado. Instálalo y '
-          'autoriza Nano para usar privilegios.';
-    }
-    if (shizuku['binderAlive'] != true ||
-        shizuku['permissionGranted'] != true) {
-      return '[shizukuNotAuthorized] Shizuku activo pero Nano no está '
-          'autorizado. Autoriza en la app Shizuku.';
-    }
-    final result = await NanoRuntimeApi.instance.shizukuQueryPackage(pkg);
-    if (result['ok'] == true) {
-      final out = (result['output'] as String? ?? '').trim();
-      final tail = out.length > 1500 ? out.substring(0, 1500) : out;
-      return 'Detalle de $pkg:\n${tail.isEmpty ? '(sin salida)' : tail}';
-    }
-    return '[shizukuQuery:${result['code']}] No se pudo consultar el paquete.';
-  }
-
-  /// A14.4 — acción Shizuku TIPADA con efecto: detener una app (reversible
-  /// reabriéndola). Verifica disponibilidad + autorización ANTES; valida el
-  /// paquete. El nativo vincula el UserService Shizuku (privilegios).
-  Future<String> _shizukuForceStop(String packageName) async {
-    final pkg = packageName.trim();
-    if (pkg.isEmpty ||
-        pkg.length > 255 ||
-        !RegExp(r'^[a-zA-Z][a-zA-Z0-9._]*$').hasMatch(pkg)) {
-      return '[tool] force_stop_package: paquete inválido.';
-    }
-    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
-    if (shizuku['installed'] != true) {
-      return '[shizukuNotInstalled] Shizuku no está instalado en el dispositivo.';
-    }
-    if (shizuku['binderAlive'] != true ||
-        shizuku['permissionGranted'] != true) {
-      return '[shizukuNotAuthorized] Nano no está autorizado para Shizuku. '
-          'Usa @conceder shizuku.';
-    }
-    final ok = await NanoRuntimeApi.instance.shizukuForceStop(pkg);
-    if (!ok) {
-      return '[forceStop:failed] No se pudo solicitar la detención de "$pkg".';
-    }
-    // A14.5 — postcondición de plataforma: la app dejó de estar en primer
-    // plano. Si el lector puede confirmarlo, es un hecho VERIFICADO, no solo
-    // "aceptado". Si no es observable, se reporta "solicitado, no verificado".
-    final reader = _platformStateReader;
-    if (reader != null) {
-      final r = await reader.evaluate(PackageNotForeground(pkg));
-      if (r is PlatformPredicateSatisfied) {
-        return 'Detenida "$pkg" (verificado: dejó de estar en primer plano). '
-            'Reversible: tócala para reabrirla.';
-      }
-      if (r is PlatformPredicateUnsatisfied) {
-        return 'Detención solicitada de "$pkg", pero SIGUE en primer plano: '
-            '${r.reason}.';
-      }
-    }
-    return 'Detención solicitada de "$pkg". No se pudo verificar el estado '
-        'del proceso (visibilidad restringida).';
-  }
-
-  /// A14.4 — instala un APK local (irreversible). Verifica autorización Shizuku
-  /// ANTES; ruta validada por el nativo. Gobernada arriba (riesgo install).
-  Future<String> _shizukuInstall(String apkPath) async {
-    if (apkPath.isEmpty) {
-      return '[tool] install_package: ruta inválida.';
-    }
-    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
-    if (shizuku['installed'] != true) {
-      return '[shizukuNotInstalled] Shizuku no está instalado en el dispositivo.';
-    }
-    if (shizuku['binderAlive'] != true ||
-        shizuku['permissionGranted'] != true) {
-      return '[shizukuNotAuthorized] Nano no está autorizado para Shizuku. '
-          'Usa @conceder shizuku.';
-    }
-    final ok = await NanoRuntimeApi.instance.shizukuInstall(apkPath);
-    return ok
-        ? 'Instalación solicitada para "$apkPath".'
-        : '[install:failed] No se pudo instalar (¿ruta existe?).';
-  }
-
-  /// A14.4 — concede un permiso runtime (cambia seguridad). Verifica
-  /// autorización Shizuku ANTES. Gobernada arriba (riesgo grant).
-  Future<String> _shizukuGrant(String packageName, String permission) async {
-    final shizuku = await NanoRuntimeApi.instance.queryShizukuStatus();
-    if (shizuku['installed'] != true) {
-      return '[shizukuNotInstalled] Shizuku no está instalado en el dispositivo.';
-    }
-    if (shizuku['binderAlive'] != true ||
-        shizuku['permissionGranted'] != true) {
-      return '[shizukuNotAuthorized] Nano no está autorizado para Shizuku. '
-          'Usa @conceder shizuku.';
-    }
-    final ok = await NanoRuntimeApi.instance.shizukuGrantPermission(
-      packageName,
-      permission,
-    );
-    return ok
-        ? 'Permiso "$permission" solicitado para "$packageName".'
-        : '[grant:failed] No se pudo conceder el permiso.';
-  }
-
-  /// Responde a una notificación desde el chat con control humano (A14.5).  /// Sintaxis: `@responder <texto>` (primera notificación respondible) o
-  /// `@responder <indice> <texto>` (índice tal como se numera en @notificaciones).
-  /// Autoría humana: pasa la política y confirma la entrega vía RemoteInput.
-  Future<String> _respond(String rest) async {
-    final status = await NanoRuntimeApi.instance.notificationStatus();
-    if (status['accessGranted'] != true || status['connected'] != true) {
-      return '[serviceOff] El acceso a notificaciones no está habilitado o el '
-          'servicio no está conectado. Usa @conceder_notificaciones.';
-    }
-    final rows = await NanoRuntimeApi.instance.listActiveNotifications(
-      limit: 20,
-    );
-    if (rows.isEmpty) return 'No hay notificaciones activas para responder.';
-
-    final trimmed = rest.trim();
-    if (trimmed.isEmpty) {
-      return 'Uso: @responder [nombre|indice] <texto>. Ej: @responder hola, '
-          '@responder Edgar hola, @responder 1 hola.';
-    }
-    final firstSpace = trimmed.indexOf(RegExp(r'\s'));
-    final firstToken =
-        (firstSpace < 0 ? trimmed : trimmed.substring(0, firstSpace)).trim();
-    final body = (firstSpace < 0 ? '' : trimmed.substring(firstSpace + 1))
-        .trim();
-    final parsedIndex = int.tryParse(firstToken);
-    final index = parsedIndex;
-    final replyText = parsedIndex != null ? body : trimmed;
-    if (replyText.isEmpty) {
-      return 'Uso: @responder <texto>, @responder <nombre> <texto> o '
-          '@responder <indice> <texto>.';
-    }
-
-    // Contacto ESPECÍFICO por nombre: "@responder Edgar hola" → matchea el
-    // remitente real (sender/conversationTitle). Solo es nombre si MATCHEA un
-    // remitente; si no, `firstToken` es parte del texto (respuesta a la primera
-    // respondible, comportamiento previo).
-    if (parsedIndex == null && body.isNotEmpty) {
-      final nameToken = firstToken.toLowerCase();
-      var matched = false;
-      for (final raw in rows) {
-        final row = raw is Map ? raw : const <dynamic, dynamic>{};
-        if (row['canReply'] != true) continue;
-        final hay = '${row['sender'] ?? ''} ${row['conversationTitle'] ?? ''}'
-            .toLowerCase();
-        if (hay.contains(nameToken)) {
-          matched = true;
-          final key = _notificationKey(row['key']);
-          if (key.isNotEmpty) {
-            return _replyNotification(key: key, text: body);
-          }
-        }
-      }
-      if (matched) {
-        return 'Encontré "$firstToken" pero sin clave válida para responder.';
-      }
-      // Sin coincidencia por nombre → el token es texto; sigue abajo.
-    }
-
-    // Recorre respondibles en el orden en que @notificaciones las numera (1-based
-    // sobre las que admiten respuesta), y responde a la posición pedida.
-    var respondibleIndex = 0;
-    for (final raw in rows) {
-      final row = raw is Map ? raw : const <dynamic, dynamic>{};
-      if (row['canReply'] != true) continue;
-      respondibleIndex++;
-      if (respondibleIndex < (index ?? 1)) continue;
-      final key = _notificationKey(row['key']);
-      if (key.isEmpty) continue;
-      return _replyNotification(key: key, text: replyText);
-    }
-    return 'No se encontró una notificación respondible en la posición '
-        '${index ?? 1}. Usa @notificaciones para ver las que pueden responder.';
-  }
-
-  /// Parseo con error legible: (selector, null) o (null, motivo).
-  (NanoSelector?, String?) _tryParse(String expr) {
-    try {
-      return (NanoSelector.parse(expr), null);
-    } on SelectorFormatException catch (e) {
-      return (null, 'Selector inválido "$expr": ${e.message}');
-    }
-  }
-}
-
-/// Detector de bucles del plan (C5). Heurística bounded, nunca infinito:
-/// - patrón alternante A→B→A→B (los últimos 4 pasos son dos pares iguales);
-/// - la misma acción 3+ veces en un plan de 5+ pasos.
-class ToolLoopDetector {
-  final List<String> _history = [];
-
-  void reset() => _history.clear();
-
-  bool isLoop(
-    String fingerprint, {
-    int repeatThreshold = 3,
-    int minimumHistory = 5,
-    bool detectAlternating = true,
-  }) {
-    _history.add(fingerprint);
-    final n = _history.length;
-    if (detectAlternating &&
-        n >= 4 &&
-        _history[n - 4] == _history[n - 2] &&
-        _history[n - 3] == _history[n - 1]) {
-      return true; // A→B→A→B
-    }
-    final count = _history.where((h) => h == fingerprint).length;
-    if (count >= repeatThreshold && _history.length >= minimumHistory) {
-      return true;
-    }
-    return false;
   }
 }

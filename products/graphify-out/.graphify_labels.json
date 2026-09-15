@@ -490,5 +490,19 @@
   "488": "ChatNotifier",
   "489": "NanoRuntimeApi",
   "490": "nano-info",
-  "491": "RuleEditSheet"
+  "491": "RuleEditSheet",
+  "492": "String get",
+  "493": "models_provider.dart",
+  "494": "terminal_output_view.dart",
+  "495": "@immutable",
+  "496": "TaskValue",
+  "497": "KvCompression",
+  "498": "DeviceMetricsChannelHandler",
+  "499": "tool_loop_detector.dart",
+  "500": ".fmt",
+  "501": "InMemoryNanoContextRepository",
+  "502": "AnsiTerminalView",
+  "503": "patch.py",
+  "504": "Client",
+  "505": "MethodChannel"
 }

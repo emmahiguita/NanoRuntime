@@ -5,6 +5,7 @@ members = [
     "products/nanoRUNTIME/nanortime-ffi",
     "products/nanoRUNTIME/nanortime-cli",
     "products/nanoRUNTIME/nanortime-web",
+    "products/nanoDESKTOP/src-tauri",
 ]
 
 [patch.crates-io]

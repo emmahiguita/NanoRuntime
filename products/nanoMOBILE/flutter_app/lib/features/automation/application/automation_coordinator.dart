@@ -1028,11 +1028,12 @@ class AutomationCoordinator {
       }
 
       if (plan == null) {
-        // Búsqueda Web determinista en Chrome/Google/Internet (Fast-Path <50ms)
+        // Búsqueda Web determinista conectada a navegadores con respuesta in-app en Nano
         final webSearch = _webSearchResolver?.resolve(goal.text);
         if (webSearch != null) {
           plan = [webSearch.call];
           runExpectation = webSearch.expectation;
+          outputProvesGoal = webSearch.inApp;
         }
       }
 

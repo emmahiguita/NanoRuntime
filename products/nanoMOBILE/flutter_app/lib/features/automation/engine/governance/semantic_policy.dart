@@ -111,6 +111,10 @@ const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
     requiredInputs: ['url'],
     risk: SemanticActionRisk.navigation,
   ),
+  'fetch_web': SemanticActionDefinition(
+    requiredInputs: ['url'],
+    risk: SemanticActionRisk.observation,
+  ),
 
   // Escrituras y operaciones privilegiadas.
   'write': SemanticActionDefinition(

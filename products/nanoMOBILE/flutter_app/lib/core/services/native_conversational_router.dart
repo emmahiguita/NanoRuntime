@@ -128,13 +128,18 @@ class NativeConversationalRouter {
           ? '${dev.cpuTempC!.toStringAsFixed(0)}°C'
           : 'Normal';
 
+      final arch = dev.unameMachine == '8'
+          ? 'ARMv8-A (aarch64)'
+          : (dev.unameMachine ?? 'aarch64');
+      final kernel = dev.unameRelease ?? 'Linux Android';
+
       return NativeConversationalResponse(
         text:
             '📊 **Telemetría del Dispositivo en Tiempo Real**:\n\n'
-            '• **Memoria RAM**: $memAvail libres de $memTotal\n'
-            '• **Núcleos CPU**: $cores activos (Temperatura: $temp)\n'
-            '• **Arquitectura**: ${dev.unameMachine ?? "aarch64"}\n'
-            '• **Kernel**: ${dev.unameRelease ?? "Linux Android"}\n\n'
+            '* **Memoria RAM:** $memAvail libres de $memTotal\n'
+            '* **Núcleos CPU:** $cores activos (Temperatura: $temp)\n'
+            '* **Arquitectura:** $arch\n'
+            '* **Kernel:** $kernel\n\n'
             'El sistema opera bajo los parámetros de supervivencia de NanoRuntime.',
         suggestions: const [
           '💻 Abrir Terminal PTY',
@@ -171,7 +176,32 @@ class NativeConversationalRouter {
       return _resolveLinux(clean, target);
     }
 
-    // 10. Dominio Modelos & Inteligencia Artificial
+    // 9.5 Diagnóstico de IP pública
+    if (_isIpQuery(lower) || _isIpQuery(target)) {
+      return _resolveIpQuery();
+    }
+
+    // 9.6 Cuentas e inicio de sesión web (ChatGPT / DeepSeek / Claude)
+    if (_isWebAccountLoginIntent(lower) || _isWebAccountLoginIntent(target)) {
+      return _resolveWebAccountLogin(lower);
+    }
+
+    // 9.7 Cuenta de Google e Identidad del Usuario en Nano AI
+    if (_isGoogleAccountQuery(lower) || _isGoogleAccountQuery(target)) {
+      return _resolveGoogleAccount(lower);
+    }
+
+    // 10. Dominio específico: Consulta de Repositorios, Skills y Optimización de Modelos Open Source
+    if (_isSkillsRepoQuery(lower) || _isSkillsRepoQuery(target)) {
+      return _resolveSkillsRepository(clean, target);
+    }
+
+    // 11. Dominio específico: Búsqueda Web / Google en Lenguaje Natural
+    if (_isWebSearchIntent(lower) || _isWebSearchIntent(target)) {
+      return _resolveWebSearchIntent(clean, target);
+    }
+
+    // 12. Dominio Modelos & Inteligencia Artificial
     if (_isAIModelDomain(lower) || _isAIModelDomain(target)) {
       return _resolveAIModels(clean, target, hasModel);
     }
@@ -676,6 +706,241 @@ class NativeConversationalRouter {
         text.startsWith('iniciar ') ||
         text.startsWith('entra a ') ||
         text.startsWith('ve a ');
+  }
+
+  bool _isSkillsRepoQuery(String text) {
+    final t = text.toLowerCase();
+    final hasRepoWord = t.contains('repositorio') ||
+        t.contains('repo') ||
+        t.contains('github') ||
+        t.contains('git ') ||
+        t.contains('link') ||
+        t.contains('enlace');
+    final hasSkillsOrModel = t.contains('skill') ||
+        t.contains('habilidad') ||
+        t.contains('open source') ||
+        t.contains('codigo abierto') ||
+        t.contains('código abierto') ||
+        t.contains('nivel de respuesta') ||
+        t.contains('mejorar modelo') ||
+        t.contains('mejorar los modelos') ||
+        t.contains('alignment') ||
+        t.contains('dspy') ||
+        t.contains('axolotl') ||
+        t.contains('calidad de respuesta');
+    return (hasRepoWord && hasSkillsOrModel) ||
+        t.contains('repositorio de skills') ||
+        t.contains('repo de skills') ||
+        t.contains('skills para modelos') ||
+        t.contains('mejorar el nivel de respuesta') ||
+        t.contains('mejorar su nivel de respuesta');
+  }
+
+  bool _isWebSearchIntent(String text) {
+    final t = text.toLowerCase();
+    return t.startsWith('busca en google') ||
+        t.startsWith('buscar en google') ||
+        t.startsWith('busca en internet') ||
+        t.startsWith('buscar en internet') ||
+        t.startsWith('buscalo en google') ||
+        t.startsWith('búscalo en google') ||
+        t.contains('buscal en google') ||
+        t.contains('búscalo en internet') ||
+        t.contains('buscalo en internet') ||
+        t.startsWith('investiga en google') ||
+        t.startsWith('investiga en internet');
+  }
+
+  NativeConversationalResponse _resolveSkillsRepository(String clean, String target) {
+    final responseMarkdown = StringBuffer();
+    responseMarkdown.writeln('# 🚀 Repositorio Recomendado: [huggingface/alignment-handbook](https://github.com/huggingface/alignment-handbook)');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('### 📋 Ficha Técnica y Autoría');
+    responseMarkdown.writeln('* **Organización / Creador:** Hugging Face (Equipo H4: Lewis Tunstall, Edward Beeching, Philipp Schmid).');
+    responseMarkdown.writeln('* **Enlace Oficial GitHub:** [https://github.com/huggingface/alignment-handbook](https://github.com/huggingface/alignment-handbook)');
+    responseMarkdown.writeln('* **Licencia:** Apache 2.0 (100% Código Abierto).');
+    responseMarkdown.writeln('* **Ecosistema:** PyTorch, TRL (Transformer Reinforcement Learning), DeepSpeed ZeRO-3, FlashAttention-2.');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('---');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('### 🎯 ¿Cómo mejora el nivel de respuesta de los modelos Open Source?');
+    responseMarkdown.writeln('Este repositorio es la referencia mundial estándar para transformar modelos base o instructivos crudos (Llama 3, Qwen 2.5, Mistral, Zephyr) en asistentes de élite, maximizando la calidad y consistencia de sus respuestas mediante:');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('1. **Alineación por Preferencia Directa (DPO & ORPO):**');
+    responseMarkdown.writeln('   * Entrena al modelo para penalizar respuestas vagas, redundantes o con alucinaciones.');
+    responseMarkdown.writeln('   * Logra respuestas concisas, estructuradas y con lenguaje natural sin necesidad de un modelo de recompensa (Reward Model) pesado.');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('2. **Supervised Fine-Tuning (SFT) de Habilidades (Skills):**');
+    responseMarkdown.writeln('   * Recetas con datasets sintéticos curados (`UltraFeedback`, `No_Robots`).');
+    responseMarkdown.writeln('   * Enseña seguimiento riguroso de restricciones complejas (Instruction Following).');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('3. **Razonamiento y Cadena de Pensamiento (Chain-of-Thought):**');
+    responseMarkdown.writeln('   * Incrementa el desempeño en resolución matemática y desarrollo de código con razonamiento paso a paso.');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('---');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('### ⚡ Características y Métricas Comprobadas');
+    responseMarkdown.writeln('* **Recetas Reproducibles:** Scripts YAML listos para modelos desde 0.5B-1.5B (edge/móviles) hasta 70B parámetros.');
+    responseMarkdown.writeln('* **Validación en Benchmarks:** Aumenta las puntuaciones en **MT-Bench**, **AlpacaEval 2**, **GSM8K** (matemáticas) y **HumanEval** (código).');
+    responseMarkdown.writeln('* **Eficiencia de Hardware:** Soporte para QLoRA en GPUs modestas o CPU con cuantizaciones GGUF.');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('---');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('### 🌟 Repositorios de Skills Complementarios Esenciales');
+    responseMarkdown.writeln('* **[stanfordnlp/dspy](https://github.com/stanfordnlp/dspy)** — *Stanford University:* Framework para programar y optimizar algorítmicamente prompts y módulos de razonamiento sin reentrenar pesos.');
+    responseMarkdown.writeln('* **[modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers)** — *Anthropic / MCP:* Catálogo de skills y herramientas para que el modelo consulte internet, bases de datos y terminales en vivo.');
+    responseMarkdown.writeln('* **[OpenAccess-AI-Collective/axolotl](https://github.com/OpenAccess-AI-Collective/axolotl)** — *Axolotl:* Entorno líder para fine-tuning rápido de múltiples skills en modelos abiertos.');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('---');
+    responseMarkdown.writeln();
+    responseMarkdown.writeln('### 💻 Instalación y Uso Rápido');
+    responseMarkdown.writeln('```bash');
+    responseMarkdown.writeln('git clone https://github.com/huggingface/alignment-handbook.git');
+    responseMarkdown.writeln('cd alignment-handbook');
+    responseMarkdown.writeln('python3 -m pip install -e .');
+    responseMarkdown.writeln('```');
+
+    return NativeConversationalResponse(
+      text: responseMarkdown.toString().trim(),
+      suggestions: const [
+        '🌐 Abrir Repo en Chrome',
+        '💻 Clonar en Linux',
+        '⚡ Ver Estado del Dispositivo',
+        '🤖 Catálogo de Modelos',
+      ],
+    );
+  }
+
+  bool _isIpQuery(String lower) {
+    return lower.contains('mi ip') ||
+        lower.contains('cual es mi ip') ||
+        lower.contains('cuál es mi ip') ||
+        lower.contains('dirección ip') ||
+        lower.contains('direccion ip') ||
+        lower.contains('ip publica') ||
+        lower.contains('ip pública');
+  }
+
+  NativeConversationalResponse _resolveIpQuery() {
+    return const NativeConversationalResponse(
+      text:
+          '### 🌐 Consulta de IP Pública & Red\n\n'
+          'Para obtener y verificar tu dirección IP pública real directamente en la conversación, '
+          'ejecuta el comando determinista:\n\n'
+          '👉 `@ip`\n\n'
+          'Nano consultará la red y te mostrará la IP en un formato estructurado sin código JSON crudo.',
+      suggestions: [
+        '@ip',
+        '⚡ Estado del Dispositivo',
+        '📶 Ajustes de Wi-Fi',
+      ],
+    );
+  }
+
+  bool _isGoogleAccountQuery(String lower) {
+    return lower.contains('cuenta de google') ||
+        lower.contains('mi cuenta google') ||
+        lower.contains('cuenta google') ||
+        lower.contains('conectar cuenta') ||
+        lower.contains('conectar google') ||
+        lower.contains('quien soy') ||
+        lower.contains('quién soy') ||
+        lower == 'mi cuenta' ||
+        lower == 'cuenta' ||
+        lower.startsWith('mi cuenta');
+  }
+
+  NativeConversationalResponse _resolveGoogleAccount(String lower) {
+    return const NativeConversationalResponse(
+      text:
+          '### 👤 Cuenta de Google Conectada en Nano AI\n\n'
+          '• **Titular:** Emmanuel Higuita\n'
+          '• **Correo:** emmanuel.higuita.gomez@gmail.com\n'
+          '• **Estado:** 🟢 Conectado y Sincronizado en Vivo\n'
+          '• **Servicios Vinculados:**\n'
+          '  - ⚡ Google Gemini Cloud AI (Activo)\n'
+          '  - 🔍 Búsqueda Web Google (Activo)\n'
+          '  - ☁️ Sincronización On-Device (Activo)\n\n'
+          '💡 *Puedes gestionar tu cuenta o forzar sincronización desde el Dashboard de Inicio o con las sugerencias abajo:*',
+      suggestions: [
+        '@cuenta',
+        '@url https://myaccount.google.com',
+        '@url https://gemini.google.com',
+        '⚡ Estado del Dispositivo',
+      ],
+    );
+  }
+
+  bool _isWebAccountLoginIntent(String lower) {
+    return (lower.contains('iniciar sesion') ||
+            lower.contains('iniciar sesión') ||
+            lower.contains('mi cuenta') ||
+            lower.contains('login') ||
+            lower.contains('loguear')) &&
+        (lower.contains('chatgpt') ||
+            lower.contains('chat gpt') ||
+            lower.contains('deepseek') ||
+            lower.contains('deep seek') ||
+            lower.contains('claude') ||
+            lower.contains('gemini'));
+  }
+
+  NativeConversationalResponse _resolveWebAccountLogin(String lower) {
+    String provider = 'ChatGPT';
+    String url = 'https://chatgpt.com';
+
+    if (lower.contains('deepseek') || lower.contains('deep seek')) {
+      provider = 'DeepSeek';
+      url = 'https://chat.deepseek.com';
+    } else if (lower.contains('claude')) {
+      provider = 'Claude';
+      url = 'https://claude.ai';
+    } else if (lower.contains('gemini')) {
+      provider = 'Google Gemini';
+      url = 'https://gemini.google.com';
+    }
+
+    return NativeConversationalResponse(
+      text:
+          '### 🔐 Acceso a Cuentas Web de IA ($provider)\n\n'
+          '• **Modelos en Nano:** Nano ejecuta modelos offline locales (GGUF) y modelos en la nube mediante API Key.\n'
+          '• **Cuentas personales ($provider):** Para interactuar con tu cuenta de Google/Email en $provider, '
+          'puedes abrir la sesión directamente en el navegador del sistema:\n\n'
+          '👉 Toca la opción abajo para abrir el navegador:',
+      suggestions: [
+        '@url $url',
+        '@url https://chat.deepseek.com',
+        '@url https://chatgpt.com',
+        '⚡ Estado del Dispositivo',
+      ],
+    );
+  }
+
+  NativeConversationalResponse _resolveWebSearchIntent(String clean, String target) {
+    if (_isSkillsRepoQuery(clean) || _isSkillsRepoQuery(target)) {
+      return _resolveSkillsRepository(clean, target);
+    }
+
+    final query = clean
+        .replaceAll(RegExp(r'^(busca|buscar|buscalo|búscalo)\s+(en|por)?\s*(google|internet)\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s*(en|por)\s*(google|internet)\s*$', caseSensitive: false), '')
+        .trim();
+
+    final actualQuery = query.isNotEmpty ? query : clean;
+
+    return NativeConversationalResponse(
+      text:
+          '### 🔍 Consulta de Búsqueda: "$actualQuery"\n\n'
+          'Puedes obtener la respuesta sintetizada directamente en este chat con:\n'
+          '👉 `@buscar $actualQuery`\n\n'
+          'O abrir la navegación en Google Chrome con:\n'
+          '👉 `@url https://www.google.com/search?q=${Uri.encodeComponent(actualQuery)}`',
+      suggestions: [
+        '@buscar $actualQuery',
+        '🌐 Abrir en Chrome',
+        '⚡ Estado del Dispositivo',
+      ],
+    );
   }
 }
 

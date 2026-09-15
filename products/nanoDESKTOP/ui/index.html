@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nano AI — Local & Autonomous Intelligence</title>
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Core Stylesheets -->
+  <link rel="stylesheet" href="css/tokens.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/chat.css" />
+  <link rel="stylesheet" href="css/terminal.css" />
+  <link rel="stylesheet" href="css/system.css" />
+</head>
+<body>
+  <div id="app-container">
+    <!-- Sidebar (Estilo ChatGPT / Open WebUI) -->
+    <aside id="sidebar">
+      <!-- Cabecera de Marca -->
+      <div class="sidebar-header">
+        <div class="brand-row">
+          <div class="brand-owl-container">
+            <img src="assets/nano_logo.png" class="brand-owl-img" alt="Nano AI" />
+          </div>
+          <span class="brand-name">Nano AI</span>
+          <span class="brand-version-pill">v0.2</span>
+        </div>
+        <button type="button" class="btn-sidebar-collapse" id="btn-collapse-sidebar" title="Colapsar menú lateral">
+          <span data-nano-icon="sidebar" data-nano-size="16"></span>
+        </button>
+      </div>
+
+      <!-- Botón + Nuevo Chat -->
+      <button type="button" class="btn-new-chat" id="btn-new-chat">
+        <div class="new-chat-left">
+          <span data-nano-icon="newChat" data-nano-size="15"></span>
+          <span>Nuevo chat</span>
+        </div>
+        <span class="kbd-shortcut">Ctrl+N</span>
+      </button>
+
+      <!-- Historial de Conversaciones -->
+      <div class="sidebar-section-title">Recientes</div>
+      <div class="chat-history-scroll" id="chat-history-list">
+        <button type="button" class="chat-history-item active" data-chat-id="1">
+          <span class="chat-item-text">Arquitectura de NanoRuntime</span>
+        </button>
+        <button type="button" class="chat-history-item" data-chat-id="2">
+          <span class="chat-item-text">Diagnóstico de VRAM y llama.cpp</span>
+        </button>
+        <button type="button" class="chat-history-item" data-chat-id="3">
+          <span class="chat-item-text">Flujo de agentes y herramientas MCP</span>
+        </button>
+        <button type="button" class="chat-history-item" data-chat-id="4">
+          <span class="chat-item-text">Resumen de Deep Research</span>
+        </button>
+      </div>
+
+      <!-- Navegación a Vistas Técnicas -->
+      <div class="sidebar-nav-group">
+        <button type="button" class="sidebar-nav-item active" data-view="chat" id="nav-chat">
+          <span data-nano-icon="chat" data-nano-size="16"></span>
+          <span>Conversación</span>
+        </button>
+        <button type="button" class="sidebar-nav-item" data-view="terminal" id="nav-terminal">
+          <span data-nano-icon="terminal" data-nano-size="16"></span>
+          <span>Harness & Terminal</span>
+        </button>
+        <button type="button" class="sidebar-nav-item" data-view="models" id="nav-models">
+          <span data-nano-icon="models" data-nano-size="16"></span>
+          <span>Modelos & VRAM</span>
+        </button>
+        <button type="button" class="sidebar-nav-item" data-view="automation" id="nav-automation">
+          <span data-nano-icon="automation" data-nano-size="16"></span>
+          <span>Automatizaciones</span>
+        </button>
+      </div>
+
+      <!-- Cápsula Hardware Guardian Fina y Elegante -->
+      <div class="sidebar-hardware-chip" id="sidebar-hardware-chip">
+        <div class="hw-capsule-main">
+          <span class="hw-capsule-dot"></span>
+          <span class="hw-capsule-label">100% Local</span>
+          <span class="hw-capsule-sep">•</span>
+          <span class="hw-capsule-stat" id="hw-tps">18.7 tok/s</span>
+        </div>
+        <div class="hw-metrics-sub-row">
+          <span id="hw-ram-stat">RAM: 4.2 / 16 GB</span>
+          <span class="hw-sub-sep">•</span>
+          <span id="hw-gpu-stat">GPU: 27%</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Espacio Principal de Trabajo -->
+    <main id="main-view">
+      <!-- Barra Superior de Control (Estilo ChatGPT / DeepSeek) -->
+      <header class="top-control-bar">
+        <div class="top-bar-left">
+          <!-- Selector de Modelo Desplegable -->
+          <div class="model-picker-dropdown">
+            <button type="button" class="btn-model-selector" id="btn-model-selector">
+              <span data-nano-icon="brain" data-nano-size="16"></span>
+              <span id="active-model-name">DeepSeek-R1</span>
+              <span class="model-tag-pill">3.8B • Local</span>
+              <span data-nano-icon="chevronDown" data-nano-size="14"></span>
+            </button>
+
+            <!-- Menú Desplegable -->
+            <div class="model-dropdown-menu" id="model-dropdown-menu">
+              <button type="button" class="model-option-item selected" data-model="deepseek-r1">
+                <span class="model-opt-title">
+                  <span>DeepSeek-R1-Distill-Qwen</span>
+                  <span class="model-tag-pill">Recomendado</span>
+                </span>
+                <span class="model-opt-desc">Razonamiento profundo nativo • 1.5B/7B/14B GGUF</span>
+              </button>
+              <button type="button" class="model-option-item" data-model="phi-3">
+                <span class="model-opt-title">
+                  <span>Phi-3-mini-4k-instruct</span>
+                  <span class="model-tag-pill">Rápido</span>
+                </span>
+                <span class="model-opt-desc">Inferencia ultraligera en CPU/GPU • 3.8B Q4_K_M</span>
+              </button>
+              <button type="button" class="model-option-item" data-model="llama-3">
+                <span class="model-opt-title">
+                  <span>Llama-3.1-8B-Instruct</span>
+                  <span class="model-tag-pill">General</span>
+                </span>
+                <span class="model-opt-desc">Capacidad general para código y análisis de texto</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Píldoras de Razonamiento DeepThink y Web -->
+        <div class="top-bar-center">
+          <button type="button" class="btn-toggle-pill active" id="btn-toggle-deepthink" title="Alternar proceso de razonamiento paso a paso">
+            <span data-nano-icon="brain" data-nano-size="14"></span>
+            <span>DeepThink (R1)</span>
+          </button>
+          <button type="button" class="btn-toggle-pill" id="btn-toggle-web" title="Habilitar consulta web en tiempo real">
+            <span data-nano-icon="globe" data-nano-size="14"></span>
+            <span>Web</span>
+          </button>
+        </div>
+
+        <!-- Acciones Rápidas Superiores -->
+        <div class="top-bar-right">
+          <button type="button" class="btn-top-action" id="btn-clear-chat" title="Limpiar conversación actual">
+            <span data-nano-icon="clear" data-nano-size="16"></span>
+          </button>
+          <button type="button" class="btn-top-action" id="btn-toggle-theme" title="Alternar Modo Claro / Oscuro">
+            <span data-nano-icon="sun" data-nano-size="16"></span>
+          </button>
+          <button type="button" class="btn-top-action" id="btn-open-settings" title="Configuración de Runtime">
+            <span data-nano-icon="settings" data-nano-size="16"></span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Paneles de Trabajo Dinámicos -->
+      <div class="workspace-panels">
+        <!-- Vista 1: Chat Principal (Limpio ChatGPT / DeepSeek) -->
+        <section id="view-chat" class="view-panel active"></section>
+
+        <!-- Vista 2: Harness & Terminal de Desarrollo -->
+        <section id="view-terminal" class="view-panel" style="display: none;"></section>
+
+        <!-- Vista 3: Modelos & VRAM -->
+        <section id="view-models" class="view-panel" style="display: none;"></section>
+
+        <!-- Vista 4: Automatizaciones -->
+        <section id="view-automation" class="view-panel" style="display: none;"></section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Entrypoint Modular -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,17 +1,17 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/features/account/presentation/widgets/google_account_dashboard_card.dart';
+import 'package:nanoai/features/browser/presentation/widgets/browser_window_widget.dart';
 
 import 'buho_wallpaper.dart';
 import 'nano_home_models.dart';
 
 // =============================================================
-// NANO HOME SCREEN — fondo publicitario del Búho + marca flotante
+// NANO HOME SCREEN — Dashboard Real con Cuenta Google & Telemetría
 // =============================================================
-//
-// HOME-CLEAN-01 — la pantalla de inicio es SOLO el fondo (wallpaper del
-// Búho, cover, juego vertical/horizontal según la pantalla) y la marca
-// «N A N O  A I» flotando arriba. Fuera telemetría (RAM/CPU/…), fuera
-// héroe: el acceso a secciones vive en la barra flotante del shell.
+
 class NanoHomeScreen extends StatelessWidget {
   final NanoTelemetryData telemetry;
   final KaliStatus kaliStatus;
@@ -25,8 +25,7 @@ class NanoHomeScreen extends StatelessWidget {
   final VoidCallback? onAutomationTap;
   final VoidCallback onKaliTap;
 
-  /// Estados EN VIVO reales (providers) — conservados por contrato del
-  /// call site (dashboard_screen), sin uso visual en la versión limpia.
+  /// Estados EN VIVO reales (providers)
   final bool chatOn;
   final bool termOn;
   final bool modelOn;
@@ -52,48 +51,37 @@ class NanoHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final isDark = colors is NanoDarkColors;
+    final topInset = MediaQuery.viewPaddingOf(context).top;
 
     return Scaffold(
-      // KEYBOARD-FIX-01 — al escribir en la barra (teclado visible), el
-      // wallpaper NO debe encogerse: el frame ya mueve la barra sobre el
-      // teclado. Sin esto, el Stack se comprime y «se solapa todo» + franja
-      // oscura.
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Capa base: la imagen llena la pantalla (cover) y encaja como
-          // parte de la app; el contenido vive encima, jamás solapado.
+          // Fondo cósmico del Búho
           const BuhoWallpaper(),
+
+          // Dashboard frontal interactivo
           Align(
             alignment: Alignment.topCenter,
-            child: Padding(
-              // HOME-CLEAN-01 — único margen: aire superior para la marca
-              // flotante. TOP-INSET-FIX-01: el shell despoja MediaQuery.padding
-              // (removeTop) — SafeArea aquí leería 0 y la marca quedaría
-              // solapada con la barra de estado. viewPadding sobrevive a
-              // removePadding: es el inset FÍSICO real de la status bar.
-              padding: EdgeInsets.only(
-                top: MediaQuery.viewPaddingOf(context).top + 28,
-              ),
-              child: Text(
-                'N A N O   A I',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 3.2,
-                  color: colors.textPrimary,
-                  shadows: [
-                    Shadow(
-                      color: (isDark ? colors.accentCyan : colors.accentBlue)
-                          .withValues(alpha: isDark ? 0.45 : 0.20),
-                      blurRadius: 18,
-                    ),
-                  ],
-                ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(16, topInset + 18, 16, 110),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Card Oficial de la Cuenta de Google Conectada
+                  const GoogleAccountDashboardCard(),
+
+                  const SizedBox(height: 12),
+
+                  // Ventana Visual Profesional del Navegador Web Real interactiva en Inicio
+                  BrowserWindowWidget(
+                    isEmbedded: true,
+                    onFullscreen: () => context.push('/browser'),
+                  ),
+                ],
               ),
             ),
           ),
@@ -102,3 +90,4 @@ class NanoHomeScreen extends StatelessWidget {
     );
   }
 }
+

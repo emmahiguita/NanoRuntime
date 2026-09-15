@@ -1,0 +1,126 @@
+/* ==========================================================================
+   NANO AI — TERMINAL CORE CSS: FUNCTIONAL CONTRAST SHELL
+   ========================================================================== */
+
+.terminal-container-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  margin: 16px 28px;
+  background: #07101C;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 36px rgba(7, 16, 28, 0.25);
+  overflow: hidden;
+  font-family: var(--font-mono);
+}
+
+.terminal-mac-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 18px;
+  background: #0B1626;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.terminal-title-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-tag {
+  color: #38BDF8;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.terminal-title-text {
+  color: #94A3B8;
+  font-size: 12px;
+}
+
+.terminal-header-tools {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-term-header-pill {
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-full);
+  color: #CBD5E1;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+}
+
+.btn-term-header-pill:hover {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38BDF8;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.terminal-screen-output {
+  flex: 1;
+  padding: 18px 24px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.65;
+  color: #DCE7F7;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.terminal-screen-output::-webkit-scrollbar {
+  width: 5px;
+}
+.terminal-screen-output::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+}
+
+.terminal-line.sys { color: #53D5FF; }
+.terminal-line.success { color: #36D7A0; }
+.terminal-line.warning { color: #F5B942; }
+.terminal-line.error { color: #FF6B78; }
+.terminal-line.input-echo { color: #5FB6FF; font-weight: 600; }
+
+.terminal-command-input-bar {
+  display: flex;
+  align-items: center;
+  padding: 10px 18px;
+  background: #050A12;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  gap: 12px;
+}
+
+.terminal-chevron {
+  color: #53D5FF;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.terminal-real-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  outline: none;
+}
+
+.term-badge-ready {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: rgba(54, 215, 160, 0.12);
+  border: 1px solid rgba(54, 215, 160, 0.25);
+  color: #36D7A0;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+}

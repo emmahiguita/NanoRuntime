@@ -66,6 +66,7 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.low,
         confidence: 0.0,
         reasons: reasons,
+        action: DialogueDecisionAction.transferToOwner,
       );
     }
 
@@ -79,6 +80,7 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.low,
         confidence: 0.0,
         reasons: reasons,
+        action: DialogueDecisionAction.transferToOwner,
       );
     }
 
@@ -99,23 +101,12 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.medium,
         confidence: 0.0,
         reasons: reasons,
+        action: DialogueDecisionAction.prepareDraft,
       );
     }
 
     // P0-NO-CALLCENTER (2026-09-06) — el 1.5B ignora P0-SOCIAL con ctx=256
-    // y DESPACHA muletillas de operador en turnos PERSONALES (evidencia en
-    // vivo: "hola" → "¡Hola! ¿Cómo puedo ayudarte hoy?", "como estas" →
-    // "Soy Nano, el asistente de este negocio. ¿En qué puedo ayudarte
-    // hoy?"). Invariante del usuario: el lenguaje de soporte NO existe en
-    // Personal. Guard determinista post-draft (la decisión es código, no
-    // LLM): la frase de operador se retiene SIEMPRE para aprobación del
-    // dueño; la identidad "Soy Nano" solo se permite si el mensaje NO fue
-    // un saludo (regla 5 del prompt: un saludo no pregunta el nombre).
-    // H7-GUARD — GENERAL también retiene muletillas de operador: el rol
-    // general atiende desconocidos, pero el agente sigue siendo la persona
-    // del dueño, jamás un call-center (evidencia: "ESTA TU PAPA" cayó a
-    // GENERAL y recibió fallback genérico). SALES/SUPPORT quedan fuera:
-    // ahí el lenguaje de servicio es legítimo.
+    // y DESPACHA muletillas de operador en turnos PERSONALES.
     final callCenterTurn =
         context.agentRole == ConversationAgentRole.personal ||
         context.agentRole == ConversationAgentRole.general;
@@ -147,16 +138,10 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.medium,
         confidence: 0.0,
         reasons: reasons,
+        action: DialogueDecisionAction.prepareDraft,
       );
     }
 
-    // R6-FORMAT-LEAK-01 (2026-09-07) — prefijo de diálogo interno fugado al
-    // reply: el 1.5B copia el formato de la memoria factual ("Nano: <texto>")
-    // o los rótulos del protocolo como contenido de la respuesta (evidencia
-    // 18:19:37: "como essta" → reply "Nano: Hola Emm." despachado literal al
-    // cliente). Todo reply que arranque con un rótulo interno es formato,
-    // no conversación → hold. El "Respuesta:" legacy ya lo limpia el parser;
-    // aquí muere el resto de los prefijos.
     if (RegExp(
       r'^(nano|respuesta|intent|relation|questions|missingfacts|requiresaction)\s*[:=]',
     ).hasMatch(_fold(understanding.reply.trim()))) {
@@ -166,17 +151,10 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.medium,
         confidence: 0.4,
         reasons: reasons,
+        action: DialogueDecisionAction.prepareDraft,
       );
     }
 
-    // R6-WRONGTURN-01 (2026-09-07) — saludo fuera de turno: el reply abre
-    // con pregunta-saludo cuando el mensaje del cliente NO fue un saludo.
-    // Evidencia 18:23:41: "como es siempre?" → "Hola Emm, todo bien?"
-    // despachado en modo autonomous (wrong-turn + confusión de
-    // interlocutor: el modelo saluda al dueño en vez de responder al
-    // cliente). Un humano puede saludar a mitad de charla, pero el patrón
-    // de fallo del 1.5B es exactamente este: pregunta-saludo sin saludo
-    // previo = turno equivocado → hold.
     final replyFold = _fold(understanding.reply.trim());
     if (replyFold.startsWith('hola') &&
         replyFold.contains('?') &&
@@ -187,15 +165,10 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.medium,
         confidence: 0.35,
         reasons: reasons,
+        action: DialogueDecisionAction.prepareDraft,
       );
     }
 
-    // PROD-ECO-01 — reply que repite el mensaje del cliente: eco del modelo
-    // con contexto degradado (evidencia física 14:19:38: "BIEN Y TU COMO
-    // ESTAS?" → reply "Bien y tú, como estas?" despachado al cliente).
-    // Repetir al cliente es calidad cero: se retiene para el dueño. La
-    // comparación es por IGUALDAD normalizada (fold + puntuación fuera):
-    // un saludo legítimo ("hola" → "Hola, ¿cómo estás?") jamás matchea.
     if (_normalizedEcho(understanding.reply).isNotEmpty &&
         _normalizedEcho(understanding.reply) ==
             _normalizedEcho(context.userText)) {
@@ -205,11 +178,10 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.medium,
         confidence: 0.5,
         reasons: reasons,
+        action: DialogueDecisionAction.ignore,
       );
     }
 
-    // REDUNDANT-QUESTION — el reply le pregunta al cliente por su día/estado
-    // cuando el cliente ya relató su actividad o día.
     if (_isRedundantStateQuestion(context.userText, understanding.reply)) {
       final repaired = safeConversationRepair.repair(
         RepairCase.redundantQuestion,
@@ -235,15 +207,12 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.medium,
         confidence: 0.4,
         reasons: reasons,
+        action: DialogueDecisionAction.prepareDraft,
       );
     }
 
     var confidence = 0.85;
 
-    // A11 NAME-OVERUSE — nombre del contacto repetido sin función real
-    // ("Hola Diego... Bien Diego..."). El nombre solo se usa con función
-    // (llamar atención, énfasis); dos menciones en un reply corto son
-    // decoración artificial. Degrada, no retiene (no es daño irreversible).
     if (context.senderName.trim().isNotEmpty) {
       final name = _fold(context.senderName.trim());
       if (name.length >= 3) {
@@ -257,14 +226,6 @@ final class ConversationDecisionEngine {
       }
     }
 
-    // requiresAction: el modelo detectó que hay que hacer algo que el bot
-    // no debe ejecutar solo. PERSONA-BUGFIX-02 — la señal SOLO es
-    // verificable si missingFacts la justifica: el 1.5B marca
-    // requiresAction=true hasta en un saludo (missingFacts vacío), y
-    // retener por una señal incoherente dejó el bot mudo en dispositivo
-    // (evidencia: "Hola" → needsHuman → nada se envía). Sin dato faltante
-    // la afirmación "necesito un dato externo" no se sostiene: se degrada
-    // a riesgo medio y el reply sigue su evaluación normal.
     if (understanding.requiresAction && understanding.missingFacts.isNotEmpty) {
       reasons.add('requiresAction: el modelo pide acción fuera de su alcance');
       return ConversationDecision(
@@ -272,6 +233,7 @@ final class ConversationDecisionEngine {
         risk: ConversationRisk.high,
         confidence: confidence - 0.5,
         reasons: reasons,
+        action: DialogueDecisionAction.notifyOwner,
       );
     }
     if (understanding.requiresAction) {
@@ -283,34 +245,22 @@ final class ConversationDecisionEngine {
 
     if (understanding.missingFacts.isNotEmpty) {
       if (_isAsking(understanding.reply)) {
-        // El reply pregunta por el dato que falta → envío honesto.
         reasons.add(
           'missingFacts + pregunta: el reply pide el dato al cliente',
         );
         confidence -= 0.15;
       } else {
-        // Afirma sin el dato → probable alucinación.
         reasons.add('missingFacts + afirmación: riesgo de alucinación');
         return ConversationDecision(
           disposition: ConversationDisposition.holdForApproval,
           risk: ConversationRisk.medium,
           confidence: confidence - 0.4,
           reasons: reasons,
+          action: DialogueDecisionAction.requestOwnerFact,
         );
       }
     }
 
-    // R5-05 LIVE STATE FACT — el mensaje pregunta por la actividad/estado
-    // presente del dueño (isLiveStateQuestion, R5-04) y el sistema NO tiene
-    // fuente viva de ese estado. Regla 6 del prompt exige honestidad: "no
-    // sé" + pregunta. Todo lo demás es invento o espejo (QUESTION MIRROR
-    // 4/4 en vivo: el modelo devolvió la misma pregunta o inventó
-    // actividad). Gate determinista:
-    // - declara ignorancia ("no sé") → pasa con degradación leve;
-    // - responde con OTRA pregunta sin declarar ignorancia → espejo
-    //   probable (el cliente preguntó y le devuelven su pregunta) → hold;
-    // - afirma actividad/ubicación del dueño → invención → hold;
-    // - respuesta social sin afirmación ("Hola, bien.") → pasa degradada.
     if (isLiveStateQuestion(context.userText)) {
       final r = _fold(understanding.reply);
       final admitsUnknown =
@@ -346,6 +296,7 @@ final class ConversationDecisionEngine {
             risk: ConversationRisk.medium,
             confidence: confidence - 0.3,
             reasons: reasons,
+            action: DialogueDecisionAction.prepareDraft,
           );
         }
         if (_affirmsOwnerActivity(understanding.reply)) {
@@ -375,6 +326,7 @@ final class ConversationDecisionEngine {
             risk: ConversationRisk.medium,
             confidence: confidence - 0.35,
             reasons: reasons,
+            action: DialogueDecisionAction.requestOwnerFact,
           );
         }
       }
@@ -382,26 +334,11 @@ final class ConversationDecisionEngine {
       confidence -= 0.1;
     }
 
-    // R5-05 COVERAGE — el mensaje trae VARIAS preguntas y el 1.5B suele
-    // responder solo la última. Sin NLU la cobertura pregunta a pregunta
-    // no es verificable: degradación honesta, no hold (el reply puede
-    // responder ambas sin signos de interrogación).
     if (understanding.questions.length >= 2) {
       reasons.add('multi-pregunta: cobertura no verificable sin NLU, degrada');
       confidence -= 0.1;
     }
 
-    // PROD-SALUDO-01 — saludo puro con reply corto: el 1.5B no emite el
-    // JSON estructurado en saludos (evidencia física 3/3: "Hola" → reply
-    // "Emm, hola!" con intent="") y la penalización de recorte retenía el
-    // saludo SIEMPRE en safeAuto (conf 0.65 = medium), contradiciendo la
-    // promesa del modo ("saludos salen"). Un saludo social corto no tiene
-    // intent comercial que perder ni recorte dañino posible: se traza sin
-    // degradar. Saludo NO puro ("hola, ¿está Emmanuel?") conserva la
-    // penalización completa.
-    // PROD-SOCIAL-03 — mismo fenómeno en reacciones sociales ("bien y tu,
-    // como estas?" → reply eco "¿Cómo estás?" con intent=""): el turno
-    // social continuo tampoco tiene estructura comercial que perder.
     if (understanding.intent.isEmpty) {
       if (isGreetingLikeMessage(context.userText) ||
           isSocialReactionMessage(context.userText) ||
@@ -417,14 +354,6 @@ final class ConversationDecisionEngine {
       }
     }
 
-    // CONV-SEM-02 / CONV-AGENT-01 — relación semántica del mensaje con la
-    // conversación previa (declarada por la MISMA inferencia que escribió
-    // el reply; jamás una segunda pasada LLM). corrige/rechaza con reply
-    // ASERTIVO se retiene: el cliente acaba de deshacer o rechazar el turno
-    // anterior y afirmar sobre ese contexto muerto es alucinación probable
-    // (invariante UNKNOWN OUTCOME != SUCCESS). Con reply PREGUNTA degrada
-    // la confianza y sigue: pedir el dato correcto es la reparación
-    // honesta. La relación jamás eleva ni decide el envío por sí sola.
     if (understanding.relation == 'corrige' ||
         understanding.relation == 'rechaza') {
       if (_isAsking(understanding.reply)) {
@@ -443,6 +372,7 @@ final class ConversationDecisionEngine {
           risk: ConversationRisk.medium,
           confidence: confidence - 0.15,
           reasons: reasons,
+          action: DialogueDecisionAction.askClarification,
         );
       }
     }
@@ -459,12 +389,10 @@ final class ConversationDecisionEngine {
         risk: risk,
         confidence: confidence,
         reasons: reasons,
+        action: DialogueDecisionAction.prepareDraft,
       );
     }
 
-    // AUTO-03 — safeAuto: solo riesgo LOW y sin hechos faltantes. Un
-    // saludo o un precio verificado salen; lo que pida datos ausentes se
-    // retiene (jamás inventar en modo seguro).
     if (context.autonomyMode == ConversationAutonomyMode.safeAuto &&
         (risk != ConversationRisk.low ||
             understanding.missingFacts.isNotEmpty)) {
@@ -476,10 +404,10 @@ final class ConversationDecisionEngine {
         risk: risk,
         confidence: confidence,
         reasons: reasons,
+        action: DialogueDecisionAction.prepareDraft,
       );
     }
 
-    // AUTO-03 — suggestions mode retiene el draft con su confianza y calidad calculadas.
     if (context.autonomyMode == ConversationAutonomyMode.suggestions) {
       reasons.add('modo sugerencias: draft retenido para aprobación');
       return ConversationDecision(
@@ -487,14 +415,23 @@ final class ConversationDecisionEngine {
         risk: risk,
         confidence: confidence,
         reasons: reasons,
+        action: DialogueDecisionAction.prepareDraft,
       );
     }
+
+    final isSocialAcknowledge =
+        isGreetingLikeMessage(context.userText) ||
+        isSocialReactionMessage(context.userText) ||
+        isLooseLaughterMessage(context.userText);
 
     return ConversationDecision(
       disposition: ConversationDisposition.autoSend,
       risk: risk,
       confidence: confidence,
       reasons: reasons,
+      action: isSocialAcknowledge
+          ? DialogueDecisionAction.acknowledge
+          : DialogueDecisionAction.replyNow,
     );
   }
 

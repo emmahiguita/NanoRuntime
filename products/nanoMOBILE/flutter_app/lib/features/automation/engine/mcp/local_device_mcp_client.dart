@@ -100,20 +100,26 @@ class LocalDeviceMcpClient implements McpClientPort {
       if (tool == 'diagnostics' || tool == 'device.diagnostics') {
         final metrics = await DeviceMetrics.fetch();
         final ramUsed = (metrics.ramTotalMb - metrics.ramAvailableMb).round();
+        final ramTotal = metrics.ramTotalMb.round();
+        final ramPct = ramTotal > 0 ? ((ramUsed / ramTotal) * 100).toStringAsFixed(1) : '0';
         final structured = <String, Object?>{
           'batteryPct': metrics.batteryPct,
           'isCharging': metrics.isCharging,
           'ramUsedMb': ramUsed,
-          'ramTotalMb': metrics.ramTotalMb.round(),
+          'ramTotalMb': ramTotal,
           'cpuCores': metrics.cpuCores,
           'cpuTempC': metrics.cpuTempC,
         };
+        final tempStr = metrics.cpuTempC != null
+            ? '${metrics.cpuTempC!.toStringAsFixed(1)}°C'
+            : 'Normal';
         final textReport =
-            'Estado del dispositivo:\n'
-            '• Batería: ${metrics.batteryPct.round()}% ${metrics.isCharging ? "(Cargando)" : ""}\n'
-            '• RAM: $ramUsed MB / ${metrics.ramTotalMb.round()} MB\n'
-            '• CPU Cores: ${metrics.cpuCores}\n'
-            '• Temperatura: ${metrics.cpuTempC != null ? "${metrics.cpuTempC!.toStringAsFixed(1)}°C" : "N/A"}';
+            '### 📱 [Local Device Inspector (MCP)] — Diagnóstico\n\n'
+            '> **Diagnóstico de Hardware y Memoria del Dispositivo**\n\n'
+            '• 🔋 **Batería:** `${metrics.batteryPct.round()}%` ${metrics.isCharging ? "⚡ *(Cargando)*" : ""}\n'
+            '• 💾 **Memoria RAM:** `$ramUsed MB` / `$ramTotal MB` (`$ramPct%` en uso)\n'
+            '• ⚡ **CPU Cores:** `${metrics.cpuCores}` | 🌡️ **Temperatura:** `$tempStr` \n'
+            '• 🛡️ **Estado del Dispositivo:** `Óptimo`';
 
         return McpToolCallResult(
           status: McpOperationStatus.success,
@@ -134,7 +140,7 @@ class LocalDeviceMcpClient implements McpClientPort {
                 app.label.toLowerCase().contains(filter) ||
                 app.packageName.toLowerCase().contains(filter)) {
               if (sampleNames.length < 8) {
-                sampleNames.add('${app.label} (${app.packageName})');
+                sampleNames.add('`${app.label}` (`${app.packageName}`)');
               }
             }
           }
@@ -144,10 +150,15 @@ class LocalDeviceMcpClient implements McpClientPort {
           'totalLaunchableApps': totalApps,
           'sampleApps': sampleNames,
         };
+        final sampleListStr = sampleNames.isEmpty
+            ? '  - *(Sin muestra disponible)*'
+            : sampleNames.map((s) => '  - $s').join('\n');
         final textReport =
-            'Resumen de aplicaciones instaladas:\n'
-            '• Total launchable detectadas: $totalApps\n'
-            '• Muestra: ${sampleNames.isEmpty ? "ninguna" : sampleNames.join(", ")}';
+            '### 📱 [Local Device Inspector (MCP)] — Catálogo de Aplicaciones\n\n'
+            '> **Resumen del Sistema de Aplicaciones Instaladas**\n\n'
+            '• 📦 **Total Launchable:** `$totalApps` aplicaciones detectadas\n'
+            '• 🔍 **Muestra Detectada:**\n'
+            '$sampleListStr';
 
         return McpToolCallResult(
           status: McpOperationStatus.success,
@@ -166,10 +177,11 @@ class LocalDeviceMcpClient implements McpClientPort {
           'mcpSupport': 'McpClientPort 2024-11-05',
         };
         final textReport =
-            'Capacidades del sistema:\n'
-            '• Servicio de Accesibilidad: ${a11yBound ? "ACTIVO (Bound)" : "INACTIVO"}\n'
-            '• Soporte MCP: Habilitado (In-process Binder)\n'
-            '• Plataforma: Android OS';
+            '### 📱 [Local Device Inspector (MCP)] — Capacidades del Sistema\n\n'
+            '> **Estado de Subsistemas y Protocolos Hardware**\n\n'
+            '• ♿ **Servicio de Accesibilidad:** `${a11yBound ? "✅ ACTIVO (Bound)" : "⚠️ INACTIVO"}`\n'
+            '• 🔌 **Protocolo MCP:** `✅ Habilitado (In-process Binder)`\n'
+            '• 🤖 **Plataforma:** `Android OS`';
 
         return McpToolCallResult(
           status: McpOperationStatus.success,
