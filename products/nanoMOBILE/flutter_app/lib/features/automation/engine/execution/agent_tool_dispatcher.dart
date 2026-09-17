@@ -37,6 +37,7 @@ import 'handlers/device_system_handler.dart';
 import 'handlers/linux_tool_handler.dart';
 import 'handlers/mcp_tool_handler.dart';
 import 'handlers/notification_tool_handler.dart';
+import 'handlers/semantic_linux_tool_handler.dart';
 import 'handlers/shizuku_tool_handler.dart';
 import 'handlers/ui_tool_handler.dart';
 import 'handlers/web_tool_handler.dart';
@@ -99,6 +100,7 @@ class AgentToolDispatcher {
     ShizukuToolHandler? shizukuHandler,
     NotificationToolHandler? notificationHandler,
     LinuxToolHandler? linuxHandler,
+    SemanticLinuxToolHandler? semanticLinuxHandler,
     McpToolHandler? mcpHandler,
     WebToolHandler? webHandler,
     BrowserAgentToolHandler? browserAgentHandler,
@@ -128,6 +130,8 @@ class AgentToolDispatcher {
              adapter: linuxAdapter,
              platformStateReader: platformStateReader,
            ),
+       _semanticLinuxHandler =
+           semanticLinuxHandler ?? const SemanticLinuxToolHandler(),
        _mcpHandler =
            mcpHandler ??
            McpToolHandler(mcpConnectionRegistry: mcpConnectionRegistry),
@@ -221,6 +225,7 @@ class AgentToolDispatcher {
   final ShizukuToolHandler _shizukuHandler;
   final NotificationToolHandler _notificationHandler;
   final LinuxToolHandler _linuxHandler;
+  final SemanticLinuxToolHandler _semanticLinuxHandler;
   final McpToolHandler _mcpHandler;
   final WebToolHandler _webHandler;
   final BrowserAgentToolHandler _browserAgentHandler;
@@ -743,11 +748,7 @@ class AgentToolDispatcher {
       case 'recents':
         return _uiHandler.navigate(call, 'Recientes', 'recents');
       case 'open_notifications':
-        return _uiHandler.navigate(
-          call,
-          'Sombra de notificaciones',
-          'notifications',
-        );
+        return _uiHandler.navigate(call, 'Sombra de notificaciones', 'notifications');
       case 'open_quick_settings':
         return _uiHandler.navigate(call, 'Ajustes rápidos', 'quick_settings');
       case 'swipe':
@@ -828,24 +829,15 @@ class AgentToolDispatcher {
         return _deviceHandler.deviceState();
       case 'shizuku_query_package':
         final pkgArg = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (pkgArg.isEmpty) {
-          return '[tool] shizuku_query_package requiere <packageName>.';
-        }
+        if (pkgArg.isEmpty) return '[tool] shizuku_query_package requiere <packageName>.';
         return _shizukuHandler.queryPackage(pkgArg);
       case 'force_stop_package':
         final pkgArg2 = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (pkgArg2.isEmpty) {
-          return '[tool] force_stop_package requiere <packageName>.';
-        }
-        return _shizukuHandler.forceStop(
-          pkgArg2,
-          platformStateReader: _platformStateReader,
-        );
+        if (pkgArg2.isEmpty) return '[tool] force_stop_package requiere <packageName>.';
+        return _shizukuHandler.forceStop(pkgArg2, platformStateReader: _platformStateReader);
       case 'install_package':
         final apkArg = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (apkArg.isEmpty) {
-          return '[tool] install_package requiere <apkPath>.';
-        }
+        if (apkArg.isEmpty) return '[tool] install_package requiere <apkPath>.';
         return _shizukuHandler.install(apkArg);
       case 'grant_specific_permission':
         final pkgArg3 = (call.textArg ?? call.selectorArg ?? '').trim();
@@ -857,12 +849,8 @@ class AgentToolDispatcher {
       case 'reply_notification':
         final key = call.keyArg?.trim() ?? '';
         final text = call.textArg?.trim() ?? '';
-        if (key.isEmpty) {
-          return '[tool] reply_notification requiere "key".';
-        }
-        if (text.isEmpty) {
-          return '[tool] reply_notification requiere "text".';
-        }
+        if (key.isEmpty) return '[tool] reply_notification requiere "key".';
+        if (text.isEmpty) return '[tool] reply_notification requiere "text".';
         final rawActionIndex = call.args?['actionIndex'];
         final rawPostTime = call.args?['postTime'];
         return _notificationHandler.replyNotification(
@@ -870,8 +858,7 @@ class AgentToolDispatcher {
           text: text,
           actionIndex: rawActionIndex is num ? rawActionIndex.toInt() : null,
           remoteInputKey: (call.args?['remoteInputKey'] as String?)?.trim(),
-          contextFingerprint: (call.args?['contextFingerprint'] as String?)
-              ?.trim(),
+          contextFingerprint: (call.args?['contextFingerprint'] as String?)?.trim(),
           postTime: rawPostTime is num ? rawPostTime.toInt() : null,
         );
       case 'linux.list':
@@ -887,6 +874,9 @@ class AgentToolDispatcher {
       case 'mcp.privileged':
         return _mcpHandler.executeMcpTool(call);
       default:
+        if (call.tool.toLowerCase().startsWith('nano.linux.')) {
+          return _semanticLinuxHandler.handleToolCall(call);
+        }
         return '[tool] Herramienta desconocida "${call.tool}".';
     }
   }

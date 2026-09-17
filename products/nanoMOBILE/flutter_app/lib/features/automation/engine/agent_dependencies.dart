@@ -34,6 +34,7 @@ import 'execution/action_verifier.dart';
 import 'execution/platform_verification_router.dart';
 import 'execution/agent_executor.dart';
 import 'execution/agent_tool_dispatcher.dart';
+import 'execution/capability_router_provider.dart';
 import '../../browser/application/browser_tab_notifier.dart';
 import 'memory/experience_cache.dart';
 import 'memory/object_memory.dart';
@@ -103,6 +104,8 @@ import 'system/system_intent_catalog.dart';
 import 'dart:async' show unawaited;
 import 'mcp/local_device_mcp_client.dart';
 import 'mcp/mobile_automation_mcp_client.dart';
+import 'mcp/linux_automation_mcp_client.dart';
+import '../executors/linux/linux_automation_executor_provider.dart';
 import 'mcp/mcp_candidate_provider.dart';
 import 'mcp/mcp_connection_registry.dart';
 import 'mcp/mcp_tool_adapter.dart';
@@ -210,8 +213,12 @@ final mcpConnectionRegistryProvider =
         executor: ref.watch(agentExecutorProvider),
         verifier: ref.watch(agentVerifierProvider),
       );
+      final linuxClient = LinuxAutomationMcpClient(
+        executor: ref.watch(linuxAutomationExecutorProvider),
+      );
       registry.register(client);
       registry.register(mobileClient);
+      registry.register(linuxClient);
       unawaited(registry.refreshTools());
       return registry;
     });
@@ -235,6 +242,7 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     policy: ref.watch(policyEngineProvider),
     verifier: ref.watch(agentVerifierProvider),
     linuxAdapter: ref.watch(linuxToolAdapterProvider),
+    semanticLinuxHandler: ref.watch(semanticLinuxToolHandlerProvider),
     router: ref.watch(actionPathRouterProvider),
     launchPackage: api.agentLaunchPackage,
     globalAction: api.agentGlobalAction,

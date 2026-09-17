@@ -10,6 +10,7 @@
 ///   modelo de lenguaje y los engines de decisión.
 library;
 
+import '../execution/capability_router.dart' show AutomationSurface;
 import '../perception/nano_snapshot.dart';
 
 /// Registro estructurado de un paso individual en el ciclo del agente.
@@ -21,6 +22,7 @@ final class TranscriptStepRecord {
     required this.executionOk,
     required this.verificationOk,
     required this.summary,
+    this.surface = AutomationSurface.androidAccessibility,
     this.packageName = '',
     this.targetLabel,
     this.metadata = const {},
@@ -36,6 +38,7 @@ final class TranscriptStepRecord {
   final bool executionOk;
   final bool verificationOk;
   final String summary;
+  final AutomationSurface surface;
   final String packageName;
   final String? targetLabel;
   final Map<String, Object?> metadata;
@@ -55,6 +58,7 @@ final class TranscriptStepRecord {
   Map<String, Object?> toSummaryMap() => {
     'step': stepIndex,
     'action': actionName,
+    'surface': surface.name,
     'package': packageName,
     'target': targetLabel ?? '',
     'ok': succeeded,
@@ -186,6 +190,34 @@ final class NanoTranscriptLedger {
       targetLabel: targetLabel,
       metadata: metadata,
       snapshot: postSnapshot,
+    );
+
+    _records.add(record);
+    _enforcePruning();
+    return record;
+  }
+
+  /// Registra un paso ejecutado en el subsistema Linux, guardando únicamente el
+  /// resumen factual en memoria operativa y protegiendo el presupuesto de tokens.
+  TranscriptStepRecord recordLinuxStep({
+    required String actionName,
+    required String commandDescription,
+    required bool executionOk,
+    required bool verificationOk,
+    required String summary,
+    Map<String, Object?> metadata = const {},
+  }) {
+    final record = TranscriptStepRecord(
+      stepIndex: _records.length + 1,
+      actionName: actionName,
+      actionDescription: commandDescription,
+      executionOk: executionOk,
+      verificationOk: verificationOk,
+      summary: summary,
+      surface: AutomationSurface.linux,
+      packageName: 'nano.linux',
+      metadata: metadata,
+      snapshot: null,
     );
 
     _records.add(record);
