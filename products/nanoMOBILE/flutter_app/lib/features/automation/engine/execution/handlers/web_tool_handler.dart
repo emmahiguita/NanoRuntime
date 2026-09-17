@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:nanoai/features/account/data/google_account_repository.dart';
+import 'package:nanoai/features/browser/infrastructure/browser_security_firewall.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../../core/services/nano_runtime_api.dart';
@@ -15,20 +16,38 @@ class WebToolHandler {
   final WebKnowledgeService _knowledgeService;
   final WebContentFormatter _formatter;
 
+  final void Function(String url)? _onOpenInBrowser;
+
   WebToolHandler({
     NanoRuntimeApi? runtime,
     WebKnowledgeService knowledgeService = const WebKnowledgeService(),
     WebContentFormatter formatter = const WebContentFormatter(),
-  })  : _runtime = runtime ?? NanoRuntimeApi.instance,
-        _knowledgeService = knowledgeService,
-        _formatter = formatter;
+    void Function(String url)? onOpenInBrowser,
+  }) : _runtime = runtime ?? NanoRuntimeApi.instance,
+       _knowledgeService = knowledgeService,
+       _formatter = formatter,
+       _onOpenInBrowser = onOpenInBrowser;
 
   /// Abre una URL externa (http/https) en el navegador integrado dentro de la app o del sistema.
-  Future<String> openUrl(String url, {String? packageName, bool inApp = true}) async {
+  Future<String> openUrl(
+    String url, {
+    String? packageName,
+    bool inApp = true,
+  }) async {
     final clean = url.trim();
     final uri = Uri.tryParse(clean);
-    if (uri == null || (!clean.startsWith('http://') && !clean.startsWith('https://'))) {
+    if (uri == null ||
+        (!clean.startsWith('http://') && !clean.startsWith('https://'))) {
       return '[openUrl:failed] La URL debe comenzar con http:// o https://.';
+    }
+
+    if (!BrowserSecurityFirewall.isAllowedUrl(clean)) {
+      return '[openUrl:blocked] La URL fue bloqueada por el firewall de seguridad de Nano (SSRF/Red privada/Loopback/Puerto interno no permitido).';
+    }
+
+    if (inApp && _onOpenInBrowser != null) {
+      _onOpenInBrowser(clean);
+      return 'Abriendo $clean en una pestaña del navegador integrado de Nano...';
     }
 
     try {
@@ -37,16 +56,15 @@ class WebToolHandler {
           uri,
           mode: LaunchMode.inAppBrowserView,
         );
-        if (launched) return 'Abriendo $clean en el navegador integrado de Nano...';
+        if (launched) {
+          return 'Abriendo $clean en el navegador integrado de Nano...';
+        }
       }
     } catch (_) {
       // Fallback a runtime nativo
     }
 
-    final ok = await _runtime.openUrl(
-      clean,
-      packageName: packageName,
-    );
+    final ok = await _runtime.openUrl(clean, packageName: packageName);
     return ok
         ? 'Abriendo $clean...'
         : '[openUrl:failed] No se pudo abrir la URL.';
@@ -78,22 +96,29 @@ class WebToolHandler {
       final repo = GoogleAccountRepository();
       final profile = await repo.loadProfile();
       final isOnline = await repo.verifyGoogleConnectivity();
-      final statusStr = isOnline ? 'Conectada y En línea' : 'Sin conexión a Google';
 
-      return '👤 Cuenta de Google (Nano AI)\n\n'
-          '• Titular: ${profile.displayName}\n'
-          '• Correo: ${profile.email}\n'
-          '• Estado: 🟢 $statusStr\n'
-          '• Servicios de Navegador & Web (Sin API Keys):\n'
-          '  - 🌐 Navegador Web Integrado: ${profile.browserAgentEnabled ? "Activo" : "Inactivo"}\n'
-          '  - 🔍 Búsqueda Web Google: ${profile.googleSearchEnabled ? "Activo" : "Inactivo"}\n'
-          '  - ☁️ Sincronización On-Device: ${profile.cloudSyncEnabled ? "Activo" : "Inactivo"}\n'
-          '• Última sincronización: ${profile.lastSynced?.toLocal().toString().split(".")[0] ?? "Reciente"}';
+      if (profile.isConnected && profile.email.isNotEmpty) {
+        final statusStr = isOnline
+            ? 'Conectada y En línea'
+            : 'Conectada (sin conexión a internet)';
+        return '👤 Cuenta de Google (Nano AI)\n\n'
+            '• Titular: ${profile.displayName}\n'
+            '• Correo: ${profile.email}\n'
+            '• Estado: 🟢 $statusStr\n'
+            '• Servicios de Navegador & Web (Sin API Keys):\n'
+            '  - 🌐 Navegador Web Integrado: ${profile.browserAgentEnabled ? "Activo" : "Inactivo"}\n'
+            '  - 🔍 Búsqueda Web Google: ${profile.googleSearchEnabled ? "Activo" : "Inactivo"}\n'
+            '  - ☁️ Sincronización On-Device: ${profile.cloudSyncEnabled ? "Activo" : "Inactivo"}\n'
+            '• Última sincronización: ${profile.lastSynced?.toLocal().toString().split(".")[0] ?? "Sin sincronizaciones previas"}';
+      } else {
+        return '👤 Cuenta de Google (Nano AI)\n\n'
+            '• Estado: ⚪ No configurada\n'
+            '• Conectividad a servidores Google: ${isOnline ? "🟢 Disponible" : "🔴 Sin conexión"}\n'
+            '• Servicios Web: Requiere vincular cuenta en Ajustes para sincronización.';
+      }
     } catch (e) {
       return '👤 Cuenta de Google (Nano AI)\n\n'
-          '• Titular: Emmanuel Higuita\n'
-          '• Correo: emmanuel.higuita.gomez@gmail.com\n'
-          '• Estado: 🟢 Conectada • En línea';
+          '• Estado: ⚪ No configurada / Error al consultar perfil: $e';
     }
   }
 
@@ -110,8 +135,8 @@ class WebToolHandler {
     }
     final fullUrl =
         (!query.startsWith('http://') && !query.startsWith('https://'))
-            ? 'https://$query'
-            : query;
+        ? 'https://$query'
+        : query;
     final uri = Uri.tryParse(fullUrl);
     if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
       return '[web:error] URL inválida: "$query".';
@@ -121,8 +146,9 @@ class WebToolHandler {
     try {
       client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 10);
-      final request =
-          await client.getUrl(uri).timeout(const Duration(seconds: 10));
+      final request = await client
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 10));
       request.headers.set(
         HttpHeaders.userAgentHeader,
         'Mozilla/5.0 (Android; Mobile) NanoAgent/1.0',
@@ -132,19 +158,16 @@ class WebToolHandler {
         'text/html,application/xhtml+xml,application/json,text/plain,*/*',
       );
 
-      final response =
-          await request.close().timeout(const Duration(seconds: 10));
+      final response = await request.close().timeout(
+        const Duration(seconds: 10),
+      );
       final status = response.statusCode;
       final body = await response
           .transform(utf8.decoder)
           .join()
           .timeout(const Duration(seconds: 10));
 
-      return _formatter.format(
-        rawBody: body,
-        uri: uri,
-        statusCode: status,
-      );
+      return _formatter.format(rawBody: body, uri: uri, statusCode: status);
     } catch (e) {
       return '[web:error] Fallo de conexión a $uri: $e';
     } finally {

@@ -82,6 +82,60 @@ class FeatherCoreIcon extends StatelessWidget {
         (isDark ? const Color(0xFFFF8C2A) : const Color(0xFFFF6D00));
     final borderRadius = BorderRadius.circular(size * 0.28);
 
+    if (type == FeatherCoreType.whatsappBusiness) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          boxShadow: [
+            if (glow)
+              BoxShadow(
+                color: const Color(0xFF00FF88).withValues(alpha: 0.35),
+                blurRadius: size * 0.35,
+                spreadRadius: 1,
+              ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: Image.asset(
+            'assets/automation/whatsapp_business_icon.png',
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+
+    if (type == FeatherCoreType.personalAgent) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          boxShadow: [
+            if (glow)
+              BoxShadow(
+                color: const Color(0xFF25D366).withValues(alpha: 0.35),
+                blurRadius: size * 0.35,
+                spreadRadius: 1,
+              ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: Image.asset(
+            'assets/automation/whatsapp_personal_icon.png',
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: size,
       height: size,

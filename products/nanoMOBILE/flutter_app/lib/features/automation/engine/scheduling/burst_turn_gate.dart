@@ -29,6 +29,10 @@ import 'rule_dispatcher.dart' show RuleDispatchResult, RuleOutcome;
 
 /// Puerta de ráfagas por conversación. Instancia única por engine (provider).
 final class BurstTurnGate {
+  /// Ventana máxima de separación entre mensajes consecutivos para
+  /// considerarlos parte de una misma ráfaga de entrada activa (60s).
+  static const int defaultBurstGapMs = 60000;
+
   BurstTurnGate({
     this.settle = const Duration(milliseconds: 800),
     this.maxWait = const Duration(milliseconds: 3000),
@@ -306,19 +310,56 @@ class _Bucket {
     }
   }
 
+  /// Ventana máxima de separación entre mensajes consecutivos para
+  /// considerarlos parte de una misma ráfaga de entrada activa (60s).
+  static const int defaultBurstGapMs = 60000;
+
+  /// Duración máxima absoluta acumulada de un turno activo (120s = 2 min).
+  /// Evita que cadenas continuas de mensajes cada 50s retrasen indefinidamente el turno.
+  static const int maxTurnSpanMs = 120000;
+
   /// El turno agregado: el ÚLTIMO evento es el ancla (identidad, capacidad
-  /// de reply, timestamps); el texto une los mensajes en orden.
+  /// de reply, timestamps); el texto une los mensajes en orden dentro de la
+  /// ventana contigua de la ráfaga activa (WA-BURST-SEGMENT-01).
   NotificationObject _merge(List<_Member> members) {
+    int stamp(NotificationObject n) {
+      if (n.messageTimestamp > 0) return n.messageTimestamp;
+      if (n.postTime > 0) return n.postTime;
+      return DateTime.now().millisecondsSinceEpoch;
+    }
+
     final ordered = members.indexed.toList()
       ..sort((a, b) {
-        int stamp(NotificationObject n) =>
-            n.messageTimestamp > 0 ? n.messageTimestamp : n.postTime;
         final delta = stamp(a.$2.event).compareTo(stamp(b.$2.event));
         return delta == 0 ? a.$1.compareTo(b.$1) : delta;
       });
     final anchor = ordered.last.$2.event;
+    final latestStamp = stamp(anchor);
+
+    // WA-BURST-SEGMENT-01: Si la notificación agrupó mensajes antiguos con
+    // mensajes nuevos (diferencia > 60s entre mensajes consecutivos o duración acumulada > 120s),
+    // no contaminar el turno activo con mensajes de turnos o sesiones anteriores.
+    // Solo el cluster temporal contiguo más reciente forma el texto del turno.
+    var clusterStartIndex = 0;
+    for (var i = ordered.length - 1; i > 0; i--) {
+      final currentStamp = stamp(ordered[i].$2.event);
+      final prevStamp = stamp(ordered[i - 1].$2.event);
+      final gapExceeded = currentStamp > 0 &&
+          prevStamp > 0 &&
+          currentStamp - prevStamp > defaultBurstGapMs;
+      final spanExceeded = latestStamp > 0 &&
+          prevStamp > 0 &&
+          latestStamp - prevStamp > maxTurnSpanMs;
+
+      if (gapExceeded || spanExceeded) {
+        clusterStartIndex = i;
+        break;
+      }
+    }
+
+    final activeCluster = ordered.sublist(clusterStartIndex);
     final parts = [
-      for (final m in ordered) _messageText(m.$2.event).trim(),
+      for (final m in activeCluster) _messageText(m.$2.event).trim(),
     ].where((t) => t.isNotEmpty);
     final joined = parts.join('\n');
     return NotificationObject(
@@ -339,6 +380,7 @@ class _Bucket {
       isGroup: anchor.isGroup,
       isSummary: anchor.isSummary,
       isTruncated: members.any((member) => member.event.isTruncated),
+      isSelf: anchor.isSelf,
       postTime: anchor.postTime,
       canReply: anchor.canReply,
       remoteInputKey: anchor.remoteInputKey,

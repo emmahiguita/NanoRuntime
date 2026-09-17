@@ -1,18 +1,18 @@
 package dev.nanoai.mobile.services
 
 import android.app.Notification
+import android.app.Person
 import android.content.Context
 import android.app.Notification.MessagingStyle
 import android.app.RemoteInput
-import android.content.Intent
 import android.content.ComponentName
 import android.os.Build
-import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import dev.nanoai.mobile.NanoApplication
 import dev.nanoai.mobile.automation.AutomationRuntimeService
 import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
+import java.util.Locale
 
 /**
  * Listener local de notificaciones. WA-PROD-01: persiste SOLO la identidad
@@ -198,22 +198,10 @@ class NotificationAutomationService : NotificationListenerService() {
             return ReplyResult(false, "CONTEXT_CHANGED")
         }
 
-        return try {
-            val intent = Intent()
-            val results = Bundle()
-            remoteInputs.forEach { input ->
-                results.putCharSequence(input.resultKey, cleanText)
-            }
-            RemoteInput.addResultsToIntent(remoteInputs, intent, results)
-            action.actionIntent.send(this, 0, intent)
-            // PendingIntent.send sin excepción prueba que Android entregó la
-            // acción a la app origen; no demuestra lectura del destinatario.
-            ReplyResult(true, "REMOTE_INPUT_ACCEPTED")
-        } catch (_: android.app.PendingIntent.CanceledException) {
-            ReplyResult(false, "ACTION_EXPIRED")
-        } catch (_: SecurityException) {
-            ReplyResult(false, "ACTION_DENIED")
-        }
+        val dispatch = RemoteInputReplySender.send(this, action, cleanText)
+        // PendingIntent.send sin excepción prueba que Android entregó la
+        // acción a la app origen; no demuestra lectura del destinatario.
+        return ReplyResult(dispatch.ok, dispatch.code)
     }
 
     private fun toMap(source: StatusBarNotification): Map<String, Any?> {
@@ -268,6 +256,17 @@ class NotificationAutomationService : NotificationListenerService() {
             ?.toString()
             .orEmpty()
 
+        val userPerson = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            extras.getParcelable(Notification.EXTRA_MESSAGING_PERSON) as? Person
+        } else {
+            null
+        }
+        val isSelfMessage = if (lastMessage != null) {
+            isSelfSender(lastMessage.sender, senderPerson, userPerson)
+        } else {
+            isSelfSender(sender, senderPerson, userPerson)
+        }
+
         val reply = replyAction(notification)
         val remoteInputKey = reply
             ?.remoteInputs
@@ -288,6 +287,7 @@ class NotificationAutomationService : NotificationListenerService() {
             "messageText" to messageText.take(MAX_FIELD_CHARS),
             "messageTimestamp" to messageTimestamp,
             "isTruncated" to (messageText.length > MAX_FIELD_CHARS || text.length > MAX_FIELD_CHARS),
+            "isSelf" to isSelfMessage,
             // Preserve the individual MessagingStyle events on live updates
             // and cold replay. Dart deduplicates each original timestamp.
             "messages" to messages.map { message ->
@@ -302,7 +302,7 @@ class NotificationAutomationService : NotificationListenerService() {
                     "sender" to message.sender?.toString().orEmpty().take(200),
                     "senderKey" to person?.key.orEmpty().take(200),
                     "senderUri" to person?.uri.orEmpty().take(500),
-                    "isSelf" to (message.sender == null || message.sender.toString().isBlank()),
+                    "isSelf" to isSelfSender(message.sender, person, userPerson),
                 )
             },
             "sender" to sender.take(200),
@@ -327,6 +327,36 @@ class NotificationAutomationService : NotificationListenerService() {
                 .filter { it.isNotEmpty() },
             "ongoing" to source.isOngoing,
         )
+    }
+
+    private fun isSelfSender(
+        senderStr: CharSequence?,
+        person: Any?,
+        userPerson: Any?,
+    ): Boolean {
+        if (senderStr == null || senderStr.isBlank()) return true
+        val clean = senderStr.trim().toString().lowercase(Locale.ROOT)
+        if (clean in setOf("tú", "tu", "you", "yo", "me", "moi", "io", "eu", "ich")) {
+            return true
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val p = person as? Person
+            val up = userPerson as? Person
+            if (p != null) {
+                if (p.key == "self") return true
+                if (up != null) {
+                    if (p.key != null && p.key == up.key) return true
+                    if (p.name != null && p.name == up.name) return true
+                    if (p.uri != null && p.uri == up.uri) return true
+                }
+            }
+            if (up != null && up.name != null) {
+                if (clean == up.name.toString().trim().lowercase(Locale.ROOT)) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     private fun replyAction(notification: Notification): Notification.Action? =

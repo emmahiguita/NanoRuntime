@@ -52,6 +52,9 @@ final class NotificationObject {
   final bool isSummary;
   final bool isTruncated;
 
+  /// true si el mensaje proviene del propio usuario (isSelf en MessagingStyle).
+  final bool isSelf;
+
   final int postTime;
   final bool canReply;
   final String remoteInputKey;
@@ -80,6 +83,7 @@ final class NotificationObject {
     required this.isGroup,
     required this.isSummary,
     this.isTruncated = false,
+    this.isSelf = false,
     required this.postTime,
     required this.canReply,
     required this.remoteInputKey,
@@ -97,17 +101,19 @@ final class NotificationObject {
     }
     return [
       for (final message in messages)
-        // isSelf==true: Kotlin marks own messages via null/blank sender.
-        // Fallback: sender present in raw (top-level) but empty in the
-        // individual message means it's also ours — skip both.
-        if (message is Map &&
-            message['isSelf'] != true &&
-            (message['sender'] as String? ?? '').isNotEmpty)
+        if (message is Map)
           NotificationObject.fromMap({...raw, ...message}),
     ];
   }
 
   factory NotificationObject.fromMap(Map<dynamic, dynamic> raw) {
+    final rawSender = '${raw['sender'] ?? ''}'.trim().toLowerCase();
+    final isExplicitSelfSender = rawSender.isNotEmpty &&
+        (rawSender == 'tú' ||
+            rawSender == 'tu' ||
+            rawSender == 'you' ||
+            rawSender == 'yo' ||
+            rawSender == 'me');
     return NotificationObject(
       key: '${raw['key'] ?? ''}',
       packageName: '${raw['package'] ?? ''}',
@@ -128,6 +134,7 @@ final class NotificationObject {
       isGroup: raw['isGroup'] == true,
       isSummary: raw['isSummary'] == true,
       isTruncated: raw['isTruncated'] == true,
+      isSelf: raw['isSelf'] == true || isExplicitSelfSender,
       postTime: raw['postTime'] is num ? (raw['postTime'] as num).toInt() : 0,
       canReply: raw['canReply'] == true,
       remoteInputKey: '${raw['remoteInputKey'] ?? ''}',

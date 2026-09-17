@@ -4,7 +4,9 @@ import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import androidx.core.content.FileProvider
+import dev.nanoai.mobile.services.AgentAccessibilityBridge
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
@@ -13,9 +15,29 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "shareText" -> shareText(call, result)
+            "openChat" -> openChat(call, result)
             "copyToCatalog" -> copyToCatalog(call, result)
             "shareFile" -> shareFile(call, result)
+            "isAccessibilityEnabled" -> isAccessibilityEnabled(result)
+            "openAccessibilitySettings" -> openAccessibilitySettings(result)
             else -> result.notImplemented()
+        }
+    }
+
+    private fun isAccessibilityEnabled(result: MethodChannel.Result) {
+        val isConnected = AgentAccessibilityBridge.service != null
+        result.success(isConnected)
+    }
+
+    private fun openAccessibilitySettings(result: MethodChannel.Result) {
+        try {
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("settings_failed", "No se pudo abrir ajustes de accesibilidad: ${e.message}", null)
         }
     }
 
@@ -35,6 +57,72 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         val chooser = Intent.createChooser(send, title)
         activity.startActivity(chooser)
         result.success(true)
+    }
+
+    private fun openChat(call: MethodCall, result: MethodChannel.Result) {
+        val args = call.arguments as? Map<*, *>
+        val contact = args?.get("contact") as? String
+        val text = args?.get("text") as? String ?: ""
+        val requestedPkg = ((args?.get("package") ?: args?.get("packageName")) as? String)?.takeIf { it.isNotBlank() } ?: "com.whatsapp"
+        val autoSend = (args?.get("autoSend") as? Boolean) ?: true
+
+        if (contact.isNullOrBlank()) {
+            result.error("empty_contact", "Sin contacto de destino", null)
+            return
+        }
+
+        try {
+            val cleanContact = contact.replace("@s.whatsapp.net", "").replace("@g.us", "").trim()
+            val digits = cleanContact.filter { it.isDigit() }
+
+            if (digits.length < 7) {
+                // Fail-closed estricto: sin número de teléfono válido (mínimo 7 dígitos),
+                // JAMÁS lanzar intent genérico ni armar auto-envío por accesibilidad,
+                // porque WhatsApp enviaría el mensaje al chat que esté abierto en primer plano.
+                AgentAccessibilityBridge.disarmAutoSend()
+                result.error(
+                    "invalid_phone",
+                    "No se encontró un número de teléfono válido para '$contact' (se requieren al menos 7 dígitos).",
+                    null
+                )
+                return
+            }
+
+            val uri = Uri.parse("https://api.whatsapp.com/send?phone=$digits&text=${Uri.encode(text)}")
+
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage(requestedPkg)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            // Si el servicio de accesibilidad está disponible y se solicita auto-envío,
+            // armamos el retorno automático flash.
+            if (autoSend && AgentAccessibilityBridge.service != null) {
+                AgentAccessibilityBridge.armAutoSendAndReturn(targetPkg = requestedPkg)
+            }
+
+            try {
+                activity.startActivity(intent)
+                result.success(true)
+            } catch (e: ActivityNotFoundException) {
+                val fallbackPkg = if (requestedPkg == "com.whatsapp") "com.whatsapp.w4b" else "com.whatsapp"
+                try {
+                    intent.setPackage(fallbackPkg)
+                    if (autoSend && AgentAccessibilityBridge.service != null) {
+                        AgentAccessibilityBridge.armAutoSendAndReturn(targetPkg = fallbackPkg)
+                    }
+                    activity.startActivity(intent)
+                    result.success(true)
+                } catch (_: ActivityNotFoundException) {
+                    intent.setPackage(null)
+                    activity.startActivity(intent)
+                    result.success(true)
+                }
+            }
+        } catch (e: Exception) {
+            AgentAccessibilityBridge.disarmAutoSend()
+            result.error("open_chat_failed", "No se pudo abrir el chat: ${e.message}", null)
+        }
     }
 
     /// WA-MEDIA-01 — copia el archivo elegido por el usuario a la carpeta FIJA

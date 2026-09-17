@@ -56,6 +56,125 @@ class AutomationDbStoreClient {
     }
   }
 
+  Future<List<Map<String, dynamic>>> listConversationAssignments() async {
+    try {
+      final rows = await _channel.invokeListMethod<Map<Object?, Object?>>(
+        'conversationAssignmentList',
+      );
+      return rows
+              ?.map((row) => row.cast<String, dynamic>())
+              .toList(growable: false) ??
+          const [];
+    } on Object catch (error) {
+      debugPrint('[automation-store] conversationAssignmentList falló: $error');
+      return const [];
+    }
+  }
+
+  Future<bool> assignConversation({
+    required String addressKey,
+    required String scopeId,
+    required String ownerId,
+    required String agentId,
+    String? previousAgentId,
+    required String channel,
+    required String appPackage,
+    required String channelAccountId,
+    required String conversationId,
+    required int assignedAtMs,
+    required String reason,
+    String minimalContext = '',
+  }) async {
+    try {
+      return await _channel.invokeMethod<bool>('conversationAssign', {
+            'addressKey': addressKey,
+            'scopeId': scopeId,
+            'ownerId': ownerId,
+            'agentId': agentId,
+            if (previousAgentId != null) 'previousAgentId': previousAgentId,
+            'channel': channel,
+            'appPackage': appPackage,
+            'channelAccountId': channelAccountId,
+            'conversationId': conversationId,
+            'assignedAtMs': assignedAtMs,
+            'reason': reason,
+            'minimalContext': minimalContext,
+          }) ??
+          false;
+    } on Object catch (error) {
+      debugPrint('[automation-store] conversationAssign falló: $error');
+      return false;
+    }
+  }
+
+  Future<bool> appendConversationMessage({
+    required String scopeId,
+    required String eventId,
+    required String direction,
+    required String deliveryState,
+    required String sender,
+    required String body,
+    required int atMs,
+    String ruleId = '',
+  }) async {
+    try {
+      return await _channel.invokeMethod<bool>('conversationMessageAppend', {
+            'scopeId': scopeId,
+            'eventId': eventId,
+            'direction': direction,
+            'deliveryState': deliveryState,
+            'sender': sender,
+            'body': body,
+            'atMs': atMs,
+            'ruleId': ruleId,
+          }) ??
+          false;
+    } on Object catch (error) {
+      debugPrint('[automation-store] conversationMessageAppend falló: $error');
+      return false;
+    }
+  }
+
+  Future<bool> putConversationDialogueState({
+    required String scopeId,
+    required String stateJson,
+    required int updatedAtMs,
+  }) async {
+    try {
+      return await _channel.invokeMethod<bool>('conversationStatePut', {
+            'scopeId': scopeId,
+            'stateJson': stateJson,
+            'updatedAtMs': updatedAtMs,
+          }) ??
+          false;
+    } on Object catch (error) {
+      debugPrint('[automation-store] conversationStatePut falló: $error');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> listConversationMessages({
+    required String scopeId,
+    int limit = 200,
+  }) async {
+    try {
+      final rows = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
+        'conversationMessageList',
+        {
+          'scopeId': scopeId,
+          'limit': limit,
+        },
+      );
+      if (rows == null) return const [];
+      return rows
+          .map((r) => r.cast<String, dynamic>())
+          .toList(growable: false);
+    } on Object catch (error) {
+      debugPrint('[automation-store] conversationMessageList falló: $error');
+      return const [];
+    }
+  }
+
   /// WA-EVLOG-01 — bitácora append-only del pipeline (auditoría local).
   /// Best-effort: un fallo jamás interrumpe el pipeline.
   Future<bool> appendPipelineEvent({
@@ -78,7 +197,11 @@ class AutomationDbStoreClient {
 
   // Phase 6 - Durable Scheduling
 
-  Future<bool> upsertOccurrence(String ruleId, String occurrenceId, int scheduledAtMs) async {
+  Future<bool> upsertOccurrence(
+    String ruleId,
+    String occurrenceId,
+    int scheduledAtMs,
+  ) async {
     try {
       return await _channel.invokeMethod<bool>('occurrenceUpsert', {
             'ruleId': ruleId,
@@ -104,14 +227,22 @@ class AutomationDbStoreClient {
     }
   }
 
-  Future<bool> updateOccurrenceStatus(String occurrenceId, String status, {String? reason}) async {
+  Future<bool> updateOccurrenceStatus(
+    String occurrenceId,
+    String status, {
+    String? reason,
+  }) async {
     try {
       final args = <String, dynamic>{
         'occurrenceId': occurrenceId,
         'status': status,
       };
       if (reason != null) args['reason'] = reason;
-      return await _channel.invokeMethod<bool>('occurrenceUpdateStatus', args) ?? false;
+      return await _channel.invokeMethod<bool>(
+            'occurrenceUpdateStatus',
+            args,
+          ) ??
+          false;
     } on Object catch (error) {
       debugPrint('[automation-store] occurrenceUpdateStatus falló: $error');
       return false;
@@ -120,7 +251,9 @@ class AutomationDbStoreClient {
 
   Future<List<Map<String, dynamic>>> recoverOccurrences() async {
     try {
-      final result = await _channel.invokeListMethod<Map<Object?, Object?>>('occurrenceRecover');
+      final result = await _channel.invokeListMethod<Map<Object?, Object?>>(
+        'occurrenceRecover',
+      );
       return result?.map((e) => e.cast<String, dynamic>()).toList() ?? [];
     } on Object catch (error) {
       debugPrint('[automation-store] occurrenceRecover falló: $error');

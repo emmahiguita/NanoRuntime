@@ -62,6 +62,70 @@ descarga1/
 # Solo carpeta "dashboard" en la raíz del monorepo. La feature Flutter
 # lib/features/dashboard/ SÍ se versiona (es parte del build mobile).
 /dashboard/
+# ── Rust / Cargo ──────────────────────────────
+/target
+**/*.rs.bk
+
+# ── Modelos GGUF (son grandes, no subir) ─────
+*.gguf
+# Solo carpeta "models" en la raíz del monorepo. La feature Flutter
+# lib/features/models/ SÍ se versiona (es parte del build mobile).
+/models/
+modelos/
+*.safetensors
+*.bin
+
+# ── Datos de prueba generados ────────────────
+data/research/evidence_package/logs/*.json
+data/research/*.json
+data/research/evidence_package/sessions/
+
+# ── llama.cpp source clonado (compilar via CI) ─
+llama.cpp-source/
+llama-prebuilt/
+vendor/llama-cpp-sys-2/llama.cpp/
+# Fork vendored (trackeado por los patches qwen3.x) — es código de terceros,
+# no del proyecto: fuera del grafo graphify (que respeta .gitignore).
+vendor/llama-cpp-sys-2-mtp/llama.cpp/
+*.tar.gz
+*.zip
+
+# ── Android / build ───────────────────────────
+*.apk
+*.aab
+*.so
+build/
+out/
+
+# ── Sistema ───────────────────────────────────
+.DS_Store
+Thumbs.db
+*.tmp
+*.log
+.env
+.env.local
+
+# ── IDE ───────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Documentos de trabajo locales ─────────────
+descarga1/
+# Solo carpeta "desktop" en la raíz del monorepo. La feature Flutter
+# lib/features/desktop/ SÍ se versiona (es parte del build mobile).
+/desktop/
+*.docx
+
+# ── Sesiones generadas (no versionar) ─────
+.nano-sessions/
+*.nano
+
+# ── Subproyectos separados / no necesarios para el build ─
+# Solo carpeta "dashboard" en la raíz del monorepo. La feature Flutter
+# lib/features/dashboard/ SÍ se versiona (es parte del build mobile).
+/dashboard/
 # Knowledge graphs (raíz y subproyectos): el estado ACTUAL se versiona
 # (mapas/gráficas del repo): graph.json + reporte + manifest + labels.
 # Cache y snapshots diarios se regeneran — no se versionan.
@@ -75,15 +139,13 @@ descarga1/
 !**/graphify-out/.graphify_labels.json.sig
 !**/graphify-out/.graphify_root
 .opencode/
-data/
+/data/
+build_tools/extracted/**/data/
 # Local codebase-memory index (binary graph.db.zst) — regenerable, no versionar
 .codebase-memory/
-# La feature Flutter lib/features/models/ SÍ se versiona (build mobile).
-# El patrón global `data/` excluiría su carpeta data/ (datasources, repositorios,
-# model_source_registry, model_downloader...). Negación quirúrgica que re-incluye
-# SOLO models/data/, sin tocar build_tools/extracted/**/data (extracción de build).
-!products/nanoMOBILE/flutter_app/lib/features/models/data/
-!products/nanoMOBILE/flutter_app/lib/features/models/data/**
+# Asegurar que las capas data de Flutter features se versionan siempre
+!products/nanoMOBILE/flutter_app/lib/**/data/
+!products/nanoMOBILE/flutter_app/lib/**/data/**
 docs/images/
 *.history.json
 manifest_cpu.json
@@ -93,9 +155,6 @@ manifest_cpu.json
 screenshot*.png
 palette_options.png
 device*.png
-device_*.png
-output_response.txt
-real_text.txt
 AUDITORIA_TECNICA_NANOAI.*
 INFORME_AUDITORIA_TECNICA_NANOAI_*.md
 

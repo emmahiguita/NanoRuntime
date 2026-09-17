@@ -8,6 +8,7 @@ library;
 
 import 'conversation_agent_role.dart';
 import 'conversation_autonomy_mode.dart';
+import '../../engine/messaging/conversation_agent.dart';
 
 /// Qué hacer con el draft.
 enum ConversationDisposition {
@@ -55,6 +56,10 @@ final class ConversationDecisionContext {
   /// sin señales, la fórmula no cambia.
   final ConversationAgentRole agentRole;
 
+  /// Agente propietario persistente de la conversación. A diferencia de
+  /// [agentRole], no cambia por el contenido de un turno.
+  final ConversationAgentId agentId;
+
   /// P0-NO-CALLCENTER — texto del mensaje del cliente (para el guard de
   /// saludo + identidad "Soy Nano"). '' = callers legacy sin texto.
   final String userText;
@@ -69,6 +74,7 @@ final class ConversationDecisionContext {
     this.identityConfidence = 1.0,
     this.autonomyMode = ConversationAutonomyMode.safeAuto,
     this.agentRole = ConversationAgentRole.general,
+    this.agentId = ConversationAgentId.personal,
     this.userText = '',
     this.senderName = '',
   });

@@ -23,6 +23,7 @@ import '../../personal_agent/domain/conversation_agent_role.dart'
         productMentionedWithoutCommerce;
 import '../messaging/conv_turn_state.dart' show isPureGreeting;
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
+import '../messaging/conversation_agent.dart';
 import '../messaging/conversation_memory.dart'
     show
         ConversationMemoryEntry,
@@ -33,6 +34,7 @@ import '../scheduling/messaging_metrics.dart';
 import '../messaging/incoming_message.dart';
 import '../scheduling/event_dedupe_store.dart' show normalizeDedupeText;
 import 'conversation_understanding.dart';
+import 'conversation_agent_contract.dart';
 import 'notification_draft_prompt.dart';
 import 'notification_object.dart';
 import '../language/temporal_location_context.dart';
@@ -102,6 +104,8 @@ final class RuntimeNotificationDraftWriter {
       String? packageName,
     )?
     routeFor,
+    ConversationAgentId Function(String conversationId, String packageName)?
+    agentFor,
     ConversationMemoryStore? memory,
   }) : _client = client,
        _llmAllowed = llmAllowed,
@@ -114,6 +118,7 @@ final class RuntimeNotificationDraftWriter {
        _clientContextFor = clientContextFor,
        _personaBlock = personaBlock,
        _routeFor = routeFor,
+       _agentFor = agentFor,
        _memory = memory;
 
   final LLMEngineClient _client;
@@ -162,6 +167,9 @@ final class RuntimeNotificationDraftWriter {
     String? packageName,
   )?
   _routeFor;
+
+  final ConversationAgentId Function(String conversationId, String packageName)?
+  _agentFor;
 
   /// WA-MEM-08/WA-AGENT-09 — memoria factual de la conversación (contexto
   /// para el borrador). null = el writer conserva el prompt sin historial.
@@ -304,23 +312,37 @@ final class RuntimeNotificationDraftWriter {
         notification.sender,
         notification.packageName,
       );
-      final role = routing?.role ?? ConversationAgentRole.general;
+      final agentId =
+          _agentFor?.call(conversationId, notification.packageName) ??
+          ConversationAgentId.defaultFor(
+            channel: notification.packageName,
+            appPackage: notification.packageName,
+          );
+      final routedRole = routing?.role ?? ConversationAgentRole.general;
+      final role = switch (agentId) {
+        ConversationAgentId.personal => ConversationAgentRole.personal,
+        ConversationAgentId.business =>
+          routedRole == ConversationAgentRole.personal
+              ? ConversationAgentRole.general
+              : routedRole,
+      };
       debugPrint(
-        '[route] rol=${role.name} '
+        '[route] agente=${agentId.name} rol=${role.name} '
         'commercial=${routing?.commercialIntent == true} '
         '${routing?.reasons.join(' | ') ?? 'legacy (sin router)'}',
       );
       // PERSONA-COMPOSE-08 — bloque persona antes del prompt (FTS4 local,
       // no consume turno del motor). Sin perfil ni ejemplos: cadena vacía y
       // el prompt queda idéntico al de WA-CTX-01.
-      final persona =
-          await _personaBlock?.call(
-            conversationId,
-            msgText,
-            notification.sender,
-            role.name,
-          ) ??
-          '';
+      final persona = agentId == ConversationAgentId.personal
+          ? await _personaBlock?.call(
+                  conversationId,
+                  msgText,
+                  notification.sender,
+                  role.name,
+                ) ??
+                ''
+          : '';
       // WA-CONV-01 — salida JSON estructurada: el razonamiento textual ya no
       // se pide (quemaba tokens antes de "Respuesta:" y el extractor podía
       // devolver el análisis como mensaje con salidas recortadas). El parser
@@ -344,15 +366,7 @@ final class RuntimeNotificationDraftWriter {
       // turno GENERAL con respuesta corta ("sí") recibía el recuerdo del
       // producto sin los facts del negocio: el modelo inventaba precios
       // sobre un contexto a medias.
-      final clientContext =
-          (routing == null ||
-              role == ConversationAgentRole.sales ||
-              routing.commercialIntent ||
-              // CONV-STATE-02 — respuesta a la pregunta pendiente: el gate
-              // determinista devuelve el bloque <PREGUNTA PENDIENTE> (no el
-              // recuerdo de producto) para mensajes cortos; es diálogo del
-              // propio dueño, entra también en turnos personales.
-              routing.pendingReply)
+      final clientContext = agentId == ConversationAgentId.business
           ? _clientContextFor?.call(conversationId, msgText) ?? ''
           : '';
       // P0-ROUTE — hechos del negocio SOLO en turnos de venta. El selector
@@ -362,12 +376,8 @@ final class RuntimeNotificationDraftWriter {
       // Negro?"): rol personal por identidad PERO commercialIntent true →
       // <DATOS DEL NEGOCIO> entra igual: UNA respuesta con estilo del dueño
       // y facts reales (jamás un chat entre agentes).
-      final isCommercial =
-          (routing == null ||
-              role == ConversationAgentRole.sales ||
-              routing.commercialIntent);
-      final business =
-          isCommercial ? _businessBlock?.call(msgText) ?? '' : '';
+      final isCommercial = agentId == ConversationAgentId.business;
+      final business = isCommercial ? _businessBlock?.call(msgText) ?? '' : '';
       // FASE 8: El tono comercial (ToneProfile) entra ÚNICAMENTE en turnos
       // de venta. En turnos personales NUNCA entra el tono de ventas.
       final tone = isCommercial ? _toneBlock?.call() : null;
@@ -409,11 +419,14 @@ final class RuntimeNotificationDraftWriter {
       // WA-CONV-UNDERSTANDING-01 — invariante: !eligibleForSocialPrompt suprime
       // el social mínimo cuando el turno es narrativo/contextual/complejo.
       final social =
+          agentId == ConversationAgentId.personal &&
           role == ConversationAgentRole.personal &&
           complexity.eligibleForSocialPrompt &&
           (isGreetingLikeMessage(msgText) ||
               (isSocialReactionMessage(msgText) &&
-                  !(routing?.reasons.contains(productMentionedWithoutCommerce) ??
+                  !(routing?.reasons.contains(
+                        productMentionedWithoutCommerce,
+                      ) ??
                       false)));
       // R5-PROMPT-ECO-01 — la pregunta por la actividad/estado del dueño
       // JAMÁS usa el social mínimo: su regla de honestidad vive en la regla
@@ -425,30 +438,45 @@ final class RuntimeNotificationDraftWriter {
           !(routing?.pendingReply ?? false) &&
           !isLiveStateQuestion(msgText);
       final temporalBlock = TemporalLocationContext.promptBlock();
+      final agentContract = conversationAgentContract(agentId);
+      final genSw = Stopwatch()..start();
+      final prompt = socialOrPendingReply
+          ? conversationSocialPromptFor(
+              text: msgText,
+              style: agentId == ConversationAgentId.personal && _styleEnabled()
+                  ? _styleText()
+                  : null,
+              persona: persona,
+              tone: tone,
+              history: formatConversationHistory(socialEntries),
+              temporalContext: temporalBlock,
+              agentContract: agentContract,
+            )
+          : conversationAgentPromptFor(
+              history: history,
+              text: msgText,
+              style: agentId == ConversationAgentId.personal && _styleEnabled()
+                  ? _styleText()
+                  : null,
+              business: business,
+              tone: tone,
+              persona: persona,
+              clientContext: clientContext,
+              temporalContext: temporalBlock,
+              agentContract: agentContract,
+            );
       final raw = await generateWithColdRetry(
         _client,
-        prompt: socialOrPendingReply
-            ? conversationSocialPromptFor(
-                text: msgText,
-                style: _styleEnabled() ? _styleText() : null,
-                persona: persona,
-                tone: tone,
-                history: formatConversationHistory(socialEntries),
-                temporalContext: temporalBlock,
-              )
-            : conversationAgentPromptFor(
-                history: history,
-                text: msgText,
-                style: _styleEnabled() ? _styleText() : null,
-                business: business,
-                tone: tone,
-                persona: persona,
-                clientContext: clientContext,
-                temporalContext: temporalBlock,
-              ),
+        prompt: prompt,
         temperature: 0.3,
         maxTokens: socialOrPendingReply ? 128 : 320,
         sessionId: turnSession,
+      );
+      genSw.stop();
+      debugPrint(
+        '[latency:decomp] conv=${_shortId(conversationId)} '
+        'genMs=${genSw.elapsedMilliseconds} promptChars=${prompt.length} '
+        'rawChars=${raw.length} social=$socialOrPendingReply',
       );
       // PERSONA-CORE-01 — el entendimiento COMPLETO viaja con el reply:
       // el DecisionEngine consume intent/requiresAction/missingFacts (antes

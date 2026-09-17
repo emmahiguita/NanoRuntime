@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../mcp/mcp_client_port.dart';
 import '../../mcp/mcp_connection_registry.dart';
+import '../../mcp/mcp_tool_projection.dart';
 import '../../voice/execution_cancellation.dart';
 import '../tool_call.dart';
 import '../tool_outcome.dart';
@@ -11,9 +12,8 @@ import '../tool_outcome.dart';
 class McpToolHandler {
   final McpConnectionRegistry? _mcpConnectionRegistry;
 
-  const McpToolHandler({
-    McpConnectionRegistry? mcpConnectionRegistry,
-  }) : _mcpConnectionRegistry = mcpConnectionRegistry;
+  const McpToolHandler({McpConnectionRegistry? mcpConnectionRegistry})
+    : _mcpConnectionRegistry = mcpConnectionRegistry;
 
   /// Ejecución e inspección directa de servidores y herramientas MCP desde comandos @.
   Future<String> handleMcpCommand(
@@ -23,7 +23,8 @@ class McpToolHandler {
       bool humanInitiated,
       String? executionId,
       ExecutionCancellationToken? cancellation,
-    }) runGuarded,
+    })
+    runGuarded,
     String? executionId,
     ExecutionCancellationToken? cancellation,
   }) async {
@@ -38,9 +39,13 @@ class McpToolHandler {
 
     if (query.isEmpty || sub == 'list' || sub == 'listar') {
       final snapshot = await mcpReg.refreshTools();
-      final buf = StringBuffer('🔌 Servidores y herramientas MCP conectadas:\n');
+      final buf = StringBuffer(
+        '🔌 Servidores y herramientas MCP conectadas:\n',
+      );
       for (final s in mcpReg.servers) {
-        buf.writeln('• Servidor "${s.id}" (${s.displayName}) [${s.transport.name}]');
+        buf.writeln(
+          '• Servidor "${s.id}" (${s.displayName}) [${s.transport.name}]',
+        );
       }
       if (snapshot.tools.isEmpty) {
         buf.writeln('  (Sin herramientas descubiertas)');
@@ -67,7 +72,9 @@ class McpToolHandler {
       }
       toolName = parts[1];
       if (parts.length > 2) {
-        final rawJson = query.substring(query.indexOf(toolName) + toolName.length).trim();
+        final rawJson = query
+            .substring(query.indexOf(toolName) + toolName.length)
+            .trim();
         if (rawJson.isNotEmpty) {
           try {
             final decoded = jsonDecode(rawJson);
@@ -83,7 +90,9 @@ class McpToolHandler {
       // Tratar sub como nombre de herramienta directo (ej: @mcp device.diagnostics o @mcp diagnostics)
       toolName = parts.first;
       if (parts.length > 1) {
-        final rawJson = query.substring(query.indexOf(toolName) + toolName.length).trim();
+        final rawJson = query
+            .substring(query.indexOf(toolName) + toolName.length)
+            .trim();
         if (rawJson.isNotEmpty) {
           try {
             final decoded = jsonDecode(rawJson);
@@ -97,8 +106,15 @@ class McpToolHandler {
       }
     }
 
+    // Las annotations se proyectan ANTES de entrar al pipeline de governance.
+    // Antes todas las llamadas @mcp se marcaban como read, incluso una tool de
+    // escritura. Tool desconocida degrada fail-closed a externalWrite.
+    final remoteTool = await _resolveRemoteTool(mcpReg, toolName);
+    final guardedTool = remoteTool == null
+        ? 'mcp.externalWrite'
+        : 'mcp.${const McpToolProjection().toNanoTool(remoteTool).category.name}';
     final call = ToolCall(
-      tool: 'mcp.read',
+      tool: guardedTool,
       args: {'mcpTool': toolName, ...args},
     );
     return (await runGuarded(
@@ -109,9 +125,76 @@ class McpToolHandler {
     )).feedback;
   }
 
+  Future<McpRemoteTool?> _resolveRemoteTool(
+    McpConnectionRegistry registry,
+    String requested,
+  ) async {
+    McpRemoteTool? lookup() {
+      String? exactSlash;
+      if (requested.contains('/')) {
+        exactSlash = requested;
+      } else {
+        final serverIds =
+            registry.servers
+                .map((server) => server.id)
+                .where((id) => requested.startsWith('$id.'))
+                .toList(growable: false)
+              ..sort((a, b) => b.length.compareTo(a.length));
+        if (serverIds.isNotEmpty) {
+          final serverId = serverIds.first;
+          exactSlash = '$serverId/${requested.substring(serverId.length + 1)}';
+        } else if (requested.contains('.')) {
+          // Compat con ids historicos simples como device.diagnostics.
+          exactSlash =
+              '${requested.substring(0, requested.indexOf('.'))}/'
+              '${requested.substring(requested.indexOf('.') + 1)}';
+        }
+      }
+      if (exactSlash != null) {
+        final exact = registry.lastTools[exactSlash];
+        if (exact != null) return exact;
+      }
+      final byName = registry.lastTools.values
+          .where((tool) => tool.name == requested)
+          .toList(growable: false);
+      return byName.length == 1 ? byName.single : null;
+    }
+
+    var resolved = lookup();
+    if (resolved != null) return resolved;
+
+    // La clasificación de permisos no debe depender de que el transporte esté
+    // conectado. Los catálogos locales (incluido nano.mobile) se pueden leer
+    // directamente y sus annotations siguen siendo sólo hints fail-closed.
+    final directCatalog = <McpRemoteTool>[];
+    for (final server in registry.servers) {
+      final client = registry.client(server.id);
+      if (client == null) continue;
+      try {
+        directCatalog.addAll(await client.listTools());
+      } catch (_) {
+        // Un catálogo remoto puede requerir conexión; refreshTools conserva el
+        // comportamiento normal y el fallback final seguirá siendo escritura.
+      }
+    }
+    final directMatches = directCatalog
+        .where((tool) {
+          return tool.qualifiedName == requested ||
+              '${tool.serverId}.${tool.name}' == requested ||
+              tool.name == requested;
+        })
+        .toList(growable: false);
+    if (directMatches.length == 1) return directMatches.single;
+
+    await registry.refreshTools();
+    resolved = lookup();
+    return resolved;
+  }
+
   /// Ejecuta una herramienta MCP a través de McpConnectionRegistry.
   Future<String> executeMcpTool(ToolCall call) async {
-    final mcpTool = (call.args?['mcpTool'] as String?) ??
+    final mcpTool =
+        (call.args?['mcpTool'] as String?) ??
         (call.args?['tool'] as String?) ??
         call.selectorArg ??
         call.textArg ??
@@ -132,9 +215,20 @@ class McpToolHandler {
       serverId = split[0];
       toolName = split.sublist(1).join('/');
     } else if (mcpTool.contains('.')) {
-      final split = mcpTool.split('.');
-      serverId = split[0];
-      toolName = split.sublist(1).join('.');
+      final serverIds =
+          mcpReg.servers
+              .map((server) => server.id)
+              .where((id) => mcpTool.startsWith('$id.'))
+              .toList(growable: false)
+            ..sort((a, b) => b.length.compareTo(a.length));
+      if (serverIds.isNotEmpty) {
+        serverId = serverIds.first;
+        toolName = mcpTool.substring(serverId.length + 1);
+      } else {
+        final split = mcpTool.split('.');
+        serverId = split[0];
+        toolName = split.sublist(1).join('.');
+      }
     } else {
       serverId = 'device';
       toolName = mcpTool;
@@ -154,11 +248,7 @@ class McpToolHandler {
       ..remove('mcpTool');
 
     final result = await client.callTool(
-      McpToolCall(
-        serverId: serverId,
-        toolName: toolName,
-        arguments: toolArgs,
-      ),
+      McpToolCall(serverId: serverId, toolName: toolName, arguments: toolArgs),
     );
 
     if (!result.success) {

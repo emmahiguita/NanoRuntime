@@ -24,6 +24,12 @@ import android.database.sqlite.SQLiteOpenHelper
  */
 class AutomationStoreDb(context: Context) {
     private val helper = StoreDb(context.applicationContext)
+    private val conversations by lazy {
+        ConversationSqlStore(
+            readable = { helper.readableDatabase },
+            writable = { helper.writableDatabase },
+        )
+    }
 
     /** Snapshot completo: section → json. */
     @Synchronized
@@ -104,6 +110,73 @@ class AutomationStoreDb(context: Context) {
         )
         return true
     }
+
+    // ── CONVERSATION-SCOPE-01 — dos agentes, cuatro tablas normalizadas ──
+
+    @Synchronized
+    fun listConversationAssignments(): List<Map<String, Any>> =
+        conversations.listAssignments()
+
+    @Synchronized
+    fun assignConversation(
+        addressKey: String,
+        scopeId: String,
+        ownerId: String,
+        agentId: String,
+        previousAgentId: String?,
+        channel: String,
+        appPackage: String,
+        channelAccountId: String,
+        conversationId: String,
+        assignedAtMs: Long,
+        reason: String,
+        minimalContext: String,
+    ): Boolean = conversations.assign(
+        addressKey,
+        scopeId,
+        ownerId,
+        agentId,
+        previousAgentId,
+        channel,
+        appPackage,
+        channelAccountId,
+        conversationId,
+        assignedAtMs,
+        reason,
+        minimalContext,
+    )
+
+    @Synchronized
+    fun appendConversationMessage(
+        scopeId: String,
+        eventId: String,
+        direction: String,
+        deliveryState: String,
+        sender: String,
+        body: String,
+        atMs: Long,
+        ruleId: String,
+    ): Boolean = conversations.appendMessage(
+        scopeId,
+        eventId,
+        direction,
+        deliveryState,
+        sender,
+        body,
+        atMs,
+        ruleId,
+    )
+
+    @Synchronized
+    fun putConversationDialogueState(
+        scopeId: String,
+        stateJson: String,
+        updatedAtMs: Long,
+    ): Boolean = conversations.putDialogueState(scopeId, stateJson, updatedAtMs)
+
+    @Synchronized
+    fun listConversationMessages(scopeId: String, limit: Int): List<Map<String, Any>> =
+        conversations.listMessages(scopeId, limit)
 
     // ── PERSONA-PROFILE-05 — perfiles del agente personal ──────────────
     // El SQL SIEMPRE se compone aquí en Kotlin: Dart manda datos tipados
@@ -611,6 +684,7 @@ class AutomationStoreDb(context: Context) {
             db.execSQL(EVENTS_DDL)
             db.execSQL(OCCURRENCES_DDL)
             for (ddl in PERSONA_DDL_STATEMENTS) db.execSQL(ddl)
+            ConversationSqlStore.ensureSchema(db)
             ensureFts(db)
         }
 
@@ -619,6 +693,7 @@ class AutomationStoreDb(context: Context) {
             db.execSQL(EVENTS_DDL)
             db.execSQL(OCCURRENCES_DDL)
             for (ddl in PERSONA_DDL_STATEMENTS) db.execSQL(ddl)
+            ConversationSqlStore.ensureSchema(db)
             db.execSQL(FTS_DDL)
         }
 
@@ -626,6 +701,7 @@ class AutomationStoreDb(context: Context) {
             // v1 -> v2: bitácora de eventos del pipeline (append-only).
             if (oldVersion < 2) db.execSQL(EVENTS_DDL)
             if (oldVersion < 8) db.execSQL(OCCURRENCES_DDL)
+            if (oldVersion < 9) ConversationSqlStore.ensureSchema(db)
             // Create missing base tables before ALTER: historical v3/v4 installs
             // could contain only a subset. SQLiteOpenHelper rolls back a failed
             // migration instead of marking an incomplete schema as upgraded.
@@ -672,7 +748,8 @@ class AutomationStoreDb(context: Context) {
         // recreada sobre incoming_text Y body).
         // v7: FTS4-safe edit/delete triggers, rebuilt index, no user-row deletion.
         // v8: Phase 6 - Durable Scheduling - scheduled_occurrences
-        private const val DB_VERSION = 8
+        // v9: scopes, mensajes, estado y transferencias de Personal/Negocios.
+        private const val DB_VERSION = 9
         private const val TABLE = "store_sections"
         private const val COL_KEY = "section_key"
         private const val COL_DATA = "data"

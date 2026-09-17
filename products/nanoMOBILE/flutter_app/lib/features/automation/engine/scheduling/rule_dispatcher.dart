@@ -253,13 +253,6 @@ class RuleDispatcher {
         debugPrint('[rules] rechazada: autonomyMode=disabled');
         return false;
       }
-      if (context.identityConfidence <
-          ConversationIdentity.safeToWriteThreshold) {
-        debugPrint(
-          '[rules] rechazada: identityConfidence=${context.identityConfidence} < ${ConversationIdentity.safeToWriteThreshold}',
-        );
-        return false;
-      }
       return true;
     }
 
@@ -267,6 +260,14 @@ class RuleDispatcher {
       final context = _decisionContext?.call(notif);
       if (context != null && context.humanOwnsConversation) {
         debugPrint('[rules] sideEffect rechazado: conversación bajo control humano activo');
+        return false;
+      }
+      if (context != null &&
+          context.identityConfidence <
+              ConversationIdentity.safeToWriteThreshold) {
+        debugPrint(
+          '[rules] sideEffect rechazado: identityConfidence=${context.identityConfidence} < ${ConversationIdentity.safeToWriteThreshold}',
+        );
         return false;
       }
       return permitsPreparation() &&
@@ -424,8 +425,8 @@ class RuleDispatcher {
             );
           }
 
-          // Validación de política de decisión: si no autoSend, retener borrador en UI.
-          if (!result.decision.autoSend) {
+          // Validación de política de decisión: si no autoSend o no permitsSideEffect(), retener borrador en UI.
+          if (!result.decision.autoSend || !permitsSideEffect()) {
             debugPrint(
               '[decision] ${result.decision.disposition.name} '
               'conf=${result.decision.confidence.toStringAsFixed(2)} | '
@@ -437,7 +438,9 @@ class RuleDispatcher {
                 notif,
                 result.text,
                 suggestions: result.suggestions,
-                reason: result.decision.reasons.join('; '),
+                reason: !result.decision.autoSend
+                    ? result.decision.reasons.join('; ')
+                    : 'requiere confirmación por política de identidad o control humano',
               );
             }
             return RuleDispatchResult(
@@ -460,7 +463,8 @@ class RuleDispatcher {
         // Suggestions also retain fixed-text rules and callers without a
         // decision engine. Preparing a draft never grants send authority.
         if (_decisionContext?.call(notif).autonomyMode ==
-            ConversationAutonomyMode.suggestions) {
+                ConversationAutonomyMode.suggestions ||
+            !permitsSideEffect()) {
           if (!permitsPreparation()) {
             return RuleDispatchResult(
               ruleId: rule.id,
@@ -473,7 +477,7 @@ class RuleDispatcher {
             notif,
             text,
             suggestions: dynamicDraftResult?.suggestions ?? const [],
-            reason: 'modo sugerencias',
+            reason: 'modo sugerencias o retención preventiva',
           );
         }
         final capability = ReplyCapabilityRef.fromNotification(notif);

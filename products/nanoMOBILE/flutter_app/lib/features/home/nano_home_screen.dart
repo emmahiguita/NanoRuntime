@@ -1,11 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/features/account/presentation/widgets/google_account_dashboard_card.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_window_widget.dart';
 
-import 'buho_wallpaper.dart';
 import 'nano_home_models.dart';
 
 // =============================================================
@@ -49,45 +45,25 @@ class NanoHomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    final isDark = colors is NanoDarkColors;
-    final topInset = MediaQuery.viewPaddingOf(context).top;
+    final mq = MediaQuery.of(context);
+    final isLandscape = mq.orientation == Orientation.landscape;
+    final topInset = mq.padding.top > 0 ? mq.padding.top : mq.viewPadding.top;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.transparent,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Fondo cósmico del Búho
-          const BuhoWallpaper(),
-
-          // Dashboard frontal interactivo
-          Align(
-            alignment: Alignment.topCenter,
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(16, topInset + 18, 16, 110),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Card Oficial de la Cuenta de Google Conectada
-                  const GoogleAccountDashboardCard(),
-
-                  const SizedBox(height: 12),
-
-                  // Ventana Visual Profesional del Navegador Web Real interactiva en Inicio
-                  BrowserWindowWidget(
-                    isEmbedded: true,
-                    onFullscreen: () => context.push('/browser'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      body: Padding(
+        padding: EdgeInsets.only(
+          top: topInset > 0 ? topInset + (isLandscape ? 2 : 4) : (isLandscape ? 6 : 8),
+          bottom: isLandscape ? 2 : 6,
+          left: isLandscape ? (mq.padding.left > 0 ? mq.padding.left + 4 : 8) : 4,
+          right: isLandscape ? (mq.padding.right > 0 ? mq.padding.right + 4 : 8) : 4,
+        ),
+        child: BrowserWindowWidget(
+          isEmbedded: false,
+          onFullscreen: () => context.push('/browser'),
+        ),
       ),
     );
   }
 }
-

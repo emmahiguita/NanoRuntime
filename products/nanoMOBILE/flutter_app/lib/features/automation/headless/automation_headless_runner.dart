@@ -93,8 +93,11 @@ Future<void> runAutomationHeadless() async {
       emptyPasses = 0;
       final notifications = [
         for (final row in rows)
-          if (row['notification'] is Map)
-            ...NotificationObject.eventsFromMap(row['notification'] as Map),
+          ...NotificationObject.eventsFromMap(
+            (row['notification'] is Map)
+                ? (row['notification'] as Map)
+                : row,
+          ),
       ];
       if (notifications.isNotEmpty) {
         final batchWatch = Stopwatch()..start();
@@ -112,8 +115,8 @@ Future<void> runAutomationHeadless() async {
         await pipeline.drain(gate);
       }
       for (final row in rows) {
-        final eventId = row['eventId'];
-        if (eventId is String && eventId.isNotEmpty) {
+        final eventId = (row['eventId'] ?? row['inboxEventId']) as String?;
+        if (eventId != null && eventId.isNotEmpty) {
           try {
             await _headlessChannel.invokeMethod<void>('complete', {
               'eventId': eventId,

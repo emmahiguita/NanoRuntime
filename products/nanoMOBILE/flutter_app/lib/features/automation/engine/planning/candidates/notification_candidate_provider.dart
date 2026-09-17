@@ -121,6 +121,7 @@ class NotificationCandidateProvider implements CandidateProvider {
         if (target.messageTimestamp > 0)
           'messageTimestamp': target.messageTimestamp,
         if (target.postTime > 0) 'observedAt': target.postTime,
+        if (target.postTime > 0) 'postTime': target.postTime,
       },
       channel: ActionChannel.notification,
       groundingConfidence: target.sender.isNotEmpty ? 0.85 : 0.6,

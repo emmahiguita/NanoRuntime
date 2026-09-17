@@ -50,7 +50,7 @@ class AgentAccessibilityService : AccessibilityService() {
     }
 
     private val executor = Executors.newSingleThreadExecutor()
-    private val mainThreadHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    internal val mainThreadHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     private data class TraversalState(
         var nodeLimitReached: Boolean = false,
@@ -297,12 +297,27 @@ class AgentAccessibilityService : AccessibilityService() {
             put("clickable", node.isClickable)
             put("editable", node.isEditable)
             put("scrollable", node.isScrollable)
+            put("checkable", node.isCheckable)
             put("checked", node.isChecked)
             put("selected", node.isSelected)
             put("focusable", node.isFocusable)
             put("focused", node.isFocused)
             put("visible", node.isVisibleToUser)
             put("enabled", node.isEnabled)
+            put("longClickable", node.isLongClickable)
+            put("password", node.isPassword)
+            put("drawingOrder", node.drawingOrder)
+            put("hint", node.hintText?.toString() ?: "")
+            put("error", node.error?.toString() ?: "")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                put("heading", node.isHeading)
+                put("screenReaderFocusable", node.isScreenReaderFocusable)
+                put("paneTitle", node.paneTitle?.toString() ?: "")
+                put("tooltip", node.tooltipText?.toString() ?: "")
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                put("stateDescription", node.stateDescription?.toString() ?: "")
+            }
             put("package", node.packageName?.toString() ?: "")
             put("bounds", intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom))
             // Solo dumpSnapshot incluye depth; dumpScreen conserva su contrato.
@@ -588,11 +603,15 @@ class AgentAccessibilityService : AccessibilityService() {
             object : TakeScreenshotCallback {
                 override fun onSuccess(screenshot: ScreenshotResult) {
                     val bitmap = try {
-                        Bitmap.wrapHardwareBuffer(
+                        val hardwareBitmap = Bitmap.wrapHardwareBuffer(
                             screenshot.hardwareBuffer,
                             screenshot.colorSpace,
                         )
-                    } catch (e: Exception) {
+                        val softwareBitmap = hardwareBitmap?.copy(Bitmap.Config.ARGB_8888, false)
+                        hardwareBitmap?.recycle()
+                        softwareBitmap
+                    } catch (e: Throwable) {
+                        Log.w(TAG, "No se pudo copiar el hardware screenshot", e)
                         null
                     } finally {
                         screenshot.hardwareBuffer.close()
@@ -621,7 +640,91 @@ class AgentAccessibilityService : AccessibilityService() {
     fun status(): Map<String, Any> = mapOf(
         "connected" to true,
         "canRetrieveWindowContent" to true,
-    )    // ── Internos ─────────────────────────────────────────────────────────────
+    )
+
+    /**
+     * Auto-Send & Return: Busca el botón de envío en la ventana activa de WhatsApp
+     * (o WhatsApp Business), ejecuta el clic y devuelve el foco a MainActivity.
+     */
+    fun performAutoSendAndReturn(targetPkg: String? = null): Boolean {
+        val root = rootInActiveWindow ?: return false
+        val currentPackage = root.packageName?.toString().orEmpty()
+        val isWhatsApp = currentPackage.contains("whatsapp", ignoreCase = true)
+        if (!isWhatsApp) {
+            root.recycle()
+            return false
+        }
+
+        var sendNode: AccessibilityNodeInfo? = null
+        val stack = ArrayDeque<AccessibilityNodeInfo>()
+        stack.add(root)
+
+        while (stack.isNotEmpty() && sendNode == null) {
+            val node = stack.removeLast()
+            val resId = node.viewIdResourceName?.lowercase().orEmpty()
+            val desc = node.contentDescription?.toString()?.lowercase().orEmpty()
+            val text = node.text?.toString()?.lowercase().orEmpty()
+
+            val isSendId = resId.endsWith(":id/send") || resId.contains("send_button")
+            val isSendDesc = desc == "enviar" || desc == "send" || desc.startsWith("enviar") || desc.startsWith("send")
+            val isSendText = text == "enviar" || text == "send"
+
+            if (isSendId || isSendDesc || isSendText) {
+                sendNode = node
+                break
+            }
+
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { stack.add(it) }
+            }
+        }
+
+        var clicked = false
+        if (sendNode != null) {
+            clicked = sendNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            if (!clicked) {
+                var parent = sendNode.parent
+                while (parent != null && !clicked) {
+                    if (parent.isClickable) {
+                        clicked = parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                    }
+                    if (!clicked) {
+                        parent = parent.parent
+                    }
+                }
+            }
+            if (!clicked) {
+                val rect = Rect()
+                sendNode.getBoundsInScreen(rect)
+                if (rect.width() > 0 && rect.height() > 0) {
+                    clicked = gestureTap(rect.centerX(), rect.centerY(), durationMs = 50)
+                }
+            }
+            sendNode.recycle()
+        }
+
+        root.recycle()
+
+        if (clicked) {
+            Log.i(TAG, "performAutoSendAndReturn: Clic en Enviar ejecutado con éxito. Regresando a Nano en 120ms...")
+            mainThreadHandler.postDelayed({
+                try {
+                    val returnIntent = Intent(this, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                    }
+                    startActivity(returnIntent)
+                    Log.i(TAG, "performAutoSendAndReturn: Nano traído al frente exitosamente")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error al traer MainActivity al frente: ${e.message}")
+                }
+            }, 120)
+            return true
+        }
+
+        return false
+    }
+
+    // ── Internos ─────────────────────────────────────────────────────────────
 
     private fun findFirstClickableByText(text: String): AccessibilityNodeInfo? {
         val root = rootInActiveWindow ?: return null
@@ -719,6 +822,34 @@ object AgentAccessibilityBridge {
     var lastEvent: WindowEventSnapshot? = null
         private set
 
+    @Volatile
+    var isAutoSendArmed: Boolean = false
+        private set
+
+    @Volatile
+    private var autoSendDeadlineMs: Long = 0L
+
+    @Volatile
+    private var autoSendTargetPkg: String? = null
+
+    private val autoSendRunnable = object : Runnable {
+        override fun run() {
+            if (!isAutoSendArmed) return
+            val s = service
+            if (s == null || System.currentTimeMillis() > autoSendDeadlineMs) {
+                isAutoSendArmed = false
+                return
+            }
+
+            val executed = s.performAutoSendAndReturn(autoSendTargetPkg)
+            if (executed) {
+                isAutoSendArmed = false
+            } else {
+                s.mainThreadHandler.postDelayed(this, 120)
+            }
+        }
+    }
+
     private val listeners = java.util.concurrent.CopyOnWriteArrayList<AccessibilityEventListener>()
 
     fun addListener(listener: AccessibilityEventListener) {
@@ -734,14 +865,41 @@ object AgentAccessibilityBridge {
     }
 
     fun onDisconnected() {
+        disarmAutoSend()
         service = null
         lastEvent = null
         listeners.clear()
     }
 
+    fun armAutoSendAndReturn(targetPkg: String? = null, timeoutMs: Long = 5000L) {
+        val s = service ?: return
+        isAutoSendArmed = true
+        autoSendDeadlineMs = System.currentTimeMillis() + timeoutMs
+        autoSendTargetPkg = targetPkg
+        s.mainThreadHandler.removeCallbacks(autoSendRunnable)
+        // Revisar tras un breve lapso para que la ventana de WhatsApp inicie
+        s.mainThreadHandler.postDelayed(autoSendRunnable, 150)
+    }
+
+    fun disarmAutoSend() {
+        isAutoSendArmed = false
+        service?.mainThreadHandler?.removeCallbacks(autoSendRunnable)
+    }
+
     fun notifyEvent(eventType: Int, packageName: String, className: String, timestamp: Long) {
         val snapshot = WindowEventSnapshot(eventType, packageName, className, timestamp)
         lastEvent = snapshot
+
+        if (isAutoSendArmed && packageName.contains("whatsapp", ignoreCase = true)) {
+            service?.let { s ->
+                s.mainThreadHandler.post {
+                    if (isAutoSendArmed && s.performAutoSendAndReturn(autoSendTargetPkg)) {
+                        isAutoSendArmed = false
+                    }
+                }
+            }
+        }
+
         for (listener in listeners) {
             try {
                 listener.onEvent(snapshot)

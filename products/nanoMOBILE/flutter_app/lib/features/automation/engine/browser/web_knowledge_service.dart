@@ -4,6 +4,19 @@ import 'dart:io';
 import 'chrome_content_extractor.dart';
 import '../perception/nano_snapshot.dart';
 
+/// Cita de una fuente web consultada.
+class WebSourceCitation {
+  final String title;
+  final String url;
+  final String providerName;
+
+  const WebSourceCitation({
+    required this.title,
+    required this.url,
+    required this.providerName,
+  });
+}
+
 /// Resultado estructurado de una consulta de conocimiento en internet.
 class WebKnowledgeResult {
   final String query;
@@ -11,6 +24,7 @@ class WebKnowledgeResult {
   final String summary;
   final List<String> snippets;
   final String? sourceUrl;
+  final List<WebSourceCitation> citations;
   final bool found;
 
   const WebKnowledgeResult({
@@ -19,6 +33,7 @@ class WebKnowledgeResult {
     required this.summary,
     this.snippets = const [],
     this.sourceUrl,
+    this.citations = const [],
     this.found = true,
   });
 
@@ -26,7 +41,7 @@ class WebKnowledgeResult {
   String toChatResponse() {
     if (!found || (summary.isEmpty && snippets.isEmpty)) {
       return '### 🌐 Búsqueda Web: "$query"\n\n'
-          'No se encontró información directa sintetizable para esta consulta en internet. '
+          'No se encontró información concluyente en las fuentes consultadas en internet. '
           'Intenta reformular los términos de búsqueda.';
     }
 
@@ -44,8 +59,18 @@ class WebKnowledgeResult {
       buffer.writeln();
     }
 
-    if (sourceUrl != null && sourceUrl!.isNotEmpty) {
-      buffer.writeln('🔍 *Fuente verificada:* $sourceUrl');
+    if (citations.length >= 2) {
+      buffer.writeln('🔍 *Fuentes contrastadas (${citations.length}):*');
+      for (final c in citations) {
+        buffer.writeln('• ${c.providerName}: [${c.title}](${c.url})');
+      }
+    } else if (citations.length == 1) {
+      final c = citations.first;
+      buffer.writeln(
+        '🔍 *Fuente consultada (fuente única):* ${c.providerName} — ${c.url}',
+      );
+    } else if (sourceUrl != null && sourceUrl!.isNotEmpty) {
+      buffer.writeln('🔍 *Fuente consultada:* $sourceUrl');
     }
 
     return buffer.toString().trim();
@@ -54,17 +79,16 @@ class WebKnowledgeResult {
 
 /// Servicio de búsqueda y extracción de conocimiento en vivo desde la web.
 /// Cumple SRP: consulta APIs de conocimiento público, extrae resúmenes limpios
-/// y genera respuestas completas sin requerir API keys de pago.
+/// y contrasta múltiples fuentes sin requerir API keys de pago.
 class WebKnowledgeService {
   final HttpClient Function()? _clientFactory;
 
-  const WebKnowledgeService({
-    HttpClient Function()? clientFactory,
-  }) : _clientFactory = clientFactory;
+  const WebKnowledgeService({HttpClient Function()? clientFactory})
+    : _clientFactory = clientFactory;
 
   HttpClient _createClient() => _clientFactory?.call() ?? HttpClient();
 
-  /// Realiza una búsqueda web y devuelve una respuesta estructurada completa.
+  /// Realiza una búsqueda web multifuente y devuelve una respuesta estructurada completa.
   Future<WebKnowledgeResult> search(String query) async {
     final cleanQuery = query.trim();
     if (cleanQuery.isEmpty) {
@@ -76,15 +100,99 @@ class WebKnowledgeService {
       );
     }
 
-    // 1. Intentar consulta enciclopédica y factual directa (Wikipedia REST API)
-    try {
-      final direct = await _fetchWikipediaSummary(cleanQuery, lang: 'es');
-      if (direct != null && direct.summary.isNotEmpty) {
-        return direct;
-      }
-    } catch (_) {}
+    // Consulta concurrente a múltiples fuentes independientes (Wikipedia + DuckDuckGo)
+    final responses = await Future.wait([
+      _fetchWikipediaSummary(cleanQuery, lang: 'es').catchError((_) => null),
+      _fetchDuckDuckGo(cleanQuery).catchError((_) => null),
+    ]);
 
-    // 2. Intentar búsqueda por lista de temas (Wikipedia Search API)
+    var wikiRes = responses[0];
+    final ddgRes = responses[1];
+
+    // Si Wikipedia en español no arrojó extracto directo, intentar en inglés
+    if (wikiRes == null) {
+      try {
+        wikiRes = await _fetchWikipediaSummary(cleanQuery, lang: 'en');
+      } catch (_) {}
+    }
+
+    // 1. Caso multifuente exitoso: Ambas fuentes independientes respondieron
+    if (wikiRes != null &&
+        ddgRes != null &&
+        wikiRes.summary.isNotEmpty &&
+        ddgRes.summary.isNotEmpty) {
+      final citations = <WebSourceCitation>[
+        if (wikiRes.sourceUrl != null)
+          WebSourceCitation(
+            title: wikiRes.title,
+            url: wikiRes.sourceUrl!,
+            providerName: 'Wikipedia',
+          ),
+        if (ddgRes.sourceUrl != null)
+          WebSourceCitation(
+            title: ddgRes.title,
+            url: ddgRes.sourceUrl!,
+            providerName: 'DuckDuckGo Instant Answer',
+          ),
+      ];
+
+      final combinedSnippets = <String>[
+        ...wikiRes.snippets,
+        if (ddgRes.summary != wikiRes.summary) ddgRes.summary,
+        ...ddgRes.snippets,
+      ];
+
+      return WebKnowledgeResult(
+        query: cleanQuery,
+        title: wikiRes.title,
+        summary: wikiRes.summary,
+        snippets: combinedSnippets,
+        citations: citations,
+        found: true,
+      );
+    }
+
+    // 2. Caso fuente única: Wikipedia
+    if (wikiRes != null && wikiRes.summary.isNotEmpty) {
+      final citations = [
+        if (wikiRes.sourceUrl != null)
+          WebSourceCitation(
+            title: wikiRes.title,
+            url: wikiRes.sourceUrl!,
+            providerName: 'Wikipedia',
+          ),
+      ];
+      return WebKnowledgeResult(
+        query: cleanQuery,
+        title: wikiRes.title,
+        summary: wikiRes.summary,
+        snippets: wikiRes.snippets,
+        citations: citations,
+        found: true,
+      );
+    }
+
+    // 3. Caso fuente única: DuckDuckGo
+    if (ddgRes != null && ddgRes.summary.isNotEmpty) {
+      final citations = [
+        if (ddgRes.sourceUrl != null)
+          WebSourceCitation(
+            title: ddgRes.title,
+            url: ddgRes.sourceUrl!,
+            providerName: 'DuckDuckGo Instant Answer',
+          ),
+      ];
+      return WebKnowledgeResult(
+        query: cleanQuery,
+        title: ddgRes.title,
+        summary: ddgRes.summary,
+        snippets: ddgRes.snippets,
+        citations: citations,
+        found: true,
+      );
+    }
+
+    // 4. Intentar búsqueda por lista de temas (Wikipedia Search API)
     try {
       final searchResult = await _searchWikipediaList(cleanQuery, lang: 'es');
       if (searchResult != null && searchResult.found) {
@@ -92,27 +200,13 @@ class WebKnowledgeService {
       }
     } catch (_) {}
 
-    // 3. Fallback a Wikipedia en inglés si en español no hay resultados
-    try {
-      final directEn = await _fetchWikipediaSummary(cleanQuery, lang: 'en');
-      if (directEn != null && directEn.summary.isNotEmpty) {
-        return directEn;
-      }
-    } catch (_) {}
-
-    // 4. Fallback a DuckDuckGo Instant Answer API
-    try {
-      final ddg = await _fetchDuckDuckGo(cleanQuery);
-      if (ddg != null && ddg.found) {
-        return ddg;
-      }
-    } catch (_) {}
-
     return WebKnowledgeResult(
       query: cleanQuery,
       title: 'Resultados de búsqueda: "$cleanQuery"',
-      summary: 'Se consultaron las fuentes web pero no se obtuvo un extracto directo.',
-      sourceUrl: 'https://www.google.com/search?q=${Uri.encodeComponent(cleanQuery)}',
+      summary:
+          'Se consultaron fuentes públicas pero no se obtuvo un extracto directo.',
+      sourceUrl:
+          'https://www.google.com/search?q=${Uri.encodeComponent(cleanQuery)}',
       found: false,
     );
   }
@@ -142,9 +236,14 @@ class WebKnowledgeService {
     );
   }
 
-  Future<WebKnowledgeResult?> _fetchWikipediaSummary(String query, {required String lang}) async {
+  Future<WebKnowledgeResult?> _fetchWikipediaSummary(
+    String query, {
+    required String lang,
+  }) async {
     final encoded = Uri.encodeComponent(query.replaceAll(' ', '_'));
-    final url = Uri.parse('https://$lang.wikipedia.org/api/rest_v1/page/summary/$encoded');
+    final url = Uri.parse(
+      'https://$lang.wikipedia.org/api/rest_v1/page/summary/$encoded',
+    );
     final client = _createClient();
     try {
       client.connectionTimeout = const Duration(seconds: 8);
@@ -173,7 +272,10 @@ class WebKnowledgeService {
     }
   }
 
-  Future<WebKnowledgeResult?> _searchWikipediaList(String query, {required String lang}) async {
+  Future<WebKnowledgeResult?> _searchWikipediaList(
+    String query, {
+    required String lang,
+  }) async {
     final encoded = Uri.encodeComponent(query);
     final url = Uri.parse(
       'https://$lang.wikipedia.org/w/api.php?action=query&list=search&srsearch=$encoded&utf8=&format=json',
@@ -188,7 +290,9 @@ class WebKnowledgeService {
 
       final body = await res.transform(utf8.decoder).join();
       final data = jsonDecode(body) as Map<String, dynamic>;
-      final items = (data['query']?['search'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final items =
+          (data['query']?['search'] as List?)?.cast<Map<String, dynamic>>() ??
+          [];
       if (items.isEmpty) return null;
 
       final first = items.first;
@@ -217,7 +321,8 @@ class WebKnowledgeService {
         title: firstTitle,
         summary: snippets.isNotEmpty ? snippets.first : '',
         snippets: snippets.skip(1).toList(),
-        sourceUrl: 'https://$lang.wikipedia.org/wiki/${Uri.encodeComponent(firstTitle)}',
+        sourceUrl:
+            'https://$lang.wikipedia.org/wiki/${Uri.encodeComponent(firstTitle)}',
         found: true,
       );
     } finally {

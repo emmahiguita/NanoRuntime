@@ -1,0 +1,11 @@
+prefix=/data/data/com.termux/files/usr
+includedir=/data/data/com.termux/files/usr/include
+libdir=/data/data/com.termux/files/usr/lib
+
+Name: simdutf
+Description: Fast Unicode validation, transcoding and processing
+URL: 
+Version: 9.1.2
+Cflags: -I${includedir} 
+Libs: -L${libdir} -lsimdutf
+

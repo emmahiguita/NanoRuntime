@@ -118,19 +118,21 @@ class AgentToolDispatcher {
        _currentSituationSource = currentSituationSource,
        _customUiHandler = uiHandler,
        _webHandler = webHandler ?? WebToolHandler(),
-       _browserAgentHandler = browserAgentHandler ?? const BrowserAgentToolHandler(),
+       _browserAgentHandler =
+           browserAgentHandler ?? const BrowserAgentToolHandler(),
        _shizukuHandler = shizukuHandler ?? ShizukuToolHandler(),
        _notificationHandler = notificationHandler ?? NotificationToolHandler(),
-       _linuxHandler = linuxHandler ??
+       _linuxHandler =
+           linuxHandler ??
            LinuxToolHandler(
              adapter: linuxAdapter,
              platformStateReader: platformStateReader,
            ),
-       _mcpHandler = mcpHandler ??
-           McpToolHandler(
-             mcpConnectionRegistry: mcpConnectionRegistry,
-           ),
-       _deviceHandler = deviceHandler ??
+       _mcpHandler =
+           mcpHandler ??
+           McpToolHandler(mcpConnectionRegistry: mcpConnectionRegistry),
+       _deviceHandler =
+           deviceHandler ??
            DeviceSystemHandler(
              systemGraphSource: systemGraphSource,
              devicePermissionsSource: devicePermissionsSource,
@@ -205,16 +207,15 @@ class AgentToolDispatcher {
 
   // ── Manejadores Modulares (Clean Architecture / SRP) ──────────────────────
   UiToolHandler? _customUiHandler;
-  UiToolHandler get _uiHandler =>
-      _customUiHandler ??= UiToolHandler(
-        executor: _executor,
-        verifier: verifier,
-        loop: loop,
-        globalAction: _globalAction,
-        swipe: _swipe,
-        longPress: _longPress,
-        systemIntentLauncher: _systemIntentLauncher,
-      );
+  UiToolHandler get _uiHandler => _customUiHandler ??= UiToolHandler(
+    executor: _executor,
+    verifier: verifier,
+    loop: loop,
+    globalAction: _globalAction,
+    swipe: _swipe,
+    longPress: _longPress,
+    systemIntentLauncher: _systemIntentLauncher,
+  );
 
   final DeviceSystemHandler _deviceHandler;
   final ShizukuToolHandler _shizukuHandler;
@@ -279,7 +280,9 @@ class AgentToolDispatcher {
     resetTurn();
 
     final space = t.indexOf(RegExp(r'\s'));
-    final verb = (space < 0 ? t : t.substring(0, space)).substring(1).toLowerCase();
+    final verb = (space < 0 ? t : t.substring(0, space))
+        .substring(1)
+        .toLowerCase();
     final rest = space < 0 ? '' : t.substring(space + 1).trim();
 
     final ToolCall? call;
@@ -398,8 +401,12 @@ class AgentToolDispatcher {
       case 'url':
       case 'navegar':
         final u = rest.trim();
-        if (u.isEmpty) return 'Sintaxis: @url <enlace>. Ej: @url https://google.com';
-        final full = u.startsWith('http://') || u.startsWith('https://') ? u : 'https://$u';
+        if (u.isEmpty) {
+          return 'Sintaxis: @url <enlace>. Ej: @url https://google.com';
+        }
+        final full = u.startsWith('http://') || u.startsWith('https://')
+            ? u
+            : 'https://$u';
         return _webHandler.openUrl(full);
       case 'buscar':
       case 'google':
@@ -573,9 +580,15 @@ class AgentToolDispatcher {
     final semanticRisk = semanticAction == null
         ? null
         : automationSemanticPolicy(semanticAction)?.risk;
+    final isAppLauncher =
+        call.tool == 'launch_app' ||
+        call.tool == 'open_app' ||
+        call.tool == 'abrir' ||
+        call.tool == 'launch';
     final navigates =
-        tool.semanticPolicy.risk == SemanticActionRisk.navigation ||
-        semanticRisk == SemanticActionRisk.navigation;
+        !isAppLauncher &&
+        (tool.semanticPolicy.risk == SemanticActionRisk.navigation ||
+            semanticRisk == SemanticActionRisk.navigation);
     if (navigates) {
       final source = _currentSituationSource;
       if (source == null) {
@@ -637,19 +650,17 @@ class AgentToolDispatcher {
     void Function(int stepIndex)? onStep,
     RuleExecutionAuthority? authority,
     void Function()? onPhysicalEffectDispatched,
-  }) =>
-      _planCoordinator.runPlanGuarded(
-        plan,
-        humanInitiated: humanInitiated,
-        confirmation: confirmation,
-        executionId: executionId,
-        confirmed: confirmed,
-        cancellation: cancellation,
-        onStep: onStep,
-        authority: authority,
-        onPhysicalEffectDispatched: onPhysicalEffectDispatched,
-      );
-
+  }) => _planCoordinator.runPlanGuarded(
+    plan,
+    humanInitiated: humanInitiated,
+    confirmation: confirmation,
+    executionId: executionId,
+    confirmed: confirmed,
+    cancellation: cancellation,
+    onStep: onStep,
+    authority: authority,
+    onPhysicalEffectDispatched: onPhysicalEffectDispatched,
+  );
 
   /// Compatibilidad: ejecuta bajo política y degrada el estado de
   /// confirmación a texto (llamadores que no manejan el diálogo).
@@ -673,7 +684,9 @@ class AgentToolDispatcher {
     if (call.tool.toLowerCase() == 'linux.run' &&
         explicitTimeoutSeconds != null &&
         explicitTimeoutSeconds > 0) {
-      effectiveTimeout = Duration(seconds: explicitTimeoutSeconds.clamp(1, 600));
+      effectiveTimeout = Duration(
+        seconds: explicitTimeoutSeconds.clamp(1, 600),
+      );
     } else {
       effectiveTimeout = tool.timeout;
     }
@@ -730,7 +743,11 @@ class AgentToolDispatcher {
       case 'recents':
         return _uiHandler.navigate(call, 'Recientes', 'recents');
       case 'open_notifications':
-        return _uiHandler.navigate(call, 'Sombra de notificaciones', 'notifications');
+        return _uiHandler.navigate(
+          call,
+          'Sombra de notificaciones',
+          'notifications',
+        );
       case 'open_quick_settings':
         return _uiHandler.navigate(call, 'Ajustes rápidos', 'quick_settings');
       case 'swipe':
@@ -751,30 +768,34 @@ class AgentToolDispatcher {
       case 'fetch_web':
       case 'web_fetch':
       case 'http_get':
-        final urlArg = (call.textArg ??
-                call.selectorArg ??
-                (call.args?['url'] as String?) ??
-                '')
-            .trim();
+        final urlArg =
+            (call.textArg ??
+                    call.selectorArg ??
+                    (call.args?['url'] as String?) ??
+                    '')
+                .trim();
         if (urlArg.isEmpty) {
           return '[tool] fetch_web requiere <url>.';
         }
         return _webHandler.fetchWeb(urlArg);
       case 'search_knowledge':
       case 'search_web':
-        final q = (call.textArg ??
-                call.selectorArg ??
-                (call.args?['query'] as String?) ??
-                '')
-            .trim();
+        final q =
+            (call.textArg ??
+                    call.selectorArg ??
+                    (call.args?['query'] as String?) ??
+                    '')
+                .trim();
         if (q.isEmpty) {
           return '[tool] search_knowledge requiere "query" o texto.';
         }
         return _webHandler.searchKnowledge(q);
       case 'browser_ai_query':
       case 'reverse_agent_query':
-        final provider = (call.args?['provider'] as String?)?.trim() ?? 'gemini';
-        final prompt = (call.args?['prompt'] as String?) ??
+        final provider =
+            (call.args?['provider'] as String?)?.trim() ?? 'gemini';
+        final prompt =
+            (call.args?['prompt'] as String?) ??
             call.textArg ??
             call.selectorArg ??
             '';
@@ -794,9 +815,9 @@ class AgentToolDispatcher {
           return '[launchFailed] Android no pudo abrir el paquete '
               '"$packageName".';
         }
-        final expectation = _uiHandler.expectationFor(
-          call,
-        ).copyWith(expectedPackage: packageName);
+        final expectation = _uiHandler
+            .expectationFor(call)
+            .copyWith(expectedPackage: packageName);
         return _uiHandler.verifiedFeedback(
           'Aplicación abierta por Intent: $packageName.',
           expectation,

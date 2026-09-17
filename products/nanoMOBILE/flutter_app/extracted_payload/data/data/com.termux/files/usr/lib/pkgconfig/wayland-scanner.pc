@@ -1,0 +1,12 @@
+prefix=/data/data/com.termux/files/usr
+bindir=${prefix}/bin
+includedir=${prefix}/include
+
+datarootdir=${prefix}/share
+pkgdatadir=${pc_sysrootdir}${datarootdir}/wayland
+wayland_scanner=${bindir}/wayland-scanner
+
+Name: Wayland Scanner
+Description: Wayland scanner
+Version: 1.25.0
+Cflags: -I${includedir}

@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import dev.nanoai.mobile.services.AgentAccessibilityBridge
+import dev.nanoai.mobile.services.NanoAtomicSnapshotter
 import dev.nanoai.mobile.services.OcrService
 import dev.nanoai.mobile.services.VisionService
 import io.flutter.plugin.common.MethodCall
@@ -21,6 +22,7 @@ import java.util.concurrent.TimeUnit
  * - `dumpScreen`                → List<Map> — árbol a11y de la ventana activa
  * - `dumpSnapshot`              → {package, nodes:[{…, depth}]} para el
  *                                 Selector Engine en Dart
+ * - `dumpAtomicSnapshot`        → hierarchy + PNG + timing metadata
  * - `findText {query, maxResults}` → List<Map>
  * - `tapOnText {text}`          → bool
  * - `tapAt {x, y}`              → bool
@@ -45,6 +47,7 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
             "agent",        // agente de UI instalado (service declarado)
             "dump-screen",  // dumpScreen / findText
             "snapshot",     // dumpSnapshot {package, nodes+depth}
+            "atomic-snapshot", // hierarchy + screenshot del mismo estado temporal
             "gestures",     // tapAt / longPressAt / swipe
             "target-click", // clickTarget ACTION_CLICK + verified fallback
             "text-input",   // inputText
@@ -80,6 +83,20 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
 
             "dumpSnapshot" ->
                 postToService(AgentAccessibilityBridge.service, result) { it.dumpSnapshot() }
+
+            "dumpAtomicSnapshot" -> {
+                val includeScreenshot = call.argument<Boolean>("includeScreenshot") ?: true
+                val service = AgentAccessibilityBridge.service
+                if (service == null) {
+                    result.error("SERVICE_OFF", "AgentAccessibilityService no conectado", null)
+                    return
+                }
+                mainHandler.post {
+                    NanoAtomicSnapshotter.capture(service, includeScreenshot) { snapshot ->
+                        mainHandler.post { result.success(snapshot) }
+                    }
+                }
+            }
 
             "findText" -> {
                 val query = call.argument<String>("query")

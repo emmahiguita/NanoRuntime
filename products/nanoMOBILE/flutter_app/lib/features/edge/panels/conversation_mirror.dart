@@ -143,6 +143,8 @@ final class ConversationMirror {
           verified++;
         case ConversationMemoryEntryKind.outboundDispatched:
           dispatched++;
+        case ConversationMemoryEntryKind.outboundObservedManual:
+          verified++;
         case ConversationMemoryEntryKind.effectUnknown:
           uncertain++;
       }
@@ -220,6 +222,8 @@ final class ConversationMirror {
           verified++;
         case ConversationMemoryEntryKind.outboundDispatched:
           dispatched++;
+        case ConversationMemoryEntryKind.outboundObservedManual:
+          verified++;
         case ConversationMemoryEntryKind.effectUnknown:
           uncertain++;
       }
@@ -239,6 +243,7 @@ final class ConversationMirror {
     ConversationMemoryEntryKind.inbound => 'entrante',
     ConversationMemoryEntryKind.outboundVerified => 'envío verificado',
     ConversationMemoryEntryKind.outboundDispatched => 'despachado sin verificar',
+    ConversationMemoryEntryKind.outboundObservedManual => 'intervención manual dueño',
     ConversationMemoryEntryKind.effectUnknown => 'efecto incierto',
   };
 

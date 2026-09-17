@@ -31,13 +31,16 @@ class AutomationModelResolver {
     required AutomationModelMode Function() mode,
     required String? Function() chatModelPath,
     required String? Function() automationModelPath,
+    bool Function(String path)? modelPathExists,
   }) : _mode = mode,
        _chatModelPath = chatModelPath,
-       _automationModelPath = automationModelPath;
+       _automationModelPath = automationModelPath,
+       _modelPathExists = modelPathExists ?? _acceptNonEmptyPath;
 
   final AutomationModelMode Function() _mode;
   final String? Function() _chatModelPath;
   final String? Function() _automationModelPath;
+  final bool Function(String path) _modelPathExists;
 
   AutomationModelResolution resolveFor(AutomationModelRole role) {
     final m = _mode();
@@ -68,7 +71,10 @@ class AutomationModelResolver {
     }
   }
 
-  bool _nonEmpty(String? p) => p != null && p.isNotEmpty;
+  bool _nonEmpty(String? p) =>
+      p != null && p.trim().isNotEmpty && _modelPathExists(p);
+
+  static bool _acceptNonEmptyPath(String _) => true;
 }
 
 /// Decorador que hace que un [CandidateSelector] respete la resolución de

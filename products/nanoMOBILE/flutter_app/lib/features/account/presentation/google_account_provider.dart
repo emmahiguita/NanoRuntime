@@ -2,27 +2,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/google_account_repository.dart';
 import '../domain/google_account_profile.dart';
 
-final googleAccountRepositoryProvider = Provider<GoogleAccountRepository>((ref) {
+final googleAccountRepositoryProvider = Provider<GoogleAccountRepository>((
+  ref,
+) {
   return GoogleAccountRepository();
 });
 
 final googleAccountProvider =
     StateNotifierProvider<GoogleAccountNotifier, GoogleAccountProfile>((ref) {
-  final repo = ref.watch(googleAccountRepositoryProvider);
-  return GoogleAccountNotifier(repo);
-});
+      final repo = ref.watch(googleAccountRepositoryProvider);
+      return GoogleAccountNotifier(repo);
+    });
 
 class GoogleAccountNotifier extends StateNotifier<GoogleAccountProfile> {
   final GoogleAccountRepository _repository;
   bool _syncing = false;
 
   GoogleAccountNotifier(this._repository)
-      : super(const GoogleAccountProfile(
-          email: 'emmanuel.higuita.gomez@gmail.com',
-          displayName: 'Emmanuel Higuita',
-          isConnected: true,
-          syncStatus: 'Conectando...',
-        )) {
+    : super(const GoogleAccountProfile.unconfigured()) {
     _init();
   }
 
@@ -37,7 +34,7 @@ class GoogleAccountNotifier extends StateNotifier<GoogleAccountProfile> {
   Future<bool> syncNow() async {
     if (_syncing) return true;
     _syncing = true;
-    state = state.copyWith(syncStatus: 'Sincronizando...');
+    state = state.copyWith(syncStatus: 'Verificando conectividad...');
 
     final sw = Stopwatch()..start();
     final isOnline = await _repository.verifyGoogleConnectivity();
@@ -47,14 +44,21 @@ class GoogleAccountNotifier extends StateNotifier<GoogleAccountProfile> {
     final now = DateTime.now();
     if (isOnline) {
       state = state.copyWith(
-        isConnected: true,
+        isInternetReachable: true,
         lastSynced: now,
-        syncStatus: 'En línea (${sw.elapsedMilliseconds} ms)',
+        syncStatus: state.isConnected && state.email.isNotEmpty
+            ? 'En línea (${sw.elapsedMilliseconds} ms)'
+            : 'Servicios accesibles (Sin cuenta vinculada)',
       );
     } else {
-      state = state.copyWith(syncStatus: 'Sin conexión a Google');
+      state = state.copyWith(
+        isInternetReachable: false,
+        syncStatus: 'Sin conexión a Google',
+      );
     }
-    await _repository.saveProfile(state);
+    if (state.isConnected && state.email.isNotEmpty) {
+      await _repository.saveProfile(state);
+    }
     return isOnline;
   }
 
@@ -74,10 +78,7 @@ class GoogleAccountNotifier extends StateNotifier<GoogleAccountProfile> {
   }
 
   Future<void> disconnectAccount() async {
-    state = state.copyWith(
-      isConnected: false,
-      syncStatus: 'Desconectado',
-    );
+    state = state.copyWith(isConnected: false, syncStatus: 'Desconectado');
     await _repository.saveProfile(state);
   }
 

@@ -4,6 +4,14 @@ import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/services/device_metrics.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
+import 'package:nanoai/core/tools/application/tool_policy_gate.dart';
+import 'package:nanoai/core/tools/application/tool_registry.dart';
+import 'package:nanoai/core/tools/application/tool_router.dart';
+import 'package:nanoai/core/tools/domain/tool_permission.dart';
+import 'package:nanoai/core/tools/infrastructure/shared_preferences_tool_audit_trail.dart';
+import 'package:nanoai/features/actions/conversation/conversation_actions.dart';
+import 'package:nanoai/features/actions/personal/personal_actions.dart';
+import 'package:nanoai/features/actions/whatsapp/whatsapp_reply_action.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
 import 'package:nanoai/features/automation/engine/language/language_assist.dart';
@@ -11,6 +19,7 @@ import 'package:nanoai/features/automation/engine/language/pragmatic_fast_path.d
 import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart'
     show resolveConversationIdentity;
+import 'package:nanoai/features/automation/engine/messaging/conversation_agent.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall, ToolExecutionStatus, ToolOutcome;
@@ -52,7 +61,15 @@ import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
 import 'package:nanoai/features/automation/engine/storage/automation_db_store_client.dart';
 import 'package:nanoai/features/automation/engine/conversation/conversation_reply_composer.dart';
+import 'package:nanoai/features/automation/engine/conversation/persona_style_resolver.dart';
+import 'package:nanoai/features/automation/engine/conversation/personal_style_formatter.dart';
+import 'package:nanoai/features/automation/engine/conversation/turn_knowledge_router.dart';
+import 'package:nanoai/features/automation/personal_agent/application/persona_retriever.dart';
+import 'package:nanoai/features/automation/engine/messaging/conversation_hub_providers.dart'
+    show conversationHubVersionProvider;
+import 'package:nanoai/features/automation/engine/messaging/reply_transport.dart';
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
+import 'package:nanoai/features/skills/personal_agent/respond_personal_whatsapp_skill.dart';
 
 import '../domain/automation_goal.dart' show AutomationOptions;
 import '../ledger/action_ledger_provider.dart';
@@ -372,22 +389,23 @@ automationCoordinatorProvider = Provider<AutomationCoordinator>((ref) {
       },
       // GAP-06: steps linux.* en planes multi-paso → dispatcher con ToolCall
       // tipado. command = ejecutable o path; arguments = args estructurados.
-      linuxRun: (
-        command,
-        arguments, {
-        cwd,
-        confirmedActionSignature,
-        semanticAction,
-      }) {
-        final Map<String, Object?> args = {'command': command};
-        if (arguments.isNotEmpty) args['arguments'] = arguments;
-        if (cwd != null) args['cwd'] = cwd;
-        return runTaskTool(
-          ToolCall(tool: semanticAction ?? 'linux.run', args: args),
-          confirmedActionSignature: confirmedActionSignature,
-          semanticAction: semanticAction,
-        );
-      },
+      linuxRun:
+          (
+            command,
+            arguments, {
+            cwd,
+            confirmedActionSignature,
+            semanticAction,
+          }) {
+            final Map<String, Object?> args = {'command': command};
+            if (arguments.isNotEmpty) args['arguments'] = arguments;
+            if (cwd != null) args['cwd'] = cwd;
+            return runTaskTool(
+              ToolCall(tool: semanticAction ?? 'linux.run', args: args),
+              confirmedActionSignature: confirmedActionSignature,
+              semanticAction: semanticAction,
+            );
+          },
       commitGuard: CommitGuard(observe: currentGraph),
       journal: ref.watch(executionJournalProvider),
       // SKILL-01 — trazas verificadas → drafts de skills (best-effort: el
@@ -441,6 +459,9 @@ final contactRateLimiterProvider = Provider<ContactRateLimiter>((ref) {
 /// decidir — mismo patrón que su impl de prefs.)
 final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
   await ref.read(settingsProvider.notifier).init();
+  // CONVERSATION-SCOPE-01 — la asignación debe existir antes de hidratar la
+  // memoria: el mismo conversationId se resuelve a scopes distintos por agente.
+  await ref.read(conversationAssignmentStoreProvider).load();
   await Future.wait([
     ref.read(ruleRegistryProvider).load(),
     ref.read(eventDedupeStoreProvider).load(),
@@ -467,15 +488,10 @@ ConversationDecisionContext _buildConversationDecisionContext(
   final ownership = ref
       .read(conversationOwnershipStoreProvider)
       .ownershipFor(identity.key.id);
-  final entry = ref.read(
-    conversationStateNotifierProvider,
-  )[identity.key.id];
+  final entry = ref.read(conversationStateNotifierProvider)[identity.key.id];
   final hasActiveProduct =
-      entry != null &&
-      entry.product != null &&
-      entry.topicStatus == 'active';
-  final hasPendingQuestion =
-      entry != null && entry.pendingQuestion.isNotEmpty;
+      entry != null && entry.product != null && entry.topicStatus == 'active';
+  final hasPendingQuestion = entry != null && entry.pendingQuestion.isNotEmpty;
   final routing = routeConversationAgent(
     messageText: notif.text,
     facts: ref.read(businessFactsNotifierProvider),
@@ -490,41 +506,111 @@ ConversationDecisionContext _buildConversationDecisionContext(
     hasPendingQuestion: hasPendingQuestion,
     isBusinessChannel: notif.packageName == MessagingPackage.whatsappBusiness,
   );
+  final assignedAgent = ref
+      .read(conversationAssignmentStoreProvider)
+      .agentForConversationId(identity.key.id);
+  final effectiveRole = switch (assignedAgent) {
+    ConversationAgentId.personal => ConversationAgentRole.personal,
+    ConversationAgentId.business =>
+      routing.role == ConversationAgentRole.personal
+          ? ConversationAgentRole.general
+          : routing.role,
+  };
   final mode = ConversationAutonomyModeName.fromName(
     ref.read(settingsProvider).waAutonomyMode,
   );
   debugPrint(
-    '[agent] rol=${routing.role.name} modo=${mode.name} '
+    '[agent] agente=${assignedAgent.name} rol=${effectiveRole.name} modo=${mode.name} '
     '${routing.reasons.join(' | ')}',
   );
   return ConversationDecisionContext(
     humanOwnsConversation: ownership?.humanOwns ?? false,
     identityConfidence: identity.confidence,
     autonomyMode: mode,
-    agentRole: routing.role,
+    agentRole: effectiveRole,
+    agentId: assignedAgent,
     userText: notif.text,
     senderName: notif.sender,
   );
 }
 
+/// Proveedor de resolución de estilo personal sin LLM.
+final personaStyleResolverProvider = Provider<PersonaStyleResolver>((ref) {
+  return RuntimePersonaStyleResolver(retriever: PersonaRetriever());
+});
+
+/// Proveedor de enrutador de conocimiento fáctico externo (Web/Bridge).
+final turnKnowledgeRouterProvider = Provider<TurnKnowledgeRouter>((ref) {
+  return const RuntimeTurnKnowledgeRouter();
+});
+
 /// Proveedor único del compositor conversacional canónico para toda la aplicación.
-/// Orquesta FastPath, RuntimeNotificationDraftWriter, SafeConversationRepair y
+/// Orquesta FastPath, PersonaStyleResolver, KnowledgeRouter, LLM Fallback y
 /// ConversationDecisionEngine con la misma identidad, memoria y persona.
-final conversationReplyComposerProvider =
+final canonicalConversationReplyComposerProvider =
     Provider<ConversationReplyComposer>((ref) {
-  return RuntimeConversationReplyComposer(
-    draftSource: ref.watch(notificationDraftSourceProvider),
-    fastPath: PragmaticFastPath(
-      memoryFor: (id) =>
-          ref.read(conversationMemoryStoreProvider).memoryFor(id),
-      contextEntryFor: (id) =>
-          ref.read(conversationStateNotifierProvider)[id],
-      ownerName: () => ref.read(personaContextProvider).ownerName,
-      metricsSource: DeviceMetrics.fetch,
+      return RuntimeConversationReplyComposer(
+        draftSource: ref.watch(notificationDraftSourceProvider),
+        fastPath: PragmaticFastPath(
+          memoryFor: (id) =>
+              ref.read(conversationMemoryStoreProvider).memoryFor(id),
+          contextEntryFor: (id) =>
+              ref.read(conversationStateNotifierProvider)[id],
+          ownerName: () => ref.read(personaContextProvider).ownerName,
+          metricsSource: DeviceMetrics.fetch,
+        ),
+        styleResolver: ref.watch(personaStyleResolverProvider),
+        knowledgeRouter: ref.watch(turnKnowledgeRouterProvider),
+        styleFormatter: const RuntimePersonalStyleFormatter(),
+        memoryStore: ref.watch(conversationMemoryStoreProvider),
+        decisionEngine: const ConversationDecisionEngine(),
+        thermalStatus: () => LanguageAssistService().thermalStatus(),
+        decisionContext: (notif) =>
+            _buildConversationDecisionContext(ref, notif),
+      );
+    });
+
+/// Formal capability runtime used by production conversation composition and
+/// available for typed Skills. The registry is frozen after this bootstrap.
+final formalToolRouterProvider = Provider<ToolRouter>((ref) {
+  final registry = ToolRegistry();
+  final router = ToolRouter(
+    registry: registry,
+    policyGate: ToolPolicyGate(
+      registry: registry,
+      permissionProvider: const StaticPermissionProvider({
+        ToolPermission.messagesRead,
+        ToolPermission.memoryRead,
+        ToolPermission.notificationReply,
+      }),
     ),
-    decisionEngine: const ConversationDecisionEngine(),
-    thermalStatus: () => LanguageAssistService().thermalStatus(),
-    decisionContext: (notif) => _buildConversationDecisionContext(ref, notif),
+    auditTrail: const SharedPreferencesToolAuditTrail(),
+  );
+  registry.register(ConversationActions.createClassifyTool());
+  registry.register(PersonalActions.createGetStyleTool());
+  registry.register(PersonalActions.createFindExamplesTool());
+  registry.register(
+    ConversationActions.createComposePersonalTool(
+      composer: ref.watch(canonicalConversationReplyComposerProvider),
+    ),
+  );
+  registry.register(
+    WhatsAppActions.createReplyTool(
+      transport: NotificationReplyTransport(NanoRuntimeApi.instance),
+    ),
+  );
+  registry.register(RespondPersonalWhatsAppSkill.createSkill(router: router));
+  registry.freeze();
+  return router;
+});
+
+/// Public composer: same production intelligence, now routed through policy,
+/// timeout, correlation and durable audit rather than a parallel direct path.
+final conversationReplyComposerProvider = Provider<ConversationReplyComposer>((
+  ref,
+) {
+  return ToolRoutedConversationReplyComposer(
+    ref.watch(formalToolRouterProvider),
   );
 });
 
@@ -536,9 +622,16 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
     engine: const RuleEngine(),
     dedupe: ref.watch(eventDedupeStoreProvider),
     memory: ref.watch(conversationMemoryStoreProvider),
+    assignments: ref.watch(conversationAssignmentStoreProvider),
     rateLimiter: ref.watch(contactRateLimiterProvider),
     readiness: ref.watch(automationStoresHydratedProvider),
     supersedeGuard: ref.watch(turnSupersedeGuardProvider),
+    // WA-HUB-REACTIVE-01: cada mensaje entrante incrementa la señal reactiva
+    // del hub para que la UI de Centro de Conversaciones se reconstruya.
+    onInboundMessage: (_) {
+      final notifier = ref.read(conversationHubVersionProvider.notifier);
+      notifier.state = notifier.state + 1;
+    },
     dispatcher: RuleDispatcher(
       (goal, {AutomationOptions? options}) => ref
           .read(automationCoordinatorProvider)
@@ -644,8 +737,9 @@ final pendingReplyStoreProvider = Provider<PendingReplyStore>((ref) {
   return PendingReplyStore(dbClient: AutomationDbStoreClient.instance);
 });
 
-final pendingRepliesProvider =
-    FutureProvider.autoDispose<List<PendingReply>>((ref) async {
+final pendingRepliesProvider = FutureProvider.autoDispose<List<PendingReply>>((
+  ref,
+) async {
   final store = ref.watch(pendingReplyStoreProvider);
   return store.allPending();
 });

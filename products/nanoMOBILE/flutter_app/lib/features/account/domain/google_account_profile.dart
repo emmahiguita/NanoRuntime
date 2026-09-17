@@ -9,6 +9,7 @@ class GoogleAccountProfile {
   final String displayName;
   final String? avatarUrl;
   final bool isConnected;
+  final bool isInternetReachable;
   final DateTime? lastSynced;
   final bool browserAgentEnabled;
   final bool googleSearchEnabled;
@@ -16,21 +17,34 @@ class GoogleAccountProfile {
   final String syncStatus;
 
   const GoogleAccountProfile({
-    required this.email,
-    required this.displayName,
+    this.email = '',
+    this.displayName = '',
     this.avatarUrl,
-    this.isConnected = true,
+    this.isConnected = false,
+    this.isInternetReachable = false,
     this.lastSynced,
-    this.browserAgentEnabled = true,
-    this.googleSearchEnabled = true,
-    this.cloudSyncEnabled = true,
-    this.syncStatus = 'Sesión Activa (Navegador)',
+    this.browserAgentEnabled = false,
+    this.googleSearchEnabled = false,
+    this.cloudSyncEnabled = false,
+    this.syncStatus = 'No configurada',
   });
+
+  const GoogleAccountProfile.unconfigured()
+    : email = '',
+      displayName = '',
+      avatarUrl = null,
+      isConnected = false,
+      isInternetReachable = false,
+      lastSynced = null,
+      browserAgentEnabled = false,
+      googleSearchEnabled = false,
+      cloudSyncEnabled = false,
+      syncStatus = 'No configurada';
 
   /// Iniciales del usuario para el avatar en caso de no contar con foto URL.
   String get initials {
     if (displayName.trim().isEmpty) {
-      return email.isNotEmpty ? email.substring(0, 1).toUpperCase() : 'G';
+      return email.isNotEmpty ? email.substring(0, 1).toUpperCase() : '?';
     }
     final parts = displayName.trim().split(RegExp(r'\s+'));
     if (parts.length >= 2) {
@@ -46,6 +60,7 @@ class GoogleAccountProfile {
     String? displayName,
     String? avatarUrl,
     bool? isConnected,
+    bool? isInternetReachable,
     DateTime? lastSynced,
     bool? browserAgentEnabled,
     bool? googleSearchEnabled,
@@ -57,6 +72,7 @@ class GoogleAccountProfile {
       displayName: displayName ?? this.displayName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       isConnected: isConnected ?? this.isConnected,
+      isInternetReachable: isInternetReachable ?? this.isInternetReachable,
       lastSynced: lastSynced ?? this.lastSynced,
       browserAgentEnabled: browserAgentEnabled ?? this.browserAgentEnabled,
       googleSearchEnabled: googleSearchEnabled ?? this.googleSearchEnabled,
@@ -71,6 +87,7 @@ class GoogleAccountProfile {
       'displayName': displayName,
       'avatarUrl': avatarUrl,
       'isConnected': isConnected,
+      'isInternetReachable': isInternetReachable,
       'lastSynced': lastSynced?.toIso8601String(),
       'browserAgentEnabled': browserAgentEnabled,
       'googleSearchEnabled': googleSearchEnabled,
@@ -81,17 +98,18 @@ class GoogleAccountProfile {
 
   factory GoogleAccountProfile.fromMap(Map<String, dynamic> map) {
     return GoogleAccountProfile(
-      email: map['email'] as String? ?? 'emmanuel.higuita.gomez@gmail.com',
-      displayName: map['displayName'] as String? ?? 'Emmanuel Higuita',
+      email: map['email'] as String? ?? '',
+      displayName: map['displayName'] as String? ?? '',
       avatarUrl: map['avatarUrl'] as String?,
-      isConnected: map['isConnected'] as bool? ?? true,
+      isConnected: map['isConnected'] as bool? ?? false,
+      isInternetReachable: map['isInternetReachable'] as bool? ?? false,
       lastSynced: map['lastSynced'] != null
           ? DateTime.tryParse(map['lastSynced'] as String)
-          : DateTime.now(),
-      browserAgentEnabled: map['browserAgentEnabled'] as bool? ?? true,
-      googleSearchEnabled: map['googleSearchEnabled'] as bool? ?? true,
-      cloudSyncEnabled: map['cloudSyncEnabled'] as bool? ?? true,
-      syncStatus: map['syncStatus'] as String? ?? 'Sesión Activa (Navegador)',
+          : null,
+      browserAgentEnabled: map['browserAgentEnabled'] as bool? ?? false,
+      googleSearchEnabled: map['googleSearchEnabled'] as bool? ?? false,
+      cloudSyncEnabled: map['cloudSyncEnabled'] as bool? ?? false,
+      syncStatus: map['syncStatus'] as String? ?? 'No configurada',
     );
   }
 

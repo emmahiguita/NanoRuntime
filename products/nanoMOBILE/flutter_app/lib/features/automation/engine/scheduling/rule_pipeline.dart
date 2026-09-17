@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../messaging/conversation_key.dart';
 import '../messaging/conversation_memory.dart';
+import '../messaging/conversation_assignment_store.dart';
 import '../messaging/incoming_message.dart';
 import '../messaging/messaging_package.dart';
 import '../notifications/notification_object.dart';
@@ -37,6 +38,10 @@ import 'rule_registry.dart';
 import 'scheduled_rule.dart';
 import 'trigger.dart' show NotificationTrigger, TickEvent;
 import 'turn_supersede_guard.dart';
+import '../language/turn_complexity_classifier.dart'
+    show turnComplexityClassifier;
+import '../messaging/conv_turn_state.dart' show isPureGreeting;
+import '../../personal_agent/application/persona_repository.dart';
 
 class RulePipeline {
   RulePipeline({
@@ -44,22 +49,31 @@ class RulePipeline {
     required RuleEngine engine,
     required EventDedupeStore dedupe,
     required ConversationMemoryStore memory,
+    ConversationAssignmentStore? assignments,
     required RuleDispatcher dispatcher,
     required ContactRateLimiter rateLimiter,
     Future<void>? readiness,
     TurnSupersedeGuard? supersedeGuard,
+
+    /// Callback disparado tras registrar cada mensaje entrante en memoria.
+    /// Usado por el coordinator de Riverpod para invalidar la señal reactiva
+    /// del Centro de Conversaciones (WA-HUB-REACTIVE-01).
+    void Function(String conversationId)? onInboundMessage,
   }) : _registry = registry,
        _engine = engine,
        _dedupe = dedupe,
        _memory = memory,
+       _assignments = assignments,
        _dispatcher = dispatcher,
        _rateLimiter = rateLimiter,
        _readiness = readiness,
-       _supersedeGuard = supersedeGuard;
+       _supersedeGuard = supersedeGuard,
+       _onInboundMessage = onInboundMessage;
 
   final RuleRegistry _registry;
   final RuleEngine _engine;
   final EventDedupeStore _dedupe;
+  final ConversationAssignmentStore? _assignments;
 
   /// WA-PROD-02 — barrera de hidratación (futuro compartido con el provider):
   /// ningún evento/tick se decide antes de que los stores terminaron su carga.
@@ -69,6 +83,9 @@ class RulePipeline {
   /// WA-CONV-03 — versión por conversación: incrementa con cada mensaje REAL
   /// que entra al pipeline (rutas sin gate; el gate ya lo hace en su push).
   final TurnSupersedeGuard? _supersedeGuard;
+
+  /// WA-HUB-REACTIVE-01 — callback para invalidar la señal reactiva del hub.
+  final void Function(String conversationId)? _onInboundMessage;
 
   /// WA-ECHO-01 — ventana en la que un eco "Tú:" se considera de NUESTRO
   /// envío reciente (3 min: WhatsApp publica el eco segundos después; un
@@ -144,20 +161,92 @@ class RulePipeline {
         await _registry.flush();
         for (final event in events) {
           MessagingMetrics.increment('notificationsObserved');
-          if (!isNotificationEligible(event.packageName) ||
-              event.isSummary ||
-              // WA-ECHO-02 — propio eco: sender vacío indica mensaje propio
-              // (null→empty en MessagingStyle). No depende del idioma del
-              // dispositivo (antes: sender == 'Tú' fallaba en inglés/portugués).
-              ((event.packageName == MessagingPackage.whatsapp ||
-                      event.packageName == MessagingPackage.whatsappBusiness) &&
-                  event.sender.isEmpty)) {
+          if (!isNotificationEligible(event.packageName) || event.isSummary) {
+            MessagingMetrics.increment('noiseDropped');
+            continue;
+          }
+
+          // WA-SELF-01: Mensaje propio del dueño enviado directamente en WhatsApp
+          // o eco de un envío reciente de Nano.
+          // Reconciliar con memoria de la conversación: si coincide con un borrador
+          // recién despachado por Nano, se promueve a outboundVerified; si no,
+          // se registra como intervención manual del dueño en WhatsApp (outboundObservedManual).
+          final convId = resolveConversationIdentity(event).key.id;
+          final senderLower = event.sender.trim().toLowerCase();
+          final isExplicitSelfSender = senderLower == 'tú' ||
+              senderLower == 'tu' ||
+              senderLower == 'you' ||
+              senderLower == 'yo' ||
+              senderLower == 'me';
+          final isKnownEcho =
+              convId.isNotEmpty && _dedupe.isKnownOutbound(convId, event.text);
+          final isSelfMessage =
+              event.isSelf || isExplicitSelfSender || isKnownEcho;
+
+          if (isSelfMessage) {
+            final message = IncomingMessage.fromNotification(event);
+            await _assignments?.ensureAssignment(message.conversation.key);
+            if (message.conversation.key.id.isNotEmpty &&
+                message.text.trim().isNotEmpty) {
+              final atMs = message.messageTimestamp > 0
+                  ? message.messageTimestamp
+                  : DateTime.now().millisecondsSinceEpoch;
+              _memory.reconcileOutbound(
+                message.conversation.key.id,
+                message.text,
+                atMs: atMs,
+              );
+              _dedupe.recordVerifiedOutbound(
+                message.conversation.key.id,
+                message.text,
+                atMs: atMs,
+              );
+              debugPrint(
+                '[memory] owner outbound reconciliado: "${message.text}"',
+              );
+
+              // WA-LEARN-01: Autoaprendizaje de respuesta manual en WhatsApp
+              final mem = _memory.memoryFor(message.conversation.key.id);
+              final lastInbound = mem?.entries.reversed.firstWhere(
+                (e) => e.kind == ConversationMemoryEntryKind.inbound,
+                orElse: () => const ConversationMemoryEntry(
+                  kind: ConversationMemoryEntryKind.inbound,
+                  text: '',
+                  atMs: 0,
+                ),
+              );
+              if (lastInbound != null && lastInbound.text.trim().isNotEmpty) {
+                try {
+                  PersonaRepository.instance.addExample(
+                    personaKey: 'owner',
+                    incomingText: lastInbound.text.trim(),
+                    body: message.text.trim(),
+                    source: 'whatsapp_manual_learned',
+                  );
+                  debugPrint(
+                    '[learning] owner outbound aprendido en FTS4: "${lastInbound.text}" -> "${message.text}"',
+                  );
+                } catch (e) {
+                  debugPrint('[learning] Error aprendiendo en PersonaRepository: $e');
+                }
+              }
+            }
+            continue;
+          }
+
+          // WA-ECHO-02 — propio eco: sender vacío indica mensaje propio
+          // (null→empty en MessagingStyle). No depende del idioma del
+          // dispositivo (antes: sender == 'Tú' fallaba en inglés/portugués).
+          if ((event.packageName == MessagingPackage.whatsapp ||
+                  event.packageName == MessagingPackage.whatsappBusiness) &&
+              event.sender.isEmpty) {
             MessagingMetrics.increment('noiseDropped');
             debugPrint('[noise] pkg=${event.packageName} pre-burst');
             continue;
           }
           MessagingMetrics.increment('notificationsEligible');
           final message = IncomingMessage.fromNotification(event);
+          await _assignments?.ensureAssignment(message.conversation.key);
           final verdict = _dedupe.reserve(
             message.eventId,
             conversationId: message.conversation.key.id,
@@ -193,12 +282,65 @@ class RulePipeline {
           accepted,
           (event) => onNotification(event, preAdmitted: true),
           beforeTurn: (members) async {
-            for (final event in members) {
-              _dedupe.record(
-                IncomingMessage.fromNotification(event).eventId,
-                DedupeEventState.reserved,
+            for (final member in members) {
+              _dedupe.reserve(
+                IncomingMessage.fromNotification(member).eventId,
+                conversationId: resolveConversationIdentity(member).key.id,
+                text: member.text,
                 atMs: DateTime.now().millisecondsSinceEpoch,
               );
+            }
+            // WA-BURST-HISTORY-01: Ingerir fragmentos históricos previos en memoria
+            // si hay más de un miembro y se detecta una brecha temporal (>60s) o límite de turno.
+            // Si el mensaje anterior contenía una pregunta/petición, conservarla como obligación pendiente.
+            final sorted = List<NotificationObject>.from(members)
+              ..sort((a, b) {
+                final sa = a.messageTimestamp > 0
+                    ? a.messageTimestamp
+                    : a.postTime;
+                final sb = b.messageTimestamp > 0
+                    ? b.messageTimestamp
+                    : b.postTime;
+                return sa.compareTo(sb);
+              });
+            for (var i = 0; i < sorted.length - 1; i++) {
+              final ev = sorted[i];
+              final nextEv = sorted[i + 1];
+              final stEv = ev.messageTimestamp > 0
+                  ? ev.messageTimestamp
+                  : ev.postTime;
+              final stNext = nextEv.messageTimestamp > 0
+                  ? nextEv.messageTimestamp
+                  : nextEv.postTime;
+              if (stEv > 0 &&
+                  stNext > 0 &&
+                  stNext - stEv > BurstTurnGate.defaultBurstGapMs) {
+                final msg = IncomingMessage.fromNotification(ev);
+                if (msg.conversation.key.id.isNotEmpty &&
+                    msg.text.trim().isNotEmpty) {
+                  _memory.appendInbound(msg, atMs: stEv);
+                  final lower = msg.text.toLowerCase();
+                  final isSocial = isPureGreeting(msg.text) ||
+                      turnComplexityClassifier.classify(msg.text).isSocialMinimal;
+                  final isBusinessInquiry = !isSocial &&
+                      (lower.contains('precio') ||
+                          lower.contains('cuanto') ||
+                          lower.contains('cuánto') ||
+                          lower.contains('catalogo') ||
+                          lower.contains('catálogo') ||
+                          lower.contains('cotiz') ||
+                          lower.contains('disponible') ||
+                          lower.contains('stock') ||
+                          lower.contains('venden') ||
+                          lower.contains('ayuda'));
+                  if (isBusinessInquiry) {
+                    _memory.addUnresolvedObligation(
+                      msg.conversation.key.id,
+                      msg.text.trim(),
+                    );
+                  }
+                }
+              }
             }
             await _dedupe.flush();
           },
@@ -269,6 +411,37 @@ class RulePipeline {
       );
       return const [];
     }
+    final message = IncomingMessage.fromNotification(notif);
+    await _assignments?.ensureAssignment(message.conversation.key);
+    final conversationId = message.conversation.key.id;
+    final senderLower = notif.sender.trim().toLowerCase();
+    final isExplicitSelf = senderLower == 'tú' ||
+        senderLower == 'tu' ||
+        senderLower == 'you' ||
+        senderLower == 'yo' ||
+        senderLower == 'me';
+    final isKnownEcho = conversationId.isNotEmpty &&
+        _dedupe.isKnownOutbound(conversationId, notif.text);
+
+    if (notif.isSelf || isExplicitSelf || isKnownEcho) {
+      if (conversationId.isNotEmpty && message.text.trim().isNotEmpty) {
+        final atMs = message.messageTimestamp > 0
+            ? message.messageTimestamp
+            : DateTime.now().millisecondsSinceEpoch;
+        _memory.appendOutbound(
+          conversationId,
+          message.text,
+          kind: ConversationMemoryEntryKind.outboundVerified,
+          atMs: atMs,
+        );
+        _dedupe.recordVerifiedOutbound(
+          conversationId,
+          message.text,
+          atMs: atMs,
+        );
+      }
+      return const [];
+    }
     // WA-EVLOG-01 — bitácora local append-only (best-effort, jamás interrumpe).
     unawaited(
       AutomationDbStoreClient.instance.appendPipelineEvent(
@@ -291,9 +464,11 @@ class RulePipeline {
     // WA-DEDUPE-03 — puerta ANTES del dispatch. El veredicto no-proceed ya
     // quedó persistido por el store (eco/cooldown registran su `ignored`;
     // duplicate conserva el estado del evento original): nada que re-anotar.
-    final message = IncomingMessage.fromNotification(notif);
-    final conversationId = message.conversation.key.id;
     final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (preAdmitted && _dedupe.isKnownOutbound(conversationId, message.text)) {
+      debugPrint('[dedupe] bounceback echo dropped in onNotification (preAdmitted)');
+      return const [];
+    }
     final verdict = preAdmitted
         ? DedupeVerdict.proceed
         : _dedupe.reserve(
@@ -430,6 +605,8 @@ class RulePipeline {
     // real (verified/dispatched/effectUnknown), jamás como éxito inventado.
     if (message.conversation.key.id.isNotEmpty) {
       _memory.appendInbound(message, atMs: nowMs);
+      // WA-HUB-REACTIVE-01: notificar al UI para invalidar la lista del hub.
+      _onInboundMessage?.call(conversationId);
       if (replyAttempted && replyText.isNotEmpty) {
         final kind = switch (terminal) {
           DedupeEventState.replyVerified =>
@@ -495,26 +672,45 @@ class RulePipeline {
       // 1. Calculate occurrenceId based on the top of the minute
       final scheduledAtMs = (event.now.millisecondsSinceEpoch ~/ 60000) * 60000;
       final occurrenceId = '${rule.id}@$scheduledAtMs';
-      
+
       // 2. Upsert (PENDING)
-      await AutomationDbStoreClient.instance.upsertOccurrence(rule.id, occurrenceId, scheduledAtMs);
-      
+      await AutomationDbStoreClient.instance.upsertOccurrence(
+        rule.id,
+        occurrenceId,
+        scheduledAtMs,
+      );
+
       // 3. Claim
-      final claimed = await AutomationDbStoreClient.instance.claimOccurrence(occurrenceId);
+      final claimed = await AutomationDbStoreClient.instance.claimOccurrence(
+        occurrenceId,
+      );
       if (!claimed) {
-        debugPrint('[rules] occurrence $occurrenceId ya fue reclamada; omitida.');
+        debugPrint(
+          '[rules] occurrence $occurrenceId ya fue reclamada; omitida.',
+        );
         continue;
       }
-      
+
       // 4. Executing
-      await AutomationDbStoreClient.instance.updateOccurrenceStatus(occurrenceId, 'EXECUTING');
+      await AutomationDbStoreClient.instance.updateOccurrenceStatus(
+        occurrenceId,
+        'EXECUTING',
+      );
 
       final r = await _dispatcher.dispatchScheduled(rule);
       results.add(r);
 
       // 5. Terminal status
-      final status = (r.outcome == RuleOutcome.notified || r.outcome == RuleOutcome.drafted) ? 'SUCCEEDED' : 'FAILED';
-      await AutomationDbStoreClient.instance.updateOccurrenceStatus(occurrenceId, status, reason: r.reason);
+      final status =
+          (r.outcome == RuleOutcome.notified ||
+              r.outcome == RuleOutcome.drafted)
+          ? 'SUCCEEDED'
+          : 'FAILED';
+      await AutomationDbStoreClient.instance.updateOccurrenceStatus(
+        occurrenceId,
+        status,
+        reason: r.reason,
+      );
 
       // Registrar el disparo para cooldown de regla: solo efectos reales
       // (aviso publicado o borrador); el reply fallado no cuenta.

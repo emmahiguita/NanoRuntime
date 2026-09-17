@@ -8,7 +8,7 @@ import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
-import '../notification_automation_section.dart';
+import '../messaging_center/messaging_center_view.dart';
 
 /// Función de USUARIO (no Dev): responder mensajes y notificaciones.
 ///
@@ -55,8 +55,9 @@ class _AutomationMessagesBody extends StatelessWidget {
               slotId: 'automation_messages',
               child: SafeArea(
                 child: NanoScreenShell(
-                  title: 'Centro de Conversaciones',
-                  showBack: true,
+                  title: 'Centro de Mensajería',
+                  showBack: false,
+                  hideHeader: true,
                   // DOUBLE-INSET-FIX — el Scaffold exterior (donde vive la barra
                   // universal) ya se encoge con el teclado; encoger también este
                   // shell interior aplastaba el contenido y solapaba componentes
@@ -78,7 +79,7 @@ class _AutomationMessagesBody extends StatelessWidget {
                     constraints: BoxConstraints(
                       maxWidth: AutomationLayout.contentMaxWidth(context),
                     ),
-                    child: const NotificationAutomationSection(),
+                    child: const MessagingCenterView(),
                   ),
                 ),
               ),

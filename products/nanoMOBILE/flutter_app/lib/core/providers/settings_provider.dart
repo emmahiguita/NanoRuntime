@@ -25,8 +25,16 @@ class SettingsRepository {
     if (!_ready) {
       await init();
     }
+    final legacyChatModelId = _prefs.getString('nanoai_active_model') ?? '';
+    final legacyChatModelPath =
+        _prefs.getString('nanoai_active_model_path') ?? '';
     final json = _prefs.getString(_k);
-    if (json == null) return const SettingsState();
+    if (json == null) {
+      return SettingsState(
+        chatModelId: legacyChatModelId,
+        chatModelPath: legacyChatModelPath,
+      );
+    }
     try {
       final m = jsonDecode(json) as Map<String, dynamic>;
       // DARK-ONLY (decisión del dueño, 2026-09-05, confirmada en validación):
@@ -51,6 +59,11 @@ class SettingsRepository {
         automationModelMode: _modeFromName(m['automationModelMode'] as String?),
         automationModelId: m['automationModelId'] as String? ?? '',
         automationModelPath: m['automationModelPath'] as String? ?? '',
+        // MODELO-HEADLESS-01 — espejo durable de la selección del Chat. El
+        // engine headless hidrata Settings antes de drenar el inbox y no
+        // depende de que ChatNotifier haya terminado su restauración async.
+        chatModelId: m['chatModelId'] as String? ?? legacyChatModelId,
+        chatModelPath: m['chatModelPath'] as String? ?? legacyChatModelPath,
         voiceEnabled: m['voiceEnabled'] as bool? ?? true,
         waStyleEnabled: m['waStyleEnabled'] as bool? ?? false,
         waStyleText: m['waStyleText'] as String? ?? '',
@@ -80,6 +93,8 @@ class SettingsRepository {
         'automationModelMode': s.automationModelMode.name,
         'automationModelId': s.automationModelId,
         'automationModelPath': s.automationModelPath,
+        'chatModelId': s.chatModelId,
+        'chatModelPath': s.chatModelPath,
         'voiceEnabled': s.voiceEnabled,
         'waStyleEnabled': s.waStyleEnabled,
         'waStyleText': s.waStyleText,
@@ -111,6 +126,11 @@ class SettingsState {
   /// T4 — modelo específico de Automation (cuando mode == specificModel).
   final String automationModelId;
   final String automationModelPath;
+
+  /// MODELO-HEADLESS-01 — selección del Chat replicada en el documento de
+  /// ajustes que la barrera de automatización hidrata antes del primer evento.
+  final String chatModelId;
+  final String chatModelPath;
 
   /// V1 — voz (TTS) activada. Cuando false, speakLastResponse() es no-op.
   final bool voiceEnabled;
@@ -146,6 +166,8 @@ class SettingsState {
     this.automationModelMode = AutomationModelMode.sameAsChat,
     this.automationModelId = '',
     this.automationModelPath = '',
+    this.chatModelId = '',
+    this.chatModelPath = '',
     this.voiceEnabled = true,
     this.waStyleEnabled = false,
     this.waStyleText = '',
@@ -164,6 +186,8 @@ class SettingsState {
     AutomationModelMode? automationModelMode,
     String? automationModelId,
     String? automationModelPath,
+    String? chatModelId,
+    String? chatModelPath,
     bool? voiceEnabled,
     bool? waStyleEnabled,
     String? waStyleText,
@@ -180,6 +204,8 @@ class SettingsState {
     automationModelMode: automationModelMode ?? this.automationModelMode,
     automationModelId: automationModelId ?? this.automationModelId,
     automationModelPath: automationModelPath ?? this.automationModelPath,
+    chatModelId: chatModelId ?? this.chatModelId,
+    chatModelPath: chatModelPath ?? this.chatModelPath,
     voiceEnabled: voiceEnabled ?? this.voiceEnabled,
     waStyleEnabled: waStyleEnabled ?? this.waStyleEnabled,
     waStyleText: waStyleText ?? this.waStyleText,
@@ -258,6 +284,12 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   void setAutomationModel(String id, String path) => _persist(
     state.copyWith(automationModelId: id, automationModelPath: path),
   );
+
+  /// Se invoca al elegir un modelo en Chat, antes de intentar arrancar el
+  /// runtime. Así una carga lenta o fallida no pierde la selección necesaria
+  /// para el siguiente arranque headless.
+  void setChatModel(String id, String path) =>
+      _persist(state.copyWith(chatModelId: id, chatModelPath: path));
 
   /// WA-PERSONA-01 — toggle del estilo del agente WhatsApp. Persist inmediata
   /// (mismo patrón que el resto de setters); las closures de los writers leen

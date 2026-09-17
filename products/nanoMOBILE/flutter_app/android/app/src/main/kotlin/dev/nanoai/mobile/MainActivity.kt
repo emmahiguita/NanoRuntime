@@ -15,6 +15,7 @@ import dev.nanoai.mobile.channels.AgentChannelHandler
 import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
 import dev.nanoai.mobile.channels.AutomationStoreChannelHandler
 import dev.nanoai.mobile.channels.ChannelNames
+import dev.nanoai.mobile.channels.ContactsChannelHandler
 import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
 import dev.nanoai.mobile.channels.DevicePermissionsChannelHandler
 import dev.nanoai.mobile.channels.EngineChannelHandler
@@ -50,6 +51,9 @@ class MainActivity : FlutterActivity() {
 
     /** Handler del canal model_storage: recibe onActivityResult del picker. */
     private var modelStorageHandler: ModelStorageChannelHandler? = null
+
+    /** Handler de contactos: lectura de WhatsApp y gestión de permisos. */
+    private var contactsHandler: ContactsChannelHandler? = null
 
     /** Result pendiente de requestStoragePermission — resuelto por
      *  onRequestPermissionsResult cuando el usuario contesta el diálogo. */
@@ -213,6 +217,9 @@ class MainActivity : FlutterActivity() {
         grantResults: IntArray,
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (contactsHandler?.onRequestPermissionsResult(requestCode, permissions, grantResults) == true) {
+            return
+        }
         if (requestCode == REQ_STORAGE_PERMISSION) {
             val ok = grantResults.isNotEmpty() &&
                 grantResults.all { it == PackageManager.PERMISSION_GRANTED }
@@ -231,6 +238,10 @@ class MainActivity : FlutterActivity() {
         dev.nanoai.mobile.automation.AutomationRuntimeService.onUiEngineAttached()
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+
+        val contacts = ContactsChannelHandler(this, ioScope).also { contactsHandler = it }
+        MethodChannel(messenger, ContactsChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(contacts)
 
         navigationChannel = MethodChannel(messenger, ChannelNames.NAVIGATION)
 

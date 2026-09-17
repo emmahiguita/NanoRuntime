@@ -14,6 +14,7 @@ import 'core/theme/nano_motion.dart';
 import 'features/automation/headless/automation_headless_runner.dart';
 import 'features/automation/application/automation_coordinator_provider.dart'
     show notificationEventRouterProvider, timeTickSchedulerProvider;
+import 'features/browser/presentation/widgets/browser_pip_overlay.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
@@ -109,6 +110,10 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
           : NanoMotionDurations.emphasized,
       themeAnimationCurve: NanoMotionCurves.emphasized,
       routerConfig: AppRouter.router,
+      builder: (context, child) => Stack(
+        fit: StackFit.expand,
+        children: [child ?? const SizedBox.shrink(), const BrowserPipOverlay()],
+      ),
     );
   }
 }

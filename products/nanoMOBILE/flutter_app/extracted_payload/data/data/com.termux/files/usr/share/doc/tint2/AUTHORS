@@ -1,0 +1,55 @@
+tint2 is based on the ttm source code (http://code.google.com/p/ttm/)
+- 2007-2008 Pål Staurland <staura@gmail.com>
+
+tint2 is developped by :
+- Thierry Lorthiois <lorthiois@bbsoft.fr> from Omega distribution
+- Andreas Fink <andreas.fink85@googlemail.com>
+- Euan Freeman <euan04@gmail.com> (tintwizard)
+- Christian Ruppert <Spooky85@gmail.com> (autotools build system)
+- Ovidiu M <mrovi9000 at gmail.com> : launcher, bug fixes
+- Mishael A Sibiryakov (death@junki.org) : freespace
+- Sebastian Reichel <sre@ring0.de> : battery, various fixes, debian package maintainer
+- Chris Lee <chrlee at protonmail> : bug fixes, maintainer starting with v16.3
+- Nikita Zlobin <nick87720z@gmail.com>: adopted after unexpected code freeze at v17.0.2
+
+Contributors:
+  Kwaku Yeboah <kwakuyeboah@gmail.com> : wiki page
+  Daniel Moerner <dmoerner@gmail.com> : man page and debian package
+  Doug Barton : freebsd package
+  James Buren <ryuo@frugalware.org> : Frugalware package
+  Pierre-Emmanuel Andre <pea@raveland.org> : openbsd port
+  Redroar : arch package
+  Rene Garcia <garciamx@gmail.com> : launcher SVG support
+  Marcelo Vianna : taskbar sorting
+  Xico Atelo : startup notifications
+  Craig Oakes : WM flags, issue tracker organization
+  Jeff Blake (https://gitlab.com/u/berkley4) : more mouse event handlers
+  Vladimir <vladimir-csp@yandex.ru> : translations, bug reports
+  Christophe D. <stophe72.d@gmail.com> : non-rectangular borders
+  Benoit Averty : taskbar enhancements
+  Justin Jacobs : tint2conf fixes
+  Oskari Rauta : separator plugin, gradients
+  Michael Messmore : Support for Path in .desktop files
+  Matthew Otnel : config option systray_name_filter
+  Ryan Gray, Jeff Blake (https://gitlab.com/berkley4) : battery format
+  aaaz (https://gitlab.com/aaaz) : clock fixes
+  heisenbug (https://gitlab.com/heisenbugh) : taskbar button tinting with icon color
+  Fabian Carlström : taskbar sort order by app name
+  Chris Billington (https://gitlab.com/chrisjbillington) : panel struts pivoting
+  Arash Rohani <rohani.arash@pm.me> : helped with execp refresh
+
+Translations:
+  Bosnian:
+    Dino Duratović <dinomol@mail.com>
+  Croatian:
+    Dino Duratović <dinomol@mail.com>
+  French:
+    Jocelyn <anechampenois@solydxk.com>
+    The Bento team <meets@gmx.fr>
+    Wagner <https://gitlab.com/u/wagmic>
+  Polish:
+    Daniel Napora <napcok@gmail.com>
+  Serbian:
+    Dino Duratović <dinomol@mail.com>
+  Spanish:
+    Vic <vicmz@yandex.com>

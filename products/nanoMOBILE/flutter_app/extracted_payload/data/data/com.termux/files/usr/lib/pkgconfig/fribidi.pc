@@ -1,0 +1,14 @@
+# fribidi.pc.  Generated from fribidi.pc.in by configure.
+
+prefix=/data/data/com.termux/files/usr
+exec_prefix=${prefix}
+libdir=/data/data/com.termux/files/usr/lib
+includedir=/data/data/com.termux/files/usr/include
+
+Name: GNU FriBidi
+Description: Unicode Bidirectional Algorithm Library
+Version: 1.0.16
+Libs: -L${libdir} -lfribidi
+Cflags: -I${includedir}/fribidi
+CFLAGS.private: -DFRIBIDI_LIB_STATIC
+#Cflags: -I${includedir}/fribidi -DFRIBIDI_LIB_STATIC

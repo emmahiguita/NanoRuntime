@@ -5,6 +5,8 @@
 /// el Selector Engine y el Actionability Engine.
 library;
 
+import 'dart:typed_data';
+
 /// Bounds en coordenadas absolutas de pantalla (px).
 class NanoBounds {
   final int left;
@@ -97,12 +99,23 @@ class NanoNode {
   final bool clickable;
   final bool editable;
   final bool scrollable;
+  final bool checkable;
   final bool checked;
   final bool selected;
   final bool focusable;
   final bool focused;
   final bool visible;
   final bool enabled;
+  final bool longClickable;
+  final bool password;
+  final int drawingOrder;
+  final String hint;
+  final String errorText;
+  final bool heading;
+  final bool screenReaderFocusable;
+  final String paneTitle;
+  final String tooltip;
+  final String stateDescription;
   final NanoBounds bounds;
 
   const NanoNode({
@@ -123,12 +136,23 @@ class NanoNode {
     required this.clickable,
     required this.editable,
     required this.scrollable,
+    this.checkable = false,
     required this.checked,
     this.selected = false,
     required this.focusable,
     required this.focused,
     required this.visible,
     required this.enabled,
+    this.longClickable = false,
+    this.password = false,
+    this.drawingOrder = 0,
+    this.hint = '',
+    this.errorText = '',
+    this.heading = false,
+    this.screenReaderFocusable = false,
+    this.paneTitle = '',
+    this.tooltip = '',
+    this.stateDescription = '',
     required this.bounds,
   });
 
@@ -165,12 +189,23 @@ class NanoNode {
       clickable: m['clickable'] == true,
       editable: m['editable'] == true,
       scrollable: m['scrollable'] == true,
+      checkable: m['checkable'] == true,
       checked: m['checked'] == true,
       selected: m['selected'] == true,
       focusable: m['focusable'] == true,
       focused: m['focused'] == true,
       visible: m['visible'] == true,
       enabled: m['enabled'] == true,
+      longClickable: m['longClickable'] == true,
+      password: m['password'] == true,
+      drawingOrder: (m['drawingOrder'] as num?)?.toInt() ?? 0,
+      hint: m['hint'] as String? ?? '',
+      errorText: m['error'] as String? ?? '',
+      heading: m['heading'] == true,
+      screenReaderFocusable: m['screenReaderFocusable'] == true,
+      paneTitle: m['paneTitle'] as String? ?? '',
+      tooltip: m['tooltip'] as String? ?? '',
+      stateDescription: m['stateDescription'] as String? ?? '',
       bounds: rawBounds.length >= 4
           ? NanoBounds.fromList(rawBounds.cast<dynamic>())
           : const NanoBounds(left: 0, top: 0, right: 0, bottom: 0),
@@ -307,6 +342,65 @@ class NanoSnapshot {
       truncated: raw['truncated'] == true,
       nodeLimitReached: raw['nodeLimitReached'] == true,
       depthLimitReached: raw['depthLimitReached'] == true,
+      capturedAt: raw['capturedAtEpochMs'] is num
+          ? DateTime.fromMillisecondsSinceEpoch(
+              (raw['capturedAtEpochMs'] as num).toInt(),
+            )
+          : null,
+    );
+  }
+}
+
+/// Observacion sincronizada: jerarquia semantica y, cuando Android lo permite,
+/// una captura PNG solicitada en la misma ventana temporal.
+final class NanoAtomicSnapshot {
+  final int protocolVersion;
+  final NanoSnapshot hierarchy;
+  final Uint8List? screenshotPng;
+  final bool screenshotRequested;
+  final bool screenshotIncluded;
+  final int screenshotErrorCode;
+  final String activity;
+  final int width;
+  final int height;
+  final int rotation;
+  final double? synchronizationSkewMs;
+
+  const NanoAtomicSnapshot({
+    required this.protocolVersion,
+    required this.hierarchy,
+    required this.screenshotPng,
+    required this.screenshotRequested,
+    required this.screenshotIncluded,
+    required this.screenshotErrorCode,
+    required this.activity,
+    required this.width,
+    required this.height,
+    required this.rotation,
+    required this.synchronizationSkewMs,
+  });
+
+  factory NanoAtomicSnapshot.fromRaw(Map<dynamic, dynamic> raw) {
+    final bytes = switch (raw['screenshotPng']) {
+      final Uint8List value => value,
+      final List<int> value => Uint8List.fromList(value),
+      final List<dynamic> value => Uint8List.fromList(
+        value.whereType<num>().map((item) => item.toInt()).toList(),
+      ),
+      _ => null,
+    };
+    return NanoAtomicSnapshot(
+      protocolVersion: (raw['protocolVersion'] as num?)?.toInt() ?? 0,
+      hierarchy: NanoSnapshot.fromRaw(raw),
+      screenshotPng: bytes,
+      screenshotRequested: raw['screenshotRequested'] == true,
+      screenshotIncluded: raw['screenshotIncluded'] == true,
+      screenshotErrorCode: (raw['screenshotErrorCode'] as num?)?.toInt() ?? 0,
+      activity: raw['activity'] as String? ?? '',
+      width: (raw['width'] as num?)?.toInt() ?? 0,
+      height: (raw['height'] as num?)?.toInt() ?? 0,
+      rotation: (raw['rotation'] as num?)?.toInt() ?? 0,
+      synchronizationSkewMs: (raw['synchronizationSkewMs'] as num?)?.toDouble(),
     );
   }
 }

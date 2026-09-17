@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/automation_coordinator_provider.dart';
 import '../agent_dependencies.dart';
 import '../messaging/conversation_memory.dart';
+import '../messaging/conversation_agent.dart';
 import '../messaging/pending_reply.dart';
 import '../../personal_agent/application/persona_context.dart'
     show personaContextProvider;
@@ -27,8 +28,10 @@ final class ConversationSummaryItem {
   final List<String> pendingSuggestions;
   final bool humanOwns;
   final String activeRole;
+  final ConversationAgentId agentId;
   final String? activeProductName;
   final int entryCount;
+  final String? notificationKey;
 
   const ConversationSummaryItem({
     required this.conversationId,
@@ -42,8 +45,10 @@ final class ConversationSummaryItem {
     this.pendingSuggestions = const [],
     this.humanOwns = false,
     this.activeRole = 'general',
+    required this.agentId,
     this.activeProductName,
     this.entryCount = 0,
+    this.notificationKey,
   });
 
   String get appLabel => switch (packageName) {
@@ -55,83 +60,110 @@ final class ConversationSummaryItem {
   };
 }
 
+/// Señal reactiva: se incrementa con cada mensaje entrante / borrador nuevo.
+/// `conversationHubListProvider` lo observa para invalidarse automáticamente.
+/// Usar: `ref.read(conversationHubVersionProvider.notifier).state++`
+final conversationHubVersionProvider = StateProvider<int>((ref) => 0);
+
 /// Proveedor de la lista agregada y ordenada de conversaciones activas.
-final conversationHubListProvider =
-    FutureProvider.autoDispose<List<ConversationSummaryItem>>((ref) async {
-  final memoryStore = ref.watch(conversationMemoryStoreProvider);
-  final pendingStore = ref.watch(pendingReplyStoreProvider);
-  final ownershipStore = ref.watch(conversationOwnershipStoreProvider);
-  final personaContext = ref.watch(personaContextProvider);
+final conversationHubListProvider = FutureProvider.autoDispose
+    .family<List<ConversationSummaryItem>, ConversationAgentId>((
+      ref,
+      requestedAgent,
+    ) async {
+      // WA-HUB-REACTIVE-01: observar la señal de versión para reconstruir
+      // la lista cuando llega un mensaje nuevo, un borrador se aprueba, etc.
+      ref.watch(conversationHubVersionProvider);
 
-  final pendingList = await pendingStore.allPending();
-  final pendingMap = <String, PendingReply>{};
-  for (final p in pendingList) {
-    pendingMap[p.conversationId] = p;
-  }
+      final memoryStore = ref.watch(conversationMemoryStoreProvider);
+      final pendingStore = ref.watch(pendingReplyStoreProvider);
+      final ownershipStore = ref.watch(conversationOwnershipStoreProvider);
+      final assignmentStore = ref.watch(conversationAssignmentStoreProvider);
+      final personaContext = ref.watch(personaContextProvider);
 
-  final memoryIds = memoryStore.knownConversationIds();
-  final allIds = <String>{...memoryIds, ...pendingMap.keys};
+      final pendingList = await pendingStore.allPending();
+      final pendingMap = <String, PendingReply>{};
+      for (final p in pendingList) {
+        pendingMap[p.conversationId] = p;
+      }
 
-  final items = <ConversationSummaryItem>[];
-  for (final convId in allIds) {
-    final memory = memoryStore.memoryFor(convId);
-    final entries = memory?.entries ?? const <ConversationMemoryEntry>[];
-    final lastEntry = entries.isNotEmpty ? entries.last : null;
-    final pending = pendingMap[convId];
+      final memoryIds = memoryStore.knownConversationIds(
+        agentId: requestedAgent,
+      );
+      final allIds = <String>{...memoryIds, ...pendingMap.keys};
 
-    final lastMessage = pending?.originalMessage.isNotEmpty == true
-        ? pending!.originalMessage
-        : (lastEntry?.text ?? 'Conversación iniciada');
+      final items = <ConversationSummaryItem>[];
+      for (final convId in allIds) {
+        final assignedAgent = assignmentStore.agentForConversationId(convId);
+        if (assignedAgent != requestedAgent) continue;
+        final memory = memoryStore.memoryFor(convId);
+        final entries = memory?.entries ?? const <ConversationMemoryEntry>[];
+        final lastEntry = entries.isNotEmpty ? entries.last : null;
+        final pending = pendingMap[convId];
 
-    final lastAtMs = pending != null
-        ? pending.createdAt.millisecondsSinceEpoch
-        : (memory?.lastAtMs ?? 0);
+        final lastMessage = pending?.originalMessage.isNotEmpty == true
+            ? pending!.originalMessage
+            : (lastEntry?.text ?? 'Conversación iniciada');
 
-    final packageName = pending?.packageName.isNotEmpty == true
-        ? pending!.packageName
-        : 'com.whatsapp';
+        final lastAtMs = pending != null
+            ? pending.createdAt.millisecondsSinceEpoch
+            : (memory?.lastAtMs ?? 0);
 
-    final senderName = pending?.sender.isNotEmpty == true
-        ? pending!.sender
-        : (lastEntry?.sender.isNotEmpty == true ? lastEntry!.sender : '');
+        final packageName = pending?.packageName.isNotEmpty == true
+            ? pending!.packageName
+            : 'com.whatsapp';
 
-    final rel = personaContext.relationshipFor(senderName, conversationId: convId);
-    final rawName = rel?.displayName.isNotEmpty == true
-        ? rel!.displayName
-        : (senderName.isNotEmpty ? senderName : convId);
-    final displayName = _sanitizeName(rawName, convId);
+        final senderName = pending?.sender.isNotEmpty == true
+            ? pending!.sender
+            : (lastEntry?.sender.isNotEmpty == true ? lastEntry!.sender : '');
 
-    final ownership = ownershipStore.ownershipFor(convId);
-    final humanOwns = ownership?.humanOwns ?? false;
+        final rel = personaContext.relationshipFor(
+          senderName,
+          conversationId: convId,
+        );
+        final rawName = rel?.displayName.isNotEmpty == true
+            ? rel!.displayName
+            : (senderName.isNotEmpty ? senderName : convId);
+        final displayName = _sanitizeName(rawName, convId);
 
-    items.add(
-      ConversationSummaryItem(
-        conversationId: convId,
-        displayName: displayName,
-        packageName: packageName,
-        lastMessage: lastMessage,
-        lastAtMs: lastAtMs > 0 ? lastAtMs : DateTime.now().millisecondsSinceEpoch,
-        hasPendingReply: pending != null,
-        pendingReplyId: pending?.id,
-        pendingReplyText: pending?.draftText,
-        pendingSuggestions: pending?.suggestions ?? const [],
-        humanOwns: humanOwns,
-        activeRole: 'sales',
-        entryCount: entries.length,
-      ),
-    );
-  }
+        final ownership = ownershipStore.ownershipFor(convId);
+        final humanOwns = ownership?.humanOwns ?? false;
 
-  items.sort((a, b) => b.lastAtMs.compareTo(a.lastAtMs));
-  return items;
-});
+        items.add(
+          ConversationSummaryItem(
+            conversationId: convId,
+            displayName: displayName,
+            packageName: packageName,
+            lastMessage: lastMessage,
+            lastAtMs: lastAtMs > 0
+                ? lastAtMs
+                : DateTime.now().millisecondsSinceEpoch,
+            hasPendingReply: pending != null,
+            pendingReplyId: pending?.id,
+            pendingReplyText: pending?.draftText,
+            pendingSuggestions: pending?.suggestions ?? const [],
+            humanOwns: humanOwns,
+            activeRole: assignedAgent.name,
+            agentId: assignedAgent,
+            entryCount: entries.length,
+            notificationKey: pending?.notificationKey,
+          ),
+        );
+      }
+
+      items.sort((a, b) => b.lastAtMs.compareTo(a.lastAtMs));
+      return items;
+    });
 
 String _sanitizeName(String raw, String convId) {
   var s = raw;
   if (s.contains('|')) {
     s = s.split('|').last;
   }
-  if (s.contains('shortcut:') || s.contains('@g.us') || s.contains('@s.whatsapp.net') || s.startsWith('whatsapp/')) {
+  if (s.contains('shortcut:') ||
+      s.contains('@g.us') ||
+      s.contains('@s.whatsapp.net') ||
+      s.startsWith('whatsapp/')) {
     final digits = RegExp(r'\d{8,15}').firstMatch(s)?.group(0);
     if (digits != null) {
       return 'Contacto WhatsApp ($digits)';

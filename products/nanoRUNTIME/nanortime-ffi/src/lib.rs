@@ -766,7 +766,7 @@ impl NanoContext {
             .cached_tokens
             .len()
             .saturating_add(n_prompt)
-            .saturating_add(params.max_tokens as usize);
+            .saturating_add(params.max_tokens);
         if total_budget > self.context_size as usize {
             tracing::warn!(
                 "[NanoContext] contexto lleno (cached={} + prompt={} + max={} > ctx={}) — KV reset, prefill completo",

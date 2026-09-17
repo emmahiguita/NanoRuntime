@@ -3,7 +3,9 @@ import '../infrastructure/browser_security_firewall.dart';
 
 class BrowserContextExtractor {
   /// Extrae el texto actualmente seleccionado por el usuario en la página web.
-  static Future<String?> extractSelection(InAppWebViewController controller) async {
+  static Future<String?> extractSelection(
+    InAppWebViewController controller,
+  ) async {
     try {
       final jsResult = await controller.evaluateJavascript(
         source: 'window.getSelection().toString();',
@@ -18,7 +20,9 @@ class BrowserContextExtractor {
   }
 
   /// Extrae el texto legible completo del cuerpo de la página web activa.
-  static Future<String?> extractFullPageText(InAppWebViewController controller) async {
+  static Future<String?> extractFullPageText(
+    InAppWebViewController controller,
+  ) async {
     try {
       final jsResult = await controller.evaluateJavascript(
         source: '''

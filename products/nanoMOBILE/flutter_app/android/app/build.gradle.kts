@@ -26,6 +26,8 @@ android {
 
     defaultConfig {
         applicationId = "dev.nanoai.mobile"
+        testInstrumentationRunner =
+            "dev.nanoai.mobile.services.RemoteInputFixtureInstrumentation"
         // minSdk 26 = Android 8.0 (linker namespaces require API 24+;
         // 26 chosen for Treble/VNDK stability and >=95% device coverage).
         minSdk = 26

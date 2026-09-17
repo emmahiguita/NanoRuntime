@@ -10,6 +10,7 @@ library;
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/personal_style_constraints.dart';
 import '../domain/persona_example.dart';
 import '../domain/personal_memory.dart';
 import '../domain/conversation_agent_role.dart' show isLiveStateQuestion;
@@ -18,6 +19,7 @@ import '../domain/relationship_register.dart';
 import 'persona_repository.dart';
 import 'persona_retriever.dart';
 import 'persona_validator.dart';
+import 'personal_style_seed.dart';
 
 /// Única instancia del contexto personal: la UI de Ajustes refresca este
 /// cache tras editar y el writer lo lee EN VIVO por borrador. Hidratación
@@ -53,6 +55,11 @@ final class PersonaContext {
     _relationships.clear();
     for (final relationship in relationships) {
       _relationships[relationship.relationshipKey] = relationship;
+    }
+    try {
+      await ensurePersonalStyleSeed(_repository);
+    } catch (e) {
+      debugPrint('[persona] Error verificando semilla de estilo: $e');
     }
   }
 
@@ -143,6 +150,7 @@ final class PersonaContext {
       examples: examples,
     );
     final parts = <String>[];
+    parts.add(PersonalStyleConstraints.defaultEmmanuel.toPromptInstruction());
     final ownerStyle = RelationshipRegister.styleLine(_ownerFacts);
     if (ownerStyle.isNotEmpty) {
       parts.add('Estilo global del dueño: $ownerStyle');
@@ -159,9 +167,12 @@ final class PersonaContext {
       // su asistente") contradecía la regla dura y empujaba al 1.5B al
       // modo asistente en turnos personales.
       parts.add(
-        'El dueño es ${valid.ownerName}; responde como lo haría él. Jamás '
-        'te presentes como asistente ni menciones tu rol. Solo si preguntan '
-        'explícitamente quién eres, responde tu nombre: Nano.',
+        'El dueño es ${valid.ownerName}; responde como lo haría él. '
+        'Respuestas cortas, directas y naturales (1-2 frases). '
+        'Usa "bien, gracias a Dios", "¿y tú?" de forma natural. '
+        'Jamás te presentes como asistente ni uses frases robóticas o de soporte corporativo '
+        '("¡Por supuesto!", "Será un placer", "¿En qué más puedo ayudarte?", "Entiendo perfectamente"). '
+        'Solo si preguntan explícitamente quién eres, responde tu nombre: Nano.',
       );
     }
     if (valid.ownerNotes.isNotEmpty) {

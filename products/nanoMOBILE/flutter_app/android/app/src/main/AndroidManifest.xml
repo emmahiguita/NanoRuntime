@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <!-- Lectura de contactos de WhatsApp para el Centro de Notificaciones y Mensajería -->
+    <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <!-- Android 13+: sin este permiso declarado, el sistema suprime las
          notificaciones de la app (POST_NOTIFICATION=ignore) y el usuario ve
          "no permitir". Necesario para avisos locales del agente (T3 notify). -->
@@ -98,6 +100,7 @@
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:supportsPictureInPicture="true"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
             <!-- Specifies an Android theme to apply to this Activity as soon as

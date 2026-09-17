@@ -19,6 +19,7 @@ import 'package:nanoai/features/automation/personal_agent/presentation/personali
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/settings_tile_components.dart';
+import '../widgets/whatsapp_integration_cards.dart';
 
 /// Pantalla especializada (SOLID - SRP) para la configuración completa
 /// del Agente Personal de WhatsApp: identidad, nivel de supervisión,
@@ -207,8 +208,8 @@ class _PersonalAgentScreenState extends ConsumerState<PersonalAgentScreen> {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
                                 child: Image.asset(
-                                  'assets/automation/icons/icon_respuestas_wpp.png',
-                                  fit: BoxFit.contain,
+                                  'assets/automation/whatsapp_personal_icon.png',
+                                  fit: BoxFit.cover,
                                 ),
                               ),
                             ),
@@ -250,7 +251,7 @@ class _PersonalAgentScreenState extends ConsumerState<PersonalAgentScreen> {
                         children: [
                           SettingsRow(
                             imageAsset:
-                                'assets/automation/icons/icon_respuestas_wpp.png',
+                                'assets/automation/whatsapp_personal_icon.png',
                             title: 'WhatsApp Personal',
                             subtitle: isWaActive
                                 ? 'Activo — Nano procesa y responde mensajes'
@@ -461,7 +462,14 @@ class _PersonalAgentScreenState extends ConsumerState<PersonalAgentScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // SECCIÓN 2: IDENTIDAD PERSONAL
+                      // SECCIÓN 2: ESTADO Y CAPACIDAD OPERATIVA
+                      const AutomationSectionLabel(
+                        'Diagnóstico y Capacidad Operativa',
+                      ),
+                      const BackgroundAutomationCard(),
+                      const SizedBox(height: 20),
+
+                      // SECCIÓN 3: IDENTIDAD PERSONAL
                       const AutomationSectionLabel('Mi Identidad y Preferencias'),
                       SettingsCard(
                         children: [

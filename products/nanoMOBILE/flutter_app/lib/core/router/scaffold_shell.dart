@@ -70,9 +70,7 @@ class ScaffoldShell extends StatelessWidget {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            const Positioned.fill(
-              child: BuhoWallpaper(scrimOpacity: 0.52),
-            ),
+            const Positioned.fill(child: BuhoWallpaper(scrimOpacity: 0.52)),
             Positioned.fill(
               child: AnimatedSwitcher(
                 duration: NanoMotionDurations.standard,
@@ -86,8 +84,8 @@ class ScaffoldShell extends StatelessWidget {
             NanoFloatingNavigationFrame(
               allowSideDock: true,
               selectedIndex: currentIndex,
-              fullBleed: isDashboardHome,
-              floatOverContent: !isDashboardHome,
+              fullBleed: false,
+              floatOverContent: false,
               transparentDock: true,
               protectTop: !isDashboardHome,
               onDestinationSelected: (index) {

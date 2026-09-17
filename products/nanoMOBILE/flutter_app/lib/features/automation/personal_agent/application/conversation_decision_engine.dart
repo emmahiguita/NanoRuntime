@@ -156,9 +156,19 @@ final class ConversationDecisionEngine {
     }
 
     final replyFold = _fold(understanding.reply.trim());
+    final userFold = _fold(context.userText.trim());
+    final isReciprocalOrSocialCheckin = userFold.contains('y tu') ||
+        userFold.contains('y vos') ||
+        userFold.contains('y usted') ||
+        userFold.contains('que tal tu') ||
+        userFold.contains('todo bien') ||
+        userFold.contains('como vas') ||
+        userFold.contains('como estas');
+
     if (replyFold.startsWith('hola') &&
         replyFold.contains('?') &&
-        !isGreetingLikeMessage(context.userText)) {
+        !isGreetingLikeMessage(context.userText) &&
+        !isReciprocalOrSocialCheckin) {
       reasons.add('saludo fuera de turno (pregunta-saludo sin saludo previo)');
       return ConversationDecision(
         disposition: ConversationDisposition.holdForApproval,

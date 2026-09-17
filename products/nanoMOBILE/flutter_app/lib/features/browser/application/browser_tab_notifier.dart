@@ -6,24 +6,21 @@ class BrowserTabState {
   final List<BrowserTabModel> tabs;
   final String activeTabId;
 
-  const BrowserTabState({
-    required this.tabs,
-    required this.activeTabId,
-  });
+  const BrowserTabState({required this.tabs, required this.activeTabId});
 
   BrowserTabModel get activeTab {
     return tabs.firstWhere(
       (t) => t.id == activeTabId,
       orElse: () => tabs.isNotEmpty
           ? tabs.first
-          : const BrowserTabModel(id: 'default', url: BrowserUrlResolver.homePageUrl),
+          : const BrowserTabModel(
+              id: 'default',
+              url: BrowserUrlResolver.homePageUrl,
+            ),
     );
   }
 
-  BrowserTabState copyWith({
-    List<BrowserTabModel>? tabs,
-    String? activeTabId,
-  }) {
+  BrowserTabState copyWith({List<BrowserTabModel>? tabs, String? activeTabId}) {
     return BrowserTabState(
       tabs: tabs ?? this.tabs,
       activeTabId: activeTabId ?? this.activeTabId,
@@ -37,33 +34,53 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
   static String _generateId() =>
       'tab_${DateTime.now().microsecondsSinceEpoch}_${_counter++}';
 
-  BrowserTabNotifier()
-      : super(
-          const BrowserTabState(
-            tabs: [
-              BrowserTabModel(
-                id: 'tab_initial',
-                url: BrowserUrlResolver.homePageUrl,
-                title: 'Inicio - Google',
-              ),
-            ],
-            activeTabId: 'tab_initial',
-          ),
-        );
+  BrowserTabNotifier([BrowserTabState? initialState])
+    : super(
+        initialState ??
+            const BrowserTabState(
+              tabs: [
+                BrowserTabModel(
+                  id: 'tab_google',
+                  url: 'https://www.google.com',
+                  title: 'Google',
+                ),
+                BrowserTabModel(
+                  id: 'tab_youtube',
+                  url: 'https://m.youtube.com',
+                  title: 'YouTube',
+                ),
+                BrowserTabModel(
+                  id: 'tab_deepseek',
+                  url: 'https://chat.deepseek.com',
+                  title: 'DeepSeek',
+                ),
+                BrowserTabModel(
+                  id: 'tab_chatgpt',
+                  url: 'https://chat.openai.com',
+                  title: 'ChatGPT',
+                ),
+                BrowserTabModel(
+                  id: 'tab_wikipedia',
+                  url: 'https://es.wikipedia.org',
+                  title: 'Wikipedia',
+                ),
+              ],
+              activeTabId: 'tab_google',
+            ),
+      );
 
   String addTab({String? initialUrl}) {
     final newId = _generateId();
-    final url = BrowserUrlResolver.resolveUrl(initialUrl ?? BrowserUrlResolver.homePageUrl);
+    final url = BrowserUrlResolver.resolveUrl(
+      initialUrl ?? BrowserUrlResolver.homePageUrl,
+    );
     final newTab = BrowserTabModel(
       id: newId,
       url: url,
       title: BrowserUrlResolver.extractHost(url),
     );
 
-    state = state.copyWith(
-      tabs: [...state.tabs, newTab],
-      activeTabId: newId,
-    );
+    state = state.copyWith(tabs: [...state.tabs, newTab], activeTabId: newId);
     return newId;
   }
 
@@ -86,14 +103,13 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
 
     if (state.activeTabId == tabId) {
       final closedIndex = state.tabs.indexWhere((t) => t.id == tabId);
-      final nextIndex = (closedIndex >= newTabs.length) ? newTabs.length - 1 : closedIndex;
+      final nextIndex = (closedIndex >= newTabs.length)
+          ? newTabs.length - 1
+          : closedIndex;
       newActiveId = newTabs[nextIndex].id;
     }
 
-    state = state.copyWith(
-      tabs: newTabs,
-      activeTabId: newActiveId,
-    );
+    state = state.copyWith(tabs: newTabs, activeTabId: newActiveId);
   }
 
   void selectTab(String tabId) {
@@ -111,6 +127,7 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
     bool? canGoBack,
     bool? canGoForward,
     bool? isSecure,
+    double? zoomLevel,
   }) {
     updateTabById(
       state.activeTabId,
@@ -122,6 +139,7 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
       canGoBack: canGoBack,
       canGoForward: canGoForward,
       isSecure: isSecure,
+      zoomLevel: zoomLevel,
     );
   }
 
@@ -135,6 +153,7 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
     bool? canGoBack,
     bool? canGoForward,
     bool? isSecure,
+    double? zoomLevel,
   }) {
     final updatedTabs = state.tabs.map((t) {
       if (t.id == tabId) {
@@ -142,13 +161,16 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
         final secure = isSecure ?? BrowserUrlResolver.isSecure(newUrl);
         return t.copyWith(
           url: newUrl,
-          title: title ?? (url != null ? BrowserUrlResolver.extractHost(url) : t.title),
+          title:
+              title ??
+              (url != null ? BrowserUrlResolver.extractHost(url) : t.title),
           faviconUrl: faviconUrl ?? t.faviconUrl,
           isLoading: isLoading ?? t.isLoading,
           progress: progress ?? t.progress,
           canGoBack: canGoBack ?? t.canGoBack,
           canGoForward: canGoForward ?? t.canGoForward,
           isSecure: secure,
+          zoomLevel: zoomLevel ?? t.zoomLevel,
         );
       }
       return t;
@@ -160,5 +182,5 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
 
 final browserTabProvider =
     StateNotifierProvider<BrowserTabNotifier, BrowserTabState>((ref) {
-  return BrowserTabNotifier();
-});
+      return BrowserTabNotifier();
+    });

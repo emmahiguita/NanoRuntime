@@ -132,6 +132,9 @@ abstract interface class EventDedupeStore {
     String text, {
     required int atMs,
   });
+
+  /// Consulta si un texto es un eco de outbound conocido reciente para la conversación.
+  bool isKnownOutbound(String conversationId, String text);
 }
 
 /// Entry interno del ledger de eventos.
@@ -306,6 +309,14 @@ abstract class _DedupeCore implements EventDedupeStore {
   }
 
   @override
+  bool isKnownOutbound(String conversationId, String text) {
+    if (conversationId.isEmpty) return false;
+    final normalized = normalizeDedupeText(text);
+    if (normalized.isEmpty) return false;
+    return _isKnownOutbound(conversationId, normalized);
+  }
+
+  @override
   DedupeVerdict reserve(
     String eventId, {
     required String conversationId,
@@ -325,7 +336,7 @@ abstract class _DedupeCore implements EventDedupeStore {
       );
     }
     final keyed = conversationId.isNotEmpty;
-    if (keyed && !eventOnly) {
+    if (keyed) {
       final normalized = normalizeDedupeText(text);
       if (normalized.isNotEmpty &&
           _isKnownOutbound(conversationId, normalized)) {
@@ -339,17 +350,19 @@ abstract class _DedupeCore implements EventDedupeStore {
         _markDirty();
         return DedupeVerdict.bounceback;
       }
-      final lastAttempt = _lastReplyAttemptAtMs(conversationId, atMs);
-      if (lastAttempt > 0 && atMs - lastAttempt < cooldownMs) {
-        _events[eventId] = _DedupeEntry(
-          state: DedupeEventState.ignored,
-          conversationId: conversationId,
-          text: normalized,
-          atMs: atMs,
-          reason: 'conversación en cooldown de respuesta',
-        );
-        _markDirty();
-        return DedupeVerdict.cooldown;
+      if (!eventOnly) {
+        final lastAttempt = _lastReplyAttemptAtMs(conversationId, atMs);
+        if (lastAttempt > 0 && atMs - lastAttempt < cooldownMs) {
+          _events[eventId] = _DedupeEntry(
+            state: DedupeEventState.ignored,
+            conversationId: conversationId,
+            text: normalized,
+            atMs: atMs,
+            reason: 'conversación en cooldown de respuesta',
+          );
+          _markDirty();
+          return DedupeVerdict.cooldown;
+        }
       }
     }
 

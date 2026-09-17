@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -188,8 +189,21 @@ class ChatNotifier extends StateNotifier<ChatState> {
     final revision = _modelSelectionRevision;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('nanoai_active_model');
-      final savedPath = prefs.getString('nanoai_active_model_path');
+      var saved = prefs.getString('nanoai_active_model');
+      var savedPath = prefs.getString('nanoai_active_model_path');
+      // Settings es la fuente que consume el arranque headless. Aceptarla
+      // también aquí permite recuperar instalaciones migradas donde ya no
+      // existan las dos claves legacy.
+      if ((saved == null || saved.isEmpty) ||
+          (savedPath == null || savedPath.trim().isEmpty)) {
+        final rawSettings = prefs.getString('nanoai_settings');
+        if (rawSettings != null && rawSettings.isNotEmpty) {
+          final settings = (jsonDecode(rawSettings) as Map)
+              .cast<String, dynamic>();
+          saved = settings['chatModelId'] as String? ?? saved;
+          savedPath = settings['chatModelPath'] as String? ?? savedPath;
+        }
+      }
       if (saved == null || saved.isEmpty) return;
       // Un nombre de catálogo no demuestra que el GGUF esté instalado. Para
       // reanudar inferencia local hace falta una ruta persistida y existente;
@@ -204,16 +218,42 @@ class ChatNotifier extends StateNotifier<ChatState> {
         return;
       }
       if (!mounted || revision != _modelSelectionRevision) return;
+      final restoredPath = savedPath;
       state = state.copyWith(
         activeModel: saved,
-        activeModelPath: savedPath,
+        activeModelPath: restoredPath,
         connection: ModelConnectionState.loadingModel,
       );
+      _ref.read(settingsProvider.notifier).setChatModel(saved, restoredPath);
       await _checkEngine(model: saved, expectedRevision: revision);
     } catch (e) {
       debugPrint(
         '[chat_provider] Persistencia no disponible, usando default: $e',
       );
+    }
+  }
+
+  /// Persiste la selección en cuanto el usuario la hace. Antes se escribía
+  /// después de `_checkEngine`; si el proceso moría, el runtime tardaba o la
+  /// carga fallaba, el engine headless arrancaba sin ruta aunque el GGUF sí
+  /// estuviera instalado.
+  void _persistModelSelection(String name, String? path) {
+    final cleanPath = path?.trim() ?? '';
+    _ref.read(settingsProvider.notifier).setChatModel(name, cleanPath);
+    unawaited(_persistLegacyModelSelection(name, cleanPath));
+  }
+
+  Future<void> _persistLegacyModelSelection(String name, String path) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('nanoai_active_model', name);
+      if (path.isNotEmpty) {
+        await prefs.setString('nanoai_active_model_path', path);
+      } else {
+        await prefs.remove('nanoai_active_model_path');
+      }
+    } catch (e) {
+      debugPrint('[chat_provider] Error en persistencia de modelo: $e');
     }
   }
 
@@ -900,7 +940,8 @@ class ChatNotifier extends StateNotifier<ChatState> {
       }
 
       // Enrutamiento conversacional nativo y reactivo (saludos, telemetría y ayuda sin robotismos)
-      final hasActiveModel = state.engineOnline && state.activeModelPath != null;
+      final hasActiveModel =
+          state.engineOnline && state.activeModelPath != null;
       final nativeResolution = const NativeConversationalRouter().tryResolve(
         t,
         hasModel: hasActiveModel,
@@ -1550,28 +1591,18 @@ class ChatNotifier extends StateNotifier<ChatState> {
     }
     final revision = ++_modelSelectionRevision;
     // SELinux impide que la app rearranque el motor per-selección.
+    final selectedPath = modelChanged ? path : (path ?? state.activeModelPath);
     state = state.copyWith(
       activeModel: name,
-      activeModelPath: modelChanged ? path : (path ?? state.activeModelPath),
+      activeModelPath: selectedPath,
       connection: ModelConnectionState.loadingModel,
       showModelSelector: false,
     );
+    _persistModelSelection(name, selectedPath);
     _loadTimer?.cancel();
     _loadTimer = Timer(const Duration(milliseconds: 600), () async {
       _loadTimer = null;
       await _checkEngine(model: name, expectedRevision: revision);
-      if (!mounted || revision != _modelSelectionRevision) return;
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('nanoai_active_model', name);
-        if (path != null) {
-          await prefs.setString('nanoai_active_model_path', path);
-        } else if (modelChanged) {
-          await prefs.remove('nanoai_active_model_path');
-        }
-      } catch (e) {
-        debugPrint('[chat_provider] Error en persistencia: $e');
-      }
     });
   }
 

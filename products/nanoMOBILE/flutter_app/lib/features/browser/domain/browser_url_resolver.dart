@@ -16,24 +16,97 @@ class BrowserUrlResolver {
       return trimmed;
     }
 
-    // Atajos directos a sitios web populares cuando se escribe solo el nombre
+    // 1. Prefijos de búsqueda y palabras clave profesionales (!yt, yt, !w, wiki, !g, g, !gh, gh, !ai, chat, !ddg, !maps, !img, !r)
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length > 1) {
+      final prefix = parts[0].toLowerCase();
+      final query = parts.sublist(1).join(' ').trim();
+      if (query.isNotEmpty) {
+        final encodedQuery = Uri.encodeComponent(query);
+        switch (prefix) {
+          case '!yt':
+          case 'yt':
+          case '!youtube':
+          case 'youtube':
+            return 'https://m.youtube.com/results?search_query=$encodedQuery';
+          case '!g':
+          case 'g':
+          case '!google':
+            return 'https://www.google.com/search?q=$encodedQuery';
+          case '!w':
+          case 'w':
+          case '!wiki':
+          case 'wiki':
+          case '!wikipedia':
+            return 'https://es.wikipedia.org/w/index.php?search=$encodedQuery';
+          case '!gh':
+          case 'gh':
+          case '!github':
+            return 'https://github.com/search?q=$encodedQuery';
+          case '!d':
+          case '!ddg':
+          case 'ddg':
+          case 'duck':
+            return 'https://duckduckgo.com/?q=$encodedQuery';
+          case '!ai':
+          case 'ai':
+          case '!chat':
+          case 'chat':
+          case '!deepseek':
+            return 'https://chat.deepseek.com/?q=$encodedQuery';
+          case '!chatgpt':
+            return 'https://chatgpt.com/?q=$encodedQuery';
+          case '!maps':
+          case 'maps':
+          case '!map':
+            return 'https://www.google.com/maps/search/$encodedQuery';
+          case '!img':
+          case 'img':
+          case '!images':
+            return 'https://www.google.com/search?tbm=isch&q=$encodedQuery';
+          case '!r':
+          case 'r/':
+          case 'reddit':
+            return 'https://www.reddit.com/search/?q=$encodedQuery';
+          case '!news':
+          case 'news':
+            return 'https://news.google.com/search?q=$encodedQuery';
+        }
+      }
+    }
+
+    // 2. Atajos directos a sitios web populares cuando se escribe solo el nombre
     final lower = trimmed.toLowerCase();
     const commonWebsites = {
       'google': 'https://www.google.com',
-      'youtube': 'https://www.youtube.com',
+      'g': 'https://www.google.com',
+      'youtube': 'https://m.youtube.com',
+      'yt': 'https://m.youtube.com',
       'chatgpt': 'https://chatgpt.com',
+      'openai': 'https://chatgpt.com',
       'deepseek': 'https://chat.deepseek.com',
       'wikipedia': 'https://es.wikipedia.org',
+      'wiki': 'https://es.wikipedia.org',
       'github': 'https://github.com',
+      'gh': 'https://github.com',
       'facebook': 'https://www.facebook.com',
       'instagram': 'https://www.instagram.com',
       'twitter': 'https://x.com',
       'x': 'https://x.com',
       'reddit': 'https://www.reddit.com',
       'gmail': 'https://mail.google.com',
+      'maps': 'https://maps.google.com',
       'bing': 'https://www.bing.com',
       'yahoo': 'https://www.yahoo.com',
       'amazon': 'https://www.amazon.com',
+      'claude': 'https://claude.ai',
+      'gemini': 'https://gemini.google.com',
+      'tiktok': 'https://www.tiktok.com',
+      'netflix': 'https://www.netflix.com',
+      'spotify': 'https://open.spotify.com',
+      'linkedin': 'https://www.linkedin.com',
+      'duckduckgo': 'https://duckduckgo.com',
+      'ddg': 'https://duckduckgo.com',
     };
     if (commonWebsites.containsKey(lower)) {
       return commonWebsites[lower]!;

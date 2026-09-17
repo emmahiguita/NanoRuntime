@@ -50,7 +50,12 @@ final class SafeConversationRepair {
             u.contains('en que andas')) {
           return _pick([
             'Por acá tranquilo por ahora.',
-            'Aquí pendiente.',
+            'Aquí en el celular viendo memes.',
+            'Estoy haciendo algo de programación.',
+            'Nada, molestando en el computador.',
+            'Estoy en cama descansando.',
+            'Estoy en la casa tranquilo.',
+            'Voy a comer algo, ¿y tú?',
             'Bien, por acá ocupado un rato.',
             'Todo en orden por aquí.',
           ], userText);

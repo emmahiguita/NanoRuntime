@@ -21,10 +21,13 @@ library;
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../storage/automation_db_store_client.dart';
+import 'conversation_agent.dart';
+import 'conversation_assignment_store.dart';
 import 'incoming_message.dart';
 
 /// Tipo factual de una entrada de memoria.
@@ -38,6 +41,9 @@ enum ConversationMemoryEntryKind {
 
   /// Envío despachado (RemoteInput aceptado) sin verificación final.
   outboundDispatched,
+
+  /// Mensaje saliente del dueño observado en la notificación sin despacho previo de Nano (intervención manual).
+  outboundObservedManual,
 
   /// Efecto incierto: el envío pudo aterrizar o no. Nunca éxito.
   effectUnknown,
@@ -86,13 +92,23 @@ final class ConversationMemoryEntry {
 /// cronológico; la más reciente es la última.
 final class ConversationMemory {
   final String conversationId;
+  final String scopeId;
+  final ConversationAgentId? agentId;
   final List<ConversationMemoryEntry> entries;
   final int lastAtMs;
+  final List<String> unresolvedObligations;
+  final String? activeTopic;
+  final int? lastManualInterventionMs;
 
   const ConversationMemory({
     required this.conversationId,
+    this.scopeId = '',
+    this.agentId,
     required this.entries,
     required this.lastAtMs,
+    this.unresolvedObligations = const [],
+    this.activeTopic,
+    this.lastManualInterventionMs,
   });
 
   bool get isEmpty => entries.isEmpty;
@@ -102,6 +118,10 @@ final class ConversationMemory {
   factory ConversationMemory.fromJson(Map<String, dynamic> m) =>
       ConversationMemory(
         conversationId: (m['id'] as String?) ?? '',
+        scopeId: (m['scopeId'] as String?) ?? '',
+        agentId: m['agentId'] is String
+            ? ConversationAgentId.fromName(m['agentId'] as String)
+            : null,
         entries: [
           for (final e in (m['entries'] as List?) ?? const [])
             ConversationMemoryEntry.fromJson(
@@ -109,12 +129,22 @@ final class ConversationMemory {
             ),
         ],
         lastAtMs: (m['lastAtMs'] as num?)?.toInt() ?? 0,
+        unresolvedObligations: [
+          for (final o in (m['obligations'] as List?) ?? const []) o.toString(),
+        ],
+        activeTopic: m['topic'] as String?,
+        lastManualInterventionMs: (m['manualAt'] as num?)?.toInt(),
       );
 
   Map<String, Object?> toJson() => {
     'id': conversationId,
+    if (scopeId.isNotEmpty) 'scopeId': scopeId,
+    if (agentId != null) 'agentId': agentId!.name,
     'entries': [for (final e in entries) e.toJson()],
     'lastAtMs': lastAtMs,
+    if (unresolvedObligations.isNotEmpty) 'obligations': unresolvedObligations,
+    if (activeTopic != null && activeTopic!.isNotEmpty) 'topic': activeTopic,
+    if (lastManualInterventionMs != null) 'manualAt': lastManualInterventionMs,
   };
 }
 
@@ -130,7 +160,7 @@ abstract interface class ConversationMemoryStore {
 
   /// Ids de conversaciones con historial retenido (solo lectura, para
   /// superficies de inspección como la pantalla Dev).
-  Set<String> knownConversationIds();
+  Set<String> knownConversationIds({ConversationAgentId? agentId});
 
   /// Registra la observación de un mensaje entrante. No-op sin identidad de
   /// conversación (fail-closed) o sin texto.
@@ -144,6 +174,25 @@ abstract interface class ConversationMemoryStore {
     String? ruleId,
     required int atMs,
   });
+
+  /// Registra una obligación o petición pendiente aún no resuelta.
+  void addUnresolvedObligation(String conversationId, String obligation);
+
+  /// Resuelve obligaciones atendidas.
+  void resolveObligations(String conversationId, List<String> resolved);
+
+  /// Limpia todas las obligaciones pendientes de la conversación.
+  void clearObligations(String conversationId);
+
+  /// Registra una intervención manual del dueño en WhatsApp.
+  void recordManualIntervention(String conversationId, int atMs);
+
+  /// Reconcilia un mensaje saliente `isSelf` observado en notificaciones.
+  void reconcileOutbound(
+    String conversationId,
+    String text, {
+    required int atMs,
+  });
 }
 
 /// Núcleo en memoria (puro). Los subtipos aportan persistencia (DIP).
@@ -151,7 +200,8 @@ abstract class _MemoryCore implements ConversationMemoryStore {
   _MemoryCore({
     this.maxEntriesPerConversation = defaultMaxEntries,
     this.maxConversations = defaultMaxConversations,
-  });
+    ConversationAssignmentStore? assignments,
+  }) : _assignments = assignments;
 
   /// Entradas conservadas por conversación (bounded, las más recientes).
   static const int defaultMaxEntries = 60;
@@ -163,17 +213,36 @@ abstract class _MemoryCore implements ConversationMemoryStore {
 
   final int maxEntriesPerConversation;
   final int maxConversations;
+  final ConversationAssignmentStore? _assignments;
 
   final Map<String, List<ConversationMemoryEntry>> _byConversation = {};
+  final Map<String, List<String>> _obligationsByConversation = {};
+  final Map<String, String> _topicByConversation = {};
+  final Map<String, int> _manualAtByConversation = {};
+  final Map<String, String> _conversationIdByScope = {};
+  final Map<String, ConversationAgentId> _agentByScope = {};
   bool _loaded = false;
 
   void _markDirty();
 
+  void _persistNormalizedEntry(String scopeId, ConversationMemoryEntry entry) {}
+
+  void _persistNormalizedState(String scopeId, ConversationMemory memory) {}
+
   static String _boundText(String raw) =>
       raw.length <= _maxTextField ? raw : raw.substring(0, _maxTextField);
 
+  String _scopeFor(String conversationId) {
+    if (_assignments == null) return conversationId;
+    final scope = _assignments.scopeForConversationId(conversationId);
+    _conversationIdByScope[scope.id] = conversationId;
+    _agentByScope[scope.id] = scope.agentId;
+    return scope.id;
+  }
+
   List<ConversationMemoryEntry> _listFor(String conversationId) {
-    final list = _byConversation.putIfAbsent(conversationId, () => []);
+    final scopeId = _scopeFor(conversationId);
+    final list = _byConversation.putIfAbsent(scopeId, () => []);
     // AUTO-CONSOLIDATE-02 — trim ANTES de insertar con margen de 1: con
     // `> max` el máximo efectivo era 61 (el trim nunca veía la entrada que
     // estaba por añadirse; evidencia en traza: historyEntries=61).
@@ -195,39 +264,80 @@ abstract class _MemoryCore implements ConversationMemoryStore {
         coldestAt = at;
       }
     }
-    if (coldest != null) _byConversation.remove(coldest);
+    if (coldest != null) {
+      _byConversation.remove(coldest);
+      _obligationsByConversation.remove(coldest);
+      _topicByConversation.remove(coldest);
+      _manualAtByConversation.remove(coldest);
+      _conversationIdByScope.remove(coldest);
+      _agentByScope.remove(coldest);
+    }
   }
 
   @override
   ConversationMemory? memoryFor(String conversationId) {
     if (conversationId.isEmpty) return null;
-    final list = _byConversation[conversationId];
+    final scopeId = _scopeFor(conversationId);
+    final list = _byConversation[scopeId];
     if (list == null || list.isEmpty) return null;
     return ConversationMemory(
       conversationId: conversationId,
+      scopeId: scopeId,
+      agentId: _agentByScope[scopeId],
       entries: List.unmodifiable(list),
       lastAtMs: list.last.atMs,
+      unresolvedObligations: List.unmodifiable(
+        _obligationsByConversation[scopeId] ?? const [],
+      ),
+      activeTopic: _topicByConversation[scopeId],
+      lastManualInterventionMs: _manualAtByConversation[scopeId],
     );
   }
 
   @override
-  Set<String> knownConversationIds() => Set.unmodifiable(
-    _byConversation.keys.where((id) => _byConversation[id]!.isNotEmpty),
-  );
+  Set<String> knownConversationIds({ConversationAgentId? agentId}) =>
+      Set.unmodifiable(
+        _byConversation.keys
+            .where(
+              (scopeId) =>
+                  _byConversation[scopeId]!.isNotEmpty &&
+                  (agentId == null || _agentByScope[scopeId] == agentId),
+            )
+            .map((scopeId) => _conversationIdByScope[scopeId] ?? scopeId),
+      );
 
   @override
   void appendInbound(IncomingMessage message, {required int atMs}) {
     if (message.conversation.key.id.isEmpty) return;
     if (message.text.trim().isEmpty) return;
-    _listFor(message.conversation.key.id).add(
-      ConversationMemoryEntry(
-        kind: ConversationMemoryEntryKind.inbound,
-        text: _boundText(message.text),
-        sender: _boundText(message.sender),
-        atMs: atMs,
-        eventId: message.eventId,
-      ),
+    final conversationId = message.conversation.key.id;
+    final scopeId = _scopeFor(conversationId);
+    final eventId = message.eventId.trim();
+    if (eventId.isNotEmpty &&
+        (_byConversation[scopeId]?.any((entry) => entry.eventId == eventId) ??
+            false)) {
+      // Los reintentos del DurableInbox vuelven a presentar el MISMO evento.
+      // La memoria es idempotente por eventId para que el prompt no aprenda
+      // repeticiones que nunca ocurrieron en la conversación real.
+      return;
+    }
+    // Protección contra reemisiones idénticas de Android con eventId vacío o rotado
+    if (_byConversation[scopeId]?.any((entry) =>
+            entry.kind == ConversationMemoryEntryKind.inbound &&
+            entry.text == _boundText(message.text.trim()) &&
+            (atMs - entry.atMs).abs() <= 1000) ??
+        false) {
+      return;
+    }
+    final entry = ConversationMemoryEntry(
+      kind: ConversationMemoryEntryKind.inbound,
+      text: _boundText(message.text),
+      sender: _boundText(message.sender),
+      atMs: atMs,
+      eventId: message.eventId,
     );
+    _listFor(conversationId).add(entry);
+    _persistNormalizedEntry(scopeId, entry);
     _evictColdestIfNeeded();
     _markDirty();
   }
@@ -243,16 +353,141 @@ abstract class _MemoryCore implements ConversationMemoryStore {
     if (conversationId.isEmpty) return;
     final clean = text.trim();
     if (clean.isEmpty) return;
-    _listFor(conversationId).add(
-      ConversationMemoryEntry(
-        kind: kind,
-        text: _boundText(clean),
-        atMs: atMs,
-        ruleId: ruleId ?? '',
-      ),
+    final scopeId = _scopeFor(conversationId);
+    final entry = ConversationMemoryEntry(
+      kind: kind,
+      text: _boundText(clean),
+      atMs: atMs,
+      eventId: _outboundEventId(scopeId, clean, atMs, ruleId ?? ''),
+      ruleId: ruleId ?? '',
     );
+    _listFor(conversationId).add(entry);
+    _persistNormalizedEntry(scopeId, entry);
+    // Un mensaje saliente (del bot o del dueño) atiende el turno y resuelve obligaciones previas
+    if (_obligationsByConversation.containsKey(scopeId)) {
+      _obligationsByConversation[scopeId]?.clear();
+      _persistStateFor(conversationId);
+    }
     _evictColdestIfNeeded();
     _markDirty();
+  }
+
+  @override
+  void addUnresolvedObligation(String conversationId, String obligation) {
+    if (conversationId.isEmpty) return;
+    final clean = obligation.trim();
+    if (clean.isEmpty) return;
+    final scopeId = _scopeFor(conversationId);
+    final list = _obligationsByConversation.putIfAbsent(scopeId, () => []);
+    if (!list.contains(clean)) {
+      list.add(clean);
+      if (list.length > 10) list.removeAt(0);
+      _persistStateFor(conversationId);
+      _markDirty();
+    }
+  }
+
+  @override
+  void resolveObligations(String conversationId, List<String> resolved) {
+    if (conversationId.isEmpty || resolved.isEmpty) return;
+    final list = _obligationsByConversation[_scopeFor(conversationId)];
+    if (list != null && list.isNotEmpty) {
+      list.removeWhere(resolved.contains);
+      _persistStateFor(conversationId);
+      _markDirty();
+    }
+  }
+
+  @override
+  void clearObligations(String conversationId) {
+    if (conversationId.isEmpty) return;
+    final scopeId = _scopeFor(conversationId);
+    if (_obligationsByConversation.containsKey(scopeId)) {
+      _obligationsByConversation[scopeId]?.clear();
+      _persistStateFor(conversationId);
+      _markDirty();
+    }
+  }
+
+  @override
+  void recordManualIntervention(String conversationId, int atMs) {
+    if (conversationId.isEmpty) return;
+    _manualAtByConversation[_scopeFor(conversationId)] = atMs;
+    _persistStateFor(conversationId);
+    _markDirty();
+  }
+
+  @override
+  void reconcileOutbound(
+    String conversationId,
+    String text, {
+    required int atMs,
+  }) {
+    if (conversationId.isEmpty) return;
+    final clean = text.trim();
+    if (clean.isEmpty) return;
+    final scopeId = _scopeFor(conversationId);
+    final list = _listFor(conversationId);
+
+    // Buscar si hay un outboundDispatched reciente con texto coincidente
+    final norm = clean.toLowerCase();
+    int? matchedIndex;
+    for (var i = list.length - 1; i >= 0; i--) {
+      final entry = list[i];
+      if (entry.kind == ConversationMemoryEntryKind.outboundDispatched) {
+        if ((atMs - entry.atMs).abs() <= 30000 &&
+            entry.text.toLowerCase() == norm) {
+          matchedIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (matchedIndex != null) {
+      // Promover a outboundVerified
+      final prev = list[matchedIndex];
+      list[matchedIndex] = ConversationMemoryEntry(
+        kind: ConversationMemoryEntryKind.outboundVerified,
+        text: prev.text,
+        sender: prev.sender,
+        atMs: atMs > 0 ? atMs : prev.atMs,
+        eventId: prev.eventId,
+        ruleId: prev.ruleId,
+      );
+      _persistNormalizedEntry(scopeId, list[matchedIndex]);
+    } else {
+      // Intervención manual del dueño en WhatsApp
+      final entry = ConversationMemoryEntry(
+        kind: ConversationMemoryEntryKind.outboundObservedManual,
+        text: _boundText(clean),
+        atMs: atMs,
+        eventId: _outboundEventId(scopeId, clean, atMs, 'manual'),
+      );
+      list.add(entry);
+      _persistNormalizedEntry(scopeId, entry);
+      recordManualIntervention(conversationId, atMs);
+    }
+    _evictColdestIfNeeded();
+    _markDirty();
+  }
+
+  void _persistStateFor(String conversationId) {
+    final memory = memoryFor(conversationId);
+    if (memory != null) {
+      _persistNormalizedState(memory.scopeId, memory);
+    }
+  }
+
+  String _outboundEventId(
+    String scopeId,
+    String text,
+    int atMs,
+    String ruleId,
+  ) {
+    final digest = sha256
+        .convert(utf8.encode('$scopeId\u0000$atMs\u0000$ruleId\u0000$text'))
+        .toString();
+    return 'out:${digest.substring(0, 32)}';
   }
 
   /// Para persistencia: snapshot serializable de todas las conversaciones.
@@ -260,20 +495,73 @@ abstract class _MemoryCore implements ConversationMemoryStore {
     for (final e in _byConversation.entries)
       if (e.value.isNotEmpty)
         e.key: ConversationMemory(
-          conversationId: e.key,
+          conversationId: _conversationIdByScope[e.key] ?? e.key,
+          scopeId: e.key,
+          agentId: _agentByScope[e.key],
           entries: e.value,
           lastAtMs: e.value.last.atMs,
+          unresolvedObligations: _obligationsByConversation[e.key] ?? const [],
+          activeTopic: _topicByConversation[e.key],
+          lastManualInterventionMs: _manualAtByConversation[e.key],
         ).toJson(),
   };
 
-  void _hydrate(Map<String, Object?> raw) {
+  bool _hydrate(Map<String, Object?> raw) {
+    var repairedDuplicates = false;
     for (final e in raw.entries) {
       final m = (e.value as Map).cast<String, dynamic>();
       final memory = ConversationMemory.fromJson(m);
       if (memory.conversationId.isNotEmpty && memory.entries.isNotEmpty) {
-        _byConversation[memory.conversationId] = List.of(memory.entries);
+        final scopeId = memory.scopeId.isNotEmpty
+            ? memory.scopeId
+            : _scopeFor(memory.conversationId);
+        _conversationIdByScope[scopeId] = memory.conversationId;
+        final agent =
+            memory.agentId ??
+            _assignments?.agentForConversationId(memory.conversationId);
+        if (agent != null) _agentByScope[scopeId] = agent;
+        final deduplicated = _deduplicateByEventId(memory.entries);
+        repairedDuplicates |= deduplicated.length != memory.entries.length;
+        _byConversation[scopeId] = deduplicated;
+        if (memory.unresolvedObligations.isNotEmpty) {
+          _obligationsByConversation[scopeId] = List.of(
+            memory.unresolvedObligations,
+          );
+        }
+        if (memory.activeTopic != null && memory.activeTopic!.isNotEmpty) {
+          _topicByConversation[scopeId] = memory.activeTopic!;
+        }
+        if (memory.lastManualInterventionMs != null) {
+          _manualAtByConversation[scopeId] = memory.lastManualInterventionMs!;
+        }
       }
     }
+    return repairedDuplicates;
+  }
+
+  List<ConversationMemoryEntry> _deduplicateByEventId(
+    List<ConversationMemoryEntry> entries,
+  ) {
+    final seen = <String>{};
+    final reversed = <ConversationMemoryEntry>[];
+    // Conserva la versión más reciente. Es importante para un outbound cuyo
+    // estado haya progresado de dispatched a verified con el mismo eventId.
+    for (final entry in entries.reversed) {
+      final eventId = entry.eventId.trim();
+      final key = eventId.isNotEmpty
+          ? eventId
+          : '${entry.kind.name}:${entry.atMs}:${entry.sender}:${entry.text}';
+      if (!seen.add(key)) continue;
+      reversed.add(entry);
+    }
+    final deduplicated = reversed.reversed.toList(growable: true);
+    if (deduplicated.length > maxEntriesPerConversation) {
+      deduplicated.removeRange(
+        0,
+        deduplicated.length - maxEntriesPerConversation,
+      );
+    }
+    return deduplicated;
   }
 }
 
@@ -282,6 +570,7 @@ class MemoryConversationMemoryStore extends _MemoryCore {
   MemoryConversationMemoryStore({
     super.maxEntriesPerConversation,
     super.maxConversations,
+    super.assignments,
   });
 
   @override
@@ -302,16 +591,18 @@ class SharedPrefsConversationMemoryStore extends _MemoryCore {
   SharedPrefsConversationMemoryStore({
     super.maxEntriesPerConversation,
     super.maxConversations,
+    super.assignments,
   });
 
   @override
   Future<void> load() async {
+    var repairedDuplicates = false;
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_key);
       if (raw != null && raw.isNotEmpty) {
         final map = (jsonDecode(raw) as Map).cast<String, dynamic>();
-        _hydrate(map);
+        repairedDuplicates = _hydrate(map);
         debugPrint('[convmem] load: ${_byConversation.length} conversaciones');
       } else {
         debugPrint('[convmem] load: sin datos persistidos');
@@ -321,6 +612,13 @@ class SharedPrefsConversationMemoryStore extends _MemoryCore {
       // Store corrupto o esquema viejo: arrancar limpio (fail-closed).
     }
     _loaded = true;
+    if (repairedDuplicates) {
+      try {
+        await _write();
+      } on Object catch (e) {
+        debugPrint('[convmem] no se pudo persistir reparación: $e');
+      }
+    }
   }
 
   @override
@@ -345,15 +643,20 @@ class SqliteConversationMemoryStore extends _MemoryCore {
   SqliteConversationMemoryStore({
     super.maxEntriesPerConversation,
     super.maxConversations,
+    super.assignments,
   });
 
   @override
   Future<void> load() async {
+    var repairedDuplicates = false;
     try {
       var raw = await AutomationDbStoreClient.instance.section(_section);
       raw ??= await _migrateLegacy();
       if (raw != null && raw.isNotEmpty) {
-        _hydrate((jsonDecode(raw) as Map).cast<String, dynamic>());
+        repairedDuplicates = _hydrate(
+          (jsonDecode(raw) as Map).cast<String, dynamic>(),
+        );
+        await _backfillNormalizedStore();
         debugPrint('[convmem] load sqlite: ${_byConversation.length}');
       } else {
         debugPrint('[convmem] load sqlite: sin datos');
@@ -362,6 +665,30 @@ class SqliteConversationMemoryStore extends _MemoryCore {
       debugPrint('[convmem] load sqlite falló: $e');
     }
     _loaded = true;
+    if (repairedDuplicates) {
+      try {
+        await _write();
+      } on Object catch (e) {
+        debugPrint('[convmem] no se pudo persistir reparación sqlite: $e');
+      }
+    }
+  }
+
+  Future<void> _backfillNormalizedStore() async {
+    final assignments = _assignments;
+    if (assignments != null) {
+      for (final conversationId in knownConversationIds()) {
+        await assignments.ensureAssignmentForConversationId(conversationId);
+      }
+    }
+    for (final item in _byConversation.entries) {
+      for (final entry in item.value) {
+        _persistNormalizedEntry(item.key, entry);
+      }
+      final conversationId = _conversationIdByScope[item.key] ?? item.key;
+      final memory = memoryFor(conversationId);
+      if (memory != null) _persistNormalizedState(item.key, memory);
+    }
   }
 
   Future<String?> _migrateLegacy() async {
@@ -390,6 +717,46 @@ class SqliteConversationMemoryStore extends _MemoryCore {
     await AutomationDbStoreClient.instance.putSection(
       _section,
       jsonEncode(_snapshot()),
+    );
+  }
+
+  @override
+  void _persistNormalizedEntry(String scopeId, ConversationMemoryEntry entry) {
+    final direction = entry.kind == ConversationMemoryEntryKind.inbound
+        ? 'inbound'
+        : 'outbound';
+    final deliveryState = switch (entry.kind) {
+      ConversationMemoryEntryKind.inbound => 'observed',
+      ConversationMemoryEntryKind.outboundVerified => 'verified',
+      ConversationMemoryEntryKind.outboundDispatched => 'dispatched',
+      ConversationMemoryEntryKind.outboundObservedManual => 'manual',
+      ConversationMemoryEntryKind.effectUnknown => 'unknown',
+    };
+    final eventId = entry.eventId.isNotEmpty
+        ? entry.eventId
+        : _outboundEventId(scopeId, entry.text, entry.atMs, entry.ruleId);
+    unawaited(
+      AutomationDbStoreClient.instance.appendConversationMessage(
+        scopeId: scopeId,
+        eventId: eventId,
+        direction: direction,
+        deliveryState: deliveryState,
+        sender: entry.sender,
+        body: entry.text,
+        atMs: entry.atMs,
+        ruleId: entry.ruleId,
+      ),
+    );
+  }
+
+  @override
+  void _persistNormalizedState(String scopeId, ConversationMemory memory) {
+    unawaited(
+      AutomationDbStoreClient.instance.putConversationDialogueState(
+        scopeId: scopeId,
+        stateJson: jsonEncode(memory.toJson()),
+        updatedAtMs: memory.lastAtMs,
+      ),
     );
   }
 }

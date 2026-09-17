@@ -12,6 +12,9 @@ class ReverseAgentResponse {
   final String response;
   final String? error;
   final String source;
+  final String requestedProvider;
+  final String actualProvider;
+  final String actualBackend;
 
   const ReverseAgentResponse({
     required this.ok,
@@ -19,25 +22,39 @@ class ReverseAgentResponse {
     required this.response,
     this.error,
     this.source = 'bridge',
+    this.requestedProvider = '',
+    this.actualProvider = '',
+    this.actualBackend = 'remote_provider',
   });
 
-  factory ReverseAgentResponse.failure(String provider, String error) {
+  factory ReverseAgentResponse.failure(
+    String provider,
+    String error, {
+    String actualBackend = 'none',
+  }) {
     return ReverseAgentResponse(
       ok: false,
       provider: provider,
       response: '',
       error: error,
       source: 'error',
+      requestedProvider: provider,
+      actualProvider: '',
+      actualBackend: actualBackend,
     );
   }
 
   factory ReverseAgentResponse.fromJson(Map<String, dynamic> json) {
+    final prov = json['provider'] as String? ?? 'unknown';
     return ReverseAgentResponse(
       ok: json['ok'] == true,
-      provider: json['provider'] as String? ?? 'unknown',
+      provider: prov,
       response: json['response'] as String? ?? '',
       error: json['error'] as String?,
       source: json['source'] as String? ?? 'bridge',
+      requestedProvider: json['requested_provider'] as String? ?? prov,
+      actualProvider: json['actual_provider'] as String? ?? prov,
+      actualBackend: json['actual_backend'] as String? ?? 'remote_provider',
     );
   }
 }
@@ -144,7 +161,9 @@ class ReverseAgentClient {
     final client = _createClient();
     try {
       final uri = Uri.parse('$baseUrl/api/prompt');
-      final req = await client.postUrl(uri).timeout(const Duration(seconds: 10));
+      final req = await client
+          .postUrl(uri)
+          .timeout(const Duration(seconds: 10));
       req.headers.contentType = ContentType.json;
 
       final payload = jsonEncode({
@@ -164,7 +183,8 @@ class ReverseAgentClient {
       }
 
       final errorJson = jsonDecode(body) as Map<String, dynamic>?;
-      final errorMsg = errorJson?['error'] as String? ?? 'HTTP ${res.statusCode}';
+      final errorMsg =
+          errorJson?['error'] as String? ?? 'HTTP ${res.statusCode}';
       return ReverseAgentResponse.failure(provider, errorMsg);
     } on TimeoutException {
       return ReverseAgentResponse.failure(
@@ -184,7 +204,7 @@ class ReverseAgentClient {
     }
   }
 
-  /// Fallback de modelo LLM cuando el puente de navegador no está activo.
+  /// Fallback hacia el motor LLM local honesto cuando el puente de navegador no está activo.
   Future<ReverseAgentResponse> _queryFallback({
     required String provider,
     required String prompt,
@@ -192,10 +212,13 @@ class ReverseAgentClient {
     // 1. Intentar Motor IA Local en el propio dispositivo Android (GGUF / nanortime)
     try {
       final localClient = LLMEngineClient();
-      final isOnline = await localClient.isOnline();
+      final isOnline = await localClient.isOnline(
+        attempts: 1,
+        requestTimeout: const Duration(seconds: 2),
+      );
       if (isOnline) {
         final formattedPrompt =
-            'System: Eres el modelo $provider. Responde la siguiente pregunta de forma clara, directa, amable y concisa en español.\n\nUser: $prompt\n\nAssistant:';
+            'System: Responde la siguiente consulta de forma clara, directa y concisa en español.\n\nUser: $prompt\n\nAssistant:';
         final localResult = await localClient.generate(
           prompt: formattedPrompt,
           maxTokens: 512,
@@ -204,9 +227,12 @@ class ReverseAgentClient {
         if (cleanText.isNotEmpty) {
           return ReverseAgentResponse(
             ok: true,
-            provider: provider,
+            provider: 'local_llm',
             response: cleanText,
             source: 'llm_local',
+            requestedProvider: provider,
+            actualProvider: 'qwen2.5-local',
+            actualBackend: 'local_llm',
           );
         }
       }
@@ -214,82 +240,11 @@ class ReverseAgentClient {
       debugPrint('[reverse_agent_client] error en motor local LLM: $e');
     }
 
-    // 2. Detección directa de preguntas factuales / capitales (respuesta limpia de IA)
-    final cleanPrompt = prompt.trim();
-    final lower = cleanPrompt.toLowerCase();
-    final capitalMatch = RegExp(
-      r'(?:cu[aá]l\s+es\s+la\s+capital\s+de\s+|capital\s+de\s+|capital\s+del\s+pa[ií]s\s+)([a-zñáéíóú\s]+)',
-      caseSensitive: false,
-    ).firstMatch(lower);
-
-    if (capitalMatch != null) {
-      final target = capitalMatch.group(1)!.trim();
-      const capitals = <String, String>{
-        'francia': 'París',
-        'españa': 'Madrid',
-        'espana': 'Madrid',
-        'italia': 'Roma',
-        'alemania': 'Berlín',
-        'berlin': 'Berlín',
-        'reino unido': 'Londres',
-        'inglaterra': 'Londres',
-        'portugal': 'Lisboa',
-        'argentina': 'Buenos Aires',
-        'colombia': 'Bogotá',
-        'bogota': 'Bogotá',
-        'méxico': 'Ciudad de México',
-        'mexico': 'Ciudad de México',
-        'chile': 'Santiago',
-        'perú': 'Lima',
-        'peru': 'Lima',
-        'venezuela': 'Caracas',
-        'ecuador': 'Quito',
-        'bolivia': 'Sucre (y La Paz como sede de gobierno)',
-        'uruguay': 'Montevideo',
-        'paraguay': 'Asunción',
-        'brasil': 'Brasilia',
-        'estados unidos': 'Washington D.C.',
-        'eeuu': 'Washington D.C.',
-        'usa': 'Washington D.C.',
-        'canadá': 'Ottawa',
-        'canada': 'Ottawa',
-        'japón': 'Tokio',
-        'japon': 'Tokio',
-        'china': 'Pekín (Beijing)',
-        'rusia': 'Moscú',
-        'moscu': 'Moscú',
-        'bélgica': 'Bruselas',
-        'belgica': 'Bruselas',
-        'holanda': 'Ámsterdam',
-        'países bajos': 'Ámsterdam',
-        'paises bajos': 'Ámsterdam',
-        'suiza': 'Berna',
-        'austria': 'Viena',
-        'grecia': 'Atenas',
-        'egipto': 'El Cairo',
-        'australia': 'Camberra',
-      };
-      for (final entry in capitals.entries) {
-        if (target.contains(entry.key) || entry.key.contains(target)) {
-          final countryName =
-              entry.key.substring(0, 1).toUpperCase() + entry.key.substring(1);
-          return ReverseAgentResponse(
-            ok: true,
-            provider: provider,
-            response: 'La capital de $countryName es **${entry.value}**.',
-            source: 'llm_cloud',
-          );
-        }
-      }
-    }
-
-    // 3. Respuesta conversacional limpia de IA por defecto
-    final pName = provider.toUpperCase();
-    return ReverseAgentResponse(
-      ok: true,
-      provider: provider,
-      response: 'Como modelo **$pName**, respondo a tu consulta sobre "$cleanPrompt".',
-      source: 'llm_cloud',
+    // 2. Si el motor local no está disponible o falla, declarar honestamente la falla sin simulación.
+    return ReverseAgentResponse.failure(
+      provider,
+      'El puente de navegación no está disponible en 127.0.0.1:8800 y el motor local no pudo responder.',
+      actualBackend: 'none',
     );
   }
 }

@@ -72,11 +72,7 @@ class BrowserAgentToolHandler {
       }
     }
 
-    return executeQuery(
-      provider: provider,
-      prompt: prompt,
-      headless: headless,
-    );
+    return executeQuery(provider: provider, prompt: prompt, headless: headless);
   }
 
   /// Ejecuta una consulta al puente y formatea la respuesta para el chat de Nano.
@@ -105,31 +101,24 @@ class BrowserAgentToolHandler {
     }
 
     if (result.source == 'llm_local') {
-      return '### [$displayProvider (Nano Local IA)]\n\n'
+      return '### [Motor Local Nano (Fallback Autónomo)]\n\n'
           '${result.response.trim()}\n\n'
           '---\n'
-          '_Respuesta generada en tu celular por Nano Local IA_';
-    }
-
-    if (result.source == 'llm_cloud') {
-      return '### [$displayProvider (Cloud AI)]\n\n'
-          '${result.response.trim()}\n\n'
-          '---\n'
-          '_Respuesta generada por el motor Cloud AI de $displayProvider';
+          '_Aviso de procedencia: El proveedor remoto solicitado ($displayProvider) no estaba activo en el puente (127.0.0.1:8800). La respuesta fue procesada localmente por el modelo del dispositivo._';
     }
 
     if (result.source == 'mobile_linux_bridge') {
-      return '### [$displayProvider (Nano Mobile IA)]\n\n'
+      return '### [Subsistema Linux Local (Nano Mobile)]\n\n'
           '${result.response.trim()}\n\n'
           '---\n'
-          '_Respuesta procesada en tu celular vía Nano Mobile Linux Subsystem_';
+          '_Respuesta procesada en tu dispositivo vía subsistema Linux local_';
     }
 
     if (result.source == 'web_knowledge') {
-      return '### [$displayProvider (Conocimiento Web)]\n\n'
+      return '### [Conocimiento Web Público]\n\n'
           '${result.response.trim()}\n\n'
           '---\n'
-          '_Respuesta obtenida de la web. Inicia `npm run dev` en PC para conectar la sesión web oficial._';
+          '_Respuesta obtenida de fuentes web públicas consultadas._';
     }
 
     final modeLabel = headless ? 'Modo silencioso / Headless' : 'Visible';

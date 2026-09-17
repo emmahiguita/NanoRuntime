@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/domain/automation_goal.dart';
+import 'package:nanoai/features/automation/domain/automation_result.dart';
 import 'package:nanoai/main.dart' as app;
 
 /// Prueba REAL en dispositivo: ejecuta un objetivo a través del coordinator de
@@ -14,12 +15,6 @@ import 'package:nanoai/main.dart' as app;
 /// el camino completo en un dispositivo.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-
-  final prevOnError = FlutterError.onError;
-  FlutterError.onError = (details) {
-    if (details.toString().contains('overflowed')) return;
-    prevOnError?.call(details);
-  };
 
   testWidgets('automation real: abre Chrome', (tester) async {
     app.main();
@@ -34,6 +29,7 @@ void main() {
       const AutomationGoal(text: 'abre Chrome'),
     );
     debugPrint('REAL_ACTION:status=${result.status} reason=${result.reason}');
-    expect(result.status, isNotNull);
+    expect(result.status, equals(AutomationResultStatus.completed));
+    expect(result.isVerifiedSuccess, isTrue);
   });
 }

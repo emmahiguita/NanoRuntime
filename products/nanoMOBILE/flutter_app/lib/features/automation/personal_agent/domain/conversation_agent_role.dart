@@ -119,6 +119,10 @@ const String productMentionedWithoutCommerce =
 const List<String> correctionPhrases = [
   'de que hablas',
   'no me refiero',
+  'no me referia',
+  'no me refería',
+  'me referia a',
+  'me refería a',
   'no pregunte eso',
   'no es eso',
   'no te pedi',

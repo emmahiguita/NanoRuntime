@@ -229,10 +229,10 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
         final width = constraints.maxWidth;
         final isLandscapeRow = isCompactLandscape && width >= 500;
         final narrow = width < 480 || widget.compact || isCompactLandscape;
-        final radius = isLandscapeRow ? 24.0 : (narrow ? 28.0 : 32.0);
-        final vertTop = isLandscapeRow ? 4.0 : (isCompactLandscape ? 5.0 : (narrow ? 8.0 : 10.0));
-        final vertBottom = isLandscapeRow ? 4.0 : (isCompactLandscape ? 4.0 : (narrow ? 6.0 : 8.0));
-        final gap = isCompactLandscape ? 3.0 : (narrow ? 5.0 : 7.0);
+        final radius = isLandscapeRow ? 18.0 : (narrow ? 28.0 : 32.0);
+        final vertTop = isLandscapeRow ? 2.5 : (isCompactLandscape ? 5.0 : (narrow ? 8.0 : 10.0));
+        final vertBottom = isLandscapeRow ? 2.5 : (isCompactLandscape ? 4.0 : (narrow ? 6.0 : 8.0));
+        final gap = isCompactLandscape ? 2.5 : (narrow ? 5.0 : 7.0);
 
         return Semantics(
           container: true,
@@ -512,7 +512,7 @@ class _SearchRow extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             curve: Curves.easeOutCubic,
-            constraints: BoxConstraints(minHeight: compact ? 38 : 44),
+            constraints: BoxConstraints(minHeight: compact ? 30 : 44),
             decoration: BoxDecoration(
               color: dark
                   ? (focusNode.hasFocus
@@ -521,7 +521,7 @@ class _SearchRow extends StatelessWidget {
                   : (focusNode.hasFocus
                       ? Colors.white
                       : const Color(0xF0FFFFFF)),
-              borderRadius: BorderRadius.circular(compact ? 22 : 24),
+              borderRadius: BorderRadius.circular(compact ? 16 : 24),
               border: Border.all(
                 color: focusNode.hasFocus
                     ? NanoNavTokens.activeAccent(brightness).withValues(alpha: 0.95)
@@ -553,12 +553,12 @@ class _SearchRow extends StatelessWidget {
               children: [
                 Padding(
                   padding: EdgeInsets.only(
-                    left: compact ? 10 : 13,
-                    right: compact ? 6 : 8,
+                    left: compact ? 8 : 13,
+                    right: compact ? 4 : 8,
                   ),
                   child: Icon(
                     Icons.search_rounded,
-                    size: compact ? 19 : 21,
+                    size: compact ? 16 : 21,
                     color: focusNode.hasFocus
                         ? NanoNavTokens.activeAccent(brightness)
                         : (dark
@@ -573,13 +573,13 @@ class _SearchRow extends StatelessWidget {
                     onSubmitted: onSubmitted,
                     textInputAction: TextInputAction.send,
                     minLines: 1,
-                    maxLines: compact ? 3 : 5,
+                    maxLines: compact ? 2 : 5,
                     cursorColor: NanoNavTokens.activeAccent(brightness),
                     cursorWidth: 2.0,
                     cursorRadius: const Radius.circular(2),
                     style: TextStyle(
                       color: text,
-                      fontSize: compact ? 13.2 : 14.2,
+                      fontSize: compact ? 11.8 : 14.2,
                       fontWeight: FontWeight.w500,
                       letterSpacing: 0.05,
                     ),
@@ -593,13 +593,13 @@ class _SearchRow extends StatelessWidget {
                       filled: false,
                       fillColor: Colors.transparent,
                       contentPadding: EdgeInsets.symmetric(
-                        vertical: compact ? 8 : 10,
+                        vertical: compact ? 3 : 10,
                         horizontal: 4,
                       ),
                       hintText: hint,
                       hintStyle: TextStyle(
                         color: muted.withValues(alpha: 0.75),
-                        fontSize: compact ? 12.0 : 13.0,
+                        fontSize: compact ? 11.0 : 13.0,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -611,7 +611,7 @@ class _SearchRow extends StatelessWidget {
                     child: IconButton(
                       icon: Icon(
                         Icons.add_rounded,
-                        size: compact ? 20 : 22,
+                        size: compact ? 16 : 22,
                         color: muted,
                       ),
                       onPressed: onAttach,
@@ -619,8 +619,8 @@ class _SearchRow extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints.tightFor(
-                        width: compact ? 30 : 34,
-                        height: compact ? 30 : 34,
+                        width: compact ? 26 : 34,
+                        height: compact ? 26 : 34,
                       ),
                     ),
                   ),
@@ -629,8 +629,8 @@ class _SearchRow extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 4),
                     child: IconButton(
                       icon: Container(
-                        width: compact ? 18 : 20,
-                        height: compact ? 18 : 20,
+                        width: compact ? 16 : 20,
+                        height: compact ? 16 : 20,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -640,7 +640,7 @@ class _SearchRow extends StatelessWidget {
                         ),
                         child: Icon(
                           Icons.close_rounded,
-                          size: compact ? 12 : 13,
+                          size: compact ? 11 : 13,
                           color: dark ? Colors.white : Colors.black87,
                         ),
                       ),
@@ -649,8 +649,8 @@ class _SearchRow extends StatelessWidget {
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
                       constraints: BoxConstraints.tightFor(
-                        width: compact ? 26 : 30,
-                        height: compact ? 26 : 30,
+                        width: compact ? 24 : 34,
+                        height: compact ? 24 : 34,
                       ),
                     ),
                   ),
@@ -667,8 +667,8 @@ class _SearchRow extends StatelessWidget {
                               onSubmitted?.call(controller.text);
                             },
                             child: Container(
-                              width: compact ? 32 : 36,
-                              height: compact ? 32 : 36,
+                              width: compact ? 26 : 36,
+                              height: compact ? 26 : 36,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
@@ -696,7 +696,7 @@ class _SearchRow extends StatelessWidget {
                               ),
                               child: Icon(
                                 Icons.arrow_upward_rounded,
-                                size: compact ? 17 : 19,
+                                size: compact ? 15 : 19,
                                 color: dark ? Colors.black87 : Colors.white,
                               ),
                             ),
@@ -705,8 +705,8 @@ class _SearchRow extends StatelessWidget {
                       : IconButton(
                           icon: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            width: compact ? 30 : 34,
-                            height: compact ? 30 : 34,
+                            width: compact ? 26 : 34,
+                            height: compact ? 26 : 34,
                             alignment: Alignment.center,
                             decoration: listening
                                 ? BoxDecoration(
@@ -724,7 +724,7 @@ class _SearchRow extends StatelessWidget {
                               listening
                                   ? Icons.stop_rounded
                                   : Icons.mic_rounded,
-                              size: compact ? 19 : 21,
+                              size: compact ? 16 : 21,
                               color: listening
                                   ? const Color(0xFFEF4444)
                                   : (dark
@@ -739,8 +739,8 @@ class _SearchRow extends StatelessWidget {
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
                           constraints: BoxConstraints.tightFor(
-                            width: compact ? 32 : 36,
-                            height: compact ? 32 : 36,
+                            width: compact ? 26 : 36,
+                            height: compact ? 26 : 36,
                           ),
                         ),
                 ),
@@ -868,7 +868,7 @@ class _DestinationTab extends StatelessWidget {
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
-            vertical: compact ? 2 : 4,
+            vertical: compact ? 1 : 4,
             horizontal: 1,
           ),
           child: Column(
@@ -880,12 +880,12 @@ class _DestinationTab extends StatelessWidget {
                 child: NanoGlyph(
                   type: destination.glyph,
                   color: selected ? active : muted,
-                  size: compact ? 17 : 22,
+                  size: compact ? 15 : 22,
                   strokeWidth: selected ? 2.15 : 1.80,
                   glow: selected,
                 ),
               ),
-              SizedBox(height: compact ? 1 : 3),
+              SizedBox(height: compact ? 0.5 : 3),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
@@ -895,7 +895,7 @@ class _DestinationTab extends StatelessWidget {
                   maxLines: 1,
                   style: TextStyle(
                     color: selected ? active : muted,
-                    fontSize: compact ? 7.8 : 9.8,
+                    fontSize: compact ? 7.2 : 9.8,
                     height: 1.1,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     letterSpacing: -0.05,
@@ -910,7 +910,7 @@ class _DestinationTab extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(height: compact ? 3 : 6),
+              SizedBox(height: compact ? 1 : 6),
             ],
           ),
         ),

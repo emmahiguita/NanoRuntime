@@ -1,0 +1,11 @@
+prefix=/data/data/com.termux/files/usr
+exec_prefix=${prefix}
+libdir=/data/data/com.termux/files/usr/lib
+includedir=/data/data/com.termux/files/usr/include
+
+Name: XCB ICCCM library
+Description: XCB ICCCM binding
+Version: 0.4.2
+Requires: xcb
+Libs: -L${libdir} -lxcb-icccm 
+Cflags: -I${includedir}

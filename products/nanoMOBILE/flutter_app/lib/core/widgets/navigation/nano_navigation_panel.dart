@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,7 @@ import 'package:nanoai/features/automation/presentation/automation_visual_theme.
 import 'nano_destination.dart';
 import 'nano_glyph.dart';
 import 'nano_multi_use_nav_bar.dart';
+import 'nano_nav_mini_pill.dart';
 import 'nano_nav_tokens.dart';
 import 'nano_search_dispatcher.dart';
 import 'nano_universal_input.dart';
@@ -139,6 +142,27 @@ class _NanoFloatingNavigationFrameState
   final TextEditingController _drawerSearchController = TextEditingController();
   final FocusNode _drawerSearchFocusNode = FocusNode();
 
+  Timer? _autoShrinkTimer;
+  bool _isBarMinimized = false;
+  bool _hasAutoShrunkInLandscape = false;
+
+  void _scheduleAutoShrink({int milliseconds = 3200}) {
+    _autoShrinkTimer?.cancel();
+    _autoShrinkTimer = Timer(Duration(milliseconds: milliseconds), () {
+      if (!mounted) return;
+      final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+      if (keyboard > 0 || _isDragging || _isBarMinimized || _isDrawerSearchExpanded) return;
+      setState(() {
+        _isBarMinimized = true;
+      });
+    });
+  }
+
+  void _cancelAutoShrink() {
+    _autoShrinkTimer?.cancel();
+    _autoShrinkTimer = null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -151,6 +175,7 @@ class _NanoFloatingNavigationFrameState
 
   @override
   void dispose() {
+    _autoShrinkTimer?.cancel();
     _drawerSearchController.removeListener(_onSearchChanged);
     _drawerSearchController.dispose();
     _drawerSearchFocusNode.dispose();
@@ -207,6 +232,13 @@ class _NanoFloatingNavigationFrameState
             (isDeviceLandscape && constraints.maxHeight < 520);
         final baseGap = isLandscape ? _kDockGapLandscape : _kDockGapPortrait;
 
+        if (isLandscape && !_hasAutoShrunkInLandscape && !_isBarMinimized) {
+          _hasAutoShrunkInLandscape = true;
+          _scheduleAutoShrink(milliseconds: 2500);
+        } else if (!isLandscape && _hasAutoShrunkInLandscape) {
+          _hasAutoShrunkInLandscape = false;
+        }
+
         final canDockToSide = widget.allowSideDock;
         final isLeftDock = canDockToSide &&
             (_dockMode == NanoNavDockMode.leftCollapsed ||
@@ -219,7 +251,7 @@ class _NanoFloatingNavigationFrameState
              _dockMode == NanoNavDockMode.topRight);
         final isCollapsed = isLeftDock || isRightDock;
         final isBottomDock = !isCollapsed;
-        final hideBar = !isBottomDock;
+        final hideBar = !isBottomDock || _isBarMinimized;
 
         final mediaQuery = MediaQuery.of(context);
         final topSafe = mediaQuery.padding.top;
@@ -250,11 +282,13 @@ class _NanoFloatingNavigationFrameState
             : (constraints.maxHeight - estimatedDockHeight - floatingBottom).clamp(minDockTop, maxDockTop);
         final effectiveDockTop = (_sideDockY ?? defaultDockTop).clamp(minDockTop, maxDockTop);
 
-        final horizontalMargin = isLandscape ? 32.0 : (isCompact ? 16.0 : 20.0);
+        final horizontalMargin = isLandscape ? 16.0 : (isCompact ? 16.0 : 20.0);
 
-        // Padding inferior del contenido: 0 en modos contraídos o con búsqueda activa para liberar pantalla
-        final totalBottomPad = isBottomDock
-            ? (_dockHeight + floatingBottom + 12.0)
+        // Padding inferior del contenido: 0 en modos contraídos o minimizados para liberar pantalla
+        final totalBottomPad = (isBottomDock && !_isBarMinimized)
+            ? (isLandscape
+                ? (_dockHeight + (systemBottomInset > 0 ? systemBottomInset : 4.0)).clamp(28.0, 44.0)
+                : (_dockHeight + floatingBottom + 12.0))
             : 0.0;
 
         return Stack(
@@ -272,13 +306,24 @@ class _NanoFloatingNavigationFrameState
                 padding: EdgeInsets.only(
                   bottom: widget.fullBleed
                       ? 0
-                      : (isCollapsed || _isDrawerSearchExpanded)
+                      : (isCollapsed || _isDrawerSearchExpanded || _isBarMinimized)
                           ? 0
                           : widget.floatOverContent
                               ? keyboardInset
                               : totalBottomPad,
                 ),
-                child: RepaintBoundary(child: widget.child),
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is UserScrollNotification) {
+                      if (notification.direction == ScrollDirection.reverse && !_isBarMinimized) {
+                        setState(() => _isBarMinimized = true);
+                        _cancelAutoShrink();
+                      }
+                    }
+                    return false;
+                  },
+                  child: RepaintBoundary(child: widget.child),
+                ),
               ),
             ),
 
@@ -354,10 +399,7 @@ class _NanoFloatingNavigationFrameState
                                               _sideDockY = maxDockTop;
                                             } else if (shouldCollapseDown) {
                                               HapticFeedback.mediumImpact();
-                                              _dockMode = _dragOffset.dx < 0
-                                                  ? NanoNavDockMode.leftCollapsed
-                                                  : NanoNavDockMode.rightCollapsed;
-                                              _sideDockY = maxDockTop;
+                                              _isBarMinimized = true;
                                             }
                                             _dragOffset = Offset.zero;
                                           });
@@ -373,8 +415,7 @@ class _NanoFloatingNavigationFrameState
                                             onCollapse: () {
                                               HapticFeedback.lightImpact();
                                               setState(() {
-                                                _dockMode = NanoNavDockMode.rightCollapsed;
-                                                _sideDockY = maxDockTop;
+                                                _isBarMinimized = true;
                                               });
                                             },
                                             onDestinationSelected: (d) {
@@ -397,7 +438,12 @@ class _NanoFloatingNavigationFrameState
                                           transparent: widget.transparentDock,
                                           inputConfig: inputConfig,
                                           searchHint: widget.searchHint,
-                                          onCollapse: null,
+                                          onCollapse: () {
+                                            HapticFeedback.lightImpact();
+                                            setState(() {
+                                              _isBarMinimized = true;
+                                            });
+                                          },
                                           onDestinationSelected: (d) {
                                             widget.onDestinationSelected(d.index);
                                           },
@@ -414,6 +460,38 @@ class _NanoFloatingNavigationFrameState
                           ),
                         ),
                       ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // Estado Mini: Cápsula flotante ultra-compacta al pie de pantalla
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+              bottom: _isBarMinimized && !isCollapsed
+                  ? (systemBottomInset > 0 ? systemBottomInset + 2.0 : 6.0)
+                  : -60.0,
+              left: 0,
+              right: 0,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 180),
+                opacity: _isBarMinimized && !isCollapsed ? 1.0 : 0.0,
+                child: IgnorePointer(
+                  ignoring: !_isBarMinimized || isCollapsed,
+                  child: Center(
+                    child: NanoNavMiniPill(
+                      selected: destination,
+                      isLandscape: isLandscape,
+                      brightness: brightness,
+                      onExpand: () {
+                        HapticFeedback.mediumImpact();
+                        setState(() {
+                          _isBarMinimized = false;
+                        });
+                        _scheduleAutoShrink(milliseconds: 4500);
+                      },
                     ),
                   ),
                 ),

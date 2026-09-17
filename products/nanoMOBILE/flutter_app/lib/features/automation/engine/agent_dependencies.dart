@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +11,7 @@ import '../../../core/services/shell_executor.dart';
 import '../../../core/services/shell_executor_linux_backend.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/chat_provider.dart';
+import '../../models/application/models_provider.dart';
 import '../domain/automation_policy.dart';
 import 'business/business_facts_providers.dart';
 import 'business/fact_selector.dart';
@@ -22,6 +25,7 @@ import 'messaging/messaging_package.dart';
 import 'messaging/tone_profile_providers.dart';
 import 'messaging/conversation_memory.dart'
     show ConversationMemoryStore, SqliteConversationMemoryStore;
+import 'messaging/conversation_assignment_store.dart';
 import 'model/automation_model_resolver.dart';
 import 'model/draft_writer.dart';
 import 'platform/linux_tool_adapter.dart';
@@ -30,6 +34,7 @@ import 'execution/action_verifier.dart';
 import 'execution/platform_verification_router.dart';
 import 'execution/agent_executor.dart';
 import 'execution/agent_tool_dispatcher.dart';
+import '../../browser/application/browser_tab_notifier.dart';
 import 'memory/experience_cache.dart';
 import 'memory/object_memory.dart';
 import 'memory/verified_transition_memory.dart';
@@ -97,6 +102,7 @@ import 'skills/skill_store.dart';
 import 'system/system_intent_catalog.dart';
 import 'dart:async' show unawaited;
 import 'mcp/local_device_mcp_client.dart';
+import 'mcp/mobile_automation_mcp_client.dart';
 import 'mcp/mcp_candidate_provider.dart';
 import 'mcp/mcp_connection_registry.dart';
 import 'mcp/mcp_tool_adapter.dart';
@@ -163,12 +169,17 @@ final executionJournalProvider = Provider<ExecutionJournal>((ref) {
 /// Memoria aislada por conversación (WA-MEM-08): historial factual bounded por
 /// ConversationKey con honestidad de outbound (verified/dispatched/unknown).
 /// Persistente (shared_prefs JSON); la carga es asíncrona (arranque).
+final conversationAssignmentStoreProvider =
+    Provider<SqliteConversationAssignmentStore>((ref) {
+      return SqliteConversationAssignmentStore();
+    });
+
 final conversationMemoryStoreProvider = Provider<ConversationMemoryStore>((
   ref,
 ) {
-  final store = SqliteConversationMemoryStore();
-  store.load();
-  return store;
+  return SqliteConversationMemoryStore(
+    assignments: ref.watch(conversationAssignmentStoreProvider),
+  );
 });
 
 /// Fuente factual compartida de la situación actual. Cada invocación captura
@@ -187,14 +198,23 @@ final currentSituationSourceProvider = Provider<CurrentSituationSource>((ref) {
 });
 
 /// Registro runtime de conexiones MCP.
-final mcpConnectionRegistryProvider = ChangeNotifierProvider<McpConnectionRegistry>((ref) {
-  final registry = McpConnectionRegistry();
-  final appCatalog = ref.watch(installedAppCatalogProvider);
-  final client = LocalDeviceMcpClient(appCatalog: appCatalog);
-  registry.register(client);
-  unawaited(registry.refreshTools());
-  return registry;
-});
+final mcpConnectionRegistryProvider =
+    ChangeNotifierProvider<McpConnectionRegistry>((ref) {
+      final registry = McpConnectionRegistry();
+      final appCatalog = ref.watch(installedAppCatalogProvider);
+      final client = LocalDeviceMcpClient(
+        appCatalog: appCatalog,
+        agentExecutor: ref.watch(agentExecutorProvider),
+      );
+      final mobileClient = MobileAutomationMcpClient(
+        executor: ref.watch(agentExecutorProvider),
+        verifier: ref.watch(agentVerifierProvider),
+      );
+      registry.register(client);
+      registry.register(mobileClient);
+      unawaited(registry.refreshTools());
+      return registry;
+    });
 
 /// Catálogo de herramientas MCP proyectadas hacia Nano AI.
 final mcpToolRegistryProvider = Provider<McpToolRegistry>((ref) {
@@ -226,6 +246,11 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
     mcpConnectionRegistry: ref.watch(mcpConnectionRegistryProvider),
     installedAppCatalog: ref.watch(installedAppCatalogProvider),
+    webHandler: WebToolHandler(
+      onOpenInBrowser: (url) {
+        ref.read(browserTabProvider.notifier).addTab(initialUrl: url);
+      },
+    ),
     // A14.5: lector de estado de plataforma para verificar postcondiciones
     // no-UI (archivo Linux, app fuera de foco) tras ejecutar.
     platformStateReader: PlatformVerificationRouter(
@@ -452,8 +477,41 @@ final automationModelResolverProvider = Provider<AutomationModelResolver>((
 ) {
   return AutomationModelResolver(
     mode: () => ref.read(settingsProvider).automationModelMode,
-    chatModelPath: () => ref.read(chatProvider).activeModelPath,
-    automationModelPath: () => ref.read(settingsProvider).automationModelPath,
+    chatModelPath: () {
+      final livePath = ref.read(chatProvider).activeModelPath;
+      if (livePath != null &&
+          livePath.trim().isNotEmpty &&
+          File(livePath).existsSync()) {
+        return livePath;
+      }
+      final settingsPath = ref.read(settingsProvider).chatModelPath;
+      if (settingsPath.trim().isNotEmpty && File(settingsPath).existsSync()) {
+        return settingsPath;
+      }
+      // Fallback a modelo detectado/instalado físicamente en disco si existe
+      try {
+        final modelsState = ref.read(modelsProvider);
+        for (final d in modelsState.detected) {
+          final p = d.path;
+          if (p != null && p.trim().isNotEmpty && File(p).existsSync()) {
+            return p;
+          }
+        }
+        for (final m in modelsState.models) {
+          final p = m.localPath;
+          if (p != null && p.trim().isNotEmpty && File(p).existsSync()) {
+            return p;
+          }
+        }
+      } catch (_) {}
+      return settingsPath;
+    },
+    automationModelPath: () {
+      final p = ref.read(settingsProvider).automationModelPath;
+      if (p.trim().isNotEmpty && File(p).existsSync()) return p;
+      return null;
+    },
+    modelPathExists: (path) => File(path).existsSync(),
   );
 });
 
@@ -614,6 +672,9 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
         isBusinessChannel: isBusinessChannel,
       );
     },
+    agentFor: (conversationId, _) => ref
+        .read(conversationAssignmentStoreProvider)
+        .agentForConversationId(conversationId),
     // WA-MEM-08: contexto factual de la conversación.
     memory: ref.watch(conversationMemoryStoreProvider),
   ).call;

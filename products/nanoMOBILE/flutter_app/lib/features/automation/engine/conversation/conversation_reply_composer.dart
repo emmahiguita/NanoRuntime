@@ -6,15 +6,15 @@
 ///
 /// Cumple Clean Architecture: pertenece a `engine/conversation/` y NUNCA
 /// importa capas superiores (`application` o `presentation`).
+/// Modularizado bajo SOLID (< 295 líneas).
 library;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../language/language_assist.dart';
 import '../language/pragmatic_fast_path.dart';
-import '../language/turn_complexity_classifier.dart'
-    show turnComplexityClassifier;
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
+import '../messaging/conversation_memory.dart';
 import '../messaging/messaging_package.dart';
 import '../notifications/conversation_understanding.dart';
 import '../notifications/notification_draft_writer.dart';
@@ -22,32 +22,20 @@ import '../notifications/notification_object.dart';
 import '../../personal_agent/application/conversation_decision_engine.dart';
 import '../../personal_agent/domain/conversation_agent_role.dart';
 import '../../personal_agent/domain/conversation_decision.dart';
+import 'personal_style_formatter.dart';
+import 'persona_style_resolver.dart';
+import 'turn_context_router.dart';
+import 'turn_knowledge_router.dart';
 
 /// Resultado estructurado de la composición de respuesta.
-/// Preserva la comprensión, la decisión y el texto final validado y reparado.
 final class ConversationDraftResult {
-  /// Texto final listo para presentar al usuario o despachar.
   final String text;
-
-  /// Entendimiento estructurado factual del turno.
   final ConversationUnderstanding understanding;
-
-  /// Decisión y políticas de calidad evaluadas por el DecisionEngine.
   final ConversationDecision decision;
-
-  /// Rol determinado por el router canónico (personal, sales, etc.).
   final ConversationAgentRole role;
-
-  /// ID canónico y aislado de la conversación.
   final String conversationId;
-
-  /// true si fue resuelto determinísticamente sin invocar al LLM.
   final bool isFastPath;
-
-  /// true si SafeConversationRepair modificó el texto por razones de calidad.
   final bool isRepaired;
-
-  /// Opciones y variantes estilísticas de respuesta.
   final List<String> suggestions;
 
   const ConversationDraftResult({
@@ -66,17 +54,11 @@ final class ConversationDraftResult {
 
 /// Contrato único de composición conversacional para toda la aplicación.
 abstract interface class ConversationReplyComposer {
-  /// Compone un borrador contextual único garantizando:
-  /// - Identidad y memoria aisladas por conversación
-  /// - Personalidad y ejemplos FTS4
-  /// - Hechos de negocio y estado
-  /// - Decisión y reparación segura
   Future<ConversationDraftResult?> compose(
     NotificationObject notification, {
     ConversationDecisionContext? decisionContext,
   });
 
-  /// Genera 2 o 3 variantes estilísticas basadas en la MISMA comprensión única.
   Future<List<String>> composeSuggestions(
     NotificationObject notification, {
     int maxSuggestions = 3,
@@ -90,18 +72,32 @@ final class RuntimeConversationReplyComposer
   RuntimeConversationReplyComposer({
     required NotificationDraftSource draftSource,
     PragmaticFastPath? fastPath,
-    ConversationDecisionEngine decisionEngine =
-        const ConversationDecisionEngine(),
+    PersonaStyleResolver? styleResolver,
+    TurnKnowledgeRouter? knowledgeRouter,
+    PersonalStyleFormatter styleFormatter = const RuntimePersonalStyleFormatter(),
+    TurnContextRouter turnRouter = const TurnContextRouter(),
+    ConversationMemoryStore? memoryStore,
+    ConversationDecisionEngine decisionEngine = const ConversationDecisionEngine(),
     Future<int> Function()? thermalStatus,
     ConversationDecisionContext Function(NotificationObject)? decisionContext,
   }) : _draftSource = draftSource,
        _fastPath = fastPath,
+       _styleResolver = styleResolver,
+       _knowledgeRouter = knowledgeRouter,
+       _styleFormatter = styleFormatter,
+       _turnRouter = turnRouter,
+       _memoryStore = memoryStore,
        _decisionEngine = decisionEngine,
        _thermalStatus = thermalStatus,
        _decisionContext = decisionContext;
 
   final NotificationDraftSource _draftSource;
   final PragmaticFastPath? _fastPath;
+  final PersonaStyleResolver? _styleResolver;
+  final TurnKnowledgeRouter? _knowledgeRouter;
+  final PersonalStyleFormatter _styleFormatter;
+  final TurnContextRouter _turnRouter;
+  final ConversationMemoryStore? _memoryStore;
   final ConversationDecisionEngine _decisionEngine;
   final Future<int> Function()? _thermalStatus;
   final ConversationDecisionContext Function(NotificationObject)?
@@ -119,194 +115,95 @@ final class RuntimeConversationReplyComposer
         _decisionContext?.call(notification) ??
         const ConversationDecisionContext();
 
-    debugPrint(
-      '[conversation-compose] conv=${conversationId.length <= 8 ? conversationId : conversationId.substring(0, 8)} '
-      'senderHash=${notification.sender.hashCode} inputLen=${notification.text.length}',
-    );
-
-    // 1. Pragmatic Fast Path: Saludos y agradecimientos puros (0 LLM, 0 latencia).
-    // WA-INTENT-TURN: En WhatsApp, una notificación puede contener múltiples mensajes no
-    // leídos concatenados con ' · ' (MessagingStyle). El Fast Path debe evaluar primordialmente
-    // el último mensaje real entrante (interpretableText o el último segmento tras ' · ').
-    final targetText = () {
-      final inter = notification.interpretableText.trim();
-      if (inter.contains(' · ')) {
-        final segments = inter.split(' · ').map((s) => s.trim()).where((s) => s.isNotEmpty);
-        if (segments.isNotEmpty) return segments.last;
-      }
-      if (inter.isNotEmpty) return inter;
-      final raw = notification.text.trim();
-      if (raw.contains(' · ')) {
-        final segments = raw.split(' · ').map((s) => s.trim()).where((s) => s.isNotEmpty);
-        if (segments.isNotEmpty) return segments.last;
-      }
-      return raw;
-    }();
-
-    final fullText = () {
-      final inter = notification.interpretableText.trim();
-      if (inter.isNotEmpty) return inter;
-      return notification.text.trim();
-    }();
-
-    final isBusinessChannel =
+    final memory = _memoryStore?.memoryFor(conversationId);
+    final isBusiness =
         notification.packageName == MessagingPackage.whatsappBusiness;
 
-    // WA-INTENT-TURN: En WhatsApp, una notificación puede contener múltiples mensajes no
-    // leídos concatenados con ' · ' (MessagingStyle).
-    // INVARIANTE FUNDAMENTAL: Si el mensaje completo tiene contenido sustantivo, preguntas
-    // o intenciones de catálogo/negocio, NO permitir que un fragmento final trivial ("dale", "ok")
-    // secuestre el turno vía FastPath perdiendo el contexto previo.
-    final fullComplexity = turnComplexityClassifier.classify(fullText);
-    final allowsFastPath = !isBusinessChannel && fullComplexity.eligibleForSocialPrompt;
-
-    final fast = allowsFastPath
-        ? await _fastPath?.resolve(
-            text: targetText,
-            conversationId: conversationId,
-          ) ??
-          (targetText != notification.text
-              ? await _fastPath?.resolve(
-                  text: notification.text,
-                  conversationId: conversationId,
-                )
-              : null)
-        : null;
-    if (fast != null) {
-      final cleaned = LanguageAssistService.safeCleanOutput(fast.reply);
-      final decision = _decisionEngine.decide(
-        understanding: fast.understanding,
-        context: resolvedContext,
-      );
-      final isRepaired =
-          decision.repairedText != null &&
-          decision.repairedText!.trim().isNotEmpty;
-      final finalText =
-          isRepaired ? decision.repairedText!.trim() : cleaned.trim();
-
-      debugPrint(
-        '[conversation-compose:fastpath] act=${fast.act} reply="$finalText"',
-      );
-
-      final fastSuggestions = <String>[finalText];
-      for (final s in fast.suggestions) {
-        final cleanS = LanguageAssistService.safeCleanOutput(s);
-        if (cleanS.isNotEmpty && !fastSuggestions.contains(cleanS)) {
-          fastSuggestions.add(cleanS);
-        }
-        if (fastSuggestions.length >= 3) break;
-      }
-
-      return ConversationDraftResult(
-        text: finalText,
-        understanding: fast.understanding,
-        decision: decision,
-        role: resolvedContext.agentRole,
-        conversationId: conversationId,
-        suggestions: fastSuggestions,
-        isFastPath: true,
-        isRepaired: isRepaired,
-      );
-    }
-
-    // 2. Control térmico: CRITICAL+ (>=4) suprime la inferencia LLM opcional.
-    // Constantes Android PowerManager: 0 none, 1 light, 2 moderate, 3 severe, 4 critical.
-    // En dispositivos conectados a USB/cargador (Oppo/ColorOS), thermal=3 (severe) es habitual
-    // y no debe apagar la automatización conversacional.
-    final thermal = await _thermalStatus?.call();
-    if (thermal != null && thermal >= 4) {
-      debugPrint(
-        '[conversation-compose] thermal $thermal (critical+): inferencia LLM suprimida',
-      );
-      return null;
-    }
-
-    // 3. Inferencia contextual completa vía RuntimeNotificationDraftWriter.
-    final draft = await _draftSource(notification);
-    if (draft == null || !draft.hasReply) {
-      debugPrint('[conversation-compose] sin borrador producido por el motor');
-      return null;
-    }
-
-    // 4. Limpieza determinista de salida (espacios y signos duplicados).
-    final cleaned = LanguageAssistService.safeCleanOutput(draft.reply);
-    if (cleaned.trim().isEmpty) {
-      debugPrint(
-        '[conversation-compose] borrador vacío tras limpieza de salida',
-      );
-      return null;
-    }
-
-    // 5. Decisión de calidad y reparación segura (SafeConversationRepair).
-    final decision = _decisionEngine.decide(
-      understanding: draft.understanding,
-      context: resolvedContext,
+    final analysis = _turnRouter.analyze(
+      notification: notification,
+      memory: memory,
+      isBusinessChannel: isBusiness,
     );
-    final isRepaired =
-        decision.repairedText != null &&
-        decision.repairedText!.trim().isNotEmpty;
-    final finalText =
-        isRepaired ? decision.repairedText!.trim() : cleaned.trim();
 
     debugPrint(
-      '[conversation-compose:llm] disposition=${decision.disposition.name} '
-      'repaired=$isRepaired reply="$finalText"',
+      '[conversation-compose] conv=${conversationId.length <= 8 ? conversationId : conversationId.substring(0, 8)} '
+      'target="${analysis.targetText}" ack=${analysis.isShortAcknowledgment} '
+      'continuity=${analysis.hasContextualContinuity} fast=${analysis.isFastPathEligible}',
     );
 
-    final llmSuggestions = <String>[finalText];
-    for (final opt in draft.understanding.options) {
-      final cleanedOpt = LanguageAssistService.safeCleanOutput(opt);
-      if (cleanedOpt.isNotEmpty && !llmSuggestions.contains(cleanedOpt)) {
-        llmSuggestions.add(cleanedOpt);
+    // 1. Pragmatic Fast Path: Atajos cotidianos deterministas (<5ms, 0 LLM).
+    if (analysis.isFastPathEligible && _fastPath != null) {
+      final fast = await _fastPath.resolve(text: analysis.targetText, conversationId: conversationId) ??
+          (analysis.targetText != notification.text
+              ? await _fastPath.resolve(text: notification.text, conversationId: conversationId)
+              : null);
+      if (fast != null) {
+        return _pack(fast.reply, fast.understanding, fast.suggestions, resolvedContext, conversationId, true);
       }
-      if (llmSuggestions.length >= 3) break;
     }
 
-    if (llmSuggestions.length < 3 &&
-        (finalText.contains('.') ||
-            finalText.contains('?') ||
-            finalText.contains('!'))) {
-      final sentences = finalText
-          .split(RegExp(r'(?<=[.?!])\s+'))
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-      if (sentences.length > 1) {
-        final candidate = sentences.first;
-        final concise = LanguageAssistService.safeCleanOutput(candidate);
-        if (concise.isNotEmpty && !llmSuggestions.contains(concise)) {
-          llmSuggestions.add(concise);
+    // 2. Persona Style Resolver: Recuperación directa FTS4 de respuestas del dueño.
+    if (!isBusiness && _styleResolver != null) {
+      final match = await _styleResolver.resolve(
+        text: analysis.targetText,
+        conversationId: conversationId,
+        minConfidence: 0.70,
+      );
+      if (match != null) {
+        return _pack(match.reply, match.understanding, match.suggestions, resolvedContext, conversationId, true);
+      }
+    }
+
+    // 3. Knowledge Router: Información fáctica externa expresada en estilo del dueño.
+    if (!isBusiness &&
+        _knowledgeRouter != null &&
+        _knowledgeRouter.needsExternalKnowledge(analysis.targetText)) {
+      final ext = await _knowledgeRouter.fetchKnowledge(analysis.targetText);
+      if (ext.hasFacts && ext.rawKnowledge.trim().isNotEmpty) {
+        final styled = _styleFormatter.formatKnowledge(
+          rawFacts: ext.rawKnowledge,
+          query: analysis.targetText,
+        );
+        return _pack(styled.text, styled.understanding, styled.suggestions, resolvedContext, conversationId, true);
+      }
+    }
+
+    // 4. Control térmico: CRITICAL+ (>=4) suprime inferencia pesada.
+    final thermal = await _thermalStatus?.call();
+    if (thermal != null && thermal >= 4) {
+      debugPrint('[conversation-compose] thermal $thermal (critical+): suprimido');
+      return null;
+    }
+
+    // 5. Inferencia contextual LLM (Fallback / Casos complejos).
+    final draft = await _draftSource(notification);
+    if (draft != null && draft.hasReply) {
+      return _pack(draft.reply, draft.understanding, draft.understanding.options, resolvedContext, conversationId, false);
+    }
+
+    // 6. Fallback honesto sin LLM: estilo flexible o fast path relajado.
+    if (!isBusiness) {
+      if (_styleResolver != null) {
+        final relaxed = await _styleResolver.resolve(
+          text: analysis.targetText,
+          conversationId: conversationId,
+          minConfidence: 0.50,
+        );
+        if (relaxed != null) {
+          return _pack(relaxed.reply, relaxed.understanding, relaxed.suggestions, resolvedContext, conversationId, true);
+        }
+      }
+
+      if (_fastPath != null) {
+        final fallbackFast = await _fastPath.resolve(text: analysis.targetText, conversationId: conversationId);
+        if (fallbackFast != null) {
+          return _pack(fallbackFast.reply, fallbackFast.understanding, fallbackFast.suggestions, resolvedContext, conversationId, true);
         }
       }
     }
-    if (llmSuggestions.length < 3) {
-      final cleanFormal = LanguageAssistService.safeCleanOutput(
-        finalText
-            .replaceAll(
-              RegExp(
-                r'\b(parce|pana|jaja|jajaja|bro)\b',
-                caseSensitive: false,
-              ),
-              '',
-            )
-            .replaceAll(RegExp(r'\s{2,}'), ' ')
-            .trim(),
-      );
-      if (cleanFormal.isNotEmpty && !llmSuggestions.contains(cleanFormal)) {
-        llmSuggestions.add(cleanFormal);
-      }
-    }
 
-    return ConversationDraftResult(
-      text: finalText,
-      understanding: draft.understanding,
-      decision: decision,
-      role: resolvedContext.agentRole,
-      conversationId: conversationId,
-      suggestions: llmSuggestions,
-      isFastPath: false,
-      isRepaired: isRepaired,
-    );
+    debugPrint('[conversation-compose] sin borrador producido por ninguna vía');
+    return null;
   }
 
   @override
@@ -315,14 +212,46 @@ final class RuntimeConversationReplyComposer
     int maxSuggestions = 3,
     ConversationDecisionContext? decisionContext,
   }) async {
-    // Exactamente UNA sola comprensión conversacional de partida.
-    final baseResult = await compose(
-      notification,
-      decisionContext: decisionContext,
+    final res = await compose(notification, decisionContext: decisionContext);
+    if (res == null || !res.hasReply) return const [];
+    return res.suggestions.take(maxSuggestions).toList();
+  }
+
+  ConversationDraftResult _pack(
+    String reply,
+    ConversationUnderstanding understanding,
+    List<String> suggestions,
+    ConversationDecisionContext context,
+    String conversationId,
+    bool isFastPath,
+  ) {
+    final cleaned = LanguageAssistService.safeCleanOutput(reply);
+    final decision = _decisionEngine.decide(
+      understanding: understanding,
+      context: context,
     );
-    if (baseResult == null || !baseResult.hasReply) {
-      return const [];
+    final isRepaired =
+        decision.repairedText != null && decision.repairedText!.trim().isNotEmpty;
+    final finalText = isRepaired ? decision.repairedText!.trim() : cleaned.trim();
+
+    final resultSuggestions = <String>[finalText];
+    for (final s in suggestions) {
+      final cleanS = LanguageAssistService.safeCleanOutput(s);
+      if (cleanS.isNotEmpty && !resultSuggestions.contains(cleanS)) {
+        resultSuggestions.add(cleanS);
+      }
+      if (resultSuggestions.length >= 3) break;
     }
-    return baseResult.suggestions.take(maxSuggestions).toList(growable: false);
+
+    return ConversationDraftResult(
+      text: finalText,
+      understanding: understanding,
+      decision: decision,
+      role: context.agentRole,
+      conversationId: conversationId,
+      suggestions: resultSuggestions,
+      isFastPath: isFastPath,
+      isRepaired: isRepaired,
+    );
   }
 }

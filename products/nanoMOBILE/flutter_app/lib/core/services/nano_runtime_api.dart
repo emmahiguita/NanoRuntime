@@ -515,6 +515,23 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Snapshot coherente del estado movil: jerarquia semantica y screenshot
+  /// PNG solicitados en la misma ventana temporal. [includeScreenshot] puede
+  /// desactivarse para observaciones baratas de solo estructura.
+  Future<Map<dynamic, dynamic>?> agentDumpAtomicSnapshot({
+    bool includeScreenshot = true,
+  }) async {
+    try {
+      return await _agent.invokeMethod<Map<dynamic, dynamic>>(
+        'dumpAtomicSnapshot',
+        {'includeScreenshot': includeScreenshot},
+      );
+    } catch (e) {
+      debugPrint('[runtime] agentDumpAtomicSnapshot error: $e');
+      return null;
+    }
+  }
+
   /// Nodos cuyo texto/desc contiene [query]. maxResults limita el volcado
   /// (default 10) — el agente LLM solo necesita los mejores candidatos.
   @Deprecated(
@@ -1154,10 +1171,10 @@ class NanoRuntimeApi {
     int staleClaimMs = 30000,
   }) async {
     try {
-      final raw = await _notifications.invokeMethod<List<dynamic>>('claimInbox', {
-        'limit': limit,
-        'staleClaimMs': staleClaimMs,
-      });
+      final raw = await _notifications.invokeMethod<List<dynamic>>(
+        'claimInbox',
+        {'limit': limit, 'staleClaimMs': staleClaimMs},
+      );
       if (raw == null) return const [];
       return raw
           .whereType<Map>()

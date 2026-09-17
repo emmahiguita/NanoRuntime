@@ -10,6 +10,7 @@ class BrowserTabModel {
   final bool canGoBack;
   final bool canGoForward;
   final bool isSecure;
+  final double zoomLevel;
 
   const BrowserTabModel({
     required this.id,
@@ -21,6 +22,7 @@ class BrowserTabModel {
     this.canGoBack = false,
     this.canGoForward = false,
     this.isSecure = true,
+    this.zoomLevel = 1.0,
   });
 
   String get displayHost => BrowserUrlResolver.extractHost(url);
@@ -35,6 +37,7 @@ class BrowserTabModel {
     bool? canGoBack,
     bool? canGoForward,
     bool? isSecure,
+    double? zoomLevel,
   }) {
     return BrowserTabModel(
       id: id ?? this.id,
@@ -46,6 +49,7 @@ class BrowserTabModel {
       canGoBack: canGoBack ?? this.canGoBack,
       canGoForward: canGoForward ?? this.canGoForward,
       isSecure: isSecure ?? this.isSecure,
+      zoomLevel: zoomLevel ?? this.zoomLevel,
     );
   }
 }

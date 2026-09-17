@@ -1,27 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
 
+/// Compact tab strip. The visual overview is optional and never owns WebViews.
 class BrowserTabBarWidget extends ConsumerWidget {
-  const BrowserTabBarWidget({super.key});
+  const BrowserTabBarWidget({super.key, this.onOpenCarousel});
+
+  final VoidCallback? onOpenCarousel;
+
+  static IconData getBrandIcon(String url) {
+    final lower = url.toLowerCase();
+    if (lower.contains('youtube')) return Icons.play_arrow_rounded;
+    if (lower.contains('facebook') || lower.contains('fb.com')) {
+      return Icons.people_alt_rounded;
+    }
+    if (lower.contains('google')) return Icons.search_rounded;
+    if (lower.contains('deepseek')) return Icons.auto_awesome_rounded;
+    if (lower.contains('chatgpt') || lower.contains('openai')) {
+      return Icons.smart_toy_rounded;
+    }
+    if (lower.contains('github')) return Icons.code_rounded;
+    if (lower.contains('reddit')) return Icons.forum_rounded;
+    return Icons.language_rounded;
+  }
+
+  static Color getBrandColor(String url, bool isDark) {
+    final lower = url.toLowerCase();
+    if (lower.contains('youtube')) return const Color(0xFFFF3B30);
+    if (lower.contains('facebook') || lower.contains('fb.com')) {
+      return const Color(0xFF1877F2);
+    }
+    if (lower.contains('google')) return const Color(0xFF4285F4);
+    if (lower.contains('deepseek')) return const Color(0xFF3B82F6);
+    if (lower.contains('chatgpt') || lower.contains('openai')) {
+      return const Color(0xFF10A37F);
+    }
+    if (lower.contains('reddit')) return const Color(0xFFFF4500);
+    return isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tabState = ref.watch(browserTabProvider);
+    final state = ref.watch(browserTabProvider);
     final notifier = ref.read(browserTabProvider.notifier);
-    final colors = NanoThemeExtension.of(context).colors;
-    final isDark = colors is NanoDarkColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final text = isDark ? Colors.white : const Color(0xFF172033);
+    final muted = isDark ? Colors.white54 : const Color(0xFF64748B);
 
     return Container(
       height: 44,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(8, 5, 7, 5),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF09121F) : const Color(0xFFF1F5F9),
+        color: isDark ? const Color(0xFF0C1623) : const Color(0xFFF0F4F8),
         border: Border(
           bottom: BorderSide(
-            color: isDark ? Colors.white.withValues(alpha: 0.10) : Colors.black.withValues(alpha: 0.08),
-            width: 1,
+            color: isDark ? Colors.white10 : const Color(0xFFDDE4ED),
           ),
         ),
       ),
@@ -31,115 +65,142 @@ class BrowserTabBarWidget extends ConsumerWidget {
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
-              itemCount: tabState.tabs.length,
+              itemCount: state.tabs.length,
               separatorBuilder: (_, __) => const SizedBox(width: 6),
               itemBuilder: (context, index) {
-                final tab = tabState.tabs[index];
-                final isActive = tab.id == tabState.activeTabId;
-
-                return InkWell(
-                  onTap: () => notifier.selectTab(tab.id),
-                  borderRadius: BorderRadius.circular(12),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    constraints: const BoxConstraints(maxWidth: 150, minWidth: 95),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? (isDark ? const Color(0xFF10263B) : Colors.white)
-                          : (isDark
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : Colors.black.withValues(alpha: 0.04)),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isActive
-                            ? (isDark ? const Color(0xFF10B981) : const Color(0xFF2563EB))
-                            : Colors.transparent,
-                        width: isActive ? 1.2 : 0.0,
-                      ),
-                      boxShadow: isActive
-                          ? [
-                              BoxShadow(
-                                color: (isDark ? const Color(0xFF10B981) : const Color(0xFF2563EB))
-                                    .withValues(alpha: 0.15),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
+                final tab = state.tabs[index];
+                final active = tab.id == state.activeTabId;
+                final brand = getBrandColor(tab.url, isDark);
+                return Semantics(
+                  button: true,
+                  selected: active,
+                  label: 'Pestaña ${tab.title}',
+                  child: Material(
+                    color: active
+                        ? (isDark ? const Color(0xFF18263A) : Colors.white)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    child: InkWell(
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        notifier.selectTab(tab.id);
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        constraints: const BoxConstraints(
+                          minWidth: 96,
+                          maxWidth: 154,
+                        ),
+                        padding: const EdgeInsets.only(left: 9, right: 5),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: active
+                                ? brand.withValues(alpha: 0.65)
+                                : (isDark
+                                      ? Colors.white10
+                                      : const Color(0xFFDDE4ED)),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(getBrandIcon(tab.url), size: 14, color: brand),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                tab.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: active ? text : muted,
+                                  fontSize: 11.5,
+                                  fontWeight: active
+                                      ? FontWeight.w600
+                                      : FontWeight.w500,
+                                ),
                               ),
-                            ]
-                          : [],
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          tab.isSecure ? Icons.lock_outline_rounded : Icons.language_rounded,
-                          size: 13,
-                          color: isActive
-                              ? (isDark ? const Color(0xFF10B981) : const Color(0xFF2563EB))
-                              : colors.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            tab.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                              color: isActive ? colors.textPrimary : colors.textSecondary,
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () => notifier.closeTab(tab.id),
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isActive
-                                  ? colors.textSecondary.withValues(alpha: 0.15)
-                                  : Colors.transparent,
+                            InkResponse(
+                              onTap: () => notifier.closeTab(tab.id),
+                              radius: 14,
+                              child: Padding(
+                                padding: const EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 13,
+                                  color: muted,
+                                ),
+                              ),
                             ),
-                            child: Icon(
-                              Icons.close_rounded,
-                              size: 13,
-                              color: isActive ? colors.textPrimary : colors.textSecondary,
-                            ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 );
               },
             ),
           ),
-          const SizedBox(width: 4),
-          Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () => notifier.addTab(),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isDark
-                      ? const Color(0xFF10B981).withValues(alpha: 0.18)
-                      : const Color(0xFF2563EB).withValues(alpha: 0.12),
-                ),
-                child: Icon(
-                  Icons.add_rounded,
-                  size: 18,
-                  color: isDark ? const Color(0xFF10B981) : const Color(0xFF2563EB),
-                ),
-              ),
+          const SizedBox(width: 6),
+          _StripAction(
+            tooltip: 'Nueva pestaña',
+            icon: Icons.add_rounded,
+            isDark: isDark,
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              notifier.addTab();
+            },
+          ),
+          if (onOpenCarousel != null) ...[
+            const SizedBox(width: 4),
+            _StripAction(
+              tooltip: 'Vista 3D de pestañas',
+              icon: Icons.view_carousel_outlined,
+              isDark: isDark,
+              onTap: onOpenCarousel!,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StripAction extends StatelessWidget {
+  const _StripAction({
+    required this.tooltip,
+    required this.icon,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: isDark ? Colors.white10 : Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Icon(
+              icon,
+              size: 18,
+              color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF2563EB),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

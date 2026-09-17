@@ -284,6 +284,7 @@ String conversationSocialPromptFor({
   String? tone,
   String? history,
   String? temporalContext,
+  String? agentContract,
 }) {
   final base = conversationSocialPrompt
       .replaceFirst('{history}', history ?? '(sin historial previo)')
@@ -292,8 +293,12 @@ String conversationSocialPromptFor({
   final p = persona?.trim() ?? '';
   final t = tone?.trim() ?? '';
   final temp = temporalContext?.trim() ?? '';
-  if (s == null && p.isEmpty && t.isEmpty && temp.isEmpty) return base;
+  final contract = agentContract?.trim() ?? '';
+  if (s == null && p.isEmpty && t.isEmpty && temp.isEmpty && contract.isEmpty) {
+    return base;
+  }
   final prefix = <String>[
+    if (contract.isNotEmpty) contract,
     if (temp.isNotEmpty) temp,
     if (s != null) _styleBlock(s),
     if (t.isNotEmpty) t,
@@ -321,6 +326,7 @@ String conversationAgentPromptFor({
   String? persona,
   String? clientContext,
   String? temporalContext,
+  String? agentContract,
 }) {
   final s = _usableStyle(style);
   final facts = business?.trim() ?? '';
@@ -328,10 +334,12 @@ String conversationAgentPromptFor({
   final personaBlock = persona?.trim() ?? '';
   final context = clientContext?.trim() ?? '';
   final temp = temporalContext?.trim() ?? '';
+  final contract = agentContract?.trim() ?? '';
   final base = conversationAgentPrompt
       .replaceFirst('{history}', history)
       .replaceFirst('{text}', text);
   final prefix = <String>[
+    if (contract.isNotEmpty) contract,
     if (temp.isNotEmpty) temp,
     if (s != null) _styleBlock(s),
     if (toneBlock.isNotEmpty) toneBlock,
@@ -389,6 +397,7 @@ String _formatEntry(ConversationMemoryEntry e) {
   return switch (e.kind) {
     ConversationMemoryEntryKind.inbound =>
       '${e.sender.isEmpty ? 'Cliente' : e.sender}: $t',
+    ConversationMemoryEntryKind.outboundObservedManual => 'Dueño: $t',
     ConversationMemoryEntryKind.outboundVerified ||
     ConversationMemoryEntryKind.outboundDispatched ||
     ConversationMemoryEntryKind.effectUnknown => 'Nano: $t',

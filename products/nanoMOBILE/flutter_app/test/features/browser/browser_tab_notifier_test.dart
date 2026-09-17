@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
+import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
 import 'package:nanoai/features/browser/domain/browser_url_resolver.dart';
 
 void main() {
@@ -7,7 +8,18 @@ void main() {
     late BrowserTabNotifier notifier;
 
     setUp(() {
-      notifier = BrowserTabNotifier();
+      notifier = BrowserTabNotifier(
+        const BrowserTabState(
+          tabs: [
+            BrowserTabModel(
+              id: 'tab_default',
+              url: BrowserUrlResolver.homePageUrl,
+              title: 'Inicio',
+            ),
+          ],
+          activeTabId: 'tab_default',
+        ),
+      );
     });
 
     test('arranca con una pestaña por defecto en Inicio', () {

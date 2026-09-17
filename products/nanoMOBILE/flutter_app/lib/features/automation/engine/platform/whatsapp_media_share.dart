@@ -54,4 +54,54 @@ class WhatsAppMediaShare {
       return false;
     }
   }
+
+  /// Abre directamente el chat de WhatsApp con [contact], con el texto opcional [text].
+  /// Si [autoSend] es `true` y el servicio de accesibilidad está activo, envía
+  /// automáticamente el mensaje y regresa de inmediato a Nano en <150ms.
+  /// Utiliza com.whatsapp o com.whatsapp.w4b.
+  Future<bool> openChat({
+    required String contact,
+    String text = '',
+    String? packageName,
+    bool autoSend = true,
+  }) async {
+    try {
+      final ok = await _channel.invokeMethod<bool>('openChat', {
+        'contact': contact,
+        'text': text,
+        'autoSend': autoSend,
+        if (packageName != null) 'packageName': packageName,
+      });
+      return ok == true;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Verifica si el servicio de accesibilidad de Nano está habilitado en Android.
+  Future<bool> isAccessibilityEnabled() async {
+    try {
+      final ok = await _channel.invokeMethod<bool>('isAccessibilityEnabled');
+      return ok == true;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Abre la pantalla de ajustes de accesibilidad de Android para que el usuario
+  /// pueda activar Nano con 1 toque.
+  Future<bool> openAccessibilitySettings() async {
+    try {
+      final ok = await _channel.invokeMethod<bool>('openAccessibilitySettings');
+      return ok == true;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 }
