@@ -688,8 +688,9 @@ class _PillIconBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
+    return Semantics(
+      label: tooltip,
+      button: true,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/chat.css" />
   <link rel="stylesheet" href="css/terminal.css" />
   <link rel="stylesheet" href="css/system.css" />
+  <link rel="stylesheet" href="css/whatsapp.css" />
 </head>
 <body>
   <div id="app-container">
@@ -78,6 +79,10 @@
         <button type="button" class="sidebar-nav-item" data-view="automation" id="nav-automation">
           <span data-nano-icon="automation" data-nano-size="16"></span>
           <span>Automatizaciones</span>
+        </button>
+        <button type="button" class="sidebar-nav-item" data-view="whatsapp" id="nav-whatsapp">
+          <span data-nano-icon="whatsapp" data-nano-size="16"></span>
+          <span>WhatsApp</span>
         </button>
       </div>
 
@@ -177,6 +182,9 @@
 
         <!-- Vista 4: Automatizaciones -->
         <section id="view-automation" class="view-panel" style="display: none;"></section>
+
+        <!-- Vista 5: Mensajería WhatsApp -->
+        <section id="view-whatsapp" class="view-panel" style="display: none;"></section>
       </div>
     </main>
   </div>

@@ -95,8 +95,9 @@ class BrowserChromeBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Tooltip(
-            message: 'Pestañas abiertas',
+          Semantics(
+            label: 'Pestañas abiertas',
+            button: true,
             child: InkWell(
               onTap: onToggleCarousel ?? onToggleTabBar,
               onLongPress: onToggleTabBar,
@@ -314,10 +315,9 @@ class _ToolbarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      tooltip: tooltip,
       visualDensity: VisualDensity.compact,
       onPressed: enabled ? onPressed : null,
-      icon: Icon(icon, size: 19),
+      icon: Icon(icon, size: 19, semanticLabel: tooltip),
       color: isDark ? Colors.white70 : const Color(0xFF475569),
       disabledColor: isDark ? Colors.white24 : const Color(0xFFB8C2D0),
     );

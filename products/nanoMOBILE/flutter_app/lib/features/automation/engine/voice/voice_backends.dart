@@ -13,6 +13,9 @@ class AndroidSpeechRecognitionBackend implements SpeechRecognitionBackend {
   @override
   Future<String?> listen({String language = 'es-ES'}) =>
       NanoRuntimeApi.instance.startVoiceRecognition(language: language);
+
+  @override
+  Future<void> cancel() => NanoRuntimeApi.instance.cancelVoiceRecognition();
 }
 
 /// TTS vía Android TextToSpeech (motor Google preferido, natural).

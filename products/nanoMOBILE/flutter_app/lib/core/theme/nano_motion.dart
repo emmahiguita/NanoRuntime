@@ -13,20 +13,20 @@ abstract final class NanoMotionDurations {
   /// Respuesta táctil al presionar (touch down / up): 110–140ms
   static const Duration press = Duration(milliseconds: 120);
 
-  /// Micro-interacciones / hover / focus / badges: 160–190ms
-  static const Duration quick = Duration(milliseconds: 180);
+  /// Micro-interacciones / hover / focus / badges: 130–150ms
+  static const Duration quick = Duration(milliseconds: 140);
 
-  /// Transiciones estándar de UI / tabs / dropdowns / cards: 180–200ms
-  static const Duration standard = Duration(milliseconds: 200);
+  /// Transiciones estándar de UI / tabs / dropdowns / cards: 150–170ms
+  static const Duration standard = Duration(milliseconds: 160);
 
-  /// Transiciones enfáticas / expansiones / layouts: 240–280ms
-  static const Duration emphasized = Duration(milliseconds: 250);
+  /// Transiciones enfáticas / expansiones / layouts: 180–210ms
+  static const Duration emphasized = Duration(milliseconds: 190);
 
-  /// Navegación primaria entre pantallas: 200–240ms (rápido y fluido, cero lag)
-  static const Duration navigation = Duration(milliseconds: 220);
+  /// Navegación primaria entre pantallas: 170–190ms (rápido y fluido, cero lag)
+  static const Duration navigation = Duration(milliseconds: 180);
 
-  /// Hero flights / morphing de contenedores: 260–300ms
-  static const Duration hero = Duration(milliseconds: 280);
+  /// Hero flights / morphing de contenedores: 200–230ms
+  static const Duration hero = Duration(milliseconds: 210);
 
   /// Ciclos ambientales lentos de reflexión óptica: 8–14s
   static const Duration ambient = Duration(seconds: 10);

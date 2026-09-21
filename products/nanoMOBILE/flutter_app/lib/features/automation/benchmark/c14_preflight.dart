@@ -55,21 +55,25 @@ class C14Preflight {
     required bool policyConfigured,
     required bool deviceUnlocked,
     required bool screenInteractive,
+    bool requiresLlm = true,
   }) async {
+    final effectiveRuntime = requiresLlm ? runtimeAlive : true;
+    final effectiveModel = requiresLlm ? modelLoaded : true;
+
     final checks = <PreflightCheck>[
       PreflightCheck(
         name: 'Runtime vivo',
-        ok: runtimeAlive,
+        ok: effectiveRuntime,
         detail: runtimeAlive
             ? 'engine /health OK'
-            : 'engine muerto o no respondió',
+            : (requiresLlm ? 'engine muerto o no respondió' : 'catálogo determinista OK'),
       ),
       PreflightCheck(
         name: 'Modelo cargado',
-        ok: modelLoaded,
+        ok: effectiveModel,
         detail: modelLoaded
             ? 'GGUF cargado'
-            : 'sin modelo (degraded / no GGUF)',
+            : (requiresLlm ? 'sin modelo (degraded / no GGUF)' : 'suite determinista nativa'),
       ),
       PreflightCheck(
         name: 'Accesibilidad activa',

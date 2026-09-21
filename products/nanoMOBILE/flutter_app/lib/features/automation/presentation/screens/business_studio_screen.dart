@@ -234,11 +234,14 @@ class BusinessStudioScreen extends ConsumerWidget {
                                 icon: Icons.sell_outlined,
                                 title: p.name,
                                 subtitle: _productSubtitle(p),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.close_rounded, size: 18),
-                                  color: visual.textMuted,
-                                  tooltip: 'Eliminar producto',
-                                  onPressed: () => notifier.removeProduct(p.id),
+                                trailing: Semantics(
+                                  label: 'Eliminar producto',
+                                  button: true,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.close_rounded, size: 18),
+                                    color: visual.textMuted,
+                                    onPressed: () => notifier.removeProduct(p.id),
+                                  ),
                                 ),
                                 showChevron: false,
                                 onTap: () async {

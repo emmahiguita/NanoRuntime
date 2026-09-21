@@ -8,6 +8,8 @@ library;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
+import 'package:nanoai/features/browser_ai/domain/browser_ai_query.dart';
 import '../browser/reverse_agent_client.dart';
 import '../browser/web_knowledge_service.dart';
 
@@ -26,10 +28,7 @@ final class ExternalKnowledgeResult {
   });
 
   static const empty = ExternalKnowledgeResult(
-    query: '',
-    rawKnowledge: '',
-    source: 'none',
-    hasFacts: false,
+    query: '', rawKnowledge: '', source: 'none', hasFacts: false,
   );
 }
 
@@ -40,14 +39,17 @@ abstract interface class TurnKnowledgeRouter {
   Future<ExternalKnowledgeResult> fetchKnowledge(String text);
 }
 
-/// Implementación concreta que prioriza WebKnowledgeService y ReverseAgentClient.
+/// Implementación concreta que prioriza BrowserAiGateway, WebKnowledgeService y ReverseAgentClient.
 final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
   const RuntimeTurnKnowledgeRouter({
+    BrowserAiGateway? browserAiGateway,
     WebKnowledgeService webKnowledgeService = const WebKnowledgeService(),
     ReverseAgentClient reverseAgentClient = const ReverseAgentClient(),
-  }) : _webService = webKnowledgeService,
+  }) : _browserAiGateway = browserAiGateway,
+       _webService = webKnowledgeService,
        _reverseClient = reverseAgentClient;
 
+  final BrowserAiGateway? _browserAiGateway;
   final WebKnowledgeService _webService;
   final ReverseAgentClient _reverseClient;
 
@@ -74,16 +76,9 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
 
   @override
   bool needsExternalKnowledge(String text) {
-    final normalized = text
-        .toLowerCase()
-        .replaceAll('á', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('¿', '')
-        .replaceAll('?', '')
-        .trim();
+    final normalized = text.toLowerCase().replaceAll('á', 'a').replaceAll('é', 'e')
+        .replaceAll('í', 'i').replaceAll('ó', 'o').replaceAll('ú', 'u')
+        .replaceAll('¿', '').replaceAll('?', '').trim();
     if (normalized.isEmpty) return false;
 
     for (final kw in _externalKeywords) {
@@ -108,7 +103,30 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
 
     debugPrint('[knowledge-router] buscando información externa para: "$clean"');
 
-    // 1. Intentar puente web / navegador si está disponible
+    // 1. Intentar BrowserAiGateway (ChatGPT/DeepSeek en WebView nativo de fondo)
+    if (_browserAiGateway != null) {
+      try {
+        final aiRes = await _browserAiGateway.query(
+          BrowserAiQuery(
+            providerId: 'auto',
+            prompt: 'Responde de forma concisa, breve y puramente fáctica en español: $clean',
+            timeout: const Duration(seconds: 20),
+          ),
+        );
+        if (aiRes.isCompleted && aiRes.content.trim().isNotEmpty) {
+          debugPrint('[knowledge-router] HIT BrowserAiGateway: ${aiRes.providerId}');
+          return ExternalKnowledgeResult(
+            query: clean,
+            rawKnowledge: aiRes.content.trim(),
+            source: 'browser_ai_${aiRes.providerId}',
+          );
+        }
+      } catch (e) {
+        debugPrint('[knowledge-router] browser_ai error: $e');
+      }
+    }
+
+    // 2. Intentar puente web / navegador inverso si está disponible
     try {
       final bridgeHealthy = await _reverseClient.checkHealth();
       if (bridgeHealthy) {

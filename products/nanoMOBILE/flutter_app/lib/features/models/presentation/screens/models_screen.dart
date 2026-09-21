@@ -3,13 +3,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/models/catalog_models.dart';
+import 'package:nanoai/core/models/chat_models.dart';
+import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/providers/dashboard_provider.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
-import 'package:nanoai/features/home/buho_wallpaper.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 import 'package:nanoai/features/models/application/models_provider.dart';
@@ -20,11 +21,14 @@ import 'package:nanoai/features/models/domain/model_viability.dart';
 import 'package:nanoai/features/models/presentation/providers/model_metadata_providers.dart';
 import 'package:nanoai/features/models/presentation/widgets/model_brand_logos.dart';
 import 'package:nanoai/features/models/presentation/widgets/model_detail_bottom_sheet.dart';
+import 'package:nanoai/features/models/presentation/widgets/model_info_button.dart';
 
 /// Filtros de categoría de modelos (estilo segmentado iOS).
 enum _ModelFilter {
   all('Todos', CupertinoIcons.square_grid_2x2),
   installed('Instalados', CupertinoIcons.arrow_down_circle),
+  voice('Voz / Audio', CupertinoIcons.mic_fill),
+  vision('Cámara / Visión', CupertinoIcons.camera_fill),
   storage('En SD / Local', CupertinoIcons.archivebox),
   gemma('Gemma', CupertinoIcons.sparkles),
   llama('LLaMA', CupertinoIcons.infinite),
@@ -46,6 +50,7 @@ enum ModelUiStatus {
   downloading,
   error,
   incompatible,
+  runtimeUnavailable,
 }
 
 /// Pantalla Modelos — Gestión, descarga y ejecución con diseño iOS Dark limpio y estable.
@@ -122,7 +127,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
 
   /// Consulta la viabilidad al motor de fondo sin bloquear el render.
   void _fetchViabilityAsync(LocalModel model) {
-    if (_viabilityCache.containsKey(model.id) ||
+    if ((model.kind != ModelKind.llm &&
+            model.kind != ModelKind.multimodalVision) ||
+        _viabilityCache.containsKey(model.id) ||
         _viabilityFetching.contains(model.id) ||
         model.sizeGb <= 0) {
       return;
@@ -142,8 +149,12 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
         });
   }
 
-  int _listRank(LocalModel model, DashboardState dashboard) {
-    if (model.active) return 0;
+  int _listRank(
+    LocalModel model,
+    DashboardState dashboard,
+    String? readyModelPath,
+  ) {
+    if (readyModelPath != null && model.localPath == readyModelPath) return 0;
     if (model.installed) return 1;
     if (model.downloadState == ModelDownloadState.downloading) return 2;
     if (model.downloadState == ModelDownloadState.verifying) return 3;
@@ -153,6 +164,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       ModelViability.balanced => 5,
       ModelViability.streaming => 6,
       ModelViability.extreme => 7,
+      ModelViability.unknown => 8,
     };
   }
 
@@ -160,16 +172,36 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
   Widget build(BuildContext context) {
     final state = ref.watch(modelsProvider);
     final dashboard = ref.watch(dashboardProvider);
+    final chat = ref.watch(chatProvider);
     final notifier = ref.read(modelsProvider.notifier);
     final colors = NanoThemeExtension.of(context).colors;
 
     // Catálogo filtrado por capacidad física de RAM
-    final catalogModels = state.models
-        .where(
-          (m) => dashboard.ramTotalGb <= 0 || m.ramGb <= dashboard.ramTotalGb,
-        )
-        .toList()
-      ..sort((a, b) => _listRank(a, dashboard).compareTo(_listRank(b, dashboard)));
+    final catalogModels =
+        state.models
+            .where(
+              (m) =>
+                  dashboard.ramTotalGb <= 0 || m.ramGb <= dashboard.ramTotalGb,
+            )
+            .toList()
+          ..sort(
+            (a, b) =>
+                _listRank(
+                  a,
+                  dashboard,
+                  chat.connection == ModelConnectionState.ready
+                      ? chat.activeModelPath
+                      : null,
+                ).compareTo(
+                  _listRank(
+                    b,
+                    dashboard,
+                    chat.connection == ModelConnectionState.ready
+                        ? chat.activeModelPath
+                        : null,
+                  ),
+                ),
+          );
 
     final installedModels = catalogModels.where((m) => m.installed).toList();
     final usedGb = installedModels.fold<double>(0, (acc, m) => acc + m.sizeGb);
@@ -180,6 +212,19 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     final filteredDetected = detected.where((m) {
       if (_selectedFilter == _ModelFilter.installed) return false;
       final name = m.name.toLowerCase();
+      if (_selectedFilter == _ModelFilter.voice &&
+          !name.contains('whisper') &&
+          !name.contains('voice') &&
+          !name.contains('audio')) {
+        return false;
+      }
+      if (_selectedFilter == _ModelFilter.vision &&
+          !name.contains('vision') &&
+          !name.contains('moondream') &&
+          !name.contains('mmproj') &&
+          !name.contains('camera')) {
+        return false;
+      }
       if (_selectedFilter == _ModelFilter.gemma && !name.contains('gemma')) {
         return false;
       }
@@ -197,7 +242,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       if (_selectedFilter == _ModelFilter.phi && !name.contains('phi')) {
         return false;
       }
-      if (_selectedFilter == _ModelFilter.mistral && !name.contains('mistral')) {
+      if (_selectedFilter == _ModelFilter.mistral &&
+          !name.contains('mistral')) {
         return false;
       }
 
@@ -210,8 +256,24 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     // 2. Filtrar Catálogo
     final filteredCatalog = catalogModels.where((m) {
       if (_selectedFilter == _ModelFilter.storage) return false;
-      if (_selectedFilter == _ModelFilter.installed && !m.installed) return false;
+      if (_selectedFilter == _ModelFilter.installed && !m.installed) {
+        return false;
+      }
       final name = m.name.toLowerCase();
+      if (_selectedFilter == _ModelFilter.voice &&
+          m.kind != ModelKind.voiceStt &&
+          !name.contains('whisper') &&
+          !name.contains('voice') &&
+          !name.contains('audio')) {
+        return false;
+      }
+      if (_selectedFilter == _ModelFilter.vision &&
+          m.kind != ModelKind.multimodalVision &&
+          !m.isMultimodal &&
+          !name.contains('vision') &&
+          !name.contains('moondream')) {
+        return false;
+      }
       if (_selectedFilter == _ModelFilter.gemma && !name.contains('gemma')) {
         return false;
       }
@@ -229,14 +291,24 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       if (_selectedFilter == _ModelFilter.phi && !name.contains('phi')) {
         return false;
       }
-      if (_selectedFilter == _ModelFilter.mistral && !name.contains('mistral')) {
+      if (_selectedFilter == _ModelFilter.mistral &&
+          !name.contains('mistral')) {
         return false;
       }
 
       if (query.isEmpty) return true;
       return name.contains(query) ||
           m.description.toLowerCase().contains(query) ||
-          m.quant.toLowerCase().contains(query);
+          m.quant.toLowerCase().contains(query) ||
+          (m.kind == ModelKind.voiceStt &&
+              (query.contains('voz') ||
+                  query.contains('audio') ||
+                  query.contains('whisper'))) ||
+          (m.kind == ModelKind.multimodalVision &&
+              (query.contains('vision') ||
+                  query.contains('visión') ||
+                  query.contains('camara') ||
+                  query.contains('cámara')));
     }).toList();
 
     final List<_UnifiedItem> unifiedList = [
@@ -250,12 +322,6 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Fondo visual cósmico unificado con legibilidad protegida
-        const Positioned.fill(
-          child: BuhoWallpaper(
-            scrimOpacity: 0.58,
-          ),
-        ),
         NanoInputScope(
           scopeId: 'models',
           hint: 'Buscar modelos (Gemma, LLaMA, Qwen, DeepSeek)...',
@@ -287,11 +353,18 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                       final item = unifiedList[index];
                       if (item.isDetected) {
                         final d = item.detected!;
-                        final isActive = state.activeDetected == d.name;
+                        final isSelected = chat.activeModel == d.name;
+                        final isActive =
+                            isSelected &&
+                            chat.connection == ModelConnectionState.ready;
                         return _ModelItemCard.detected(
                           model: d,
                           isActive: isActive,
-                          isLoading: state.loadingDetectedUri == (d.path ?? d.uri),
+                          isLoading:
+                              state.loadingDetectedUri == (d.path ?? d.uri) ||
+                              (isSelected &&
+                                  chat.connection ==
+                                      ModelConnectionState.loadingModel),
                           onTapDetails: () => _openModelDetails(
                             name: d.name,
                             quant: d.format.name.toUpperCase(),
@@ -305,21 +378,42 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                             isDetected: true,
                             isActive: isActive,
                             dashboard: dashboard,
-                            actionLabel: d.usable ? 'Cargar Modelo' : 'Incompatible',
-                            onAction: d.usable ? () => notifier.useDetected(d) : () {},
+                            actionLabel: d.usable
+                                ? 'Cargar Modelo'
+                                : 'Incompatible',
+                            onAction: d.usable
+                                ? () => notifier.useDetected(d)
+                                : () {},
                           ),
-                          onUse: d.usable ? () => notifier.useDetected(d) : null,
+                          onUse: d.usable
+                              ? () => notifier.useDetected(d)
+                              : null,
                         );
                       } else {
                         final m = item.catalog!;
-                        final status = _statusOf(m, dashboard);
-                        final viability = _getViability(m, dashboard);
+                        // Una ruta nula nunca identifica un modelo activo.
+                        final isSelected =
+                            m.localPath != null &&
+                            chat.activeModelPath == m.localPath;
+                        final isActive =
+                            isSelected &&
+                            chat.connection == ModelConnectionState.ready;
+                        final isLoading =
+                            isSelected &&
+                            chat.connection ==
+                                ModelConnectionState.loadingModel;
+                        final status = _statusOf(m, dashboard, isActive);
+                        final viability = m.kind == ModelKind.llm
+                            ? _getViability(m, dashboard)
+                            : null;
 
                         // Petición asíncrona de veredicto solo si se va a renderizar
                         _fetchViabilityAsync(m);
 
                         return _ModelItemCard.catalog(
                           model: m,
+                          isActive: isActive,
+                          isLoading: isLoading,
                           status: status,
                           viability: viability,
                           onTapDetails: () => _openModelDetails(
@@ -329,12 +423,23 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                             description: m.description,
                             ramGb: m.ramGb,
                             isDetected: false,
+                            kind: m.kind,
                             isActive: status == ModelUiStatus.active,
                             dashboard: dashboard,
                             actionLabel: status == ModelUiStatus.installed
-                                ? 'Cargar en Chat'
+                                ? (m.kind == ModelKind.voiceStt
+                                    ? 'Activar Voz'
+                                    : m.kind == ModelKind.multimodalVision
+                                        ? 'Cargar Visión'
+                                        : 'Cargar en Chat')
                                 : status == ModelUiStatus.active
                                 ? 'Modelo Activo'
+                                : status == ModelUiStatus.runtimeUnavailable
+                                ? 'Runtime no conectado'
+                                : m.kind == ModelKind.voiceStt
+                                ? 'Descargar Voz'
+                                : m.kind == ModelKind.multimodalVision
+                                ? 'Descargar Visión'
                                 : 'Descargar GGUF',
                             onAction: () {
                               if (status == ModelUiStatus.installed) {
@@ -379,7 +484,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                     ),
                                     const SizedBox(height: 1),
                                     Text(
-                                      '${unifiedList.length} disponibles • ${installedModels.length + detected.length} en memoria',
+                                      '${unifiedList.length} disponibles • ${installedModels.length + detected.where((m) => m.usable).length} instalados',
                                       style: TextStyle(
                                         fontFamily: 'Inter',
                                         fontSize: 11.5,
@@ -390,11 +495,11 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                 ),
                               ),
                               // Botón de escaneo rápido estilo iOS
-                              _IosCircleButton(
+                              ModelInfoButton(
                                 icon: state.scanning
                                     ? CupertinoIcons.arrow_2_circlepath
                                     : CupertinoIcons.refresh,
-                                tooltip: 'Escanear almacenamiento',
+                                label: 'Escanear almacenamiento',
                                 onTap: notifier.scanStorageAll,
                               ),
                             ],
@@ -408,7 +513,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                               scrollDirection: Axis.horizontal,
                               physics: const BouncingScrollPhysics(),
                               itemCount: _ModelFilter.values.length,
-                              separatorBuilder: (_, __) => const SizedBox(width: 5),
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(width: 5),
                               itemBuilder: (context, index) {
                                 final f = _ModelFilter.values[index];
                                 final isSelected = f == _selectedFilter;
@@ -416,7 +522,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                   label: f.label,
                                   icon: f.icon,
                                   isSelected: isSelected,
-                                  onTap: () => setState(() => _selectedFilter = f),
+                                  onTap: () =>
+                                      setState(() => _selectedFilter = f),
                                 );
                               },
                             ),
@@ -429,7 +536,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                       return Column(
                         children: [
                           header,
-                          const Expanded(child: _IosEmptyState(isSearch: false)),
+                          const Expanded(
+                            child: _IosEmptyState(isSearch: false),
+                          ),
                         ],
                       );
                     }
@@ -466,14 +575,20 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                   physics: const BouncingScrollPhysics(),
                                   slivers: [
                                     SliverPadding(
-                                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        4,
+                                        16,
+                                        12,
+                                      ),
                                       sliver: SliverGrid(
-                                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                          crossAxisCount: 2,
-                                          mainAxisSpacing: 8,
-                                          crossAxisSpacing: 10,
-                                          mainAxisExtent: 100,
-                                        ),
+                                        gridDelegate:
+                                            const SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount: 2,
+                                              mainAxisSpacing: 8,
+                                              crossAxisSpacing: 10,
+                                              mainAxisExtent: 100,
+                                            ),
                                         delegate: SliverChildBuilderDelegate(
                                           (context, index) => buildCard(index),
                                           childCount: unifiedList.length,
@@ -481,12 +596,19 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                       ),
                                     ),
                                     SliverPadding(
-                                      padding: const EdgeInsets.fromLTRB(16, 0, 16, kNanoBarScrollReserve),
+                                      padding: const EdgeInsets.fromLTRB(
+                                        16,
+                                        0,
+                                        16,
+                                        kNanoBarScrollReserve,
+                                      ),
                                       sliver: SliverToBoxAdapter(
                                         child: _StorageSummaryCard(
                                           usedGb: usedGb,
-                                          storageTotalGb: dashboard.storageTotalGb,
-                                          storageFreeGb: dashboard.storageFreeGb,
+                                          storageTotalGb:
+                                              dashboard.storageTotalGb,
+                                          storageFreeGb:
+                                              dashboard.storageFreeGb,
                                           downloadDir: state.downloadDir,
                                           onPickDir: _pickDownloadDir,
                                         ),
@@ -523,7 +645,8 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
                                       padding: const EdgeInsets.only(top: 6),
                                       child: _StorageSummaryCard(
                                         usedGb: usedGb,
-                                        storageTotalGb: dashboard.storageTotalGb,
+                                        storageTotalGb:
+                                            dashboard.storageTotalGb,
                                         storageFreeGb: dashboard.storageFreeGb,
                                         downloadDir: state.downloadDir,
                                         onPickDir: _pickDownloadDir,
@@ -557,6 +680,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     required double sizeGb,
     required String description,
     required bool isDetected,
+    ModelKind kind = ModelKind.llm,
     required bool isActive,
     required VoidCallback onAction,
     required String actionLabel,
@@ -564,12 +688,14 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
     double? ramGb,
     String? path,
   }) {
-    final totalRam = dashboard.ramTotalGb > 0 ? dashboard.ramTotalGb : 8.0;
+    final totalRam = dashboard.ramTotalGb;
     final repo = ref.read(modelMetadataRepositoryProvider);
     final def = ModelSourceRegistry.definitionFor(name);
 
-    repo.refreshRemoteMetadata(def.quantizedRepo);
-    if (def.officialRepo != def.quantizedRepo) {
+    if (def.quantizedRepo.isNotEmpty) {
+      repo.refreshRemoteMetadata(def.quantizedRepo);
+    }
+    if (def.officialRepo.isNotEmpty && def.officialRepo != def.quantizedRepo) {
       repo.refreshRemoteMetadata(def.officialRepo);
     }
 
@@ -588,6 +714,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen>
       sizeGb: sizeGb,
       description: description,
       isDetected: isDetected,
+      kind: kind,
       isActive: isActive,
       onAction: onAction,
       actionLabel: actionLabel,
@@ -661,21 +788,21 @@ class _ModelItemCard extends StatelessWidget {
 
   _ModelItemCard.catalog({
     required LocalModel model,
+    required this.isActive,
+    required this.isLoading,
     required this.status,
     required this.viability,
     required this.onTapDetails,
     required this.onUse,
     required this.onDownload,
     required this.onCancel,
-  })  : name = model.name,
-        format = model.quant,
-        sizeGb = model.sizeGb,
-        description = model.description,
-        isActive = model.active,
-        isDetected = false,
-        isLoading = model.loading,
-        progress = model.progress,
-        error = model.error;
+  }) : name = model.name,
+       format = model.quant,
+       sizeGb = model.sizeGb,
+       description = model.description,
+       isDetected = false,
+       progress = model.progress,
+       error = model.error;
 
   _ModelItemCard.detected({
     required DetectedModel model,
@@ -683,19 +810,21 @@ class _ModelItemCard extends StatelessWidget {
     required this.isLoading,
     required this.onTapDetails,
     required this.onUse,
-  })  : name = model.name,
-        format = model.format.name,
-        sizeGb = model.sizeBytes > 0 ? model.sizeBytes / (1024 * 1024 * 1024) : 0,
-        description = model.usable
-            ? 'Almacenamiento Local / Tarjeta SD'
-            : 'Formato o cabecera GGUF no válida',
-        isDetected = true,
-        status = isActive ? ModelUiStatus.active : ModelUiStatus.installed,
-        viability = null,
-        progress = 0,
-        error = model.usable ? null : 'Incompatible',
-        onDownload = null,
-        onCancel = null;
+  }) : name = model.name,
+       format = model.format.name,
+       sizeGb = model.sizeBytes > 0
+           ? model.sizeBytes / (1024 * 1024 * 1024)
+           : 0,
+       description = model.usable
+           ? 'Almacenamiento Local / Tarjeta SD'
+           : 'Formato o cabecera GGUF no válida',
+       isDetected = true,
+       status = isActive ? ModelUiStatus.active : ModelUiStatus.installed,
+       viability = null,
+       progress = 0,
+       error = model.usable ? null : 'Incompatible',
+       onDownload = null,
+       onCancel = null;
 
   @override
   Widget build(BuildContext context) {
@@ -711,11 +840,11 @@ class _ModelItemCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: isActive
                 ? (isDark
-                    ? const Color(0xFF064E3B).withValues(alpha: 0.30)
-                    : const Color(0xFFD1FAE5).withValues(alpha: 0.70))
+                      ? const Color(0xFF064E3B).withValues(alpha: 0.30)
+                      : const Color(0xFFD1FAE5).withValues(alpha: 0.70))
                 : (isDark
-                    ? colors.surface.withValues(alpha: 0.65)
-                    : Colors.white.withValues(alpha: 0.85)),
+                      ? colors.surface.withValues(alpha: 0.65)
+                      : Colors.white.withValues(alpha: 0.85)),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isActive
@@ -726,7 +855,9 @@ class _ModelItemCard extends StatelessWidget {
             boxShadow: [
               BoxShadow(
                 color: isActive
-                    ? const Color(0xFF10B981).withValues(alpha: isDark ? 0.20 : 0.10)
+                    ? const Color(
+                        0xFF10B981,
+                      ).withValues(alpha: isDark ? 0.20 : 0.10)
                     : Colors.black.withValues(alpha: isDark ? 0.30 : 0.05),
                 blurRadius: isActive ? 14 : 8,
                 offset: const Offset(0, 3),
@@ -740,7 +871,10 @@ class _ModelItemCard extends StatelessWidget {
               onTap: onTapDetails,
               borderRadius: BorderRadius.circular(16),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -772,7 +906,10 @@ class _ModelItemCard extends StatelessWidget {
                               ),
                               if (isActive) ...[
                                 const SizedBox(width: 6),
-                                const _IosTag(label: 'EN MEMORIA', color: Color(0xFF10B981)),
+                                const _IosTag(
+                                  label: 'EN MEMORIA',
+                                  color: Color(0xFF10B981),
+                                ),
                               ],
                             ],
                           ),
@@ -830,7 +967,9 @@ class _ModelItemCard extends StatelessWidget {
                               fontFamily: 'Inter',
                               fontSize: 11,
                               fontWeight: FontWeight.w400,
-                              color: error != null ? colors.error : colors.textSecondary.withValues(alpha: 0.8),
+                              color: error != null
+                                  ? colors.error
+                                  : colors.textSecondary.withValues(alpha: 0.8),
                             ),
                           ),
 
@@ -840,10 +979,16 @@ class _ModelItemCard extends StatelessWidget {
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: LinearProgressIndicator(
-                                value: progress > 0 ? progress.clamp(0.0, 1.0) : null,
+                                value: progress > 0
+                                    ? progress.clamp(0.0, 1.0)
+                                    : null,
                                 minHeight: 3.0,
-                                backgroundColor: colors.metalSilver.withValues(alpha: 0.20),
-                                valueColor: AlwaysStoppedAnimation(colors.accentMint),
+                                backgroundColor: colors.metalSilver.withValues(
+                                  alpha: 0.20,
+                                ),
+                                valueColor: AlwaysStoppedAnimation(
+                                  colors.accentMint,
+                                ),
                               ),
                             ),
                           ],
@@ -930,9 +1075,7 @@ class _ModelItemCard extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: colors.warning.withValues(alpha: 0.15),
-              border: Border.all(
-                color: colors.warning.withValues(alpha: 0.35),
-              ),
+              border: Border.all(color: colors.warning.withValues(alpha: 0.35)),
             ),
             child: Icon(
               CupertinoIcons.stop_fill,
@@ -954,6 +1097,14 @@ class _ModelItemCard extends StatelessWidget {
         return _IosActionButton(
           label: 'Incompatible',
           color: colors.textSecondary,
+          isPrimary: false,
+          onPressed: () {},
+        );
+
+      case ModelUiStatus.runtimeUnavailable:
+        return _IosActionButton(
+          label: 'Sin conector',
+          color: colors.warning,
           isPrimary: false,
           onPressed: () {},
         );
@@ -1075,42 +1226,6 @@ class _IosSegmentPill extends StatelessWidget {
   }
 }
 
-class _IosCircleButton extends StatelessWidget {
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  const _IosCircleButton({
-    required this.icon,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    return Tooltip(
-      message: tooltip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: colors.backgroundSecondary.withValues(alpha: 0.50),
-            border: Border.all(
-              color: colors.borderSecondaryColor.withValues(alpha: 0.30),
-              width: 0.7,
-            ),
-          ),
-          child: Icon(icon, size: 13, color: colors.accentMint),
-        ),
-      ),
-    );
-  }
-}
-
 class _IosTag extends StatelessWidget {
   final String label;
   final Color color;
@@ -1163,7 +1278,8 @@ class _IosSpecText extends StatelessWidget {
         fontFamily: isHighlight ? 'JetBrainsMono' : 'Inter',
         fontSize: 10.5,
         fontWeight: isHighlight ? FontWeight.w600 : FontWeight.w500,
-        color: color ?? (isHighlight ? colors.accentMint : colors.textSecondary),
+        color:
+            color ?? (isHighlight ? colors.accentMint : colors.textSecondary),
       ),
     );
   }
@@ -1210,7 +1326,9 @@ class _StorageSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final usedPct = storageTotalGb > 0 ? (usedGb / storageTotalGb).clamp(0.0, 1.0) : 0.0;
+    final usedPct = storageTotalGb > 0
+        ? (usedGb / storageTotalGb).clamp(0.0, 1.0)
+        : 0.0;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1310,11 +1428,18 @@ class _IosPermissionBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.warning.withValues(alpha: 0.35), width: 0.7),
+        border: Border.all(
+          color: colors.warning.withValues(alpha: 0.35),
+          width: 0.7,
+        ),
       ),
       child: Row(
         children: [
-          Icon(CupertinoIcons.exclamationmark_triangle, color: colors.warning, size: 18),
+          Icon(
+            CupertinoIcons.exclamationmark_triangle,
+            color: colors.warning,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1344,11 +1469,7 @@ class _IosEmptyState extends StatelessWidget {
   final String query;
   final VoidCallback? onReset;
 
-  const _IosEmptyState({
-    required this.isSearch,
-    this.query = '',
-    this.onReset,
-  });
+  const _IosEmptyState({required this.isSearch, this.query = '', this.onReset});
 
   @override
   Widget build(BuildContext context) {
@@ -1360,9 +1481,7 @@ class _IosEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              isSearch
-                  ? CupertinoIcons.search
-                  : CupertinoIcons.tray,
+              isSearch ? CupertinoIcons.search : CupertinoIcons.tray,
               size: 38,
               color: colors.textSecondary.withValues(alpha: 0.45),
             ),
@@ -1418,8 +1537,12 @@ class _UnifiedItem {
   bool get isDetected => detected != null;
 }
 
-ModelUiStatus _statusOf(LocalModel model, DashboardState dashboard) {
-  if (model.active) return ModelUiStatus.active;
+ModelUiStatus _statusOf(
+  LocalModel model,
+  DashboardState dashboard,
+  bool isActive,
+) {
+  if (isActive) return ModelUiStatus.active;
   if (model.downloadState == ModelDownloadState.downloading ||
       model.downloadState == ModelDownloadState.verifying) {
     return ModelUiStatus.downloading;
@@ -1427,7 +1550,11 @@ ModelUiStatus _statusOf(LocalModel model, DashboardState dashboard) {
   if (model.downloadState == ModelDownloadState.failed) {
     return ModelUiStatus.error;
   }
-  if (model.installed) return ModelUiStatus.installed;
+  if (model.installed) {
+    return model.kind == ModelKind.llm
+        ? ModelUiStatus.installed
+        : ModelUiStatus.runtimeUnavailable;
+  }
   if (dashboard.ramTotalGb > 0 && model.ramGb > dashboard.ramTotalGb) {
     return ModelUiStatus.incompatible;
   }
@@ -1441,9 +1568,11 @@ String _statusLabel(ModelUiStatus status) => switch (status) {
   ModelUiStatus.downloading => 'Descargando',
   ModelUiStatus.error => 'Error',
   ModelUiStatus.incompatible => 'Incompatible',
+  ModelUiStatus.runtimeUnavailable => 'Runtime no conectado',
 };
 
 String _viabilityLabel(ModelViability v) => switch (v) {
+  ModelViability.unknown => 'Sin medir',
   ModelViability.fast => 'Rápido',
   ModelViability.balanced => 'Equilibrado',
   ModelViability.streaming => 'Streaming',
@@ -1451,6 +1580,7 @@ String _viabilityLabel(ModelViability v) => switch (v) {
 };
 
 Color _viabilityColor(ModelViability v, NanoColors colors) => switch (v) {
+  ModelViability.unknown => colors.textSecondary,
   ModelViability.fast => colors.accentMint,
   ModelViability.balanced => colors.metalSilver,
   ModelViability.streaming => colors.warning,

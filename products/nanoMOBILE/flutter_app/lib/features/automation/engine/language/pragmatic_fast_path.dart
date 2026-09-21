@@ -1,18 +1,14 @@
-/// PragmaticFastPath (A07) — motor de diálogo pragmático y lingüístico sin LLM.
+/// PragmaticFastPath (A07) — motor de diálogo determinista sin LLM (< 190 LOC).
 ///
-/// ANDROID FIRST / DETERMINISTIC SECOND / SMALL LLM LAST:
+/// **QUÉ HACE:**
 /// Comprende y resuelve turnos conversacionales cotidianos en < 5ms:
-/// - Saludos simples y compuestos ("hola", "hola emma", "buenas tardes")
-/// - Chequeo y estado de bienestar ("cómo estás", "qué tal", "todo bien?")
-/// - Preguntas recíprocas ("bien y tú", "bien y vos", "todo bien y tú?")
-/// - Preguntas de actividad / día ("qué haces", "en qué andas", "qué tal tu día")
-/// - Preguntas de entreno / live state con honestidad
-/// - Preguntas de presencia ("estás ahí?", "sigues por ahí?")
-/// - Solicitudes de ayuda o preguntas ("parce lo necesito para una tarea")
-/// - Multi-intentos en una sola frase integrada
-/// - Agradecimientos y despedidas ("gracias", "chao", "nos vemos")
+/// saludos, bienestar, reciprocidad, actividad/planes, situaciones, presencia y ayuda.
 ///
-/// Modularizado bajo SOLID y Clean Architecture (< 250 líneas por archivo).
+/// **CÓMO FUNCIONA:**
+/// Clasifica intenciones y consulta bancos inmutables de candidatos (> 10 opciones).
+///
+/// **POR QUÉ:**
+/// Arquitectura Android-First y Clean Architecture modular (< 200 LOC por archivo).
 library;
 
 import '../../../../core/services/device_metrics.dart'
@@ -25,64 +21,28 @@ import '../messaging/conv_turn_state.dart'
 import '../messaging/conversation_memory.dart'
     show ConversationMemory, ConversationMemoryEntryKind;
 import '../notifications/conversation_understanding.dart';
+import 'fast_path_models.dart';
 import 'temporal_location_context.dart';
 import 'turn_complexity_classifier.dart' show turnComplexityClassifier;
 
-part 'pragmatic_fast_path_intents.dart';
-part 'pragmatic_fast_path_narrative.dart';
+export 'fast_path_models.dart';
+
+part 'candidate_selector.dart';
+part 'pragmatic_fast_path_activity.dart';
+part 'pragmatic_fast_path_activity_banks.dart';
 part 'pragmatic_fast_path_composer.dart';
-part 'pragmatic_fast_path_templates.dart';
+part 'pragmatic_fast_path_composer_misc.dart';
+part 'pragmatic_fast_path_dialogue_banks.dart';
+part 'pragmatic_fast_path_intents.dart';
+part 'pragmatic_fast_path_intents_basic.dart';
+part 'pragmatic_fast_path_intents_contextual.dart';
+part 'pragmatic_fast_path_intents_situational.dart';
+part 'pragmatic_fast_path_misc_banks.dart';
+part 'pragmatic_fast_path_narrative.dart';
+part 'pragmatic_fast_path_situation_banks.dart';
 part 'pragmatic_fast_path_situations.dart';
-
-/// Intento comunicativo elemental detectado en el texto.
-enum ConversationIntent {
-  greeting,
-  askWellbeing,
-  userWellbeing,
-  reciprocalQuestion,
-  askActivity,
-  askDay,
-  askTraining,
-  askRap,
-  invitation,
-  askPresence,
-  askHelpOrQuestion,
-  askDeviceBattery,
-  askTime,
-  askDate,
-  askLocation,
-  planReminder,
-  thanks,
-  farewell,
-  laughter,
-  affirmation,
-  negation,
-  wellbeingClarification,
-  askAvailability,
-  askFood,
-  askPhysicalLocation,
-  askFamily,
-  askSleep,
-  askMusic,
-  askWeatherSocial,
-  askCall,
-  askLostOrMissing,
-  askOpinionSocial,
-}
-
-final class FastPathCandidate {
-  final String act;
-  final String reply;
-  final ConversationUnderstanding understanding;
-  final List<String> suggestions;
-
-  const FastPathCandidate({
-    required this.act,
-    required this.reply,
-    required this.understanding,
-    this.suggestions = const [],
-  });
-}
+part 'pragmatic_fast_path_template_banks.dart';
+part 'pragmatic_fast_path_templates.dart';
 
 final class PragmaticFastPath {
   final ConversationMemory? Function(String conversationId)? memoryFor;
@@ -131,9 +91,7 @@ final class PragmaticFastPath {
     if (tokens.isEmpty) return null;
 
     // 1. Guardias de escape estricto: Comercio, Soporte, Corrección, Comandos
-    if (_hasCommercialOrCommandSignal(normalized, tokens)) {
-      return null;
-    }
+    if (_hasCommercialOrCommandSignal(normalized, tokens)) return null;
 
     // 2. Escape de contenido narrativo / sustantivo / estado personal
     if (_PragmaticFastPathNarrative.hasSubstantiveNarrative(normalized, tokens)) {
@@ -147,13 +105,10 @@ final class PragmaticFastPath {
     // 4. Si la conversación tiene obligaciones pendientes activas
     final memory = memoryFor?.call(conversationId);
     if (memory != null && memory.unresolvedObligations.isNotEmpty) {
-      final isGreeting = intents.contains(ConversationIntent.greeting) ||
-          isPureGreeting(raw);
+      final isGreeting = intents.contains(ConversationIntent.greeting) || isPureGreeting(raw);
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       final isStale = memory.lastAtMs > 0 && (nowMs - memory.lastAtMs) > 900000;
-      if (!isGreeting && !isStale) {
-        return null;
-      }
+      if (!isGreeting && !isStale) return null;
     }
 
     // 5. Consultar hechos de hardware bajo demanda SOLO si la intención lo pide
@@ -174,23 +129,15 @@ final class PragmaticFastPath {
             entry.kind == ConversationMemoryEntryKind.outboundDispatched ||
             entry.kind == ConversationMemoryEntryKind.outboundObservedManual) {
           lastOutboundText ??= entry.text;
-          // Si hubo cualquier mensaje saliente en los últimos 15 min, la conversación ya está abierta
-          if (nowMs - entry.atMs < 900000) {
-            recentlyGreeted = true;
-          }
+          if (nowMs - entry.atMs < 900000) recentlyGreeted = true;
         }
-        // Si en los últimos 15 min hubo saludo o bienestar por cualquiera de los dos lados
         if (nowMs - entry.atMs < 900000) {
           final folded = normalizeText(entry.text);
-          if (folded.contains('hola') ||
-              folded.contains('buenas') ||
-              folded.contains('buen dia') ||
-              folded.contains('buenos dias') ||
-              folded.contains('que mas') ||
-              folded.contains('quiubo') ||
-              folded.contains('como estas') ||
-              folded.contains('como te va') ||
-              folded.contains('todo bien')) {
+          const greetingKeywords = [
+            'hola', 'buenas', 'buen dia', 'buenos dias', 'que mas',
+            'quiubo', 'como estas', 'como te va', 'todo bien'
+          ];
+          if (greetingKeywords.any(folded.contains)) {
             recentlyGreeted = true;
           }
         }
@@ -211,6 +158,19 @@ final class PragmaticFastPath {
     if (result == null || result.reply.trim().isEmpty) return null;
 
     final actLabel = intents.map((i) => i.name).join('+');
+    const respondingIntents = {
+      ConversationIntent.reciprocalQuestion, ConversationIntent.userWellbeing,
+      ConversationIntent.negation, ConversationIntent.affirmation,
+      ConversationIntent.askRap, ConversationIntent.invitation,
+      ConversationIntent.wellbeingClarification, ConversationIntent.askAvailability,
+      ConversationIntent.askFood, ConversationIntent.askPhysicalLocation,
+      ConversationIntent.askFamily, ConversationIntent.askSleep,
+      ConversationIntent.askMusic, ConversationIntent.askWeatherSocial,
+      ConversationIntent.askCall, ConversationIntent.askLostOrMissing,
+      ConversationIntent.askOpinionSocial,
+    };
+    final isResponse = intents.any(respondingIntents.contains);
+
     return FastPathCandidate(
       act: actLabel,
       reply: result.reply,
@@ -219,26 +179,7 @@ final class PragmaticFastPath {
         reply: result.reply,
         options: result.suggestions,
         intent: actLabel,
-        relation:
-            intents.contains(ConversationIntent.reciprocalQuestion) ||
-                intents.contains(ConversationIntent.userWellbeing) ||
-                intents.contains(ConversationIntent.negation) ||
-                intents.contains(ConversationIntent.affirmation) ||
-                intents.contains(ConversationIntent.askRap) ||
-                intents.contains(ConversationIntent.invitation) ||
-                intents.contains(ConversationIntent.wellbeingClarification) ||
-                intents.contains(ConversationIntent.askAvailability) ||
-                intents.contains(ConversationIntent.askFood) ||
-                intents.contains(ConversationIntent.askPhysicalLocation) ||
-                intents.contains(ConversationIntent.askFamily) ||
-                intents.contains(ConversationIntent.askSleep) ||
-                intents.contains(ConversationIntent.askMusic) ||
-                intents.contains(ConversationIntent.askWeatherSocial) ||
-                intents.contains(ConversationIntent.askCall) ||
-                intents.contains(ConversationIntent.askLostOrMissing) ||
-                intents.contains(ConversationIntent.askOpinionSocial)
-            ? 'responde'
-            : 'nuevo',
+        relation: isResponse ? 'responde' : 'nuevo',
         questions: const [],
         missingFacts: const [],
         requiresAction: false,

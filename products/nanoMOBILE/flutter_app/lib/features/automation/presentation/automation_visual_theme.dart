@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/widgets/liquid_fluid_background.dart';
+import 'package:nanoai/features/home/buho_wallpaper.dart';
 
 /// Lenguaje visual local de Automatización.
 ///
@@ -487,13 +487,15 @@ class AutomationBackHeader extends StatelessWidget {
       height: 52,
       child: Row(
         children: [
-          IconButton(
-            tooltip: 'Atrás',
-            visualDensity: VisualDensity.compact,
-            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded, size: 24),
+          Semantics(
+            label: 'Atrás',
+            button: true,
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_rounded, size: 24),
+            ),
           ),
-          const SizedBox(width: 4),
           const AutomationBrand(),
           const Spacer(),
         ],
@@ -519,7 +521,7 @@ class AutomationBackdrop extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (landscape) {
-      return const LiquidFluidBackground();
+      return BuhoWallpaper(scrimOpacity: scrimOpacity);
     }
 
     final baseScrim = isDark ? 0.35 : 0.52;

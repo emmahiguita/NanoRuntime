@@ -3,6 +3,7 @@ import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
 import 'package:nanoai/features/models/domain/local_model_repository.dart';
+import 'package:nanoai/features/models/data/model_integrity.dart';
 
 /// Repositorio honesto: el estado de descarga se decide contra el filesystem
 /// real de la app (files/nano/models/), nunca contra una constante.
@@ -21,16 +22,23 @@ class CatalogLocalModelRepository implements LocalModelRepository {
   @override
   Future<List<LocalModel>> listModels() async {
     final dirPath = await modelsDir();
-    return [for (final entry in NeuralCatalog.models) _toModel(entry, dirPath)];
+    final models = <LocalModel>[];
+    // Los manifests son baratos; instalaciones heredadas requieren SHA-256.
+    // Se procesan en serie para no hashear varios GGUF a la vez en el móvil.
+    for (final entry in NeuralCatalog.models) {
+      models.add(await _toModel(entry, dirPath));
+    }
+    return models;
   }
 
-  LocalModel _toModel(LmCatalogEntry entry, String? dirPath) {
+  Future<LocalModel> _toModel(LmCatalogEntry entry, String? dirPath) async {
     final dest = dirPath == null
         ? null
         : File('$dirPath${Platform.pathSeparator}${entry.file}');
-    // Evidencia del filesystem: solo installed si el GGUF final existe.
+    // Un nombre y un tamaño no prueban integridad. Instalaciones antiguas se
+    // verifican una vez; después el manifiesto evita hashear varios GB al abrir.
     final installed =
-        dest != null && dest.existsSync() && dest.lengthSync() > 0;
+        dest != null && await ModelIntegrity.verify(dest, entry.sha256);
     final destPath = installed ? dest.path : null;
     return LocalModel(
       // Id estable: el nombre de archivo no cambia al reordenar el catálogo
@@ -45,6 +53,7 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       description: _descriptionFor(entry.name),
       template: entry.template,
       tier: entry.tier,
+      kind: entry.kind,
       downloadState: installed
           ? ModelDownloadState.installed
           : ModelDownloadState.notInstalled,
@@ -54,6 +63,9 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       localPath: destPath,
       active: false,
       loading: false,
+      mmprojFile: entry.mmprojFile,
+      mmprojUrl: entry.mmprojUrl,
+      mmprojSha256: entry.mmprojSha256,
     );
   }
 
@@ -78,7 +90,15 @@ class CatalogLocalModelRepository implements LocalModelRepository {
     'LFM2.5-2.6B-Q4_0-QAD' =>
       'Agentic premium para ejecución y herramientas multi-paso (2.2GB RAM).',
     'Gemma-3n-E2B-IT' =>
-      'Visión multimodal eficiente de Google para análisis de pantalla e imágenes en móvil.',
+      'Modelo multimodal; Nano conecta ahora la ruta de texto, no la entrada visual.',
+    'Hey Mycroft (wake word)' =>
+      'Detector local de palabra de activación; requiere un runtime de audio compatible.',
+    'Whisper-Tiny (Voz Local)' =>
+      'Transcripción de voz ultra-rápida (75MB) en CPU móvil con whisper.cpp.',
+    'Whisper-Base (Voz Local)' =>
+      'Reconocimiento de voz de alta precisión para dictado y comandos locales.',
+    'Moondream2-1.8B-Vision' =>
+      'Modelo multimodal compacto: comprensión visual y preguntas sobre imágenes locales.',
     _ => 'Cuantización y tamaño reales de HuggingFace.',
   };
 }

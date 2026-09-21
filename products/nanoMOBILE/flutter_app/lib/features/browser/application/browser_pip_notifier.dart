@@ -23,46 +23,34 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
   InAppWebViewController? _pipController;
 
   Future<void> _handleNativeCallback(MethodCall call) async {
-    if (call.method != 'pipModeChanged') return;
-    final active = call.arguments == true;
-    state = state.copyWith(isSystemPip: active);
+    if (call.method == 'pipModeChanged') {
+      state = state.copyWith(isSystemPip: call.arguments == true);
+    } else if (call.method == 'onUserLeaveHint' && state.isActive && !state.isSystemPip) {
+      enterSystemPictureInPicture();
+    }
   }
 
-  /// Registra la pestaña fuente actualmente visible. No reemplaza al
-  /// controlador del reproductor flotante.
-  void attachController(InAppWebViewController? controller) {
-    _sourceController = controller;
-  }
+  /// Registra la pestaña fuente actualmente visible.
+  void attachController(InAppWebViewController? controller) => _sourceController = controller;
 
-  void attachPipController(InAppWebViewController? controller) {
-    _pipController = controller;
-  }
+  void attachPipController(InAppWebViewController? controller) => _pipController = controller;
 
-  /// Mueve la reproducción al PiP. Devuelve true cuando se encontró un medio
-  /// HTML y se pudo conservar su posición/estado.
+  /// Mueve la reproducción al PiP. Devuelve true cuando se encontró un medio HTML.
   Future<bool> activatePip({
-    required String tabId,
-    required String url,
-    required String title,
+    required String tabId, required String url, required String title,
     InAppWebViewController? controller,
   }) async {
     _sourceController = controller ?? _sourceController;
     final media = await _readMediaState(_sourceController);
     if (media != null) {
       try {
-        await _sourceController?.evaluateJavascript(
-          source: BrowserScripts.pauseMediaScript,
-        );
+        await _sourceController?.evaluateJavascript(source: BrowserScripts.pauseMediaScript);
       } catch (_) {}
     }
 
     state = state.copyWith(
-      isActive: true,
-      isCompact: false,
-      isMaximized: false,
-      activeTabId: tabId,
-      url: url,
-      title: title,
+      isActive: true, isCompact: false, isMaximized: false,
+      activeTabId: tabId, url: url, title: title,
       isPlaying: media?.wasPlaying ?? false,
       resumePositionSeconds: media?.positionSeconds ?? 0,
       transferPending: media != null,
@@ -70,16 +58,14 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
     return media != null;
   }
 
-  /// Se invoca cuando el WebView PiP terminó de cargar. El destino siempre es
-  /// visible; algunos sitios pueden exigir un toque adicional para reproducir.
+  /// Se invoca cuando el WebView PiP terminó de cargar.
   Future<void> synchronizePipPlayback() async {
     final controller = _pipController;
     if (controller == null || !state.isActive) return;
     try {
       await controller.evaluateJavascript(
         source: BrowserScripts.restoreVisibleMediaScript(
-          positionSeconds: state.resumePositionSeconds,
-          shouldPlay: state.isPlaying,
+          positionSeconds: state.resumePositionSeconds, shouldPlay: state.isPlaying,
         ),
       );
     } finally {
@@ -89,53 +75,25 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
 
   Future<void> deactivatePip() async {
     try {
-      await _pipController?.evaluateJavascript(
-        source: BrowserScripts.pauseMediaScript,
-      );
+      await _pipController?.evaluateJavascript(source: BrowserScripts.pauseMediaScript);
     } catch (_) {}
     _pipController = null;
-    state = state.copyWith(
-      isActive: false,
-      isPlaying: false,
-      isSystemPip: false,
-      isMaximized: false,
-      transferPending: false,
-    );
+    state = state.copyWith(isActive: false, isPlaying: false, isSystemPip: false, isMaximized: false, transferPending: false);
   }
 
-  void toggleCompact() {
-    // Se conserva por compatibilidad con llamadas antiguas, pero el reproductor
-    // ya no puede ocultarse en una píldora de 1 px.
-    state = state.copyWith(isCompact: false);
-  }
+  void toggleCompact() => state = state.copyWith(isCompact: false);
 
-  void toggleMaximized() {
-    state = state.copyWith(isMaximized: !state.isMaximized);
-  }
+  void toggleMaximized() => state = state.copyWith(isMaximized: !state.isMaximized);
 
   void updatePosition(Offset newPosition, Size screenSize) {
-    final width = state.size.width;
-    final height = state.size.height;
-    final x = newPosition.dx.clamp(
-      8.0,
-      (screenSize.width - width - 8).clamp(8.0, double.infinity),
-    );
-    final y = newPosition.dy.clamp(
-      40.0,
-      (screenSize.height - height - 40).clamp(40.0, double.infinity),
-    );
+    final x = newPosition.dx.clamp(8.0, (screenSize.width - state.size.width - 8).clamp(8.0, double.infinity));
+    final y = newPosition.dy.clamp(40.0, (screenSize.height - state.size.height - 40).clamp(40.0, double.infinity));
     state = state.copyWith(position: Offset(x, y));
   }
 
   void updatePositionRaw(Offset newPosition, Size screenSize) {
-    final x = newPosition.dx.clamp(
-      0.0,
-      (screenSize.width - state.size.width).clamp(0.0, double.infinity),
-    );
-    final y = newPosition.dy.clamp(
-      0.0,
-      (screenSize.height - state.size.height).clamp(0.0, double.infinity),
-    );
+    final x = newPosition.dx.clamp(0.0, (screenSize.width - state.size.width).clamp(0.0, double.infinity));
+    final y = newPosition.dy.clamp(0.0, (screenSize.height - state.size.height).clamp(0.0, double.infinity));
     state = state.copyWith(position: Offset(x, y));
   }
 

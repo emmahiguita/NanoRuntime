@@ -128,11 +128,13 @@ class LlmAutomationPlanner implements AutomationPlanner {
     }
     final LLMResult result;
     try {
-      result = await _client.generate(
-        prompt: _buildPrompt(goal),
-        temperature: 0.2,
-        maxTokens: 220,
-      );
+      result = await _client
+          .generate(
+            prompt: _buildPrompt(goal),
+            temperature: 0.2,
+            maxTokens: 80,
+          )
+          .timeout(const Duration(seconds: 15));
     } catch (_) {
       // Motor no responde: plan vacío → noPlan honesto del coordinator.
       return PlannedPlan(
@@ -201,7 +203,7 @@ class LlmAutomationPlanner implements AutomationPlanner {
         ' NUNCA deduzcas una acción que el usuario no pidió en su instrucción.\n\n'
         'Devuelve SOLO un array JSON, sin explicación ni texto extra, del '
         'formato:\n'
-        '[{"tool":"tap","selector":"text=Bluetooth"},'
-        '{"tool":"write","selector":"editable=true","text":"hola"}]';
+        '[{"tool":"tap","selector":"text=Bluetooth"}]\n'
+        'Si el comando es inválido o no ejecutable con las herramientas, responde exactamente: []';
   }
 }

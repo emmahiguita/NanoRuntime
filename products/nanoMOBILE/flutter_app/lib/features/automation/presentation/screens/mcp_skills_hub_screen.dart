@@ -124,11 +124,14 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          IconButton(
-            tooltip: 'Regresar',
-            icon: const Icon(Icons.arrow_back_rounded, size: 24),
-            color: visual.text,
-            onPressed: () => Navigator.of(context).maybePop(),
+          Semantics(
+            label: 'Regresar',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, size: 24),
+              color: visual.text,
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -155,11 +158,13 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               ],
             ),
           ),
-          IconButton(
-            tooltip: 'Refrescar Catálogo & Tools',
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-            color: visual.accent,
-            onPressed: () async {
+          Semantics(
+            label: 'Refrescar Catálogo & Tools',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              color: visual.accent,
+              onPressed: () async {
               final reg = ref.read(mcpConnectionRegistryProvider);
               final snap = await reg.refreshTools();
               await _loadJournal();
@@ -173,6 +178,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               }
             },
           ),
+        ),
         ],
       ),
     );

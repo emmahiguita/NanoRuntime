@@ -38,12 +38,15 @@ import 'package:nanoai/features/automation/engine/planning/deterministic_catalog
 import 'package:nanoai/features/automation/engine/perception/mux/perception_contracts.dart';
 import 'package:nanoai/features/automation/engine/perception/semantic/screen_graph.dart';
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
+import 'package:nanoai/features/automation/engine/perception/healing/assisted_learning_service.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_agent_role.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart';
+
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart';
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
@@ -56,6 +59,7 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart'
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
+import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
 import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
@@ -516,15 +520,22 @@ ConversationDecisionContext _buildConversationDecisionContext(
           ? ConversationAgentRole.general
           : routing.role,
   };
+  final settings = ref.read(settingsProvider);
   final mode = ConversationAutonomyModeName.fromName(
-    ref.read(settingsProvider).waAutonomyMode,
+    settings.waAutonomyMode,
   );
+  final targetMode = settings.waTargetContactsMode;
+  final bool effectiveHumanOwns = targetMode == 'selected'
+      ? ownership?.owner != ConversationOwner.bot
+      : (ownership?.humanOwns ?? false);
+
   debugPrint(
     '[agent] agente=${assignedAgent.name} rol=${effectiveRole.name} modo=${mode.name} '
+    'targetMode=$targetMode humanOwns=$effectiveHumanOwns '
     '${routing.reasons.join(' | ')}',
   );
   return ConversationDecisionContext(
-    humanOwnsConversation: ownership?.humanOwns ?? false,
+    humanOwnsConversation: effectiveHumanOwns,
     identityConfidence: identity.confidence,
     autonomyMode: mode,
     agentRole: effectiveRole,
@@ -539,9 +550,11 @@ final personaStyleResolverProvider = Provider<PersonaStyleResolver>((ref) {
   return RuntimePersonaStyleResolver(retriever: PersonaRetriever());
 });
 
-/// Proveedor de enrutador de conocimiento fáctico externo (Web/Bridge).
+/// Proveedor de enrutador de conocimiento fáctico externo (Web/Bridge/BrowserAi).
 final turnKnowledgeRouterProvider = Provider<TurnKnowledgeRouter>((ref) {
-  return const RuntimeTurnKnowledgeRouter();
+  return RuntimeTurnKnowledgeRouter(
+    browserAiGateway: ref.watch(browserAiGatewayProvider),
+  );
 });
 
 /// Proveedor único del compositor conversacional canónico para toda la aplicación.
@@ -742,4 +755,9 @@ final pendingRepliesProvider = FutureProvider.autoDispose<List<PendingReply>>((
 ) async {
   final store = ref.watch(pendingReplyStoreProvider);
   return store.allPending();
+});
+
+/// A15 — Servicio de aprendizaje asistido para componentes no resueltos.
+final assistedLearningServiceProvider = Provider<AssistedLearningService>((ref) {
+  return AssistedLearningService();
 });

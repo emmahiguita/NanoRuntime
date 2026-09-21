@@ -13,6 +13,7 @@ import 'automation_settings_screen.dart';
 import 'business_studio_screen.dart';
 import 'mcp_skills_hub_screen.dart';
 import 'personal_agent_screen.dart';
+import '../bot_studio/bot_studio_screen.dart';
 
 /// El centro de control operativo de NanoAutomation.
 ///
@@ -44,32 +45,22 @@ class AutomationScreen extends ConsumerWidget {
             // encoge el body al aparecer el teclado, la barra salta.
             // El frame ya maneja el espacio mediante totalBottomPad.
             resizeToAvoidBottomInset: false,
-            body: Stack(
-              fit: StackFit.expand,
-              children: [
-                const AutomationBackdrop(),
-                NanoShellBarScope(
-                  // TOP-INSET-FIX-01 — SafeArea top propio (patrón de
-                  // messages/dev): el dashboard queda bajo la barra de estado.
-                  // KEYBOARD-FIX-02 se mantiene: solo top, sin duplicar bottom
-                  // (el frame gestiona el espacio inferior del dock).
-                  child: SafeArea(
-                    top: true,
-                    bottom: false,
-                    child: AutomationDashboard(
-                      onSettingsTap: () => _openSettings(context),
-                      onMessagesTap: () => context.push('/automation/messages'),
-                      // RULES-CREATE-02: Reglas alcanzable desde el dashboard.
-                      onRulesTap: () => _openRules(context),
-                      onBusinessTap: () => _openBusiness(context),
-                      onPersonalAgentTap: () => _openPersonalAgent(context),
-                      onSkillsMcpTap: () => _openSkillsMcp(context),
-                      // WA-DEV-ACCESS-01 — acceso directo siempre visible.
-                      onDevTap: () => _openDev(context),
-                    ),
-                  ),
-                ),
-              ],
+            // NanoShellBarScope provee el fondo líquido unificado (AutomationBackdrop)
+            // y la protección superior de barra de estado (protectTop: true).
+            // Evitamos doble pintado de blur y doble desplazamiento superior.
+            body: NanoShellBarScope(
+              child: AutomationDashboard(
+                onSettingsTap: () => _openSettings(context),
+                onMessagesTap: () => context.push('/automation/messages'),
+                // RULES-CREATE-02: Reglas alcanzables desde el dashboard.
+                onRulesTap: () => _openRules(context),
+                onBusinessTap: () => _openBusiness(context),
+                onPersonalAgentTap: () => _openPersonalAgent(context),
+                onBotStudioTap: () => _openBotStudio(context),
+                onSkillsMcpTap: () => _openSkillsMcp(context),
+                // WA-DEV-ACCESS-01 — acceso directo siempre visible.
+                onDevTap: () => _openDev(context),
+              ),
             ),
           );
         },
@@ -115,6 +106,12 @@ class AutomationScreen extends ConsumerWidget {
   static void _openPersonalAgent(BuildContext context) {
     Navigator.of(context).push(
       nanoGlassPageRoute<void>(builder: (_) => const PersonalAgentScreen()),
+    );
+  }
+
+  static void _openBotStudio(BuildContext context) {
+    Navigator.of(context).push(
+      nanoGlassPageRoute<void>(builder: (_) => const BotStudioScreen()),
     );
   }
 }

@@ -1,18 +1,21 @@
-import 'dart:async';
-
+import '../../../../browser_ai/application/browser_ai_gateway.dart';
+import '../../../../browser_ai/domain/browser_ai_query.dart';
 import '../../browser/reverse_agent_client.dart';
 
 /// Manejador de herramientas para IA en navegadores en segundo plano (SRP).
 ///
 /// Permite que Nano ejecute consultas en segundo plano hacia Gemini, ChatGPT,
-/// DeepSeek y Claude mediante `reverse-agent-bridge` de manera invisible (headless),
-/// renderizando la respuesta completa directamente en la conversación de Nano.
+/// DeepSeek y Claude mediante [BrowserAiGateway] directamente en el DOM del WebView,
+/// o mediante `reverse-agent-bridge` como respaldo.
 class BrowserAgentToolHandler {
   final ReverseAgentClient _client;
+  final BrowserAiGateway? _gateway;
 
   const BrowserAgentToolHandler({
     ReverseAgentClient client = const ReverseAgentClient(),
-  }) : _client = client;
+    BrowserAiGateway? gateway,
+  })  : _client = client,
+        _gateway = gateway;
 
   /// Determina si el texto o comando `@` corresponde a un proveedor de navegador.
   bool matches(String text) {
@@ -87,6 +90,26 @@ class BrowserAgentToolHandler {
     }
 
     final displayProvider = _displayName(provider);
+
+    // 1. Vía nativa directa al DOM de WebView si el gateway está inyectado
+    if (_gateway != null) {
+      final res = await _gateway.query(
+        BrowserAiQuery(providerId: provider, prompt: cleanPrompt),
+      );
+      if (res.isCompleted) {
+        return '### [$displayProvider (DOM de Navegador)]\n\n'
+            '${res.content.trim()}\n\n'
+            '---\n'
+            '_Respuesta procesada en ${res.duration.inMilliseconds}ms en el navegador integrado de Nano_';
+      }
+      if (res.needsUserAction) {
+        return '### [$displayProvider (Acción Requerida)]\n\n'
+            '⚠️ ${res.error ?? "Se requiere autenticación o verificar CAPTCHA."}\n\n'
+            '> Abre el navegador de Nano, ingresa a tu cuenta y vuelve a intentar.';
+      }
+    }
+
+    // 2. Fallback al puente loopback / servidor local
     final result = await _client.query(
       provider: provider,
       prompt: cleanPrompt,

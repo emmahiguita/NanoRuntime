@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/design_tokens.dart';
-import '../theme/nano_motion.dart';
 import '../router/app_router.dart';
 import '../theme/nano_breakpoint.dart';
-import '../widgets/liquid_fluid_background.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
 import '../../features/home/buho_wallpaper.dart';
 
@@ -26,16 +24,10 @@ class ScaffoldShell extends StatelessWidget {
     final currentIndex = shell.currentIndex;
     final branchCanPop =
         AppRouter.branchKeys[currentIndex].currentState?.canPop() ?? false;
-    // UI-REV-08/09: en claro el fondo es la aurora líquida (la misma de
-    // dev/automation); el oscuro normal conserva el ambient con glows
-    // orbitales. La identidad "Clásico" (familia oscura de dev,
-    // isClassicOrange) también usa la aurora líquida. NAV-BAR-FIX-05: la
-    // gama de la aurora es la azul de la barra de navegación.
     final shellColors = Theme.of(
       context,
     ).extension<NanoThemeExtension>()!.colors;
     final isDark = shellColors is NanoDarkColors;
-    final useLiquid = !isDark || shellColors.isClassicOrange;
 
     final location = GoRouterState.of(context).matchedLocation;
     final isDashboardHome = location == '/dashboard';
@@ -70,22 +62,25 @@ class ScaffoldShell extends StatelessWidget {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            const Positioned.fill(child: BuhoWallpaper(scrimOpacity: 0.52)),
+            // PERFORMANCE-01: Aislamos el wallpaper y el fluido liquido en un RepaintBoundary
+            // independiente. Que hace: confina el CustomPainter continuo a su propia textura GPU.
+            // Como funciona: el rasterizer no repinta el indexedStack ni la barra de navegacion en cada frame.
+            // Por que: elimina el jank y sobrecarga de GPU durante el cambio de pantalla.
             Positioned.fill(
-              child: AnimatedSwitcher(
-                duration: NanoMotionDurations.standard,
-                child: useLiquid
-                    ? const LiquidFluidBackground(
-                        key: ValueKey('liquid_fluid_bg'),
-                      )
-                    : const SizedBox.shrink(),
+              child: RepaintBoundary(
+                child: BuhoWallpaper(
+                  scrimOpacity: isDark ? 0.45 : 0.22,
+                ),
               ),
             ),
+            // DOCK-FLOAT-01: floatOverContent en true garantiza que la pantalla hija
+            // pinte a altura completa sin franjas cortadas. La barra flota encima
+            // con su efecto translúcido liquid glass sobre el fondo continuo.
             NanoFloatingNavigationFrame(
               allowSideDock: true,
               selectedIndex: currentIndex,
               fullBleed: false,
-              floatOverContent: false,
+              floatOverContent: true,
               transparentDock: true,
               protectTop: !isDashboardHome,
               onDestinationSelected: (index) {

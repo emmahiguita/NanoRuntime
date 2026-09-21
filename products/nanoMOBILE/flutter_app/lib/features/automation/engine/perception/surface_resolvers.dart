@@ -39,6 +39,19 @@ String surfaceSelectorFor(NanoUiObject o) {
   return 'editable=true';
 }
 
+/// Contrato de respaldo para auto-reparación cuando los selectores estáticos fallan (DIP).
+abstract interface class SurfaceHealerFallback {
+  ResolvedSurface? tryHealInput(ScreenGraph graph, {required InputSurfaceKind kind});
+  ResolvedSurface? tryHealAction(ScreenGraph graph, {required String actionKind});
+}
+
+/// Instancia global activa para auto-reparación perceptual ante cambios de interfaz.
+SurfaceHealerFallback? globalSurfaceAutoHealer;
+
+void registerGlobalSurfaceHealer(SurfaceHealerFallback healer) {
+  globalSurfaceAutoHealer = healer;
+}
+
 /// Encuentra un nodo editable REAL para escribir (composer, buscador, campo).
 ///
 /// La intención de la operación filtra los campos antes de priorizarlos: una
@@ -47,9 +60,12 @@ String surfaceSelectorFor(NanoUiObject o) {
 class InputSurfaceResolver {
   const InputSurfaceResolver({
     SurfaceProfileSource profiles = const SurfaceProfileRegistry(),
-  }) : _profiles = profiles;
+    SurfaceHealerFallback? healer,
+  }) : _profiles = profiles,
+       _healer = healer;
 
   final SurfaceProfileSource _profiles;
+  final SurfaceHealerFallback? _healer;
 
   ResolvedSurface? resolve(
     ScreenGraph graph, {
@@ -111,6 +127,14 @@ class InputSurfaceResolver {
         'único campo enfocado (búsqueda)',
       );
     }
+
+    // Auto-reparación semántica/geométrica ante cambios de interfaz en la app
+    final activeHealer = _healer ?? globalSurfaceAutoHealer;
+    if (activeHealer != null) {
+      final healed = activeHealer.tryHealInput(graph, kind: kind);
+      if (healed != null) return healed;
+    }
+
     return null;
   }
 
@@ -352,9 +376,12 @@ class EntityInputSurfaceResolver {
 class ActionSurfaceResolver {
   const ActionSurfaceResolver({
     SurfaceProfileSource profiles = const SurfaceProfileRegistry(),
-  }) : _profiles = profiles;
+    SurfaceHealerFallback? healer,
+  }) : _profiles = profiles,
+       _healer = healer;
 
   final SurfaceProfileSource _profiles;
+  final SurfaceHealerFallback? _healer;
 
   ResolvedSurface? resolve(ScreenGraph graph, {String kind = 'send'}) {
     // Igual que en InputSurfaceResolver: la truncación impide afirmar
@@ -370,6 +397,8 @@ class ActionSurfaceResolver {
       'confirm' => SurfaceElementKind.confirmAction,
       'message' => SurfaceElementKind.messageAction,
       'skipAd' => SurfaceElementKind.skipAdAction,
+      'attachment' => SurfaceElementKind.attachmentAction,
+      'voice' => SurfaceElementKind.voiceRecordAction,
       _ => null,
     };
     if (elementKind == null) return null;
@@ -458,6 +487,14 @@ class ActionSurfaceResolver {
       if (selector == null) continue;
       return ResolvedSurface(best, selector, reason);
     }
+
+    // Auto-reparación semántica/geométrica adyacente ante cambios de interfaz
+    final activeHealer = _healer ?? globalSurfaceAutoHealer;
+    if (activeHealer != null) {
+      final healed = activeHealer.tryHealAction(graph, actionKind: kind);
+      if (healed != null) return healed;
+    }
+
     return null;
   }
 

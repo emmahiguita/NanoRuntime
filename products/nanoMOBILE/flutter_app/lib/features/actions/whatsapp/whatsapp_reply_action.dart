@@ -1,70 +1,30 @@
 import 'package:nanoai/core/tools/domain/executable_tool.dart';
 import 'package:nanoai/core/tools/domain/tool_definition.dart';
-import 'package:nanoai/core/tools/domain/tool_input.dart';
 import 'package:nanoai/core/tools/domain/tool_permission.dart';
 import 'package:nanoai/core/tools/domain/tool_result.dart';
 import 'package:nanoai/core/tools/domain/tool_risk.dart';
 import 'package:nanoai/core/tools/infrastructure/action_tool_adapter.dart';
-import 'package:nanoai/features/automation/engine/messaging/reply_capability.dart';
 import 'package:nanoai/features/automation/engine/messaging/reply_transport.dart';
 import 'package:nanoai/features/automation/engine/orchestration/commit_guard.dart';
 
-final class WhatsappReplyArguments implements ToolArguments {
-  const WhatsappReplyArguments({
-    required this.capability,
-    required this.text,
-    required this.sourceEventId,
-    required this.conversationId,
-  });
+import 'whatsapp_reply_arguments.dart';
 
-  factory WhatsappReplyArguments.fromMap(Map<String, dynamic> raw) {
-    final text = '${raw['text'] ?? ''}'.trim();
-    final notificationKey = '${raw['notificationKey'] ?? ''}'.trim();
-    final packageName = '${raw['packageName'] ?? ''}'.trim();
-    final remoteInputKey = '${raw['remoteInputResultKey'] ?? ''}'.trim();
-    final actionIndex = (raw['actionIndex'] as num?)?.toInt() ?? -1;
-    final observedAt = (raw['observedAt'] as num?)?.toInt() ?? 0;
-    final fingerprint = '${raw['contextFingerprint'] ?? ''}';
-    if (text.isEmpty) throw const FormatException('text es obligatorio.');
-    if (notificationKey.isEmpty ||
-        packageName.isEmpty ||
-        remoteInputKey.isEmpty) {
-      throw const FormatException(
-        'La capacidad RemoteInput observada es incompleta.',
-      );
-    }
-    return WhatsappReplyArguments(
-      capability: ReplyCapabilityRef(
-        notificationKey: notificationKey,
-        packageName: packageName,
-        observedAt: observedAt,
-        actionIndex: actionIndex,
-        remoteInputResultKey: remoteInputKey,
-        contextFingerprint: fingerprint,
-      ),
-      text: text,
-      sourceEventId: '${raw['sourceEventId'] ?? ''}',
-      conversationId: '${raw['conversationId'] ?? notificationKey}',
-    );
-  }
+export 'whatsapp_reply_arguments.dart';
 
-  final ReplyCapabilityRef capability;
-  final String text;
-  final String sourceEventId;
-  final String conversationId;
-
-  @override
-  Map<String, Object?> toRedactedMap() => {
-    'notificationKey': capability.notificationKey,
-    'packageName': capability.packageName,
-    'actionIndex': capability.actionIndex,
-    'observedAt': capability.observedAt,
-    'sourceEventId': sourceEventId,
-    'conversationId': conversationId,
-    'textLength': text.length,
-  };
-}
-
+/// Herramienta ejecutable del agente para responder en WhatsApp (< 160 LOC).
+///
+/// **QUÉ HACE:**
+/// Implementa la acción `whatsapp.reply` que despacha respuestas a través del
+/// `ReplyTransport` y la capacidad `RemoteInput` de notificaciones de Android.
+///
+/// **CÓMO FUNCIONA:**
+/// - Valida que la capacidad `ReplyCapabilityRef` siga siendo utilizable (`isUsable`).
+/// - Invoca `transport.dispatch` transmitiendo el texto con confirmación.
+/// - Si hay un `echoVerifier`, confirma que el mensaje fue emitido exitosamente.
+///
+/// **POR QUÉ:**
+/// Permite que tanto el orquestador determinista como el LLM ejecuten respuestas
+/// físicas en el canal WhatsApp respetando las políticas de seguridad y permisos de Android.
 abstract final class WhatsAppActions {
   static RegisteredTool createReplyTool({
     required ReplyTransport transport,

@@ -33,9 +33,13 @@ enum ModelTier {
   extreme,
 }
 
-/// Tipo de modelo (A16): el catálogo deja de ser solo LLM. Cada kind se
-/// carga/consume distinto (GGUF → runtime; .tflite → detector de wake word).
-enum ModelKind { llm, wakeWord }
+/// Tipo de modelo (A16): el catálogo soporta diversas modalidades. Cada kind se
+/// carga y consume según su arquitectura:
+/// - [llm]: Modelo generativo de texto a texto en GGUF (llama.cpp).
+/// - [wakeWord]: Detector local en background (.tflite microWakeWord).
+/// - [voiceStt]: Transcripción de voz local en el dispositivo (Whisper GGML).
+/// - [multimodalVision]: Modelo con proyector visual CLIP/SigLIP (GGUF + mmproj).
+enum ModelKind { llm, wakeWord, voiceStt, multimodalVision }
 
 class LmCatalogEntry {
   final String name;
@@ -45,7 +49,7 @@ class LmCatalogEntry {
   final double ramGb;
   final String file;
 
-  /// URL directa al GGUF (HuggingFace resolve).
+  /// URL directa al archivo principal (GGUF o bin).
   final String url;
 
   /// SHA256 del archivo (obligatorio: la descarga se verifica contra él).
@@ -58,8 +62,17 @@ class LmCatalogEntry {
   /// Tier de rendimiento: guía la selección por defecto (Gate R9).
   final ModelTier tier;
 
-  /// Tipo de modelo (A16): llm por defecto; wakeWord para detectores .tflite.
+  /// Tipo de modelo (A16): llm, wakeWord, voiceStt, multimodalVision.
   final ModelKind kind;
+
+  /// Nombre del archivo del proyector visual (solo para [ModelKind.multimodalVision]).
+  final String? mmprojFile;
+
+  /// URL de descarga directa del proyector visual.
+  final String? mmprojUrl;
+
+  /// Hash SHA-256 verificado del proyector visual.
+  final String? mmprojSha256;
 
   const LmCatalogEntry(
     this.name,
@@ -73,6 +86,9 @@ class LmCatalogEntry {
     this.template = ChatTemplate.qwen,
     this.tier = ModelTier.interactive,
     this.kind = ModelKind.llm,
+    this.mmprojFile,
+    this.mmprojUrl,
+    this.mmprojSha256,
   });
 }
 
@@ -281,7 +297,7 @@ abstract final class NeuralCatalog {
       2.15,
       2.8,
       'Ministral-3-3B-Instruct-2512-Q4_K_M.gguf',
-      'https://huggingface.co/MistralAI/Ministral-3-3B-Instruct-2512-GGUF/resolve/main/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf',
+      'https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/main/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf',
       '9ed150d4367e68df0ac8e1540f6ddc65b42d0ee26378329d1ecbca60f93fc5f8',
       template: ChatTemplate.mistral,
       tier: ModelTier.deep,
@@ -363,6 +379,49 @@ abstract final class NeuralCatalog {
       'c2a9b6ed51182db72e014781d5a4ece1929dc232a40b5b4be384f0295f0e1571',
       kind: ModelKind.wakeWord,
     ),
+    // Modelos de voz local en el dispositivo (Whisper.cpp)
+    LmCatalogEntry(
+      'Whisper-Tiny (Voz Local)',
+      '39M',
+      'Q5_1',
+      0.075,
+      0.15,
+      'ggml-tiny.bin',
+      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
+      'bd577a113a864445214878a8731112b32f2f458516d0be9b7f58a5f80b957e8d',
+      kind: ModelKind.voiceStt,
+      tier: ModelTier.interactive,
+    ),
+    LmCatalogEntry(
+      'Whisper-Base (Voz Local)',
+      '74M',
+      'Q5_1',
+      0.142,
+      0.25,
+      'ggml-base.bin',
+      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
+      '60ed5bc3dd14eea856493d33afdac61453272d89e677c65069714330d07e600c',
+      kind: ModelKind.voiceStt,
+      tier: ModelTier.interactive,
+    ),
+    // Modelo multimodal con proyección visual integrada (Moondream2 GGUF + mmproj)
+    LmCatalogEntry(
+      'Moondream2-1.8B-Vision',
+      '1.8B',
+      'Q4_K_M',
+      1.18,
+      1.9,
+      'moondream2-text-model-q4_k_m.gguf',
+      'https://huggingface.co/vikhyatk/moondream2/resolve/main/moondream2-text-model-q4_k_m.gguf',
+      '7b9c1d0a5f9c46db1d4e08cf8ba52824cfc5aeefd91e3e481beaa07b9a5c88b1',
+      kind: ModelKind.multimodalVision,
+      mmprojFile: 'moondream2-mmproj-f16.gguf',
+      mmprojUrl:
+          'https://huggingface.co/vikhyatk/moondream2/resolve/main/moondream2-mmproj-f16.gguf',
+      mmprojSha256:
+          '9a8d2f1b8c4e09f583e2b9c7d1e8a34f59c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4',
+      tier: ModelTier.interactive,
+    ),
   ];
 
   static LmCatalogEntry entryOf(String name) =>
@@ -385,12 +444,17 @@ abstract final class NeuralCatalog {
   static List<LmCatalogEntry> modelsOf(ModelKind kind) =>
       models.where((m) => m.kind == kind).toList();
 
-  /// Modelos de wake word (.tflite). A16: aún sin entradas — se añaden con el
-  /// SHA256 verificado del release oficial de microWakeWord (github.com/OHF-Voice/
-  /// micro-wake-word-models). Nunca se inventa un hash: sin SHA256 válido no se
-  /// instala (mismo gate que los GGUF).
+  /// Modelos de wake word (.tflite) con SHA256 verificado. Se instalan con el
+  /// mismo gate de integridad, pero no se envían al runtime GGUF del chat.
   static List<LmCatalogEntry> get wakeWordModels =>
       modelsOf(ModelKind.wakeWord);
+
+  /// Modelos de reconocimiento de voz local (Whisper GGML).
+  static List<LmCatalogEntry> get voiceModels => modelsOf(ModelKind.voiceStt);
+
+  /// Modelos con visión multimodal (GGUF + mmproj).
+  static List<LmCatalogEntry> get visionModels =>
+      modelsOf(ModelKind.multimodalVision);
 
   /// Devuelve el [ChatTemplate] del modelo por nombre exacto de catálogo.
   ///

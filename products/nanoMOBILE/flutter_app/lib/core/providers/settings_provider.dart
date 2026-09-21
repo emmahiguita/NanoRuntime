@@ -68,13 +68,20 @@ class SettingsRepository {
         waStyleEnabled: m['waStyleEnabled'] as bool? ?? false,
         waStyleText: m['waStyleText'] as String? ?? '',
         waReplyDelaySeconds: (m['waReplyDelaySeconds'] as num?)?.toInt() ?? 0,
+        waTargetContactsMode: m['waTargetContactsMode'] as String? ?? 'all',
         // AUTONOMY FAIL-SAFE (PROD-02): key ausente/legacy → null (jamás
         // 'autonomous' por defecto). La conversión segura la hace
         // ConversationAutonomyModeName.fromName (null → safeAuto).
         waAutonomyMode: m['waAutonomyMode'] as String?,
       );
     } catch (_) {
-      return const SettingsState();
+      // Un campo nuevo corrupto no debe borrar la selección legacy del
+      // modelo: conservarla permite que ChatNotifier intente recuperarla y
+      // que el usuario no pierda el chat tras una migración parcial.
+      return SettingsState(
+        chatModelId: legacyChatModelId,
+        chatModelPath: legacyChatModelPath,
+      );
     }
   }
 
@@ -99,6 +106,7 @@ class SettingsRepository {
         'waStyleEnabled': s.waStyleEnabled,
         'waStyleText': s.waStyleText,
         'waReplyDelaySeconds': s.waReplyDelaySeconds,
+        'waTargetContactsMode': s.waTargetContactsMode,
         'waAutonomyMode': s.waAutonomyMode,
       }),
     );
@@ -155,6 +163,11 @@ class SettingsState {
   /// disabled. FULL AUTONOMOUS solo con 'autonomous' persistido explícito.
   final String? waAutonomyMode;
 
+  /// CONTACT-POLICY-01 — modo de activación del agente en contactos:
+  /// 'all': responde a todos los contactos de WhatsApp (salvo pausados a mano).
+  /// 'selected': responde ÚNICAMENTE a los contactos explícitamente activados.
+  final String waTargetContactsMode;
+
   const SettingsState({
     this.themeMode = 'Oscuro',
     this.temperature = 0.7,
@@ -172,6 +185,7 @@ class SettingsState {
     this.waStyleEnabled = false,
     this.waStyleText = '',
     this.waReplyDelaySeconds = 0,
+    this.waTargetContactsMode = 'all',
     this.waAutonomyMode,
   });
 
@@ -192,6 +206,7 @@ class SettingsState {
     bool? waStyleEnabled,
     String? waStyleText,
     int? waReplyDelaySeconds,
+    String? waTargetContactsMode,
     String? waAutonomyMode,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
@@ -210,6 +225,7 @@ class SettingsState {
     waStyleEnabled: waStyleEnabled ?? this.waStyleEnabled,
     waStyleText: waStyleText ?? this.waStyleText,
     waReplyDelaySeconds: waReplyDelaySeconds ?? this.waReplyDelaySeconds,
+    waTargetContactsMode: waTargetContactsMode ?? this.waTargetContactsMode,
     waAutonomyMode: waAutonomyMode ?? this.waAutonomyMode,
   );
 }
@@ -309,6 +325,10 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
   /// (elección explícita del dueño); null = jamás elegido.
   void setWaAutonomyMode(String v) =>
       _persist(state.copyWith(waAutonomyMode: v));
+
+  /// CONTACT-POLICY-01 — fija modo de contacto ('all' o 'selected').
+  void setWaTargetContactsMode(String v) =>
+      _persist(state.copyWith(waTargetContactsMode: v));
 
   /// Gate global de salida TTS. El estado cambia antes de cualquier await para
   /// que ninguna nueva respuesta pueda empezar a hablar; al apagar también

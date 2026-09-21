@@ -141,8 +141,11 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
                       ),
                     ),
                   ),
-                  Tooltip(
-                    message: _isRawMode ? 'Modo guiado' : 'Texto libre',
+                  // Semantics en lugar de Tooltip: previene el fallo "No Overlay" (cajas rojas con texto amarillo)
+                  // al evitar llamadas a Overlay.of(context) en sub-árboles de diálogo.
+                  Semantics(
+                    label: _isRawMode ? 'Modo guiado' : 'Texto libre',
+                    button: true,
                     child: IconButton(
                       icon: Icon(_isRawMode ? Icons.view_list_rounded : Icons.edit_note_rounded, color: visual.accent),
                       onPressed: () {

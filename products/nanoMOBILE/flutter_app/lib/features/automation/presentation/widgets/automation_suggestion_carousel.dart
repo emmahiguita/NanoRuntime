@@ -95,8 +95,9 @@ class _AutomationSuggestionCarouselState
                     final suggestion = widget.suggestions[index];
                     return SizedBox(
                       width: itemWidth,
-                      child: Tooltip(
-                        message: suggestion.label,
+                      child: Semantics(
+                        label: suggestion.label,
+                        button: true,
                         child: Material(
                           color: visual.accentSoft.withValues(alpha: 0.48),
                           shape: RoundedRectangleBorder(

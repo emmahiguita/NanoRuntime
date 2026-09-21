@@ -17,6 +17,7 @@ abstract final class NanoRuntimeChannels {
   static const notifications = 'com.nanoai/notifications';
   static const devicePermissions = 'com.nanoai/device_permissions';
   static const speech = 'com.nanoai/speech';
+  static const mediaCapture = 'com.nanoai/media_capture';
   static const system = 'com.nanoai/system';
   static const languageAssist = 'com.nanoai/language_assist';
 }
@@ -960,6 +961,15 @@ class NanoRuntimeApi {
     } catch (e) {
       debugPrint('[runtime] stopSpeech error: $e');
       return false;
+    }
+  }
+
+  /// Cancela ASR y obliga al nativo a resolver la escucha pendiente.
+  Future<void> cancelVoiceRecognition() async {
+    try {
+      await _speech.invokeMethod<void>('cancel');
+    } catch (e) {
+      debugPrint('[runtime] cancelVoiceRecognition error: $e');
     }
   }
 

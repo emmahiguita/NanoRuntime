@@ -153,19 +153,23 @@ ACCEDER A ARCHIVOS PRIVADOS NI ALTERAR LA CONFIGURACIÓN DEL SISTEMA.
   }
 
   /// Configuración recomendada de seguridad nativa y reproducción para Android WebView
-  static InAppWebViewSettings get defaultWebViewSettings {
+  static InAppWebViewSettings get defaultWebViewSettings => createWebViewSettings();
+
+  /// Genera la configuración de seguridad estricta al 100% para el WebView
+  static InAppWebViewSettings createWebViewSettings({
+    bool isDesktopMode = false,
+    String? userAgent,
+  }) {
     return InAppWebViewSettings(
       useShouldOverrideUrlLoading: true,
       mediaPlaybackRequiresUserGesture: false,
       allowsInlineMediaPlayback: true,
-      allowFileAccessFromFileURLs: false,
-      allowUniversalAccessFromFileURLs: false,
-      javaScriptEnabled: true,
-      javaScriptCanOpenWindowsAutomatically: false,
-      supportMultipleWindows: false,
-      supportZoom: true,
-      builtInZoomControls: true,
-      displayZoomControls: false,
+      allowBackgroundAudioPlaying: true,
+      allowsPictureInPictureMediaPlayback: true,
+      allowFileAccess: false, allowContentAccess: false,
+      allowFileAccessFromFileURLs: false, allowUniversalAccessFromFileURLs: false,
+      javaScriptEnabled: true, javaScriptCanOpenWindowsAutomatically: false,
+      supportMultipleWindows: false, supportZoom: true, builtInZoomControls: true, displayZoomControls: false,
       useWideViewPort: true,
       loadWithOverviewMode: true,
       useHybridComposition: true,
@@ -173,7 +177,7 @@ ACCEDER A ARCHIVOS PRIVADOS NI ALTERAR LA CONFIGURACIÓN DEL SISTEMA.
       databaseEnabled: true,
       transparentBackground: false,
       safeBrowsingEnabled: true,
-      mixedContentMode: MixedContentMode.MIXED_CONTENT_COMPATIBILITY_MODE,
+      mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
       cacheEnabled: true,
       cacheMode: CacheMode.LOAD_DEFAULT,
       hardwareAcceleration: true,
@@ -182,6 +186,10 @@ ACCEDER A ARCHIVOS PRIVADOS NI ALTERAR LA CONFIGURACIÓN DEL SISTEMA.
       offscreenPreRaster: true,
       overScrollMode: OverScrollMode.IF_CONTENT_SCROLLS,
       networkAvailable: true,
+      thirdPartyCookiesEnabled: true,
+      saveFormData: true,
+      userAgent: userAgent ?? (isDesktopMode ? "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36" : ""),
+      preferredContentMode: isDesktopMode ? UserPreferredContentMode.DESKTOP : UserPreferredContentMode.MOBILE,
     );
   }
 }

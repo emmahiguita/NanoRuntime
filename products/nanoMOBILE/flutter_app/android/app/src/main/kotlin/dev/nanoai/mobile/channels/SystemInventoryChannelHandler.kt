@@ -40,6 +40,10 @@ class SystemInventoryChannelHandler(context: Context) :
             mainHandler.post { handleOpenDestination(call, result) }
             return
         }
+        if (call.method == "setSystemAlarm") {
+            mainHandler.post { handleSetAlarm(call, result) }
+            return
+        }
         executor.execute {
             try {
                 when (call.method) {
@@ -71,6 +75,28 @@ class SystemInventoryChannelHandler(context: Context) :
             result.success(mapOf("opened" to res.opened, "error" to res.error))
         } catch (e: Exception) {
             result.error("SYSTEM_ERR", e.message ?: "error de navegación", null)
+        }
+    }
+
+    /**
+     * Procesa la invocación de alarma nativa (AlarmClock.ACTION_SET_ALARM).
+     * Ejecutado en hilo principal por requerimiento de Android para startActivity.
+     */
+    private fun handleSetAlarm(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            val hour = call.argument<Int>("hour") ?: run {
+                result.error("SYSTEM_ERR", "hour requerido", null)
+                return
+            }
+            val minutes = call.argument<Int>("minutes") ?: 0
+            val message = call.argument<String>("message") ?: ""
+            val weekdays = call.argument<List<Int>>("weekdays")
+            val skipUi = call.argument<Boolean>("skipUi") ?: true
+
+            val res = intentExecutor.setAlarm(hour, minutes, message, weekdays, skipUi)
+            result.success(mapOf("success" to res.opened, "error" to res.error))
+        } catch (e: Exception) {
+            result.error("SYSTEM_ERR", e.message ?: "error al programar alarma", null)
         }
     }
 

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 import 'nano_destination.dart';
 import 'nano_glyph.dart';
@@ -188,8 +189,9 @@ class _NanoFloatingNavigationFrameState
       if (!mounted) return;
       final size = _barKey.currentContext?.size;
       if (size == null) return;
-      // Umbral 0.5px: detecta cambios sub-pixel en multilínea sin rebuild innecesario.
-      if ((size.height - _dockHeight).abs() > 0.5) {
+      // Umbral 2.0px: evita disparar rebuilds espurios por fluctuaciones sub-pixel
+      // en la tipografia o redondeo de layout durante transiciones de pantalla.
+      if ((size.height - _dockHeight).abs() > 2.0) {
         setState(() => _dockHeight = size.height);
       }
     });
@@ -215,9 +217,17 @@ class _NanoFloatingNavigationFrameState
     final brightness = Theme.of(context).brightness;
     final isDark = brightness == Brightness.dark;
 
-    final notifier = ref.read(nanoUniversalInputProvider.notifier);
-    ref.watch(nanoUniversalInputProvider);
-    final inputConfig = notifier.slotFor(widget.slotId ?? destination.name);
+    // PERFORMANCE-03: Lectura selectiva del slot.
+    // Que hace: escucha UNICAMENTE cambios en la configuracion del slot visible.
+    // Como funciona: ref.watch selectivo evita que cambios en otros scopes
+    // reconstruyan todo el widget.child de la pantalla activa.
+    // Por que: previene el jank y doble render al entrar a pantallas con NanoInputScope.
+    final targetSlot = widget.slotId ?? destination.name;
+    final inputConfig = ref.watch(
+      nanoUniversalInputProvider.select(
+        (_) => ref.read(nanoUniversalInputProvider.notifier).slotFor(targetSlot),
+      ),
+    );
 
     final systemBottomInset = MediaQuery.paddingOf(context).bottom;
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -301,7 +311,7 @@ class _NanoFloatingNavigationFrameState
               left: false,
               right: false,
               child: AnimatedPadding(
-                duration: const Duration(milliseconds: 220),
+                duration: NanoMotionDurations.quick,
                 curve: Curves.easeOutCubic,
                 padding: EdgeInsets.only(
                   bottom: widget.fullBleed
@@ -318,6 +328,8 @@ class _NanoFloatingNavigationFrameState
                       if (notification.direction == ScrollDirection.reverse && !_isBarMinimized) {
                         setState(() => _isBarMinimized = true);
                         _cancelAutoShrink();
+                      } else if (notification.direction == ScrollDirection.forward && _isBarMinimized) {
+                        setState(() => _isBarMinimized = false);
                       }
                     }
                     return false;
@@ -331,7 +343,7 @@ class _NanoFloatingNavigationFrameState
             AnimatedPositioned(
               duration: _isDragging
                   ? Duration.zero
-                  : const Duration(milliseconds: 220),
+                  : NanoMotionDurations.quick,
               curve: Curves.easeOutCubic,
               left: 0,
               right: 0,
@@ -339,7 +351,7 @@ class _NanoFloatingNavigationFrameState
                   ? -(_dockHeight + 110.0)
                   : (floatingBottom - _dragOffset.dy.clamp(0.0, 120.0)),
               child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 180),
+                duration: NanoMotionDurations.press,
                 opacity: hideBar ? 0.0 : (1.0 - (_dragOffset.distance / 160.0).clamp(0.0, 0.8)),
                 child: IgnorePointer(
                   ignoring: hideBar,
@@ -860,27 +872,30 @@ class _NanoFloatingNavigationFrameState
                                   ),
                                 ),
                                 if (_drawerSearchController.text.trim().isNotEmpty) ...[
-                                  IconButton(
-                                    icon: Container(
-                                      width: 20,
-                                      height: 20,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white.withValues(alpha: 0.18),
+                                  Semantics(
+                                    label: 'Limpiar texto',
+                                    button: true,
+                                    child: IconButton(
+                                      icon: Container(
+                                        width: 20,
+                                        height: 20,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white.withValues(alpha: 0.18),
+                                        ),
+                                        child: const Icon(
+                                          Icons.close_rounded,
+                                          size: 13,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                      child: const Icon(
-                                        Icons.close_rounded,
-                                        size: 13,
-                                        color: Colors.white,
-                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                                      onPressed: () {
+                                        _drawerSearchController.clear();
+                                      },
                                     ),
-                                    tooltip: 'Limpiar texto',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints.tightFor(width: 28, height: 28),
-                                    onPressed: () {
-                                      _drawerSearchController.clear();
-                                    },
                                   ),
                                   const SizedBox(width: 4),
                                   Material(
@@ -937,33 +952,39 @@ class _NanoFloatingNavigationFrameState
                                     ),
                                   ),
                                 ] else ...[
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.mic_rounded,
-                                      size: 19,
-                                      color: Color(0xFF10B981),
+                                  Semantics(
+                                    label: 'Dictar por voz',
+                                    button: true,
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.mic_rounded,
+                                        size: 19,
+                                        color: Color(0xFF10B981),
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                                      onPressed: widget.onVoice ?? inputConfig.onVoice,
                                     ),
-                                    tooltip: 'Dictar por voz',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints.tightFor(width: 32, height: 32),
-                                    onPressed: widget.onVoice ?? inputConfig.onVoice,
                                   ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.close_rounded,
-                                      size: 18,
-                                      color: Colors.white70,
+                                  Semantics(
+                                    label: 'Cerrar búsqueda',
+                                    button: true,
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        size: 18,
+                                        color: Colors.white70,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                                      onPressed: () {
+                                        _drawerSearchController.clear();
+                                        _drawerSearchFocusNode.unfocus();
+                                        setState(() {
+                                          _isDrawerSearchExpanded = false;
+                                        });
+                                      },
                                     ),
-                                    tooltip: 'Cerrar búsqueda',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints.tightFor(width: 28, height: 28),
-                                    onPressed: () {
-                                      _drawerSearchController.clear();
-                                      _drawerSearchFocusNode.unfocus();
-                                      setState(() {
-                                        _isDrawerSearchExpanded = false;
-                                      });
-                                    },
                                   ),
                                 ],
                               ],
@@ -1341,41 +1362,47 @@ class _NanoFloatingNavigationFrameState
                 ),
               ),
               if (inputConfig?.onAttach != null)
-                IconButton(
-                  icon: Icon(
-                    Icons.attach_file_rounded,
-                    size: 17,
-                    color: muted,
+                Semantics(
+                  label: 'Adjuntar',
+                  button: true,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.attach_file_rounded,
+                      size: 17,
+                      color: muted,
+                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(width: 26, height: 26),
+                    onPressed: inputConfig!.onAttach,
                   ),
-                  tooltip: 'Adjuntar',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 26, height: 26),
-                  onPressed: inputConfig!.onAttach,
                 ),
               if (hasText)
-                IconButton(
-                  icon: Container(
-                    width: 17,
-                    height: 17,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.20)
-                          : Colors.black.withValues(alpha: 0.12),
+                Semantics(
+                  label: 'Limpiar',
+                  button: true,
+                  child: IconButton(
+                    icon: Container(
+                      width: 17,
+                      height: 17,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.20)
+                            : Colors.black.withValues(alpha: 0.12),
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 11,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 11,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+                    onPressed: () {
+                      _drawerSearchController.clear();
+                    },
                   ),
-                  tooltip: 'Limpiar',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 24, height: 24),
-                  onPressed: () {
-                    _drawerSearchController.clear();
-                  },
                 ),
               Padding(
                 padding: const EdgeInsets.only(left: 2),
@@ -1428,21 +1455,24 @@ class _NanoFloatingNavigationFrameState
                           ),
                         ),
                       )
-                    : IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 17),
-                        color: muted,
-                        tooltip: 'Contraer',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 26,
-                          height: 26,
+                    : Semantics(
+                        label: 'Contraer',
+                        button: true,
+                        child: IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 17),
+                          color: muted,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 26,
+                            height: 26,
+                          ),
+                          onPressed: () {
+                            _drawerSearchController.clear();
+                            setState(() {
+                              _isDrawerSearchExpanded = false;
+                            });
+                          },
                         ),
-                        onPressed: () {
-                          _drawerSearchController.clear();
-                          setState(() {
-                            _isDrawerSearchExpanded = false;
-                          });
-                        },
                       ),
               ),
             ],
@@ -1535,9 +1565,10 @@ class _NanoFloatingNavigationFrameState
       ),
     );
 
-    return Tooltip(
-      message: tooltip,
-      triggerMode: TooltipTriggerMode.manual,
+    // Semantics en lugar de Tooltip: evita Overlay.of() que falla en custom stacks
+    return Semantics(
+      label: tooltip,
+      button: true,
       child: SizedBox(
         height: itemSize + 4.0,
         child: Stack(
@@ -1652,9 +1683,10 @@ class _NanoFloatingNavigationFrameState
       ),
     );
 
-    return Tooltip(
-      message: destination.label,
-      triggerMode: TooltipTriggerMode.manual,
+    // Semantics en lugar de Tooltip: evita Overlay.of() que falla en custom stacks
+    return Semantics(
+      label: destination.label,
+      button: true,
       child: SizedBox(
         height: itemSize + 4.0,
         child: Stack(

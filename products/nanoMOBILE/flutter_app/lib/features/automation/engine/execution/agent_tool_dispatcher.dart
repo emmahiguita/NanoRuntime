@@ -17,6 +17,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/services/nano_runtime_api.dart';
+import '../agent_tools/registry/tool_registry.dart' show DynamicToolRegistry;
 import '../governance/action_confirmation.dart';
 import '../governance/rule_execution_authority.dart';
 import '../governance/semantic_policy.dart';
@@ -33,6 +34,11 @@ import 'action_verifier.dart';
 import 'agent_executor.dart';
 import 'agent_loop.dart';
 import 'handlers/browser_agent_tool_handler.dart';
+import 'handlers/alarm_tool_handler.dart';
+import 'handlers/app_inspector_tool_handler.dart';
+import 'handlers/system_diagnostics_tool_handler.dart';
+import 'handlers/adb_tool_handler.dart';
+import 'handlers/benchmark_tool_handler.dart';
 import 'handlers/device_system_handler.dart';
 import 'handlers/linux_tool_handler.dart';
 import 'handlers/mcp_tool_handler.dart';
@@ -41,14 +47,23 @@ import 'handlers/semantic_linux_tool_handler.dart';
 import 'handlers/shizuku_tool_handler.dart';
 import 'handlers/ui_tool_handler.dart';
 import 'handlers/web_tool_handler.dart';
+import 'handlers/whatsapp_tool_handler.dart';
 import 'platform_verification.dart';
 import 'plan_execution_coordinator.dart';
 import 'tool_call.dart';
 import 'tool_outcome.dart';
 import 'tool_registry.dart';
 
+import 'handlers/browser_ai_tool_adapter.dart';
+
 export 'agent_tool_protocol.dart';
 export 'handlers/browser_agent_tool_handler.dart';
+export 'handlers/alarm_tool_handler.dart';
+export 'handlers/app_inspector_tool_handler.dart';
+export 'handlers/system_diagnostics_tool_handler.dart';
+export 'handlers/adb_tool_handler.dart';
+export 'handlers/benchmark_tool_handler.dart';
+export 'handlers/browser_ai_tool_adapter.dart';
 export 'handlers/device_system_handler.dart';
 export 'handlers/linux_tool_handler.dart';
 export 'handlers/mcp_tool_handler.dart';
@@ -56,10 +71,14 @@ export 'handlers/notification_tool_handler.dart';
 export 'handlers/shizuku_tool_handler.dart';
 export 'handlers/ui_tool_handler.dart';
 export 'handlers/web_tool_handler.dart';
+export 'handlers/whatsapp_tool_handler.dart';
 export 'plan_execution_coordinator.dart';
 export 'tool_call.dart';
 export 'tool_loop_detector.dart';
 export 'tool_outcome.dart';
+
+part 'agent_tool_command_router.dart';
+part 'agent_tool_execution_router.dart';
 
 /// Ejecutor de comandos `@` y de [ToolCall] del LLM.
 ///
@@ -104,6 +123,14 @@ class AgentToolDispatcher {
     McpToolHandler? mcpHandler,
     WebToolHandler? webHandler,
     BrowserAgentToolHandler? browserAgentHandler,
+    BrowserAiToolAdapter? browserAiAdapter,
+    WhatsAppToolHandler? whatsAppHandler,
+    AlarmToolHandler? alarmHandler,
+    AppInspectorToolHandler? appInspectorHandler,
+    SystemDiagnosticsToolHandler? diagnosticsHandler,
+    AdbToolHandler? adbHandler,
+    BenchmarkToolHandler? benchmarkHandler,
+    DynamicToolRegistry? dynamicRegistry,
   }) : _executor = executor ?? NanoAgentExecutor(),
        _policy = policy ?? PolicyEngine(registry: registry),
        _verifier = verifier,
@@ -122,6 +149,17 @@ class AgentToolDispatcher {
        _webHandler = webHandler ?? WebToolHandler(),
        _browserAgentHandler =
            browserAgentHandler ?? const BrowserAgentToolHandler(),
+       _browserAiAdapter = browserAiAdapter,
+       _whatsAppHandler = whatsAppHandler ?? WhatsAppToolHandler(),
+       _alarmHandler = alarmHandler ?? AlarmToolHandler(),
+       _appInspectorHandler = appInspectorHandler ??
+           AppInspectorToolHandler(
+             catalog: installedAppCatalog,
+             situationSource: currentSituationSource,
+           ),
+       _diagnosticsHandler = diagnosticsHandler ?? SystemDiagnosticsToolHandler(),
+       _adbHandler = adbHandler ?? AdbToolHandler(),
+       _benchmarkHandler = benchmarkHandler ?? BenchmarkToolHandler(),
        _shizukuHandler = shizukuHandler ?? ShizukuToolHandler(),
        _notificationHandler = notificationHandler ?? NotificationToolHandler(),
        _linuxHandler =
@@ -135,6 +173,8 @@ class AgentToolDispatcher {
        _mcpHandler =
            mcpHandler ??
            McpToolHandler(mcpConnectionRegistry: mcpConnectionRegistry),
+       _installedAppCatalog = installedAppCatalog,
+       _dynamicRegistry = dynamicRegistry,
        _deviceHandler =
            deviceHandler ??
            DeviceSystemHandler(
@@ -150,6 +190,8 @@ class AgentToolDispatcher {
 
   final AgentExecutor _executor;
   final PolicyEngine _policy;
+  final InstalledAppCatalog? _installedAppCatalog;
+  final DynamicToolRegistry? _dynamicRegistry;
   AgentVerifier? _verifier;
 
   /// Fuente única para política y prompt del modelo local.
@@ -229,6 +271,13 @@ class AgentToolDispatcher {
   final McpToolHandler _mcpHandler;
   final WebToolHandler _webHandler;
   final BrowserAgentToolHandler _browserAgentHandler;
+  final BrowserAiToolAdapter? _browserAiAdapter;
+  final WhatsAppToolHandler _whatsAppHandler;
+  final AlarmToolHandler _alarmHandler;
+  final AppInspectorToolHandler _appInspectorHandler;
+  final SystemDiagnosticsToolHandler _diagnosticsHandler;
+  final AdbToolHandler _adbHandler;
+  final BenchmarkToolHandler _benchmarkHandler;
 
   /// Verificador de postcondiciones (lazy: comparte el snapshot del
   /// executor). null en tests que no verifican.
@@ -290,179 +339,12 @@ class AgentToolDispatcher {
         .toLowerCase();
     final rest = space < 0 ? '' : t.substring(space + 1).trim();
 
-    final ToolCall? call;
-    switch (verb) {
-      case 'pantalla':
-      case 'screen':
-        call = const ToolCall(tool: 'screen');
-      // A16 — extrae TODO el texto visible (observación de contenido, no solo
-      // el top de nodos). Base de "dime qué dice esta página".
-      case 'leer':
-      case 'leer_pantalla':
-        return _uiHandler.readScreenText();
-      case 'resolver':
-      case 'resolve':
-        call = ToolCall(tool: 'resolve', selector: rest);
-      case 'tap':
-      case 'tocar':
-        call = ToolCall(tool: 'tap', selector: rest);
-      case 'escribir':
-      case 'write':
-        // Sintaxis: `texto | selector` (el texto puede contener espacios).
-        final sep = rest.lastIndexOf(' | ');
-        if (sep < 0) {
-          return 'Sintaxis: @escribir <texto> | <selector>. Ej: @escribir wifi | editable=true';
-        }
-        call = ToolCall(
-          tool: 'write',
-          text: rest.substring(0, sep).trim(),
-          selector: rest.substring(sep + 3).trim(),
-        );
-      case 'back':
-      case 'atras':
-      case 'atrás':
-        call = const ToolCall(tool: 'back');
-      case 'notificaciones':
-      case 'notifications':
-        call = const ToolCall(tool: 'notifications');
-      case 'bateria':
-      case 'battery':
-      case 'dispositivo':
-      case 'device_state':
-      case 'wifi':
-      case 'red':
-        return _deviceHandler.deviceState();
-      case 'diagnostics':
-      case 'device.diagnostics':
-      case 'device_diagnostics':
-        return _mcpHandler.handleMcpCommand(
-          'call device.diagnostics',
-          runGuarded: runToolGuarded,
-          executionId: executionId,
-          cancellation: cancellation,
-        );
-      case 'git':
-        return (await runToolGuarded(
-          ToolCall(
-            tool: 'linux.run',
-            args: {'command': rest.isEmpty ? 'git status' : 'git $rest'},
-          ),
-          humanInitiated: true,
-          executionId: executionId,
-          cancellation: cancellation,
-        )).feedback;
-      case 'home':
-      case 'inicio':
-        call = const ToolCall(tool: 'home');
-      case 'recents':
-      case 'recientes':
-        call = const ToolCall(tool: 'recents');
-      case 'sombra':
-        call = const ToolCall(tool: 'open_notifications');
-      case 'quick_settings':
-      case 'ajustes_rapidos':
-        call = const ToolCall(tool: 'open_quick_settings');
-      // A14.5 — informe ejecutivo factual de capacidades locales, soberanía de
-      // datos y déficits de seguridad. No necesita LLM: lee el SystemGraph real
-      // + estado de permisos + Shizuku. Autoría humana (pasa la política).
-      case 'capacidades':
-      case 'capabilities':
-      case 'resumen':
-        return _deviceHandler.runCapabilitiesReport();
-      // A16 — entrada por voz: transcribe y devuelve el texto.
-      case 'escuchar':
-      case 'voz':
-        return _deviceHandler.listenVoice();
-      // A16 — salida por voz (TTS): habla el texto.
-      case 'habla':
-        return _deviceHandler.speak(rest);
-      // A14.5 — "acción que solicite permisos para continuar".
-      case 'conceder':
-        return _deviceHandler.runGrantPermission(rest);
-      case 'conceder_accessibility':
-        return _deviceHandler.runGrantPermission('accessibility');
-      case 'conceder_notificaciones':
-        return _deviceHandler.runGrantPermission('notificaciones');
-      case 'conceder_archivos':
-        return _deviceHandler.runGrantPermission('archivos');
-      case 'conceder_runtime':
-        return _deviceHandler.runGrantPermission('runtime');
-      case 'conceder_shizuku':
-        return _shizukuHandler.grantShizuku();
-      // A14.5 — contestar una notificación desde el chat con control humano.
-      case 'responder':
-      case 'reply':
-        return _notificationHandler.respond(rest);
-      case 'cuenta':
-      case 'mi_cuenta':
-      case 'google_account':
-        return _webHandler.getGoogleAccountInfo();
-      case 'ip':
-      case 'mi_ip':
-        return _webHandler.fetchIp();
-      case 'web':
-      case 'fetch':
-        return _webHandler.fetchWeb(rest);
-      case 'url':
-      case 'navegar':
-        final u = rest.trim();
-        if (u.isEmpty) {
-          return 'Sintaxis: @url <enlace>. Ej: @url https://google.com';
-        }
-        final full = u.startsWith('http://') || u.startsWith('https://')
-            ? u
-            : 'https://$u';
-        return _webHandler.openUrl(full);
-      case 'buscar':
-      case 'google':
-      case 'search':
-        return _webHandler.searchKnowledge(rest);
-      case 'abrir':
-      case 'launch':
-      case 'launch_app':
-        return _deviceHandler.handleOpenAppCommand(
-          rest,
-          runGuarded: runToolGuarded,
-          executionId: executionId,
-          cancellation: cancellation,
-        );
-      case 'mcp':
-        return _mcpHandler.handleMcpCommand(
-          rest,
-          runGuarded: runToolGuarded,
-          executionId: executionId,
-          cancellation: cancellation,
-        );
-      case 'gemini':
-        return _browserAgentHandler.handleCommand(
-          rest.isNotEmpty ? '@gemini $rest' : '@gemini .',
-        );
-      case 'gpt':
-      case 'chatgpt':
-        return _browserAgentHandler.handleCommand(
-          rest.isNotEmpty ? '@chatgpt $rest' : '@chatgpt .',
-        );
-      case 'deepseek':
-        return _browserAgentHandler.handleCommand(
-          rest.isNotEmpty ? '@deepseek $rest' : '@deepseek .',
-        );
-      case 'claude':
-        return _browserAgentHandler.handleCommand(
-          rest.isNotEmpty ? '@claude $rest' : '@claude .',
-        );
-      case 'browser_ai':
-        return _browserAgentHandler.handleCommand(
-          rest.isNotEmpty ? '@browser_ai $rest' : '@browser_ai .',
-        );
-      default:
-        return 'Comando desconocido "@$verb". Disponibles: @ip, @gemini <prompt>, @gpt <prompt>, @deepseek <prompt>, @claude <prompt>, @browser_ai, @web <url>, @url <enlace>, @buscar <consulta>, @abrir <app>, @mcp <list|call>, @pantalla, @leer_pantalla, @resolver <selector>, @tap <selector>, @escribir <texto> | <selector>, @notificaciones, @responder [indice] <texto>, @back, @home, @recents, @sombra, @quick_settings, @capacidades, @conceder <permiso|shizuku>.';
-    }
-    return (await runToolGuarded(
-      call,
-      humanInitiated: true,
+    return _dispatchCommandVerb(
+      verb,
+      rest,
       executionId: executionId,
       cancellation: cancellation,
-    )).feedback;
+    );
   }
 
   // ── Tool-calling LLM ──────────────────────────────────────────────────────
@@ -713,171 +595,6 @@ class AgentToolDispatcher {
       );
     } catch (e) {
       return '[error] "${tool.name}" falló: $e';
-    }
-  }
-
-  /// Ejecución de la herramienta delegada a los handlers especializados.
-  Future<String> _executeTool(ToolCall call) async {
-    switch (call.tool) {
-      case 'screen':
-        if (call.args?['readText'] == true || call.args?['mode'] == 'text') {
-          return _uiHandler.readScreenText();
-        }
-        return _uiHandler.describeScreen();
-      case 'read_screen':
-        return _uiHandler.readScreenText();
-      case 'resolve':
-        if (call.selectorArg == null || call.selectorArg!.isEmpty) {
-          return '[tool] resolve requiere "selector".';
-        }
-        return _uiHandler.resolve(call.selectorArg!);
-      case 'tap':
-        if (call.selectorArg == null || call.selectorArg!.isEmpty) {
-          return '[tool] tap requiere "selector".';
-        }
-        return _uiHandler.tap(call);
-      case 'write':
-        if (call.selectorArg == null || call.selectorArg!.isEmpty) {
-          return '[tool] write requiere "selector".';
-        }
-        return _uiHandler.write(call);
-      case 'back':
-        return _uiHandler.back(call);
-      case 'home':
-        return _uiHandler.navigate(call, 'Pantalla de inicio', 'home');
-      case 'recents':
-        return _uiHandler.navigate(call, 'Recientes', 'recents');
-      case 'open_notifications':
-        return _uiHandler.navigate(call, 'Sombra de notificaciones', 'notifications');
-      case 'open_quick_settings':
-        return _uiHandler.navigate(call, 'Ajustes rápidos', 'quick_settings');
-      case 'swipe':
-        return _uiHandler.doSwipe(call);
-      case 'scroll':
-        return _uiHandler.doScroll(call);
-      case 'long_press':
-        return _uiHandler.doLongPress(call);
-      case 'open_system':
-        return _uiHandler.openSystem(call);
-      case 'open_url':
-        final urlArg = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (urlArg.isEmpty) {
-          return '[tool] open_url requiere <url>.';
-        }
-        final pkgArg = (call.args?['packageName'] as String?)?.trim();
-        return _webHandler.openUrl(urlArg, packageName: pkgArg);
-      case 'fetch_web':
-      case 'web_fetch':
-      case 'http_get':
-        final urlArg =
-            (call.textArg ??
-                    call.selectorArg ??
-                    (call.args?['url'] as String?) ??
-                    '')
-                .trim();
-        if (urlArg.isEmpty) {
-          return '[tool] fetch_web requiere <url>.';
-        }
-        return _webHandler.fetchWeb(urlArg);
-      case 'search_knowledge':
-      case 'search_web':
-        final q =
-            (call.textArg ??
-                    call.selectorArg ??
-                    (call.args?['query'] as String?) ??
-                    '')
-                .trim();
-        if (q.isEmpty) {
-          return '[tool] search_knowledge requiere "query" o texto.';
-        }
-        return _webHandler.searchKnowledge(q);
-      case 'browser_ai_query':
-      case 'reverse_agent_query':
-        final provider =
-            (call.args?['provider'] as String?)?.trim() ?? 'gemini';
-        final prompt =
-            (call.args?['prompt'] as String?) ??
-            call.textArg ??
-            call.selectorArg ??
-            '';
-        final headless = call.args?['headless'] != false;
-        return _browserAgentHandler.executeQuery(
-          provider: provider,
-          prompt: prompt,
-          headless: headless,
-        );
-      case 'launch_app':
-        final packageName = call.packageNameArg?.trim() ?? '';
-        if (packageName.isEmpty) {
-          return '[tool] launch_app requiere args {packageName}.';
-        }
-        final launched = await _launchPackage(packageName);
-        if (!launched) {
-          return '[launchFailed] Android no pudo abrir el paquete '
-              '"$packageName".';
-        }
-        final expectation = _uiHandler
-            .expectationFor(call)
-            .copyWith(expectedPackage: packageName);
-        return _uiHandler.verifiedFeedback(
-          'Aplicación abierta por Intent: $packageName.',
-          expectation,
-        );
-      case 'notifications':
-        return _notificationHandler.listNotifications();
-      case 'device_state':
-        return _deviceHandler.deviceState();
-      case 'shizuku_query_package':
-        final pkgArg = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (pkgArg.isEmpty) return '[tool] shizuku_query_package requiere <packageName>.';
-        return _shizukuHandler.queryPackage(pkgArg);
-      case 'force_stop_package':
-        final pkgArg2 = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (pkgArg2.isEmpty) return '[tool] force_stop_package requiere <packageName>.';
-        return _shizukuHandler.forceStop(pkgArg2, platformStateReader: _platformStateReader);
-      case 'install_package':
-        final apkArg = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (apkArg.isEmpty) return '[tool] install_package requiere <apkPath>.';
-        return _shizukuHandler.install(apkArg);
-      case 'grant_specific_permission':
-        final pkgArg3 = (call.textArg ?? call.selectorArg ?? '').trim();
-        final permArg = ((call.args?['permission'] as String?) ?? '').trim();
-        if (pkgArg3.isEmpty || permArg.isEmpty) {
-          return '[tool] grant_specific_permission requiere <packageName> y permission.';
-        }
-        return _shizukuHandler.grantPermission(pkgArg3, permArg);
-      case 'reply_notification':
-        final key = call.keyArg?.trim() ?? '';
-        final text = call.textArg?.trim() ?? '';
-        if (key.isEmpty) return '[tool] reply_notification requiere "key".';
-        if (text.isEmpty) return '[tool] reply_notification requiere "text".';
-        final rawActionIndex = call.args?['actionIndex'];
-        final rawPostTime = call.args?['postTime'];
-        return _notificationHandler.replyNotification(
-          key: key,
-          text: text,
-          actionIndex: rawActionIndex is num ? rawActionIndex.toInt() : null,
-          remoteInputKey: (call.args?['remoteInputKey'] as String?)?.trim(),
-          contextFingerprint: (call.args?['contextFingerprint'] as String?)?.trim(),
-          postTime: rawPostTime is num ? rawPostTime.toInt() : null,
-        );
-      case 'linux.list':
-      case 'linux.readFile':
-      case 'linux.readfile':
-      case 'linux.writeFile':
-      case 'linux.writefile':
-      case 'linux.run':
-        return _linuxHandler.executeLinuxTool(call, registry);
-      case 'mcp.read':
-      case 'mcp.device':
-      case 'mcp.externalWrite':
-      case 'mcp.privileged':
-        return _mcpHandler.executeMcpTool(call);
-      default:
-        if (call.tool.toLowerCase().startsWith('nano.linux.')) {
-          return _semanticLinuxHandler.handleToolCall(call);
-        }
-        return '[tool] Herramienta desconocida "${call.tool}".';
     }
   }
 }

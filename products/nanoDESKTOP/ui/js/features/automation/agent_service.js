@@ -1,431 +1,195 @@
-import { transport } from '../../core/transport.js';
-
 /**
- * AgentService — Motor de Ejecución y Orquestación de Agentes Soberanos
- * 
- * Gestiona el ciclo de vida, la ejecución real de herramientas (Web Search, File RAG, VRAM),
- * la inferencia local con LLMs, la gobernanza humana determinista y el daemon de segundo plano.
+ * agent_service.js — Singleton de Orquestación de Agentes Soberanos
+ *
+ * QUÉ HACE: Gestiona ciclo de vida (CRUD), daemon de fondo, gobernanza humana
+ *   y observabilidad (subscribe/notify) de todos los agentes locales.
+ * CÓMO FUNCIONA: Patrón Observer + singleton exportado. Persiste en localStorage.
+ *   Delega ejecución de herramientas a agent_executor.js (SRP).
+ * POR QUÉ: Las vistas no deben conocer lógica de persistencia ni ejecución.
  */
+
+import { formatRelativeTime }                       from '../../core/utils.js';
+import { TRIGGER_MAP }                              from './automation_modals.js';
+import { getDefaultAgents, getDefaultLogs }         from './automation_defaults.js';
+import { runAgentTools }                            from './agent_executor.js';
+
 class AgentService {
   constructor() {
-    this.agentsKey = 'nano_desktop_agents_v2';
-    this.logsKey = 'nano_desktop_agent_logs_v1';
-    this.agents = [];
-    this.logs = [];
-    this.listeners = [];
+    this.agentsKey   = 'nano_desktop_agents_v2';
+    this.logsKey     = 'nano_desktop_agent_logs_v1';
+    this.agents      = [];
+    this.logs        = [];
+    this.listeners   = [];
     this.daemonTimer = null;
-    this.lastTickTime = Date.now();
-
-    this.init();
-  }
-
-  init() {
-    this.loadStorage();
+    this._load();
     this.startDaemon();
   }
 
-  subscribe(callback) {
-    this.listeners.push(callback);
-    return () => {
-      this.listeners = this.listeners.filter((cb) => cb !== callback);
-    };
-  }
+  // ─── Observabilidad: patrón pub/sub ───────────────────────────────────────
 
-  notify() {
-    this.listeners.forEach((cb) => cb({ agents: this.agents, logs: this.logs }));
-  }
+  /** Suscribe un callback; retorna la función para desuscribirse. */
+  subscribe(cb) { this.listeners.push(cb); return () => { this.listeners = this.listeners.filter((l) => l !== cb); }; }
+  notify()      { this.listeners.forEach((cb) => cb({ agents: this.agents, logs: this.logs })); }
 
-  loadStorage() {
+  // ─── Persistencia localStorage ────────────────────────────────────────────
+
+  _load() {
     try {
-      const storedAgents = localStorage.getItem(this.agentsKey);
-      if (storedAgents) {
-        this.agents = JSON.parse(storedAgents);
-      } else {
-        this.agents = this.getDefaultAgents();
-        this.saveAgents();
-      }
-
-      const storedLogs = localStorage.getItem(this.logsKey);
-      if (storedLogs) {
-        this.logs = JSON.parse(storedLogs);
-      } else {
-        this.logs = this.getDefaultLogs();
-        this.saveLogs();
-      }
-    } catch (e) {
-      console.warn('[AgentService] Error cargando almacenamiento:', e);
-      this.agents = this.getDefaultAgents();
-      this.logs = this.getDefaultLogs();
+      this.agents = JSON.parse(localStorage.getItem(this.agentsKey)) || null;
+      if (!this.agents) { this.agents = getDefaultAgents(); this._saveAgents(); }
+      this.logs   = JSON.parse(localStorage.getItem(this.logsKey))   || null;
+      if (!this.logs)   { this.logs   = getDefaultLogs();   this._saveLogs(); }
+    } catch {
+      // Si localStorage falla, usar los defaults y continuar
+      this.agents = getDefaultAgents();
+      this.logs   = getDefaultLogs();
     }
   }
 
-  getDefaultAgents() {
-    return [
-      {
-        id: 'agent-memory-guardian',
-        name: 'Memory Guardian & Auto-Eviction',
-        role: 'Monitorea la presión de VRAM y aplica políticas TTL de descarga automática tras inactividad.',
-        category: 'Sistema Core',
-        model: 'DeepSeek-R1 (Local)',
-        trigger: 'Cada 3.5s / Telemetría activa',
-        triggerType: 'interval',
-        intervalSeconds: 30,
-        lastRunTimestamp: Date.now() - 120000,
-        governance: 'autonomous',
-        tools: ['Hardware Watcher', 'VRAM Optimizer'],
-        status: 'active',
-        isSystem: true,
-        executions: 248,
-        successRate: '100%',
-        lastRun: 'Hace 2m',
-      },
-      {
-        id: 'agent-event-router',
-        name: 'Enrutador de Eventos & Notificaciones',
-        role: 'Escucha eventos entrantes del sistema y despacha respuestas asistidas con aprobación humana.',
-        category: 'Gobernanza',
-        model: 'Phi-3-mini',
-        trigger: 'Eventos del Sistema / Notificaciones',
-        triggerType: 'event',
-        lastRunTimestamp: Date.now() - 720000,
-        governance: 'approval',
-        tools: ['RemoteInput', 'Shizuku Hook'],
-        status: 'active',
-        isSystem: true,
-        executions: 84,
-        successRate: '98.8%',
-        lastRun: 'Hace 12m',
-      },
-      {
-        id: 'agent-mcp-dispatcher',
-        name: 'Servidor de Herramientas MCP Soberano',
-        role: 'Expone capacidades soberanas para inspección de archivos, terminal sandboxed y consulta web en vivo.',
-        category: 'Herramientas MCP',
-        model: 'DeepSeek-R1-Distill-Qwen',
-        trigger: 'Bajo demanda en chat & background',
-        triggerType: 'demand',
-        lastRunTimestamp: Date.now() - 240000,
-        governance: 'autonomous',
-        tools: ['DuckDuckGo API', 'Filesystem RAG', 'Terminal'],
-        status: 'active',
-        isSystem: true,
-        executions: 412,
-        successRate: '99.5%',
-        lastRun: 'Hace 4m',
-      },
-      {
-        id: 'agent-code-auditor',
-        name: 'Auditor Soberano de Código & Git',
-        role: 'Inspecciona cambios de archivos en el workspace, analiza sintaxis y genera resúmenes periódicos.',
-        category: 'Desarrollo',
-        model: 'Llama-3.1-8B-Instruct',
-        trigger: 'Cada 15 minutos',
-        triggerType: 'interval',
-        intervalSeconds: 900,
-        lastRunTimestamp: Date.now() - 3600000,
-        governance: 'approval',
-        tools: ['Git Status', 'AST Parser', 'Changelog'],
-        status: 'paused',
-        isSystem: false,
-        executions: 36,
-        successRate: '100%',
-        lastRun: 'Hace 1h',
-      },
-    ];
-  }
+  _saveAgents() { try { localStorage.setItem(this.agentsKey, JSON.stringify(this.agents)); } catch {} }
+  _saveLogs()   { try { localStorage.setItem(this.logsKey,   JSON.stringify(this.logs));   } catch {} }
 
-  getDefaultLogs() {
-    return [
-      {
-        id: 'log-1',
-        timestamp: Date.now() - 120000,
-        time: 'Hace 2m',
-        agentName: 'Memory Guardian',
-        action: 'Comprobación de VRAM: 4.2 GB usados, 11.8 GB libres (Carga: 26.3%). Sin desalojo.',
-        output: 'Telemetría VRAM nominal. Política BALANCED (TTL 15m). Pesos de DeepSeek-R1 conservados en VRAM.',
-        status: 'ok',
-        statusText: 'Éxito',
-        duration: '14ms',
-      },
-      {
-        id: 'log-2',
-        timestamp: Date.now() - 240000,
-        time: 'Hace 4m',
-        agentName: 'MCP Dispatcher',
-        action: 'Búsqueda web en vivo (DuckDuckGo API): "Rust async runtimes"',
-        output: 'Resultados encontrados: Tokio, async-std, smol. Contexto inyectado en prompt soberano.',
-        status: 'ok',
-        statusText: 'Éxito',
-        duration: '340ms',
-      },
-      {
-        id: 'log-3',
-        timestamp: Date.now() - 720000,
-        time: 'Hace 12m',
-        agentName: 'Event Router',
-        action: 'Hook entrante: Petición de lectura remota de logs',
-        output: 'Acción de seguridad en espera de confirmación humana determinista.',
-        status: 'pending',
-        statusText: 'Requiere Aprobación',
-        duration: 'En espera',
-      },
-    ];
-  }
-
-  saveAgents() {
-    try {
-      localStorage.setItem(this.agentsKey, JSON.stringify(this.agents));
-    } catch (e) {
-      console.warn('[AgentService] Error guardando agentes:', e);
-    }
-  }
-
-  saveLogs() {
-    try {
-      localStorage.setItem(this.logsKey, JSON.stringify(this.logs));
-    } catch (e) {
-      console.warn('[AgentService] Error guardando logs:', e);
-    }
-  }
+  // ─── Daemon de Segundo Plano ──────────────────────────────────────────────
 
   /**
-   * Daemon de Segundo Plano: Comprueba periódicamente agentes con triggers temporales.
+   * Inicia el daemon de intervalo soberano.
+   * BUG FIX: Guard `if (this.daemonTimer) return` previene timers zombie acumulados.
+   * Cada navegación entre vistas NO crea un nuevo timer —el singleton lo reutiliza.
    */
   startDaemon() {
-    if (this.daemonTimer) clearInterval(this.daemonTimer);
-
-    // Tiquea cada 12 segundos para evaluar disparadores
+    if (this.daemonTimer) return; // Guard anti-zombie
     this.daemonTimer = setInterval(async () => {
       const now = Date.now();
-      for (const agent of this.agents) {
-        if (agent.status !== 'active') continue;
-
-        if (agent.triggerType === 'interval' && agent.intervalSeconds) {
-          const elapsed = (now - (agent.lastRunTimestamp || 0)) / 1000;
-          if (elapsed >= agent.intervalSeconds) {
-            await this.executeAgent(agent.id, false);
-          }
+      for (const a of this.agents) {
+        if (a.status !== 'active' || a.triggerType !== 'interval' || !a.intervalSeconds) continue;
+        if ((now - (a.lastRunTimestamp || 0)) / 1000 >= a.intervalSeconds) {
+          await this.executeAgent(a.id, false);
         }
       }
-    }, 12000);
+    }, 12000); // Tick cada 12s — evalúa si algún agente de intervalo debe dispararse
   }
 
+  /** Para el daemon limpiamente. Expuesto para testing y cleanup controlado. */
+  stopDaemon() {
+    if (this.daemonTimer) { clearInterval(this.daemonTimer); this.daemonTimer = null; }
+  }
+
+  // ─── Ejecución y Gobernanza ───────────────────────────────────────────────
+
   /**
-   * Ejecuta la lógica real del agente:
-   * - Consulta de hardware real
-   * - Búsqueda web real
-   * - Inferencia LLM soberana
+   * Ejecuta un agente: delega herramientas a agent_executor.js,
+   * aplica gobernanza humana si es disparo automático, y emite log.
    */
   async executeAgent(agentId, isManual = true) {
     const agent = this.agents.find((a) => a.id === agentId);
     if (!agent) return null;
 
-    const startTime = performance.now();
-    let actionSummary = '';
-    let detailedOutput = '';
-    let status = 'ok';
-    let statusText = 'Éxito';
+    // Delegación a agent_executor: este servicio no contiene lógica de herramientas (SRP)
+    let { actionSummary, detailedOutput, status, statusText, elapsedMs } = await runAgentTools(agent);
 
-    try {
-      // 1. Caso: Memory Guardian & Hardware Watcher
-      if (agent.tools.includes('Hardware Watcher') || agent.tools.includes('VRAM Optimizer')) {
-        const sys = await transport.getSystemStatus();
-        const vramReq = transport.calculateModelFit('DeepSeek-R1');
-        const usedMb = sys.used_ram_mb || 4320;
-        const totalMb = sys.total_ram_mb || 16384;
-        const pct = ((usedMb / totalMb) * 100).toFixed(1);
+    // Gobernanza humana: agente de aprobación disparado automáticamente → queda pendiente
+    if (agent.governance === 'approval' && !isManual) { status = 'pending'; statusText = 'Requiere Aprobación'; }
 
-        actionSummary = `Verificación de VRAM: ${(usedMb / 1024).toFixed(1)} GB / ${(totalMb / 1024).toFixed(1)} GB (${pct}%). Fitting: ${vramReq.recommended_offload_layers}`;
-        detailedOutput = `[Diagnóstico Hardware Soberano]\nMemoria RAM en uso: ${usedMb} MB (${pct}%)\nPresión de memoria: Normal\nPolítica TTL activa: ${vramReq.ttl_policy}\nAcción tomada: No se requiere auto-eviction. Pesos anclados en VRAM GPU.`;
-      }
-      // 2. Caso: Búsqueda Web / MCP Dispatcher
-      else if (agent.tools.includes('Web Search') || agent.tools.includes('DuckDuckGo API')) {
-        const query = agent.role.slice(0, 40) || 'Local sovereign AI runtime updates';
-        const webRes = await transport.searchWebKnowledge(query);
-        actionSummary = `Búsqueda Web en vivo (${webRes.source || 'DuckDuckGo'}): "${query}"`;
-        detailedOutput = `[Herramienta Web MCP]\nConsulta: ${query}\nEstado: ${webRes.found ? 'Información verificada' : 'Sin resultados'}\nExtracto:\n${webRes.snippet || 'Conocimiento indexado correctamente.'}`;
-      }
-      // 3. Caso: Inferencia LLM Soberana (DeepSeek-R1 / Phi-3 / Llama-3)
-      else {
-        const prompt = `Actúa como el agente soberano "${agent.name}". Tu misión es: ${agent.role}.\nEjecuta una inspección periódica y entrega un reporte conciso de 2 líneas.`;
-        const genRes = await transport.generateText({
-          prompt,
-          model_path: agent.model,
-          max_tokens: 120,
-        });
-
-        actionSummary = `Inferencia local con ${agent.model}: Misión evaluada`;
-        detailedOutput = genRes.text || `[Ejecución Soberana de ${agent.name}]\nEvaluación completada con éxito. Todos los subsistemas operan dentro de los límites deterministas.`;
-      }
-
-      // Si el agente requiere aprobación humana y es disparado automáticamente:
-      if (agent.governance === 'approval' && !isManual) {
-        status = 'pending';
-        statusText = 'Requiere Aprobación';
-      }
-    } catch (err) {
-      console.error('[AgentService] Error ejecutando agente:', err);
-      actionSummary = `Error en ejecución de ${agent.name}: ${err.message}`;
-      detailedOutput = `Error runtime: ${err.message}`;
-      status = 'error';
-      statusText = 'Error';
-    }
-
-    const elapsedMs = Math.round(performance.now() - startTime);
-
-    // Actualizar agente
-    agent.executions = (agent.executions || 0) + 1;
-    agent.lastRun = 'Justo ahora';
+    // Actualizar estado del agente
+    agent.executions       = (agent.executions || 0) + 1;
     agent.lastRunTimestamp = Date.now();
-    this.saveAgents();
+    agent.lastRun          = formatRelativeTime(agent.lastRunTimestamp);
+    this._saveAgents();
 
-    // Crear registro de log
-    const logEntry = {
-      id: 'log-' + Date.now(),
-      timestamp: Date.now(),
-      time: 'Justo ahora',
-      agentId: agent.id,
-      agentName: agent.name,
-      model: agent.model,
-      action: actionSummary,
-      output: detailedOutput,
-      duration: `${elapsedMs}ms`,
-      status,
-      statusText,
-    };
+    // Crear y registrar entrada de log de telemetría
+    const now   = Date.now();
+    const entry = { id: `log-${now}`, timestamp: now, time: formatRelativeTime(now),
+      agentId: agent.id, agentName: agent.name, model: agent.model,
+      action: actionSummary, output: detailedOutput, duration: `${elapsedMs}ms`, status, statusText };
 
-    this.logs.unshift(logEntry);
-    if (this.logs.length > 50) this.logs.pop();
-    this.saveLogs();
-
+    this.logs.unshift(entry);
+    if (this.logs.length > 50) this.logs.pop(); // Cap historial: máx 50 entradas
+    this._saveLogs();
     this.notify();
-    return logEntry;
+    return entry;
   }
 
-  /**
-   * Gobernanza Humana: Aprobar acción pendiente de agente.
-   */
+  /** Gobernanza: aprobar acción pendiente de un agente. */
   async approveAction(logId) {
     const log = this.logs.find((l) => l.id === logId);
     if (!log) return;
-
     log.status = 'ok';
     log.statusText = 'Aprobado y Ejecutado';
-    log.output = `${log.output}\n\n[Firma Humana: Acción autorizada determinísticamente a las ${new Date().toLocaleTimeString()}].`;
-    this.saveLogs();
-    this.notify();
+    log.output += `\n\n[Firma Humana: Autorizado a las ${new Date().toLocaleTimeString()}].`;
+    this._saveLogs(); this.notify();
   }
 
-  /**
-   * Gobernanza Humana: Rechazar acción pendiente.
-   */
+  /** Gobernanza: rechazar acción pendiente de un agente. */
   rejectAction(logId) {
     const log = this.logs.find((l) => l.id === logId);
     if (!log) return;
-
     log.status = 'error';
     log.statusText = 'Rechazado por Usuario';
-    log.output = `${log.output}\n\n[Firma Humana: Acción bloqueada por el usuario].`;
-    this.saveLogs();
-    this.notify();
+    log.output += '\n\n[Firma Humana: Acción bloqueada].';
+    this._saveLogs(); this.notify();
   }
 
+  // ─── CRUD de Agentes ──────────────────────────────────────────────────────
+
+  /**
+   * Crea y despliega un nuevo agente soberano.
+   * BUG FIX: Usa TRIGGER_MAP en lugar de string-parsing frágil ('includes("minuto")').
+   */
   createAgent(data) {
-    const newAgent = {
-      id: 'agent-' + Date.now(),
-      name: data.name || 'Nuevo Agente Soberano',
-      role: data.role || 'Asistente de automatización local',
-      category: 'Agente Personalizado',
-      model: data.model || 'DeepSeek-R1 (Local)',
-      trigger: data.trigger || 'Cada 5 minutos',
-      triggerType: data.trigger.includes('minuto') || data.trigger.includes('hora') ? 'interval' : 'event',
-      intervalSeconds: data.trigger.includes('1 minuto') ? 60 : data.trigger.includes('5 minuto') ? 300 : 900,
-      governance: data.governance || 'autonomous',
-      tools: data.tools || ['Web Search', 'Filesystem RAG'],
-      status: 'active',
-      isSystem: false,
-      executions: 0,
-      successRate: '100%',
-      lastRun: 'Nunca',
-      lastRunTimestamp: Date.now(),
+    const key  = data.trigger || 'Manual bajo demanda';
+    const info = TRIGGER_MAP[key] || { type: 'demand', seconds: null };
+    const now  = Date.now();
+    const agent = {
+      id: `agent-${now}`, name: data.name || 'Nuevo Agente Soberano',
+      role: data.role || 'Asistente de automatización local', category: 'Agente Personalizado',
+      model: data.model || 'DeepSeek-R1 (Local)', trigger: key,
+      triggerType: info.type, intervalSeconds: info.seconds,
+      governance: data.governance || 'autonomous', tools: data.tools || ['Web Search', 'Filesystem RAG'],
+      status: 'active', isSystem: false, executions: 0, successRate: '100%',
+      lastRun: 'Nunca', lastRunTimestamp: now,
     };
-
-    this.agents.unshift(newAgent);
-    this.saveAgents();
-
-    this.logs.unshift({
-      id: 'log-' + Date.now(),
-      timestamp: Date.now(),
-      time: 'Justo ahora',
-      agentId: newAgent.id,
-      agentName: newAgent.name,
-      model: newAgent.model,
-      action: `Despliegue de agente soberano con disparador "${newAgent.trigger}"`,
-      output: `Agente inicializado con éxito. Gobernanza: ${newAgent.governance}. Herramientas: ${newAgent.tools.join(', ')}.`,
-      duration: '28ms',
-      status: 'ok',
-      statusText: 'Éxito',
-    });
-    this.saveLogs();
-
+    this.agents.unshift(agent);
+    this._saveAgents();
+    this._pushLog(agent, `Despliegue con disparador "${agent.trigger}"`,
+      `Inicializado. Gobernanza: ${agent.governance}. Herramientas: ${agent.tools.join(', ')}.`, '28ms');
     this.notify();
-    return newAgent;
+    return agent;
   }
 
+  /** Pausa o reanuda un agente por su ID. */
   toggleAgentStatus(agentId) {
     const agent = this.agents.find((a) => a.id === agentId);
     if (!agent) return;
-
     agent.status = agent.status === 'active' ? 'paused' : 'active';
-    this.saveAgents();
-
-    this.logs.unshift({
-      id: 'log-' + Date.now(),
-      timestamp: Date.now(),
-      time: 'Justo ahora',
-      agentId: agent.id,
-      agentName: agent.name,
-      model: agent.model,
-      action: `Estado cambiado a: ${agent.status.toUpperCase()}`,
-      output: `El ciclo de vida del agente ha sido actualizado a ${agent.status}.`,
-      duration: '6ms',
-      status: 'ok',
-      statusText: 'Éxito',
-    });
-    this.saveLogs();
-
+    this._saveAgents();
+    this._pushLog(agent, `Estado → ${agent.status.toUpperCase()}`, `Ciclo de vida: ${agent.status}.`, '6ms');
     this.notify();
   }
 
+  /** Elimina un agente del runtime y libera sus referencias. */
   deleteAgent(agentId) {
     const idx = this.agents.findIndex((a) => a.id === agentId);
     if (idx === -1) return;
-
-    const removed = this.agents.splice(idx, 1)[0];
-    this.saveAgents();
-
-    this.logs.unshift({
-      id: 'log-' + Date.now(),
-      timestamp: Date.now(),
-      time: 'Justo ahora',
-      agentId: removed.id,
-      agentName: removed.name,
-      model: removed.model,
-      action: `Agente eliminado del runtime`,
-      output: `El agente "${removed.name}" ha sido desregistrado y sus recursos liberados.`,
-      duration: '4ms',
-      status: 'ok',
-      statusText: 'Éxito',
-    });
-    this.saveLogs();
-
+    const [removed] = this.agents.splice(idx, 1);
+    this._saveAgents();
+    this._pushLog(removed, 'Agente eliminado del runtime',
+      `"${removed.name}" desregistrado y recursos liberados.`, '4ms');
     this.notify();
   }
 
-  clearLogs() {
-    this.logs = [];
-    this.saveLogs();
-    this.notify();
+  /** Vacía el historial de logs de telemetría. */
+  clearLogs() { this.logs = []; this._saveLogs(); this.notify(); }
+
+  // ─── Utilidad interna de log ──────────────────────────────────────────────
+
+  /** Construye y agrega una entrada de log al historial de telemetría. */
+  _pushLog(agent, action, output, duration, status = 'ok', statusText = 'Éxito') {
+    const now = Date.now();
+    this.logs.unshift({ id: `log-${now}`, timestamp: now, time: formatRelativeTime(now),
+      agentId: agent.id, agentName: agent.name, model: agent.model,
+      action, output, duration, status, statusText });
+    if (this.logs.length > 50) this.logs.pop();
+    this._saveLogs();
   }
 }
 

@@ -15,9 +15,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    // A14.4: habilita la compilación de AIDL (UserService de Shizuku).
+    // A14.4: habilita la compilación de AIDL (UserService de Shizuku) y BuildConfig.
     buildFeatures {
         aidl = true
+        buildConfig = true
     }
 
     kotlinOptions {
@@ -43,6 +44,21 @@ android {
         }
     }
 
+    flavorDimensions += listOf("distribution")
+
+    productFlavors {
+        create("playStore") {
+            dimension = "distribution"
+            applicationId = "dev.nanoai.mobile"
+            buildConfigField("boolean", "PLAY_STORE_BUILD", "true")
+        }
+        create("fullSideload") {
+            dimension = "distribution"
+            applicationId = "dev.nanoai.mobile"
+            buildConfigField("boolean", "PLAY_STORE_BUILD", "false")
+        }
+    }
+
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
@@ -54,26 +70,14 @@ android {
         create("release") {
             // Signing config lee credenciales de variables de entorno.
             // Si no están definidas, fallback a debug keystore (solo desarrollo).
-            //
-            // Variables requeridas para firma de producción:
-            //   NANOAI_KEYSTORE       — ruta absoluta al archivo .jks/.keystore
-            //   NANOAI_KEYSTORE_PASS  — contraseña del almacén
-            //   NANOAI_KEY_ALIAS      — alias de la clave dentro del almacén
-            //   NANOAI_KEY_PASS       — contraseña de la clave
-            //
-            // CI/CD: configurar como secrets en GitHub Actions / Codemagic.
-            // Local:  export NANOAI_KEYSTORE=/ruta/a/release.keystore && flutter build apk --release
             val keystorePath = System.getenv("NANOAI_KEYSTORE")
             if (keystorePath != null) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("NANOAI_KEYSTORE_PASS")
                 keyAlias = System.getenv("NANOAI_KEY_ALIAS")
                 keyPassword = System.getenv("NANOAI_KEY_PASS")
-                // B-003 FIX: no loguear el path del keystore (exposición en logs de CI/CD).
                 println("NanoAI: release signing con keystore externo.")
             } else {
-                // Fallback a debug keystore para `flutter run --release` en desarrollo.
-                // ⚠️ NO distribuir APKs firmadas con este certificado.
                 storeFile = signingConfigs.getByName("debug").storeFile
                 storePassword = signingConfigs.getByName("debug").storePassword
                 keyAlias = signingConfigs.getByName("debug").keyAlias
@@ -84,6 +88,10 @@ android {
     }
 
     packaging {
+        jniLibs {
+            // El runtime abre .so por ruta: deben ir comprimidas y extraerse.
+            useLegacyPackaging = true
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             pickFirsts += "assets/mlkit-google-ocr-models/**"
@@ -110,29 +118,12 @@ flutter {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
-    // Coroutines para operaciones async en platform channel handlers
-    // (download/extract del rootfs Termux en background thread).
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("org.tukaani:xz:1.9")
-    // A9: OCR on-device (bundled, sin Google Play Services) como fallback de
-    // percepción cuando Accessibility no resuelve. Detrás de OcrBackend.
     implementation("com.google.mlkit:text-recognition:16.0.1")
-    // A16: visión on-device (etiquetado de imagen) como backend REAL del seam
-    // VisionPerceptionSource. Detección de objetos/etiquetas con bounding box,
-    // sin red (soberanía local).
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:image-labeling:17.0.8")
-    // A14.3: API oficial de Shizuku (dev.rikka.shizuku:api) — SOLO disponibilidad
-    // FACTUAL (pingBinder/checkSelfPermission, ambas pasivas: sin diálogo, sin
-    // acciones privilegiadas). La ejecución Shizuku es A14.4 con capacidades
-    // tipadas, nunca shell arbitrario. Apache-2.0, minSdk 23 <= nuestro minSdk 26.
-    // Artefacto: github.com/rikkaapps/shizuku (api/manifest.gradle, v13.1.5).
     implementation("dev.rikka.shizuku:api:13.1.5")
-    // A14.3: ShizukuProvider (ContentProvider que establece el binding con el
-    // servicio Shizuku). NECESARIO: la clase `rikka.shizuku.ShizukuProvider` está
-    // en `dev.rikka.shizuku:provider` (NO en `:api`, confirmado inspeccionando la
-    // AAR). Sin este artifact, el <provider> del manifest se instancia por
-    // reflexión y no existe -> ClassNotFoundException en el arranque (crash).
     implementation("dev.rikka.shizuku:provider:13.1.5")
 }
-

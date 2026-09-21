@@ -7,6 +7,7 @@ import android.os.Looper
 import dev.nanoai.mobile.services.AgentAccessibilityBridge
 import dev.nanoai.mobile.services.NanoAtomicSnapshotter
 import dev.nanoai.mobile.services.OcrService
+import dev.nanoai.mobile.services.QrService
 import dev.nanoai.mobile.services.VisionService
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -65,6 +66,7 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ocrService = OcrService()
+    private val qrService = QrService()
     private val visionService = VisionService()
     private val ocrExecutor = Executors.newSingleThreadExecutor()
 
@@ -352,6 +354,62 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
                     } catch (e: Exception) {
                         result.error("VISION_ERR", e.message ?: "error vision", null)
                     }
+                }
+            }
+
+            "scanQr" -> {
+                val png = call.argument<ByteArray>("png")
+                if (png == null) {
+                    result.error("ARG", "sin imagen PNG", null)
+                    return
+                }
+                ocrExecutor.execute {
+                    try {
+                        val bitmap = BitmapFactory.decodeByteArray(png, 0, png.size)
+                        val qrResults = qrService.scan(bitmap)
+                        result.success(qrResults.map {
+                            mapOf(
+                                "rawValue" to it.rawValue,
+                                "format" to it.format,
+                                "valueType" to it.valueType,
+                                "bounds" to (it.bounds ?: emptyList<Int>()),
+                            )
+                        })
+                        bitmap.recycle()
+                    } catch (e: Exception) {
+                        result.error("QR_ERR", e.message ?: "error QR", null)
+                    }
+                }
+            }
+
+            "openGoogleLens" -> {
+                val filePath = call.argument<String>("filePath")
+                if (filePath.isNullOrBlank()) {
+                    result.error("ARG", "filePath requerido", null)
+                    return
+                }
+                try {
+                    val file = java.io.File(filePath)
+                    val service = dev.nanoai.mobile.services.AgentAccessibilityBridge.service
+                    if (service != null && file.exists()) {
+                        val uri = androidx.core.content.FileProvider.getUriForFile(
+                            service,
+                            "dev.nanoai.mobile.fileprovider",
+                            file,
+                        )
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "image/*")
+                            setPackage("com.google.ar.lens")
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        service.startActivity(intent)
+                        result.success(true)
+                    } else {
+                        result.error("ERR", "Servicio no activo o archivo inaccesible", null)
+                    }
+                } catch (e: Exception) {
+                    result.error("LENS_ERR", e.message ?: "Google Lens no disponible", null)
                 }
             }
 

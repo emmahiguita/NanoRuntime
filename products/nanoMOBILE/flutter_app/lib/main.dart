@@ -15,10 +15,13 @@ import 'features/automation/headless/automation_headless_runner.dart';
 import 'features/automation/application/automation_coordinator_provider.dart'
     show notificationEventRouterProvider, timeTickSchedulerProvider;
 import 'features/browser/presentation/widgets/browser_pip_overlay.dart';
+import 'features/browser/presentation/widgets/nano_floating_owl_hub_sheet.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
 const _kNavChannel = MethodChannel('com.nanoai/navigation');
+
+void Function(String prompt)? _onExternalPromptReceived;
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +49,21 @@ void _listenSystemNavigation() {
   _kNavChannel.setMethodCallHandler((call) async {
     if (call.method == 'openSettings') {
       AppRouter.router.go('/settings');
+    } else if (call.method == 'openOwlHub') {
+      final ctx = AppRouter.rootNavigatorKey.currentContext;
+      if (ctx != null) {
+        NanoFloatingOwlHubSheet.show(ctx);
+      }
+    } else if (call.method == 'navigate') {
+      final route = call.arguments as String?;
+      if (route != null && route.isNotEmpty) {
+        AppRouter.router.go(route);
+      }
+    } else if (call.method == 'submitPrompt') {
+      final prompt = call.arguments as String?;
+      if (prompt != null && prompt.trim().isNotEmpty) {
+        _onExternalPromptReceived?.call(prompt.trim());
+      }
     }
   });
 }
@@ -57,23 +75,27 @@ class NanoPlatformApp extends ConsumerStatefulWidget {
   ConsumerState<NanoPlatformApp> createState() => _NanoPlatformAppState();
 }
 
-class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
+class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    // Habilitar inmersión Edge-to-Edge para evitar la barra negra del sistema
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        systemNavigationBarColor: Colors.transparent,
-        statusBarColor: Colors.transparent,
-      ),
-    );
+    WidgetsBinding.instance.addObserver(this);
+    _onExternalPromptReceived = (prompt) {
+      AppRouter.router.go('/chat');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(chatProvider.notifier).send(prompt);
+      });
+    };
+    // Habilitar inmersión total sticky: oculta la barra de estado (wifi, hora,
+    // batería) para aprovechar al 100% la pantalla sin barras del sistema.
+    _applyImmersiveMode();
     // Cargar settings persistidos (tema, password VNC, límites del motor)
     // ANTES del primer frame. Sin esto, un arranque en frío ignora el
     // password VNC guardado y el visor/launcher arrancan Xvnc sin auth.
     unawaited(ref.read(settingsProvider.notifier).init());
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _applyImmersiveMode();
       unawaited(BootOrchestrator().run());
       // Pide los permisos runtime que falten (micrófono, medios y, en Android
       // 13+, POST_NOTIFICATIONS) tras el primer frame. Solo muestra diálogos de
@@ -84,6 +106,24 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
       ref.read(notificationEventRouterProvider);
       ref.read(timeTickSchedulerProvider);
     });
+  }
+
+  @override
+  void dispose() {
+    _onExternalPromptReceived = null;
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _applyImmersiveMode();
+    }
+  }
+
+  void _applyImmersiveMode() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
@@ -107,13 +147,22 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp> {
               .accessibilityFeatures
               .disableAnimations
           ? Duration.zero
-          : NanoMotionDurations.emphasized,
-      themeAnimationCurve: NanoMotionCurves.emphasized,
+          : NanoMotionDurations.standard,
+      themeAnimationCurve: NanoMotionCurves.standardDecel,
       routerConfig: AppRouter.router,
-      builder: (context, child) => Stack(
-        fit: StackFit.expand,
-        children: [child ?? const SizedBox.shrink(), const BrowserPipOverlay()],
-      ),
+      builder: (context, child) {
+        // OVERLAY-FIX-01: No encapsular en un OverlayEntry artificial aquí.
+        // MaterialApp.router ya provee su propio Overlay nativo con el Navigator.
+        // Un Overlay manual adicional en el builder destruye el lookup de Overlay.of(context)
+        // en diálogos, tooltips y menús, generando la caja roja "No Overlay".
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            child ?? const SizedBox.shrink(),
+            const BrowserPipOverlay(),
+          ],
+        );
+      },
     );
   }
 }

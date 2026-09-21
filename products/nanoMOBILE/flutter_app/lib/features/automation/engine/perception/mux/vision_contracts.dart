@@ -54,8 +54,8 @@ class VisionRequest {
 }
 
 /// Analiza una imagen (crop o full-screen) y devuelve observaciones
-/// estructuradas. Implementación concreta en platform (backend real NO listo
-/// en A10: el runtime local es text-only).
+/// estructuradas. [MlKitVisionBackend] aporta la implementación Android real;
+/// sigue siendo un clasificador, no un modelo visión-lenguaje completo.
 abstract interface class VisionBackend {
   Future<VisionResult> analyze(VisionRequest request);
 }

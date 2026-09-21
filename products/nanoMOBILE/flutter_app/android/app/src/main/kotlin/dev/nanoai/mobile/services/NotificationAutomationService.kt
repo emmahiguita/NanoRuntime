@@ -326,6 +326,7 @@ class NotificationAutomationService : NotificationListenerService() {
                 .map { it.title?.toString().orEmpty() }
                 .filter { it.isNotEmpty() },
             "ongoing" to source.isOngoing,
+            "allowedDataTypes" to (reply?.remoteInputs?.flatMap { it.allowedDataTypes.orEmpty() } ?: emptyList<String>()),
         )
     }
 

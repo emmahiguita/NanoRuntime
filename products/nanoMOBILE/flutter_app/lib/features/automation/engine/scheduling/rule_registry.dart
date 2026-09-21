@@ -139,47 +139,64 @@ class RuleRegistry with ChangeNotifier {
     _rules
       ..clear()
       ..addAll(unique);
+    // WA-FILTER-01: Garantizar que la regla de WhatsApp responda ÚNICAMENTE a Emm / Emma / Emma Hg
+    for (var i = 0; i < _rules.length; i++) {
+      final r = _rules[i];
+      if (r.id == universalWhatsAppRuleId && r.trigger is NotificationTrigger) {
+        final nt = r.trigger as NotificationTrigger;
+        if (nt.senderMatch != 'Emm') {
+          _rules[i] = r.copyWith(
+            trigger: NotificationTrigger(
+              packageName: nt.packageName,
+              senderMatch: 'Emm',
+              textMatch: nt.textMatch,
+              excludedSenderMatch: nt.excludedSenderMatch,
+            ),
+          );
+        }
+      }
+    }
     _loaded = true;
     notifyListeners();
-    // WA-CONSENT-01: sin auto-seed. La UI llama a seedWhatsAppRule() al
-    // activar la automatización por primera vez.
   }
 
-  /// WA-CONSENT-01 — siembra la regla universal de WhatsApp para el paquete
-  /// indicado POR PETICIÓN EXPLÍCITA del usuario desde la pantalla de
-  /// activación. Idempotente: si la regla ya existe (instalación previa)
-  /// no la duplica ni la sobreescribe (toggle y edición respetados).
-  ///
+  /// WA-CONSENT-01 — siembra la regla universal de WhatsApp para el paquete.
   static String ruleIdForPackage(String packageName) =>
       packageName == MessagingPackage.whatsappBusiness
           ? universalWhatsAppBusinessRuleId
           : universalWhatsAppRuleId;
 
-  /// WA-CONSENT-01 — siembra o reactiva la regla universal de WhatsApp para el paquete
-  /// indicado POR PETICIÓN EXPLÍCITA del usuario desde la pantalla de
-  /// activación. Idempotente: si la regla ya existe y estaba desactivada,
-  /// la habilita; si no existe, la crea. Limpia duplicados históricos si existieran.
+  /// WA-CONSENT-01 — siembra o reactiva la regla universal de WhatsApp para el paquete.
   void seedWhatsAppRule(String packageName) {
     final id = ruleIdForPackage(packageName);
     final matches = _rules.where((r) => r.id == id).toList();
     if (matches.isNotEmpty) {
       _rules.removeWhere((r) => r.id == id);
-      _rules.add(matches.first.copyWith(enabled: true));
+      _rules.add(matches.first.copyWith(
+        enabled: true,
+        trigger: NotificationTrigger(
+          packageName: packageName,
+          senderMatch: packageName == MessagingPackage.whatsapp ? 'Emm' : null,
+        ),
+      ));
       _persist();
       return;
     }
     final rule = ScheduledRule(
       id: id,
-      trigger: NotificationTrigger(packageName: packageName),
+      trigger: NotificationTrigger(
+        packageName: packageName,
+        senderMatch: packageName == MessagingPackage.whatsapp ? 'Emm' : null,
+      ),
       action: RuleAction.reply,
       dynamicReply: true,
       enabled: true,
       createdAt: DateTime.now(),
-      createdByUser: true, // consentimiento explícito verificado
+      createdByUser: true,
     );
     _rules.add(rule);
     debugPrint(
-      '[rules] seed WhatsApp rule id=$id pkg=$packageName (opt-in explícito)',
+      '[rules] seed WhatsApp rule id=$id pkg=$packageName (responder a Emm)',
     );
     _persist();
   }

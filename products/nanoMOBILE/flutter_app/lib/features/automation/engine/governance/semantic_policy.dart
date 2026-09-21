@@ -131,6 +131,22 @@ const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
     requiresContextLock: true,
     requiresConfirmation: true,
   ),
+  'whatsapp.contacts': SemanticActionDefinition(
+    risk: SemanticActionRisk.observation,
+  ),
+  'whatsapp.open_chat': SemanticActionDefinition(
+    risk: SemanticActionRisk.navigation,
+  ),
+  'whatsapp.send_message': SemanticActionDefinition(
+    requiredInputs: ['contact', 'text'],
+    risk: SemanticActionRisk.reversibleWrite,
+    requiresConfirmation: false,
+  ),
+  'whatsapp.share_file': SemanticActionDefinition(
+    requiredInputs: ['contact', 'path'],
+    risk: SemanticActionRisk.reversibleWrite,
+    requiresConfirmation: false,
+  ),
   'linux.writeFile': SemanticActionDefinition(
     requiredInputs: ['path', 'content'],
     risk: SemanticActionRisk.reversibleWrite,

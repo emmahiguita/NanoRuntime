@@ -336,7 +336,7 @@ class _DesktopLaunchScreenState extends ConsumerState<DesktopLaunchScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: colors.backgroundPrimary,
+        backgroundColor: Colors.transparent,
         body: Stack(
           children: [
             const Positioned.fill(

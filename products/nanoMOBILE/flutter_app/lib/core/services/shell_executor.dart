@@ -301,25 +301,17 @@ class ShellExecutor implements IBinExecutor {
       final exitCode = await p.exitCode.timeout(
         timeout,
         onTimeout: () {
-          // TER-23: NO cancelar outSub/errSub aquí — await asFuture() abajo
-          // NUNCA completa tras cancel() (cancel no completa el future del
-          // stream), así que stream() colgaba para siempre en todo comando
-          // con timeout. SIGTERM + SIGKILL cierran los pipes del proceso y
-          // eso sí dispara done → asFuture completa.
-          // Fase 1: SIGTERM (permite cleanup del proceso)
-          p.kill(ProcessSignal.sigterm);
-          // Fase 2: tras 2s, SIGKILL forzoso para evitar zombies
-          Future.delayed(const Duration(seconds: 2), () {
-            try {
-              p.kill(ProcessSignal.sigkill);
-            } catch (_) {}
-          });
+          // TER-23: Matar el árbol completo de procesos (padre + hijos).
+          // Evita que subprocesos huérfanos queden vivos consumiendo RAM y CPU.
+          _terminateProcessTree(p);
           return -1;
         },
       );
 
-      await outSub.asFuture<void>();
-      await errSub.asFuture<void>();
+      // Timeout defensivo en asFuture para evitar deadlocks si procesos hijos
+      // mantienen descriptores de archivo abiertos tras kill.
+      await outSub.asFuture<void>().timeout(const Duration(milliseconds: 600), onTimeout: () => null);
+      await errSub.asFuture<void>().timeout(const Duration(milliseconds: 600), onTimeout: () => null);
       _running.remove(p);
       if (trackTag != null) _tracked.remove(trackTag);
       return exitCode;
@@ -349,18 +341,33 @@ class ShellExecutor implements IBinExecutor {
     }
   }
 
+  /// Mata recursivamente el proceso padre y todos sus procesos hijos (árbol completo).
+  ///
+  /// - QUÉ HACE: Termina el proceso p y cualquier subproceso creado en su árbol.
+  /// - CÓMO FUNCIONA: Emite SIGTERM al PID y pkill -P a sus hijos; tras 1.5s fuerza SIGKILL.
+  /// - POR QUÉ: Process.kill() de Dart solo mata el PID directo, dejando hijos huérfanos.
+  void _terminateProcessTree(Process p) {
+    try {
+      p.kill(ProcessSignal.sigterm);
+    } catch (_) {}
+    try {
+      toybox(['pkill', '-TERM', '-P', '${p.pid}']);
+    } catch (_) {}
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      try {
+        p.kill(ProcessSignal.sigkill);
+      } catch (_) {}
+      try {
+        toybox(['pkill', '-KILL', '-P', '${p.pid}']);
+      } catch (_) {}
+    });
+  }
+
   @override
   bool killTracked(String tag) {
     final p = _tracked.remove(tag);
     if (p == null) return false;
-    try {
-      p.kill(ProcessSignal.sigterm);
-    } catch (_) {}
-    Future.delayed(const Duration(seconds: 2), () {
-      try {
-        p.kill(ProcessSignal.sigkill);
-      } catch (_) {}
-    });
+    _terminateProcessTree(p);
     return true;
   }
 

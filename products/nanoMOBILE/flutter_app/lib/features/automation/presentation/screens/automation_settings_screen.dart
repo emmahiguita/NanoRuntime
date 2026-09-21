@@ -13,6 +13,7 @@ import '../widgets/capability_status_card.dart';
 import '../widgets/settings_tile_components.dart';
 import 'package:nanoai/core/widgets/feather_core_icon.dart';
 import '../widgets/whatsapp_integration_cards.dart';
+import '../widgets/whatsapp_reply_delay_card.dart';
 import 'automation_rules_screen.dart';
 import 'business_studio_screen.dart';
 import 'personal_agent_screen.dart';
@@ -382,18 +383,20 @@ class _AutomationSettingsScreenState
         children: [
           SettingsRow(
             imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
-            title: 'Mis frases y diálogos personalizados',
+            title: 'Mis frases y respuestas aprendidas',
             subtitle:
-                'Agrega o edita respuestas exactas: qué te dicen y qué responder',
-            trailing: const ValueBadge(label: 'DIÁLOGOS'),
+                'Intenciones con múltiples respuestas: qué te dicen y qué responder',
+            trailing: const ValueBadge(label: 'FRASES'),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
-                builder: (_) => const PersonalizationStudioScreen(initialIndex: 1),
+                builder: (_) => const PersonalizationStudioScreen(initialIndex: 0),
               ),
             ),
           ),
         ],
       ),
+      const SizedBox(height: 16),
+      const WhatsAppReplyDelayCard(),
       const SizedBox(height: 24),
       const AutomationSectionLabel('Memorias y Hechos Personales'),
       SettingsCard(
@@ -436,7 +439,7 @@ class _AutomationSettingsScreenState
             trailing: const ValueBadge(label: 'CONTACTOS'),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
-                builder: (_) => const PersonalizationStudioScreen(initialIndex: 0),
+                builder: (_) => const PersonalizationStudioScreen(initialIndex: 1),
               ),
             ),
           ),

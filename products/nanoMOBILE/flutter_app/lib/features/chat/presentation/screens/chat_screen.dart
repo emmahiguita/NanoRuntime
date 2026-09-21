@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -41,9 +42,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // huérfano que ningún TextField mostraba: la voz estaba rota).
   String _dictatedText = '';
 
-  // Dictado por voz real (canal `com.nanoai/speech`, SpeechChannelHandler →
-  // reconocedor Google Search) y adjunto de archivos real (file_picker → SAF de
-  // Android). Ambos fallan a mensaje honesto, nunca a excepción suelta.
+  // Voz usa SpeechRecognizer/TTS de Android. Cámara delega en la app del
+  // sistema y la foto pasa por el clasificador ML Kit ya incluido.
   bool _listening = false;
   StreamSubscription<String>? _partialSub;
   // VOICE-NATURAL-01: conversación continua (hablar ↔ responder ↔ volver a
@@ -149,13 +149,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-
   /// NAV-BAR-FIX-05 — el botón adjuntar abre la hoja flotante de la barra
-  /// (Foto / Video / Documento). Documento se inyecta como texto real en el
-  /// prompt (igual que antes); foto y video viajan como REFERENCIA honesta:
-  /// el contenido describe el archivo y aclara que el modelo local no puede
-  /// ver imágenes todavía. Binarios o archivos ilegibles se reportan, no se
-  /// inventa texto.
+  /// (Cámara / Video / Documento). La foto capturada pasa por ML Kit y solo
+  /// aporta etiquetas reales al prompt; video conserva una referencia honesta.
+  /// Binarios o archivos ilegibles se reportan, no se inventa texto.
   Future<void> _attachFile() async {
     final selection = await NanoAttachSheet.show(context);
     if (selection == null || !mounted) return;
@@ -172,20 +169,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final notifier = ref.read(chatProvider.notifier);
     switch (picked.kind) {
       case NanoAttachKind.photo:
+        final analyzed = await notifier.addPhotoAttachment(
+          name: picked.name,
+          path: picked.path,
+          sizeBytes: picked.sizeBytes,
+        );
+        // La observación ya está en memoria; borrar la captura temporal evita
+        // que el cache crezca con cada uso de cámara.
+        try {
+          await File(picked.path).delete();
+        } catch (_) {
+          // El sistema también puede limpiar cache; ausencia no es un error.
+        }
+        if (!analyzed && mounted) {
+          _showHonestError(
+            'La foto se capturó, pero el clasificador visual no devolvió etiquetas.',
+          );
+        }
       case NanoAttachKind.video:
-        final label = picked.kind == NanoAttachKind.photo ? 'imagen' : 'video';
         notifier.addAttachment(
           ChatAttachment(
             name: picked.name,
             content:
-                '[Archivo de $label adjuntado: ${picked.name} '
+                '[Archivo de video adjuntado: ${picked.name} '
                 '(${_formatBytes(picked.sizeBytes)})]\n'
-                'El modelo local actual no puede procesar $label todavía; '
+                'El modelo local actual no puede procesar video todavía; '
                 'este adjunto se envía como referencia de que el usuario lo '
                 'incluyó en el mensaje.',
-            kind: picked.kind == NanoAttachKind.photo
-                ? ChatAttachmentKind.photo
-                : ChatAttachmentKind.video,
+            kind: ChatAttachmentKind.video,
             sizeBytes: picked.sizeBytes,
           ),
         );
@@ -340,15 +351,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: isDark
-                          ? const [
-                              Color(0xFF090D16),
-                              Color(0xFF0B101B),
-                              Color(0xFF070A10),
+                      colors: isLandscape
+                          ? [
+                              Colors.black.withValues(
+                                alpha: isDark ? 0.35 : 0.15,
+                              ),
+                              Colors.black.withValues(
+                                alpha: isDark ? 0.45 : 0.25,
+                              ),
                             ]
                           : [
-                              colors.surface,
-                              colors.background,
+                              Colors.black.withValues(
+                                alpha: isDark ? 0.35 : 0.08,
+                              ),
+                              Colors.black.withValues(
+                                alpha: isDark ? 0.50 : 0.15,
+                              ),
                             ],
                     ),
                   ),
@@ -487,78 +505,170 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
         // Botón directo para Modo Lectura si hay mensajes
         if (state.messages.isNotEmpty)
-          IconButton(
-            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-            padding: const EdgeInsets.all(5),
-            tooltip: 'Modo lectura',
-            icon: Icon(
-              Icons.chrome_reader_mode_outlined,
-              size: 18,
-              color: colors.onSurface.withValues(alpha: 0.75),
+          Semantics(
+            label: 'Modo lectura',
+            button: true,
+            child: IconButton(
+              constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+              padding: const EdgeInsets.all(5),
+              icon: Icon(
+                Icons.chrome_reader_mode_outlined,
+                size: 18,
+                color: colors.onSurface.withValues(alpha: 0.75),
+              ),
+              onPressed: () => setState(() => _isReadingMode = true),
             ),
-            onPressed: () => setState(() => _isReadingMode = true),
           ),
 
-        // Menú ⋮ con exportación y limpieza
-        PopupMenuButton<_ChatMenuAction>(
-          key: const ValueKey('chat_overflow_menu'),
-          tooltip: 'Más opciones',
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
-          icon: Icon(
-            Icons.more_vert_rounded,
-            color: colors.onSurface.withValues(alpha: 0.75),
-            size: 19,
+        // Menú ⋮ con exportación y limpieza (libre de PopupMenuButton para erradicar el error "No Overlay")
+        Semantics(
+          label: 'Más opciones',
+          button: true,
+          child: IconButton(
+            key: const ValueKey('chat_overflow_menu'),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+            icon: Icon(
+              Icons.more_vert_rounded,
+              color: colors.onSurface.withValues(alpha: 0.75),
+              size: 19,
+            ),
+            onPressed: () => _showChatOptionsMenu(state, notifier),
           ),
-          onSelected: (action) async {
-            switch (action) {
-              case _ChatMenuAction.readingMode:
-                setState(() => _isReadingMode = true);
-              case _ChatMenuAction.exportPdf:
-                await _exportFullChatPdf(state);
-              case _ChatMenuAction.exportMarkdown:
-                await _exportFullChatMarkdown(state);
-              case _ChatMenuAction.clearConversation:
-                _showClearDialog(notifier);
-            }
-          },
-          itemBuilder: (context) => [
+        ),
+      ],
+    );
+  }
+
+  /// Despliega las opciones del chat en un modal elegante y adaptativo
+  /// inmune a ausencias de Overlay.
+  void _showChatOptionsMenu(ChatState state, dynamic notifier) {
+    HapticFeedback.selectionClick();
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          color: isDark
+              ? const Color(0xF2101726)
+              : Colors.white.withValues(alpha: 0.96),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : Colors.black.withValues(alpha: 0.08),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: colors.onSurface.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
             if (state.messages.isNotEmpty) ...[
-              const PopupMenuItem(
-                value: _ChatMenuAction.readingMode,
-                child: _ChatMenuItem(
-                  icon: Icons.chrome_reader_mode_rounded,
-                  label: 'Modo lectura',
-                ),
+              _buildChatOptionTile(
+                icon: Icons.chrome_reader_mode_rounded,
+                label: 'Modo lectura',
+                colors: colors,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  setState(() => _isReadingMode = true);
+                },
               ),
-              const PopupMenuItem(
-                value: _ChatMenuAction.exportPdf,
-                child: _ChatMenuItem(
-                  icon: Icons.picture_as_pdf_rounded,
-                  label: 'Exportar chat a PDF',
-                ),
+              _buildChatOptionTile(
+                icon: Icons.picture_as_pdf_rounded,
+                label: 'Exportar chat a PDF',
+                colors: colors,
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _exportFullChatPdf(state);
+                },
               ),
-              const PopupMenuItem(
-                value: _ChatMenuAction.exportMarkdown,
-                child: _ChatMenuItem(
-                  icon: Icons.description_rounded,
-                  label: 'Exportar a Markdown',
-                ),
+              _buildChatOptionTile(
+                icon: Icons.description_rounded,
+                label: 'Exportar a Markdown',
+                colors: colors,
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await _exportFullChatMarkdown(state);
+                },
               ),
-              const PopupMenuDivider(),
-            ],
-            if (state.messages.isNotEmpty)
-              PopupMenuItem(
-                value: _ChatMenuAction.clearConversation,
-                enabled: !state.generating,
-                child: const _ChatMenuItem(
-                  icon: Icons.delete_sweep_rounded,
-                  label: 'Limpiar conversación',
+              Divider(color: colors.outline.withValues(alpha: 0.15)),
+              _buildChatOptionTile(
+                icon: Icons.delete_sweep_rounded,
+                label: 'Limpiar conversación',
+                colors: colors,
+                isDestructive: true,
+                onTap: state.generating
+                    ? null
+                    : () {
+                        Navigator.pop(ctx);
+                        _showClearDialog(notifier);
+                      },
+              ),
+            ] else
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No hay mensajes en esta conversación',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    color: colors.onSurface.withValues(alpha: 0.6),
+                  ),
                 ),
               ),
           ],
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildChatOptionTile({
+    required IconData icon,
+    required String label,
+    required NanoColors colors,
+    required VoidCallback? onTap,
+    bool isDestructive = false,
+  }) {
+    final color = isDestructive
+        ? const Color(0xFFEF4444)
+        : colors.onSurface.withValues(alpha: 0.85);
+
+    return ListTile(
+      dense: true,
+      enabled: onTap != null,
+      leading: Icon(icon, color: color, size: 20),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: color,
+        ),
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      onTap: onTap,
     );
   }
 
@@ -846,7 +956,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
-
 // ================================================================
 // Modo lectura real e inmersivo
 // ================================================================
@@ -922,7 +1031,12 @@ class _ReadingModeState extends State<_ReadingMode> {
                 controller: _scroll,
                 physics: const BouncingScrollPhysics(),
                 // NAV-FLOAT-01 — reserva propia bajo la barra flotante.
-                padding: const EdgeInsets.fromLTRB(28, 56, 28, kNanoBarScrollReserve),
+                padding: const EdgeInsets.fromLTRB(
+                  28,
+                  56,
+                  28,
+                  kNanoBarScrollReserve,
+                ),
                 itemCount: widget.messages.length,
                 itemBuilder: (context, i) => _ReadingParagraph(
                   message: widget.messages[i],
@@ -1287,36 +1401,6 @@ Widget _buildReadingAiBody(BuildContext context, String text) {
   );
 }
 
-/// UI-REV-16 — acciones del menú ⋮ del chat. Un solo enum: el menú es la
-/// única puerta de modo lectura / limpiar / ocultar-mostrar barra.
-enum _ChatMenuAction {
-  readingMode,
-  exportPdf,
-  exportMarkdown,
-  clearConversation,
-}
-
-/// Item del menú ⋮ — icono + etiqueta, presentación pura.
-class _ChatMenuItem extends StatelessWidget {
-  const _ChatMenuItem({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: colors.onSurface.withValues(alpha: 0.70)),
-        const SizedBox(width: 10),
-        Text(label, style: TextStyle(fontSize: 13.5, color: colors.onSurface)),
-      ],
-    );
-  }
-}
-
 /// UI-REV-15 — cápsula de vidrio para las acciones del chat cuando flotan
 /// sobre los mensajes en horizontal (sin header). Legibles sobre cualquier
 /// contenido, sin tapar con bloques opacos.
@@ -1384,10 +1468,14 @@ class _AttachmentPillsStrip extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0x33261505) : const Color(0x18FF6D00),
+                color: isDark
+                    ? const Color(0x33261505)
+                    : const Color(0x18FF6D00),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark ? const Color(0x4DFF8C2A) : const Color(0x40FF6D00),
+                  color: isDark
+                      ? const Color(0x4DFF8C2A)
+                      : const Color(0x40FF6D00),
                   width: 0.8,
                 ),
               ),

@@ -35,12 +35,15 @@ final class PersonaRetriever {
         .split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
         .where((s) => s.length > 2)
         .toSet();
-    int score(PersonaExample example) => example.incomingText
-        .toLowerCase()
-        .split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
-        .where(terms.contains)
-        .toSet()
-        .length;
+    int score(PersonaExample example) {
+      final allPatterns = [example.incomingText, ...example.incomingVariants].join(' ');
+      return allPatterns
+          .toLowerCase()
+          .split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
+          .where(terms.contains)
+          .toSet()
+          .length;
+    }
     final eligible = candidates
         .where(
           (e) =>

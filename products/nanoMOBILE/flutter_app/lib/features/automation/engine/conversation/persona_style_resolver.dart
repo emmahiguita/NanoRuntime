@@ -102,23 +102,39 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
         return null;
       }
 
-      final rawReply = bestExample.body.trim();
+      final variants = bestExample.variants;
+      final String rawReply;
+      final suggestions = <String>[];
+
+      if (variants.length > 1) {
+        // Rotación dinámica variada basada en minuto y conversación (anti-repetición)
+        final seed = DateTime.now().minute + conversationId.hashCode.abs();
+        final selectedIndex = seed % variants.length;
+        rawReply = variants[selectedIndex];
+        for (final v in variants) {
+          final clean = LanguageAssistService.safeCleanOutput(v);
+          if (clean.isNotEmpty && !suggestions.contains(clean)) suggestions.add(clean);
+        }
+      } else {
+        rawReply = bestExample.body.trim();
+      }
+
       final cleanReply = LanguageAssistService.safeCleanOutput(rawReply);
       if (cleanReply.isEmpty) return null;
+      if (!suggestions.contains(cleanReply)) suggestions.insert(0, cleanReply);
 
       debugPrint(
         '[style-resolver] HIT score=${bestScore.toStringAsFixed(2)} '
-        'pair="${bestExample.incomingText}" -> "$cleanReply"',
+        'pair="${bestExample.incomingText}" -> "$cleanReply" (${variants.length} variantes)',
       );
 
-      final suggestions = <String>[cleanReply];
       for (final c in candidates) {
         if (c.id != bestExample.id && c.body.trim().isNotEmpty) {
           final s = LanguageAssistService.safeCleanOutput(c.body.trim());
           if (s.isNotEmpty && !suggestions.contains(s)) {
             suggestions.add(s);
           }
-          if (suggestions.length >= 3) break;
+          if (suggestions.length >= 5) break;
         }
       }
 

@@ -13,7 +13,7 @@ abstract class IToolHandler {
 /// Aplica el Principio de Abierto/Cerrado (OCP): permite registrar nuevos
 /// manejadores de herramientas (MCP, Shizuku, Linux, Apps Android, etc.)
 /// sin modificar el código de orquestación o del despachador principal.
-abstract class IToolRegistry {
+abstract class IDynamicToolRegistry {
   void registerHandler(IToolHandler handler);
   void unregisterHandler(String toolName);
   IToolHandler? findHandlerFor(String toolName);
@@ -22,7 +22,7 @@ abstract class IToolRegistry {
 }
 
 /// Implementación concreta y limpia del registro dinámico de herramientas.
-class DynamicToolRegistry implements IToolRegistry {
+class DynamicToolRegistry implements IDynamicToolRegistry {
   DynamicToolRegistry();
 
   final Map<String, IToolHandler> _handlers = {};

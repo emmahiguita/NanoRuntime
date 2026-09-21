@@ -28,11 +28,9 @@ enum ChatAttachmentKind { text, photo, video, document }
 /// la generación que lo consume y nunca se persiste en el historial
 /// (protege SharedPreferences y la ventana de contexto de los GGUF).
 ///
-/// NAV-BAR-FIX-05 — foto/video se adjuntan como REFERENCIA honesta: el
-/// contenido describe el archivo real (nombre, tipo, peso) y aclara que el
-/// modelo local aún no puede ver imágenes. Documento sigue siendo texto
-/// real del archivo. [kind] y [sizeBytes] alimentan el chip y esa
-/// referencia; nunca se inventa contenido que el archivo no tiene.
+/// Foto usa etiquetas reales de ML Kit como contexto acotado; video conserva
+/// una referencia honesta. Documento sigue siendo texto real del archivo.
+/// [kind] y [sizeBytes] alimentan el chip; nunca se inventa contenido.
 class ChatAttachment {
   final String name;
   final String content;
@@ -101,8 +99,7 @@ class ChatMessage {
     ),
     attachmentNames:
         (json['attachmentNames'] as List?)?.cast<String>() ?? const [],
-    suggestions:
-        (json['suggestions'] as List?)?.cast<String>() ?? const [],
+    suggestions: (json['suggestions'] as List?)?.cast<String>() ?? const [],
   );
 }
 

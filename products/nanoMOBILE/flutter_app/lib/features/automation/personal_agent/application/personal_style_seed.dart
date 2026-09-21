@@ -1,112 +1,160 @@
-/// PERSONAL STYLE SEED
+/// PERSONAL-STYLE-SEED — Semilla Canónica de Intenciones y Múltiples Respuestas.
 ///
-/// Semilla canónica inicial del dataset de estilo de Emmanuel.
-/// Siembra pares contextuales (incomingText -> body) en SQLite FTS4 para
-/// que el retriever de PersonaContext ofrezca ejemplos reales inmediatamente.
+/// **QUÉ HACE:**
+/// Define e inyecta la biblioteca de intenciones conversacionales de EMMA, vinculando
+/// frases de entrada y variantes equivalentes con conjuntos de respuestas contextuales.
+///
+/// **CÓMO FUNCIONA:**
+/// Almacena en SQLite las intenciones semánticas, variantes de entrada y opciones
+/// de respuesta estructuradas con metadatos de tono y seguimiento (follow-up).
+///
+/// **POR QUÉ:**
+/// Dota a Nano de flexibilidad conversacional natural, impidiendo que responda
+/// de forma monótona o robótica (< 200 líneas).
 library;
 
+export 'personal_style_seed_pairs.dart';
+
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
-
 import 'persona_repository.dart';
+import '../domain/persona_response_option.dart';
 
-const personalStyleSeedPairs = <({String incoming, String body})>[
-  // Bienestar
-  (incoming: '¿Cómo estás?', body: 'Bien, gracias a Dios, ¿y tú?'),
-  (incoming: 'Cómo vas?', body: 'Bien, gracias a Dios. ¿Y tú?'),
-  (incoming: 'Todo bien?', body: 'Todo bien, gracias a Dios.'),
-  (incoming: 'Qué tal todo?', body: 'Bien por ahora, ¿y tú?'),
-  (incoming: 'Cómo te va hoy?', body: 'Bien, gracias a Dios.'),
+class EmmaIntentSeed {
+  final String trigger, category, intent;
+  final List<String> incomingVariants;
+  final List<PersonaResponseOption> responses;
 
-  // Actividad / Ocupación
-  (incoming: '¿Qué haces?', body: 'Aquí en el celular viendo memes.'),
-  (incoming: 'Qué haces?', body: 'Estoy haciendo unas cosas de programación.'),
-  (incoming: 'En qué andas?', body: 'Nada, molestando en el computador.'),
-  (incoming: 'Qué estás haciendo?', body: 'Estoy en la casa tranquilo.'),
-  (incoming: 'En qué andas hoy?', body: 'Estoy en cama descansando.'),
-  (incoming: 'Qué haces ahorita?', body: 'Voy a comer, ¿y tú?'),
-  (incoming: 'Qué haces hoy?', body: 'Nada, aquí tranquilo en la casa.'),
-  (incoming: 'Tienes tiempo?', body: 'Hoy estoy algo ocupado.'),
-  (incoming: 'Andas ocupado?', body: 'Estoy un poco ocupado, más tarde hablamos.'),
+  const EmmaIntentSeed({
+    required this.trigger,
+    required this.category,
+    required this.intent,
+    required this.incomingVariants,
+    required this.responses,
+  });
+}
 
-  // Planes / Salir
-  (incoming: '¿Vas a salir hoy?', body: 'Tal vez vaya, aún no sé.'),
-  (incoming: 'Vas a ir a la reunión?', body: 'Creo que sí voy.'),
-  (incoming: 'Vas a ir más tarde?', body: 'Si puedo voy, voy a ver qué hago.'),
-  (incoming: 'Nos vemos hoy?', body: 'Puede que vaya más tarde.'),
-  (incoming: 'Qué vas a hacer más tarde?', body: 'Voy a ver qué hago.'),
-
-  // Invitación / Rap
-  (incoming: 'Vamos a rapear hoy?', body: 'Sí, quiero ir a rapear.'),
-  (incoming: 'Quieres ir a rapear un rato?', body: 'Quiero ir a rapear un rato, de una.'),
-  (incoming: 'Tiramos unas rimas?', body: 'Sí, vamos a rapear.'),
-  (incoming: '¿Vamos?', body: 'Sí, vamos.'),
-  (incoming: 'Te invito un café, ¿vamos?', body: 'Dale, ¿a qué hora?'),
-  (incoming: 'Hacemos algo hoy?', body: 'Puede ser, ¿a qué hora?'),
-
-  // Afirmación y aceptación
-  (incoming: 'Te parece bien mañana?', body: 'Me parece bien.'),
-  (incoming: 'Le hacemos a eso?', body: 'Sí, hagámosle.'),
-  (incoming: 'Te sirve esa hora?', body: 'Sí, me sirve.'),
-  (incoming: 'Quedamos así entonces?', body: 'Listo, de una.'),
-
-  // Negación y rechazo suave
-  (incoming: 'Puedes hablar ahora?', body: 'Ahora estoy ocupado, más tarde hablamos.'),
-  (incoming: 'Alcanzas a llegar hoy?', body: 'Hoy no creo, mejor después.'),
-  (incoming: 'Vas a ir a eso?', body: 'No creo que pueda, por ahora no.'),
-  (incoming: 'Te pasas hoy por acá?', body: 'Tal vez otro día, hoy estoy ocupado.'),
-
-  // Ayuda y preguntas
-  (incoming: 'Parce, me ayudas con una cosa?', body: 'De una, dime.'),
-  (incoming: 'Tengo una pregunta', body: 'Cuéntame, dime de qué se trata.'),
-  (incoming: 'Me haces un favor?', body: 'Dime.'),
-
-  // Agradecimiento y Despedida
-  (incoming: 'Muchas gracias por la ayuda', body: 'Con gusto, todo bien.'),
-  (incoming: 'Gracias bro', body: 'Tranquilo, dale todo bien.'),
-  (incoming: 'Hablamos luego entonces', body: 'Bueno, hablamos luego.'),
-  (incoming: 'Chao, que estés bien', body: 'Dale, cuídate.'),
-
-  // Desconocimiento / Duda
-  (incoming: 'Sabes a qué hora abren?', body: 'La verdad no sé, tendría que mirar.'),
-  (incoming: 'Sabes si llegó eso?', body: 'No sé, déjame ver y te digo.'),
-  (incoming: 'Cuánto se demora eso?', body: 'No sabría decirte todavía.'),
-
-  // Situaciones cotidianas ampliadas
-  (incoming: 'Ya almorzaste?', body: 'Sí, ya almorcé hace un rato.'),
-  (incoming: 'Ya comiste?', body: 'Sí, ya comí.'),
-  (incoming: 'Estás en la casa?', body: 'Aquí en la casa.'),
-  (incoming: 'Cómo está tu familia?', body: 'Todo bien por acá, gracias a Dios.'),
-  (incoming: 'Vas a dormir?', body: 'Sí, ya casi me voy a dormir.'),
-  (incoming: 'Qué estás escuchando?', body: 'Por acá escuchando un rap tranquilo.'),
-  (incoming: 'Está lloviendo por allá?', body: 'Por acá está fresco el clima.'),
-  (incoming: 'Te puedo llamar?', body: 'Por ahora mejor por mensaje, estoy algo ocupado.'),
-  (incoming: 'Por qué tan perdido?', body: 'Jaja nada, aquí en lo mío, cuéntame.'),
-  (incoming: 'Cómo lo ves?', body: 'Se ve bien, me gusta.'),
+const emmaCanonicalSeeds = <EmmaIntentSeed>[
+  EmmaIntentSeed(
+    trigger: '¿Cómo estás?',
+    category: 'Saludo · cotidiano · autoría confirmada',
+    intent: 'wellbeing_check',
+    incomingVariants: ['Cómo estás?', 'Cómo vas?', 'Qué tal?', 'Cómo andas?', 'Todo bien?'],
+    responses: [
+      PersonaResponseOption(text: 'Bien, gracias a Dios.', tone: 'cotidiana', followUp: false),
+      PersonaResponseOption(text: 'Bien, gracias a Dios, ¿y tú?', tone: 'amigable', followUp: true),
+      PersonaResponseOption(text: 'Todo bien por aquí, ¿vos qué tal?', tone: 'cercano', followUp: true),
+      PersonaResponseOption(text: 'Bien, algo ocupado hoy.', tone: 'ocupado', followUp: false),
+      PersonaResponseOption(text: 'Todo tranquilo, ¿vos qué tal?', tone: 'relajado', followUp: true),
+    ],
+  ),
+  EmmaIntentSeed(
+    trigger: '¿Qué haces?',
+    category: 'Cotidiano · conversación',
+    intent: 'activity_check',
+    incomingVariants: ['Qué estás haciendo?', 'En qué andas?', 'Qué hacés?', 'Qué anda haciendo?'],
+    responses: [
+      PersonaResponseOption(text: 'Nada, aquí mirando unas cosas.', tone: 'cotidiana', followUp: false),
+      PersonaResponseOption(text: 'Trabajando un rato.', tone: 'ocupado', followUp: false),
+      PersonaResponseOption(text: 'Aquí ocupado con unas cosas.', tone: 'ocupado', followUp: false),
+      PersonaResponseOption(text: 'Nada mucho, ¿vos qué hacés?', tone: 'amigable', followUp: true),
+      PersonaResponseOption(text: 'Enfocado en desarrollo y proyectos, ¿y tú?', tone: 'profesional', followUp: true),
+    ],
+  ),
+  EmmaIntentSeed(
+    trigger: '¿Por qué tan perdido?',
+    category: 'Reencuentro · conversación cotidiana',
+    intent: 'absence_check',
+    incomingVariants: ['Dónde estás metido?', 'Por qué desaparecido?', 'Y vos dónde andabas?', 'Tan perdido?'],
+    responses: [
+      PersonaResponseOption(text: 'Nada, aquí pendiente.', tone: 'cotidiana', followUp: false),
+      PersonaResponseOption(text: 'He estado ocupado estos días.', tone: 'ocupado', followUp: false),
+      PersonaResponseOption(text: 'Aquí ando, un poco desconectado.', tone: 'tranquilo', followUp: false),
+      PersonaResponseOption(text: 'Jajaja sí, me perdí un rato. ¿Qué cuentas?', tone: 'amigable', followUp: true),
+      PersonaResponseOption(text: 'Nada, trabajando bastante. ¿Cómo va todo?', tone: 'cercano', followUp: true),
+    ],
+  ),
+  EmmaIntentSeed(
+    trigger: '¿Tienes tiempo?',
+    category: 'Disponibilidad · atención',
+    intent: 'availability_check',
+    incomingVariants: ['Estás disponible?', 'Tienes un momento?', 'Me regalas un minuto?', 'Andas por ahí?'],
+    responses: [
+      PersonaResponseOption(text: 'Estoy algo ocupado ahorita, pero dime de qué se trata.', tone: 'ocupado', followUp: true),
+      PersonaResponseOption(text: 'Dime con confianza, te leo con atención.', tone: 'amigable', followUp: false),
+      PersonaResponseOption(text: 'Ando con unos pendientes en marcha, ¿es algo urgente?', tone: 'precavido', followUp: true),
+      PersonaResponseOption(text: 'Escríbeme por acá y te respondo apenas me desocupe.', tone: 'directo', followUp: false),
+    ],
+  ),
+  EmmaIntentSeed(
+    trigger: '¿Vas a salir hoy?',
+    category: 'Planes · encuentro',
+    intent: 'plans_check',
+    incomingVariants: ['Vas a salir más tarde?', 'Hay planes hoy?', 'Qué haces hoy más tarde?'],
+    responses: [
+      PersonaResponseOption(text: 'Tal vez más tarde, aún estoy definiendo varios pendientes.', tone: 'indefinido', followUp: false),
+      PersonaResponseOption(text: 'Por ahora no creo, voy a ver cómo avanza la jornada.', tone: 'prudente', followUp: false),
+      PersonaResponseOption(text: 'Puede ser si alcanzo a desocuparme a tiempo. ¿Qué plan tienes?', tone: 'amigable', followUp: true),
+      PersonaResponseOption(text: 'Hoy no creo que pueda, tengo pendientes.', tone: 'declinación', followUp: false),
+    ],
+  ),
+  EmmaIntentSeed(
+    trigger: 'Muchas gracias por la ayuda',
+    category: 'Cierre · cortesía',
+    intent: 'gratitude_ack',
+    incomingVariants: ['Gracias', 'Muchas gracias', 'Te lo agradezco mucho', 'Mil gracias'],
+    responses: [
+      PersonaResponseOption(text: '¡Con el mayor gusto! Cualquier cosa por acá a la orden.', tone: 'servicial', followUp: false),
+      PersonaResponseOption(text: 'Tranquilo, con todo gusto. ¡Un abrazo!', tone: 'cálido', followUp: false),
+      PersonaResponseOption(text: 'A ti, un placer. Seguimos en contacto.', tone: 'profesional', followUp: false),
+      PersonaResponseOption(text: 'No hay de qué, para eso estamos.', tone: 'amigable', followUp: false),
+    ],
+  ),
 ];
 
-/// Siembra los ejemplos de estilo iniciales en el repositorio si está vacío.
-Future<int> ensurePersonalStyleSeed(PersonaRepository repo) async {
+Future<int> ensurePersonalStyleSeed(PersonaRepository repo, {bool forceEnrich = false}) async {
   try {
-    final existing = await repo.listExamples(limit: 5);
-    if (existing.isNotEmpty) {
-      return 0; // Ya cuenta con dataset sembrado o aprendido
-    }
+    final existing = await repo.listExamples(limit: 60);
+    final needsEnrich = forceEnrich || existing.isEmpty || existing.any((e) => e.variants.length <= 1);
+    if (!needsEnrich) return 0;
 
-    var seededCount = 0;
-    for (final pair in personalStyleSeedPairs) {
-      final ok = await repo.addExample(
-        personaKey: 'owner',
-        incomingText: pair.incoming,
-        body: pair.body,
-        source: 'manual',
-        tone: const {'ownerVerified': 'true', 'kind': 'paired'},
-      );
-      if (ok) seededCount++;
+    var count = 0;
+    for (final seed in emmaCanonicalSeeds) {
+      final matches = existing.where((e) => e.incomingText.trim() == seed.trigger || e.incomingVariants.contains(seed.trigger)).toList();
+      final toneData = {
+        'ownerVerified': 'true',
+        'kind': 'paired',
+        'title': seed.category,
+        'category': seed.category,
+        'intent': seed.intent,
+        'incomingVariants': jsonEncode(seed.incomingVariants),
+        'variants': jsonEncode(seed.responses.map((r) => r.text).toList()),
+        'responses': jsonEncode(seed.responses.map((r) => r.toMap()).toList()),
+      };
+      if (matches.isNotEmpty) {
+        await repo.updateExample(matches.first, body: seed.responses.first.text, incomingText: seed.trigger, tone: toneData);
+        count++;
+      } else {
+        final ok = await repo.addExample(personaKey: 'owner', incomingText: seed.trigger, body: seed.responses.first.text, source: 'manual', tone: toneData);
+        if (ok) count++;
+      }
     }
-    debugPrint('[persona:seed] Se sembraron $seededCount pares contextuales iniciales en FTS4.');
-    return seededCount;
-  } catch (error) {
-    debugPrint('[persona:seed] Error sembrando ejemplos de estilo: $error');
+    // Si hay ejemplos antiguos aislados, enriquecer sus metadatos para que muestren la frase como título
+    for (final ex in existing) {
+      if (ex.incomingText.isNotEmpty && (ex.categoryTitle.isEmpty || ex.categoryTitle == 'Plantilla' || ex.categoryTitle == 'Diálogo')) {
+        await repo.updateExample(ex, tone: {
+          ...ex.tone,
+          'title': 'Cotidiano · conversación',
+          'category': 'Cotidiano · conversación',
+          'incomingVariants': jsonEncode([ex.incomingText]),
+          'responses': jsonEncode(ex.variants.map((v) => PersonaResponseOption(text: v).toMap()).toList()),
+        });
+      }
+    }
+    debugPrint('[persona:seed] Sincronizadas  frases con múltiples respuestas para Agente EMMA.');
+    return count;
+  } catch (e) {
+    debugPrint('[persona:seed] Error sembrando dataset EMMA: ');
     return 0;
   }
 }

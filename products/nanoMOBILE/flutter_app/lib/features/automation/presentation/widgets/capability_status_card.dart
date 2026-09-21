@@ -87,7 +87,6 @@ class CapabilityStatusCard extends ConsumerWidget {
                 ),
               ),
               IconButton(
-                tooltip: 'Recargar estado',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => ref.invalidate(systemGraphProvider),
                 icon: Icon(

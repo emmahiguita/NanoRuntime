@@ -156,6 +156,55 @@ class ContactsChannelHandler(
             android.util.Log.e("ContactsChannel", "Error consultando contactos de WhatsApp: ${e.message}")
         }
 
+        // 2. Consulta de contactos telefónicos generales del dispositivo (garantiza conocer todos los contactos agregados)
+        try {
+            val phoneProjection = arrayOf(
+                ContactsContract.CommonDataKinds.Phone._ID,
+                ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+                ContactsContract.CommonDataKinds.Phone.NUMBER,
+            )
+            val phoneSort = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} COLLATE NOCASE ASC"
+            activity.contentResolver.query(
+                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                phoneProjection,
+                null,
+                null,
+                phoneSort,
+            )?.use { pc ->
+                val pIdIdx = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone._ID)
+                val pContactIdIdx = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
+                val pNameIdx = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                val pNumIdx = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+
+                while (pc.moveToNext()) {
+                    val rawNum = if (pNumIdx >= 0) pc.getString(pNumIdx) else null
+                    val digits = rawNum?.filter { it.isDigit() } ?: ""
+                    if (digits.length < 7) continue
+
+                    val jid = "$digits@s.whatsapp.net"
+                    if (!seenJids.add(jid)) continue
+
+                    val pId = if (pIdIdx >= 0) pc.getString(pIdIdx) else ""
+                    val pContactId = if (pContactIdIdx >= 0) pc.getString(pContactIdIdx) else ""
+                    val pName = (if (pNameIdx >= 0) pc.getString(pNameIdx) else null)?.trim() ?: "Sin nombre"
+
+                    contacts.add(
+                        mapOf(
+                            "id" to (pContactId.ifBlank { pId }),
+                            "name" to pName,
+                            "number" to digits,
+                            "jid" to jid,
+                            "isBusiness" to false,
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ContactsChannel", "Error consultando contactos telefónicos: ${e.message}")
+        }
+
         return contacts
     }
 }
+

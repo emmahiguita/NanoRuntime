@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/widgets/live_animations.dart';
@@ -18,6 +19,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
   final double sizeGb;
   final String description;
   final bool isDetected;
+  final ModelKind kind;
   final bool isActive;
   final VoidCallback onAction;
   final String actionLabel;
@@ -34,6 +36,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
     required this.sizeGb,
     required this.description,
     required this.isDetected,
+    this.kind = ModelKind.llm,
     required this.isActive,
     required this.onAction,
     required this.actionLabel,
@@ -51,6 +54,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
     required double sizeGb,
     required String description,
     required bool isDetected,
+    ModelKind kind = ModelKind.llm,
     required bool isActive,
     required VoidCallback onAction,
     required String actionLabel,
@@ -73,6 +77,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
           sizeGb: sizeGb,
           description: description,
           isDetected: isDetected,
+          kind: kind,
           isActive: isActive,
           onAction: onAction,
           actionLabel: actionLabel,
@@ -91,10 +96,13 @@ class ModelDetailBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
+    final isTextGeneration = kind == ModelKind.llm;
     final modelRam =
         verifiedInfo.estimatedRamGb.value ?? (isDetected ? 2.5 : 3.0);
-    final deviceTotalRamGb = phoneTotalRamGb > 0 ? phoneTotalRamGb : 8.0;
-    final ramRatio = (modelRam / deviceTotalRamGb).clamp(0.0, 1.0);
+    final deviceTotalRamGb = phoneTotalRamGb;
+    final ramRatio = deviceTotalRamGb > 0
+        ? (modelRam / deviceTotalRamGb).clamp(0.0, 1.0)
+        : 0.0;
     // Verdicto alineado con el RuntimePlanner (Rust, umbrales 0.7/1.0/2.0).
     // Fallback síncrono offline; la autoridad real es /api/viability cuando
     // el motor está vivo.
@@ -103,30 +111,53 @@ class ModelDetailBottomSheet extends StatelessWidget {
     final Color compatibilityColor;
     final String compatibilityLabel;
     final String compatibilityDescription;
-    switch (viability) {
-      case ModelViability.fast:
-        compatibilityColor = colors.accentMint;
-        compatibilityLabel = 'RÁPIDO';
-        compatibilityDescription =
-            '✓ Ejecución rápida y ligera en este dispositivo.';
-        break;
-      case ModelViability.balanced:
-        compatibilityColor = colors.metalSilver;
-        compatibilityLabel = 'EQUILIBRADO';
-        compatibilityDescription =
-            '✓ Inferencia viable con residencia adaptativa.';
-        break;
-      case ModelViability.streaming:
-        compatibilityColor = colors.warning;
-        compatibilityLabel = 'STREAMING';
-        compatibilityDescription =
-            '⚠ Modelo mayor que la RAM: streaming de capas, lento.';
-        break;
-      case ModelViability.extreme:
-        compatibilityColor = colors.error;
-        compatibilityLabel = 'EXTREMO';
-        compatibilityDescription = '⛔ Thrashing extremo: no interactivo.';
-        break;
+    if (kind == ModelKind.voiceStt) {
+      compatibilityColor = const Color(0xFF06B6D4);
+      compatibilityLabel = 'VOZ LOCAL';
+      compatibilityDescription =
+          '✓ Transcripción offline de audio por Whisper en CPU/NPU.';
+    } else if (kind == ModelKind.multimodalVision) {
+      compatibilityColor = const Color(0xFFEC4899);
+      compatibilityLabel = 'VISIÓN & CHAT';
+      compatibilityDescription =
+          '✓ Procesamiento visual y multimodal con proyector mmproj.';
+    } else if (!isTextGeneration) {
+      compatibilityColor = colors.textSecondary;
+      compatibilityLabel = 'RECURSO';
+      compatibilityDescription =
+          'El artefacto puede descargarse para uso auxiliar.';
+    } else {
+      switch (viability) {
+        case ModelViability.unknown:
+          compatibilityColor = colors.textSecondary;
+          compatibilityLabel = 'SIN MEDIR';
+          compatibilityDescription =
+              'RAM no disponible: Nano no puede afirmar el rendimiento.';
+          break;
+        case ModelViability.fast:
+          compatibilityColor = colors.accentMint;
+          compatibilityLabel = 'RÁPIDO';
+          compatibilityDescription =
+              '✓ Ejecución rápida y ligera en este dispositivo.';
+          break;
+        case ModelViability.balanced:
+          compatibilityColor = colors.metalSilver;
+          compatibilityLabel = 'EQUILIBRADO';
+          compatibilityDescription =
+              '✓ Inferencia viable con residencia adaptativa.';
+          break;
+        case ModelViability.streaming:
+          compatibilityColor = colors.warning;
+          compatibilityLabel = 'STREAMING';
+          compatibilityDescription =
+              '⚠ Modelo mayor que la RAM: streaming de capas, lento.';
+          break;
+        case ModelViability.extreme:
+          compatibilityColor = colors.error;
+          compatibilityLabel = 'EXTREMO';
+          compatibilityDescription = '⛔ Thrashing extremo: no interactivo.';
+          break;
+      }
     }
 
     return GestureDetector(
@@ -238,32 +269,42 @@ class ModelDetailBottomSheet extends StatelessWidget {
                                 Row(
                                   children: [
                                     Icon(
-                                      Icons.verified_rounded,
+                                      sourceDef.isIdentified
+                                          ? Icons.verified_rounded
+                                          : Icons.help_outline_rounded,
                                       size: 13.5,
-                                      color: colors.accentMint,
+                                      color: sourceDef.isIdentified
+                                          ? colors.accentMint
+                                          : colors.textSecondary,
                                     ),
                                     const SizedBox(width: 4),
                                     Flexible(
                                       child: Text(
                                         verifiedInfo.developer.value ??
-                                            'Desarrollador Oficial',
+                                            'Origen no identificado',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
                                           fontFamily: 'Inter',
                                           fontSize: 12.5,
                                           fontWeight: FontWeight.w600,
-                                          color: NanoTextColors.forText(
-                                            colors.accentMint,
-                                            colors,
-                                          ),
+                                          color: sourceDef.isIdentified
+                                              ? NanoTextColors.forText(
+                                                  colors.accentMint,
+                                                  colors,
+                                                )
+                                              : colors.textSecondary,
                                         ),
                                       ),
                                     ),
                                     const SizedBox(width: 6),
-                                    const ProvenanceBadge(
-                                      label: 'OFICIAL',
-                                      provenance: ModelDataProvenance.official,
+                                    ProvenanceBadge(
+                                      label: sourceDef.isIdentified
+                                          ? 'OFICIAL'
+                                          : 'SIN VERIFICAR',
+                                      provenance: sourceDef.isIdentified
+                                          ? ModelDataProvenance.official
+                                          : ModelDataProvenance.unavailable,
                                     ),
                                   ],
                                 ),
@@ -335,10 +376,12 @@ class ModelDetailBottomSheet extends StatelessWidget {
                       const SizedBox(height: 16),
 
                       // ==========================================
-                      // SECCIÓN 2: ARCHIVO INSTALABLE (GGUF)
+                      // SECCIÓN 2: ARTEFACTO INSTALABLE
                       // ==========================================
                       Text(
-                        'Archivo GGUF & Cuantización',
+                        isTextGeneration
+                            ? 'Archivo GGUF y cuantización'
+                            : 'Artefacto del modelo',
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 13,
@@ -352,7 +395,7 @@ class ModelDetailBottomSheet extends StatelessWidget {
                         runSpacing: 6,
                         children: [
                           VerifiedSpecBadge(
-                            label: 'CUANTIZACIÓN',
+                            label: 'FORMATO / CUANTIZACIÓN',
                             value: verifiedInfo.quantization.value ?? 'GGUF',
                             provenance: verifiedInfo.quantization.provenance,
                             color: colors.accentMint,
@@ -583,9 +626,13 @@ class ModelDetailBottomSheet extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const ProvenanceBadge(
-                            label: 'OFICIAL / MODEL CARD',
-                            provenance: ModelDataProvenance.official,
+                          ProvenanceBadge(
+                            label: sourceDef.isIdentified
+                                ? 'OFICIAL / MODEL CARD'
+                                : 'SIN FUENTE',
+                            provenance: sourceDef.isIdentified
+                                ? ModelDataProvenance.official
+                                : ModelDataProvenance.unavailable,
                           ),
                         ],
                       ),
@@ -696,7 +743,9 @@ class ModelDetailBottomSheet extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: colors.accentMint.withValues(alpha: 0.08),
+                                color: colors.accentMint.withValues(
+                                  alpha: 0.08,
+                                ),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: colors.accentMint.withValues(
@@ -762,27 +811,37 @@ class ModelDetailBottomSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
 
-                      // Enlace 1: Model Card Oficial del Desarrollador
-                      SourceLinkTile(
-                        icon: Icons.developer_board_rounded,
-                        title: 'Model Card Oficial del Desarrollador',
-                        subtitle: sourceDef.officialRepo,
-                        badgeLabel: 'OFICIAL',
-                        url: 'https://huggingface.co/${sourceDef.officialRepo}',
-                        badgeProvenance: ModelDataProvenance.official,
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Enlace 2: Repositorio de Cuantización GGUF
-                      if (sourceDef.officialRepo != sourceDef.quantizedRepo)
+                      if (sourceDef.isIdentified) ...[
                         SourceLinkTile(
-                          icon: Icons.hub_rounded,
-                          title: 'Repositorio GGUF / Cuantización',
-                          subtitle: sourceDef.quantizedRepo,
-                          badgeLabel: 'GGUF',
+                          icon: Icons.developer_board_rounded,
+                          title: 'Model Card Oficial del Desarrollador',
+                          subtitle: sourceDef.officialRepo,
+                          badgeLabel: 'OFICIAL',
                           url:
-                              'https://huggingface.co/${sourceDef.quantizedRepo}',
-                          badgeProvenance: ModelDataProvenance.quantization,
+                              'https://huggingface.co/${sourceDef.officialRepo}',
+                          badgeProvenance: ModelDataProvenance.official,
+                        ),
+                        const SizedBox(height: 6),
+                        if (sourceDef.officialRepo != sourceDef.quantizedRepo)
+                          SourceLinkTile(
+                            icon: Icons.hub_rounded,
+                            title: isTextGeneration
+                                ? 'Repositorio GGUF / Cuantización'
+                                : 'Repositorio del artefacto',
+                            subtitle: sourceDef.quantizedRepo,
+                            badgeLabel: isTextGeneration ? 'GGUF' : 'ARTEFACTO',
+                            url:
+                                'https://huggingface.co/${sourceDef.quantizedRepo}',
+                            badgeProvenance: ModelDataProvenance.quantization,
+                          ),
+                      ] else
+                        Text(
+                          'No hay una fuente canónica asociada a este archivo.',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 12,
+                            color: colors.textSecondary,
+                          ),
                         ),
 
                       const SizedBox(height: 20),
@@ -1037,31 +1096,37 @@ class SourceLinkTile extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.copy_rounded, size: 15),
-            color: colors.accentMint,
-            tooltip: 'Copiar enlace',
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: url));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Enlace copiado: $url'),
-                  duration: const Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
+          Semantics(
+            label: 'Copiar enlace',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.copy_rounded, size: 15),
+              color: colors.accentMint,
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: url));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Enlace copiado: $url'),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.open_in_new_rounded, size: 15),
-            color: colors.accentMint,
-            tooltip: 'Abrir en navegador',
-            onPressed: () async {
-              final uri = Uri.parse(url);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
-            },
+          Semantics(
+            label: 'Abrir en navegador',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.open_in_new_rounded, size: 15),
+              color: colors.accentMint,
+              onPressed: () async {
+                final uri = Uri.parse(url);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
           ),
         ],
       ),

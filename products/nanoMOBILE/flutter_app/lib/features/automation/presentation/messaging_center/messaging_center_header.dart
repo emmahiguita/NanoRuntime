@@ -20,13 +20,16 @@ class MessagingCenterHeader extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (canPop) ...[
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-            tooltip: 'Volver',
-            onPressed: () {
-              Navigator.of(context).maybePop();
-            },
+          Semantics(
+            label: 'Volver',
+            button: true,
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () {
+                Navigator.of(context).maybePop();
+              },
+            ),
           ),
           const SizedBox(width: 4),
         ],

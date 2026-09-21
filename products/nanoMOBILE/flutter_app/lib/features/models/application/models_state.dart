@@ -24,11 +24,6 @@ class ModelsState {
   /// uri o path del detectado que se está abriendo (spinner en su botón).
   final String? loadingDetectedUri;
 
-  /// Nombre del modelo detectado seleccionado (useDetected): refleja el
-  /// activo cuando no viene del catálogo. Null cuando el activo es del
-  /// catálogo o no hay modelo cargado.
-  final String? activeDetected;
-
   /// MODELS-CAT-01 — carpeta de descarga elegida por el usuario. Null =
   /// destino por defecto (storage interno de la app). Persistida en prefs
   /// para sobrevivir reinicios: la descarga permanece en el almacenamiento
@@ -43,7 +38,6 @@ class ModelsState {
     this.allFilesGranted = false,
     this.scanError,
     this.loadingDetectedUri,
-    this.activeDetected,
     this.downloadDir,
   });
 
@@ -55,7 +49,6 @@ class ModelsState {
     bool? allFilesGranted,
     Object? scanError = _sentinel,
     Object? loadingDetectedUri = _sentinel,
-    Object? activeDetected = _sentinel,
     Object? downloadDir = _sentinel,
   }) {
     return ModelsState(
@@ -70,9 +63,6 @@ class ModelsState {
       loadingDetectedUri: identical(loadingDetectedUri, _sentinel)
           ? this.loadingDetectedUri
           : loadingDetectedUri as String?,
-      activeDetected: identical(activeDetected, _sentinel)
-          ? this.activeDetected
-          : activeDetected as String?,
       downloadDir: identical(downloadDir, _sentinel)
           ? this.downloadDir
           : downloadDir as String?,

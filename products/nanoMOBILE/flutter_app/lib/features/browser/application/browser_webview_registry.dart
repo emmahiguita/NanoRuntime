@@ -26,6 +26,20 @@ class BrowserWebViewRegistry {
     _controllers[tabId] = controller;
   }
 
+  /// Pausa los temporizadores de JS de una pestaña (previene procesos zombis de CPU).
+  Future<void> pauseTab(String tabId) async {
+    try {
+      await _controllers[tabId]?.pauseTimers();
+    } catch (_) {}
+  }
+
+  /// Reanuda los temporizadores de JS al restaurar o maximizar una pestaña.
+  Future<void> resumeTab(String tabId) async {
+    try {
+      await _controllers[tabId]?.resumeTimers();
+    } catch (_) {}
+  }
+
   Future<void> removeTab(String tabId) async {
     _controllers.remove(tabId);
     _initializedTabs.remove(tabId);

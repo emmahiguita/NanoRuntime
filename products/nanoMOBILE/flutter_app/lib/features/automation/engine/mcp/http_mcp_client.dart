@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'mcp_client_port.dart';
+import 'http_mcp_parser.dart';
 
 class HttpMcpClient implements McpClientPort {
   HttpMcpClient({
@@ -136,30 +137,7 @@ class HttpMcpClient implements McpClientPort {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body) as Map<String, dynamic>?;
         final res = data?['result'] as Map<String, dynamic>?;
-        final rawTools = res?['tools'] as List<dynamic>? ?? const [];
-
-        final result = <McpRemoteTool>[];
-        for (final t in rawTools) {
-          if (t is! Map<String, dynamic>) continue;
-          final name = t['name'] as String? ?? '';
-          if (name.isEmpty) continue;
-          final desc = t['description'] as String? ?? '';
-          final schema = t['inputSchema'] as Map<String, dynamic>? ?? const {};
-
-          result.add(
-            McpRemoteTool(
-              serverId: descriptor.id,
-              name: name,
-              description: desc,
-              inputSchema: schema,
-              annotations: const McpToolAnnotations(
-                readOnlyHint: true,
-                idempotentHint: true,
-              ),
-            ),
-          );
-        }
-        return result;
+        return HttpMcpParser.parseTools(res, descriptor.id);
       }
       return const [];
     } catch (_) {
@@ -206,27 +184,7 @@ class HttpMcpClient implements McpClientPort {
         }
 
         final res = data?['result'] as Map<String, dynamic>?;
-        final rawContent = res?['content'] as List<dynamic>? ?? const [];
-        final contentList = <McpContentItem>[];
-
-        for (final c in rawContent) {
-          if (c is Map<String, dynamic>) {
-            contentList.add(
-              McpContentItem(
-                type: c['type'] as String? ?? 'text',
-                text: c['text'] as String?,
-                uri: c['uri'] as String?,
-                mimeType: c['mimeType'] as String?,
-              ),
-            );
-          }
-        }
-
-        return McpToolCallResult(
-          status: McpOperationStatus.success,
-          content: contentList,
-          structuredContent: res,
-        );
+        return HttpMcpParser.parseCallResult(res);
       }
 
       return McpToolCallResult(

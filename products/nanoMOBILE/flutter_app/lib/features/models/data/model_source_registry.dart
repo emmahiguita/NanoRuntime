@@ -33,6 +33,25 @@ class ModelSourceDefinition {
     required this.officialCapabilities,
     required this.story,
   });
+
+  bool get isIdentified => officialRepo.isNotEmpty;
+
+  factory ModelSourceDefinition.unidentified(String id) =>
+      ModelSourceDefinition(
+        id: id,
+        officialRepo: '',
+        quantizedRepo: '',
+        developerName: 'Origen no identificado',
+        baseArchitecture: 'No verificada',
+        officialLicense: 'No verificada',
+        officialContext: 0,
+        officialVocab: 0,
+        officialParams: 0,
+        quantizationSource: 'No verificada',
+        officialBenchmarks: const [],
+        officialCapabilities: const [],
+        story: 'Nano no encontró una fuente canónica para este archivo.',
+      );
 }
 
 abstract final class ModelSourceRegistry {
@@ -589,7 +608,7 @@ abstract final class ModelSourceRegistry {
 
     'Qwen3.5-4B': ModelSourceDefinition(
       id: 'Qwen3.5-4B',
-      officialRepo: 'Qwen/Qwen2.5-3B-Instruct',
+      officialRepo: 'Qwen/Qwen3.5-4B',
       quantizedRepo: 'unsloth/Qwen3.5-4B-GGUF',
       developerName: 'Alibaba Cloud (Tongyi Lab)',
       baseArchitecture: 'Hybrid Transformer (Linear Attention + GQA)',
@@ -757,7 +776,7 @@ abstract final class ModelSourceRegistry {
 
     'Qwen3.5-4B-Q4_K_M': ModelSourceDefinition(
       id: 'Qwen3.5-4B-Q4_K_M',
-      officialRepo: 'Qwen/Qwen2.5-3B-Instruct',
+      officialRepo: 'Qwen/Qwen3.5-4B',
       quantizedRepo: 'unsloth/Qwen3.5-4B-GGUF',
       developerName: 'Alibaba Cloud (Tongyi Lab)',
       baseArchitecture: 'Hybrid Transformer (Linear Attention + GQA)',
@@ -1161,6 +1180,27 @@ abstract final class ModelSourceRegistry {
     ),
 
     // -------------------------------------------------------------
+    // MINISTRAL 3 — Nano instala aquí solo el GGUF de texto. El proyector
+    // visual es otro artefacto y no se anuncia como conectado.
+    // -------------------------------------------------------------
+    'Ministral-3-3B-Instruct-2512': ModelSourceDefinition(
+      id: 'Ministral-3-3B-Instruct-2512',
+      officialRepo: 'mistralai/Ministral-3-3B-Instruct-2512',
+      quantizedRepo: 'mistralai/Ministral-3-3B-Instruct-2512-GGUF',
+      developerName: 'Mistral AI',
+      baseArchitecture: 'Mistral 3 (mistral3)',
+      officialLicense: 'Apache-2.0',
+      officialContext: 262144,
+      officialVocab: 131072,
+      officialParams: 3.4,
+      quantizationSource: 'Mistral AI / llama.cpp (Q4_K_M)',
+      officialBenchmarks: [],
+      officialCapabilities: [],
+      story:
+          'Modelo edge de Mistral AI. Nano conecta generación de texto; visión requiere el mmproj y un pipeline multimodal todavía ausentes.',
+    ),
+
+    // -------------------------------------------------------------
     // PHI-3.5
     // -------------------------------------------------------------
     'Phi-3.5-mini-Instruct-3.8B': ModelSourceDefinition(
@@ -1245,7 +1285,7 @@ abstract final class ModelSourceRegistry {
         return entry.value;
       }
     }
-    // Fallback estándar
-    return registry['Qwen2.5-3B-Instruct']!;
+    // Un archivo desconocido no hereda procedencia ni capacidades de Qwen.
+    return ModelSourceDefinition.unidentified(name);
   }
 }

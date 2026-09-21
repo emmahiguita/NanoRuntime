@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:nanoai/features/chat/domain/camera_capture_backend.dart';
 
 import '../../theme/design_tokens.dart';
 
@@ -15,12 +16,12 @@ enum NanoAttachSelectionType { attachment, command }
 /// Resultado de la elección en la hoja flotante (+).
 class NanoAttachSelection {
   const NanoAttachSelection.attachment(this.attachment)
-      : type = NanoAttachSelectionType.attachment,
-        command = null;
+    : type = NanoAttachSelectionType.attachment,
+      command = null;
 
   const NanoAttachSelection.command(this.command)
-      : type = NanoAttachSelectionType.command,
-        attachment = null;
+    : type = NanoAttachSelectionType.command,
+      attachment = null;
 
   final NanoAttachSelectionType type;
   final NanoAttachResult? attachment;
@@ -46,7 +47,10 @@ class NanoAttachResult {
 class NanoAttachSheet {
   const NanoAttachSheet._();
 
-  static Future<NanoAttachSelection?> show(BuildContext context) async {
+  static Future<NanoAttachSelection?> show(
+    BuildContext context, {
+    CameraCaptureBackend camera = const AndroidCameraCaptureBackend(),
+  }) async {
     final rawResult = await showModalBottomSheet<Object>(
       context: context,
       useRootNavigator: true,
@@ -61,8 +65,20 @@ class NanoAttachSheet {
     }
 
     if (rawResult is NanoAttachKind) {
+      if (rawResult == NanoAttachKind.photo) {
+        final photo = await camera.capturePhoto();
+        if (photo == null) return null;
+        return NanoAttachSelection.attachment(
+          NanoAttachResult(
+            kind: NanoAttachKind.photo,
+            path: photo.path,
+            name: photo.name,
+            sizeBytes: photo.sizeBytes,
+          ),
+        );
+      }
       final type = switch (rawResult) {
-        NanoAttachKind.photo => FileType.image,
+        NanoAttachKind.photo => FileType.image, // Resuelto arriba por cámara.
         NanoAttachKind.video => FileType.video,
         NanoAttachKind.document => FileType.any,
       };
@@ -96,7 +112,9 @@ class _AttachSheet extends StatelessWidget {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final isDark = colors is NanoDarkColors;
     final mediaQuery = MediaQuery.of(context);
-    final isLandscape = mediaQuery.orientation == Orientation.landscape || mediaQuery.size.height < 520;
+    final isLandscape =
+        mediaQuery.orientation == Orientation.landscape ||
+        mediaQuery.size.height < 520;
     final maxHeight = mediaQuery.size.height * (isLandscape ? 0.85 : 0.75);
 
     return Container(
@@ -195,7 +213,10 @@ class _AttachSheet extends StatelessWidget {
               const SizedBox(height: 14),
 
               // ── SECCIÓN 1: IAs WEB ───────────────────────────────────
-              const _SectionLabel(title: 'Modelos de IA Web (@)', icon: Icons.psychology_rounded),
+              const _SectionLabel(
+                title: 'Modelos de IA Web (@)',
+                icon: Icons.psychology_rounded,
+              ),
               const SizedBox(height: 8),
               const Wrap(
                 spacing: 8,
@@ -231,7 +252,10 @@ class _AttachSheet extends StatelessWidget {
               const SizedBox(height: 16),
 
               // ── SECCIÓN 2: COMANDOS MCP & SISTEMA ───────────────────
-              const _SectionLabel(title: 'Comandos MCP & Sistema', icon: Icons.terminal_rounded),
+              const _SectionLabel(
+                title: 'Comandos MCP & Sistema',
+                icon: Icons.terminal_rounded,
+              ),
               const SizedBox(height: 8),
               const Wrap(
                 spacing: 8,
@@ -271,7 +295,10 @@ class _AttachSheet extends StatelessWidget {
               const SizedBox(height: 16),
 
               // ── SECCIÓN 3: ADJUNTOS DE ARCHIVO ──────────────────────
-              const _SectionLabel(title: 'Adjuntar Archivo Local', icon: Icons.attach_file_rounded),
+              const _SectionLabel(
+                title: 'Adjuntar Archivo Local',
+                icon: Icons.attach_file_rounded,
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -279,8 +306,9 @@ class _AttachSheet extends StatelessWidget {
                     child: _FileTile(
                       icon: Icons.photo_camera_outlined,
                       iconColor: const Color(0xFF10B981),
-                      title: 'Foto',
-                      onTap: () => Navigator.of(context).pop(NanoAttachKind.photo),
+                      title: 'Cámara',
+                      onTap: () =>
+                          Navigator.of(context).pop(NanoAttachKind.photo),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -289,7 +317,8 @@ class _AttachSheet extends StatelessWidget {
                       icon: Icons.videocam_outlined,
                       iconColor: const Color(0xFFA78BFA),
                       title: 'Video',
-                      onTap: () => Navigator.of(context).pop(NanoAttachKind.video),
+                      onTap: () =>
+                          Navigator.of(context).pop(NanoAttachKind.video),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -298,7 +327,8 @@ class _AttachSheet extends StatelessWidget {
                       icon: Icons.description_outlined,
                       iconColor: const Color(0xFF34D399),
                       title: 'Documento',
-                      onTap: () => Navigator.of(context).pop(NanoAttachKind.document),
+                      onTap: () =>
+                          Navigator.of(context).pop(NanoAttachKind.document),
                     ),
                   ),
                 ],
@@ -443,7 +473,10 @@ class _CommandTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: Container(
                 width: itemWidth.clamp(140.0, 300.0),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 child: Row(
                   children: [
                     Container(

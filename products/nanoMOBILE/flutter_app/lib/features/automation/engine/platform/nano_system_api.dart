@@ -62,6 +62,32 @@ class NanoSystemApi {
       return null;
     }
   }
+
+  /// Programa una alarma o despertador en el reloj del sistema Android.
+  /// [weekdays]: lista de días ISO (1=Lun..7=Dom). null = un solo disparo.
+  Future<Map<dynamic, dynamic>?> setSystemAlarm({
+    required int hour,
+    int minutes = 0,
+    String message = '',
+    List<int>? weekdays,
+    bool skipUi = true,
+  }) async {
+    try {
+      return await _system.invokeMethod<Map<dynamic, dynamic>>(
+        'setSystemAlarm',
+        {
+          'hour': hour,
+          'minutes': minutes,
+          'message': message,
+          'weekdays': weekdays,
+          'skipUi': skipUi,
+        },
+      );
+    } catch (e) {
+      debugPrint('[system] setSystemAlarm error: $e');
+      return null;
+    }
+  }
 }
 
 /// Implementación MethodChannel de [SystemInventory].

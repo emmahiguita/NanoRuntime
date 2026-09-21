@@ -17,10 +17,23 @@ import '../../features/automation/presentation/screens/automation_messages_scree
 import '../../features/automation/presentation/screens/whatsapp_onboarding_screen.dart';
 import '../../features/automation/presentation/screens/mcp_skills_hub_screen.dart';
 import '../../features/browser/presentation/screens/browser_screen.dart';
+import '../../features/account/presentation/screens/session_gate_screen.dart';
+import '../../features/account/presentation/screens/login_screen.dart';
+import '../../features/account/presentation/screens/register_screen.dart';
+import '../../features/account/presentation/screens/forgot_password_screen.dart';
+import '../../features/account/presentation/screens/email_verification_screen.dart';
+import '../../features/account/presentation/screens/account_center_screen.dart';
+import '../../features/account/presentation/screens/subscription_plans_screen.dart';
+import '../../features/account/presentation/screens/devices_screen.dart';
+import '../../features/account/presentation/screens/support_nano_screen.dart';
+import '../../features/database/presentation/screens/database_studio_screen.dart';
 import 'scaffold_shell.dart';
 
 class AppRouter {
-  static GoRouter router = _build('/dashboard');
+  static GoRouter router = _build('/session-gate');
+
+
+  static final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
   /// Claves de Navigator por branch (orden: dashboard, chat, models,
   /// terminal, settings). Permiten que ScaffoldShell resuelva el back real:
@@ -35,10 +48,11 @@ class AppRouter {
   /// cuando el sistema lanza la app desde Ajustes → Apps → Configuración
   /// (ACTION_APPLICATION_PREFERENCES). Null → dashboard por defecto.
   static void init(String? initialRoute) {
-    router = _build(initialRoute ?? '/dashboard');
+    router = _build(initialRoute ?? '/session-gate');
   }
 
   static GoRouter _build(String initialLocation) => GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: initialLocation,
     routes: [
       StatefulShellRoute.indexedStack(
@@ -93,6 +107,10 @@ class AppRouter {
               GoRoute(
                 path: '/linux',
                 pageBuilder: (_, __) => _glassMorph(const MobileLinuxScreen()),
+              ),
+              GoRoute(
+                path: '/database',
+                pageBuilder: (_, __) => _glassMorph(const DatabaseStudioScreen()),
               ),
             ],
           ),
@@ -154,8 +172,46 @@ class AppRouter {
           ),
         ),
       ),
+      GoRoute(
+        path: '/session-gate',
+        pageBuilder: (_, __) =>
+            const NoTransitionPage(child: SessionGateScreen()),
+      ),
+      GoRoute(
+        path: '/auth/login',
+        pageBuilder: (_, __) => _glassMorph(const LoginScreen()),
+      ),
+      GoRoute(
+        path: '/auth/register',
+        pageBuilder: (_, __) => _glassMorph(const RegisterScreen()),
+      ),
+      GoRoute(
+        path: '/auth/forgot-password',
+        pageBuilder: (_, __) => _glassMorph(const ForgotPasswordScreen()),
+      ),
+      GoRoute(
+        path: '/auth/verify-email',
+        pageBuilder: (_, __) => _glassMorph(const EmailVerificationScreen()),
+      ),
+      GoRoute(
+        path: '/account',
+        pageBuilder: (_, __) => _glassMorph(const AccountCenterScreen()),
+      ),
+      GoRoute(
+        path: '/account/subscription',
+        pageBuilder: (_, __) => _glassMorph(const SubscriptionPlansScreen()),
+      ),
+      GoRoute(
+        path: '/account/devices',
+        pageBuilder: (_, __) => _glassMorph(const DevicesScreen()),
+      ),
+      GoRoute(
+        path: '/account/support',
+        pageBuilder: (_, __) => _glassMorph(const SupportNanoScreen()),
+      ),
     ],
   );
+
 
   /// Transición Principal de Navegación (Glass Morph Transition)
   static Page<void> _glassMorph(Widget child) => CustomTransitionPage<void>(

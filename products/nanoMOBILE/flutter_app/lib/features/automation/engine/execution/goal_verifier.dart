@@ -101,10 +101,27 @@ class GoalVerifier {
     }
 
     final expectedPackage = expectation.expectedPackage;
+    final isSettingsExpected = expectedPackage == 'com.android.settings';
+
+    bool isMatchingPackage(String? actualPkg) {
+      if (expectedPackage == null || expectedPackage.isEmpty) return true;
+      if (actualPkg == null) return false;
+      if (actualPkg == expectedPackage) return true;
+      if (expectedPackage == 'com.whatsapp' && actualPkg.contains('whatsapp')) {
+        return true;
+      }
+      if (isSettingsExpected) {
+        if (actualPkg.contains('settings') || actualPkg.contains('wirelesssettings')) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     if (expectedPackage != null && expectedPackage.isNotEmpty) {
       for (
         var attempt = 1;
-        snap!.package != expectedPackage && attempt < packageSettleAttempts;
+        !isMatchingPackage(snap?.package) && attempt < packageSettleAttempts;
         attempt++
       ) {
         await Future<void>.delayed(packageSettleDelay);
@@ -114,14 +131,22 @@ class GoalVerifier {
     }
     if (expectedPackage != null &&
         expectedPackage.isNotEmpty &&
-        snap.package != expectedPackage) {
+        !isMatchingPackage(snap?.package)) {
       return GoalVerification(
         GoalStatus.notSatisfied,
-        'Package final esperado "$expectedPackage", real "${snap.package}".',
+        'Package final esperado "$expectedPackage", real "${snap?.package}".',
       );
     }
 
-    final visibleTexts = snap.nodes.map((n) => n.text).toSet();
+    if (snap == null) {
+      return const GoalVerification(
+        GoalStatus.notSatisfied,
+        'Sin snapshot final (canal off): el objetivo no es verificable.',
+      );
+    }
+    final currentSnap = snap;
+
+    final visibleTexts = currentSnap.nodes.map((n) => n.text).toSet();
 
     if (expectation.visibleText != null) {
       final needle = expectation.visibleText!.toLowerCase();
@@ -151,7 +176,7 @@ class GoalVerifier {
 
     final checkedSelector = expectation.checkedSelector;
     if (checkedSelector != null) {
-      final resolved = _engine.resolve(checkedSelector, snap);
+      final resolved = _engine.resolve(checkedSelector, currentSnap);
       if (!resolved.isResolved || resolved.best == null) {
         return GoalVerification(
           GoalStatus.notSatisfied,

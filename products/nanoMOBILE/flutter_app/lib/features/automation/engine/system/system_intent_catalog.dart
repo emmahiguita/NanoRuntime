@@ -96,5 +96,9 @@ class SystemIntentCatalog {
       destination: SystemDestination.dial,
       kind: SystemIntentKind.navigation,
     ),
+    SystemDestination.alarm: SystemDestinationMeta(
+      destination: SystemDestination.alarm,
+      kind: SystemIntentKind.navigation,
+    ),
   });
 }

@@ -35,6 +35,7 @@ import 'execution/platform_verification_router.dart';
 import 'execution/agent_executor.dart';
 import 'execution/agent_tool_dispatcher.dart';
 import 'execution/capability_router_provider.dart';
+import '../../browser_ai/application/browser_ai_gateway.dart';
 import '../../browser/application/browser_tab_notifier.dart';
 import 'memory/experience_cache.dart';
 import 'memory/object_memory.dart';
@@ -52,7 +53,12 @@ import 'system/installed_app_catalog.dart';
 import 'system/system_graph.dart';
 import 'system/system_intent_launcher.dart';
 import 'system/system_inventory.dart';
+import 'system/universal_capability_detector.dart';
+import 'task/task_execution_memory.dart';
+import 'benchmark/automation_benchmark_runner.dart';
+import 'agent_tools/registry/tool_registry.dart' show DynamicToolRegistry;
 import 'execution/event_driven_waiter.dart';
+import 'perception/healing/surface_auto_healer.dart';
 import 'workflow/workflow_executor.dart';
 import 'perception/mux/accessibility_perception_source.dart';
 import 'perception/mux/object_memory_perception_source.dart';
@@ -231,11 +237,75 @@ final mcpToolRegistryProvider = Provider<McpToolRegistry>((ref) {
   return McpToolRegistry(tools);
 });
 
+/// Registro dinámico de herramientas (SOLID OCP).
+final dynamicToolRegistryProvider = Provider<DynamicToolRegistry>((ref) {
+  return DynamicToolRegistry();
+});
+
+/// Manejador de alarmas del sistema (SOLID SRP / DIP).
+final alarmToolHandlerProvider = Provider<AlarmToolHandler>((ref) {
+  return AlarmToolHandler();
+});
+
+/// Detector universal de capacidades del dispositivo (hardware/software agnóstico).
+final universalCapabilityDetectorProvider = Provider<UniversalCapabilityDetector>((ref) {
+  return UniversalCapabilityDetector(
+    inventory: ref.watch(systemInventoryProvider),
+  );
+});
+
+/// Memoria operativa de tareas multietapa (retención y recuperación de progreso).
+final taskExecutionMemoryProvider = Provider<TaskExecutionMemoryStore>((ref) {
+  return TaskExecutionMemoryStore();
+});
+
+/// Inspector de aplicaciones (Nano Developer).
+final appInspectorToolHandlerProvider = Provider<AppInspectorToolHandler>((ref) {
+  return AppInspectorToolHandler(
+    catalog: ref.watch(installedAppCatalogProvider),
+    situationSource: ref.watch(currentSituationSourceProvider),
+  );
+});
+
+/// Diagnósticos factuales de sistema (Nano Developer).
+final systemDiagnosticsToolHandlerProvider = Provider<SystemDiagnosticsToolHandler>((ref) {
+  return SystemDiagnosticsToolHandler(
+    detector: ref.watch(universalCapabilityDetectorProvider),
+  );
+});
+
+/// Manejador de ADB inalámbrico local (Nano Developer).
+final adbToolHandlerProvider = Provider<AdbToolHandler>((ref) {
+  return AdbToolHandler();
+});
+
+/// Ejecutor de benchmark de automatización móvil (comparativo con ARTEMIS/AndroidWorld).
+final automationBenchmarkRunnerProvider = Provider<AutomationBenchmarkRunner>((ref) {
+  return AutomationBenchmarkRunner(
+    detector: ref.watch(universalCapabilityDetectorProvider),
+  );
+});
+
+/// Manejador de herramienta de benchmark para el agente.
+final benchmarkToolHandlerProvider = Provider<BenchmarkToolHandler>((ref) {
+  return BenchmarkToolHandler(
+    runner: ref.watch(automationBenchmarkRunnerProvider),
+  );
+});
+
+/// Auto-reparación perceptual activa (resiliente ante cambios de UI de WhatsApp/Telegram).
+final surfaceAutoHealerProvider = Provider<SurfaceAutoHealer>((ref) {
+  return globalSurfaceAutoHealer;
+});
+
 /// Dispatcher con TODAS sus dependencias inyectadas (sin defaults internos
 /// en producción). El chat lo recibe vía `chatProvider`.
 final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
+  // Asegurar registro activo del auto-reparador de pantallas al inicializar
+  ref.watch(surfaceAutoHealerProvider);
   final api = NanoRuntimeApi.instance;
   final executor = ref.watch(agentExecutorProvider);
+  final gateway = ref.watch(browserAiGatewayProvider);
   return AgentToolDispatcher(
     executor: executor,
     registry: ToolRegistry.builtin,
@@ -254,6 +324,14 @@ final agentDispatcherProvider = Provider<AgentToolDispatcher>((ref) {
     systemIntentLauncher: ref.watch(systemIntentLauncherProvider),
     mcpConnectionRegistry: ref.watch(mcpConnectionRegistryProvider),
     installedAppCatalog: ref.watch(installedAppCatalogProvider),
+    dynamicRegistry: ref.watch(dynamicToolRegistryProvider),
+    alarmHandler: ref.watch(alarmToolHandlerProvider),
+    appInspectorHandler: ref.watch(appInspectorToolHandlerProvider),
+    diagnosticsHandler: ref.watch(systemDiagnosticsToolHandlerProvider),
+    adbHandler: ref.watch(adbToolHandlerProvider),
+    benchmarkHandler: ref.watch(benchmarkToolHandlerProvider),
+    browserAgentHandler: BrowserAgentToolHandler(gateway: gateway),
+    browserAiAdapter: BrowserAiToolAdapter(gateway),
     webHandler: WebToolHandler(
       onOpenInBrowser: (url) {
         ref.read(browserTabProvider.notifier).addTab(initialUrl: url);

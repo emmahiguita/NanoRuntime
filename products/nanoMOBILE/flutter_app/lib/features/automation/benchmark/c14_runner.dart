@@ -90,6 +90,7 @@ class C14RunResult {
 /// Ejecuta el benchmark C14-A. Único punto de entrada (debug UI + integration).
 Future<C14RunResult> runC14Benchmark(
   ProviderContainer container, {
+  C14Suite? suite,
   void Function(int index, String goal)? onStart,
   void Function(C14Execution)? onExecution,
 }) async {
@@ -99,12 +100,28 @@ Future<C14RunResult> runC14Benchmark(
   final settings = container.read(settingsProvider);
   final runtimeApi = container.read(nanoRuntimeApiProvider);
 
+  final effectiveSuite = suite ?? defaultSuite;
+  final requiresLlm = effectiveSuite.requiresLlm;
+
   // Fuente de verdad del motor: el ENDPOINT real (http://127.0.0.1:8080).
   // El notifier puede quedar `failed` si su supervisor falló el start, pero
   // un motor ya instanciado sirviendo /health es lo que el planner usa.
-  // Preflight honesto: chequear contra lo que realmente responderá generate().
-  final runtimeAlive = await engineNotifier.client.isOnline();
-  final modelLoaded = await engineNotifier.client.hasModel();
+  var runtimeAlive = await engineNotifier.client.isOnline();
+  var modelLoaded = await engineNotifier.client.hasModel();
+
+  if (!runtimeAlive && requiresLlm) {
+    final candidateModel = engine.modelPath ??
+        (settings.automationModelPath.isNotEmpty
+            ? settings.automationModelPath
+            : (settings.chatModelPath.isNotEmpty
+                ? settings.chatModelPath
+                : '/storage/emulated/0/NanoAI/qwen2.5-1.5b-instruct-q8_0-v2.gguf'));
+    try {
+      await engineNotifier.start(modelPath: candidateModel);
+    } catch (_) {}
+    runtimeAlive = await engineNotifier.client.isOnline();
+    modelLoaded = await engineNotifier.client.hasModel();
+  }
 
   final context = BenchmarkContext.capture(
     model: engine.modelPath ?? '',
@@ -121,6 +138,7 @@ Future<C14RunResult> runC14Benchmark(
     // dump devuelve nodos, la pantalla es interactiva/desbloqueada; si no, no.
     deviceUnlocked: await _screenInteractive(runtimeApi),
     screenInteractive: await _screenInteractive(runtimeApi),
+    requiresLlm: requiresLlm,
   );
 
   if (!preflight.pass) {
@@ -138,7 +156,7 @@ Future<C14RunResult> runC14Benchmark(
     buildCoordinator: (sink) => base.withSink(sink),
   );
   final report = await benchmark.run(
-    defaultSuite,
+    effectiveSuite,
     onStart: onStart,
     onExecution: onExecution,
   );

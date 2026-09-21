@@ -139,6 +139,20 @@ class ToolRegistry {
       'claude': 'browser_ai_query',
       'browser_ai': 'browser_ai_query',
       'mcp': 'mcp.read',
+      'whatsapp': 'whatsapp.open_chat',
+      'contactos': 'whatsapp.contacts',
+      'compartir': 'whatsapp.share_file',
+      'enviar_archivo': 'whatsapp.share_file',
+      'alarma': 'device.set_alarm',
+      'set_alarm': 'device.set_alarm',
+      'despertador': 'device.set_alarm',
+      'inspeccionar': 'dev.inspect_app',
+      'inspect_app': 'dev.inspect_app',
+      'diagnostico': 'dev.diagnostics',
+      'diagnostics': 'dev.diagnostics',
+      'adb': 'dev.adb',
+      'benchmark': 'dev.run_benchmark',
+      'run_benchmark': 'dev.run_benchmark',
     },
   );
 
@@ -198,6 +212,35 @@ class ToolRegistry {
       description: 'Responder una notificación en una aplicación externa',
       promptSyntax:
           '{"tool":"reply_notification","key":"<key>","text":"<texto>"}',
+    ),
+    // ── WhatsApp & Mensajería ──────────────────────────────────────────────
+    ToolDefinition(
+      name: 'whatsapp.open_chat',
+      timeout: Duration(seconds: 15),
+      description: 'Abrir un chat de WhatsApp con un contacto o número telefónico',
+      promptSyntax:
+          '{"tool":"whatsapp.open_chat","contact":"<contacto_o_numero>","text":"<texto_opcional>"}',
+    ),
+    ToolDefinition(
+      name: 'whatsapp.send_message',
+      timeout: Duration(seconds: 20),
+      description: 'Enviar un mensaje por WhatsApp a un contacto o número',
+      promptSyntax:
+          '{"tool":"whatsapp.send_message","contact":"<contacto_o_numero>","text":"<texto>"}',
+    ),
+    ToolDefinition(
+      name: 'whatsapp.contacts',
+      timeout: Duration(seconds: 15),
+      description: 'Consultar o buscar contactos de WhatsApp en el dispositivo',
+      promptSyntax: '{"tool":"whatsapp.contacts","query":"<nombre_o_numero>"}',
+    ),
+    ToolDefinition(
+      name: 'whatsapp.share_file',
+      timeout: Duration(seconds: 25),
+      description:
+          'Compartir un documento, archivo, foto o video por WhatsApp',
+      promptSyntax:
+          '{"tool":"whatsapp.share_file","contact":"<contacto_o_numero>","path":"<ruta_archivo>","caption":"<texto_opcional>"}',
     ),
     // ── Subsistema Linux (C9) — acceso estructurado, nunca bash libre sin
     // política. Los writes piden confirmación; run es device (puede ser
@@ -279,6 +322,32 @@ class ToolRegistry {
       timeout: Duration(seconds: 5),
       description: 'Abrir un destino de sistema allowlisted',
     ),
+    ToolDefinition(
+      name: 'device.set_alarm',
+      timeout: Duration(seconds: 15),
+      description: 'Programar una alarma o despertador en el reloj del sistema',
+      promptSyntax:
+          '{"tool":"device.set_alarm","hour":8,"minutes":0,"message":"Despertador","weekdays":[1,2,3,4,5]}',
+    ),
+    // ── Modo Desarrollador (Universal Android) ─────────────────────────────
+    ToolDefinition(
+      name: 'dev.inspect_app',
+      timeout: Duration(seconds: 10),
+      description: 'Inspeccionar metadatos y superficie accesible de una app',
+      promptSyntax: '{"tool":"dev.inspect_app","target":"<paquete_o_nombre>"}',
+    ),
+    ToolDefinition(
+      name: 'dev.diagnostics',
+      timeout: Duration(seconds: 10),
+      description: 'Diagnóstico factual de capacidades de hardware y sistema',
+      promptSyntax: '{"tool":"dev.diagnostics"}',
+    ),
+    ToolDefinition(
+      name: 'dev.adb',
+      timeout: Duration(seconds: 20),
+      description: 'Comandos y emparejamiento con ADB inalámbrico local',
+      promptSyntax: '{"tool":"dev.adb","command":"pair|connect|devices|shell"}',
+    ),
     // A14.9: abrir URL externa (solo http/https, validada en el nativo).
     ToolDefinition(
       name: 'open_url',
@@ -303,6 +372,28 @@ class ToolRegistry {
       description:
           'Consultar a modelos de IA en navegador web (Gemini, ChatGPT, DeepSeek, Claude) en segundo plano (headless) sin abrir ventanas visibles',
       promptSyntax: '{"tool":"browser_ai_query","provider":"gemini|chatgpt|deepseek|claude","prompt":"<consulta>"}',
+    ),
+    ToolDefinition(
+      name: 'browser.ai.ask',
+      timeout: Duration(minutes: 3),
+      description: 'Consultar modelo en navegador (ChatGPT, Gemini, DeepSeek)',
+      promptSyntax: '{"tool":"browser.ai.ask","args":{"prompt":"<texto>","provider":"auto|chatgpt|deepseek|gemini"}}',
+    ),
+    ToolDefinition(
+      name: 'browser.ai.providers',
+      timeout: Duration(seconds: 15),
+      description: 'Listar proveedores de IA activos en navegador web',
+      promptSyntax: '{"tool":"browser.ai.providers"}',
+    ),
+    ToolDefinition(
+      name: 'browser.ai.open',
+      timeout: Duration(seconds: 15),
+      description: 'Abrir pestaña de proveedor web de IA en navegador',
+    ),
+    ToolDefinition(
+      name: 'browser.ai.get_response',
+      timeout: Duration(seconds: 15),
+      description: 'Obtener última respuesta del proveedor web de IA',
     ),
     // A14.4: Shizuku TIPADO. Solo capacidad read (queryPackage). El resto
     // (install/forceStop/grant) queda sin registrar hasta validar en device.
@@ -360,6 +451,30 @@ class ToolRegistry {
       timeout: Duration(seconds: 30),
       description: 'Ejecutar una herramienta MCP con privilegios de sistema',
       promptSyntax: '{"tool":"mcp.privileged","args":{"mcpTool":"<tool_id>"}}',
+    ),
+    ToolDefinition(
+      name: 'dev.inspect_app',
+      timeout: Duration(seconds: 20),
+      description: 'Inspeccionar paquete de aplicación instalada, componentes, SDK y permisos',
+      promptSyntax: '{"tool":"dev.inspect_app","args":{"package":"<package_name>"}}',
+    ),
+    ToolDefinition(
+      name: 'dev.diagnostics',
+      timeout: Duration(seconds: 15),
+      description: 'Obtener diagnóstico completo de hardware, SO, capacidades y estado del agente',
+      promptSyntax: '{"tool":"dev.diagnostics"}',
+    ),
+    ToolDefinition(
+      name: 'dev.adb',
+      timeout: Duration(seconds: 25),
+      description: 'Controlar ADB inalámbrico para emparejar, conectar o ejecutar comandos shell',
+      promptSyntax: '{"tool":"dev.adb","args":{"subcommand":"devices|shell|connect|pair"}}',
+    ),
+    ToolDefinition(
+      name: 'dev.run_benchmark',
+      timeout: Duration(seconds: 30),
+      description: 'Ejecutar benchmark factual de automatización, latencia, auto-reparación y consumo',
+      promptSyntax: '{"tool":"dev.run_benchmark"}',
     ),
   ];
 

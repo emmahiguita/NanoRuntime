@@ -11,7 +11,7 @@ class MessagingFilterChips extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeTab = ref.watch(selectedCategoryTabProvider);
-    final totalUnread = ref.watch(totalUnreadCountProvider);
+    final totalUnread = ref.watch(pendingRepliesCountProvider);
     final contactsCount = ref.watch(allWhatsAppContactsProvider).value?.length ?? 0;
 
     return SizedBox(

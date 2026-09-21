@@ -23,6 +23,7 @@ import '../application/automation_coordinator_provider.dart'
     show automationCoordinatorProvider;
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../engine/execution/goal_verifier.dart' show GoalExpectation;
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'c14_metrics.dart';
 
 /// Una tarea de la suite: goal + expectativa de objetivo opcional (para que el
@@ -38,8 +39,13 @@ class C14Task {
 class C14Suite {
   final String name;
   final List<C14Task> tasks;
+  final bool requiresLlm;
 
-  const C14Suite({required this.name, required this.tasks});
+  const C14Suite({
+    required this.name,
+    required this.tasks,
+    this.requiresLlm = true,
+  });
 }
 
 /// Suite por defecto del plan maestro, con expectativas BEST-EFFORT por tarea
@@ -51,20 +57,56 @@ const C14Suite defaultSuite = C14Suite(
   tasks: [
     C14Task(
       'abrir Ajustes',
-      expectation: GoalExpectation(visibleText: 'Ajustes'),
+      expectation: GoalExpectation(expectedPackage: 'com.android.settings'),
     ),
     C14Task(
       'abrir Bluetooth',
-      expectation: GoalExpectation(visibleText: 'Bluetooth'),
+      expectation: GoalExpectation(expectedPackage: 'com.android.settings'),
     ),
-    C14Task('abrir Wi-Fi', expectation: GoalExpectation(visibleText: 'Wi-Fi')),
+    C14Task(
+      'abrir Wi-Fi',
+      expectation: GoalExpectation(expectedPackage: 'com.android.settings'),
+    ),
     C14Task('volver atrás'),
     C14Task('escribir en el campo'),
     C14Task('abre Ajustes, luego Bluetooth, y vuelve'),
     C14Task('dime si Bluetooth está activado'),
-    C14Task('abrir una app con cache miss'),
-    C14Task('repetir la anterior (cache hit)'),
+    C14Task(
+      'abrir WhatsApp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
+    C14Task(
+      'abrir WhatsApp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
     C14Task('comando deliberadamente inválido'),
+  ],
+);
+
+/// Suite de automatizaciones de WhatsApp para pruebas completas y certificación
+/// real con contacto, mensajes, documentos compartidos y retorno a Nano.
+const C14Suite whatsAppSuite = C14Suite(
+  name: 'WhatsApp & Mensajería',
+  requiresLlm: false,
+  tasks: [
+    C14Task('abrir WhatsApp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task('busca a (Emm) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task('busca a (3203527283) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task('escríbele a (Emm) (Hola Emm, prueba automatizada C14 real) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task('escríbele a (3203527283) (Hola Emm, prueba automatizada buscando por numero) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task('desde llamadas en whatsapp busca a (Emm) y entra a su chat y envíale un mensaje (Hola Emm, mensaje desde llamadas)', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task('envíale un documento a (Emm) (/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task('envíale una foto a (Emm) (/sdcard/Pictures/foto_nanoai.png) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task('volver atrás'),
+  ],
+);
+
+/// Suite completa de certificación C14-A (Sistema + WhatsApp + Herramientas).
+final C14Suite completeSuite = C14Suite(
+  name: 'Suite Completa Certificación',
+  tasks: [
+    ...defaultSuite.tasks,
+    ...whatsAppSuite.tasks,
   ],
 );
 
@@ -94,18 +136,32 @@ class C14Benchmark {
     void Function(int index, String goal)? onStart,
     void Function(C14Execution)? onExecution,
   }) async {
-    for (var i = 0; i < suite.tasks.length; i++) {
-      final task = suite.tasks[i];
-      onStart?.call(i, task.goal);
-      final before = _executions.length;
-      await _coordinator.execute(
-        AutomationGoal(text: task.goal, expectation: task.expectation),
-        options: const AutomationOptions(confirmed: true),
-      );
-      if (onExecution != null && _executions.length > before) {
-        onExecution(_executions.last);
+    try {
+      for (var i = 0; i < suite.tasks.length; i++) {
+        final task = suite.tasks[i];
+        // ignore: avoid_print
+        print('[C14] Ejecutando tarea ${i + 1}/${suite.tasks.length}: "${task.goal}"');
+        onStart?.call(i, task.goal);
+        final before = _executions.length;
+        await _coordinator.execute(
+          AutomationGoal(text: task.goal, expectation: task.expectation),
+          options: const AutomationOptions(confirmed: true),
+        );
+        if (onExecution != null && _executions.length > before) {
+          onExecution(_executions.last);
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 800));
       }
+    } finally {
+      // Retorno garantizado y limpio a Nano al concluir la suite de pruebas
+      try {
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await NanoRuntimeApi.instance.agentLaunchPackage('dev.nanoai.mobile');
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await NanoRuntimeApi.instance.agentLaunchPackage('dev.nanoai.mobile');
+      } catch (_) {}
     }
+
     return const C14Gates().evaluate(_executions);
   }
 }

@@ -524,8 +524,11 @@ class _QuickActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Tooltip(
-      message: tooltip,
+    // Semantics en lugar de Tooltip: Tooltip dispara Overlay.of() que falla
+    // dentro de árboles sin Overlay (WebView cards, custom stacks).
+    return Semantics(
+      label: tooltip,
+      button: true,
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),
@@ -731,8 +734,9 @@ class MessageActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    return Tooltip(
-      message: 'Acciones',
+    return Semantics(
+      label: 'Acciones',
+      button: true,
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(8),

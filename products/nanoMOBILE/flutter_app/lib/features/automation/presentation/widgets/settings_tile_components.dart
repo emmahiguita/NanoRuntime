@@ -231,10 +231,8 @@ class ReadonlyStatus extends StatelessWidget {
     final success = AutomationVisual.of(context).success;
     return Semantics(
       label: 'Activo',
-      child: Tooltip(
-        message: 'Activo',
-        child: Icon(Icons.check_circle_rounded, color: success, size: 18),
-      ),
+      // Semantics ya provee el label; Tooltip es redundante y dispara Overlay.of()
+      child: Icon(Icons.check_circle_rounded, color: success, size: 18),
     );
   }
 }

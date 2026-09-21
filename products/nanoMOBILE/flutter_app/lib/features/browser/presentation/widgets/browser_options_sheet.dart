@@ -231,6 +231,13 @@ class BrowserOptionsSheet extends StatelessWidget {
 
                     // Utilidades y Seguridad
                     _GlassMenuRow(
+                      icon: Icons.vpn_key_rounded,
+                      accent: const Color(0xFF38BDF8),
+                      title: 'Contraseñas y Credenciales',
+                      subtitle: 'Bóveda cifrada y autocompletado seguro',
+                      onTap: () => _trigger(context, 'show_credentials'),
+                    ),
+                    _GlassMenuRow(
                       icon: Icons.copy_rounded,
                       accent: const Color(0xFF64748B),
                       title: 'Copiar Enlace',

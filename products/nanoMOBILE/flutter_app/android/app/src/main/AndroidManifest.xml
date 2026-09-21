@@ -12,22 +12,7 @@
          notificaciones de la app (POST_NOTIFICATION=ignore) y el usuario ve
          "no permitir". Necesario para avisos locales del agente (T3 notify). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-    <!-- A14.5: visibilidad de TODAS las apps instaladas para el inventario del
-         agente (SystemInventory -> DeviceProfile / catálogo de apps). Con solo
-         QUERIES de launcher, apps que no exponen launcher quedan invisibles y
-         el agente "no sabe" de su existencia. Permiso restringido por Play
-         (solo apps que lo justifiquen); este proyecto es de desarrollo local
-         (debug keystore) y necesita el inventario completo del sistema. -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
-    <!-- A14.3: permiso declarativo para el binding con el servicio Shizuku.
-         NO concede privilegios por sí solo; declara que la app puede vincularse
-         al servicio Shizuku (ShizukuManager). La autorización real se otorga
-         explícitamente por el usuario en la app Shizuku, y A14.3 solo la
-         reporta de forma factual (checkSelfPermission). Nunca se pide solo. -->
-    <uses-permission android:name="moe.shizuku.manager.permission.API_V23"/>
-    <!-- Acceso a medios compartidos (Android 13+, runtime grant). El visor de
-         archivos pcmanfm dentro del escritorio Linux los necesita para montar
-         /storage/emulated/0; se solicitan en Ajustes → Escritorio. -->
+    <!-- Acceso a medios compartidos (Android 13+, runtime grant) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"/>
@@ -38,30 +23,17 @@
     <!-- Dictado por voz en el Chat (speech_to_text): runtime grant al primer
          uso del micrófono; sin él el reconocimiento falla con permiso. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <!-- Scanner de modelos: lee todo /storage/emulated/0 para encontrar GGUF
-         y sus rutas sin descargar nada. Grant especial vía Ajustes del
-         sistema (ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION), no runtime.
-         Sin él el scanner devuelve vacío (honesto) y queda el SAF. -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
-    <!-- El worker nanoshell es bind-only (exported=false). Los permisos FGS
-         declarados abajo pertenecen SOLO al AutomationRuntimeService
-         (dataSync, vida acotada a la ventana de procesamiento). -->
     <!-- WA-PROD-01: FGS dataSync del runtime de automatización en segundo
          plano: procesa mensajes con la UI cerrada. Vida acotada — idle →
          stopSelf; nunca notificación eterna. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
-    <!-- WA-PROD-01: Android NO permite arrancar FGS desde el callback del
-         NotificationListener en background (targetSdk 36) sin una exención
-         de la lista oficial; la única aplicable al flujo es la exclusión de
-         optimización de batería. La petición la hace el usuario desde
-         Ajustes → Automatización (nunca a primera ejecución). -->
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
-    <!-- APPFN-01: App Functions (Android 16, API 36). Permiso appop para
-         EJECUTAR funciones de apps; en v1 SOLO se declara para que la sonda
-         reporte su estado factual (probe, sin ejecución). En Android < 36 el
-         sistema ignora el nombre desconocido: declararlo no otorga nada. -->
-    <uses-permission android:name="android.permission.EXECUTE_APP_FUNCTIONS"/>
+    <!-- Permiso estándar para programar alarmas en el reloj del sistema sin intervención manual -->
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
+    <!-- OVERLAY-01: Permite dibujar el búho flotante sobre otras apps (tipo Gemini).
+         El usuario concede este permiso explícitamente desde Ajustes → Apps Especiales.
+         El canal NanoFloatingChannel verifica Settings.canDrawOverlays() antes de show(). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
 
     <!-- A-30: el agente lanza apps Android por packageName (elegido por el
          LLM en runtime — imposible declararlas una a una). Android 11+
@@ -78,6 +50,9 @@
         <intent>
             <action android:name="android.intent.action.MAIN"/>
             <category android:name="android.intent.category.HOME"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM"/>
         </intent>
     </queries>
 
@@ -103,10 +78,6 @@
             android:supportsPictureInPicture="true"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -167,14 +138,19 @@
             android:name=".automation.AutomationRuntimeService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <!-- OVERLAY-01: Búho flotante sobre otras apps (tipo Gemini).
+             START_NOT_STICKY: no rearranca solo si el sistema lo mata.
+             El canal NanoFloatingChannel gestiona show/hide desde Flutter. -->
+        <service
+            android:name=".services.NanoFloatingService"
+            android:exported="false"
+            android:stopWithTask="true" />
         <!-- Acción local de la notificación de gobernanza. No es exportada y
              solo reanuda la confirmación firmada que Flutter mantiene activa. -->
         <receiver
             android:name=".channels.AutomationConfirmationActionReceiver"
             android:enabled="true"
             android:exported="false" />
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
@@ -184,18 +160,6 @@
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
 
-        <!-- A14.3: proveedor de binding Shizuku. Declarado por la API oficial
-             dev.rikka.shizuku:api. Permite a NanoAI vincularse al servicio
-             Shizuku para consultar disponibilidad (pasivo). NO ejecuta nada
-             por sí mismo: la ejecución pasa por CandidateAction → governance
-             (A14.4). Sin este provider no se establece el binding. -->
-        <provider
-            android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:enabled="true"
-            android:exported="true"
-            android:multiprocess="false"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
         <!-- WA-MEDIA-01: FileProvider del catálogo (files/nano/catalog).
              Sirve content:// URIs para ACTION_SEND a WhatsApp (EXTRA_STREAM).
              No exportado: solo la propia app genera las URIs y concede el
@@ -210,24 +174,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-        <!-- A14.3: marca la app como cliente Shizuku v3 (binding V3_SUPPORT).
-             Pasivo: solo informa al servicio que la app soporta la API v3. -->
-        <meta-data
-            android:name="moe.shizuku.client.V3_SUPPORT"
-            android:value="true" />
-        <!-- A14.4: UserService de Shizuku que ejecuta operaciones de paquete
-             tipadas con privilegios (forceStop, queryPackage). El intent-filter
-             USER_SERVICE permite que Shizuku lo invoque en su proceso. Solo
-             packageName validado; nunca shell libre. -->
-        <service
-            android:name="dev.nanoai.mobile.shizuku.PackageActionService"
-            android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL">
-            <intent-filter>
-                <action android:name="rikka.shizuku.intent.action.USER_SERVICE" />
-            </intent-filter>
-        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

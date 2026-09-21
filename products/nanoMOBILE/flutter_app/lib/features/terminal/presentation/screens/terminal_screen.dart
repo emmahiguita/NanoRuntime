@@ -367,8 +367,9 @@ class _S extends State<TerminalTabScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             // Botón de alternar Cuadro Geométrico Perfecto (1:1)
-                            Tooltip(
-                              message: _isSquareMode ? 'Modo expandido' : 'Cuadro Geométrico (1:1)',
+                            Semantics(
+                              label: _isSquareMode ? 'Modo expandido' : 'Cuadro Geométrico (1:1)',
+                              button: true,
                               child: GestureDetector(
                                 onTap: () {
                                   setState(() {
@@ -418,8 +419,9 @@ class _S extends State<TerminalTabScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            Tooltip(
-                              message: 'Centro Terminal',
+                            Semantics(
+                              label: 'Centro Terminal',
+                              button: true,
                               child: GestureDetector(
                                 onTap: () => context.go('/terminal'),
                                 child: Container(
@@ -439,8 +441,9 @@ class _S extends State<TerminalTabScreen> with WidgetsBindingObserver {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            Tooltip(
-                              message: 'Visor Linux',
+                            Semantics(
+                              label: 'Visor Linux',
+                              button: true,
                               child: GestureDetector(
                                 onTap: () => context.push('/desktop'),
                                 child: Container(

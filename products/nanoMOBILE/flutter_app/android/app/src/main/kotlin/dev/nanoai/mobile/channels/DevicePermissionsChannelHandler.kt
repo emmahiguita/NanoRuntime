@@ -22,6 +22,7 @@ import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
+import dev.nanoai.mobile.BuildConfig
 import dev.nanoai.mobile.services.AgentAccessibilityService
 import dev.nanoai.mobile.shizuku.IPackageAction
 import dev.nanoai.mobile.shizuku.PackageActionService
@@ -61,31 +62,77 @@ class DevicePermissionsChannelHandler(
 
     init {
         // A14.4: escucha el resultado del diálogo de concesión Shizuku y lo
-        // resuelve en el hilo principal. Se registra una sola vez (defensa:
-        // un listener duplicado entre recreaciones de la Activity no deja
-        // resultados huérfanos — el nuevo sobrescribe al anterior).
-        Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
-        Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
+        // resuelve en el hilo principal. Solo activo en distribuciones sideload.
+        if (!BuildConfig.PLAY_STORE_BUILD) {
+            try {
+                Shizuku.removeRequestPermissionResultListener(shizukuPermissionListener)
+                Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
+            } catch (_: Throwable) {
+                // Shizuku no disponible o no soportado
+            }
+        }
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "status" -> result.success(status())
-            "queryShizukuStatus" -> result.success(queryShizukuStatus())
-            "shizukuQueryPackage" -> result.success(
-                shizukuQueryPackage(call.argument<String>("packageName")),
-            )
-            "shizukuRequestPermission" -> shizukuRequestPermission(result)
-            "shizukuForceStop" -> shizukuForceStop(
-                call.argument<String>("packageName"),
-                result,
-            )
-            "shizukuInstall" -> shizukuInstall(call.argument<String>("apkPath"), result)
-            "shizukuGrantPermission" -> shizukuGrantPermission(
-                call.argument<String>("packageName"),
-                call.argument<String>("permission"),
-                result,
-            )
+            "queryShizukuStatus" -> {
+                if (BuildConfig.PLAY_STORE_BUILD) {
+                    result.success(
+                        mapOf(
+                            "installed" to false,
+                            "binderAlive" to false,
+                            "permissionGranted" to false,
+                        ),
+                    )
+                } else {
+                    result.success(queryShizukuStatus())
+                }
+            }
+            "shizukuQueryPackage" -> {
+                if (BuildConfig.PLAY_STORE_BUILD) {
+                    result.success(mapOf("ok" to false, "code" to "SHIZUKU_DISABLED_PLAY_STORE"))
+                } else {
+                    result.success(
+                        shizukuQueryPackage(call.argument<String>("packageName")),
+                    )
+                }
+            }
+            "shizukuRequestPermission" -> {
+                if (BuildConfig.PLAY_STORE_BUILD) {
+                    result.error("SHIZUKU_DISABLED", "Shizuku is disabled in Play Store builds", null)
+                } else {
+                    shizukuRequestPermission(result)
+                }
+            }
+            "shizukuForceStop" -> {
+                if (BuildConfig.PLAY_STORE_BUILD) {
+                    result.error("SHIZUKU_DISABLED", "Shizuku is disabled in Play Store builds", null)
+                } else {
+                    shizukuForceStop(
+                        call.argument<String>("packageName"),
+                        result,
+                    )
+                }
+            }
+            "shizukuInstall" -> {
+                if (BuildConfig.PLAY_STORE_BUILD) {
+                    result.error("SHIZUKU_DISABLED", "Shizuku is disabled in Play Store builds", null)
+                } else {
+                    shizukuInstall(call.argument<String>("apkPath"), result)
+                }
+            }
+            "shizukuGrantPermission" -> {
+                if (BuildConfig.PLAY_STORE_BUILD) {
+                    result.error("SHIZUKU_DISABLED", "Shizuku is disabled in Play Store builds", null)
+                } else {
+                    shizukuGrantPermission(
+                        call.argument<String>("packageName"),
+                        call.argument<String>("permission"),
+                        result,
+                    )
+                }
+            }
             "systemState" -> result.success(systemState())
             "openUrl" -> result.success(
                 openUrl(
@@ -121,9 +168,13 @@ class DevicePermissionsChannelHandler(
             .getEnabledListenerPackages(activity)
             .contains(activity.packageName),
         "allFiles" to (
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
-                Environment.isExternalStorageManager()
-            ),
+            if (BuildConfig.PLAY_STORE_BUILD) {
+                false
+            } else {
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
+                    Environment.isExternalStorageManager()
+            }
+        ),
     )
 
     /**
@@ -440,6 +491,7 @@ class DevicePermissionsChannelHandler(
     }
 
     private fun openAllFilesAccess(): Boolean {
+        if (BuildConfig.PLAY_STORE_BUILD) return false
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return true
         return open(
             Intent(

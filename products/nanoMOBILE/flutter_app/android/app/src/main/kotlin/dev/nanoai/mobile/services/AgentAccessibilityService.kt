@@ -1,6 +1,7 @@
 package dev.nanoai.mobile.services
 
 import android.accessibilityservice.AccessibilityService
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.graphics.Bitmap
@@ -81,6 +82,29 @@ class AgentAccessibilityService : AccessibilityService() {
                 Intent(this, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            try {
+                serviceInfo = serviceInfo.apply {
+                    flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON
+                }
+                accessibilityButtonController.registerAccessibilityButtonCallback(
+                    object : android.accessibilityservice.AccessibilityButtonController.AccessibilityButtonCallback() {
+                        override fun onClicked(controller: android.accessibilityservice.AccessibilityButtonController) {
+                            Log.i(TAG, "Botón de accesibilidad flotante presionado — abriendo Nano AI Owl Hub")
+                            val intent = Intent(this@AgentAccessibilityService, MainActivity::class.java).apply {
+                                action = Intent.ACTION_VIEW
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                                putExtra("action", "open_owl_hub")
+                            }
+                            startActivity(intent)
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "AccessibilityButtonCallback error: ${e.message}")
+            }
         }
     }
 
@@ -576,7 +600,11 @@ class AgentAccessibilityService : AccessibilityService() {
             Log.w(TAG, "launchPackage($packageName): sin launch intent")
             return false
         }
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent.addFlags(
+            Intent.FLAG_ACTIVITY_NEW_TASK or
+            Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+            Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
+        )
         return try {
             startActivity(intent)
             Log.i(TAG, "launchPackage($packageName): lanzado")
@@ -642,88 +670,6 @@ class AgentAccessibilityService : AccessibilityService() {
         "canRetrieveWindowContent" to true,
     )
 
-    /**
-     * Auto-Send & Return: Busca el botón de envío en la ventana activa de WhatsApp
-     * (o WhatsApp Business), ejecuta el clic y devuelve el foco a MainActivity.
-     */
-    fun performAutoSendAndReturn(targetPkg: String? = null): Boolean {
-        val root = rootInActiveWindow ?: return false
-        val currentPackage = root.packageName?.toString().orEmpty()
-        val isWhatsApp = currentPackage.contains("whatsapp", ignoreCase = true)
-        if (!isWhatsApp) {
-            root.recycle()
-            return false
-        }
-
-        var sendNode: AccessibilityNodeInfo? = null
-        val stack = ArrayDeque<AccessibilityNodeInfo>()
-        stack.add(root)
-
-        while (stack.isNotEmpty() && sendNode == null) {
-            val node = stack.removeLast()
-            val resId = node.viewIdResourceName?.lowercase().orEmpty()
-            val desc = node.contentDescription?.toString()?.lowercase().orEmpty()
-            val text = node.text?.toString()?.lowercase().orEmpty()
-
-            val isSendId = resId.endsWith(":id/send") || resId.contains("send_button")
-            val isSendDesc = desc == "enviar" || desc == "send" || desc.startsWith("enviar") || desc.startsWith("send")
-            val isSendText = text == "enviar" || text == "send"
-
-            if (isSendId || isSendDesc || isSendText) {
-                sendNode = node
-                break
-            }
-
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { stack.add(it) }
-            }
-        }
-
-        var clicked = false
-        if (sendNode != null) {
-            clicked = sendNode.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            if (!clicked) {
-                var parent = sendNode.parent
-                while (parent != null && !clicked) {
-                    if (parent.isClickable) {
-                        clicked = parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    }
-                    if (!clicked) {
-                        parent = parent.parent
-                    }
-                }
-            }
-            if (!clicked) {
-                val rect = Rect()
-                sendNode.getBoundsInScreen(rect)
-                if (rect.width() > 0 && rect.height() > 0) {
-                    clicked = gestureTap(rect.centerX(), rect.centerY(), durationMs = 50)
-                }
-            }
-            sendNode.recycle()
-        }
-
-        root.recycle()
-
-        if (clicked) {
-            Log.i(TAG, "performAutoSendAndReturn: Clic en Enviar ejecutado con éxito. Regresando a Nano en 120ms...")
-            mainThreadHandler.postDelayed({
-                try {
-                    val returnIntent = Intent(this, MainActivity::class.java).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                    }
-                    startActivity(returnIntent)
-                    Log.i(TAG, "performAutoSendAndReturn: Nano traído al frente exitosamente")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Error al traer MainActivity al frente: ${e.message}")
-                }
-            }, 120)
-            return true
-        }
-
-        return false
-    }
-
     // ── Internos ─────────────────────────────────────────────────────────────
 
     private fun findFirstClickableByText(text: String): AccessibilityNodeInfo? {
@@ -787,6 +733,20 @@ class AgentAccessibilityService : AccessibilityService() {
             .build()
         return dispatchGesture(gesture, null, null)
     }
+
+    /**
+     * QUÉ HACE: Delega el auto-envío de WhatsApp al controlador especializado.
+     * POR QUÉ: Permite reutilizar InteractiveWindowFinder y WhatsAppMediaVerifier sin abultar este servicio.
+     */
+    fun performAutoSendAndReturn(
+        targetPkg: String? = null,
+        targetContact: String? = null,
+        expectedAlias: String? = null
+    ): Boolean {
+        return dev.nanoai.mobile.services.whatsapp.WhatsAppAutoSendController.performAutoSendAndReturn(
+            this, targetPkg, targetContact, expectedAlias
+        )
+    }
 }
 
 /**
@@ -832,6 +792,12 @@ object AgentAccessibilityBridge {
     @Volatile
     private var autoSendTargetPkg: String? = null
 
+    @Volatile
+    private var autoSendTargetContact: String? = null
+
+    @Volatile
+    private var autoSendExpectedAlias: String? = null
+
     private val autoSendRunnable = object : Runnable {
         override fun run() {
             if (!isAutoSendArmed) return
@@ -841,7 +807,7 @@ object AgentAccessibilityBridge {
                 return
             }
 
-            val executed = s.performAutoSendAndReturn(autoSendTargetPkg)
+            val executed = s.performAutoSendAndReturn(autoSendTargetPkg, autoSendTargetContact, autoSendExpectedAlias)
             if (executed) {
                 isAutoSendArmed = false
             } else {
@@ -871,11 +837,18 @@ object AgentAccessibilityBridge {
         listeners.clear()
     }
 
-    fun armAutoSendAndReturn(targetPkg: String? = null, timeoutMs: Long = 5000L) {
+    fun armAutoSendAndReturn(
+        targetPkg: String? = null,
+        targetContact: String? = null,
+        expectedAlias: String? = null,
+        timeoutMs: Long = 5000L
+    ) {
         val s = service ?: return
         isAutoSendArmed = true
         autoSendDeadlineMs = System.currentTimeMillis() + timeoutMs
         autoSendTargetPkg = targetPkg
+        autoSendTargetContact = targetContact
+        autoSendExpectedAlias = expectedAlias
         s.mainThreadHandler.removeCallbacks(autoSendRunnable)
         // Revisar tras un breve lapso para que la ventana de WhatsApp inicie
         s.mainThreadHandler.postDelayed(autoSendRunnable, 150)
@@ -883,6 +856,8 @@ object AgentAccessibilityBridge {
 
     fun disarmAutoSend() {
         isAutoSendArmed = false
+        autoSendTargetContact = null
+        autoSendExpectedAlias = null
         service?.mainThreadHandler?.removeCallbacks(autoSendRunnable)
     }
 
@@ -893,7 +868,7 @@ object AgentAccessibilityBridge {
         if (isAutoSendArmed && packageName.contains("whatsapp", ignoreCase = true)) {
             service?.let { s ->
                 s.mainThreadHandler.post {
-                    if (isAutoSendArmed && s.performAutoSendAndReturn(autoSendTargetPkg)) {
+                    if (isAutoSendArmed && s.performAutoSendAndReturn(autoSendTargetPkg, autoSendTargetContact, autoSendExpectedAlias)) {
                         isAutoSendArmed = false
                     }
                 }

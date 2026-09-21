@@ -7,12 +7,15 @@
 /// `POST /api/viability` (ver `LLMEngineClient.assessModelViability`).
 library;
 
-enum ModelViability { fast, balanced, streaming, extreme }
+enum ModelViability { unknown, fast, balanced, streaming, extreme }
 
 /// Clasificación local alineada con Rust. No es la autoridad: solo el
 /// placeholder offline hasta que el motor responda el veredicto real.
 ModelViability viabilityFor(double requiredRamGb, double deviceTotalRamGb) {
-  if (deviceTotalRamGb <= 0) return ModelViability.fast;
+  // Sin RAM medida no se anuncia rendimiento: "rápido" era un falso positivo.
+  if (requiredRamGb <= 0 || deviceTotalRamGb <= 0) {
+    return ModelViability.unknown;
+  }
   final ratio = requiredRamGb / deviceTotalRamGb;
   if (ratio <= 0.7) return ModelViability.fast;
   if (ratio <= 1.0) return ModelViability.balanced;

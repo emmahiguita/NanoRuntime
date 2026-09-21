@@ -79,6 +79,7 @@ class AutomationDashboard extends ConsumerStatefulWidget {
     this.onRulesTap,
     this.onBusinessTap,
     this.onPersonalAgentTap,
+    this.onBotStudioTap,
     this.onSkillsMcpTap,
     this.onDevTap,
   });
@@ -99,6 +100,9 @@ class AutomationDashboard extends ConsumerStatefulWidget {
 
   /// Acceso directo a la pantalla especializada del Agente Personal de WhatsApp.
   final VoidCallback? onPersonalAgentTap;
+
+  /// Acceso directo a Bot Studio (agentes configurables, memoria y terminal).
+  final VoidCallback? onBotStudioTap;
 
   /// Acceso directo al Hub visual de MCP & Skills (grafo, telemetría y tienda).
   final VoidCallback? onSkillsMcpTap;
@@ -613,6 +617,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       onRulesTap: widget.onRulesTap,
       onBusinessTap: widget.onBusinessTap,
       onPersonalAgentTap: widget.onPersonalAgentTap,
+      onBotStudioTap: widget.onBotStudioTap,
       onSkillsMcpTap: widget.onSkillsMcpTap,
       onTimeRuleTap: _createTimeRule,
       suppressSuggestions: _running || _sensing || _composing,

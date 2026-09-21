@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función de seguridad: Verifica que el usuario esté autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Función de seguridad: Verifica que el usuario sea el dueño del documento
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Reglas para el perfil de cuenta de usuario
+    match /users/{userId} {
+      // Lectura: Solo el dueño de la cuenta puede leer su perfil
+      allow read: if isOwner(userId);
+      
+      // Creación: Solo el usuario autenticado para su propio UID inicial
+      allow create: if isOwner(userId)
+                    && request.resource.data.uid == userId
+                    && (!request.resource.data.keys().hasAny(['roles', 'admin']))
+                    && request.resource.data.planTier in ['free', 'pro', 'business'];
+      
+      // Actualización: El cliente solo puede modificar campos no privilegiados.
+      // planTier, status y entitlements solo pueden ser mutados por backend seguro / Webhooks.
+      allow update: if isOwner(userId)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles', 'admin', 'status', 'planTier', 'entitlementSource']);
+
+      // Eliminación: El usuario puede solicitar la eliminación de su cuenta
+      allow delete: if isOwner(userId);
+
+      // Subcolección de dispositivos vinculados
+      match /devices/{deviceId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+  }
+}

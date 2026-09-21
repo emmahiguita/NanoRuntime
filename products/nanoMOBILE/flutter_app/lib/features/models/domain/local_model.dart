@@ -34,6 +34,7 @@ class LocalModel {
   /// Gate R9 — tier de rendimiento (interactive/deep/extreme). EXTREME solo
   /// con confirmación explícita del usuario en la UI.
   final ModelTier tier;
+  final ModelKind kind;
   final ModelDownloadState downloadState;
   final double progress; // 0..1 durante downloading/verifying
   final String url;
@@ -42,6 +43,9 @@ class LocalModel {
   final String? error; // mensaje honesto del último fallo
   final bool active;
   final bool loading;
+  final String? mmprojFile;
+  final String? mmprojUrl;
+  final String? mmprojSha256;
 
   const LocalModel({
     required this.id,
@@ -54,6 +58,7 @@ class LocalModel {
     required this.description,
     required this.template,
     required this.tier,
+    this.kind = ModelKind.llm,
     required this.downloadState,
     required this.progress,
     required this.url,
@@ -62,9 +67,18 @@ class LocalModel {
     this.error,
     required this.active,
     required this.loading,
+    this.mmprojFile,
+    this.mmprojUrl,
+    this.mmprojSha256,
   });
 
   bool get installed => downloadState == ModelDownloadState.installed;
+
+  /// Indica si es un modelo multimodal con visión artificial.
+  bool get isMultimodal => kind == ModelKind.multimodalVision;
+
+  /// Indica si es un modelo de reconocimiento/transcripción de voz local.
+  bool get isVoiceStt => kind == ModelKind.voiceStt;
 
   LocalModel copyWith({
     ModelDownloadState? downloadState,
@@ -86,6 +100,7 @@ class LocalModel {
       description: description,
       template: template,
       tier: tier,
+      kind: kind,
       downloadState: downloadState ?? this.downloadState,
       progress: progress ?? this.progress,
       url: url,
@@ -94,6 +109,9 @@ class LocalModel {
       error: clearError ? null : (error ?? this.error),
       active: active ?? this.active,
       loading: loading ?? this.loading,
+      mmprojFile: mmprojFile,
+      mmprojUrl: mmprojUrl,
+      mmprojSha256: mmprojSha256,
     );
   }
 }

@@ -1,14 +1,19 @@
 package dev.nanoai.mobile
 
 import android.Manifest
+import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Rational
+import android.view.WindowManager
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import dev.nanoai.mobile.appfunctions.AppFunctionChannelHandler
 import dev.nanoai.mobile.channels.AgentChannelHandler
@@ -21,14 +26,17 @@ import dev.nanoai.mobile.channels.DevicePermissionsChannelHandler
 import dev.nanoai.mobile.channels.EngineChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
 import dev.nanoai.mobile.channels.LanguageAssistChannelHandler
+import dev.nanoai.mobile.channels.MediaCaptureChannelHandler
 import dev.nanoai.mobile.channels.ModelStorageChannelHandler
+import dev.nanoai.mobile.channels.NanoFloatingChannel
+import dev.nanoai.mobile.channels.NanoNativeAiChannel
 import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
-import dev.nanoai.mobile.services.NotificationAutomationBridge
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
 import dev.nanoai.mobile.channels.SpeechChannelHandler
 import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
+import dev.nanoai.mobile.services.NotificationAutomationBridge
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -49,6 +57,9 @@ class MainActivity : FlutterActivity() {
     /** Canal hacia Dart para navegación forzada desde el sistema. */
     private var navigationChannel: MethodChannel? = null
 
+    /** Canal para Picture-in-Picture nativo del sistema. */
+    private var pipChannel: MethodChannel? = null
+
     /** Handler del canal model_storage: recibe onActivityResult del picker. */
     private var modelStorageHandler: ModelStorageChannelHandler? = null
 
@@ -68,6 +79,15 @@ class MainActivity : FlutterActivity() {
     /** Voz (cerrado en onDestroy, A13): recognizer zombie + TTS vivo. */
     private var speechChannelHandler: SpeechChannelHandler? = null
 
+    /** Captura de cámara delegada al sistema; resuelve su Future al cerrar. */
+    private var mediaCaptureHandler: MediaCaptureChannelHandler? = null
+
+    /** Canal del overlay flotante (tipo Gemini) — requiere SYSTEM_ALERT_WINDOW. */
+    private var nanoFloatingChannel: NanoFloatingChannel? = null
+
+    /** Canal para compartir prompts con apps nativas de IA (ChatGPT, Gemini…). */
+    private var nanoNativeAiChannel: NanoNativeAiChannel? = null
+
     private val pathPolicy: SecurePathPolicy by lazy { SecurePathPolicy(filesDir) }
     private val downloadService: DownloadService by lazy { DownloadService(pathPolicy) }
     private val deviceMetricsProvider: DeviceMetricsProvider by lazy { DeviceMetricsProvider(this) }
@@ -84,15 +104,16 @@ class MainActivity : FlutterActivity() {
         // solo un add a un set sincronizado — no toca disco ni pelea el
         // primer frame.
         runtimeScope.acquire(RuntimeScope.Holder.UI)
-        // Barras del sistema oscuras + edge-to-edge: el dashboard dibuja
-        // bajo la barra de estado (SafeArea en Flutter evita superposición).
+        // Barras del sistema oscuras + inmersión total sticky: ocultar status bar para aprovechar pantalla
+        window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = Color.TRANSPARENT
-        window.navigationBarColor = Color.parseColor("#020611")
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            isAppearanceLightStatusBars = false
-            isAppearanceLightNavigationBars = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            window.attributes.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         }
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        applyImmersiveMode()
         // Starting the worker binds a native service and may touch disk. Do it
         // after initial UI work so cold start can render before runtime warmup.
         mainHandler.postDelayed({
@@ -102,21 +123,86 @@ class MainActivity : FlutterActivity() {
         }, RUNTIME_WARMUP_DELAY_MS)
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        applyImmersiveMode()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyImmersiveMode()
+        }
+    }
+
+    override fun onFlutterUiDisplayed() {
+        super.onFlutterUiDisplayed()
+        applyImmersiveMode()
+    }
+
+    private fun applyImmersiveMode() {
+        window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
+        window.decorView.post {
+            WindowCompat.getInsetsController(window, window.decorView).apply {
+                systemBarsBehavior =
+                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                hide(WindowInsetsCompat.Type.systemBars())
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.insetsController?.let { controller ->
+                    controller.systemBarsBehavior =
+                        android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    controller.hide(android.view.WindowInsets.Type.systemBars())
+                }
+            }
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    or android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            )
+            @Suppress("DEPRECATION")
+            window.decorView.setOnSystemUiVisibilityChangeListener { visibility ->
+                if ((visibility and android.view.View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+                    window.decorView.postDelayed({ applyImmersiveMode() }, 500)
+                }
+            }
+        }
+    }
+
     /**
      * Entrada "Configuración" desde Ajustes → Apps → NanoAI Local.
      * Cuando el sistema lanza esta activity con ACTION_APPLICATION_PREFERENCES,
      * Flutter arranca directo en /settings en vez del dashboard.
      */
     override fun getInitialRoute(): String? =
-        if (intent?.action == Intent.ACTION_APPLICATION_PREFERENCES) "/settings"
-        else super.getInitialRoute()
+        when {
+            intent?.getStringExtra("action") == "open_assistant" -> "/chat"
+            intent?.hasExtra("route") == true -> intent?.getStringExtra("route")
+            intent?.action == Intent.ACTION_APPLICATION_PREFERENCES -> "/settings"
+            else -> super.getInitialRoute()
+        }
 
-    /** Warm start: navegamos vía canal si se activa desde Ajustes. */
+    /** Warm start: navegamos vía canal si se activa desde Ajustes o con extra de ruta. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.action == Intent.ACTION_APPLICATION_PREFERENCES) {
             navigationChannel?.invokeMethod("openSettings", null)
+        } else if (intent.hasExtra("route")) {
+            intent.getStringExtra("route")?.let { route ->
+                navigationChannel?.invokeMethod("navigate", route)
+            }
+        } else if (intent.getStringExtra("action") == "open_owl_hub" || intent.getStringExtra("action") == "open_assistant") {
+            navigationChannel?.invokeMethod("openOwlHub", null)
+        }
+        val prompt = intent.getStringExtra("nano.entry.prompt")
+        if (!prompt.isNullOrBlank()) {
+            intent.removeExtra("nano.entry.prompt")
+            navigationChannel?.invokeMethod("submitPrompt", prompt)
         }
     }
 
@@ -125,6 +211,13 @@ class MainActivity : FlutterActivity() {
         languageAssistHandler = null
         speechChannelHandler?.close()
         speechChannelHandler = null
+        mediaCaptureHandler?.close()
+        mediaCaptureHandler = null
+        // Desregistrar canales del overlay — evita leaks de MethodChannel.
+        nanoFloatingChannel?.detach()
+        nanoFloatingChannel = null
+        nanoNativeAiChannel?.detach()
+        nanoNativeAiChannel = null
         ioScope.cancel()
         // Si el diálogo de permisos quedó abierto al destruirse la Activity,
         // resolver el Result pendiente — un Future Dart colgado para siempre.
@@ -313,6 +406,11 @@ class MainActivity : FlutterActivity() {
         EventChannel(messenger, SpeechChannelHandler.PARTIAL_CHANNEL_NAME)
             .setStreamHandler(speechHandler)
 
+        val mediaHandler = MediaCaptureChannelHandler(this)
+        mediaCaptureHandler = mediaHandler
+        MethodChannel(messenger, ChannelNames.MEDIA_CAPTURE)
+            .setMethodCallHandler(mediaHandler)
+
         MethodChannel(messenger, ChannelNames.ENGINE).also { engineChannel ->
             EngineChannelHandler(runtimeScope.engineSupervisor, ioScope, mainHandler)
                 .also { handler ->
@@ -350,10 +448,67 @@ class MainActivity : FlutterActivity() {
                 languageAssistHandler = it
             })
 
+        // OVERLAY-01: búho flotante sobre otras apps (tipo Gemini).
+        // Requiere SYSTEM_ALERT_WINDOW — el canal verifica el permiso antes de show().
+        nanoFloatingChannel = NanoFloatingChannel(this, messenger)
+
+        // OVERLAY-02: handoff de prompts a apps nativas de IA (ChatGPT, Gemini app…).
+        nanoNativeAiChannel = NanoNativeAiChannel(this, messenger)
+
+        // BROWSER-PIP: soporte para Picture-in-Picture nativo del sistema.
+        val pipChan = MethodChannel(messenger, "com.nanoai/browser_pip")
+        pipChannel = pipChan
+        pipChan.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "enterSystemPip" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                        packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                    ) {
+                        try {
+                            val builder = PictureInPictureParams.Builder()
+                                .setAspectRatio(Rational(16, 9))
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                builder.setAutoEnterEnabled(true)
+                            }
+                            val entered = enterPictureInPictureMode(builder.build())
+                            result.success(entered)
+                        } catch (e: Exception) {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "isPipSupported" -> {
+                    val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                        packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+                    result.success(supported)
+                }
+                else -> result.notImplemented()
+            }
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        pipChannel?.invokeMethod("pipModeChanged", isInPictureInPictureMode)
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        ) {
+            pipChannel?.invokeMethod("onUserLeaveHint", null)
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (mediaCaptureHandler?.onActivityResult(requestCode, resultCode) == true) return
         modelStorageHandler?.onActivityResult(requestCode, resultCode, data)
     }
 
@@ -362,6 +517,7 @@ class MainActivity : FlutterActivity() {
         // Resuelve requestAllFilesAccess (MANAGE_EXTERNAL_STORAGE) al
         // volver de la pantalla del sistema.
         modelStorageHandler?.onResume()
+        applyImmersiveMode()
     }
 
     private companion object {

@@ -125,13 +125,21 @@ class TaskPlanner {
     }
     if (_isSelectResultIntent(g)) return _selectResultPlan(goal);
     final search = const GenericUiIntentParser().parseSearch(goal);
-    if (search.hasQuery) {
+    // W10: "busca a X en whatsapp" = búsqueda de PERSONA → catálogo 'busca a'.
+    // La partícula " a " tras buscar indica persona, no contenido multimedia.
+    // Si la frase menciona 'whatsapp' junto con 'busca a'/'buscar a', dejamos
+    // que el catálogo determinista lo capture (retornamos null aquí).
+    final isWhatsAppPersonSearch =
+        (g.contains('busca a') || g.contains('buscar a')) &&
+        g.contains('whatsapp');
+    if (search.hasQuery && !g.contains('contacto') && !isWhatsAppPersonSearch) {
       if (_isReproductionIntent(g)) {
         return _reproductionPlan(goal, openApp: search.app.isNotEmpty);
       }
       return _searchPlan(goal, openApp: search.app.isNotEmpty);
     }
     return null;
+
   }
 
   /// "reproduce X en youtube" / "ponme X" — buscar Y abrir el primer

@@ -35,6 +35,7 @@ class ModelMetadataRepositoryImpl implements IModelMetadataRepository {
     double? measuredRamGb,
   }) {
     final def = ModelSourceRegistry.definitionFor(modelName);
+    final identified = def.isIdentified;
     final isCatalog = NeuralCatalog.models.any((m) => m.name == modelName);
     final catalogEntry = isCatalog ? NeuralCatalog.entryOf(modelName) : null;
 
@@ -44,11 +45,14 @@ class ModelMetadataRepositoryImpl implements IModelMetadataRepository {
     final estimatedRam =
         customRamGb ?? catalogEntry?.ramGb ?? (sizeGb * 1.2 + 0.6);
 
-    final remote =
-        _localCache.get(def.quantizedRepo) ?? _localCache.get(def.officialRepo);
-    final lastFetched =
-        _localCache.getTimestamp(def.quantizedRepo) ??
-        _localCache.getTimestamp(def.officialRepo);
+    final remote = identified
+        ? _localCache.get(def.quantizedRepo) ??
+              _localCache.get(def.officialRepo)
+        : null;
+    final lastFetched = identified
+        ? _localCache.getTimestamp(def.quantizedRepo) ??
+              _localCache.getTimestamp(def.officialRepo)
+        : null;
 
     final officialSource = ModelSource(
       label: '${def.developerName} (Official Developer)',
@@ -75,9 +79,9 @@ class ModelMetadataRepositoryImpl implements IModelMetadataRepository {
     );
 
     final sourcesList = <ModelSource>[
-      officialSource,
-      if (def.officialRepo != def.quantizedRepo) quantSource,
-      hfSource,
+      if (identified) officialSource,
+      if (identified && def.officialRepo != def.quantizedRepo) quantSource,
+      if (identified) hfSource,
       if (measuredRamGb != null || measuredTokensPerSec != null) localSource,
     ];
 
@@ -85,34 +89,46 @@ class ModelMetadataRepositoryImpl implements IModelMetadataRepository {
       id: def.id,
       displayName: modelName,
       developer: ModelFact(
-        value: def.developerName,
-        provenance: ModelDataProvenance.official,
-        source: officialSource,
+        value: identified ? def.developerName : null,
+        provenance: identified
+            ? ModelDataProvenance.official
+            : ModelDataProvenance.unavailable,
+        source: identified ? officialSource : null,
       ),
       license: ModelFact(
-        value: def.officialLicense,
-        provenance: ModelDataProvenance.official,
-        source: officialSource,
+        value: identified ? def.officialLicense : null,
+        provenance: identified
+            ? ModelDataProvenance.official
+            : ModelDataProvenance.unavailable,
+        source: identified ? officialSource : null,
       ),
       architecture: ModelFact(
-        value: def.baseArchitecture,
-        provenance: ModelDataProvenance.official,
-        source: officialSource,
+        value: identified ? def.baseArchitecture : null,
+        provenance: identified
+            ? ModelDataProvenance.official
+            : ModelDataProvenance.unavailable,
+        source: identified ? officialSource : null,
       ),
       parametersBillions: ModelFact(
-        value: def.officialParams,
-        provenance: ModelDataProvenance.official,
-        source: officialSource,
+        value: identified ? def.officialParams : null,
+        provenance: identified
+            ? ModelDataProvenance.official
+            : ModelDataProvenance.unavailable,
+        source: identified ? officialSource : null,
       ),
       contextLength: ModelFact(
-        value: def.officialContext,
-        provenance: ModelDataProvenance.official,
-        source: officialSource,
+        value: identified ? def.officialContext : null,
+        provenance: identified
+            ? ModelDataProvenance.official
+            : ModelDataProvenance.unavailable,
+        source: identified ? officialSource : null,
       ),
       vocabularySize: ModelFact(
-        value: def.officialVocab,
-        provenance: ModelDataProvenance.official,
-        source: officialSource,
+        value: identified ? def.officialVocab : null,
+        provenance: identified
+            ? ModelDataProvenance.official
+            : ModelDataProvenance.unavailable,
+        source: identified ? officialSource : null,
       ),
       quantization: ModelFact(
         value: quant,
@@ -154,6 +170,7 @@ class ModelMetadataRepositoryImpl implements IModelMetadataRepository {
 
   @override
   Future<void> refreshRemoteMetadata(String repoId) async {
+    if (repoId.trim().isEmpty) return;
     if (_inFlightRequests.contains(repoId)) return;
     if (_localCache.isFresh(repoId, _cacheTtl)) return;
 

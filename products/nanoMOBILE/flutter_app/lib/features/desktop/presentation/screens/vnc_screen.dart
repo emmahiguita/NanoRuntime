@@ -137,7 +137,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     _keyboardFocus.dispose();
     _keyboardInput.dispose();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     super.dispose();
   }
 
@@ -153,11 +153,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
       ]);
-      if (_windowMode == DesktopWindowMode.expanded) {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      } else {
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-      }
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     } else {
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
@@ -477,7 +473,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
     setState(() {
       if (_windowMode == DesktopWindowMode.expanded) {
         _windowMode = DesktopWindowMode.normal;
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       } else {
         _windowMode = DesktopWindowMode.expanded;
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -493,10 +489,10 @@ class _VncScreenState extends ConsumerState<VncScreen> {
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       } else if (_windowMode == DesktopWindowMode.expanded) {
         _windowMode = DesktopWindowMode.minimized;
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       } else {
         _windowMode = DesktopWindowMode.normal;
-        SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       }
     });
     HapticFeedback.lightImpact();
@@ -1260,7 +1256,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                   onRotate: _toggleOrientation,
                   onMinimize: () => setState(() {
                     _windowMode = DesktopWindowMode.minimized;
-                    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
                   }),
                   onTouch: () => _setPointerMode(DesktopPointerMode.touch),
                   onPan: () => _setPointerMode(DesktopPointerMode.pan),
@@ -1291,7 +1287,7 @@ class _VncScreenState extends ConsumerState<VncScreen> {
                     onRotate: _toggleOrientation,
                     onMinimize: () => setState(() {
                       _windowMode = DesktopWindowMode.minimized;
-                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
                     }),
                     onReconnect: () {
                       _reconnectAttempts = 0;

@@ -33,6 +33,7 @@ enum VoiceSessionState {
 /// MethodChannel/Android.
 abstract interface class SpeechRecognitionBackend {
   Future<String?> listen({String language = 'es-ES'});
+  Future<void> cancel();
 }
 
 /// Backend de síntesis de voz (TTS).
@@ -149,7 +150,12 @@ class VoiceSessionManager {
     try {
       transcript = await _recognition.listen().timeout(
         listenTimeout,
-        onTimeout: () => null,
+        onTimeout: () async {
+          // Abandonar solo el Future deja el recognizer nativo vivo. El puerto
+          // cancela el recurso real y resuelve su MethodChannel pendiente.
+          await _recognition.cancel();
+          return null;
+        },
       );
     } on ExecutionCancelled {
       _set(VoiceSessionState.idle);
@@ -289,7 +295,9 @@ class VoiceSessionManager {
   Future<void> stop() async {
     _followUpTimer?.cancel();
     try {
-      if (_state == VoiceSessionState.speaking) {
+      if (_state == VoiceSessionState.listening) {
+        await _recognition.cancel();
+      } else if (_state == VoiceSessionState.speaking) {
         await bargeIn();
       } else {
         await _synthesis.stop();
@@ -317,6 +325,7 @@ class VoiceSessionManager {
     _followUpTimer?.cancel();
     try {
       await _wakeWord?.stop();
+      await _recognition.cancel();
       await _synthesis.stop();
     } finally {
       _state = VoiceSessionState.idle;

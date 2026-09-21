@@ -32,6 +32,8 @@ class DeviceNotification {
   final String remoteInputKey;
   final int actionIndex;
   final List<String> actions;
+  final List<Map<String, dynamic>> rawMessages;
+  final List<String> allowedDataTypes;
 
   const DeviceNotification({
     required this.key,
@@ -57,10 +59,20 @@ class DeviceNotification {
     this.remoteInputKey = '',
     this.actionIndex = -1,
     this.actions = const [],
+    this.rawMessages = const [],
+    this.allowedDataTypes = const [],
   });
 
   factory DeviceNotification.fromMap(Map<dynamic, dynamic> map) {
     final epoch = (map['postTime'] is num) ? (map['postTime'] as num).toInt() : 0;
+    final msgs = ((map['messages'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList();
+    final dataTypes = ((map['allowedDataTypes'] as List?) ?? const [])
+        .map((e) => '$e')
+        .toList();
+
     return DeviceNotification(
       key: map['key'] as String? ?? '',
       packageName: (map['package'] ?? map['packageName']) as String? ?? '',
@@ -92,6 +104,8 @@ class DeviceNotification {
           .map((a) => '$a')
           .where((a) => a.isNotEmpty)
           .toList(),
+      rawMessages: msgs,
+      allowedDataTypes: dataTypes,
     );
   }
 

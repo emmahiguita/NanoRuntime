@@ -10,33 +10,9 @@
 library;
 
 import 'dialogue_state.dart' show linguisticAnalyzer;
+import 'turn_complexity.dart';
 
-/// Resultado de clasificación del turno.
-final class TurnComplexity {
-  /// Turno social mínimo: saludo puro / reacción social pura sin referentes.
-  /// Elegible para conversationSocialPromptFor.
-  final bool isSocialMinimal;
-
-  /// El hablante relata actividades, planes, estados propios.
-  final bool isNarrative;
-
-  /// El turno contiene referencias anafóricas a algo dicho antes.
-  final bool isContextual;
-
-  /// El turno tiene múltiples cláusulas o intenciones distintas.
-  final bool isComplex;
-
-  const TurnComplexity({
-    required this.isSocialMinimal,
-    required this.isNarrative,
-    required this.isContextual,
-    required this.isComplex,
-  });
-
-  /// true si el turno puede usar el prompt social mínimo de forma segura.
-  bool get eligibleForSocialPrompt =>
-      isSocialMinimal && !isNarrative && !isContextual && !isComplex;
-}
+export 'turn_complexity.dart';
 
 /// Clasificador determinista de complejidad del turno.
 final class TurnComplexityClassifier {

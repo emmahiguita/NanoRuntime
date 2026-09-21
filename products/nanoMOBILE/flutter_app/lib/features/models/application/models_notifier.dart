@@ -2,12 +2,14 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
-import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/features/models/application/models_state.dart';
 import 'package:nanoai/features/models/data/catalog_local_model_repository.dart';
 import 'package:nanoai/features/models/data/channel_model_storage_repository.dart';
 import 'package:nanoai/features/models/data/model_downloader.dart';
+import 'package:nanoai/features/models/data/model_file_installer.dart';
+import 'package:nanoai/features/models/data/model_integrity.dart';
 import 'package:nanoai/features/models/domain/detected_model.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
 import 'package:nanoai/features/models/domain/local_model_repository.dart';
@@ -32,6 +34,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   final ModelDownloader _downloader;
   final ModelStorageRepository _storage;
   final Future<String?> Function() _modelsDir;
+  final ModelFileInstaller _fileInstaller;
 
   // Una descarga a la vez (GGUF de varios GB): la activa posee el token.
   String? _downloadingId;
@@ -51,9 +54,15 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     ModelDownloader? downloader,
     ModelStorageRepository? storage,
     Future<String?> Function()? modelsDir,
+    ModelFileInstaller? fileInstaller,
   }) : _downloader = downloader ?? ModelDownloader(),
        _storage = storage ?? const ChannelModelStorageRepository(),
        _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir,
+       _fileInstaller =
+           fileInstaller ??
+           ModelFileInstaller(
+             modelsDir ?? CatalogLocalModelRepository.modelsDir,
+           ),
        super(const ModelsState()) {
     _load();
   }
@@ -65,38 +74,51 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     super.initial, {
     ModelStorageRepository? storage,
     Future<String?> Function()? modelsDir,
+    ModelFileInstaller? fileInstaller,
   }) : _ref = ref,
        _repository = const CatalogLocalModelRepository(),
        _downloader = ModelDownloader(),
        _storage = storage ?? const ChannelModelStorageRepository(),
-       _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir;
+       _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir,
+       _fileInstaller =
+           fileInstaller ??
+           ModelFileInstaller(
+             modelsDir ?? CatalogLocalModelRepository.modelsDir,
+           );
 
   Future<void> _load() async {
     try {
       final downloadDir = await _loadDownloadDirPref();
       var models = await _repository.listModels();
       if (downloadDir != null) {
-        models = [
-          for (final m in models)
-            if (!m.installed && File('$downloadDir/${m.fileName}').existsSync())
-              m.copyWith(
-                downloadState: ModelDownloadState.installed,
-                progress: 1.0,
-                localPath: '$downloadDir/${m.fileName}',
-                clearError: true,
-              )
-            else
-              m,
-        ];
+        final verified = <LocalModel>[];
+        for (final model in models) {
+          final file = File('$downloadDir/${model.fileName}');
+          final installed =
+              !model.installed &&
+              await ModelIntegrity.verify(file, model.sha256);
+          verified.add(
+            installed
+                ? model.copyWith(
+                    downloadState: ModelDownloadState.installed,
+                    progress: 1,
+                    localPath: file.path,
+                    clearError: true,
+                  )
+                : model,
+          );
+        }
+        models = verified;
       }
       if (!mounted) return;
       final lastDetected = _lastDetected;
       // Si el escaneo terminó primero, reconcilia de inmediato: sin esto el
       // catálogo sobrescribiría la lista con modelos sin reconciliar.
       state = lastDetected != null && !state.scanning
-          ? _applyScan(lastDetected, models: models).copyWith(
-              downloadDir: downloadDir,
-            )
+          ? _applyScan(
+              lastDetected,
+              models: models,
+            ).copyWith(downloadDir: downloadDir)
           : state.copyWith(models: models, downloadDir: downloadDir);
     } catch (e) {
       debugPrint('[models] listModels falló: $e');
@@ -231,6 +253,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   void cancelDownload() {
     final id = _downloadingId;
     if (id == null) return;
+    _downloader.cancel();
     _downloadingId = null;
     _update(
       id,
@@ -277,14 +300,17 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         break;
       }
     }
-    if (item == null || !item.installed || item.localPath == null) return;
-    state = state.copyWith(
-      models: [
-        for (final model in state.models)
-          model.copyWith(active: model.id == id, loading: model.id == id),
-      ],
-      activeDetected: null,
-    );
+    // Permite cargar LLMs, modelos de visión multimodal y modelos de voz Whisper
+    if (item == null ||
+        (item.kind != ModelKind.llm &&
+            item.kind != ModelKind.multimodalVision &&
+            item.kind != ModelKind.voiceStt) ||
+        !item.installed ||
+        item.localPath == null) {
+      return;
+    }
+    // La selección empieza aquí, pero "activo" solo lo confirma el estado
+    // ready del chat. No se publica éxito antes de que responda el motor.
     _ref
         .read(chatProvider.notifier)
         .selectModel(
@@ -424,10 +450,9 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
 
   /// Reconciles external storage findings with the downloadable catalog.
   ///
-  /// A catalog model is considered installed when the exact catalog file is
-  /// found with a direct readable path from MANAGE_EXTERNAL_STORAGE AND its
-  /// size matches the catalog (±10%): sin eso, un archivo corrupto o distinto
-  /// con el mismo nombre se marcaría instalado sin verificación de hash.
+  /// Un modelo del catálogo solo queda instalado si el archivo directo tiene
+  /// tamaño plausible y un manifiesto SHA-256 todavía válido. Nombre y tamaño
+  /// por sí solos no constituyen evidencia de integridad.
   /// SAF-only matches remain visible as detected cards because they need fd
   /// opening.
   _CatalogReconciliation _reconcileDetectedWithCatalog(
@@ -474,7 +499,8 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     if (found.sizeBytes <= 0) return false;
     final expectedBytes = catalog.sizeGb * 1024 * 1024 * 1024;
     final delta = (found.sizeBytes - expectedBytes).abs();
-    return delta <= expectedBytes * 0.10;
+    if (delta > expectedBytes * 0.10 || found.path == null) return false;
+    return ModelIntegrity.hasTrustedManifest(File(found.path!), catalog.sha256);
   }
 
   void _scanFailed(Object e) {
@@ -496,10 +522,17 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   /// `--model <path>`. Cero copias de archivos pesados. Si vino del árbol
   /// SAF (sin path), se abre el fd en el worker (`/proc/self/fd/N`).
   ///
-  /// Se permite intentar modelos aunque el scanner marque incompatibilidad
-  /// (formato no GGUF o magic no válido): el aviso honesto vive en la tarjeta
-  /// detected (_DetectedCard), no en scanError, que es exclusivo del escaneo.
+  /// La UI solo llama esta ruta para un GGUF cuya cabecera validó el escáner.
   Future<void> useDetected(DetectedModel model) async {
+    // La regla también vive en aplicación: otro caller no puede saltarse la UI
+    // y enviar ONNX/TFLite o un GGUF inválido al runtime llama.cpp.
+    if (!model.usable) {
+      state = state.copyWith(
+        scanError:
+            'Archivo incompatible: Nano requiere una cabecera GGUF válida.',
+      );
+      return;
+    }
     if (state.loadingDetectedUri != null) return; // una apertura a la vez
     final directPath = model.path;
     state = state.copyWith(loadingDetectedUri: directPath ?? model.uri);
@@ -507,17 +540,21 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
       // El storage externo (FUSE) es lento para el acceso random de pesos
       // (mmap + dequant por token). Copiar al storage interno de la app antes
       // de cargar: el mismo modelo pasa de lento a ~5 tok/s.
-      final internalPath = await _copyToInternal(directPath, model.name);
-      if (!mounted) return;
-      final pathToUse = internalPath ?? directPath;
-      state = state.copyWith(
-        loadingDetectedUri: null,
-        activeDetected: model.name,
-        scanError: null,
-      );
-      _ref
-          .read(chatProvider.notifier)
-          .selectModel(model.name, path: pathToUse);
+      try {
+        final internalPath = await _copyToInternal(directPath, model.name);
+        if (!mounted) return;
+        final pathToUse = internalPath ?? directPath;
+        state = state.copyWith(loadingDetectedUri: null, scanError: null);
+        _ref
+            .read(chatProvider.notifier)
+            .selectModel(model.name, path: pathToUse);
+      } catch (e) {
+        if (!mounted) return;
+        state = state.copyWith(
+          loadingDetectedUri: null,
+          scanError: 'No se pudo instalar ${model.name}: $e',
+        );
+      }
       return;
     }
     try {
@@ -530,10 +567,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         );
         return;
       }
-      state = state.copyWith(
-        loadingDetectedUri: null,
-        activeDetected: model.name,
-      );
+      state = state.copyWith(loadingDetectedUri: null);
       _ref.read(chatProvider.notifier).selectModel(model.name, path: fdPath);
     } catch (e) {
       if (!mounted) return;
@@ -544,30 +578,12 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     }
   }
 
-  /// Copia un GGUF del storage externo al interno de la app (files/nano/models/).
+  /// Copia un GGUF del storage externo al directorio canónico
+  /// `files/nano/models/` mediante publicación transaccional.
   /// El externo vía FUSE es lento para el acceso random de pesos; el interno
-  /// permite mmap rápido. Idempotente: si ya existe con el mismo tamaño, no
-  /// recopia.
-  Future<String?> _copyToInternal(String srcPath, String name) async {
-    try {
-      final filesDir = await NanoRuntimeApi.instance.getFilesDir();
-      if (filesDir == null) return null;
-      final destDir = '$filesDir/models';
-      await Directory(destDir).create(recursive: true);
-      final dest = '$destDir/$name';
-      final destFile = File(dest);
-      final srcFile = File(srcPath);
-      if (await destFile.exists() &&
-          await destFile.length() == await srcFile.length()) {
-        return dest;
-      }
-      await srcFile.copy(dest);
-      return dest;
-    } catch (e) {
-      debugPrint('[models] copy to internal falló: $e');
-      return null;
-    }
-  }
+  /// permite mmap rápido. Solo reutiliza el destino si tamaño y SHA coinciden.
+  Future<String?> _copyToInternal(String srcPath, String name) =>
+      _fileInstaller.install(srcPath, name);
 
   @override
   void dispose() {

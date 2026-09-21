@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'design_tokens.dart';
 import 'nano_transitions.dart';
 
@@ -105,7 +104,7 @@ class AppTheme {
               tertiary: c.tertiary,
               error: c.error,
             ),
-      scaffoldBackgroundColor: c.background,
+      scaffoldBackgroundColor: Colors.transparent,
       textTheme: _textTheme.copyWith(
         bodyLarge: _textTheme.bodyLarge?.copyWith(
           color: c.onSurface,
@@ -156,15 +155,6 @@ class AppTheme {
         scrolledUnderElevation: 3,
         backgroundColor: isDark ? c.background : c.glassSurface,
         surfaceTintColor: c.primary,
-        systemOverlayStyle: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
-          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
-          systemNavigationBarColor: Colors.transparent,
-          systemNavigationBarIconBrightness: isDark
-              ? Brightness.light
-              : Brightness.dark,
-        ),
         titleTextStyle: _textTheme.titleMedium?.copyWith(
           color: c.onSurface,
           fontWeight: FontWeight.w600,

@@ -73,8 +73,18 @@ final class SqliteConversationOwnershipStore
   }
 
   @override
-  ConversationOwnership? ownershipFor(String conversationId) =>
-      _byConversation[conversationId];
+  ConversationOwnership? ownershipFor(String conversationId) {
+    if (conversationId.isEmpty) return null;
+    final direct = _byConversation[conversationId];
+    if (direct != null) return direct;
+    for (final entry in _byConversation.entries) {
+      final key = entry.key.trim();
+      if (key.length >= 4 && (conversationId.contains(key) || key.contains(conversationId))) {
+        return entry.value;
+      }
+    }
+    return null;
+  }
 
   @override
   Future<ConversationOwnership> setOwner(

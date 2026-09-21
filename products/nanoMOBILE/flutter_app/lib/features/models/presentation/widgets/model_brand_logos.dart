@@ -55,6 +55,18 @@ class ModelBrandLogo extends StatelessWidget {
         'SMOLLM',
         const [Color(0xFF78350F), Color(0xFFD97706), Color(0xFFFCD34D)],
       );
+    } else if (lower.contains('whisper') || lower.contains('voice') || lower.contains('audio')) {
+      return (
+        const Color(0xFF06B6D4),
+        'WHISPER',
+        const [Color(0xFF083344), Color(0xFF0284C7), Color(0xFF38BDF8)],
+      );
+    } else if (lower.contains('moondream') || lower.contains('vision')) {
+      return (
+        const Color(0xFFEC4899),
+        'VISION',
+        const [Color(0xFF500724), Color(0xFFBE185D), Color(0xFFF472B6)],
+      );
     }
     return (
       const Color(0xFF00E5FF),
@@ -72,7 +84,11 @@ class ModelBrandLogo extends StatelessWidget {
     final Widget logo;
     final double iconSize = size * 0.58;
 
-    if (lower.contains('gemma')) {
+    if (lower.contains('whisper') || lower.contains('voice') || lower.contains('audio')) {
+      logo = Icon(Icons.mic_rounded, size: iconSize, color: Colors.white);
+    } else if (lower.contains('moondream') || lower.contains('vision')) {
+      logo = Icon(Icons.camera_alt_rounded, size: iconSize, color: Colors.white);
+    } else if (lower.contains('gemma')) {
       logo = GemmaLogoWidget(size: iconSize);
     } else if (lower.contains('llama')) {
       logo = LlamaLogoWidget(size: iconSize);

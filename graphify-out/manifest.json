@@ -5075,8 +5075,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/build.gradle.kts": {
-    "mtime": 1789586110.3862536,
-    "ast_hash": "e3ed9f7260c05acddf11be587891372b",
+    "mtime": 1789929251.7804608,
+    "ast_hash": "c8b9d9d0879f4fa5aa2094fdbb265595",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/cpp/jni_cstr_array.c": {
@@ -5140,18 +5140,18 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java": {
-    "mtime": 1789447732.4911993,
+    "mtime": 1789692331.8612652,
     "ast_hash": "d7ac849c8be823d4f4b57d94b979710e",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt": {
-    "mtime": 1789177815.8953524,
-    "ast_hash": "82efc832b48cd8d4be739a3dbe91138b",
+    "mtime": 1789691042.3233109,
+    "ast_hash": "80fccc00b0b9612141e4f580f59b2606",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt": {
-    "mtime": 1789595356.5382984,
-    "ast_hash": "7e52d997c2c723eb247d48424f78fc2a",
+    "mtime": 1789939275.1873336,
+    "ast_hash": "dde95d0c79e5af98d1f1facd05e58609",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/NanoshellBridge.kt": {
@@ -5190,8 +5190,8 @@
     "semantic_hash": "39ffec69219d619bf50e9b1fa2aa92e2"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ChannelHandlers.kt": {
-    "mtime": 1788823810.2191377,
-    "ast_hash": "051efc33c5984685dfe568bb963398f4",
+    "mtime": 1789924864.688474,
+    "ast_hash": "f3debf1e1a7e9327be86273cb68c7930",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DeviceMetricsChannelHandler.kt": {
@@ -5290,13 +5290,13 @@
     "semantic_hash": "af26b389b2972098f85bb370dde0f1b9"
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/app_providers.dart": {
-    "mtime": 1788643569.3529897,
-    "ast_hash": "2c9addbf23d0bdebf8b1169cf503a44d",
+    "mtime": 1789693790.615515,
+    "ast_hash": "0b9ac0ad4ad1e4f2db258c22bb772305",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/chat_provider.dart": {
-    "mtime": 1789585930.8859344,
-    "ast_hash": "b471a239855f9bb6cfec3aef27681e49",
+    "mtime": 1789925014.4738042,
+    "ast_hash": "351cbdd34f162d8518aeda7a25e15caf",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/dashboard_provider.dart": {
@@ -5310,18 +5310,18 @@
     "semantic_hash": "0ec3bd33db7305454bd53c3d847bd0d2"
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/settings_provider.dart": {
-    "mtime": 1789585891.2913184,
-    "ast_hash": "88ed6c85a91cfb24da3dc80b8f33246d",
+    "mtime": 1789693685.9555712,
+    "ast_hash": "31ab00966813966124be42f562bdcfa8",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/router/app_router.dart": {
-    "mtime": 1789467455.7470393,
-    "ast_hash": "fc934924d2805b18bb8f3017da08cadb",
+    "mtime": 1789757699.3688262,
+    "ast_hash": "6857c7c7443080380a22532a9b8f761f",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/router/scaffold_shell.dart": {
-    "mtime": 1789593987.7512925,
-    "ast_hash": "9cc56ba0dc6a58563d2bad266398d7c8",
+    "mtime": 1789945507.5199564,
+    "ast_hash": "925c14e925eec75d7450b62336ab9fac",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/allowed_binaries.dart": {
@@ -5395,8 +5395,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/shell_executor.dart": {
-    "mtime": 1789159976.6483293,
-    "ast_hash": "44aa3b931bae6607a51f9a37d7c1ef97",
+    "mtime": 1789923942.499491,
+    "ast_hash": "319d8178696bffc8b3ceaca55627f9e8",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/terminal_audit_logger.dart": {
@@ -5410,8 +5410,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/app_theme.dart": {
-    "mtime": 1789187222.0679886,
-    "ast_hash": "3f6743047dceebb4795d07b8e9048b9d",
+    "mtime": 1789697326.589094,
+    "ast_hash": "42d0c15addda0566a1e196c6aac0e418",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/design_tokens.dart": {
@@ -5425,13 +5425,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/chat/presentation/screens/chat_screen.dart": {
-    "mtime": 1789445356.4916642,
-    "ast_hash": "2a323f9ceaafcdb3603fb2d8de5fc837",
+    "mtime": 1789945538.7668328,
+    "ast_hash": "0c202ccb772e9af2f87be9a7833904ae",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/settings/presentation/screens/settings_screen.dart": {
-    "mtime": 1789201427.408068,
-    "ast_hash": "f2a8ccbe49867606e4e5cfb8d8d776bc",
+    "mtime": 1789944273.0125241,
+    "ast_hash": "7aff91bdb2a1e98b20039b663732e7b5",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/ansi_parser.dart": {
@@ -5445,8 +5445,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/command_dispatcher.dart": {
-    "mtime": 1789158042.083086,
-    "ast_hash": "ebb3948d3b1cc80a5a4f06c25a5e0737",
+    "mtime": 1789923952.2575119,
+    "ast_hash": "5ce1e155e5964bd106147a4351c21735",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/command_executor.dart": {
@@ -5520,8 +5520,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/presentation/screens/terminal_screen.dart": {
-    "mtime": 1789338555.6479218,
-    "ast_hash": "191bc59ae6c9ec117566521bc65c64fa",
+    "mtime": 1789945333.95558,
+    "ast_hash": "ab3a4ed44ab026106c6fad2fad74fdc9",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/pty_manager.dart": {
@@ -5555,8 +5555,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/main.dart": {
-    "mtime": 1789530894.7739687,
-    "ast_hash": "a10c9ea6019a6493f9c43c7a5c89b506",
+    "mtime": 1789945497.974926,
+    "ast_hash": "4694c317b30588f7e229cf7fc4294a2b",
     "semantic_hash": ""
   },
   "products/nanoRUNTIME/nanortime-cli/src/main.rs": {
@@ -6015,8 +6015,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/RuntimeChannelHandler.kt": {
-    "mtime": 1788643569.1927202,
-    "ast_hash": "6487ba6c71720f943e341fc87ec3237a",
+    "mtime": 1789924864.6904845,
+    "ast_hash": "2555f0a54b780af1390967f4145e069c",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/controllers/DesktopController.kt": {
@@ -6030,8 +6030,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/services/nano_runtime_api.dart": {
-    "mtime": 1789655753.1828797,
-    "ast_hash": "888fa21c619748fd37e4193f5e42b7a8",
+    "mtime": 1789928726.8550684,
+    "ast_hash": "c2e1c65322569a330f9bdec185b2f4d8",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/noar_builtin_commands.dart": {
@@ -6080,8 +6080,8 @@
     "semantic_hash": "99f963d3501cefc0cdeddfc313aaa575"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt": {
-    "mtime": 1788681423.068529,
-    "ast_hash": "ba98b6c3a957ea5f2590c5a4207d59a3",
+    "mtime": 1789922601.4615011,
+    "ast_hash": "f7e7790d28aed9b41e9a6f91abdadac3",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/RuntimeHeartbeat.kt": {
@@ -6090,8 +6090,8 @@
     "semantic_hash": "9a27f06b14ad1bb5e6351a7f657ef0b1"
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt": {
-    "mtime": 1789655586.3029313,
-    "ast_hash": "23b218548d9c3b91c6f8e79fad039ce8",
+    "mtime": 1789683819.9143865,
+    "ast_hash": "cb324c753da5034923cf11d5bc60fb0c",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/EngineChannelHandler.kt": {
@@ -6105,13 +6105,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ShareChannelHandler.kt": {
-    "mtime": 1789613337.7379327,
-    "ast_hash": "5d803ef09a8ce3e9166484c76c3ee4bf",
+    "mtime": 1789852572.5493314,
+    "ast_hash": "61d568a0a8a0381b3d1256f368a74756",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt": {
-    "mtime": 1789656829.6219416,
-    "ast_hash": "6e7aa0a3d14a33bddfef168bac643236",
+    "mtime": 1789852523.32374,
+    "ast_hash": "46759272d9c141aa06a87632a1414deb",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/assets/exe/hud.py": {
@@ -6150,13 +6150,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/models/catalog_models.dart": {
-    "mtime": 1789082351.3714068,
-    "ast_hash": "64e173f8a2aeed7ddcb42194a041b837",
+    "mtime": 1789944952.086565,
+    "ast_hash": "79c0568d606d5c7e04961a70eec5ae6b",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/models/chat_models.dart": {
-    "mtime": 1789238673.1597917,
-    "ast_hash": "add20b9785e4a7ed46262f496b34a965",
+    "mtime": 1789924998.6338506,
+    "ast_hash": "dedd1440807ad6eafed1a056c842bbdd",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/providers/kali_provider.dart": {
@@ -6215,18 +6215,18 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/presentation/screens/desktop_audit_screen.dart": {
-    "mtime": 1788643569.6566136,
-    "ast_hash": "17e7ca8d252e351121cab170eb793de1",
+    "mtime": 1789697218.880043,
+    "ast_hash": "afb87395f0db50833f6ec4c1d1eb7225",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/presentation/screens/desktop_launch_screen.dart": {
-    "mtime": 1789333834.9257693,
-    "ast_hash": "c079cdea32864b5b004bfeee6ddb0b11",
+    "mtime": 1789697205.3204577,
+    "ast_hash": "05a3506930cb1fe923fe567750fc13e5",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/presentation/screens/vnc_screen.dart": {
-    "mtime": 1789341918.294313,
-    "ast_hash": "3c4bb2df8ca569303af47cf13d86dc25",
+    "mtime": 1789693044.4779074,
+    "ast_hash": "8ddf3ee429268bdde7b1489b8d0cb661",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/vnc_client.dart": {
@@ -6255,8 +6255,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/application/models_notifier.dart": {
-    "mtime": 1789188148.9542928,
-    "ast_hash": "0a1ea92b11b8a52115d41e2664af41f7",
+    "mtime": 1789945890.6125762,
+    "ast_hash": "ee2ec9ff2581e32adc3b7437bab0e38a",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/application/models_provider.dart": {
@@ -6265,8 +6265,8 @@
     "semantic_hash": "47ecead391d452fa4094218465dfe4f0"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/application/models_state.dart": {
-    "mtime": 1788643569.6676526,
-    "ast_hash": "98ce8f634163cf75524fa0f5ba986984",
+    "mtime": 1789922951.4907362,
+    "ast_hash": "35c2e07b332aca8cc0ff27b33aad2453",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/detected_model.dart": {
@@ -6275,8 +6275,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/local_model.dart": {
-    "mtime": 1788643569.678503,
-    "ast_hash": "5e38c7dba9bf754a2bee941b6c8fde0d",
+    "mtime": 1789944962.7034154,
+    "ast_hash": "10be78f5e8ed5f16550cf5a3f3d4bc29",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/local_model_repository.dart": {
@@ -6290,8 +6290,8 @@
     "semantic_hash": "aed2275446d543ea9a57d2428204aa96"
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/presentation/screens/models_screen.dart": {
-    "mtime": 1789258577.3644109,
-    "ast_hash": "eadb8f98b32652b736a1fbd0c7da194d",
+    "mtime": 1789945912.362352,
+    "ast_hash": "ac27d7e51cb7093b18db631a5ea470e0",
     "semantic_hash": ""
   },
   "products/nanoRUNTIME/build_android.sh": {
@@ -6660,8 +6660,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/nano_motion.dart": {
-    "mtime": 1789083625.3927224,
-    "ast_hash": "5bb530eba8fa78c0e05652715bfc9a90",
+    "mtime": 1789941311.754375,
+    "ast_hash": "7b4af6885e9edad6428d409fcdf676af",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/theme/nano_transitions.dart": {
@@ -6690,13 +6690,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/presentation/widgets/model_brand_logos.dart": {
-    "mtime": 1789246764.4661436,
-    "ast_hash": "e6c23913a35579a3831dfe03c14f6077",
+    "mtime": 1789945920.5374193,
+    "ast_hash": "9cc26d40ad575a48587cb5f46c5bc20f",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/presentation/widgets/model_detail_bottom_sheet.dart": {
-    "mtime": 1789246859.6302588,
-    "ast_hash": "497ba4c7f71de019cd8ae26949e1ae0f",
+    "mtime": 1789945941.9742694,
+    "ast_hash": "ee5d5e5e0c32de2fc6b748bc57aa9403",
     "semantic_hash": ""
   },
   "vendor/llama-cpp-sys-2-mtp/llama.cpp/.devops/tools.sh": {
@@ -20440,8 +20440,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/DevicePermissionsChannelHandler.kt": {
-    "mtime": 1789399305.3887424,
-    "ast_hash": "63df99d952e1f6b8c3374ab91a3d128a",
+    "mtime": 1789691106.8213634,
+    "ast_hash": "020bc45edfebd34c1359a80cdd25ef03",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NotificationAutomationChannelHandler.kt": {
@@ -20450,8 +20450,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/NotificationAutomationService.kt": {
-    "mtime": 1789615027.747866,
-    "ast_hash": "9a510a514e26fd4fa80fc2af7a6008b8",
+    "mtime": 1789765308.7703123,
+    "ast_hash": "a6133defc76f92596f3a980b1c5ab506",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/integration_test/c14_automation_benchmark_test.dart": {
@@ -20510,18 +20510,18 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/navigation/nano_navigation_panel.dart": {
-    "mtime": 1789594126.778198,
-    "ast_hash": "d4b28fd0488011fefbe395a6cd393439",
+    "mtime": 1789945266.6471672,
+    "ast_hash": "35efc780a8aa3cbe7e0c213453cccc4c",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_coordinator.dart": {
-    "mtime": 1789537042.4993572,
-    "ast_hash": "6e5efcf0273c91350abb1611e96f3e6f",
+    "mtime": 1789788641.0021348,
+    "ast_hash": "ccab537f1b87496d43e62ec2a01f3f45",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_coordinator_provider.dart": {
-    "mtime": 1789610316.3242335,
-    "ast_hash": "aa15369e95a66f26a872ff32555a8345",
+    "mtime": 1789930583.7623954,
+    "ast_hash": "d35f479e41853bb3d4c3273c46123328",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/application/automation_engine.dart": {
@@ -20540,8 +20540,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_benchmark.dart": {
-    "mtime": 1788643569.4240646,
-    "ast_hash": "6a86fea7e0935b58d4845eae30d427bf",
+    "mtime": 1789855026.7992792,
+    "ast_hash": "29e3d4cf59c69c761160d1ae1a00d724",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_context.dart": {
@@ -20555,13 +20555,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_preflight.dart": {
-    "mtime": 1788643569.4275868,
-    "ast_hash": "70a3020a27470a724d2be6b664e4fdc9",
+    "mtime": 1789785039.7939725,
+    "ast_hash": "1c7cbff53b4d5cd43ea2237588b86118",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/benchmark/c14_runner.dart": {
-    "mtime": 1788643569.4280956,
-    "ast_hash": "9ef725719a0c571f41d4050b86c52093",
+    "mtime": 1789785049.5014307,
+    "ast_hash": "0cf6398765146911fbe3c8710605ee16",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/domain/automation_goal.dart": {
@@ -20580,8 +20580,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/agent_dependencies.dart": {
-    "mtime": 1789656100.0508885,
-    "ast_hash": "6bfefa44cb1d00156eb46d0d28951f8f",
+    "mtime": 1789933225.3735533,
+    "ast_hash": "faa3174fb3c41987898b7a347408fc20",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/action_path_router.dart": {
@@ -20610,8 +20610,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_dispatcher.dart": {
-    "mtime": 1789511637.4087355,
-    "ast_hash": "d683e2cbb08c57555a5b63e6d3ef413d",
+    "mtime": 1789933291.3995912,
+    "ast_hash": "577fe93b154928864b9229cac7a6dcec",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_prompt.dart": {
@@ -20620,8 +20620,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/goal_verifier.dart": {
-    "mtime": 1788643569.4480476,
-    "ast_hash": "e538472929a58132c7a63b424bd8b203",
+    "mtime": 1789785087.6409194,
+    "ast_hash": "6cce7841ed4d4acecf915ca73687e9fc",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/nano_flow.dart": {
@@ -20635,8 +20635,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/tool_registry.dart": {
-    "mtime": 1789417114.1576364,
-    "ast_hash": "ac007d868e478d1e785e673e84f3d22c",
+    "mtime": 1789933162.0957646,
+    "ast_hash": "8d4a43b3618ad75ebebc0e80a8d778a7",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/experience_cache.dart": {
@@ -20680,13 +20680,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/automation_planner.dart": {
-    "mtime": 1789148642.3081424,
-    "ast_hash": "fa3123476be693f50f88e9a4c273c830",
+    "mtime": 1789773220.813012,
+    "ast_hash": "7deecce579d67fe573ce5e9972ffc03a",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/deterministic_catalog.dart": {
-    "mtime": 1789149539.6839807,
-    "ast_hash": "fe712545a43b4bf4140f02575346fb57",
+    "mtime": 1789788619.6065946,
+    "ast_hash": "6131e543e25ecd088272a62d771b7175",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/linux_tool_adapter.dart": {
@@ -20700,8 +20700,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/executors/notification_executor.dart": {
-    "mtime": 1789069287.2185905,
-    "ast_hash": "6ffb061095e0be676b1cc9a9ce6ea9c7",
+    "mtime": 1789765330.0499313,
+    "ast_hash": "4a9df606bb49ae838e793fbd4750cb38",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/executors/notification_executor_provider.dart": {
@@ -20745,18 +20745,18 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_screen.dart": {
-    "mtime": 1789272961.3670323,
-    "ast_hash": "85d2b5f74a288ccee395e73c4033b6b6",
+    "mtime": 1789922353.395045,
+    "ast_hash": "e6957638250c276f44c21dce90f3a91a",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/automation_dashboard.dart": {
-    "mtime": 1789511572.299335,
-    "ast_hash": "4a11da6be9409c14dc40fad94c58edd4",
+    "mtime": 1789747504.3751595,
+    "ast_hash": "f138e1e6dfc2a4a864b7b0e0176b1a1f",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/c14_debug_benchmark_section.dart": {
-    "mtime": 1789003595.7005427,
-    "ast_hash": "6acbef3d540ea6c9c598c1444b2c4db1",
+    "mtime": 1789855159.6938424,
+    "ast_hash": "4c34ccf61fc37ff20ce8da9fbec350fd",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/engine_status_card.dart": {
@@ -20765,8 +20765,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/data/catalog_local_model_repository.dart": {
-    "mtime": 1789082362.149394,
-    "ast_hash": "951880f7e81039d22e3549698063e848",
+    "mtime": 1789944973.538898,
+    "ast_hash": "1b8b31e81a1708e37bd6815948b53517",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/data/channel_model_storage_repository.dart": {
@@ -20789,29 +20789,24 @@
     "ast_hash": "cb8a4cb28eac2ab47144ef0c6aaed739",
     "semantic_hash": ""
   },
-  "products/nanoMOBILE/flutter_app/lib/features/models/data/huggingface_metadata_service.dart": {
-    "mtime": 1788643569.6740284,
-    "ast_hash": "40bfa22a933219419d59c0314288e422",
-    "semantic_hash": ""
-  },
   "products/nanoMOBILE/flutter_app/lib/features/models/data/model_downloader.dart": {
-    "mtime": 1789188175.218809,
-    "ast_hash": "266e4522b2541d06c51dd1b1ef9bbed9",
+    "mtime": 1789922958.748678,
+    "ast_hash": "f111dcc2b899dbf93f0ee5c8097133dd",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/data/model_source_registry.dart": {
-    "mtime": 1788643569.6755612,
-    "ast_hash": "1e09a2fbf93bc759e1bb031146c9995d",
+    "mtime": 1789923098.0595436,
+    "ast_hash": "c1df670ae64b8c7066ec29fae062834b",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/data/repositories/model_metadata_repository_impl.dart": {
-    "mtime": 1788643569.6755612,
-    "ast_hash": "33e62e1a62ac81369dcb817f33f61cea",
+    "mtime": 1789922352.4332209,
+    "ast_hash": "0a8f74ff31b569c83a9fcbb854ad3763",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/models/domain/model_viability.dart": {
-    "mtime": 1788643569.6805112,
-    "ast_hash": "44cae3a7758254d0bddad69d05f45259",
+    "mtime": 1789922352.4402318,
+    "ast_hash": "4acf262c8f7ddfefc2a95118b901def6",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/settings/presentation/widgets/device_permissions_section.dart": {
@@ -20820,8 +20815,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/presentation/screens/terminal_hub_screen.dart": {
-    "mtime": 1789363075.3360841,
-    "ast_hash": "2a1f1dac8f7b6f228861a9ec1e464b0d",
+    "mtime": 1789697804.7125833,
+    "ast_hash": "d1caa79e7328c1e3091ccef311cf705b",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/terminal/terminal_manual.dart": {
@@ -20885,18 +20880,18 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt": {
-    "mtime": 1788824740.1180367,
-    "ast_hash": "6bb10025b490d2652620b467de0cceea",
+    "mtime": 1789928709.965587,
+    "ast_hash": "3984a80ff5c20b4207c74b6d0d0f7e0f",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/SystemInventoryChannelHandler.kt": {
-    "mtime": 1788643569.1927202,
-    "ast_hash": "8991395ebb7cb745e922d02d31d43156",
+    "mtime": 1789931577.6356268,
+    "ast_hash": "ef08299bec0ab0226af874154c580f88",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/AndroidSystemIntentExecutor.kt": {
-    "mtime": 1789267482.9714324,
-    "ast_hash": "43f9fc258dfd93cb02aa7eab6f11ffc7",
+    "mtime": 1789931561.145627,
+    "ast_hash": "a4ee44372d598efc245a1d9a205cbc83",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/OcrService.kt": {
@@ -21055,8 +21050,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_planner.dart": {
-    "mtime": 1788643569.5078576,
-    "ast_hash": "4f907b23c277cdad1d4535e4f9e6c120",
+    "mtime": 1789775220.3199985,
+    "ast_hash": "ccf575164cee6c6262b8ae78fb8e720f",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/orchestration/task_step_vocabulary.dart": {
@@ -21115,8 +21110,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/vision_contracts.dart": {
-    "mtime": 1788643569.5230823,
-    "ast_hash": "b18da2c742a00c8fcd0676a3a5c5c1ef",
+    "mtime": 1789924998.6423807,
+    "ast_hash": "428535bae907ac97d7c8cf0d4c1c9325",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/mux/vision_perception_source.dart": {
@@ -21160,8 +21155,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_resolvers.dart": {
-    "mtime": 1788643569.540061,
-    "ast_hash": "932c9f85386a15f3722f5522025b9a33",
+    "mtime": 1789929076.532593,
+    "ast_hash": "639b389ca6f0754f4712fbb96345e82d",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/performance/memory_budget.dart": {
@@ -21260,8 +21255,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/platform/nano_system_api.dart": {
-    "mtime": 1788643569.5817485,
-    "ast_hash": "56f3f80998fbb01ecba77b52d01acdd7",
+    "mtime": 1789931636.1366932,
+    "ast_hash": "5f8fdf18e88eb8b0645cc2a3c5a6ac30",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/privilege/shizuku_availability.dart": {
@@ -21305,8 +21300,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/rule_registry.dart": {
-    "mtime": 1789326351.84921,
-    "ast_hash": "b8b12beb19af5a85ef6856aa250b8cb1",
+    "mtime": 1789676016.151276,
+    "ast_hash": "7c3d2fdb64390f63eb1575282e6c11bd",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/scheduled_rule.dart": {
@@ -21332,11 +21327,6 @@
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/skills/nano_skills.dart": {
     "mtime": 1788643569.609553,
     "ast_hash": "27fcc9d982a986bf014105fe0425f543",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/app_graph.dart": {
-    "mtime": 1788643569.6198323,
-    "ast_hash": "021c215e3664e8ae04659feb4ad247be",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/app_launch_resolver.dart": {
@@ -21375,8 +21365,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_destination.dart": {
-    "mtime": 1789267517.2909694,
-    "ast_hash": "847af69ffa0527508daec1c6cc0a5928",
+    "mtime": 1789931627.595793,
+    "ast_hash": "f9304afb77a07da6c88db9f78e25784f",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_graph.dart": {
@@ -21385,8 +21375,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_intent_catalog.dart": {
-    "mtime": 1789267562.937323,
-    "ast_hash": "c2e450845908c452a9ff31f1c806d9d3",
+    "mtime": 1789931631.5827124,
+    "ast_hash": "f4c3746f0b748517707074a3dc790ad6",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/system_intent_launcher.dart": {
@@ -21425,23 +21415,23 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/voice_backends.dart": {
-    "mtime": 1788643569.630201,
-    "ast_hash": "cb0e5b6b20a2855c7586219b790a766a",
+    "mtime": 1789928726.820742,
+    "ast_hash": "8cc4db218294076f7b8a177cc366b21d",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/voice/voice_runtime.dart": {
-    "mtime": 1788643569.630201,
-    "ast_hash": "c21c6e5c545e7f7fe179027de8ed0245",
+    "mtime": 1789928782.173104,
+    "ast_hash": "726c6067244c4f043a3ecd5e8fedc20e",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/capability_status_card.dart": {
-    "mtime": 1789102716.1040163,
-    "ast_hash": "a575e159e9c45d2422c1fb6e1df6f1e5",
+    "mtime": 1789923220.2159235,
+    "ast_hash": "1e7cf64ba79df23a8c98d22bb11a936c",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/chat/presentation/widgets/chat_messages.dart": {
-    "mtime": 1789254956.8651805,
-    "ast_hash": "a4f272736aeaa6d1b79ff0847fa2f91e",
+    "mtime": 1789760128.0420425,
+    "ast_hash": "9218ee36610e8d891e41482d7462bc06",
     "semantic_hash": ""
   },
   "scripts/analyze_telemetry.py": {
@@ -21680,8 +21670,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/navigation/nano_multi_use_nav_bar.dart": {
-    "mtime": 1789594214.1343384,
-    "ast_hash": "5d870ed61185a2381e390a6fa9f5d91e",
+    "mtime": 1789943391.5174348,
+    "ast_hash": "e86950cd93d5056fe04d96ba1563fc6e",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/navigation/nano_nav_tokens.dart": {
@@ -21715,8 +21705,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/governance/semantic_policy.dart": {
-    "mtime": 1789405158.5395463,
-    "ast_hash": "5ad08aa52eae781a67bd2b81daf786fb",
+    "mtime": 1789781455.799255,
+    "ast_hash": "8ab3c5b99da115eca12dcf781a062297",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/verified_transition_memory.dart": {
@@ -21835,8 +21825,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/surface_profiles.dart": {
-    "mtime": 1789267459.0600824,
-    "ast_hash": "6f3c19838780f48b1999d0ec09049034",
+    "mtime": 1789926973.0584702,
+    "ast_hash": "c427464b3197eff21036399794178c7b",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/generic_ui_intent_parser.dart": {
@@ -21900,8 +21890,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/automation_visual_theme.dart": {
-    "mtime": 1789249301.4945352,
-    "ast_hash": "23332b8c9dd30a0fe02185e40b2e7153",
+    "mtime": 1789697633.3524482,
+    "ast_hash": "1521418ac27fbac7b836a297fd322ed5",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_rules_screen.dart": {
@@ -21910,8 +21900,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/automation_settings_screen.dart": {
-    "mtime": 1789148228.341074,
-    "ast_hash": "a6fbf8b91ee22bdc4d9a96ea54aa0e2e",
+    "mtime": 1789698222.134822,
+    "ast_hash": "0cf6f697fb060296ebd6670e09e94fe2",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/skill_dev_section.dart": {
@@ -22170,8 +22160,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/navigation/nano_attach_sheet.dart": {
-    "mtime": 1789445445.9763086,
-    "ast_hash": "dc422e607ac8c560192fcdab5238e575",
+    "mtime": 1789924998.570856,
+    "ast_hash": "1654767276443ec2f812327ec64b4ac1",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/core/widgets/navigation/nano_universal_input.dart": {
@@ -22270,13 +22260,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist.dart": {
-    "mtime": 1788824038.1481574,
-    "ast_hash": "df5d2b4856d8d7dfe7876c0f71a8d897",
+    "mtime": 1789672079.039282,
+    "ast_hash": "56de276c2fb12545aa256ea9a0bd95e8",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path.dart": {
-    "mtime": 1789617032.429662,
-    "ast_hash": "925cfda815292ce3ff309174dc3dd23b",
+    "mtime": 1789673730.696952,
+    "ast_hash": "02015a3ad483800dc991a7436bb333e0",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/scheduling/messaging_metrics.dart": {
@@ -22290,8 +22280,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/conversation_ownership_store.dart": {
-    "mtime": 1788885019.3943944,
-    "ast_hash": "7fafacfbee5aeab47f5378b53fd6e657",
+    "mtime": 1789693741.0042927,
+    "ast_hash": "f531200a05cf1f93c3206531ca4df5ef",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_context.dart": {
@@ -22305,8 +22295,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_retriever.dart": {
-    "mtime": 1788832770.8602393,
-    "ast_hash": "3db157ce595010fea733799f40d12d65",
+    "mtime": 1789697987.3804066,
+    "ast_hash": "eec90f593733416677192dba3a2678de",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_validator.dart": {
@@ -22335,8 +22325,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/persona_example.dart": {
-    "mtime": 1788832770.8806183,
-    "ast_hash": "651e54cb325bd647491c5cba6de4f093",
+    "mtime": 1789697971.7333567,
+    "ast_hash": "0c224e6801a8850f0a59e08b71b2e7ed",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/persona_profile.dart": {
@@ -22350,8 +22340,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/home/buho_wallpaper.dart": {
-    "mtime": 1789256833.812141,
-    "ast_hash": "c23b74b2b7b4aff26ae7c66055d8714c",
+    "mtime": 1789944695.6115475,
+    "ast_hash": "d37f0494e82ad7d2beebb54b33219e01",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/docs/audit/2026-09-07-ronda4-conversacional.md": {
@@ -22620,8 +22610,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_screen.dart": {
-    "mtime": 1789511812.531126,
-    "ast_hash": "17d2cada77315e634c7c79f7e63bda12",
+    "mtime": 1789700220.0349178,
+    "ast_hash": "a9fefea0ef3568d8485af7808492b8f0",
     "semantic_hash": ""
   },
   "docs/automation-audit-2026-09-07/PERSONALIZATION-STUDIO.md": {
@@ -22640,13 +22630,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/safe_conversation_repair.dart": {
-    "mtime": 1789622818.826015,
-    "ast_hash": "a3f71c0e33ba68dbc023b4a13ae757a7",
+    "mtime": 1789673599.8783545,
+    "ast_hash": "836efb66eb82c89d2f94807b9f47a9bd",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/turn_complexity_classifier.dart": {
-    "mtime": 1789617101.1311853,
-    "ast_hash": "ca10db5211fd1d43f862542a3594df62",
+    "mtime": 1789672071.9593952,
+    "ast_hash": "860ee2b1c861f8d458dfdd93d116c4db",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/pending_reply.dart": {
@@ -22760,13 +22750,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/automation_suggestion_carousel.dart": {
-    "mtime": 1788999254.0646327,
-    "ast_hash": "2cdaf082bd9fba09c79dd06436454ae3",
+    "mtime": 1789760423.1865747,
+    "ast_hash": "d7d7401899ac53ab8f4ee723afe0d6c7",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/settings_tile_components.dart": {
-    "mtime": 1789148149.9863327,
-    "ast_hash": "3262f4437b7c3e4dcd551fed8e83ba90",
+    "mtime": 1789761684.4781823,
+    "ast_hash": "9d328329703b51f0c5684267f97051b7",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/whatsapp_integration_cards.dart": {
@@ -22815,13 +22805,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/business_studio_screen.dart": {
-    "mtime": 1789329711.307268,
-    "ast_hash": "eb1be3555f1df2f6fae97b599632c902",
+    "mtime": 1789922343.0940864,
+    "ast_hash": "5526d440b9cd7835645fa224e20bd56a",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/screens/personal_agent_screen.dart": {
-    "mtime": 1789588807.0573556,
-    "ast_hash": "c9f37d002b1b4285d4a65662d5a27ecd",
+    "mtime": 1789698212.0859728,
+    "ast_hash": "d21658a9c6448e69abe11f9a0bd962d7",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/assets/automation/icons/icon_aviso.png": {
@@ -22900,8 +22890,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/conversation_detail_sheet.dart": {
-    "mtime": 1789615129.2767177,
-    "ast_hash": "d884649f2494f951f8a251dedc94d244",
+    "mtime": 1789922491.9592304,
+    "ast_hash": "1d15646d59695a5428288391cc911e86",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/conversation_list_tile.dart": {
@@ -23070,8 +23060,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/agent_tools/registry/tool_registry.dart": {
-    "mtime": 1789251730.5770545,
-    "ast_hash": "2d7e8f427a60e1890d7f65ed37c9dcf4",
+    "mtime": 1789930483.2561586,
+    "ast_hash": "364c83eff8e6e32dcb338a5343623109",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/agent_tool_protocol.dart": {
@@ -23095,8 +23085,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/mcp_tool_handler.dart": {
-    "mtime": 1789657337.0477412,
-    "ast_hash": "b0f6b86f32e2351ac23bb4f40a5cb78c",
+    "mtime": 1789749140.0580475,
+    "ast_hash": "ae0e152b6ec64035c19fbf94b5ca9c01",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/notification_tool_handler.dart": {
@@ -23135,8 +23125,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/http_mcp_client.dart": {
-    "mtime": 1789327897.231342,
-    "ast_hash": "904b6306f3602954c65dcc3083113a80",
+    "mtime": 1789749000.7855954,
+    "ast_hash": "2193eb6b28c7c9c5f811f21eee9f5b6d",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/local_device_mcp_client.dart": {
@@ -23185,23 +23175,23 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/dialogs/delivery_edit_dialog.dart": {
-    "mtime": 1789329688.3803504,
-    "ast_hash": "bb5f62e5f1fb9e6193b6bcd40ffde0db",
+    "mtime": 1789922324.6221762,
+    "ast_hash": "4c643555d9822998f2701f0b131f6414",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/dialogs/hours_edit_dialog.dart": {
-    "mtime": 1789329678.2870386,
-    "ast_hash": "e2f66d5dc23ab3b29e59bf51b364e2f2",
+    "mtime": 1789922328.3039935,
+    "ast_hash": "4b5246ce384cedeb72ead6371f157a4d",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/dialogs/location_edit_dialog.dart": {
-    "mtime": 1789329669.316981,
-    "ast_hash": "4662568d56359a006ed5447a456ff57c",
+    "mtime": 1789922332.8381772,
+    "ast_hash": "583891de4a2b64bcc799b8caa923c033",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/dialogs/payment_methods_dialog.dart": {
-    "mtime": 1789329659.7938771,
-    "ast_hash": "e29d30b19a804a04e957613b68201411",
+    "mtime": 1789922338.8042753,
+    "ast_hash": "bf6c1ea1136015f341754116866505cd",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/dialogs/product_dialog.dart": {
@@ -23235,8 +23225,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/presentation/widgets/desktop_controls_overlay.dart": {
-    "mtime": 1789341509.8776062,
-    "ast_hash": "f8ef00a26b519ba4e338fe993e91a89e",
+    "mtime": 1789945315.0511892,
+    "ast_hash": "662ec174f35f95c7994654a045cda150",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/desktop/presentation/widgets/desktop_extra_keys_bar.dart": {
@@ -23910,13 +23900,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/browser/reverse_agent_client.dart": {
-    "mtime": 1789510767.9672363,
-    "ast_hash": "d704e36671c3bed3a702909a4d39338f",
+    "mtime": 1789922370.7488985,
+    "ast_hash": "9b4a3e0fecfdd6a0b9d78ac2fb37b0fc",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/browser_agent_tool_handler.dart": {
-    "mtime": 1789510699.669801,
-    "ast_hash": "77cd45e6e1f4f1d42e8df6404a3eb926",
+    "mtime": 1789748891.9162245,
+    "ast_hash": "fd2007d3e197a2aa8e2df5ef789e4752",
     "semantic_hash": ""
   },
   "products/nanoDESKTOP/src-tauri/build.rs": {
@@ -24285,8 +24275,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/infrastructure/browser_security_firewall.dart": {
-    "mtime": 1789583373.0254874,
-    "ast_hash": "78fcdabd53452c5c6b10140b7190ca62",
+    "mtime": 1789757624.0309143,
+    "ast_hash": "51dc0430259dcfb811c9758fc25e92c1",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/screens/browser_screen.dart": {
@@ -24295,23 +24285,23 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_chrome_bar.dart": {
-    "mtime": 1789532919.2980113,
-    "ast_hash": "3ac487b30dbfe4a86e2ad8873a659e2d",
+    "mtime": 1789758628.96639,
+    "ast_hash": "7e159a2bae60e10422b20eabbe6886cf",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_tab_bar_widget.dart": {
-    "mtime": 1789532366.9938464,
-    "ast_hash": "a54bbbc0e8ea7b8be41fcc03c05f80ac",
+    "mtime": 1789758458.8362715,
+    "ast_hash": "73aec3558534c93ae37bf5a1e5adfafc",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_window_widget.dart": {
-    "mtime": 1789595906.3779006,
-    "ast_hash": "5fd1eaa14f3b343cd5b1825389a7ffde",
+    "mtime": 1789757819.7011032,
+    "ast_hash": "1e39fbd02a3d8d54a4e8487c067ff922",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/test/features/browser/browser_security_firewall_test.dart": {
-    "mtime": 1789510699.7632303,
-    "ast_hash": "5970bedf62e00828c6cb9f7e176acf40",
+    "mtime": 1789753733.4202993,
+    "ast_hash": "5da5526bfbb5c1a58b7401b68bad5cc2",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/test/features/browser/browser_tab_notifier_test.dart": {
@@ -26745,8 +26735,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_intents.dart": {
-    "mtime": 1789617081.2470202,
-    "ast_hash": "841dc1b9abb8f9924155d1df8e8c140f",
+    "mtime": 1789672022.821747,
+    "ast_hash": "47ccdd5f27c8ba60a7991389d532866f",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conversation_agent.dart": {
@@ -26780,13 +26770,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_actions.dart": {
-    "mtime": 1789511837.6882746,
-    "ast_hash": "0c9076d93ea9d08380b4ae52569397cd",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_dialogs.dart": {
-    "mtime": 1789511572.2792654,
-    "ast_hash": "9b7e74078a800bc6505ec55b8d6bbe00",
+    "mtime": 1789700239.3753593,
+    "ast_hash": "ea326f225428de6b4766ba9d50283889",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_apps_bar.dart": {
@@ -26800,13 +26785,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_center_providers.dart": {
-    "mtime": 1789613361.453773,
-    "ast_hash": "3224b2925efd9e2bf507685477fe0709",
+    "mtime": 1789764864.9968076,
+    "ast_hash": "2e0300b3f83e7d22c0bfb6282e8d48a2",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_center_view.dart": {
-    "mtime": 1789595606.2557778,
-    "ast_hash": "757d31f9311357438116c35445a893ee",
+    "mtime": 1789764401.8103306,
+    "ast_hash": "639ee168654534fe9a484fcf3ad72f02",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_conversation_card.dart": {
@@ -26845,18 +26830,18 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/automation_dashboard_components.dart": {
-    "mtime": 1789514171.8540728,
-    "ast_hash": "56cca566ddad27d3a9082d3f34b55d9f",
+    "mtime": 1789764047.0663593,
+    "ast_hash": "02c79be752871e4ce723616dd8b6951e",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/conversation_detail_sheet_view.dart": {
-    "mtime": 1789598567.194164,
-    "ast_hash": "dc58c0c1deea4e842a2852ecd0bf23d4",
+    "mtime": 1789945530.494306,
+    "ast_hash": "aa601cc539f2d1666af242a88ace62b4",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/application/browser_pip_notifier.dart": {
-    "mtime": 1789530918.9469876,
-    "ast_hash": "6527233c3c274639268fd37c1aaaae7f",
+    "mtime": 1789757684.9941585,
+    "ast_hash": "21b881f4800ed601867837193aa67a81",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/domain/browser_pip_model.dart": {
@@ -26865,18 +26850,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/infrastructure/browser_scripts.dart": {
-    "mtime": 1789597387.1636744,
-    "ast_hash": "f12a69ea5d4806ca07ad167a7c21f440",
+    "mtime": 1789753489.1743402,
+    "ast_hash": "7803f6c921292f162796541db39cfe78",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_pip_overlay.dart": {
-    "mtime": 1789530918.9491315,
-    "ast_hash": "d8e8bc75f0c48dd68ec49d6cdab2c7df",
-    "semantic_hash": ""
-  },
-  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_web_area_widget.dart": {
-    "mtime": 1789532461.2275233,
-    "ast_hash": "99ead20fa764e36e345d68772b61b70d",
+    "mtime": 1789757551.1668391,
+    "ast_hash": "abe83947329ed7f984951cff1d220faa",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/test/features/automation/automation_architecture_compliance_test.dart": {
@@ -26895,8 +26875,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/test/features/automation/whatsapp_personal_agent_test.dart": {
-    "mtime": 1789617161.1858087,
-    "ast_hash": "d044bf9dc6f455e2797bf94228a8f5fb",
+    "mtime": 1789697701.408888,
+    "ast_hash": "a5903d0249c57fb4a03572f7990600f1",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/extracted_payload/data/data/com.termux/files/usr/share/doc/tint2/README.md": {
@@ -26990,8 +26970,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_options_sheet.dart": {
-    "mtime": 1789591459.401883,
-    "ast_hash": "a7e2def3447cfa681947285f3683827a",
+    "mtime": 1789753555.9677,
+    "ast_hash": "fb5c17ff79e33f527a3b4af967ec3a99",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_pinch_wrapper.dart": {
@@ -27005,8 +26985,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/single_browser_instance_widget.dart": {
-    "mtime": 1789597499.581277,
-    "ast_hash": "d57394c6e4cf88462c9d9b6ad31c61e0",
+    "mtime": 1789776948.4784458,
+    "ast_hash": "344d1896e69e0947744a71ec75c5bddc",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/test/features/browser/browser_media_policy_test.dart": {
@@ -27030,8 +27010,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/application/browser_webview_registry.dart": {
-    "mtime": 1789532010.0591142,
-    "ast_hash": "0640f36ee1bcacb0fec93868457bfb8e",
+    "mtime": 1789757794.861296,
+    "ast_hash": "d31ef55f7d0e976a2ccfb7e654968df7",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_tab_overview.dart": {
@@ -27050,8 +27030,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_dialog_helper.dart": {
-    "mtime": 1789588670.039974,
-    "ast_hash": "116951894b0adb1fe10d5712e7381f9a",
+    "mtime": 1789753817.4289389,
+    "ast_hash": "5ea1e18d660aa617a0138f1b8abe7403",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/androidTest/kotlin/dev/nanoai/mobile/services/RemoteInputFixtureInstrumentation.kt": {
@@ -27060,8 +27040,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/ContactsChannelHandler.kt": {
-    "mtime": 1789595253.5543466,
-    "ast_hash": "3c5cebe10556044edc92e20b3f3207ad",
+    "mtime": 1789777900.3606703,
+    "ast_hash": "18f889c648e748b2e8b5314a52872d01",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/RemoteInputReplySender.kt": {
@@ -27160,8 +27140,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/actions/whatsapp/whatsapp_reply_action.dart": {
-    "mtime": 1789610316.2853832,
-    "ast_hash": "012c0fe2cc12e522ba317c5774252b3a",
+    "mtime": 1789672155.8564973,
+    "ast_hash": "3a7b04f8abafbe42633f940fc36ccfdd",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/application/whatsapp_contacts_provider.dart": {
@@ -27175,8 +27155,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/conversation/persona_style_resolver.dart": {
-    "mtime": 1789598852.8637834,
-    "ast_hash": "aba1b523de9e84df6d23d9ff41298be9",
+    "mtime": 1789693594.6837137,
+    "ast_hash": "a35310c6a4113fcb61fdf9bbce5b94e6",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/conversation/personal_style_formatter.dart": {
@@ -27190,13 +27170,13 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/conversation/turn_knowledge_router.dart": {
-    "mtime": 1789599884.198886,
-    "ast_hash": "ee31699b3f76f2e5384c6ca3ccc064ab",
+    "mtime": 1789927737.3023343,
+    "ast_hash": "18f4823e105f6d6b55c3c57891950c43",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_composer.dart": {
-    "mtime": 1789622825.0033135,
-    "ast_hash": "516b1cd25270086096408cd67221db47",
+    "mtime": 1789673665.9849243,
+    "ast_hash": "d190120f4d33b3350bf61a62ebc313e9",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_narrative.dart": {
@@ -27205,8 +27185,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_templates.dart": {
-    "mtime": 1789622813.3204386,
-    "ast_hash": "5cc07c6d5f623032c9eb1978c4f9b71a",
+    "mtime": 1789673772.3599732,
+    "ast_hash": "56324f4fa7f1cb6dde544289ca684eae",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/persona_import_json.dart": {
@@ -27225,8 +27205,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/application/personal_style_seed.dart": {
-    "mtime": 1789657850.8318088,
-    "ast_hash": "b3022c6924a0f41d12d18b52958f59c4",
+    "mtime": 1789698004.5111034,
+    "ast_hash": "2dffb781cd340f6504c08b5cc53c6eb0",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/personal_style_constraints.dart": {
@@ -27235,8 +27215,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/whatsapp_contact_card.dart": {
-    "mtime": 1789596079.3334918,
-    "ast_hash": "9754e75fc8f4536fcbda54d280c48f3f",
+    "mtime": 1789693780.3385272,
+    "ast_hash": "1932611479821e8bb99489b40997a09b",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/conversation_detail_dialogs.dart": {
@@ -27245,8 +27225,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/browser/application/browser_automation_engine.dart": {
-    "mtime": 1789595752.1913514,
-    "ast_hash": "372c708a0deb34dd8be7434a17f38dc3",
+    "mtime": 1789748917.2038348,
+    "ast_hash": "dc06b4347a018fe4f27e092d65ce710e",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/skills/personal_agent/respond_personal_whatsapp_skill.dart": {
@@ -27275,8 +27255,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/test/features/automation/automation_sprint_zero_test.dart": {
-    "mtime": 1789586354.6223438,
-    "ast_hash": "78a52b1399aee36d30ca7c37d155a74b",
+    "mtime": 1789667811.2070668,
+    "ast_hash": "4699acfcf96d2eef17966d2a0764b705",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/test/features/automation/persona_pipeline_e2e_test.dart": {
@@ -27310,8 +27290,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/test_screen.png": {
-    "mtime": 1789590773.9360304,
-    "ast_hash": "e63261b380ef2ea0e0ccac72a15d0de1",
+    "mtime": 1789675355.8459246,
+    "ast_hash": "4a2288e78d64ddfdc9071e82273a18c1",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoAtomicSnapshotter.kt": {
@@ -27330,8 +27310,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_situations.dart": {
-    "mtime": 1789657974.118656,
-    "ast_hash": "7b292ec001ea40d4b99b9d269ead5362",
+    "mtime": 1789673691.8825538,
+    "ast_hash": "c24336e66c8991c62c2336fa4acb9099",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/mobile_automation_mcp_client.dart": {
@@ -27340,8 +27320,8 @@
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/memory/nano_transcript_ledger.dart": {
-    "mtime": 1789658364.7923706,
-    "ast_hash": "6379580be2cab382de155b61e1613dc9",
+    "mtime": 1789662103.0823655,
+    "ast_hash": "48cc980fa455e4b375ad5ecaa34f78eb",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/composite_locator.dart": {
@@ -27362,11 +27342,6 @@
   "products/nanoMOBILE/flutter_app/test/features/automation/mcp_mobile_agent_test.dart": {
     "mtime": 1789657571.6247594,
     "ast_hash": "737b420597a426e62abaf171ce8f0581",
-    "semantic_hash": ""
-  },
-  "products/docs/artemis_reverse_engineering_and_nano_integration.md": {
-    "mtime": 1789656561.3800547,
-    "ast_hash": "c935813c559972011740a69631ef54f9",
     "semantic_hash": ""
   },
   "products/nanoMOBILE/flutter_app/integration_test/nano_mobile_engine_device_test.dart": {
@@ -27412,6 +27387,1431 @@
   "products/nanoMOBILE/flutter_app/test/features/automation/nano_verification_guarantees_test.dart": {
     "mtime": 1789658460.0260017,
     "ast_hash": "12f60272f78fe38910d9850ddcdb38e3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/capability_router.dart": {
+    "mtime": 1789662053.5052936,
+    "ast_hash": "3ea1a00e65b2e4892c2ae9b6b4e76f86",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/capability_router_provider.dart": {
+    "mtime": 1789662164.8485465,
+    "ast_hash": "d893dc97b7a10ecfe99eaa8384da2447",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/semantic_linux_tool_handler.dart": {
+    "mtime": 1789662260.004299,
+    "ast_hash": "b6f3e45851b3958a89b48d18a572ec4f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_activity.dart": {
+    "mtime": 1789673628.439613,
+    "ast_hash": "819c6606682cdfb9bb14b4c28cb362a4",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/linux_automation_mcp_client.dart": {
+    "mtime": 1789662671.4163046,
+    "ast_hash": "5edb7c3a1c1d68f8114da2bed1aac191",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/linux_action_verifier.dart": {
+    "mtime": 1789661588.092018,
+    "ast_hash": "943a48dee13998f85568688462c86c8a",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/linux_automation_executor_provider.dart": {
+    "mtime": 1789661640.111605,
+    "ast_hash": "f11cd25a3331ae557b995c0c05ca79c6",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/linux_automation_port.dart": {
+    "mtime": 1789661577.504544,
+    "ast_hash": "f04428a73b7e35afca2c27ba5f2cf232",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/linux_automation_types.dart": {
+    "mtime": 1789661570.6554654,
+    "ast_hash": "63aaa1b1b4a01091737bfbf4cbaa5b7f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/linux_capability_catalog.dart": {
+    "mtime": 1789661635.4862547,
+    "ast_hash": "23a6795e6936d4e84c7dc194281a309d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/linux_process_supervisor.dart": {
+    "mtime": 1789661593.3635468,
+    "ast_hash": "8bd1c31531e7a5ee8ed916459c310895",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/linux_security_policy.dart": {
+    "mtime": 1789661582.509035,
+    "ast_hash": "f66ec8716af68dddf63614606dcd8ab5",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/nanoshell_linux_archive_operations.dart": {
+    "mtime": 1789661620.2986777,
+    "ast_hash": "0b2ca2409a176e939ee98c3b23dfe5fd",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/nanoshell_linux_automation_executor.dart": {
+    "mtime": 1789661713.6008413,
+    "ast_hash": "f91f36b37856203c6dc67e2eab9959b3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/executors/linux/nanoshell_linux_fs_operations.dart": {
+    "mtime": 1789661616.3463292,
+    "ast_hash": "d73103ef148d42af9cd4330f4edcb3b5",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_action_listener.dart": {
+    "mtime": 1789669975.3477082,
+    "ast_hash": "7c4d9a427916429040c4eb89077e4294",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_inference_coordinator.dart": {
+    "mtime": 1789671377.6432078,
+    "ast_hash": "6f1d45d8e1c6926cea6c4a1373de555d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_message_manager.dart": {
+    "mtime": 1789669276.0918286,
+    "ast_hash": "908c191489c08daedb85d99d73c82205",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_model_service.dart": {
+    "mtime": 1789671202.9232213,
+    "ast_hash": "5887c99b569db810bb1b1690348b6784",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_model_storage.dart": {
+    "mtime": 1789671197.4119804,
+    "ast_hash": "f789132dad32c3fba7565ceee16a4668",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_notifier_actions.dart": {
+    "mtime": 1789924998.6188498,
+    "ast_hash": "a608468d34f5fc1884db9112fd828e66",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_notifier_listener.dart": {
+    "mtime": 1789671218.3151524,
+    "ast_hash": "bf4ac77843d646f37fe57a901bbb0dd5",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_send_use_case.dart": {
+    "mtime": 1789759532.9147642,
+    "ast_hash": "614665714b3a98f655380a2d1e2d29e5",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_stream_session.dart": {
+    "mtime": 1789671037.7326589,
+    "ast_hash": "bc8ec04042fec4ca6028c107b8eb952f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_tool_approval_use_case.dart": {
+    "mtime": 1789671381.5888364,
+    "ast_hash": "fc8994fb37208fdc66b7ad18ab32bc02",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_tool_coordinator.dart": {
+    "mtime": 1789671239.654228,
+    "ast_hash": "1d5f1469bbb9142dbd3689b02bff1770",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_turn_router.dart": {
+    "mtime": 1789755266.129888,
+    "ast_hash": "372c9aba5b89997a03033794fc83a0c4",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/chat_voice_coordinator.dart": {
+    "mtime": 1789924998.6831083,
+    "ast_hash": "45b0704ae60f9011aed13ea9ad6e2d5c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/domain/chat_context_builder.dart": {
+    "mtime": 1789668268.9431984,
+    "ast_hash": "9c5fe952cd457f559b5588bfd8568cf4",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/domain/chat_suggestion_engine.dart": {
+    "mtime": 1789671083.3223197,
+    "ast_hash": "4008200130aa005fd938c7e14263b247",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/domain/chat_turn_route_result.dart": {
+    "mtime": 1789671048.6904354,
+    "ast_hash": "360abddea988fee8084353c622fe687f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/domain/stream_lease.dart": {
+    "mtime": 1789671011.571126,
+    "ast_hash": "1efa2961c8bcd828c72153a6aebd76aa",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/domain/stream_sanitizer.dart": {
+    "mtime": 1789671029.6669405,
+    "ast_hash": "ac1dcdec0d9331a5d49aab9c17814e18",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/domain/tool_approval_result.dart": {
+    "mtime": 1789671187.3192039,
+    "ast_hash": "d9139d64749c4d1f78111ea98bc4d05b",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/capability_router_test.dart": {
+    "mtime": 1789662292.94233,
+    "ast_hash": "dee16da5cea5fa506448df2478859f17",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/linux_action_verifier_test.dart": {
+    "mtime": 1789661660.4825375,
+    "ast_hash": "0fc47c47aef162dd82b61b7ef8e654a9",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/linux_automation_mcp_client_test.dart": {
+    "mtime": 1789662681.1072233,
+    "ast_hash": "2094b8556a6ee30c43400f6901f29c0f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/nano_transcript_ledger_multisurface_test.dart": {
+    "mtime": 1789662239.176626,
+    "ast_hash": "baeff56db0d7620832802a53b0090a8e",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/nanoshell_linux_automation_executor_test.dart": {
+    "mtime": 1789661727.5100656,
+    "ast_hash": "5827dab3612816dd33c4239abf4cde08",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/semantic_linux_tool_handler_test.dart": {
+    "mtime": 1789662303.9676542,
+    "ast_hash": "9c8f6c38ffdf941847c397d93db8b6f3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/chat/chat_stream_session_test.dart": {
+    "mtime": 1789670495.4147792,
+    "ast_hash": "592383b5b0ff4cb63525119a7d85dfde",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/actions/whatsapp/whatsapp_reply_arguments.dart": {
+    "mtime": 1789671964.4728565,
+    "ast_hash": "f5b35c4179ad32b6b6eba36cef130d55",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/candidate_selector.dart": {
+    "mtime": 1789671927.3459437,
+    "ast_hash": "4710844f661f9395de528a30ae7b7914",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/fast_path_models.dart": {
+    "mtime": 1789671901.1535134,
+    "ast_hash": "ca42f8e2c56fb099a1d0d625f76165c4",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/language_assist_models.dart": {
+    "mtime": 1789671990.3542109,
+    "ast_hash": "3c964c4e124d54b801ee18fd33612721",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_composer_misc.dart": {
+    "mtime": 1789673767.562925,
+    "ast_hash": "67b3b7d4ef8815cdb979f2652ea00a59",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_intents_basic.dart": {
+    "mtime": 1789671909.0081127,
+    "ast_hash": "d114d8dad462966a548905c65abdc70a",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_intents_contextual.dart": {
+    "mtime": 1789672017.6259735,
+    "ast_hash": "9c194071588efcf66e7bb4d1b1829a8b",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_intents_situational.dart": {
+    "mtime": 1789672010.7543316,
+    "ast_hash": "1813dd4d5b575718b04b764d37160e8e",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/turn_complexity.dart": {
+    "mtime": 1789671975.5392368,
+    "ast_hash": "090eb0c7289d6db33affcccae538d7dc",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/QrService.kt": {
+    "mtime": 1789682921.597447,
+    "ast_hash": "daccad5c3857b3c37d1527863038f9bc",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/InteractiveWindowFinder.kt": {
+    "mtime": 1789680384.1572638,
+    "ast_hash": "1220a224c8a0cb80c0ee375562552b56",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppAutoSendController.kt": {
+    "mtime": 1789852407.448228,
+    "ast_hash": "edd307eec579bc38d7c4810ad68ea650",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppMediaVerifier.kt": {
+    "mtime": 1789852344.5706973,
+    "ast_hash": "4b90611113bb662e74e4c4f2a1ee5b7b",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppShareMediaBackend.kt": {
+    "mtime": 1789852621.9270487,
+    "ast_hash": "d16f701e36ea68e2ba0cdcf87f46a51f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WindowStrategy.kt": {
+    "mtime": 1789783575.845209,
+    "ast_hash": "f0b064e8212cac35333d65a67aa697f8",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/domain/whatsapp_media_payload.dart": {
+    "mtime": 1789684296.2271326,
+    "ast_hash": "f6289b351c0893e7676bbc9ec095ce14",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_activity_banks.dart": {
+    "mtime": 1789673623.5597093,
+    "ast_hash": "fac1b7ef21cd53a4bb9d5329a54a2556",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_dialogue_banks.dart": {
+    "mtime": 1789673921.1036856,
+    "ast_hash": "47f5f1daa28f37b4580d3160a3f260b7",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_misc_banks.dart": {
+    "mtime": 1789673702.6739194,
+    "ast_hash": "94b213a0cba4b0e0d04284f918190a7f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_situation_banks.dart": {
+    "mtime": 1789673913.242598,
+    "ast_hash": "aff7cf1fbe7f3a59cd54ed7ef0c9da9d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/pragmatic_fast_path_template_banks.dart": {
+    "mtime": 1789673854.6748383,
+    "ast_hash": "08881b12a2f9b2621bcef0c610fd9881",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/safe_repair_options.dart": {
+    "mtime": 1789673585.028744,
+    "ast_hash": "c52940ced57ccdab2f40a4b63c058317",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/web_bridge/whatsapp_media_dispatcher.dart": {
+    "mtime": 1789674666.8580384,
+    "ast_hash": "cceb9e21f0e3e63dcf1939df34365ea6",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/web_bridge/whatsapp_web_bridge_controller.dart": {
+    "mtime": 1789684355.1071196,
+    "ast_hash": "7145105fe1fb49d543f3fffbb0d0ea92",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/web_bridge/whatsapp_web_js_bridge.dart": {
+    "mtime": 1789688206.869545,
+    "ast_hash": "0c66bda616b3adc4c842c6e4f3977898",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_dialog_models.dart": {
+    "mtime": 1789698041.1964808,
+    "ast_hash": "edaecdb3a658ea45d55a7098935036ca",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_example_dialog.dart": {
+    "mtime": 1789698372.925017,
+    "ast_hash": "bf8a5dc092a7d13c031fae80b9bfda97",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_import_review.dart": {
+    "mtime": 1789689223.7415917,
+    "ast_hash": "6706ecfac59bc4af7800dc8ead4cea49",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_memory_dialog.dart": {
+    "mtime": 1789689212.5330875,
+    "ast_hash": "0fd1991b45ad38ff08c8f046d23b4224",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_style_dialog.dart": {
+    "mtime": 1789695537.3889265,
+    "ast_hash": "abb0d12e833a42b5b7473b9ba905f223",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/whatsapp_qr_scanner_dialog.dart": {
+    "mtime": 1789689266.0061924,
+    "ast_hash": "7a9952e1fbd6268a2345be870a234de6",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/whatsapp_reply_delay_card.dart": {
+    "mtime": 1789691494.200588,
+    "ast_hash": "7dd3c74ffe474271b8e95fceb34e68a1",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/whatsapp_web_bridge_card.dart": {
+    "mtime": 1789674598.4294324,
+    "ast_hash": "86f4a90e6e2d80d5fc275a35ebac1417",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/widgets/whatsapp_web_link_view.dart": {
+    "mtime": 1789923212.1173258,
+    "ast_hash": "69bdba227c071692fa36860d352451f6",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/whatsapp_media_bridge_test.dart": {
+    "mtime": 1789674781.6693258,
+    "ast_hash": "5234bd462aeb40d0b0075366fa7a323d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_device.png": {
+    "mtime": 1789679625.896736,
+    "ast_hash": "71d325fcde1a69dafdb1433b1d2059d7",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/assets/buho/horizontal/buho_h_dark.jpg": {
+    "mtime": 1789692167.9281385,
+    "ast_hash": "95266101812b11543562d90b65d18425",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/assets/buho/horizontal/buho_h_light.jpg": {
+    "mtime": 1789692167.9308705,
+    "ast_hash": "5f3749fb43704d8ede2bb45ead1e59ba",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/application/account_providers.dart": {
+    "mtime": 1789697031.674683,
+    "ast_hash": "5d8f4ed6d8c6a02d1dfbb47fdba6fb3f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/application/auth_controller.dart": {
+    "mtime": 1789697339.7831087,
+    "ast_hash": "89a3ebe42f6a3cf82c2f39775d46f029",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/application/device_controller.dart": {
+    "mtime": 1789693695.6891172,
+    "ast_hash": "b76f0001070db1609d12a70fc8afe778",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/application/donation_controller.dart": {
+    "mtime": 1789693692.360204,
+    "ast_hash": "7644fcb886975557871b9166c8cdab3d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/application/session_gate_controller.dart": {
+    "mtime": 1789693680.3222258,
+    "ast_hash": "c775bf4d805e129130d53b36a99c23df",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/application/subscription_controller.dart": {
+    "mtime": 1789693688.5406394,
+    "ast_hash": "e3166e74b7ba89ab58403b8a708951ad",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/account_exceptions.dart": {
+    "mtime": 1789693847.5912576,
+    "ast_hash": "72a044c973172e1265aea22797c44432",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/account_profile.dart": {
+    "mtime": 1789696763.605744,
+    "ast_hash": "edaab646518f930f86cac731e9909b65",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/account_repository.dart": {
+    "mtime": 1789693608.3689387,
+    "ast_hash": "ae2074604c41d6b3a79b9cec0a6ec8a0",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/auth_repository.dart": {
+    "mtime": 1789693605.771528,
+    "ast_hash": "f8a4c29a000b9fa9f210c33adce511e1",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/auth_state.dart": {
+    "mtime": 1789693598.620047,
+    "ast_hash": "ef1de932e76f699b308d775c080434fe",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/auth_user.dart": {
+    "mtime": 1789693589.3651052,
+    "ast_hash": "d8f5fc41d8e40d3bc7bab179db45d698",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/billing_product.dart": {
+    "mtime": 1789693626.8672004,
+    "ast_hash": "523ac0b2df47e2b3d9bea900a02dd609",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/device_entity.dart": {
+    "mtime": 1789693613.0056832,
+    "ast_hash": "f1f88ef376035ad26732ee1b34654477",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/device_repository.dart": {
+    "mtime": 1789693616.7866185,
+    "ast_hash": "a6e8f32b9d81a0ed83c88301e8e4febb",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/donation_repository.dart": {
+    "mtime": 1789693634.9282174,
+    "ast_hash": "a793cd8956cfe917f556425942706620",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/subscription_plan.dart": {
+    "mtime": 1789693621.2669604,
+    "ast_hash": "9c2c7e2f912558c20ab8bed7c2fedf42",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/domain/subscription_repository.dart": {
+    "mtime": 1789693631.4048204,
+    "ast_hash": "96871a3cf181ee856bde1a81ae8acf2c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/infrastructure/device_management_adapter.dart": {
+    "mtime": 1789693675.348833,
+    "ast_hash": "0ff72d678811818ed984bff83a16d0c1",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/infrastructure/firebase_auth_adapter.dart": {
+    "mtime": 1789693921.1930094,
+    "ast_hash": "1d013688f9c2355d3bb7659e4388ed34",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/infrastructure/firestore_account_adapter.dart": {
+    "mtime": 1789693657.1987514,
+    "ast_hash": "a689c72f5e6f7e7399885a6229120686",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/infrastructure/google_play_billing_adapter.dart": {
+    "mtime": 1789693662.598552,
+    "ast_hash": "baf041d59ba68d475babe1e878488adc",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/infrastructure/local_account_storage.dart": {
+    "mtime": 1789693929.540612,
+    "ast_hash": "15db9996da02e2a6a1620eca41e0ab7c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/infrastructure/secure_storage_adapter.dart": {
+    "mtime": 1789693641.4703062,
+    "ast_hash": "9635a30773f8a668cc293f204219f362",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/infrastructure/voluntary_donation_adapter.dart": {
+    "mtime": 1789693666.466966,
+    "ast_hash": "9b81d29f02c492a7fd187ae124638a67",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/account_center_screen.dart": {
+    "mtime": 1789697286.3545425,
+    "ast_hash": "25c2dcb00ca69bd70ab93c921e4b590c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/devices_screen.dart": {
+    "mtime": 1789697294.2586517,
+    "ast_hash": "085a65d36f876d546a3c6d134d04c7cb",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/email_verification_screen.dart": {
+    "mtime": 1789697268.5540266,
+    "ast_hash": "9764577f0e83d817014e5ac5d8d37f8b",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/forgot_password_screen.dart": {
+    "mtime": 1789697261.1076648,
+    "ast_hash": "64b693fc655f5d5d1168b7165002b170",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/login_screen.dart": {
+    "mtime": 1789941350.7028303,
+    "ast_hash": "262a216bfb4395e82febe254c9f394fb",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/register_screen.dart": {
+    "mtime": 1789697541.358219,
+    "ast_hash": "fe7a651952689f25cffbf0dc77f2df6c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/session_gate_screen.dart": {
+    "mtime": 1789697276.1924255,
+    "ast_hash": "cc4c77bf4a23b1232b29df228c07e0a0",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/subscription_plans_screen.dart": {
+    "mtime": 1789697302.9204009,
+    "ast_hash": "cff9b9a10c4c73b03b0f6d5c0f39603a",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/screens/support_nano_screen.dart": {
+    "mtime": 1789697310.3132954,
+    "ast_hash": "6947670bd33351b5f3fea031a10db80c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/widgets/nano_account_tile.dart": {
+    "mtime": 1789693717.7704408,
+    "ast_hash": "b2c9deb2e633dfd4629844f2dce39eb5",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/widgets/nano_danger_dialog.dart": {
+    "mtime": 1789693721.6919568,
+    "ast_hash": "aec5afc0db38acbff6a5ff180a7574cd",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/widgets/nano_glass_field.dart": {
+    "mtime": 1789693704.5861728,
+    "ast_hash": "967ff6946ac28811ac73497535b3684c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/widgets/nano_plan_card.dart": {
+    "mtime": 1789693994.9744954,
+    "ast_hash": "9367df2a3077fe5462250db6beb4bd87",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/widgets/nano_support_banner.dart": {
+    "mtime": 1789694002.3452592,
+    "ast_hash": "0c77882389248f418ec53ca871a5440f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/widgets/register_country_picker.dart": {
+    "mtime": 1789697510.4568112,
+    "ast_hash": "c6ce110f3b7c8a2a9b69c7d81e0b4af8",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/account/presentation/widgets/register_form_fields.dart": {
+    "mtime": 1789697524.8029432,
+    "ast_hash": "9499af15b87b3e0c6094dc43bc4b0eb6",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_actions_dialogs.dart": {
+    "mtime": 1789699104.2774818,
+    "ast_hash": "e12e294c97e3a9aa1394465c29f89003",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_actions_import.dart": {
+    "mtime": 1789697321.0456958,
+    "ast_hash": "0756ed6b614c7bd9047fd917493380c2",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_contacts_tab.dart": {
+    "mtime": 1789700179.3724952,
+    "ast_hash": "16cf80f0c1b3f0d70c2e70ffde7563b2",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_diagram.dart": {
+    "mtime": 1789697355.13848,
+    "ast_hash": "a907417e7aac8bdcf12946332b6ab40d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_example_card.dart": {
+    "mtime": 1789698276.5740333,
+    "ast_hash": "e1ed9986b10b4d4cb6c9aa5b7a9c31d8",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_examples_tab.dart": {
+    "mtime": 1789698140.20014,
+    "ast_hash": "b0c17cbdb1015d3e679884d14006dc1f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_header.dart": {
+    "mtime": 1789699157.3177433,
+    "ast_hash": "1cfa189e1fd5d1da533dec84acda40b9",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_imports_tab.dart": {
+    "mtime": 1789697277.9435186,
+    "ast_hash": "7cb65c4392c25030b4754309697cf314",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_loader.dart": {
+    "mtime": 1789697255.4585836,
+    "ast_hash": "509245fef64cc38d2ed4a752d93f1fb3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_memories_tab.dart": {
+    "mtime": 1789697381.8190506,
+    "ast_hash": "cb9d4fb21470449eeaf334facd4f31cb",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_contacts_policy_bar.dart": {
+    "mtime": 1789694986.6004488,
+    "ast_hash": "c1810f371bc800efca99ca32ee6ec6a9",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/application/csv_tsv_parser.dart": {
+    "mtime": 1789697476.2467017,
+    "ast_hash": "47f57280234d339b355e3470b2e6efa2",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/application/database_studio_controller.dart": {
+    "mtime": 1789697651.7810774,
+    "ast_hash": "3d50adc80bcd4cdd07eb52597b5e4fca",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/application/report_generator_service.dart": {
+    "mtime": 1789697768.4601457,
+    "ast_hash": "61c9ab02dae838e0acd24399118315ab",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/application/sql_query_engine.dart": {
+    "mtime": 1789697740.8792293,
+    "ast_hash": "ea97f2f485414df4b1dea95592ad58e3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/domain/data_models.dart": {
+    "mtime": 1789697457.910385,
+    "ast_hash": "8320f869895749f095d7a4a8f993f017",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/presentation/screens/database_studio_screen.dart": {
+    "mtime": 1789698502.3327117,
+    "ast_hash": "3e85928e08ffd99f5e2bb8bbefb97f11",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/settings/presentation/widgets/account_settings_card.dart": {
+    "mtime": 1789694008.4583693,
+    "ast_hash": "e6950ff8f16ea5336ecc29bb24a77318",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/account/account_architecture_compliance_test.dart": {
+    "mtime": 1789694131.6980507,
+    "ast_hash": "2c264f9692ef1b836bacaedf7880c945",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/account/auth_repository_test.dart": {
+    "mtime": 1789694063.5900085,
+    "ast_hash": "ebde01c232f8385f745911b1df9e8d4f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/account/auth_state_test.dart": {
+    "mtime": 1789694122.420337,
+    "ast_hash": "ac2d6cc7a98288aaedf75b5f063c9234",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/account/donation_banner_test.dart": {
+    "mtime": 1789694075.444155,
+    "ast_hash": "069f2ccf39c90fa55f861adffea173ea",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/account/subscription_billing_test.dart": {
+    "mtime": 1789694069.1933022,
+    "ast_hash": "98753b2cf8ec7f00e3985ac32b5f3784",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/persona_variants_and_contact_policy_test.dart": {
+    "mtime": 1789694049.5285158,
+    "ast_hash": "28b08302f6929821a4ca18e9e5d2b097",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/live_check_current.png": {
+    "mtime": 1789692514.4551024,
+    "ast_hash": "cd29580241a6f1d67388aac4c6a5129d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/live_check_fullscreen2.png": {
+    "mtime": 1789696059.0920453,
+    "ast_hash": "b640ebcc172ed2b95ff5261f0caefc90",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/live_check_loaded.png": {
+    "mtime": 1789696084.3516428,
+    "ast_hash": "b747741f61f38031bf4d9ee3dce61796",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/live_disabled_flags.png": {
+    "mtime": 1789696191.170176,
+    "ast_hash": "bba30362b6fa4f5dcb5f8078e04e367a",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/live_fullscreen_result.png": {
+    "mtime": 1789693246.6576233,
+    "ast_hash": "1520244e9731077e98481c2c06ea0652",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test_policy.png": {
+    "mtime": 1789693388.706038,
+    "ast_hash": "da9d48cdc9c186c94e27ab2794b82b28",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/application/bot/bot_repository.dart": {
+    "mtime": 1789746070.7930944,
+    "ast_hash": "c26f100cf0b1f6e030a2301d005231f9",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/application/bot/bot_skills_catalog.dart": {
+    "mtime": 1789749049.7096732,
+    "ast_hash": "40f752a865e4800c7ed3e50821af7526",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/application/bot/bot_studio_providers.dart": {
+    "mtime": 1789930603.8392372,
+    "ast_hash": "317aa5dd7931ae0c530be47f64879536",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/domain/bot/bot_definition.dart": {
+    "mtime": 1789746522.968918,
+    "ast_hash": "4f7e6100bc46e10a2b7d8a0274714dd3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/domain/bot/bot_event.dart": {
+    "mtime": 1789745899.7966123,
+    "ast_hash": "092bb6bd714fbba768529ad5207f4587",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/domain/bot/bot_permissions.dart": {
+    "mtime": 1789745830.4440663,
+    "ast_hash": "ab7d3d873a955f99b9f10eec38789dcd",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/domain/bot/bot_role.dart": {
+    "mtime": 1789745767.9334643,
+    "ast_hash": "ceb7eda58e7808c37a76a27b1aca2890",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/domain/bot/bot_skill.dart": {
+    "mtime": 1789745866.0563667,
+    "ast_hash": "724b04029e0ed9a832900c1804aaff2f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/bot/bot_agent_dispatcher.dart": {
+    "mtime": 1789747328.3140807,
+    "ast_hash": "e52b35d5c54be8df93a8c31a780ae3ac",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/bot/bot_capability_router.dart": {
+    "mtime": 1789746590.5042949,
+    "ast_hash": "c21704bc7741effd4e32eeb64cc11abf",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/bot/bot_execution_context.dart": {
+    "mtime": 1789747245.8142424,
+    "ast_hash": "e7af9e34b8824a009743ccb428d618a0",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/bot/bot_execution_result.dart": {
+    "mtime": 1789747240.2183092,
+    "ast_hash": "e6401ded13f11753ceaa4c585262742c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/domain/persona_response_option.dart": {
+    "mtime": 1789697946.6114194,
+    "ast_hash": "e59127af94503c6f08b20dcdcf2f5ae3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_single_input_dialog.dart": {
+    "mtime": 1789699022.2157156,
+    "ast_hash": "b1df68380c8fb13f4e21eeb4a082dcc5",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/personal_agent/presentation/personalization_studio_whatsapp_picker.dart": {
+    "mtime": 1789700023.431993,
+    "ast_hash": "0471c881a148fd520299924d4d13f519",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/bot_studio/bot_card.dart": {
+    "mtime": 1789747386.016571,
+    "ast_hash": "697b26c262d99a76b0cc6e4bafc0e0a3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/bot_studio/bot_editor_dialog.dart": {
+    "mtime": 1789747415.9900348,
+    "ast_hash": "0dd324cfb0dad4d973761144d5997b34",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/bot_studio/bot_skills_selector.dart": {
+    "mtime": 1789747420.5539594,
+    "ast_hash": "471b5a5b536c276e2721155a8e1980fb",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/bot_studio/bot_studio_screen.dart": {
+    "mtime": 1789747402.5940857,
+    "ast_hash": "0ca0ee1baabb918d137b41a5937c294c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/domain/database_security_guard.dart": {
+    "mtime": 1789923981.8959248,
+    "ast_hash": "a051d01d9b249d6f7b343acd01d34d98",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/presentation/widgets/database_data_grid.dart": {
+    "mtime": 1789701529.440328,
+    "ast_hash": "410fc495a0527684874a6b9f41dac035",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/presentation/widgets/database_pdf_dialog.dart": {
+    "mtime": 1789701541.0458362,
+    "ast_hash": "bfe0a35755ed14debcfaed0252e6cf9c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/presentation/widgets/database_shell_connect_dialog.dart": {
+    "mtime": 1789701534.6935766,
+    "ast_hash": "6b7b5d15c7e0c59f4ad612f1c4fba453",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/presentation/widgets/database_sql_console.dart": {
+    "mtime": 1789701520.6536698,
+    "ast_hash": "a03a158a16fb97c1c0496f9e463f2102",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/presentation/widgets/database_status_banner.dart": {
+    "mtime": 1789701525.0102768,
+    "ast_hash": "b4b1423910137b6988ff4f2eeba3f955",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/database/presentation/widgets/database_table_selector.dart": {
+    "mtime": 1789701514.8661592,
+    "ast_hash": "56b380f33948185be09b1645e7be58b3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/bot_dispatcher_test.dart": {
+    "mtime": 1789747545.358788,
+    "ast_hash": "b6088905bbffb3aad8ae8ae147823d10",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/bot_runtime_test.dart": {
+    "mtime": 1789746742.7910545,
+    "ast_hash": "2fcaa15bcf4e05bd06a93869aedbb589",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_auto.png": {
+    "mtime": 1789700472.7439427,
+    "ast_hash": "fb9ad08ace04d0af3587ea56fcaca92f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_contacts.png": {
+    "mtime": 1789700523.3194785,
+    "ast_hash": "fb9ad08ace04d0af3587ea56fcaca92f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_contacts_view.png": {
+    "mtime": 1789700580.7513585,
+    "ast_hash": "c5da09f13dcd76dd1d6ba44b4bdda4d8",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_current.png": {
+    "mtime": 1789698793.2584634,
+    "ast_hash": "b32eb4331f4734a88efbaba8ea666515",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_scroll.png": {
+    "mtime": 1789700672.1915183,
+    "ast_hash": "58eca66bc70c9e5404ca0c8f15a97920",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_scroll2.png": {
+    "mtime": 1789700754.5814314,
+    "ast_hash": "fb9ad08ace04d0af3587ea56fcaca92f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_tab_contacts.png": {
+    "mtime": 1789700842.6423342,
+    "ast_hash": "fb9ad08ace04d0af3587ea56fcaca92f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_tab_swipe.png": {
+    "mtime": 1789700941.154253,
+    "ast_hash": "8bbb138079ac01d0ab66dbba0cd64d63",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/screen_updated.png": {
+    "mtime": 1789700418.6605122,
+    "ast_hash": "33ebe496db4eecbd7e6b1355cdbfd9d1",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/browser/reverse_agent_response.dart": {
+    "mtime": 1789749016.657961,
+    "ast_hash": "eeff7b9f1bd05d5b5fc00bd6044709bd",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/browser_ai_tool_adapter.dart": {
+    "mtime": 1789750011.8127122,
+    "ast_hash": "e3e0a963298337ebc126e939984985fb",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/http_mcp_parser.dart": {
+    "mtime": 1789748986.9675014,
+    "ast_hash": "1f4a66cf116e7d3e611fa4b0aea7f9a7",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/mcp/mcp_tool_resolver.dart": {
+    "mtime": 1789748948.9199564,
+    "ast_hash": "3aace8fa8e151db06ac35eaf4e3c9fb8",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/domain/browser_automation_models.dart": {
+    "mtime": 1789748907.528392,
+    "ast_hash": "2eae596415b4beed121921ff2baf7324",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/application/browser_ai_gateway.dart": {
+    "mtime": 1789928945.1935337,
+    "ast_hash": "397d61d943675349f4dd695b23cd4f88",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/application/browser_ai_provider_registry.dart": {
+    "mtime": 1789749993.9122424,
+    "ast_hash": "111f2ece5ff2ff976cbf111526428b1e",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/domain/browser_ai_provider.dart": {
+    "mtime": 1789928891.1357675,
+    "ast_hash": "6a2444859ef1fb9a3db25090a7fd9b09",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/domain/browser_ai_query.dart": {
+    "mtime": 1789928849.9297755,
+    "ast_hash": "d350dd7c7a0683a2648f9f6d499e4da5",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/domain/browser_ai_response.dart": {
+    "mtime": 1789928858.5395658,
+    "ast_hash": "d0f771acd613e493b22d97f52e8e0295",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/infrastructure/browser_ai_dom_adapter.dart": {
+    "mtime": 1789928883.7848456,
+    "ast_hash": "adba45b36a660d6fd862b35a2606ecb0",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/infrastructure/providers/chatgpt_provider.dart": {
+    "mtime": 1789928909.3342679,
+    "ast_hash": "796ee28c122224f58f918389e28b9853",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/infrastructure/providers/claude_provider.dart": {
+    "mtime": 1789928924.7291296,
+    "ast_hash": "55f8d4ca4b6566cfafd58868ea2b5a41",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/infrastructure/providers/deepseek_provider.dart": {
+    "mtime": 1789928901.7766695,
+    "ast_hash": "68c42868d73f9c542d5dd29c7a2d6bcd",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/infrastructure/providers/gemini_provider.dart": {
+    "mtime": 1789928916.2201848,
+    "ast_hash": "eec8baa2dee8c3f9e0018baf658c6172",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/browser_ai/browser_ai_gateway_test.dart": {
+    "mtime": 1789750130.2958846,
+    "ast_hash": "2353b3eabcbd1a0e39b76360a4d0e201",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/application/browser_credential_notifier.dart": {
+    "mtime": 1789753774.4548304,
+    "ast_hash": "daa1698c04ba0f3175efee2728daea56",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/domain/browser_credential_model.dart": {
+    "mtime": 1789753463.0997305,
+    "ast_hash": "0c0f30121167c2a8696bc8adad0e9103",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/infrastructure/browser_credential_vault.dart": {
+    "mtime": 1789755168.3260615,
+    "ast_hash": "551256c765d0add8b75ed95d01b3fdda",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_credential_save_banner.dart": {
+    "mtime": 1789753520.05058,
+    "ast_hash": "3789fc3f23244dca7df92a28f1b42ac2",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_credentials_sheet.dart": {
+    "mtime": 1789755431.9273436,
+    "ast_hash": "615b8ba7adcc8cbdc3086b28f6c57f22",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/application/browser_ai_session_manager.dart": {
+    "mtime": 1789759489.9352064,
+    "ast_hash": "f9ba9efde244a7794a69f59e2c62ac67",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/domain/browser_ai_sanitizer.dart": {
+    "mtime": 1789749970.3560114,
+    "ast_hash": "b3b8a40a22ccc80cdf99a07db393038c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/domain/browser_ai_session.dart": {
+    "mtime": 1789749963.5711422,
+    "ast_hash": "d63d355e7351294c76b11354c81b5c2a",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/infrastructure/providers/mistral_provider.dart": {
+    "mtime": 1789928933.2830758,
+    "ast_hash": "875d996f20ff39830ac2fd8993474127",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/browser/browser_credential_vault_test.dart": {
+    "mtime": 1789753703.2036438,
+    "ast_hash": "f35f3bd76140fd5bfbba169d67ba1c3c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/browser_ai/browser_ai_sanitizer_test.dart": {
+    "mtime": 1789750113.3166547,
+    "ast_hash": "066d41a0009207d64b987d00a3c95495",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/browser_ai/browser_ai_tool_adapter_test.dart": {
+    "mtime": 1789750588.361268,
+    "ast_hash": "600974ea8130f05b517ad308a97bacd8",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_add_credential_dialog.dart": {
+    "mtime": 1789754717.4817605,
+    "ast_hash": "7072bf0f8de594c96498ef5846aa6ed2",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_credential_tile.dart": {
+    "mtime": 1789754724.813047,
+    "ast_hash": "f68edf6cb1e9c8cf3bbb74f097c7fa7d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_keep_alive_wrapper.dart": {
+    "mtime": 1789754840.8517892,
+    "ast_hash": "d317f4007f42a52c7e736355add9ed62",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_menu_action_handler.dart": {
+    "mtime": 1789755075.1486747,
+    "ast_hash": "6b22c67d008c1e4390acaebba29d28ef",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_owl_assistant_sheet.dart": {
+    "mtime": 1789763537.7875748,
+    "ast_hash": "f9d6758dd4f569310e3c188528908913",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_site_theme.dart": {
+    "mtime": 1789754801.8985465,
+    "ast_hash": "c958d90d7bdd4a2d0724f4855b8178b2",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_webview_lifecycle_handler.dart": {
+    "mtime": 1789776912.0721982,
+    "ast_hash": "e1987a6bb31140f6dca4968d0335c36c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_window_card_frame.dart": {
+    "mtime": 1789758231.7817092,
+    "ast_hash": "ca5d74f9fb1daf5382532cf7845633b1",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_window_stack_bar.dart": {
+    "mtime": 1789758155.5777445,
+    "ast_hash": "16d6e9b593d6cda454ff764a511fad58",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_window_tabs_strip.dart": {
+    "mtime": 1789754966.276832,
+    "ast_hash": "c59f688d20bb02721e1ece65d71697eb",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_window_top_bar.dart": {
+    "mtime": 1789754956.417976,
+    "ast_hash": "57901426ac523ac51d2ddab519c85a72",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_zoom_badge_overlay.dart": {
+    "mtime": 1789754850.10157,
+    "ast_hash": "215bca80a3f879b79215f8080d6ae2f2",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/application/web_ai_turn_router.dart": {
+    "mtime": 1789759594.2231665,
+    "ast_hash": "6d5b25322fbd2f1e817730e3736793e3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_pip_surface.dart": {
+    "mtime": 1789757536.2843275,
+    "ast_hash": "76c51eb0c014f2f3936ee23b49be36cc",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/browser_pip_webview.dart": {
+    "mtime": 1789757731.4219651,
+    "ast_hash": "4b29a20be886395d70a3e446a3d60497",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser/presentation/widgets/nano_floating_owl_hub_sheet.dart": {
+    "mtime": 1789764039.0346868,
+    "ast_hash": "7be64f2480f6d2e9a3ef659269009a8d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/whatsapp_tool_handler.dart": {
+    "mtime": 1789781480.6377647,
+    "ast_hash": "2f192cf1d8aaa840aa4db949078bd2c1",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/whatsapp_capability_resolver.dart": {
+    "mtime": 1789765338.1069243,
+    "ast_hash": "1e126804f855204ff4a2ae8d4b2ab0f7",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/browser_ai/infrastructure/browser_ai_session_prefs.dart": {
+    "mtime": 1789759465.5116198,
+    "ast_hash": "8924f07f0da4caaa0e94dfe70a19e63d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/whatsapp_intent_parser.dart": {
+    "mtime": 1789788309.3988028,
+    "ast_hash": "ad8caffb42cf92d61f4455b0b7a4ff61",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/whatsapp_tool_handler_test.dart": {
+    "mtime": 1789780360.8349261,
+    "ast_hash": "bbe1c4504b96e0225351d2de415f0ea1",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/planning/contact_matcher.dart": {
+    "mtime": 1789777985.1531377,
+    "ast_hash": "727643cd5f61ca6526029010788b1967",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/whatsapp_e2e_automation_test.dart": {
+    "mtime": 1789855338.8665116,
+    "ast_hash": "a93a963d7f4cbda121cedd2c3486c67d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/language/dynamic_reply_generator.dart": {
+    "mtime": 1789922476.4304297,
+    "ast_hash": "4c45f9453ad6f0251647ae0e4c46b401",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/models/data/model_file_installer.dart": {
+    "mtime": 1789922352.4078767,
+    "ast_hash": "f95cb8542adce205e8e6c3a245553a34",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/models/data/model_integrity.dart": {
+    "mtime": 1789922352.4118917,
+    "ast_hash": "ece0370413ceef4aa8cceddbea006947",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/models/presentation/widgets/model_info_button.dart": {
+    "mtime": 1789922116.2082567,
+    "ast_hash": "0d8b6348540ca24435430a1d2ce546b0",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/c14_preflight_benchmark_test.dart": {
+    "mtime": 1789855251.2133338,
+    "ast_hash": "3c3d4e0333aee5008d6c54185cfe12d8",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/models/model_contract_test.dart": {
+    "mtime": 1789923091.8568692,
+    "ast_hash": "63d4cf0b6cf0fcf198a90cf8c085b33c",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/models/model_downloader_test.dart": {
+    "mtime": 1789922459.1681218,
+    "ast_hash": "e594fcaec4c720e18e915535562f0c29",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/models/model_file_installer_test.dart": {
+    "mtime": 1789922352.5345175,
+    "ast_hash": "76d4c6a1f91bebd0bc1866d857c2f808",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/models/model_info_button_test.dart": {
+    "mtime": 1789922344.7166734,
+    "ast_hash": "40d14e378dede2dff12a2b2e26c7aec8",
+    "semantic_hash": ""
+  },
+  "products/screen_test_now.png": {
+    "mtime": 1789783086.525255,
+    "ast_hash": "4a1a426092b1ed50a4952f3b1d8d24ab",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/MediaCaptureChannelHandler.kt": {
+    "mtime": 1789928892.5917425,
+    "ast_hash": "b369fc050ab55719983fb7383cae8a03",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/healing/dynamic_surface_store.dart": {
+    "mtime": 1789928960.2515528,
+    "ast_hash": "36408ec20cc7b6b2e4382724ed6aef23",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/healing/safe_action_suspension.dart": {
+    "mtime": 1789926941.917541,
+    "ast_hash": "f87a9d9bed87be320798ec646b8dcbe5",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/healing/surface_auto_healer.dart": {
+    "mtime": 1789929088.6970084,
+    "ast_hash": "0482b9a64be2220c7604f8b1414b311a",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/lists/virtual_list_accumulator.dart": {
+    "mtime": 1789926957.3093834,
+    "ast_hash": "fa11231144412662c36439610556055d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/domain/camera_capture_backend.dart": {
+    "mtime": 1789924998.4853828,
+    "ast_hash": "fe3cfb7ae803daabb832ee38474a3ed7",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/domain/chat_vision_adapter.dart": {
+    "mtime": 1789924962.037377,
+    "ast_hash": "692f69c0a5abc43cc185cc09d49e9a57",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/chat/multimodal_adapters_test.dart": {
+    "mtime": 1789925211.7754302,
+    "ast_hash": "ac722fb01fb07ccd2bdf098ed6fb297d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/chat/voice_adapter_lifecycle_test.dart": {
+    "mtime": 1789928773.0697467,
+    "ast_hash": "643515648bb9ef9c9e19f927f05ffc1d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/healing/assisted_learning_service.dart": {
+    "mtime": 1789928975.2578344,
+    "ast_hash": "a7e55d354957e5b03e96e3f6adaa5f49",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/alarm_tool_handler.dart": {
+    "mtime": 1789931643.7390954,
+    "ast_hash": "356b4b4f7d2f388050de2983bed0a6bb",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/adb_tool_handler.dart": {
+    "mtime": 1789932538.3284035,
+    "ast_hash": "25c95ccf4286d74ce0eaa4eef2b5edc6",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/app_inspector_tool_handler.dart": {
+    "mtime": 1789932728.2902157,
+    "ast_hash": "2db26238087a477ba5fd63ea8a1887a7",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/system_diagnostics_tool_handler.dart": {
+    "mtime": 1789932532.325902,
+    "ast_hash": "f578d69a4d88113af64073c9e2b9bcde",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/perception/visual_grounding_resolver.dart": {
+    "mtime": 1789935212.1448843,
+    "ast_hash": "dc10842d7197eb218fb4dcb091889143",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/nano_operating_tier.dart": {
+    "mtime": 1789932496.1309867,
+    "ast_hash": "f174c67d824370700bf973aa9eb68c34",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/universal_capability_detector.dart": {
+    "mtime": 1789932719.4617603,
+    "ast_hash": "abaa2189466621ed651f342d226ea02d",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/system/universal_execution_resolver.dart": {
+    "mtime": 1789932508.4261968,
+    "ast_hash": "a359313ed8dcfc5f1bb371cee90dd2c8",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/task/task_execution_memory.dart": {
+    "mtime": 1789932520.9774745,
+    "ast_hash": "ebc11a6c9d266b4c1d0718cc99e324a3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/benchmark/automation_benchmark_runner.dart": {
+    "mtime": 1789933300.8391612,
+    "ast_hash": "dc6cc206e15651140fbec0f4be16aa52",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/execution/handlers/benchmark_tool_handler.dart": {
+    "mtime": 1789933259.359063,
+    "ast_hash": "e0fe7f82796482c0883865c956467389",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NanoFloatingChannel.kt": {
+    "mtime": 1789941946.976892,
+    "ast_hash": "e7f4eaae5ef764073d6839d2729c6ba7",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/channels/NanoNativeAiChannel.kt": {
+    "mtime": 1789939043.5388598,
+    "ast_hash": "5311db072f9ba54f4cb45f797dd46ad3",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoFloatingService.kt": {
+    "mtime": 1789940862.9621787,
+    "ast_hash": "492101d2350491bcb08e10b669aed325",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_ai_controller.dart": {
+    "mtime": 1789941426.159527,
+    "ast_hash": "2b33cae9610e08909105c780b689aa8f",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_ai_models.dart": {
+    "mtime": 1789938695.3370693,
+    "ast_hash": "8bc746b8f37c2eba96b152841c7d3163",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_android_native_ai_port.dart": {
+    "mtime": 1789938708.5565479,
+    "ast_hash": "b6c4b7c240c72b8da8397cb2629b2898",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_answer_card.dart": {
+    "mtime": 1789940809.615998,
+    "ast_hash": "602fa994b98c20f42f79249a0311bcb4",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_assistant_panel.dart": {
+    "mtime": 1789941400.0889244,
+    "ast_hash": "148450a541553b82245c899f85dc8615",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_floating_assistant.dart": {
+    "mtime": 1789939452.350095,
+    "ast_hash": "ba7eb1be11c76d98603aa2e811ca3445",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_floating_system.dart": {
+    "mtime": 1789938721.0633397,
+    "ast_hash": "6e0380aca6b06341ad3c517d910241d7",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_floating_wrapper.dart": {
+    "mtime": 1789939011.8108933,
+    "ast_hash": "0c421c3fab6501f3c39976711348ea44",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_glass.dart": {
+    "mtime": 1789938874.0627162,
+    "ast_hash": "1f2848a3bbee6da18466365dacd93333",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_owl_alive.dart": {
+    "mtime": 1789940771.206574,
+    "ast_hash": "372db9bc4729fa7020393e30710b96b6",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/chat/nano_everywhere/nano_voice_wave.dart": {
+    "mtime": 1789939399.9055448,
+    "ast_hash": "b96e5cc808f994bb9a69f51c75381462",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/android/app/src/main/res/drawable/nano_owl_overlay.png": {
+    "mtime": 1789938467.2299118,
+    "ast_hash": "1d922fb1580b4c53e9473f37d697e112",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/assets/buho/portrait/buho_portrait_main.jpg": {
+    "mtime": 1789944642.095086,
+    "ast_hash": "9a2b2df295374b13eee55a25a19b5cc1",
     "semantic_hash": ""
   }
 }

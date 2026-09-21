@@ -1,0 +1,33 @@
+﻿<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permisos avanzados para la variante fullSideload / desarrollo -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23"/>
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
+    <application>
+        <!-- Proveedor de binding Shizuku para la variante fullSideload -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <meta-data
+            android:name="moe.shizuku.client.V3_SUPPORT"
+            android:value="true" />
+
+        <!-- UserService de Shizuku para operaciones de paquete con privilegios en desarrollo -->
+        <service
+            android:name="dev.nanoai.mobile.shizuku.PackageActionService"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL">
+            <intent-filter>
+                <action android:name="rikka.shizuku.intent.action.USER_SERVICE" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>

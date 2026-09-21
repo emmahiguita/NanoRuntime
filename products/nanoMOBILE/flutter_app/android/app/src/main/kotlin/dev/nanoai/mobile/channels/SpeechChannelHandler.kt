@@ -57,6 +57,7 @@ class SpeechChannelHandler(
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
+    private var pendingRecognitionResult: MethodChannel.Result? = null
 
     // Sink del EventChannel de parciales. null = nadie escuchando.
     private var partialSink: EventChannel.EventSink? = null
@@ -75,6 +76,12 @@ class SpeechChannelHandler(
      *  recognizer puede quedar escuchando como zombie tras destruir la UI. */
     fun close() {
         Log.d(TAG, "close — recognizer y TTS liberados")
+        pendingRecognitionResult?.error(
+            "activity_destroyed",
+            "La pantalla se cerró durante el reconocimiento",
+            null,
+        )
+        pendingRecognitionResult = null
         recognizer?.destroy()
         recognizer = null
         tts?.shutdown()
@@ -92,18 +99,14 @@ class SpeechChannelHandler(
             "speak" -> speak(call.argument<String>("text").orEmpty(), result)
             "stop" -> {
                 tts?.stop()
-                recognizer?.stopListening()
+                cancelRecognition()
                 result.success(null)
             }
             // Conversación continua: la app pregunta si el TTS sigue hablando
             // antes de volver a escuchar (evita captar la propia voz de Nano).
             "isSpeaking" -> result.success(tts?.isSpeaking ?: false)
             "cancel" -> {
-                recognizer?.cancel()
-                // VOICE-PRO-01: cancel no destruye el servicio; sin destroy
-                // el recognizer queda vivo (leak) hasta que la app muere.
-                recognizer?.destroy()
-                recognizer = null
+                cancelRecognition()
                 result.success(null)
             }
             else -> result.notImplemented()
@@ -281,8 +284,9 @@ class SpeechChannelHandler(
         // VOICE-PRO-01: sesión previa viva (dictado repetido rápido) se
         // destruye antes de crear la nueva. Dos recognizers simultáneos =
         // ERROR_RECOGNIZER_BUSY en el segundo o captura doble.
-        recognizer?.destroy()
+        cancelRecognition()
         recognizer = null
+        pendingRecognitionResult = result
         startWithService(0, language, result)
     }
 
@@ -296,7 +300,11 @@ class SpeechChannelHandler(
     ) {
         val services = recognitionServices()
         if (serviceIndex >= services.size) {
-            result.error("speech_unavailable", "ningún motor de reconocimiento respondió", null)
+            finishRecognitionError(
+                result,
+                "speech_unavailable",
+                "ningún motor de reconocimiento respondió",
+            )
             return
         }
         val service = services[serviceIndex]
@@ -313,13 +321,14 @@ class SpeechChannelHandler(
                 val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val text = matches?.firstOrNull().orEmpty()
                 rec.destroy()
-                recognizer = null
+                if (recognizer === rec) recognizer = null
                 mainHandler.post {
+                    if (pendingRecognitionResult !== result) return@post
                     partialSink?.success(text)
                     // VOICE-PRO-01: algunos motores entregan onResults con
                     // matches vacío en vez de onError. Texto vacío se reporta
                     // null ("sin resultado"), misma semántica que NO_MATCH.
-                    if (text.isEmpty()) result.success(null) else result.success(text)
+                    finishRecognition(result, text.takeIf { it.isNotEmpty() })
                 }
             }
 
@@ -330,15 +339,20 @@ class SpeechChannelHandler(
                     ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                     ?.firstOrNull()
                 if (!partial.isNullOrEmpty()) {
-                    mainHandler.post { partialSink?.success(partial) }
+                    mainHandler.post {
+                        if (pendingRecognitionResult === result) {
+                            partialSink?.success(partial)
+                        }
+                    }
                 }
             }
 
             override fun onError(error: Int) {
                 Log.d(TAG, "onError code=$error (motor ${serviceIndex + 1}/${services.size})")
                 rec.destroy()
-                recognizer = null
+                if (recognizer === rec) recognizer = null
                 mainHandler.post {
+                    if (pendingRecognitionResult !== result) return@post
                     partialSink?.endOfStream()
                     // No-match o timeout del motor actual: el siguiente motor
                     // de la lista se intenta de inmediato (el último de la
@@ -346,7 +360,7 @@ class SpeechChannelHandler(
                     if (serviceIndex + 1 < services.size) {
                         startWithService(serviceIndex + 1, language, result)
                     } else {
-                        result.error("speech_error", "code=$error", null)
+                        finishRecognitionError(result, "speech_error", "code=$error")
                     }
                 }
             }
@@ -373,5 +387,30 @@ class SpeechChannelHandler(
         // extras custom (PARTIAL_RESULTS + silencios) lo confunden.
         val minimal = service == null || service.packageName == TTS_PACKAGE
         rec.startListening(buildRecognitionIntent(language, minimal))
+    }
+
+    /** Cancela recognizer y resuelve el Future original exactamente una vez. */
+    private fun cancelRecognition() {
+        recognizer?.cancel()
+        recognizer?.destroy()
+        recognizer = null
+        pendingRecognitionResult?.success(null)
+        pendingRecognitionResult = null
+    }
+
+    private fun finishRecognition(result: MethodChannel.Result, text: String?) {
+        if (pendingRecognitionResult !== result) return
+        pendingRecognitionResult = null
+        result.success(text)
+    }
+
+    private fun finishRecognitionError(
+        result: MethodChannel.Result,
+        code: String,
+        message: String,
+    ) {
+        if (pendingRecognitionResult !== result) return
+        pendingRecognitionResult = null
+        result.error(code, message, null)
     }
 }

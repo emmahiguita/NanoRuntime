@@ -19,6 +19,8 @@ import 'package:nanoai/features/automation/personal_agent/domain/conversation_au
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart';
 import 'package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart';
 import 'package:nanoai/features/automation/engine/language/dialogue_state.dart';
+import 'package:nanoai/features/automation/engine/language/safe_conversation_repair.dart';
+import 'package:nanoai/features/automation/engine/language/safe_repair_options.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_memory.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 
@@ -270,6 +272,32 @@ void main() {
       );
 
       test(
+        'Live State: "y que vas hacer hoy?" repara con planes honestos y no con desplazamiento ("si voy a ir hoy")',
+        () {
+          const understanding = ConversationUnderstanding(
+            reply: 'Estoy trabajando en unas cosas.',
+            intent: 'actividad',
+            requiresAction: false,
+          );
+          const context = ConversationDecisionContext(
+            userText: 'y que vas hacer hoy?',
+            agentRole: ConversationAgentRole.personal,
+            autonomyMode: ConversationAutonomyMode.autonomous,
+          );
+
+          final decision = engine.decide(
+            understanding: understanding,
+            context: context,
+          );
+
+          expect(decision.disposition, ConversationDisposition.qualityRepair);
+          expect(decision.repairedText, isNotNull);
+          expect(decision.repairedText, isNot(contains('si voy a ir hoy')));
+          expect(decision.repairedText, contains('hacer hoy'));
+        },
+      );
+
+      test(
         'Soberanía Humana: Retiene SIEMPRE si el dueño tiene el control del chat',
         () {
           const understanding = ConversationUnderstanding(
@@ -469,6 +497,7 @@ void main() {
             contains('Ah bueno'),
             contains('Ah listo'),
             contains('Jaja bueno'),
+            contains('Jaja listo'),
             contains('Listo pues'),
             contains('qué bien'),
             contains('todo bien'),
@@ -707,7 +736,7 @@ void main() {
         );
         expect(rWeather, isNotNull);
         expect(rWeather!.act, contains('askWeatherSocial'));
-        expect(rWeather.reply.toLowerCase(), anyOf(contains('clima'), contains('fresco'), contains('nublado'), contains('tranquilo')));
+        expect(rWeather.reply.toLowerCase(), anyOf(contains('clima'), contains('fresco'), contains('frío'), contains('nublado'), contains('tranquilo'), contains('acá')));
 
         // 8. Llamada
         final rCall = await fastPath.resolve(
@@ -716,7 +745,7 @@ void main() {
         );
         expect(rCall, isNotNull);
         expect(rCall!.act, contains('askCall'));
-        expect(rCall.reply.toLowerCase(), anyOf(contains('mensaje'), contains('acá'), contains('llamada'), contains('ocupado')));
+        expect(rCall.reply.toLowerCase(), anyOf(contains('mensaje'), contains('texto'), contains('acá'), contains('llamada'), contains('ocupado')));
 
         // 9. Ausencia / Perdido
         final rLost = await fastPath.resolve(
@@ -769,6 +798,7 @@ void main() {
             contains('hagámosle'),
             contains('dale'),
             contains('hora'),
+            contains('bien'),
           ),
         );
 
@@ -1668,6 +1698,109 @@ void main() {
         // FastPath NO debió secuestrar el turno respondiendo un simple "dale" o saludo
         expect(llmCalled, isTrue);
         expect(draft?.text, contains('El precio es'));
+      },
+    );
+
+    test(
+      'Regresión 12: Preguntas de planes/actividad ("y que vas hacer hoy?") devuelven variabilidad natural y no confunden con ir',
+      () async {
+        final fastPath = PragmaticFastPath(
+          memoryFor: (_) => null,
+          contextEntryFor: (_) => null,
+          ownerName: () => 'Emma',
+        );
+
+        final rFast = await fastPath.resolve(
+          text: 'y que vas hacer hoy?',
+          conversationId: 'conv_plans_today',
+        );
+
+        expect(rFast, isNotNull);
+        expect(rFast!.act, contains('askActivity'));
+        // Debe ser respuesta natural de estar en casa o no saber, NUNCA "si voy a ir hoy"
+        expect(rFast.reply.toLowerCase().contains('si voy a ir'), isFalse);
+        expect(
+          rFast.reply.toLowerCase(),
+          anyOf(
+            contains('casa'),
+            contains('no sé'),
+            contains('no se'),
+            contains('haciendo'),
+            contains('tranquilo'),
+          ),
+        );
+
+        // Y la reparación determinista también debe dar respuestas de estar en casa/no sé
+        final repaired = safeConversationRepair.repair(
+          RepairCase.liveStateAffirmed,
+          reply: 'Voy a ir al centro comercial hoy.',
+          userText: 'y que vas hacer hoy?',
+        );
+        expect(repaired, isNotNull);
+        expect(repaired!.toLowerCase().contains('si voy a ir'), isFalse);
+        expect(
+          repaired.toLowerCase(),
+          anyOf(
+            contains('casa'),
+            contains('no sé'),
+            contains('no se'),
+            contains('hacer'),
+            contains('haré'),
+          ),
+        );
+      },
+    );
+
+    test(
+      'Regresión 13: Variabilidad amplia garantizada (> 10 opciones diferentes en bancos de diálogo)',
+      () {
+        // Safe repair options
+        expect(safeRepairActivityOptions.toSet().length, greaterThanOrEqualTo(11));
+        expect(safeRepairGoingOptions.toSet().length, greaterThanOrEqualTo(11));
+        expect(safeRepairGeneralLiveStateOptions.toSet().length, greaterThanOrEqualTo(11));
+        expect(safeRepairRedundantOptions.toSet().length, greaterThanOrEqualTo(11));
+        expect(safeRepairCallCenterGreetingOptions.toSet().length, greaterThanOrEqualTo(11));
+
+        // Fast path banks
+        expect(activityPlansCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(activityGoingCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(wellbeingRecentlyGreetedCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(wellbeingStandardCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(greetingRecentlyGreetedCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(greetingStandardCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(thanksCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(farewellNightCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(farewellTomorrowCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(farewellAfternoonCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(farewellGeneralCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(laughterCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(reciprocalCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(userWellbeingActivityCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(rapCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(invitationCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(wellbeingClarificationCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(userWellbeingPureCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(trainingCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(trainingWithGreetingCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(dayCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(dayWithGreetingCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(availabilityCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(lunchCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(dinnerCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(foodGeneralCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(physicalLocationCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(familyCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(sleepCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(musicCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(weatherSocialCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(callCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(lostOrMissingCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(opinionSocialCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(planReminderCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(presenceCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(helpTaskCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(helpGeneralCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(locationCandidates.toSet().length, greaterThanOrEqualTo(11));
       },
     );
   });

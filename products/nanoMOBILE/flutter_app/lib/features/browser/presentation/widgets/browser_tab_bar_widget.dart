@@ -183,8 +183,9 @@ class _StripAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
+    return Semantics(
+      label: tooltip,
+      button: true,
       child: Material(
         color: isDark ? Colors.white10 : Colors.white,
         borderRadius: BorderRadius.circular(10),

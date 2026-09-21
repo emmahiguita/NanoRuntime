@@ -109,11 +109,18 @@ class _DesktopAuditScreenState extends ConsumerState<DesktopAuditScreen> {
         final desktopReady = status?.reachable == true;
         final graphicalReady = status?.graphicalExtras == true;
 
+        final size = MediaQuery.sizeOf(context);
+        final isLandscape = size.width > size.height;
+
         return Scaffold(
-          backgroundColor: colors.backgroundPrimary,
+          backgroundColor: Colors.transparent,
           body: Stack(
             children: [
-              const Positioned.fill(child: NanoAmbientBackground()),
+              Positioned.fill(
+                child: isLandscape
+                    ? const SizedBox.shrink()
+                    : const NanoAmbientBackground(),
+              ),
               SafeArea(
                 child: Center(
                   child: ConstrainedBox(

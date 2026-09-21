@@ -92,58 +92,67 @@ class _AgentHeader extends StatelessWidget {
             ),
           ),
           if (onVoiceOutputTap != null)
-            IconButton(
-              tooltip: isVoiceOutputEnabled
+            Semantics(
+              label: isVoiceOutputEnabled
                   ? 'Silenciar audio de Nano'
                   : 'Activar audio de Nano',
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onVoiceOutputTap,
-              icon: Icon(
-                isVoiceOutputEnabled
-                    ? Icons.volume_up_rounded
-                    : Icons.volume_off_rounded,
-                color: isVoiceOutputEnabled
-                    ? visual.accent
-                    : (visual.isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : visual.textMuted),
-                size: 20,
+              button: true,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(5),
+                constraints: const BoxConstraints(),
+                onPressed: onVoiceOutputTap,
+                icon: Icon(
+                  isVoiceOutputEnabled
+                      ? Icons.volume_up_rounded
+                      : Icons.volume_off_rounded,
+                  color: isVoiceOutputEnabled
+                      ? visual.accent
+                      : (visual.isDark
+                            ? Colors.white.withValues(alpha: 0.85)
+                            : visual.textMuted),
+                  size: 20,
+                ),
               ),
             ),
           if (onConversationTap != null)
-            IconButton(
-              tooltip: isConversationActive
+            Semantics(
+              label: isConversationActive
                   ? 'Detener conversación'
                   : 'Conversación manos libres',
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onConversationTap,
-              icon: Icon(
-                isConversationActive
-                    ? Icons.record_voice_over_rounded
-                    : Icons.voice_chat_outlined,
-                color: isConversationActive
-                    ? visual.accent
-                    : (visual.isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : visual.textMuted),
-                size: 20,
+              button: true,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(5),
+                constraints: const BoxConstraints(),
+                onPressed: onConversationTap,
+                icon: Icon(
+                  isConversationActive
+                      ? Icons.record_voice_over_rounded
+                      : Icons.voice_chat_outlined,
+                  color: isConversationActive
+                      ? visual.accent
+                      : (visual.isDark
+                            ? Colors.white.withValues(alpha: 0.85)
+                            : visual.textMuted),
+                  size: 20,
+                ),
               ),
             ),
           if (onDevTap != null)
-            IconButton(
-              tooltip: 'Herramientas del agente',
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onDevTap,
-              icon: Icon(
-                Icons.smart_toy_outlined,
-                color: visual.accent,
-                size: 21,
+            Semantics(
+              label: 'Herramientas del agente',
+              button: true,
+              child: IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(5),
+                constraints: const BoxConstraints(),
+                onPressed: onDevTap,
+                icon: Icon(
+                  Icons.smart_toy_outlined,
+                  color: visual.accent,
+                  size: 21,
+                ),
               ),
             ),
         ],
@@ -393,6 +402,7 @@ class QuickAutomationActions extends StatelessWidget {
     this.onRulesTap,
     this.onBusinessTap,
     this.onPersonalAgentTap,
+    this.onBotStudioTap,
     this.onSkillsMcpTap,
     this.onTimeRuleTap,
     this.suppressSuggestions = false,
@@ -421,6 +431,9 @@ class QuickAutomationActions extends StatelessWidget {
 
   /// Acceso directo a la pantalla dedicada del Agente Personal de WhatsApp.
   final VoidCallback? onPersonalAgentTap;
+
+  /// Acceso a Bot Studio (agentes configurables, memoria y terminal).
+  final VoidCallback? onBotStudioTap;
 
   /// Acceso directo al Hub visual de MCP & Skills.
   final VoidCallback? onSkillsMcpTap;
@@ -453,32 +466,19 @@ class QuickAutomationActions extends StatelessWidget {
             onPersonalAgentTap != null ||
             onSkillsMcpTap != null ||
             onTimeRuleTap != null) ...[
-          const AutomationSectionLabel('Accesos'),
+          const AutomationSectionLabel('Módulos y Gestión'),
           if (onBusinessTap != null)
             _DashboardEntryTile(
               featherType: FeatherCoreType.whatsappBusiness,
               title: 'WhatsApp Negocio',
               subtitle: businessProductsCount > 0
-                  ? '$businessProductsCount producto${businessProductsCount == 1 ? '' : 's'} · Catálogo activo'
-                  : 'Catálogo comercial, ventas y pagos',
+                  ? '$businessProductsCount producto${businessProductsCount == 1 ? '' : 's'} · Catálogo activo y ventas'
+                  : 'Catálogo comercial, pedidos y pagos',
               badge: businessProductsCount > 0
                   ? Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: visual.accent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$businessProductsCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: visual.accent, borderRadius: BorderRadius.circular(10)),
+                      child: Text('$businessProductsCount', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
                     )
                   : null,
               onTap: onBusinessTap!,
@@ -487,38 +487,8 @@ class QuickAutomationActions extends StatelessWidget {
             _DashboardEntryTile(
               featherType: FeatherCoreType.personalAgent,
               title: 'Agente Personal WPP',
-              subtitle: 'Respuestas personales, tono y calidez',
+              subtitle: 'Respuestas inteligentes, tono conversacional y calidez',
               onTap: onPersonalAgentTap!,
-            ),
-          if (onRulesTap != null)
-            _DashboardEntryTile(
-              featherType: FeatherCoreType.rules,
-              title: 'Reglas',
-              subtitle: activeRulesCount > 0
-                  ? '$activeRulesCount activa${activeRulesCount == 1 ? '' : 's'} · Automatizaciones'
-                  : 'Todas tus automatizaciones',
-              onTap: onRulesTap!,
-            ),
-          if (onSkillsMcpTap != null)
-            _DashboardEntryTile(
-              featherType: FeatherCoreType.models,
-              title: 'Hub de MCP & Skills',
-              subtitle: 'Grafo vivo, telemetría y tienda de plugins',
-              onTap: onSkillsMcpTap!,
-            ),
-          if (onTimeRuleTap != null)
-            _DashboardEntryTile(
-              featherType: FeatherCoreType.calendar,
-              title: 'Aviso por hora',
-              subtitle: 'Crear un recordatorio con reloj',
-              onTap: onTimeRuleTap!,
-            ),
-          if (onSettingsTap != null)
-            _DashboardEntryTile(
-              featherType: FeatherCoreType.settings,
-              title: 'Configuración',
-              subtitle: 'Modo, razonamiento, audio y permisos',
-              onTap: onSettingsTap!,
             ),
           if (onMessagesTap != null)
             _DashboardEntryTile(
@@ -526,28 +496,45 @@ class QuickAutomationActions extends StatelessWidget {
               title: 'Centro de Mensajería',
               subtitle: pendingDraftsCount > 0
                   ? '$pendingDraftsCount borrador${pendingDraftsCount == 1 ? '' : 'es'} pendiente${pendingDraftsCount == 1 ? '' : 's'}'
-                  : 'WhatsApp, Telegram, Gmail, Slack y más',
+                  : 'Bandeja multicanal (WhatsApp, Telegram, Slack)',
               badge: pendingDraftsCount > 0
                   ? Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: visual.accent,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$pendingDraftsCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(color: visual.accent, borderRadius: BorderRadius.circular(10)),
+                      child: Text('$pendingDraftsCount', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
                     )
                   : null,
               onTap: onMessagesTap!,
+            ),
+          if (onRulesTap != null)
+            _DashboardEntryTile(
+              featherType: FeatherCoreType.rules,
+              title: 'Reglas de Automatización',
+              subtitle: activeRulesCount > 0
+                  ? '$activeRulesCount activa${activeRulesCount == 1 ? '' : 's'} · Programaciones y disparadores'
+                  : 'Crear y administrar flujos automáticos',
+              onTap: onRulesTap!,
+            ),
+          if (onBotStudioTap != null)
+            _DashboardEntryTile(
+              icon: Icons.smart_toy_rounded,
+              title: 'Bot Studio',
+              subtitle: 'Definición de bots, roles y memoria persistente',
+              onTap: onBotStudioTap!,
+            ),
+          if (onSkillsMcpTap != null)
+            _DashboardEntryTile(
+              featherType: FeatherCoreType.models,
+              title: 'Hub de MCP & Skills',
+              subtitle: 'Plugins, herramientas y extensiones activas',
+              onTap: onSkillsMcpTap!,
+            ),
+          if (onSettingsTap != null)
+            _DashboardEntryTile(
+              featherType: FeatherCoreType.settings,
+              title: 'Configuración del Motor',
+              subtitle: 'Modo, permisos, audio y preferencias del sistema',
+              onTap: onSettingsTap!,
             ),
           const SizedBox(height: 16),
         ],

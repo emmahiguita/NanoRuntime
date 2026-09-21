@@ -28,7 +28,8 @@ enum SystemDestination {
   networkOperatorSettings('network_operator_settings', 'Ajustes de Red Móvil'),
   deviceInfoSettings('device_info_settings', 'Información del Teléfono'),
   camera('camera', 'Cámara del Dispositivo'),
-  dial('dial', 'Teclado Telefónico');
+  dial('dial', 'Teclado Telefónico'),
+  alarm('alarm', 'Reloj y Alarmas del Dispositivo');
 
   /// Id que viaja por el canal `com.nanoai/system` (allowlist nativa).
   final String wireId;

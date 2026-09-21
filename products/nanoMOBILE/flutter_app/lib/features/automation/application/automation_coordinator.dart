@@ -63,6 +63,9 @@ import 'package:nanoai/features/automation/engine/orchestration/task_plan.dart'
 import 'package:nanoai/features/automation/engine/orchestration/task_planner.dart';
 import 'package:nanoai/features/automation/engine/orchestration/automation_run.dart';
 import 'package:nanoai/features/automation/engine/voice/execution_cancellation.dart';
+import 'package:nanoai/features/automation/engine/planning/whatsapp_intent_parser.dart'
+    show WhatsAppIntentParser, WhatsAppAction;
+
 
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart'
@@ -522,6 +525,66 @@ class AutomationCoordinator {
         ];
       }
 
+      if (plan == null) {
+        // Un objetivo exacto del catálogo ya tiene semántica y evidencia
+        // revisadas: ejecutarlo antes de la descomposición o selección evita convertir
+        // una orden determinista conocida en pasos de UI arbitrarios.
+        final known = _catalog?.forGoal(goal.text);
+        if (known != null && known.steps.isNotEmpty) {
+          // W10/WA-FULL: enriquecer steps del catálogo con datos del goal.
+          // El catálogo emite ToolCalls const sin args dinámicos (contacto, mensaje).
+          // El coordinator los inyecta aquí usando WhatsAppIntentParser.
+          final enrichedSteps = known.steps.map((step) {
+            final isWaTool = step.tool == 'whatsapp.contacts' ||
+                step.tool == 'whatsapp.send_message' ||
+                step.tool == 'whatsapp.open_chat' ||
+                step.tool == 'whatsapp.share_file';
+            if (!isWaTool) return step;
+
+            // Parsear el goal con el parser dedicado.
+            final intent = WhatsAppIntentParser.parse(goal.text);
+            if (intent == null) return step;
+
+            // Determina la herramienta real según la acción tipada del intent
+            final targetTool = switch (intent.action) {
+              WhatsAppAction.shareFile => 'whatsapp.share_file',
+              WhatsAppAction.sendMessage => 'whatsapp.send_message',
+              WhatsAppAction.openChat => 'whatsapp.open_chat',
+              WhatsAppAction.findContact => step.tool,
+            };
+
+            // Map<String, Object?> — step.args puede tener valores nullable.
+            final Map<String, Object?> extra = Map.of(step.args ?? {});
+            if (intent.contact.isNotEmpty) {
+              final key = targetTool == 'whatsapp.contacts' ? 'query' : 'contact';
+              extra[key] = intent.contact;
+            }
+            if (targetTool == 'whatsapp.share_file') {
+              if (intent.filePath != null && intent.filePath!.isNotEmpty) {
+                extra['path'] = intent.filePath!;
+              }
+              if (intent.message != null && intent.message!.isNotEmpty) {
+                extra['caption'] = intent.message!;
+              }
+            } else if (intent.message != null && intent.message!.isNotEmpty &&
+                (targetTool == 'whatsapp.send_message' || targetTool == 'whatsapp.open_chat')) {
+              extra['text'] = intent.message!;
+              if (targetTool == 'whatsapp.send_message') extra['autoSend'] = true;
+            }
+            return ToolCall(
+              tool: targetTool,
+              args: extra,
+              selector: step.selector,
+              text: step.text,
+            );
+          }).toList();
+
+          plan = enrichedSteps;
+          runExpectation = goal.expectation ?? known.expectation;
+          outputProvesGoal = known.outputProvesGoal;
+        }
+      }
+
       // WA-UI-07 — transporte primero: para intenciones de respuesta, el
       // candidato grounded (RemoteInput: 0 taps, 0 navegación) se intenta
       // ANTES del template UI cross-app. Un resolved de launch_app (abrir la
@@ -602,39 +665,31 @@ class AutomationCoordinator {
         }
       }
 
-      if (plan == null) {
-        // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
-        // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
-        // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
-        final crossApp = await tryCrossApp(goal.text, run: run);
-        if (crossApp != null) {
-          // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
-          taskStepsCount = crossApp.steps.length;
-          zeroLlmTask = true;
-          final r = crossApp.result;
-          return finish(r);
-        }
 
-        final deterministic = await tryDeterministic(
-          goal.text,
-          expectation: goal.expectation,
-          run: run,
-        );
-        if (deterministic != null) {
-          cacheHit = true;
-          steps = deterministic.steps.length;
-          final r = resultFromFlow(executionId, deterministic.result);
-          return finish(r);
-        }
+        if (plan == null) {
+          // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
+          // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
+          // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
+          final crossApp = await tryCrossApp(goal.text, run: run);
+          if (crossApp != null) {
+            // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
+            taskStepsCount = crossApp.steps.length;
+            zeroLlmTask = true;
+            final r = crossApp.result;
+            return finish(r);
+          }
 
-        // Un objetivo exacto del catálogo ya tiene semántica y evidencia
-        // revisadas: ejecutarlo antes de Candidate-First evita convertir una
-        // orden determinista en una selección LLM innecesaria.
-        final known = _catalog?.forGoal(goal.text);
-        if (known != null && known.steps.isNotEmpty) {
-          plan = known.steps;
-          runExpectation = goal.expectation ?? known.expectation;
-          outputProvesGoal = known.outputProvesGoal;
+          final deterministic = await tryDeterministic(
+            goal.text,
+            expectation: goal.expectation,
+            run: run,
+          );
+          if (deterministic != null) {
+            cacheHit = true;
+            steps = deterministic.steps.length;
+            final r = resultFromFlow(executionId, deterministic.result);
+            return finish(r);
+          }
         }
 
         // A13.5: Candidate-First queda reservado para objetivos que el catálogo
@@ -719,7 +774,6 @@ class AutomationCoordinator {
             plan = planned.calls;
           }
         }
-      }
 
       // Un array de gestos UI generado por un modelo no se ejecuta en cadena.
       // Se reconstruye como TaskPlan y TaskOrchestrator reobserva el mundo tras

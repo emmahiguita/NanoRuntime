@@ -20,6 +20,8 @@ import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/settings_tile_components.dart';
 import '../widgets/whatsapp_integration_cards.dart';
+import '../widgets/whatsapp_reply_delay_card.dart';
+import '../widgets/whatsapp_web_bridge_card.dart';
 
 /// Pantalla especializada (SOLID - SRP) para la configuración completa
 /// del Agente Personal de WhatsApp: identidad, nivel de supervisión,
@@ -467,6 +469,8 @@ class _PersonalAgentScreenState extends ConsumerState<PersonalAgentScreen> {
                         'Diagnóstico y Capacidad Operativa',
                       ),
                       const BackgroundAutomationCard(),
+                      const SizedBox(height: 12),
+                      const WhatsAppWebBridgeCard(),
                       const SizedBox(height: 20),
 
                       // SECCIÓN 3: IDENTIDAD PERSONAL
@@ -711,14 +715,14 @@ class _PersonalAgentScreenState extends ConsumerState<PersonalAgentScreen> {
                         children: [
                           SettingsRow(
                             imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
-                            title: 'Mis frases y diálogos personalizados',
+                            title: 'Mis frases y respuestas aprendidas',
                             subtitle:
-                                'Agrega o edita respuestas exactas: qué te dicen y qué responder.',
-                            trailing: const ValueBadge(label: 'DIÁLOGOS'),
+                                'Intenciones con múltiples respuestas: qué te dicen y qué responder.',
+                            trailing: const ValueBadge(label: 'FRASES'),
                             onTap: () => Navigator.of(context).push(
                               nanoGlassPageRoute<void>(
                                 builder: (_) =>
-                                    const PersonalizationStudioScreen(initialIndex: 1),
+                                    const PersonalizationStudioScreen(initialIndex: 0),
                               ),
                             ),
                           ),
@@ -750,6 +754,8 @@ class _PersonalAgentScreenState extends ConsumerState<PersonalAgentScreen> {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      const WhatsAppReplyDelayCard(),
                       const SizedBox(height: 40),
                     ],
                   ),

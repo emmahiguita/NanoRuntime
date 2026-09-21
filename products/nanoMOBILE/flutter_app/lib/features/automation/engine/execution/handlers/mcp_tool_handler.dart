@@ -3,6 +3,7 @@ import 'dart:convert';
 import '../../mcp/mcp_client_port.dart';
 import '../../mcp/mcp_connection_registry.dart';
 import '../../mcp/mcp_tool_projection.dart';
+import '../../mcp/mcp_tool_resolver.dart';
 import '../../voice/execution_cancellation.dart';
 import '../tool_call.dart';
 import '../tool_outcome.dart';
@@ -109,7 +110,7 @@ class McpToolHandler {
     // Las annotations se proyectan ANTES de entrar al pipeline de governance.
     // Antes todas las llamadas @mcp se marcaban como read, incluso una tool de
     // escritura. Tool desconocida degrada fail-closed a externalWrite.
-    final remoteTool = await _resolveRemoteTool(mcpReg, toolName);
+    final remoteTool = await resolveRemoteTool(mcpReg, toolName);
     final guardedTool = remoteTool == null
         ? 'mcp.externalWrite'
         : 'mcp.${const McpToolProjection().toNanoTool(remoteTool).category.name}';
@@ -125,71 +126,12 @@ class McpToolHandler {
     )).feedback;
   }
 
-  Future<McpRemoteTool?> _resolveRemoteTool(
+  final McpToolResolver _resolver = const McpToolResolver();
+
+  Future<McpRemoteTool?> resolveRemoteTool(
     McpConnectionRegistry registry,
     String requested,
-  ) async {
-    McpRemoteTool? lookup() {
-      String? exactSlash;
-      if (requested.contains('/')) {
-        exactSlash = requested;
-      } else {
-        final serverIds =
-            registry.servers
-                .map((server) => server.id)
-                .where((id) => requested.startsWith('$id.'))
-                .toList(growable: false)
-              ..sort((a, b) => b.length.compareTo(a.length));
-        if (serverIds.isNotEmpty) {
-          final serverId = serverIds.first;
-          exactSlash = '$serverId/${requested.substring(serverId.length + 1)}';
-        } else if (requested.contains('.')) {
-          // Compat con ids historicos simples como device.diagnostics.
-          exactSlash =
-              '${requested.substring(0, requested.indexOf('.'))}/'
-              '${requested.substring(requested.indexOf('.') + 1)}';
-        }
-      }
-      if (exactSlash != null) {
-        final exact = registry.lastTools[exactSlash];
-        if (exact != null) return exact;
-      }
-      final byName = registry.lastTools.values
-          .where((tool) => tool.name == requested)
-          .toList(growable: false);
-      return byName.length == 1 ? byName.single : null;
-    }
-
-    var resolved = lookup();
-    if (resolved != null) return resolved;
-
-    // La clasificación de permisos no debe depender de que el transporte esté
-    // conectado. Los catálogos locales (incluido nano.mobile) se pueden leer
-    // directamente y sus annotations siguen siendo sólo hints fail-closed.
-    final directCatalog = <McpRemoteTool>[];
-    for (final server in registry.servers) {
-      final client = registry.client(server.id);
-      if (client == null) continue;
-      try {
-        directCatalog.addAll(await client.listTools());
-      } catch (_) {
-        // Un catálogo remoto puede requerir conexión; refreshTools conserva el
-        // comportamiento normal y el fallback final seguirá siendo escritura.
-      }
-    }
-    final directMatches = directCatalog
-        .where((tool) {
-          return tool.qualifiedName == requested ||
-              '${tool.serverId}.${tool.name}' == requested ||
-              tool.name == requested;
-        })
-        .toList(growable: false);
-    if (directMatches.length == 1) return directMatches.single;
-
-    await registry.refreshTools();
-    resolved = lookup();
-    return resolved;
-  }
+  ) => _resolver.resolve(registry, requested);
 
   /// Ejecuta una herramienta MCP a través de McpConnectionRegistry.
   Future<String> executeMcpTool(ToolCall call) async {

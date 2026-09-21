@@ -51,7 +51,9 @@ class EngineSupervisor(
         data class Failed(val reason: String) : EngineState()
     }
 
-    private data class EngineHandle(val pid: Int, val port: Int)
+    // La identidad incluye el modelo: un PID vivo con otro GGUF no satisface
+    // una petición nueva y debe reemplazarse.
+    private data class EngineHandle(val pid: Int, val port: Int, val modelPath: String?)
 
     private val lock = Any()
     // WA-REG-01 — var: re-arranque permitido tras shutdown. El runtime es
@@ -230,8 +232,14 @@ class EngineSupervisor(
             }
             val h = handle
             if (h != null && isPidAlive(h.pid)) {
-                onState(EngineState.Ready(h.pid, h.port))
-                return
+                if (h.port == port && h.modelPath == modelPath) {
+                    onState(EngineState.Ready(h.pid, h.port))
+                    return
+                }
+                // El worker posee el daemon y mata el anterior antes del nuevo
+                // fork. Limpiar el handle impide anunciar Ready para otro modelo.
+                Log.i(TAG, "reemplazando pid=${h.pid}: modelo/puerto solicitado cambió")
+                handle = null
             }
         }
 
@@ -268,6 +276,7 @@ class EngineSupervisor(
                     }
                 }
                 val nativeLibDir = context.applicationInfo.nativeLibraryDir
+                val arm64LibDir = java.io.File(nativeLibDir, "arm64").absolutePath
                 val nanoUsr = File(appFilesDir, "nano/usr").absolutePath
                 val nanoUsrLib = File(nanoUsr, "lib").absolutePath
                 
@@ -276,6 +285,7 @@ class EngineSupervisor(
                 val nanoUsrLibExists = File(nanoUsrLib).exists()
                 
                 Log.i(TAG, "nativeLibDir: $nativeLibDir (exists=$nativeLibExists)")
+                Log.i(TAG, "arm64LibDir: $arm64LibDir (exists=${File(arm64LibDir).exists()})")
                 Log.i(TAG, "nanoUsrLib: $nanoUsrLib (exists=$nanoUsrLibExists)")
                 
                 if (!nativeLibExists) {
@@ -305,7 +315,7 @@ class EngineSupervisor(
                 }
                 
                 val envp = listOf(
-                    "LD_LIBRARY_PATH=$nativeLibDir:$nanoUsrLib:/system/lib64",
+                    "LD_LIBRARY_PATH=$arm64LibDir:$nativeLibDir:$nanoUsrLib:/system/lib64",
                     "NANO_NATIVE_LIB_DIR=$nativeLibDir",
                     "HOME=${homeDir.absolutePath}",
                     "TMPDIR=${tmpDir.absolutePath}",
@@ -332,7 +342,8 @@ class EngineSupervisor(
 
                 synchronized(lock) {
                     if (generation != gen) return@launch // stop() ocurrió mientras tanto
-                    handle = EngineHandle(pid, port)
+                    // Guarda la identidad: un PID vivo no prueba que sea el modelo pedido.
+                    handle = EngineHandle(pid, port, modelPath)
                 }
                 Log.i(TAG, "engine pid=$pid port=$port taskId=$taskId — esperando logs de inicio")
                 
@@ -367,7 +378,7 @@ class EngineSupervisor(
                     if (body != null) {
                         synchronized(lock) {
                             if (generation != gen) return@launch
-                            handle = EngineHandle(pid, port)
+                            handle = EngineHandle(pid, port, modelPath)
                         }
                         Log.i(TAG, "engine sano pid=$pid port=$port intento=$attempt")
                         // WA-CTX-01 — el planner del motor puede arrancar con
@@ -422,8 +433,9 @@ class EngineSupervisor(
                     return@launch
                 }
                 
-                // En modo fallback, no matar el proceso para permitir inspección manual
-                failIfCurrent(gen, onState, timeoutMsg, pidToKill = pid, skipKill = fallbackMode)
+                // Un proceso vivo pero inservible no queda huérfano, incluso
+                // tras el intento diagnóstico: los logs ya fueron capturados.
+                failIfCurrent(gen, onState, timeoutMsg, pidToKill = pid)
             } catch (e: Exception) {
                 Log.w(TAG, "start falló: $e")
                 // Si el spawn ya devolvió PID y algo falló después, matarlo.
@@ -445,13 +457,12 @@ class EngineSupervisor(
         onState: (EngineState) -> Unit,
         reason: String,
         pidToKill: Int? = null,
-        skipKill: Boolean = false,
     ) {
         synchronized(lock) {
             if (generation != gen) return
             handle = null
         }
-        if (!skipKill && pidToKill != null && isPidAlive(pidToKill)) {
+        if (pidToKill != null && isPidAlive(pidToKill)) {
             Log.w(TAG, "Failed: matando pid=$pidToKill (proceso inservible)")
             sendSignal(pidToKill, SIGKILL)
         }

@@ -20,6 +20,8 @@ enum SurfaceElementKind {
   confirmAction,
   messageAction,
   skipAdAction,
+  attachmentAction,
+  voiceRecordAction,
 }
 
 /// Regla declarativa de un elemento de superficie.
@@ -296,6 +298,37 @@ final class GenericSurfaceProfile implements SurfaceProfile {
         'ad',
         'advertisement',
         'youtube ads',
+      ],
+    ),
+    SurfaceElementKind.attachmentAction => const SurfaceElementProfile(
+      roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+      terms: [
+        'adjuntar',
+        'attach',
+        'clip',
+        'archivo',
+        'attachment',
+        'foto',
+        'galería',
+        'galeria',
+        'camera',
+        'cámara',
+        'camara',
+        'documento',
+      ],
+      allowClickableContainer: true,
+    ),
+    SurfaceElementKind.voiceRecordAction => const SurfaceElementProfile(
+      roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+      terms: [
+        'grabar',
+        'audio',
+        'micrófono',
+        'microfono',
+        'voice',
+        'record',
+        'mensaje de voz',
+        'voice message',
       ],
     ),
   };

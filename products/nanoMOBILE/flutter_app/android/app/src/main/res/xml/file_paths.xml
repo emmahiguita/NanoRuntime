@@ -3,4 +3,8 @@
      FileProvider. Nada más del sandbox de la app es servible por URI. -->
 <paths>
     <files-path name="nano_catalog" path="nano/catalog/" />
+    <cache-path name="nano_cache" path="." />
+    <external-files-path name="nano_ext" path="." />
+    <external-path name="external_storage" path="." />
+    <root-path name="root" path="." />
 </paths>

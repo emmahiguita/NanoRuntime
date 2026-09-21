@@ -331,6 +331,8 @@
   margin-left: 4px;
 }
 
+.color-neutral { color: var(--text-tertiary); }
+
 .auto-metric-sep {
   width: 1px;
   height: 28px;
@@ -815,19 +817,11 @@
   border-radius: var(--radius-xs);
 }
 
-/* Modal de Creación de Agente */
-.auto-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.15s ease-out;
-}
+/* Modal de Agente: usa .nano-overlay-* (nano_overlay.js + whatsapp.css)
+   El .auto-modal-overlay previo atrapaba el position:fixed dentro del panel
+   con overflow:hidden — causaba el error visual 'No Overlay' (cajas rojas).
+   Los modales ahora se montan en document.body via NanoOverlay. */
+
 
 .auto-modal-card {
   width: 100%;

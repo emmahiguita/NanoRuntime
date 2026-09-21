@@ -19,3 +19,5 @@ export 'dashboard_provider.dart';
 export '../../features/models/application/models_provider.dart';
 export 'rootfs_provider.dart';
 export 'kali_provider.dart';
+export '../../features/account/application/account_providers.dart';
+

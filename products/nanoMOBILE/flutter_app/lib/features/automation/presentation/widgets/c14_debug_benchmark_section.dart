@@ -10,6 +10,8 @@ import 'package:nanoai/core/widgets/nano_section.dart';
 
 import '../../benchmark/c14_runner.dart';
 import '../../benchmark/c14_metrics.dart';
+import '../../benchmark/c14_benchmark.dart';
+import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 /// Sección DEBUG (solo kDebugMode) del benchmark físico C14-A.
 ///
@@ -28,6 +30,7 @@ class C14DebugBenchmarkSection extends ConsumerStatefulWidget {
 class _C14DebugBenchmarkSectionState
     extends ConsumerState<C14DebugBenchmarkSection> {
   C14RunResult? _result;
+  C14Suite _selectedSuite = defaultSuite;
   int _progressIndex = 0;
   String _currentGoal = '';
   C14Execution? _lastExecution;
@@ -47,6 +50,7 @@ class _C14DebugBenchmarkSectionState
     try {
       final result = await runC14Benchmark(
         container,
+        suite: _selectedSuite,
         onStart: (i, g) {
           if (!mounted) return;
           setState(() {
@@ -67,6 +71,9 @@ class _C14DebugBenchmarkSectionState
         context,
       ).showSnackBar(SnackBar(content: Text('C14 infra error: $e')));
     } finally {
+      try {
+        await NanoRuntimeApi.instance.agentLaunchPackage('dev.nanoai.mobile');
+      } catch (_) {}
       if (mounted) setState(() => _running = false);
     }
   }
@@ -146,6 +153,28 @@ class _C14DebugBenchmarkSectionState
                 ),
                 const SizedBox(height: NanoSpacing.sm),
                 _preflightStatus(),
+                const SizedBox(height: NanoSpacing.sm),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Sistema (10)'),
+                      selected: _selectedSuite == defaultSuite,
+                      onSelected: _running ? null : (_) => setState(() => _selectedSuite = defaultSuite),
+                    ),
+                    ChoiceChip(
+                      label: Text('WhatsApp (${whatsAppSuite.tasks.length})'),
+                      selected: _selectedSuite == whatsAppSuite,
+                      onSelected: _running ? null : (_) => setState(() => _selectedSuite = whatsAppSuite),
+                    ),
+                    ChoiceChip(
+                      label: Text('Completa (${completeSuite.tasks.length})'),
+                      selected: _selectedSuite == completeSuite,
+                      onSelected: _running ? null : (_) => setState(() => _selectedSuite = completeSuite),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: NanoSpacing.md),
                 FilledButton.icon(
                   onPressed: _running ? null : _run,
@@ -202,7 +231,7 @@ class _C14DebugBenchmarkSectionState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: NanoSpacing.sm),
-        Text('Progress  ${_progressIndex + 1} / 10'),
+        Text('Progress  ${_progressIndex + 1} / ${_selectedSuite.tasks.length}'),
         if (_currentGoal.isNotEmpty)
           Text('"$_currentGoal"', style: const TextStyle(fontSize: 12)),
         if (_lastExecution != null)
@@ -262,18 +291,26 @@ class _C14DebugBenchmarkSectionState
         Text('Goal success  ${rep.passed}/${rep.total}'),
         Text('Total  ${r.total.inMilliseconds}ms'),
         const SizedBox(height: NanoSpacing.sm),
-        Row(
+        Wrap(
+          spacing: NanoSpacing.xs,
+          runSpacing: NanoSpacing.xs,
           children: [
             OutlinedButton.icon(
               onPressed: () => _copy(_reportText()),
               icon: const Icon(Icons.copy_rounded, size: 16),
               label: const Text('Copiar reporte'),
             ),
-            const SizedBox(width: NanoSpacing.xs),
             OutlinedButton.icon(
               onPressed: _exportJson,
               icon: const Icon(Icons.ios_share_rounded, size: 16),
               label: const Text('Exportar JSON'),
+            ),
+            FilledButton.tonalIcon(
+              onPressed: () async {
+                await NanoRuntimeApi.instance.agentLaunchPackage('dev.nanoai.mobile');
+              },
+              icon: const Icon(Icons.home_rounded, size: 16),
+              label: const Text('Volver a Nano'),
             ),
           ],
         ),

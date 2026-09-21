@@ -78,6 +78,19 @@ void main() {
     expect(persisted['chatModelPath'], '/models/fixture.gguf');
   });
 
+  test('settings corruptos conservan la selección legacy del chat', () async {
+    SharedPreferences.setMockInitialValues({
+      'nanoai_active_model': 'fixture.gguf',
+      'nanoai_active_model_path': '/models/fixture.gguf',
+      'nanoai_settings': '{not-json',
+    });
+    final repository = SettingsRepository();
+    final loaded = await repository.load();
+
+    expect(loaded.chatModelId, 'fixture.gguf');
+    expect(loaded.chatModelPath, '/models/fixture.gguf');
+  });
+
   test('resolver rechaza una ruta seleccionada que ya no existe', () {
     final resolver = AutomationModelResolver(
       mode: () => AutomationModelMode.sameAsChat,

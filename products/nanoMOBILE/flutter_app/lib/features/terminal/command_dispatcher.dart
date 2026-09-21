@@ -177,6 +177,10 @@ class CommandDispatcher {
 
     registerCommand('sshd', (a, c, o, af) {
       final usr = getUsrDir();
+      final base = getBaseDir();
+      final authKeys = File('$base/home/.ssh/authorized_keys');
+      final hostKey = File('$usr/etc/ssh/ssh_host_ed25519_key');
+
       if (a.contains('stop')) {
         if (_sshdRunning) {
           _sshdRunning = false;
@@ -193,9 +197,56 @@ class CommandDispatcher {
         } else {
           o('Servidor SSH detenido.', Ln.info);
         }
+        final hasKeys = authKeys.existsSync() && authKeys.readAsStringSync().trim().isNotEmpty;
+        o('  Autenticación por llave: ${hasKeys ? "CONFIGURADA" : "NO DETECTADA"}', hasKeys ? Ln.success : Ln.warn);
+        return;
+      }
+      if (a.contains('keygen')) {
+        o('Generando claves de host SSH en el rootfs...', Ln.info);
+        shell?.execRootfs('$usr/bin/ssh-keygen', ['-A']).then((r) {
+          if (r.exitCode == 0) {
+            o('Claves de host generadas correctamente.', Ln.success);
+          } else {
+            o('Fallo al generar claves de host: ${r.stderr}', Ln.stderr);
+          }
+        });
+        return;
+      }
+      if (a.contains('revoke')) {
+        if (authKeys.existsSync()) {
+          try {
+            authKeys.deleteSync();
+            o('Claves autorizadas revocadas (~/.ssh/authorized_keys eliminado).', Ln.warn);
+          } catch (e) {
+            o('Error al revocar claves: $e', Ln.stderr);
+          }
+        }
+        if (_sshdRunning) {
+          _sshdRunning = false;
+          shell?.killTracked('sshd_daemon');
+          o('Servidor SSH detenido.', Ln.info);
+        }
         return;
       }
       if (a.contains('start')) {
+        // 1. Auto-generación defensiva de claves de host si no existen
+        if (!hostKey.existsSync()) {
+          o('sshd: Claves de host no encontradas. Generando con ssh-keygen -A...', Ln.info);
+          shell?.execRootfs('$usr/bin/ssh-keygen', ['-A']);
+        }
+        // 2. Control estricto de autenticación por llave
+        final hasAuth = authKeys.existsSync() && authKeys.readAsStringSync().trim().isNotEmpty;
+        if (!hasAuth && !a.contains('--insecure')) {
+          o('sshd: Bloqueado por seguridad.', Ln.stderr);
+          o('  No se detectaron claves públicas en ~/.ssh/authorized_keys.', Ln.warn);
+          o('  Para proteger tu dispositivo en redes Wi-Fi, configura tu clave pública primero:', Ln.info);
+          o('    1. mkdir -p ~/.ssh && chmod 700 ~/.ssh', Ln.info);
+          o('    2. echo "<tu-clave-publica-ssh>" >> ~/.ssh/authorized_keys', Ln.info);
+          o('    3. chmod 600 ~/.ssh/authorized_keys', Ln.info);
+          o('  Si deseas probar en red local sin llave, ejecuta: sshd start --insecure', Ln.warn);
+          return;
+        }
+
         o('Iniciando sshd en puerto 8022...', Ln.info);
         _sshdRunning = true;
         shell
@@ -213,17 +264,18 @@ class CommandDispatcher {
             });
         _getIp().then((ip) {
           if (ip != null) {
-            o('  ssh root@$ip -p 8022', Ln.success);
-            o('  Usa "sshd stop" para detener el servidor.', Ln.info);
+            o('  ssh -p 8022 nanoai@$ip', Ln.success);
+            o('  Usa "sshd stop" para detener o "sshd revoke" para revocar acceso.', Ln.info);
           }
         });
         return;
       }
-      o('=== SSH Server ===', Ln.header);
-      o('  sshd start   (iniciar en puerto 8022)', Ln.info);
-      o('  sshd stop    (detener servidor)', Ln.info);
-      o('  sshd status  (consultar estado)', Ln.info);
-      o('  Setup previo: pkg install openssh && ssh-keygen -A', Ln.info);
+      o('=== SSH Server (Seguridad Endurecida) ===', Ln.header);
+      o('  sshd start       (iniciar servidor en puerto 8022)', Ln.info);
+      o('  sshd stop        (detener servidor)', Ln.info);
+      o('  sshd status      (ver estado y claves autorizadas)', Ln.info);
+      o('  sshd keygen      (generar claves de host del rootfs)', Ln.info);
+      o('  sshd revoke      (eliminar llaves autorizadas y cerrar servicio)', Ln.info);
     });
 
     registerCommand('code', (a, c, o, af) {

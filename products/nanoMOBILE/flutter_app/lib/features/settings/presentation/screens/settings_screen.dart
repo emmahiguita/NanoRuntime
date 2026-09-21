@@ -11,7 +11,10 @@ import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
+import 'package:nanoai/features/settings/presentation/widgets/floating_assistant_section.dart';
+import 'package:nanoai/features/settings/presentation/widgets/account_settings_card.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
+
 
 /// Opciones disponibles para el modo de tema.
 const _themeOptions = [
@@ -29,22 +32,13 @@ class SettingsScreen extends ConsumerWidget {
     final notifier = ref.read(settingsProvider.notifier);
     final colors = NanoThemeExtension.of(context).colors;
 
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: reduceMotion ? Duration.zero : NanoMotionDurations.navigation,
-      curve: NanoMotionCurves.standardDecel,
-      builder: (context, t, child) {
-        return Transform.translate(
-          offset: Offset(0, 10 * (1 - t)),
-          child: Opacity(opacity: t, child: child),
-        );
-      },
-      child: Stack(
+    // PERFORMANCE: Render directo sin fade retardado de opacidad 0.
+    // Que hace: muestra el contenido inmediatamente al conmutar a la pestaña.
+    // Como funciona: elimina el retardo de 180ms del TweenAnimationBuilder.
+    // Por que: hace que el cambio a Ajustes sea 100% instantáneo.
+    return Stack(
         fit: StackFit.expand,
         children: [
-          const AutomationBackdrop(),
           LayoutBuilder(
             builder: (context, constraints) {
               final useColumns = constraints.maxWidth >= 600;
@@ -68,7 +62,11 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                   children: [
                     _SettingsIntro(colors: colors, themeMode: state.themeMode),
+                    const SizedBox(height: NanoSpacing.md),
+                    const AccountSettingsSection(),
+                    const SizedBox(height: NanoSpacing.md),
                     if (useColumns)
+
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -76,6 +74,8 @@ class SettingsScreen extends ConsumerWidget {
                             child: Column(
                               children: [
                                 ...primary,
+                                const SizedBox(height: NanoSpacing.md),
+                                const FloatingAssistantSection(),
                                 const SizedBox(height: NanoSpacing.md),
                                 const DevicePermissionsSection(),
                               ],
@@ -98,6 +98,8 @@ class SettingsScreen extends ConsumerWidget {
                       const SizedBox(height: NanoSpacing.md),
                       ...secondary,
                       const SizedBox(height: NanoSpacing.md),
+                      const FloatingAssistantSection(),
+                      const SizedBox(height: NanoSpacing.md),
                       const DevicePermissionsSection(),
                       const SizedBox(height: NanoSpacing.md),
                       const _DesktopSection(),
@@ -107,8 +109,7 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
         ],
-      ),
-    );
+      );
   }
 
   Widget _section({

@@ -1,9 +1,19 @@
-/// WA-LIVE-STATE-REPAIR-01 — Motor de reparación determinista sin LLM.
+﻿/// WA-LIVE-STATE-REPAIR-01 — Motor de reparación determinista sin LLM.
 ///
-/// Corrige fallos de calidad comunes (live-state afirmado o espejado,
-/// muletillas de call-center en turnos personales) devolviendo un reemplazo
-/// seguro y honesto para evitar silenciar la conversación con un hold innecesario.
+/// **QUÉ HACE:**
+/// Corrige fallos de calidad conversacional (afirmación o espejado de live-state,
+/// muletillas de call-center y preguntas redundantes) usando reemplazos honestos.
+///
+/// **CÓMO FUNCIONA:**
+/// Clasifica el tipo de fallo (RepairCase), extrae intenciones del texto de entrada
+/// y selecciona deterministamente un candidato de los catálogos en safe_repair_options.dart.
+///
+/// **POR QUÉ:**
+/// Evita silenciar la conversación con un hold innecesario y garantiza que nunca se
+/// afirmen estados no verificables ni se use lenguaje robótico/corporativo.
 library;
+
+import 'safe_repair_options.dart';
 
 enum RepairCase {
   echoReply,
@@ -30,41 +40,39 @@ final class SafeConversationRepair {
     switch (cause) {
       case RepairCase.liveStateAffirmed:
       case RepairCase.liveStateQuestionMirror:
-        // En preguntas sobre la actividad o estado presente/futuro del dueño
-        // donde no hay fuente viva, responder honestamente sin inventar.
         final u = userText?.toLowerCase() ?? '';
-        if (u.contains('vas') ||
-            u.contains('iras') ||
-            u.contains('planeas') ||
-            u.contains('ir') ||
-            u.contains('salir')) {
-          return _pick([
-            'Todavía no sé si voy a ir hoy.',
-            'Aún no confirmo si salgo más tarde.',
-            'No estoy seguro todavía si voy.',
-          ], userText);
-        }
-        if (u.contains('haces') ||
+
+        // Detección de preguntas sobre actividad, rutina o planes cotidianos del dueño.
+        final isActivityOrPlans = u.contains('hacer') ||
+            u.contains('haces') ||
             u.contains('haciendo') ||
+            u.contains('haras') ||
+            u.contains('planes') ||
+            u.contains('pensado') ||
             u.contains('estas en') ||
-            u.contains('en que andas')) {
-          return _pick([
-            'Por acá tranquilo por ahora.',
-            'Aquí en el celular viendo memes.',
-            'Estoy haciendo algo de programación.',
-            'Nada, molestando en el computador.',
-            'Estoy en cama descansando.',
-            'Estoy en la casa tranquilo.',
-            'Voy a comer algo, ¿y tú?',
-            'Bien, por acá ocupado un rato.',
-            'Todo en orden por aquí.',
-          ], userText);
+            u.contains('en que andas') ||
+            u.contains('que cuentas') ||
+            u.contains('que hay de nuevo');
+        if (isActivityOrPlans) {
+          return _pick(safeRepairActivityOptions, userText);
         }
-        return _pick([
-          'Todavía no lo tengo decidido.',
-          'Aún no lo sé con certeza.',
-          'Todavía no defino eso bien.',
-        ], userText);
+
+        // Detección de preguntas de desplazamiento, asistencia o salida física.
+        final isGoingOrOut = u.contains('vas a ir') ||
+            u.contains('vas ir') ||
+            u.contains('iras') ||
+            u.contains('vas a salir') ||
+            u.contains('vas a caer') ||
+            u.contains('vas a venir') ||
+            u.contains('sales hoy') ||
+            u.contains('salir') ||
+            u.contains('caer') ||
+            (u.contains('ir') && !u.contains('decir'));
+        if (isGoingOrOut) {
+          return _pick(safeRepairGoingOptions, userText);
+        }
+
+        return _pick(safeRepairGeneralLiveStateOptions, userText);
 
       case RepairCase.redundantQuestion:
         return _repairRedundantQuestion(reply, userText: userText);
@@ -73,11 +81,9 @@ final class SafeConversationRepair {
         return _repairCallCenter(reply, userText: userText);
 
       case RepairCase.wrongTurnGreeting:
-        // Saludo fuera de turno: si no fue saludo, no podemos adivinar la intención
         return null;
 
       case RepairCase.echoReply:
-        // El modelo repitió textualmente al cliente: no hay reparación segura sin LLM
         return null;
     }
   }
@@ -90,18 +96,9 @@ final class SafeConversationRepair {
 
   static String? _repairRedundantQuestion(String reply, {String? userText}) {
     final redundantRegexes = [
-      RegExp(
-        r'¿?(?:y\s+)?(?:que|qué)\s+tal(?:\s+(?:tu|el|su))?\s+d[ií]a\??',
-        caseSensitive: false,
-      ),
-      RegExp(
-        r'¿?(?:cómo|como)\s+(?:te\s+ha\s+ido|te\s+fue|va\s+tu\s+d[ií]a)\??',
-        caseSensitive: false,
-      ),
-      RegExp(
-        r'¿?(?:y\s+)?(?:t[uú]|usted)\s+(?:que|qué)\s+tal\??',
-        caseSensitive: false,
-      ),
+      RegExp(r'¿?(?:y\s+)?(?:que|qué)\s+tal(?:\s+(?:tu|el|su))?\s+d[ií]a\??', caseSensitive: false),
+      RegExp(r'¿?(?:cómo|como)\s+(?:te\s+ha\s+ido|te\s+fue|va\s+tu\s+d[ií]a)\??', caseSensitive: false),
+      RegExp(r'¿?(?:y\s+)?(?:t[uú]|usted)\s+(?:que|qué)\s+tal\??', caseSensitive: false),
     ];
 
     var cleaned = reply;
@@ -115,27 +112,14 @@ final class SafeConversationRepair {
       return cleaned;
     }
 
-    return _pick([
-      'Por acá todo bien también.',
-      'Todo en orden por acá.',
-      'Bien, todo tranquilo.',
-    ], userText);
+    return _pick(safeRepairRedundantOptions, userText);
   }
 
   static String? _repairCallCenter(String reply, {String? userText}) {
     final phrases = [
-      RegExp(
-        r'¿?(?:en qué|en que|cómo|como)\s+(?:te|le|nos)?\s*(?:puedo|podemos|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+hoy)?\??',
-        caseSensitive: false,
-      ),
-      RegExp(
-        r'soy nano,?\s*(?:el asistente(?: de este negocio)?)?\.?',
-        caseSensitive: false,
-      ),
-      RegExp(
-        r'¿?(?:cómo|como)\s+estás\??\s*¿?(?:cómo|como)\s+puedo\s+ayudar(?:te)?(?:\s+hoy)?\??',
-        caseSensitive: false,
-      ),
+      RegExp(r'¿?(?:en qué|en que|cómo|como)\s+(?:te|le|nos)?\s*(?:puedo|podemos|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+hoy)?\??', caseSensitive: false),
+      RegExp(r'soy nano,?\s*(?:el asistente(?: de este negocio)?)?\.?', caseSensitive: false),
+      RegExp(r'¿?(?:cómo|como)\s+estás\??\s*¿?(?:cómo|como)\s+puedo\s+ayudar(?:te)?(?:\s+hoy)?\??', caseSensitive: false),
     ];
 
     var cleaned = reply;
@@ -148,10 +132,7 @@ final class SafeConversationRepair {
     final lower = cleaned.toLowerCase();
     final u = userText?.trim().toLowerCase() ?? '';
     if (lower == 'hola' || lower == '¡hola!' || lower == 'hola!') {
-      final options = (u == 'hola' || u == '¡hola!' || u == 'hola!')
-          ? const ['Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?']
-          : const ['¡Hola!', 'Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?'];
-      return _pick(options, userText);
+      return _pick(safeRepairCallCenterGreetingOptions, userText);
     }
 
     if (cleaned.isNotEmpty && cleaned.length >= 2) {
@@ -159,10 +140,7 @@ final class SafeConversationRepair {
     }
 
     if (u.contains('hola') || u.contains('buenas') || u.contains('buenos')) {
-      final options = (u == 'hola' || u == '¡hola!' || u == 'hola!')
-          ? const ['Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?']
-          : const ['¡Hola!', 'Hola, ¿cómo estás?', '¡Buenas! ¿Todo bien?', 'Hola, ¿qué tal?'];
-      return _pick(options, userText);
+      return _pick(safeRepairCallCenterGreetingOptions, userText);
     }
 
     return null;

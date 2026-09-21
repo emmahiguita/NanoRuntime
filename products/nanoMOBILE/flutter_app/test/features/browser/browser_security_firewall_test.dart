@@ -1,3 +1,4 @@
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/browser/infrastructure/browser_security_firewall.dart';
 
@@ -151,5 +152,24 @@ void main() {
         );
       },
     );
+
+    test('configuración de seguridad estricta 100% en WebViewSettings', () {
+      final settings = BrowserSecurityFirewall.defaultWebViewSettings;
+
+      // Bloqueo estricto de mixed content
+      expect(settings.mixedContentMode, equals(MixedContentMode.MIXED_CONTENT_NEVER_ALLOW));
+
+      // Aislamiento completo de archivos del sistema local
+      expect(settings.allowFileAccess, isFalse);
+      expect(settings.allowContentAccess, isFalse);
+      expect(settings.allowFileAccessFromFileURLs, isFalse);
+      expect(settings.allowUniversalAccessFromFileURLs, isFalse);
+
+      // SafeBrowsing y cookies de sesión/SSO habilitadas
+      expect(settings.safeBrowsingEnabled, isTrue);
+      expect(settings.thirdPartyCookiesEnabled, isTrue);
+      expect(settings.saveFormData, isTrue);
+    });
   });
 }
+

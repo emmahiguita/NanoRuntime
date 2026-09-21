@@ -206,6 +206,11 @@ class DebInstaller(
 
     /** Instala [targets] y sus deps desde todos los repos. */
     fun install(targets: List<String>, onProgress: (String, Int) -> Unit): Boolean {
+        if (dev.nanoai.mobile.BuildConfig.PLAY_STORE_BUILD) {
+            Log.w(TAG, "Instalación dinámica de paquetes desactivada en Google Play Edition")
+            onProgress("disabled_in_play_edition", 0)
+            return false
+        }
         try {
             onProgress("index", 5)
             var index = fetchAllIndexes(forceRefresh = false)

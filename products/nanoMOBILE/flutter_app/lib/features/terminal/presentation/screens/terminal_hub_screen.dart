@@ -94,6 +94,23 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
         ],
         actionLabel: 'Iniciar Visor Gráfico',
       ),
+      TerminalHubCard(
+        id: 'data_studio',
+        title: 'Data Studio',
+        eyebrow: 'SQL Y REPORTES',
+        description:
+            'Conecta hojas de cálculo Shell (CSV/TSV), ejecuta consultas SQL y genera informes PDF ejecutivos.',
+        icon: Icons.table_chart_rounded,
+        accent: colors.accent,
+        imageAsset: 'assets/promo/ad1.jpg',
+        route: '/database',
+        highlights: const [
+          'Conexión nativa con archivos CSV/TSV del entorno Shell',
+          'Motor SQL en memoria y soporte de bases de datos SQLite',
+          'Generación, impresión y exportación de informes ejecutivos en PDF',
+        ],
+        actionLabel: 'Abrir Data Studio',
+      ),
     ];
   }
 
