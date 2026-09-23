@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import '../domain/data_models.dart';
+import 'csv_tsv_parser.dart';
 import '../../../core/services/terminal_dependencies.dart';
 
 /// Motor de ejecución de consultas SQL tanto para hojas de cálculo en memoria como para bases de datos SQLite en Shell
@@ -79,7 +80,14 @@ class SqlQueryEngine {
     }
   }
 
-  /// Ejecuta una consulta SQL en una base de datos SQLite real a través de Shell / CLI
+  /// Ejecuta una consulta SQL en una base de datos SQLite real de forma segura y parametrizada.
+  /// QUÉ HACE:
+  /// Ejecuta consultas SQL sobre SQLite local sin concatenación insegura de shell.
+  /// CÓMO FUNCIONA:
+  /// Prioriza Process.run con argumentos aislados ['-header', '-csv', dbPath, query]
+  /// y parsea el resultado CSV mediante CsvTsvParser respetando comillas y delimitadores.
+  /// POR QUÉ:
+  /// Previene vulnerabilidades de inyección de comandos en shell y fallos al parsear textos con comas.
   static Future<QueryResult> executeShellSqliteQuery({
     required String dbPath,
     required String query,
@@ -87,21 +95,25 @@ class SqlQueryEngine {
     final stopwatch = Stopwatch()..start();
 
     try {
-      // Intentar ejecutar mediante shell_executor o process directo
-      final shell = TerminalDependencies.instance.shell;
-      final safeQuery = query.replaceAll('"', r'\"');
-      final cmd = 'sqlite3 -header -csv "$dbPath" "$safeQuery"';
-
       String output = '';
-      if (shell != null && shell.initialized) {
-        final result = await shell.bash(cmd);
-        output = result.stdout.isNotEmpty ? result.stdout : result.stderr;
-      } else {
-        // Fallback directo con Process.run si sqlite3 está en PATH
+
+      // Priorizar Process.run con argumentos separados sin pasar por shell interpolado
+      try {
         final res = await Process.run('sqlite3', ['-header', '-csv', dbPath, query]);
         output = res.stdout.toString();
         if (res.exitCode != 0 && output.isEmpty) {
           output = res.stderr.toString();
+        }
+      } catch (_) {
+        // Fallback a terminal shell si sqlite3 no está directamente en el PATH
+        final shell = TerminalDependencies.instance.shell;
+        if (shell != null && shell.initialized) {
+          // Sanitización estricta para evitar escape de comillas en bash
+          final safeQuery = query.replaceAll("'", r"'\''");
+          final safePath = dbPath.replaceAll("'", r"'\''");
+          final cmd = "sqlite3 -header -csv '$safePath' '$safeQuery'";
+          final result = await shell.bash(cmd);
+          output = result.stdout.isNotEmpty ? result.stdout : result.stderr;
         }
       }
 
@@ -121,33 +133,21 @@ class SqlQueryEngine {
         return QueryResult.error(query, output.trim(), executionTimeMs: stopwatch.elapsedMilliseconds);
       }
 
-      // Parsear la salida CSV de sqlite3
-      final lines = output.trim().split('\n');
-      if (lines.isEmpty) {
-        return QueryResult.success(
-          query: query,
-          table: const DataTable(name: 'result', columns: [], rows: []),
-          executionTimeMs: stopwatch.elapsedMilliseconds,
-        );
-      }
-
-      final columns = lines.first.split(',').map((c) => c.trim().replaceAll('"', '')).toList();
-      final rows = <List<dynamic>>[];
-
-      for (int i = 1; i < lines.length; i++) {
-        final line = lines[i].trim();
-        if (line.isEmpty) continue;
-        rows.add(line.split(',').map((v) => v.trim().replaceAll('"', '')).toList());
-      }
+      // Parsear la salida CSV de sqlite3 usando CsvTsvParser para respetar comillas y saltos
+      final parsedTable = CsvTsvParser.parse(
+        name: 'sqlite_query',
+        rawContent: output,
+        explicitDelimiter: ',',
+      );
 
       return QueryResult.success(
         query: query,
-        table: DataTable(name: 'sqlite_query', columns: columns, rows: rows),
+        table: parsedTable,
         executionTimeMs: stopwatch.elapsedMilliseconds,
       );
     } catch (e) {
       stopwatch.stop();
-      return QueryResult.error(query, 'Fallo al ejecutar en SQLite Shell: $e', executionTimeMs: stopwatch.elapsedMilliseconds);
+      return QueryResult.error(query, 'Fallo al ejecutar en SQLite: $e', executionTimeMs: stopwatch.elapsedMilliseconds);
     }
   }
 

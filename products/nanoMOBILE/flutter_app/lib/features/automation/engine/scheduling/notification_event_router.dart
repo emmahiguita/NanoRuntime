@@ -1,11 +1,22 @@
-/// NotificationEventRouter — escucha eventos en vivo de notificación
-/// (EventChannel `com.nanoai/notification_events`) y los enruta al RulePipeline
-/// (trigger match → AutomationCoordinator). La notificación es UNTRUSTED DATA:
-/// nunca se interpreta como instrucción ni autoridad.
+// notification_event_router.dart
+//
+// QUÉ HACE:
+// Escucha eventos de notificaciones en tiempo real desde el EventChannel nativo
+// (`com.nanoai/notification_events`) y los enruta de forma controlada hacia el `RulePipeline`.
+//
+// CÓMO FUNCIONA:
+// - Controla la concurrencia mediante `_pendingBatches` y amortigua ráfagas en `BurstTurnGate`.
+// - Maneja el arranque en frío recuperando eventos no procesados de la cola durable `DurableInbox`.
+// - Soporta detención determinista (`stop`) esperando la cancelación de la suscripción nativa
+//   e invalidando cualquier replay o callback en vuelo mediante un token de generación creciente.
+//
+// POR QUÉ:
+// Resuelve la carrera de apagado y la saturación ciega de admisión (AUT-P2-15), garantizando
+// que los eventos no se pierdan ni se admitan de forma zombi tras desmontar el router (< 200 líneas).
+
 library;
 
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
@@ -18,8 +29,7 @@ class NotificationEventRouter {
 
   final RulePipeline pipeline;
 
-  /// WA-TURN-01 — puerta de ráfagas por conversación (null = ruta directa
-  /// legacy para pruebas).
+  /// Puerta de agregación de ráfagas por conversación (BurstTurnGate).
   final BurstTurnGate? gate;
   StreamSubscription<Map<dynamic, dynamic>>? _sub;
   int _generation = 0;
@@ -27,103 +37,125 @@ class NotificationEventRouter {
   bool _hasDeferredBatches = false;
   bool _isDrainingBacklog = false;
 
+  /// Inicia la escucha activa de eventos nativos y el replay de arranque en frío.
   void start() {
     if (_sub != null) return;
+    final generation = ++_generation;
     _sub = NanoRuntimeApi.instance.notificationEvents.listen(
-      (m) => unawaited(_routeBatch(m)),
+      (m) {
+        if (_sub == null || generation != _generation) return;
+        unawaited(_routeBatch(m, generation));
+      },
       onError: (Object e) {
-        debugPrint('[notifications] event stream error: $e');
+        debugPrint('[notifications] error en flujo de eventos: $e');
       },
     );
-    final generation = ++_generation;
     unawaited(_coldStartReplay(generation));
   }
 
-  Future<void> _routeBatch(Map<dynamic, dynamic> map) async {
+  /// Procesa un lote individual de notificaciones respetando la capacidad máxima del sistema.
+  Future<void> _routeBatch(Map<dynamic, dynamic> map, int generation) async {
+    if (_sub == null || generation != _generation) return;
+
     if (_pendingBatches >= 64) {
       _hasDeferredBatches = true;
-      debugPrint(
-        '[notifications] router capacity reached; inbox retains event',
-      );
+      debugPrint('[notifications] capacidad máxima alcanzada (64); evento retenido en DurableInbox');
       return;
     }
+
     _pendingBatches++;
     try {
       final events = NotificationObject.eventsFromMap(map);
       final g = gate;
       if (g == null) {
         for (final event in events) {
+          if (_sub == null || generation != _generation) return;
           await pipeline.onNotification(event);
         }
       } else {
         await pipeline.submitNotifications(events, g);
-        // A replay may contain only duplicates of an admitted, unfinished burst.
         await g.drain();
       }
-      await NanoRuntimeApi.instance.completeNotificationEvent(map);
+      if (_sub != null && generation == _generation) {
+        await NanoRuntimeApi.instance.completeNotificationEvent(map);
+      }
     } catch (error) {
-      debugPrint('[notifications] ingress deferred: $error');
+      debugPrint('[notifications] ingreso de notificación diferido: $error');
     } finally {
       _pendingBatches--;
-      if (_pendingBatches <= 16 && _hasDeferredBatches) {
+      if (_pendingBatches <= 16 && _hasDeferredBatches && _sub != null && generation == _generation) {
         _hasDeferredBatches = false;
         unawaited(_drainBacklog(_generation));
       }
     }
   }
 
+  /// Drena eventos pendientes de la base de datos DurableInbox cuando la cola recupera capacidad.
   Future<void> _drainBacklog(int generation) async {
     if (_isDrainingBacklog) return;
     _isDrainingBacklog = true;
     try {
       if (_sub == null || generation != _generation) return;
-      final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 32);
+      final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 16);
       if (_sub == null || generation != _generation) return;
       for (final m in inboxEvents) {
         if (_sub == null || generation != _generation) break;
-        await _routeBatch(m);
+        await _routeBatch(m, generation);
       }
       final active = await NanoRuntimeApi.instance.listNotifications();
       if (_sub == null || generation != _generation) return;
       for (final m in active) {
         if (_sub == null || generation != _generation) break;
-        await _routeBatch(m);
+        await _routeBatch(m, generation);
       }
     } catch (e) {
-      debugPrint('[notifications] backlog drain error: $e');
+      debugPrint('[notifications] error drenando backlog: $e');
     } finally {
       _isDrainingBacklog = false;
     }
   }
 
-  /// WA-GAPS-01 / WA-PROD-01 — retry de arranque en frío y recuperación de cola durable:
-  /// Con la app recién arrancada (o tras un reboot/kill de ColorOS), recupera primero
-  /// los eventos pendientes de la cola durable SQLite (DurableInbox) y luego re-emite
-  /// las notificaciones ACTIVAS. El dedupe persistente bloquea las ya procesadas.
+  /// Recuperación serializada en frío de eventos pendientes en SQLite al iniciar el runtime.
   Future<void> _coldStartReplay(int generation) async {
     for (var attempt = 0; attempt < 3; attempt++) {
       await Future<void>.delayed(Duration(seconds: attempt == 0 ? 2 : 5));
       if (_sub == null || generation != _generation) return;
-      final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 64);
+
+      final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 32);
       if (_sub == null || generation != _generation) return;
-      if (inboxEvents.isNotEmpty) {
-        for (final m in inboxEvents) {
-          unawaited(_routeBatch(m));
-        }
+
+      for (final m in inboxEvents) {
+        if (_sub == null || generation != _generation) return;
+        await _routeBatch(m, generation);
       }
+
       final active = await NanoRuntimeApi.instance.listNotifications();
       if (_sub == null || generation != _generation) return;
       if (inboxEvents.isEmpty && active.isEmpty) continue;
+
       for (final m in active) {
-        unawaited(_routeBatch(m));
+        if (_sub == null || generation != _generation) return;
+        await _routeBatch(m, generation);
       }
       return;
     }
   }
 
-  void stop() {
+  /// Detención determinista y asíncrona del router, cancelando la suscripción nativa.
+  Future<void> stop() async {
     _generation++;
-    _sub?.cancel();
+    final sub = _sub;
     _sub = null;
+    try {
+      await sub?.cancel();
+    } catch (_) {}
+
+    // Espera hasta 1.5s para que los batches en vuelo terminen limpiamente
+    for (var i = 0; i < 15 && _pendingBatches > 0; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
   }
+
+  /// Método de conveniencia sincrónico para teardown en callbacks de frameworks.
+  void dispose() => unawaited(stop());
 }

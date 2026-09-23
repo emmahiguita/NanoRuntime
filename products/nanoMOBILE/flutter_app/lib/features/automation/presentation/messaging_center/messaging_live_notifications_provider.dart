@@ -27,7 +27,6 @@ final liveNotificationsProvider =
       await ownershipStore.load();
 
       final notifications = await executor.list(limit: 50);
-      final seen = <String>{};
       final items = <ConversationSummaryItem>[];
       final now = DateTime.now().millisecondsSinceEpoch;
 
@@ -47,8 +46,6 @@ final liveNotificationsProvider =
         final convKey = identity.key.id.isNotEmpty
             ? identity.key.id
             : rawConvKey;
-        if (!seen.add('${notif.packageName}|$convKey')) continue;
-
         final isGroup = ConversationGroupResolver.isGroup(
           convId: rawConvKey,
           isGroupFlag: notif.isGroup,

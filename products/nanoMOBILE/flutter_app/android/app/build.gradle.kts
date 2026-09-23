@@ -69,20 +69,34 @@ android {
     signingConfigs {
         create("release") {
             // Signing config lee credenciales de variables de entorno.
-            // Si no están definidas, fallback a debug keystore (solo desarrollo).
             val keystorePath = System.getenv("NANOAI_KEYSTORE")
+            val allowDebugFallback = System.getenv("NANOAI_ALLOW_DEBUG_KEYSTORE_FOR_RELEASE") == "true"
             if (keystorePath != null) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("NANOAI_KEYSTORE_PASS")
                 keyAlias = System.getenv("NANOAI_KEY_ALIAS")
                 keyPassword = System.getenv("NANOAI_KEY_PASS")
                 println("NanoAI: release signing con keystore externo.")
-            } else {
+            } else if (allowDebugFallback) {
                 storeFile = signingConfigs.getByName("debug").storeFile
                 storePassword = signingConfigs.getByName("debug").storePassword
                 keyAlias = signingConfigs.getByName("debug").keyAlias
                 keyPassword = signingConfigs.getByName("debug").keyPassword
-                println("NanoAI: release signing con debug keystore (SOLO DESARROLLO)")
+                println("NanoAI: release signing con debug keystore explícitamente autorizado (SOLO DESARROLLO)")
+            } else {
+                // AUT-P1-14: Evitar publicar o generar artefactos release firmados con debug por error.
+                val isBuildingRelease = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+                if (isBuildingRelease) {
+                    throw org.gradle.api.InvalidUserDataException(
+                        "NanoAI [AUT-P1-14]: No se puede construir 'release' sin NANOAI_KEYSTORE configurado. " +
+                        "Para pruebas internas locales, defina la variable NANOAI_ALLOW_DEBUG_KEYSTORE_FOR_RELEASE=true."
+                    )
+                } else {
+                    storeFile = signingConfigs.getByName("debug").storeFile
+                    storePassword = signingConfigs.getByName("debug").storePassword
+                    keyAlias = signingConfigs.getByName("debug").keyAlias
+                    keyPassword = signingConfigs.getByName("debug").keyPassword
+                }
             }
         }
     }

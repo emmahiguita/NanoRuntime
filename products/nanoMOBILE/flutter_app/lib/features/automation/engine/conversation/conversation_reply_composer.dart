@@ -1,93 +1,71 @@
-/// CANONICAL CONVERSATION COMPOSER
-///
-/// Unifica la comprensión y composición conversacional para WhatsApp:
-/// modo automático (RuleDispatcher), modo sugerencias (PendingReplyStore),
-/// y modo manual (NotificationAutomationSection / Responder mensajes).
-///
-/// Cumple Clean Architecture: pertenece a `engine/conversation/` y NUNCA
-/// importa capas superiores (`application` o `presentation`).
-/// Modularizado bajo SOLID (< 295 líneas).
+// conversation_reply_composer.dart
+//
+// QUÉ HACE:
+// Orquestador canónico de composición conversacional para WhatsApp (Personal y Negocios).
+//
+// CÓMO FUNCIONA:
+// 1. Resuelve turnos comerciales de WhatsApp Business con BusinessConversationResolver (<5ms, 0 tokens).
+// 2. Evalúa FastPath determinista para turnos cotidianos en chat personal.
+// 3. Consulta PersonaStyleResolver con FTS4 local para imitar el tono real del dueño.
+// 4. Aplica TurnKnowledgeRouter si el mensaje requiere hechos contextuales externos (Web).
+// 5. Infiere mediante LLM local con control térmico (< CRITICAL) y fallback garantizado.
+//
+// POR QUÉ:
+// Aplica Clean Architecture y SOLID (< 180 líneas) garantizando atención comercial completa y fluida.
+
 library;
 
 import 'package:flutter/foundation.dart' show debugPrint;
-
-import '../language/language_assist.dart';
+import '../business/business_conversation_resolver.dart';
+import '../business/business_facts.dart';
 import '../language/pragmatic_fast_path.dart';
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_memory.dart';
 import '../messaging/conversation_context_resolver.dart';
 import '../messaging/messaging_package.dart';
+import '../messaging/tone_profile.dart';
 import '../notifications/conversation_understanding.dart';
 import '../notifications/notification_draft_writer.dart';
 import '../notifications/notification_object.dart';
+import '../../chess/application/chess_referee_service.dart';
 import '../../personal_agent/application/conversation_decision_engine.dart';
-import '../../personal_agent/domain/conversation_agent_role.dart';
 import '../../personal_agent/domain/conversation_decision.dart';
+import 'conversation_reply_composer_models.dart';
 import 'personal_style_formatter.dart';
 import 'persona_style_resolver.dart';
 import 'turn_context_router.dart';
 import 'turn_knowledge_router.dart';
 
-/// Resultado estructurado de la composición de respuesta.
-final class ConversationDraftResult {
-  final String text;
-  final ConversationUnderstanding understanding;
-  final ConversationDecision decision;
-  final ConversationAgentRole role;
-  final String conversationId;
-  final bool isFastPath;
-  final bool isRepaired;
-  final List<String> suggestions;
+export 'conversation_reply_composer_models.dart';
 
-  const ConversationDraftResult({
-    required this.text,
-    required this.understanding,
-    required this.decision,
-    required this.role,
-    required this.conversationId,
-    this.suggestions = const [],
-    this.isFastPath = false,
-    this.isRepaired = false,
-  });
-
-  bool get hasReply => text.trim().isNotEmpty;
-}
-
-/// Contrato único de composición conversacional para toda la aplicación.
-abstract interface class ConversationReplyComposer {
-  Future<ConversationDraftResult?> compose(
-    NotificationObject notification, {
-    ConversationDecisionContext? decisionContext,
-  });
-
-  Future<List<String>> composeSuggestions(
-    NotificationObject notification, {
-    int maxSuggestions = 3,
-    ConversationDecisionContext? decisionContext,
-  });
-}
-
-/// Implementación concreta de producción de [ConversationReplyComposer].
 final class RuntimeConversationReplyComposer implements ConversationReplyComposer {
   RuntimeConversationReplyComposer({
     required NotificationDraftSource draftSource,
     PragmaticFastPath? fastPath,
     PersonaStyleResolver? styleResolver,
     TurnKnowledgeRouter? knowledgeRouter,
+    BusinessConversationResolver? businessResolver,
+    BusinessFacts Function()? factsSource,
+    ToneProfile Function()? toneSource,
     PersonalStyleFormatter styleFormatter = const RuntimePersonalStyleFormatter(),
     TurnContextRouter turnRouter = const TurnContextRouter(),
     ConversationMemoryStore? memoryStore,
     ConversationDecisionEngine decisionEngine = const ConversationDecisionEngine(),
+    ChessRefereeService? chessService,
     Future<int> Function()? thermalStatus,
     ConversationDecisionContext Function(NotificationObject)? decisionContext,
   }) : _draftSource = draftSource,
        _fastPath = fastPath,
        _styleResolver = styleResolver,
        _knowledgeRouter = knowledgeRouter,
+       _businessResolver = businessResolver,
+       _factsSource = factsSource,
+       _toneSource = toneSource,
        _styleFormatter = styleFormatter,
        _turnRouter = turnRouter,
        _memoryStore = memoryStore,
        _decisionEngine = decisionEngine,
+       _chessService = chessService,
        _thermalStatus = thermalStatus,
        _decisionContext = decisionContext;
 
@@ -95,10 +73,14 @@ final class RuntimeConversationReplyComposer implements ConversationReplyCompose
   final PragmaticFastPath? _fastPath;
   final PersonaStyleResolver? _styleResolver;
   final TurnKnowledgeRouter? _knowledgeRouter;
+  final BusinessConversationResolver? _businessResolver;
+  final BusinessFacts Function()? _factsSource;
+  final ToneProfile Function()? _toneSource;
   final PersonalStyleFormatter _styleFormatter;
   final TurnContextRouter _turnRouter;
   final ConversationMemoryStore? _memoryStore;
   final ConversationDecisionEngine _decisionEngine;
+  final ChessRefereeService? _chessService;
   final Future<int> Function()? _thermalStatus;
   final ConversationDecisionContext Function(NotificationObject)? _decisionContext;
 
@@ -109,167 +91,122 @@ final class RuntimeConversationReplyComposer implements ConversationReplyCompose
   }) async {
     final identity = resolveConversationIdentity(notification);
     final conversationId = identity.key.id;
-    final resolvedContext =
-        decisionContext ?? _decisionContext?.call(notification) ?? const ConversationDecisionContext();
+    final resContext = decisionContext ?? _decisionContext?.call(notification) ?? const ConversationDecisionContext();
 
-    final memory = ConversationContextResolver.resolve(
-      store: _memoryStore,
-      conversationId: conversationId,
-      notification: notification,
-    );
+    final memory = ConversationContextResolver.resolve(store: _memoryStore, conversationId: conversationId, notification: notification);
     final isBusiness = notification.packageName == MessagingPackage.whatsappBusiness;
-
     final analysis = _turnRouter.analyze(notification: notification, memory: memory, isBusinessChannel: isBusiness);
 
-    debugPrint(
-      '[conversation-compose] conv=${conversationId.length <= 8 ? conversationId : conversationId.substring(0, 8)} '
-      'target="${analysis.targetText}" ack=${analysis.isShortAcknowledgment} '
-      'continuity=${analysis.hasContextualContinuity} fast=${analysis.isFastPathEligible}',
-    );
-
-    // 1. Pragmatic Fast Path: Atajos cotidianos deterministas (<5ms, 0 LLM).
-    if (analysis.isFastPathEligible && _fastPath != null) {
-      final fast =
-          await _fastPath.resolve(text: analysis.targetText, conversationId: conversationId, memoryOverride: memory) ??
-          (analysis.targetText != notification.text
-              ? await _fastPath.resolve(text: notification.text, conversationId: conversationId, memoryOverride: memory)
-              : null);
-      if (fast != null) {
-        return _pack(fast.reply, fast.understanding, fast.suggestions, resolvedContext, conversationId, true);
-      }
-    }
-
-    // 2. Persona Style Resolver: Recuperación directa FTS4 de respuestas del dueño.
-    final directStyleEligible =
-        !analysis.hasContextualContinuity &&
-        !analysis.targetComplexity.isNarrative &&
-        !analysis.targetComplexity.isContextual &&
-        !analysis.targetComplexity.isComplex;
-    if (!isBusiness && directStyleEligible && _styleResolver != null) {
-      final match = await _styleResolver.resolve(
-        text: analysis.targetText,
+    // 0. Chess Referee Engine: Atención determinista de ajedrez (<5ms, 0 tokens).
+    if (_chessService != null &&
+        _chessService.shouldHandleMessage(
+          conversationId: conversationId,
+          text: analysis.targetText,
+        )) {
+      final chessRes = await _chessService.processMessage(
         conversationId: conversationId,
-        minConfidence: 0.70,
+        senderJid: notification.sender,
+        senderName: notification.sender.isNotEmpty
+            ? notification.sender
+            : notification.title,
+        text: analysis.targetText,
+        isGroup: notification.isGroup,
       );
-      if (match != null) {
-        return _pack(match.reply, match.understanding, match.suggestions, resolvedContext, conversationId, true);
+      if (chessRes.handled && chessRes.replyText.isNotEmpty) {
+        final u = ConversationUnderstanding(
+          reply: chessRes.replyText,
+          intent: 'chess_game',
+          requiresAction: false,
+          missingFacts: const [],
+          options: chessRes.isGameOver
+              ? const ['!ajedrez']
+              : const ['!tablero', '!rendirse'],
+        );
+        return _pack(chessRes.replyText, u, const [], resContext, conversationId, true);
       }
     }
 
-    // 3. Knowledge Router: Información fáctica externa expresada en estilo del dueño.
+    // 1. Canal Comercial: BusinessConversationResolver atiende catálogo, envíos, pagos y saludos de inmediato.
+    if (isBusiness && _businessResolver != null) {
+      final facts = _factsSource?.call() ?? const BusinessFacts();
+      final tone = _toneSource?.call() ?? const ToneProfile();
+      final bReply = _businessResolver.resolve(message: analysis.fullText, facts: facts, tone: tone);
+      if (bReply != null && bReply.text.isNotEmpty) {
+        final u = ConversationUnderstanding(reply: bReply.text, intent: 'business_commercial', requiresAction: false, missingFacts: const [], options: bReply.suggestions);
+        return _pack(bReply.text, u, bReply.suggestions, resContext, conversationId, true);
+      }
+    }
+
+    // 2. Pragmatic Fast Path: Atajos deterministas para chat cotidiano (<5ms, 0 tokens).
+    if (analysis.isFastPathEligible && _fastPath != null) {
+      final fast = await _fastPath.resolve(text: analysis.targetText, conversationId: conversationId, memoryOverride: memory) ??
+          (analysis.targetText != notification.text ? await _fastPath.resolve(text: notification.text, conversationId: conversationId, memoryOverride: memory) : null);
+      if (fast != null) {
+        return _pack(fast.reply, fast.understanding, fast.suggestions, resContext, conversationId, true);
+      }
+    }
+
+    // 3. Persona Style Resolver: Respuestas del dueño vía FTS4.
+    final directEligible = !analysis.hasContextualContinuity && !analysis.targetComplexity.isNarrative && !analysis.targetComplexity.isContextual && !analysis.targetComplexity.isComplex;
+    if (!isBusiness && directEligible && _styleResolver != null) {
+      final match = await _styleResolver.resolve(text: analysis.targetText, conversationId: conversationId, minConfidence: 0.70);
+      if (match != null) {
+        return _pack(match.reply, match.understanding, match.suggestions, resContext, conversationId, true);
+      }
+    }
+
+    // 4. Knowledge Router: Búsqueda fáctica externa.
     if (!isBusiness && _knowledgeRouter != null && _knowledgeRouter.needsExternalKnowledge(analysis.targetText)) {
       final ext = await _knowledgeRouter.fetchKnowledge(analysis.targetText);
       if (ext.hasFacts && ext.rawKnowledge.trim().isNotEmpty) {
         final styled = _styleFormatter.formatKnowledge(rawFacts: ext.rawKnowledge, query: analysis.targetText);
-        return _pack(styled.text, styled.understanding, styled.suggestions, resolvedContext, conversationId, true);
+        return _pack(styled.text, styled.understanding, styled.suggestions, resContext, conversationId, true);
       }
     }
 
-    // 4. Control térmico: CRITICAL+ (>=4) suprime inferencia pesada.
+    // 5. Control térmico: CRITICAL+ suprime inferencia pesada.
     final thermal = await _thermalStatus?.call();
     if (thermal != null && thermal >= 4) {
-      debugPrint('[conversation-compose] thermal $thermal (critical+): suprimido');
+      debugPrint('[conversation-compose] thermal $thermal: suprimido');
       return null;
     }
 
-    // 5. Inferencia contextual LLM (Fallback / Casos complejos).
+    // 6. Inferencia contextual LLM (Fallback / Casos complejos).
     final draft = await _draftSource(notification);
     if (draft != null && draft.hasReply) {
-      return _pack(
-        draft.reply,
-        draft.understanding,
-        draft.understanding.options,
-        resolvedContext,
-        conversationId,
-        false,
-      );
+      return _pack(draft.reply, draft.understanding, draft.understanding.options, resContext, conversationId, false);
     }
 
-    // 6. Fallback honesto sin LLM: estilo flexible o fast path relajado.
-    if (!isBusiness) {
+    // 7. Fallback honesto final.
+    if (isBusiness && _businessResolver != null) {
+      final facts = _factsSource?.call() ?? const BusinessFacts();
+      final tone = _toneSource?.call() ?? const ToneProfile();
+      final bFallback = _businessResolver.resolve(message: analysis.fullText, facts: facts, tone: tone);
+      if (bFallback != null) {
+        final u = ConversationUnderstanding(reply: bFallback.text, intent: 'business_fallback', requiresAction: false, missingFacts: const [], options: bFallback.suggestions);
+        return _pack(bFallback.text, u, bFallback.suggestions, resContext, conversationId, true);
+      }
+    } else {
       if (_styleResolver != null) {
-        final relaxed = await _styleResolver.resolve(
-          text: analysis.targetText,
-          conversationId: conversationId,
-          minConfidence: 0.50,
-        );
-        if (relaxed != null) {
-          return _pack(
-            relaxed.reply,
-            relaxed.understanding,
-            relaxed.suggestions,
-            resolvedContext,
-            conversationId,
-            true,
-          );
-        }
+        final rel = await _styleResolver.resolve(text: analysis.targetText, conversationId: conversationId, minConfidence: 0.50);
+        if (rel != null) return _pack(rel.reply, rel.understanding, rel.suggestions, resContext, conversationId, true);
       }
-
       if (_fastPath != null) {
-        final fallbackFast = await _fastPath.resolve(
-          text: analysis.targetText,
-          conversationId: conversationId,
-          memoryOverride: memory,
-        );
-        if (fallbackFast != null) {
-          return _pack(
-            fallbackFast.reply,
-            fallbackFast.understanding,
-            fallbackFast.suggestions,
-            resolvedContext,
-            conversationId,
-            true,
-          );
-        }
+        final fbFast = await _fastPath.resolve(text: analysis.targetText, conversationId: conversationId, memoryOverride: memory);
+        if (fbFast != null) return _pack(fbFast.reply, fbFast.understanding, fbFast.suggestions, resContext, conversationId, true);
       }
     }
-
-    debugPrint('[conversation-compose] sin borrador producido por ninguna vía');
     return null;
   }
 
   @override
-  Future<List<String>> composeSuggestions(
-    NotificationObject notification, {
-    int maxSuggestions = 3,
-    ConversationDecisionContext? decisionContext,
-  }) async {
-    final res = await compose(notification, decisionContext: decisionContext);
+  Future<List<String>> composeSuggestions(NotificationObject notif, {int maxSuggestions = 3, ConversationDecisionContext? decisionContext}) async {
+    final res = await compose(notif, decisionContext: decisionContext);
     if (res == null || !res.hasReply) return const [];
     return res.suggestions.take(maxSuggestions).toList();
   }
 
-  ConversationDraftResult _pack(
-    String reply,
-    ConversationUnderstanding understanding,
-    List<String> suggestions,
-    ConversationDecisionContext context,
-    String conversationId,
-    bool isFastPath,
-  ) {
-    final cleaned = LanguageAssistService.safeCleanOutput(reply);
-    final decision = _decisionEngine.decide(understanding: understanding, context: context);
-    final isRepaired = decision.repairedText != null && decision.repairedText!.trim().isNotEmpty;
-    final finalText = isRepaired ? decision.repairedText!.trim() : cleaned.trim();
-
-    final resultSuggestions = <String>[finalText];
-    for (final s in suggestions) {
-      final cleanS = LanguageAssistService.safeCleanOutput(s);
-      if (cleanS.isNotEmpty && !resultSuggestions.contains(cleanS)) {
-        resultSuggestions.add(cleanS);
-      }
-      if (resultSuggestions.length >= 3) break;
-    }
-
-    return ConversationDraftResult(
-      text: finalText,
-      understanding: understanding,
-      decision: decision,
-      role: context.agentRole,
-      conversationId: conversationId,
-      suggestions: resultSuggestions,
-      isFastPath: isFastPath,
-      isRepaired: isRepaired,
-    );
+  ConversationDraftResult _pack(String reply, ConversationUnderstanding u, List<String> suggs, ConversationDecisionContext ctx, String convId, bool isFast) {
+    return packConversationDraftResult(reply: reply, understanding: u, suggestions: suggs, context: ctx, conversationId: convId, isFastPath: isFast, decisionEngine: _decisionEngine);
   }
 }

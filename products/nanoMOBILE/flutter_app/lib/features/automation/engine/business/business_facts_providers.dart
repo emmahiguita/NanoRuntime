@@ -51,6 +51,43 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
     return _persist(next);
   }
 
+  /// QUÉ HACE:
+  /// Importa un lote de productos al catálogo comercial de Nano.
+  /// CÓMO FUNCIONA:
+  /// Si [replaceAll] es true, reemplaza todo el catálogo; si es false, fusiona
+  /// o actualiza los productos existentes por ID o nombre.
+  /// POR QUÉ:
+  /// Permite sincronizar inventarios masivos desde Excel/CSV/SQL de forma transaccional.
+  Future<bool> importProducts(
+    List<BusinessProduct> incoming, {
+    bool replaceAll = false,
+  }) {
+    if (replaceAll) {
+      return _persist(
+        BusinessFacts(
+          products: List.unmodifiable(incoming),
+          hours: state.hours,
+          delivery: state.delivery,
+          payments: state.payments,
+          location: state.location,
+        ),
+      );
+    }
+    final existingMap = {for (final p in state.products) p.id: p};
+    for (final p in incoming) {
+      existingMap[p.id] = p;
+    }
+    return _persist(
+      BusinessFacts(
+        products: List.unmodifiable(existingMap.values),
+        hours: state.hours,
+        delivery: state.delivery,
+        payments: state.payments,
+        location: state.location,
+      ),
+    );
+  }
+
   Future<bool> removeProduct(String id) {
     return _persist(
       BusinessFacts(

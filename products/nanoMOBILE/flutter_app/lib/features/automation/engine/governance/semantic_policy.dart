@@ -139,13 +139,17 @@ const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
   ),
   'whatsapp.send_message': SemanticActionDefinition(
     requiredInputs: ['contact', 'text'],
-    risk: SemanticActionRisk.reversibleWrite,
-    requiresConfirmation: false,
+    risk: SemanticActionRisk.irreversibleCommit,
+    irreversible: true,
+    requiresContextLock: true,
+    requiresConfirmation: true,
   ),
   'whatsapp.share_file': SemanticActionDefinition(
     requiredInputs: ['contact', 'path'],
-    risk: SemanticActionRisk.reversibleWrite,
-    requiresConfirmation: false,
+    risk: SemanticActionRisk.irreversibleCommit,
+    irreversible: true,
+    requiresContextLock: true,
+    requiresConfirmation: true,
   ),
   'linux.writeFile': SemanticActionDefinition(
     requiredInputs: ['path', 'content'],
@@ -289,7 +293,6 @@ const kTaskSemanticActionNames = <String>{
   'linux_write_file',
   'linux_run_command',
 };
-
 
 SemanticActionDefinition? automationSemanticPolicy(String name) =>
     kAutomationSemanticPolicies[name];

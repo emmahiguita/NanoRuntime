@@ -33,10 +33,12 @@ final class ExternalKnowledgeResult {
 }
 
 /// Contrato para enrutamiento y búsqueda de conocimiento externo.
-abstract interface class TurnKnowledgeRouter {
+abstract class TurnKnowledgeRouter {
   bool needsExternalKnowledge(String text);
 
   Future<ExternalKnowledgeResult> fetchKnowledge(String text);
+
+  Future<void> dispose() async {}
 }
 
 /// Implementación concreta que prioriza BrowserAiGateway, WebKnowledgeService y ReverseAgentClient.
@@ -96,12 +98,27 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
     return false;
   }
 
+  /// Extrae y desidentifica la consulta para proveedores externos (AUT-P1-10).
+  /// Elimina datos privados (email, teléfono, tarjetas, claves) antes de consultar la web.
+  static String sanitizeExternalQuery(String input) {
+    var text = input.trim();
+    text = text.replaceAll(RegExp(r'^(hola|buenos d[ií]as|buenas tardes|buenas noches|oye|disculpa|mira)[,\s]+', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'), '[email]');
+    text = text.replaceAll(RegExp(r'(\+?\d[\d\s-]{7,}\d)'), '[telefono]');
+    text = text.replaceAll(RegExp(r'\b(?:\d[ -]*?){13,19}\b'), '[tarjeta]');
+    text = text.replaceAll(RegExp(r'(clave|contrase[ñn]a|password|pin)[:\s]+\S+', caseSensitive: false), r'$1: [oculto]');
+    return text.trim();
+  }
+
   @override
   Future<ExternalKnowledgeResult> fetchKnowledge(String text) async {
     final clean = text.trim();
     if (clean.isEmpty) return ExternalKnowledgeResult.empty;
 
-    debugPrint('[knowledge-router] buscando información externa para: "$clean"');
+    final sanitized = sanitizeExternalQuery(clean);
+    if (sanitized.isEmpty) return ExternalKnowledgeResult.empty;
+
+    debugPrint('[knowledge-router] buscando info externa para consulta sanitizada (${sanitized.length} chars)');
 
     // 1. Intentar BrowserAiGateway (ChatGPT/DeepSeek en WebView nativo de fondo)
     if (_browserAiGateway != null) {
@@ -109,14 +126,14 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
         final aiRes = await _browserAiGateway.query(
           BrowserAiQuery(
             providerId: 'auto',
-            prompt: 'Responde de forma concisa, breve y puramente fáctica en español: $clean',
+            prompt: 'Responde de forma concisa, breve y puramente fáctica en español: $sanitized',
             timeout: const Duration(seconds: 20),
           ),
         );
         if (aiRes.isCompleted && aiRes.content.trim().isNotEmpty) {
           debugPrint('[knowledge-router] HIT BrowserAiGateway: ${aiRes.providerId}');
           return ExternalKnowledgeResult(
-            query: clean,
+            query: sanitized,
             rawKnowledge: aiRes.content.trim(),
             source: 'browser_ai_${aiRes.providerId}',
           );
@@ -132,13 +149,13 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
       if (bridgeHealthy) {
         final res = await _reverseClient.query(
           provider: 'chatgpt',
-          prompt: 'Responde de forma concisa y puramente fáctica en 2 líneas a la siguiente pregunta: $clean',
+          prompt: 'Responde de forma concisa y puramente fáctica en 2 líneas a la siguiente pregunta: $sanitized',
           timeout: const Duration(seconds: 15),
         );
         if (res.ok && res.response.trim().isNotEmpty) {
           debugPrint('[knowledge-router] HIT ReverseAgent: ${res.actualProvider}');
           return ExternalKnowledgeResult(
-            query: clean,
+            query: sanitized,
             rawKnowledge: res.response.trim(),
             source: res.actualProvider,
           );
@@ -146,9 +163,9 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
       }
     } catch (_) {}
 
-    // 2. Búsqueda web directa de conocimiento público (DuckDuckGo/Wikipedia/APIs)
+    // 3. Búsqueda web directa de conocimiento público (DuckDuckGo/Wikipedia/APIs)
     try {
-      final webRes = await _webService.search(clean);
+      final webRes = await _webService.search(sanitized);
       if (webRes.found && webRes.summary.trim().isNotEmpty) {
         debugPrint('[knowledge-router] HIT WebKnowledgeService: ${webRes.title}');
         final factsBuffer = StringBuffer(webRes.summary.trim());
@@ -157,7 +174,7 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
           factsBuffer.write(webRes.snippets.first.trim());
         }
         return ExternalKnowledgeResult(
-          query: clean,
+          query: sanitized,
           rawKnowledge: factsBuffer.toString(),
           source: 'web_search',
         );
@@ -167,5 +184,12 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
     }
 
     return ExternalKnowledgeResult.empty;
+  }
+
+  @override
+  Future<void> dispose() async {
+    try {
+      await _reverseClient.stopBridge();
+    } catch (_) {}
   }
 }

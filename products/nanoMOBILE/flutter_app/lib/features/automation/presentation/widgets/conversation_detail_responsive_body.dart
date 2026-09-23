@@ -29,6 +29,10 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
               _buildControlBar(visual),
               _buildCapabilityBadge(visual),
               _buildStatus(visual),
+              ConversationChessBoardCard(
+                conversationId: widget.item.conversationId,
+                onMoveExecuted: () => _safeSetState(() {}),
+              ),
               Expanded(child: _buildMessageList(visual, entries)),
               _buildBottomActionBar(visual),
             ],
@@ -65,6 +69,10 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
             Expanded(
               child: Column(
                 children: [
+                  ConversationChessBoardCard(
+                    conversationId: widget.item.conversationId,
+                    onMoveExecuted: () => _safeSetState(() {}),
+                  ),
                   Expanded(child: _buildMessageList(visual, entries)),
                   _buildBottomActionBar(visual),
                 ],

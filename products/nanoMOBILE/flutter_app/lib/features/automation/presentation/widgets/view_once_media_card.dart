@@ -1,174 +1,139 @@
-// view_once_media_card.dart
-// 
-// QUÉ HACE:
-// Tarjeta visual para mensajes de WhatsApp de "Ver una sola vez" (View Once).
-// 
-// CÓMO FUNCIONA:
-// - Detecta si la notificación contenía una foto o video efímero guardado en caché antes de ser destruido.
-// - Renderiza un distintivo verde esmeralda con insignia (1) y botón para abrir en visor completo
-//   (foto interactiva o video en ventana flotante).
-// 
-// POR QUÉ:
-// WhatsApp elimina estos mensajes tras abrirlos; NanoAI los rescata en segundo plano y los
-// presenta sin romper la privacidad ni exceder el límite de 200 líneas de código limpio.
+/// Tarjeta Material 3 para medios de WhatsApp marcados como "ver una vez".
+///
+/// QUÉ HACE: muestra y abre únicamente el archivo exacto asociado al mensaje.
+/// CÓMO: valida la ruta de forma asíncrona y deshabilita la acción si falta.
+/// POR QUÉ: buscar "el archivo más reciente" podía mostrar contenido ajeno.
+library;
 
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'conversation_media_viewer.dart';
-import 'whatsapp_media_resolver.dart';
 
-/// Tarjeta para visualizar mensajes de WhatsApp marcados como "Ver una sola vez" (View Once).
-class ViewOnceMediaCard extends StatelessWidget {
+import 'package:flutter/material.dart';
+
+import 'conversation_media_viewer.dart';
+
+final class ViewOnceMediaCard extends StatefulWidget {
   final String? mediaPath;
   final bool isVideo;
 
   const ViewOnceMediaCard({super.key, this.mediaPath, this.isVideo = false});
 
   @override
-  Widget build(BuildContext context) {
-    final hasValidPath = mediaPath != null && mediaPath!.trim().isNotEmpty;
-    final file = hasValidPath ? File(mediaPath!.replaceFirst('file://', '')) : null;
-    final fileExists = file?.existsSync() ?? false;
+  State<ViewOnceMediaCard> createState() => _ViewOnceMediaCardState();
+}
 
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 290),
-      decoration: BoxDecoration(
-        color: const Color(0xFF064E3B).withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6), width: 1.2),
-        boxShadow: [
-          BoxShadow(color: const Color(0xFF10B981).withValues(alpha: 0.15), blurRadius: 10, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(13),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (fileExists && file != null && !isVideo)
-              GestureDetector(
-                onTap: () => ConversationMediaViewer.showPhotoViewer(context, pathOrUrl: file.path),
-                child: Stack(
-                  children: [
-                    SizedBox(
-                      height: 130,
-                      width: double.infinity,
-                      child: Image.file(file, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _buildFallback()),
+final class _ViewOnceMediaCardState extends State<ViewOnceMediaCard> {
+  File? _file;
+  late Future<bool> _exists;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveExactFile();
+  }
+
+  @override
+  void didUpdateWidget(covariant ViewOnceMediaCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mediaPath != widget.mediaPath) _resolveExactFile();
+  }
+
+  /// Conserva una sola consulta de disco por ruta y nunca escanea carpetas.
+  void _resolveExactFile() {
+    final path = widget.mediaPath?.trim().replaceFirst('file://', '') ?? '';
+    _file = path.isEmpty ? null : File(path);
+    _exists = _file?.exists() ?? Future<bool>.value(false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxWidth = MediaQuery.orientationOf(context) == Orientation.landscape
+        ? 260.0
+        : 290.0;
+    return FutureBuilder<bool>(
+      future: _exists,
+      builder: (context, snapshot) {
+        final available = snapshot.data == true && _file != null;
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxWidth),
+          child: Card.filled(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (available && !widget.isVideo) _buildPreview(context),
+                _buildDescription(context, available),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: FilledButton.tonalIcon(
+                    onPressed: available ? () => _openExact(context) : null,
+                    icon: Icon(
+                      widget.isVideo
+                          ? Icons.play_circle_outline_rounded
+                          : Icons.visibility_outlined,
                     ),
-                    Positioned(top: 8, right: 8, child: _buildBadgeHeader()),
-                  ],
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
-                child: Row(
-                  children: [
-                    _buildCircledBadge(),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isVideo ? 'Video para ver una vez' : 'Foto para ver una vez',
-                            style: const TextStyle(color: Color(0xFF34D399), fontSize: 12.5, fontWeight: FontWeight.w700),
-                          ),
-                          const Text('Preservado por NanoAI', style: TextStyle(color: Colors.white70, fontSize: 10.5)),
-                        ],
-                      ),
+                    label: Text(
+                      available
+                          ? (widget.isVideo ? 'Reproducir video' : 'Ver foto')
+                          : 'Medio no disponible',
                     ),
-                  ],
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: InkWell(
-                onTap: () => _handleOpenMedia(context, file, fileExists),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.45), width: 0.8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(isVideo ? Icons.play_circle_fill_rounded : Icons.visibility_rounded, color: const Color(0xFF34D399), size: 16),
-                      const SizedBox(width: 6),
-                      Text(
-                        isVideo ? 'Reproducir (Ventana flotante)' : 'Ver foto preservada',
-                        style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600),
-                      ),
-                    ],
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPreview(BuildContext context) {
+    return InkWell(
+      onTap: () => _openExact(context),
+      child: SizedBox(
+        height: 128,
+        child: Image.file(
+          _file!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) =>
+              const Center(child: Icon(Icons.broken_image_outlined, size: 32)),
         ),
       ),
     );
   }
 
-  Widget _buildCircledBadge() => Container(
-        width: 26,
-        height: 26,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: const Color(0xFF10B981),
-          border: Border.all(color: Colors.white, width: 1.2),
-        ),
-        child: const Center(
-          child: Text('1', style: TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w900, height: 1.0)),
-        ),
-      );
+  Widget _buildDescription(BuildContext context, bool available) {
+    final colors = Theme.of(context).colorScheme;
+    return ListTile(
+      dense: true,
+      leading: CircleAvatar(
+        backgroundColor: colors.primaryContainer,
+        foregroundColor: colors.onPrimaryContainer,
+        child: const Text('1'),
+      ),
+      title: Text(
+        widget.isVideo ? 'Video para ver una vez' : 'Foto para ver una vez',
+      ),
+      subtitle: Text(
+        available
+            ? 'Archivo exacto asociado a la notificación'
+            : 'WhatsApp no expuso un archivo verificable',
+      ),
+    );
+  }
 
-  Widget _buildBadgeHeader() => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.75),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: const Color(0xFF10B981), width: 0.8),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.looks_one_rounded, color: Color(0xFF34D399), size: 14),
-            SizedBox(width: 4),
-            Text('Ver una vez', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-          ],
-        ),
+  /// Abre solo la ruta validada; no sustituye evidencia ausente por otro medio.
+  void _openExact(BuildContext context) {
+    final file = _file;
+    if (file == null) return;
+    if (widget.isVideo) {
+      ConversationMediaViewer.openVideo(
+        context,
+        file.path,
+        title: 'Video para ver una vez',
       );
-
-  Widget _buildFallback() => Container(
-        height: 90,
-        color: const Color(0xFF064E3B).withValues(alpha: 0.5),
-        child: const Center(child: Icon(Icons.broken_image_rounded, color: Color(0xFF34D399), size: 30)),
-      );
-
-  Future<void> _handleOpenMedia(BuildContext context, File? file, bool fileExists) async {
-    if (fileExists && file != null) {
-      if (isVideo) {
-        ConversationMediaViewer.openVideo(context, file.path, title: 'Video Ver Una Vez');
-      } else {
-        ConversationMediaViewer.showPhotoViewer(context, pathOrUrl: file.path);
-      }
       return;
     }
-    if (isVideo) {
-      final vid = await WhatsAppMediaResolver.findRecentWhatsAppVideo();
-      if (vid != null && context.mounted) {
-        ConversationMediaViewer.openVideo(context, vid, title: 'Video Ver Una Vez');
-      }
-    } else {
-      final img = await WhatsAppMediaResolver.findRecentWhatsAppImage();
-      if (img != null && context.mounted) {
-        ConversationMediaViewer.showPhotoViewer(context, pathOrUrl: img);
-      }
-    }
+    ConversationMediaViewer.showPhotoViewer(context, pathOrUrl: file.path);
   }
 }

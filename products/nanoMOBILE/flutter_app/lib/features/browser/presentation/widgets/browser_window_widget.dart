@@ -19,8 +19,8 @@ import 'package:nanoai/features/browser/presentation/widgets/single_browser_inst
 /// Modos de visualización soportados en el Navegador Nano AI
 enum BrowserDisplayMode { focused, verticalStack, carousel3D }
 
-/// Coordina ventanas y sus controles; la pausa afecta solo a la vista minimizada.
-/// Cada pestaña conserva URL, historial nativo y escala independientemente.
+/// Coordina pestañas con IndexedStack estable en modo focused para navegación fluida.
+/// Al rotar de vertical a horizontal, preserva el audio y la superficie de renderizado nativa.
 class BrowserWindowWidget extends ConsumerStatefulWidget {
   final bool isEmbedded;
   final VoidCallback? onFullscreen, onClose;
@@ -35,7 +35,7 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
   final Set<String> _minimizedWindowIds = {};
   late final ScrollController _scrollController;
   String? _maximizedWindowId;
-  BrowserDisplayMode _displayMode = BrowserDisplayMode.verticalStack;
+  BrowserDisplayMode _displayMode = BrowserDisplayMode.focused;
   bool _isDesktopMode = false, _isDarkModeWeb = false, _showFindInPage = false;
 
   @override
@@ -46,20 +46,6 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
       if (!mounted) return;
       if (widget.initialUrl?.isNotEmpty == true) {
         _onUrlSubmit(widget.initialUrl!);
-      }
-      final tabs = ref.read(browserTabProvider).tabs;
-      final activeId = ref.read(browserTabProvider).activeTabId;
-      if (tabs.length > 1) {
-        final reg = ref.read(browserWebViewRegistryProvider);
-        setState(() {
-          for (int i = 0; i < tabs.length; i++) {
-            // Solo minimizar pestañas NO activas → activa siempre visible
-            if (tabs[i].id != activeId) {
-              _minimizedWindowIds.add(tabs[i].id);
-              reg.pauseTab(tabs[i].id); // Previene zombis de CPU
-            }
-          }
-        });
       }
     });
   }
@@ -75,7 +61,6 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
     final activeTab = ref.read(browserTabProvider).activeTab;
     final id = tabId ?? activeTab.id;
     final ctrl = ref.read(browserWebViewRegistryProvider).controllerFor(id);
-    // El callback nativo actualizará la URL; no emitir dos cargas de la misma página.
     if (ctrl != null) { ctrl.loadUrl(urlRequest: URLRequest(url: WebUri(url))); }
     else { ref.read(browserTabProvider.notifier).updateTabById(id, url: url); }
   }
@@ -93,8 +78,10 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
       context: context, ref: ref, tab: tab, controller: ctrl, currentZoom: tab.zoomLevel,
       isDesktopMode: _isDesktopMode, isDarkModeWeb: _isDarkModeWeb, onNavigate: (u) => _onUrlSubmit(u, tab.id),
       onToggleCarousel: () => setState(() => _displayMode = _displayMode == BrowserDisplayMode.carousel3D ? BrowserDisplayMode.focused : BrowserDisplayMode.carousel3D),
-      onZoomChanged: (z) { if (mounted) ref.read(browserTabProvider.notifier).updateTabById(tab.id, zoomLevel: z); }, onToggleDesktopMode: () => setState(() => _isDesktopMode = !_isDesktopMode),
-      onToggleDarkModeWeb: () => setState(() => _isDarkModeWeb = !_isDarkModeWeb), onFindInPage: () => setState(() => _showFindInPage = true),
+      onZoomChanged: (z) { if (mounted) ref.read(browserTabProvider.notifier).updateTabById(tab.id, zoomLevel: z); },
+      onToggleDesktopMode: () => setState(() => _isDesktopMode = !_isDesktopMode),
+      onToggleDarkModeWeb: () => setState(() => _isDarkModeWeb = !_isDarkModeWeb),
+      onFindInPage: () => setState(() => _showFindInPage = true),
     );
     BrowserOptionsSheet.show(context: context, tab: tab, isBookmarked: ref.read(browserHistoryProvider).isBookmarked(tab.url), isDesktopMode: _isDesktopMode, isDarkModeWeb: _isDarkModeWeb, onAction: handler.handleAction);
   }
@@ -148,14 +135,15 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
       onClose: () => _closeTab(activeTab.id),
       onToggleStackMode: () => setState(() => _displayMode = _displayMode == BrowserDisplayMode.verticalStack ? BrowserDisplayMode.focused : BrowserDisplayMode.verticalStack),
       onToggleCarouselMode: () => setState(() => _displayMode = _displayMode == BrowserDisplayMode.carousel3D ? BrowserDisplayMode.focused : BrowserDisplayMode.carousel3D),
-      onOpenOptionsMenu: () => _openOptionsMenu(activeTab), onUrlTap: () => BrowserDialogHelper.showUrlEditDialog(context: context, currentUrl: activeTab.url, onSubmitted: _onUrlSubmit),
+      onOpenOptionsMenu: () => _openOptionsMenu(activeTab),
+      onNavigate: (url) => _onUrlSubmit(url, activeTab.id),
       onZoomChanged: (z) { if (mounted) notifier.updateTabById(activeTab.id, zoomLevel: z); },
     );
 
     final isCarousel = _displayMode == BrowserDisplayMode.carousel3D;
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF030712), borderRadius: BorderRadius.circular(isLand ? 14 : 20), border: Border.all(color: (isCarousel ? const Color(0xFF10B981) : const Color(0xFF059669)).withValues(alpha: 0.5), width: 1.2)),
-      child: ClipRRect(borderRadius: BorderRadius.circular(isLand ? 13 : 19), child: Column(children: [
+      decoration: BoxDecoration(color: const Color(0xFF030712), borderRadius: BorderRadius.circular(isLand ? 10 : 16), border: Border.all(color: (isCarousel ? const Color(0xFF10B981) : const Color(0xFF059669)).withValues(alpha: 0.5), width: 1.0)),
+      child: ClipRRect(borderRadius: BorderRadius.circular(isLand ? 9 : 15), child: Column(children: [
         topBar,
         if (!isCarousel) BrowserWindowTabsStrip(
           tabs: tabState.tabs, activeTabId: tabState.activeTabId, onCloseTab: _closeTab, onAddTab: () => notifier.addTab(),
@@ -172,7 +160,7 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
                 onNavigate: _onUrlSubmit, onExternalPrompt: (u) => BrowserDialogHelper.promptExternalApp(context, u),
               )
             : IndexedStack(index: activeIdx, children: tabState.tabs.map((tab) => SingleBrowserInstanceWidget(
-                key: ValueKey('win_${tab.id}'), tab: tab, fillHeight: true, showCardHeader: false, isMinimized: false, isMaximized: true,
+                key: ValueKey('browser_instance_${tab.id}'), tab: tab, fillHeight: true, showCardHeader: false, isMinimized: false, isMaximized: true,
                 currentZoom: activeTab.zoomLevel, isDesktopMode: _isDesktopMode, isDarkModeWeb: _isDarkModeWeb,
                 onToggleMinimize: () => setState(() { _minimizedWindowIds.add(tab.id); reg.pauseTab(tab.id); _displayMode = BrowserDisplayMode.verticalStack; }),
                 onToggleMaximize: () => setState(() { _maximizedWindowId = tab.id; _displayMode = BrowserDisplayMode.verticalStack; }),

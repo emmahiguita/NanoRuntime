@@ -9,7 +9,7 @@ library;
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, kReleaseMode;
 import 'package:nanoai/core/services/llm_engine_client.dart';
 
 import '../../personal_agent/domain/conversation_agent_role.dart'
@@ -163,6 +163,7 @@ final class RuntimeNotificationDraftWriter {
   /// DRAFT. La clave es conversationId + fingerprint del input (la MISMA
   /// evidencia del dedupe: notification.key, timestamp y texto).
   static final Map<String, Future<NotificationDraftResult?>> _inFlight = {};
+  static final Map<String, String> _latestFlightKeyByConv = {};
   static Future<void> _draftTail = Future<void>.value();
   static int _queueDepth = 0;
   static const _maxQueueDepth = 64;
@@ -196,7 +197,30 @@ final class RuntimeNotificationDraftWriter {
     _queueDepth++;
     MessagingMetrics.queueDepth(_queueDepth);
     debugPrint('[draft:queue] depth=$_queueDepth');
-    final future = _draftTail.then((_) => _draft(notification, conversationId));
+
+    _latestFlightKeyByConv[conversationId] = flightKey;
+    final arrivedAt = DateTime.now();
+
+    final future = _draftTail.then((_) async {
+      // AUT-P1-08: Coalescing por conversación — si llegó un mensaje nuevo
+      // mientras este esperaba en cola, se descarta el borrador obsoleto.
+      if (_latestFlightKeyByConv[conversationId] != flightKey) {
+        debugPrint(
+          '[draft:coalesce] superseded conv=${_shortId(conversationId)} '
+          'input="${_sample(notification.text)}"',
+        );
+        return null;
+      }
+      // AUT-P1-08: Deadline de frescura — si pasaron más de 45s esperando en cola,
+      // la notificación está desactualizada y se descarta limpiamente.
+      if (DateTime.now().difference(arrivedAt).inSeconds > 45) {
+        debugPrint(
+          '[draft:deadline] expired (>45s in queue) conv=${_shortId(conversationId)}',
+        );
+        return null;
+      }
+      return _draft(notification, conversationId);
+    });
     _draftTail = future.then<void>((_) {}, onError: (Object _) {});
 
     _inFlight[flightKey] = future;
@@ -206,6 +230,9 @@ final class RuntimeNotificationDraftWriter {
       _queueDepth--;
       if (identical(_inFlight[flightKey], future)) {
         _inFlight.remove(flightKey);
+      }
+      if (_latestFlightKeyByConv[conversationId] == flightKey) {
+        _latestFlightKeyByConv.remove(conversationId);
       }
     }
   }
@@ -513,7 +540,11 @@ final class RuntimeNotificationDraftWriter {
 
   /// Muestra acotada de la salida cruda para trazas físicas (200 chars,
   /// una línea: el raw completo con saltos inundaba el logcat).
+  /// AUT-P1-10: en modo release se enmascara para evitar filtrar mensajes en logcat.
   static String _sample(String raw) {
+    if (kReleaseMode) {
+      return '<redacted:${raw.length}chars>';
+    }
     final single = raw.replaceAll('\n', ' ').trim();
     return single.length <= 200 ? single : single.substring(0, 200);
   }

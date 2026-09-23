@@ -14,6 +14,7 @@ import 'package:nanoai/features/actions/personal/personal_actions.dart';
 import 'package:nanoai/features/actions/whatsapp/whatsapp_reply_action.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
+import 'package:nanoai/features/automation/engine/business/business_conversation_resolver.dart';
 import 'package:nanoai/features/automation/engine/language/language_assist.dart';
 import 'package:nanoai/features/automation/engine/language/pragmatic_fast_path.dart';
 import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
@@ -59,7 +60,8 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart'
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
-import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
+import 'package:nanoai/features/automation/chess/application/chess_game_store.dart';
+import 'package:nanoai/features/automation/chess/application/chess_referee_service.dart';
 import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
@@ -552,9 +554,11 @@ final personaStyleResolverProvider = Provider<PersonaStyleResolver>((ref) {
 
 /// Proveedor de enrutador de conocimiento fáctico externo (Web/Bridge/BrowserAi).
 final turnKnowledgeRouterProvider = Provider<TurnKnowledgeRouter>((ref) {
-  return RuntimeTurnKnowledgeRouter(
+  final router = RuntimeTurnKnowledgeRouter(
     browserAiGateway: ref.watch(browserAiGatewayProvider),
   );
+  ref.onDispose(router.dispose);
+  return router;
 });
 
 /// Proveedor único del compositor conversacional canónico para toda la aplicación.
@@ -574,9 +578,13 @@ final canonicalConversationReplyComposerProvider =
         ),
         styleResolver: ref.watch(personaStyleResolverProvider),
         knowledgeRouter: ref.watch(turnKnowledgeRouterProvider),
+        businessResolver: const BusinessConversationResolver(),
+        factsSource: () => ref.read(businessFactsNotifierProvider),
+        toneSource: () => ref.read(toneProfileNotifierProvider),
         styleFormatter: const RuntimePersonalStyleFormatter(),
         memoryStore: ref.watch(conversationMemoryStoreProvider),
         decisionEngine: const ConversationDecisionEngine(),
+        chessService: ChessRefereeService(store: ref.watch(chessGameStoreProvider)),
         thermalStatus: () => LanguageAssistService().thermalStatus(),
         decisionContext: (notif) =>
             _buildConversationDecisionContext(ref, notif),

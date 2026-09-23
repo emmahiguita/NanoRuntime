@@ -2,11 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
+import 'dialog_container_shell.dart';
 
-/// Diálogo profesional para agregar o editar productos del catálogo comercial.
+// product_dialog.dart
+//
+// QUÉ HACE:
+// Diálogo profesional con Material Expressive para agregar o editar productos y servicios del catálogo.
+//
+// CÓMO FUNCIONA:
+// - Captura nombre, detalles, precio y stock numérico con validación y formateo de miles.
+// - Utiliza DialogContainerShell para adaptar dimensiones en Landscape y Portrait sin desbordar con teclado.
+//
+// POR QUÉ:
+// Asegura edición limpia y accesible de inventario en cualquier orientación (< 200 líneas).
+
 class ProductDialog extends StatefulWidget {
   final BusinessProduct? initial;
-
   const ProductDialog({super.key, this.initial});
 
   @override
@@ -14,22 +25,16 @@ class ProductDialog extends StatefulWidget {
 }
 
 class _ProductDialogState extends State<ProductDialog> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _detailsController;
-  late final TextEditingController _priceController;
-  late final TextEditingController _stockController;
+  late final TextEditingController _nameController, _detailsController, _priceController, _stockController;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initial?.name ?? '');
-    _detailsController =
-        TextEditingController(text: widget.initial?.details ?? '');
+    _detailsController = TextEditingController(text: widget.initial?.details ?? '');
     _priceController = TextEditingController(
-      text: widget.initial != null && widget.initial!.price > 0
-          ? widget.initial!.price.toString()
-          : '',
+      text: widget.initial != null && widget.initial!.price > 0 ? widget.initial!.price.toString() : '',
     );
     _stockController = TextEditingController(
       text: widget.initial?.stock != null ? widget.initial!.stock.toString() : '',
@@ -78,190 +83,105 @@ class _ProductDialogState extends State<ProductDialog> {
     final visual = AutomationVisual.of(context);
     final isEditing = widget.initial != null;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 440),
-        decoration: BoxDecoration(
-          color: visual.isDark ? const Color(0xFF0F172A) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: visual.isDark
-                ? Colors.white.withValues(alpha: 0.16)
-                : const Color(0xFFCBD5E1),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 28,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: visual.accentSoft,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      isEditing ? Icons.edit_note_rounded : Icons.add_business_rounded,
-                      color: visual.accent,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      isEditing ? 'Editar producto' : 'Nuevo producto o servicio',
-                      style: TextStyle(
-                        color: visual.text,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                controller: _nameController,
-                autofocus: !isEditing,
-                style: TextStyle(color: visual.text, fontSize: 14),
-                decoration: InputDecoration(
-                  labelText: 'Nombre del producto',
-                  hintText: 'Ej. Hamburguesa Especial, Silla Gamer',
-                  labelStyle: TextStyle(color: visual.textMuted),
-                  filled: true,
-                  fillColor: visual.inputFill,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
+    return DialogContainerShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 14, 12, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(color: visual.accentSoft, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(isEditing ? Icons.edit_note_rounded : Icons.add_business_rounded, color: visual.accent, size: 20),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _detailsController,
-                style: TextStyle(color: visual.text, fontSize: 14),
-                decoration: InputDecoration(
-                  labelText: 'Variante o descripción corta (opcional)',
-                  hintText: 'Ej. Talla M, Combo con papas, 256GB',
-                  labelStyle: TextStyle(color: visual.textMuted),
-                  filled: true,
-                  fillColor: visual.inputFill,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextField(
-                      controller: _priceController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: TextStyle(color: visual.text, fontSize: 14),
-                      decoration: InputDecoration(
-                        labelText: 'Precio en pesos (\$)',
-                        hintText: 'Ej. 25000',
-                        prefixText: '\$ ',
-                        labelStyle: TextStyle(color: visual.textMuted),
-                        filled: true,
-                        fillColor: visual.inputFill,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: TextField(
-                      controller: _stockController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      style: TextStyle(color: visual.text, fontSize: 14),
-                      decoration: InputDecoration(
-                        labelText: 'Stock (opcional)',
-                        hintText: 'Ej. 10',
-                        labelStyle: TextStyle(color: visual.textMuted),
-                        filled: true,
-                        fillColor: visual.inputFill,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _errorMessage!,
-                  style: const TextStyle(
-                    color: Color(0xFFEF4444),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                  ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(isEditing ? 'Editar producto' : 'Nuevo producto / servicio', style: TextStyle(color: visual.text, fontSize: 16, fontWeight: FontWeight.w700)),
                 ),
               ],
-              const SizedBox(height: 22),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: visual.textMuted,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
+                  _field(_nameController, 'Nombre del producto *', visual, hint: 'Ej. Hamburguesa Doble Queso'),
+                  const SizedBox(height: 8),
+                  _field(_detailsController, 'Descripción o ingredientes', visual, hint: 'Ej. Carne 150g, queso cheddar, papas', maxLines: 2),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _field(_priceController, 'Precio (\$ COP) *', visual, hint: 'Ej. 25000', isNumber: true),
                       ),
-                    ),
-                    child: const Text('Cancelar'),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: _field(_stockController, 'Stock (opcional)', visual, hint: 'Ej. 50', isNumber: true),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _save,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: visual.accent,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 22,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                    child: Text(isEditing ? 'Actualizar' : 'Agregar'),
-                  ),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 8),
+                    Text(_errorMessage!, style: const TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w600)),
+                  ],
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancelar', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _save,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: visual.accent,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text(isEditing ? 'Actualizar' : 'Guardar', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _field(TextEditingController ctrl, String label, AutomationVisualPalette visual, {String? hint, int maxLines = 1, bool isNumber = false}) => TextField(
+        controller: ctrl,
+        maxLines: maxLines,
+        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        inputFormatters: isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
+        style: TextStyle(color: visual.text, fontSize: 12.5),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(fontSize: 11, color: visual.textMuted),
+          hintText: hint,
+          hintStyle: TextStyle(fontSize: 10, color: visual.textMuted.withValues(alpha: 0.5)),
+          filled: true,
+          fillColor: visual.inputFill,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        ),
+      );
 }

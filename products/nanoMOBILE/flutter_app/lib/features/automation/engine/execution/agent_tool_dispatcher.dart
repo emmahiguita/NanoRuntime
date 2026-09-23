@@ -518,7 +518,12 @@ class AgentToolDispatcher {
     if (tool.risk != ToolRisk.none && tool.risk != ToolRisk.read) {
       onPhysicalEffectDispatched?.call();
     }
-    final feedback = await _executeWithTimeout(call, tool, runBudget);
+    final feedback = await _executeWithTimeout(
+      call,
+      tool,
+      runBudget,
+      cancellation: cancellation,
+    );
     return ToolOutcome(
       verdict: PolicyVerdict.allow,
       feedback: feedback,
@@ -561,8 +566,9 @@ class AgentToolDispatcher {
   Future<String> _executeWithTimeout(
     ToolCall call,
     ToolDefinition tool,
-    ToolExecutionBudget budget,
-  ) async {
+    ToolExecutionBudget budget, {
+    ExecutionCancellationToken? cancellation,
+  }) async {
     budget.recordExecution();
     final explicitTimeoutSeconds = call.args?['timeout'] is num
         ? (call.args!['timeout'] as num).toInt()
@@ -585,6 +591,8 @@ class AgentToolDispatcher {
       return await _executeTool(call).timeout(
         effectiveTimeout,
         onTimeout: () {
+          // AUT-P1-07: Señalizar cancelación física en el token ante vencimiento
+          cancellation?.cancel();
           if (tool.risk == ToolRisk.none || tool.risk == ToolRisk.read) {
             return '[timeout] "${tool.name}" excedió ${effectiveTimeout.inSeconds}s.';
           }

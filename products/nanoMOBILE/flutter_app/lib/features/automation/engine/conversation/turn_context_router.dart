@@ -1,14 +1,20 @@
-/// TURN CONTEXT ROUTER
+/// QUÉ HACE:
+/// Enruta y clasifica el contexto del turno entrante, detectando continuidades temáticas,
+/// respuestas breves a preguntas previas ("sí", "M", "mañana") y elegibilidad para FastPath.
 ///
-/// Enruta y estructura el contexto de un turno entrante en WhatsApp.
-/// Analiza continuidad temática (evita responder solo al "ok" tras un pedido de precio),
-/// detecta mensajes en ráfaga (MessagingStyle ' · ') y determina el rol del turno.
-/// Cumple Clean Architecture y SOLID: < 220 líneas.
+/// CÓMO FUNCIONA:
+/// Analiza complejidad léxica, descompone mensajes en ráfagas (' · '), detecta acuses de recibo
+/// y respuestas cortas de valor, e inspecciona la memoria previa para evitar desconectar
+/// una respuesta corta de la pregunta comercial que la originó.
+///
+/// POR QUÉ:
+/// Resuelve el error donde un usuario responde "M" o "sí" y el sistema lo toma como
+/// un mensaje aislado sin asociarlo a la talla o confirmación que Nano acababa de solicitar.
 library;
 
+import '../business/fact_selector.dart' show normalizeText;
 import '../language/turn_complexity_classifier.dart'
     show TurnComplexity, turnComplexityClassifier;
-import '../business/fact_selector.dart' show normalizeText;
 import '../messaging/conversation_memory.dart'
     show ConversationMemory, ConversationMemoryEntryKind;
 import '../notifications/notification_object.dart';
@@ -20,6 +26,7 @@ final class TurnRoutingAnalysis {
   final TurnComplexity targetComplexity;
   final TurnComplexity fullComplexity;
   final bool isShortAcknowledgment;
+  final bool isShortValueAnswer;
   final bool hasContextualContinuity;
   final bool isFastPathEligible;
 
@@ -29,6 +36,7 @@ final class TurnRoutingAnalysis {
     required this.targetComplexity,
     required this.fullComplexity,
     required this.isShortAcknowledgment,
+    this.isShortValueAnswer = false,
     required this.hasContextualContinuity,
     required this.isFastPathEligible,
   });
@@ -39,27 +47,14 @@ final class TurnContextRouter {
   const TurnContextRouter();
 
   static const _acknowledgmentTokens = {
-    'ok',
-    'oka',
-    'okey',
-    'listo',
-    'lista',
-    'dale',
-    'de una',
-    'bueno',
-    'bien',
-    'ya',
-    'perfecto',
-    'entendido',
-    'vale',
-    'claro',
-    'si',
-    'sip',
-    'sisas',
-    'de acuerdo',
-    'comprendido',
-    'va',
-    'ta bien',
+    'ok', 'oka', 'okey', 'listo', 'lista', 'dale', 'de una', 'bueno', 'bien',
+    'ya', 'perfecto', 'entendido', 'vale', 'claro', 'si', 'sip', 'sisas',
+    'de acuerdo', 'comprendido', 'va', 'ta bien',
+  };
+
+  static const _shortValueTokens = {
+    'xs', 's', 'm', 'l', 'xl', 'xxl', 'negro', 'blanca', 'blanco', 'azul',
+    'rojo', 'roja', 'verde', 'hoy', 'manana', 'tarde', 'uno', 'dos', 'tres',
   };
 
   /// Analiza la notificación y la memoria previa para extraer el contexto del turno.
@@ -77,13 +72,10 @@ final class TurnContextRouter {
         : turnComplexityClassifier.classify(fullText);
 
     final isShortAck = _isAcknowledgment(targetText);
-    final hasContinuity = isShortAck && _hasSubstantivePrecedingContext(memory);
+    final isShortVal = _isShortValue(targetText);
+    final hasContinuity = (isShortAck || isShortVal) &&
+        _hasSubstantivePrecedingContext(memory);
 
-    // FastPath solo se permite cuando:
-    // 1. No es canal business.
-    // 2. El mensaje objetivo califica como social mínimo.
-    // 3. No hay señales narrativas/contextuales/complejas en el turno completo.
-    // 4. NO es una confirmación corta que hereda un hilo previo sustantivo (evita bug precio+ok).
     final allFragmentsSocial =
         targetText == fullText ||
         fullText
@@ -111,54 +103,51 @@ final class TurnContextRouter {
       targetComplexity: targetComplexity,
       fullComplexity: fullComplexity,
       isShortAcknowledgment: isShortAck,
+      isShortValueAnswer: isShortVal,
       hasContextualContinuity: hasContinuity,
       isFastPathEligible: isFastPathEligible,
     );
   }
 
-  /// Extrae el texto relevante del último fragmento de ráfaga o notificación.
   static String _extractTargetText(NotificationObject notification) {
     final inter = notification.interpretableText.trim();
     if (inter.contains(' · ')) {
-      final segments = inter
-          .split(' · ')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty);
+      final segments = inter.split(' · ').map((s) => s.trim()).where((s) => s.isNotEmpty);
       if (segments.isNotEmpty) return segments.last;
     }
     if (inter.isNotEmpty) return inter;
 
     final raw = notification.text.trim();
     if (raw.contains(' · ')) {
-      final segments = raw
-          .split(' · ')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty);
+      final segments = raw.split(' · ').map((s) => s.trim()).where((s) => s.isNotEmpty);
       if (segments.isNotEmpty) return segments.last;
     }
     return raw;
   }
 
-  /// Extrae el texto completo consolidado.
   static String _extractFullText(NotificationObject notification) {
     final inter = notification.interpretableText.trim();
     if (inter.isNotEmpty) return inter;
     return notification.text.trim();
   }
 
-  /// Comprueba si el texto es un acuse de recibo o confirmación corta ("ok", "dale", etc.).
   static bool _isAcknowledgment(String text) {
-    final clean = normalizeText(
-      text,
-    ).replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '').trim();
+    final clean = normalizeText(text)
+        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '')
+        .trim();
     return _acknowledgmentTokens.contains(clean);
   }
 
-  /// Inspecciona si la conversación venía de una pregunta sustantiva o comercial.
+  static bool _isShortValue(String text) {
+    final clean = normalizeText(text)
+        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '')
+        .trim();
+    if (_shortValueTokens.contains(clean)) return true;
+    return RegExp(r'^\d{1,4}$').hasMatch(clean);
+  }
+
   static bool _hasSubstantivePrecedingContext(ConversationMemory? memory) {
     if (memory == null || memory.entries.isEmpty) return false;
-
-    // Buscar hacia atrás en los últimos 3 mensajes
     final entries = memory.entries;
     final limit = entries.length > 3 ? entries.length - 3 : 0;
 
@@ -166,20 +155,21 @@ final class TurnContextRouter {
       final entry = entries[i];
       final text = entry.text.toLowerCase();
 
-      // Si el mensaje anterior fue un outbound con pregunta o catálogo
       if (entry.kind == ConversationMemoryEntryKind.outboundVerified ||
           entry.kind == ConversationMemoryEntryKind.outboundDispatched) {
         if (text.contains('?') ||
             text.contains('vale') ||
             text.contains('cuesta') ||
             text.contains('precio') ||
+            text.contains('talla') ||
+            text.contains('color') ||
+            text.contains('envio') ||
             text.contains('disponible') ||
             text.contains('stock')) {
           return true;
         }
       }
 
-      // Si el usuario anterior preguntó algo sustantivo
       if (entry.kind == ConversationMemoryEntryKind.inbound) {
         if (text.contains('precio') ||
             text.contains('cuanto') ||

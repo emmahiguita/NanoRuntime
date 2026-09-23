@@ -15,7 +15,7 @@ import 'package:nanoai/core/widgets/feather_core_icon.dart';
 import '../widgets/whatsapp_integration_cards.dart';
 import '../widgets/whatsapp_reply_delay_card.dart';
 import 'automation_rules_screen.dart';
-import 'business_studio_screen.dart';
+import '../business/nano_business_screen.dart';
 import 'personal_agent_screen.dart';
 import '../../personal_agent/domain/conversation_autonomy_mode.dart';
 import '../../personal_agent/presentation/personalization_studio_screen.dart';
@@ -361,7 +361,7 @@ class _AutomationSettingsScreenState
             ),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
-                builder: (_) => const BusinessStudioScreen(),
+                builder: (_) => const NanoBusinessScreen(),
               ),
             ),
           ),

@@ -2,10 +2,10 @@ import 'dart:async';
 
 import '../../platform/whatsapp_media_share.dart';
 import '../../../application/whatsapp_contacts_provider.dart';
-import '../../../domain/whatsapp_contact.dart';
 import '../../planning/contact_matcher.dart';
 import '../../planning/whatsapp_intent_parser.dart';
 import '../tool_call.dart';
+import 'whatsapp_contact_resolver.dart';
 
 /// WhatsAppToolHandler — Ejecución tipada de herramientas WhatsApp.
 ///
@@ -19,44 +19,14 @@ import '../tool_call.dart';
 class WhatsAppToolHandler {
   final WhatsAppMediaShare _share;
   final WhatsAppContactsService _contacts;
+  late final WhatsAppContactResolver _contactResolver;
 
   WhatsAppToolHandler({
     WhatsAppMediaShare share = const WhatsAppMediaShare(),
     WhatsAppContactsService? contacts,
-  })  : _share = share,
-        _contacts = contacts ?? _DefaultContactsService();
-
-  // ── Resolución de contacto ─────────────────────────────────────────────────
-
-  /// Resuelve [query] contra los contactos reales del dispositivo.
-  /// Prioridad: número directo (≥7 dígitos) → coincidencia inteligente ([ContactMatcher]).
-  /// Retorna `null` si no hay contactos o si ninguno supera el umbral de coincidencia.
-  Future<WhatsAppContact?> _resolveContact(String query) async {
-    if (!await _contacts.hasPermission()) await _contacts.requestPermission();
-    final all = await _contacts.getContacts();
-    if (all.isEmpty) return null;
-
-    final q = query.trim().toLowerCase();
-    const generic = {'destinatario', 'contacto', 'contacto de whatsapp', 'contactos'};
-    if (q.isEmpty || generic.contains(q)) return all.first;
-
-    // Búsqueda por número directo (≥7 dígitos)
-    final digits = q.replaceAll(RegExp(r'\D'), '');
-    if (digits.length >= 7) {
-      final byNum = all.where((c) {
-        final cd = c.number.replaceAll(RegExp(r'\D'), '');
-        return cd == digits || cd.endsWith(digits) || digits.endsWith(cd);
-      }).firstOrNull;
-      if (byNum != null) return byNum;
-      // Número no guardado en la agenda: contacto ad-hoc válido
-      return WhatsAppContact(
-        id: digits, name: query, number: digits,
-        jid: '$digits@s.whatsapp.net', isBusiness: false,
-      );
-    }
-
-    // Coincidencia inteligente con ContactMatcher (exacta, fonética y tokens)
-    return ContactMatcher.findBest(query, all);
+  }) : _share = share,
+       _contacts = contacts ?? _DefaultContactsService() {
+    _contactResolver = WhatsAppContactResolver(_contacts);
   }
 
   // ── Herramientas públicas ──────────────────────────────────────────────────
@@ -65,19 +35,31 @@ class WhatsAppToolHandler {
   Future<String> openChat(ToolCall call) async {
     final contactQ = _str(call, 'contact');
     final text = _str(call, 'text');
-    final autoSend = call.args?['autoSend'] == true;
     final pkg = call.args?['packageName'] as String?;
 
     if (contactQ.isEmpty) {
-      final ok = await _share.openChat(contact: '', text: text, packageName: pkg, autoSend: false);
-      return ok ? '[completed] WhatsApp abierto.' : '[error] No se pudo abrir WhatsApp.';
+      final ok = await _share.openChat(
+        contact: '',
+        text: text,
+        packageName: pkg,
+        autoSend: false,
+      );
+      return ok
+          ? '[completed] WhatsApp abierto.'
+          : '[error] No se pudo abrir WhatsApp.';
     }
 
-    final resolved = await _resolveContact(contactQ);
+    final resolved = await _contactResolver.resolve(contactQ);
     final phone = resolved?.number ?? contactQ;
-    final name  = resolved?.name  ?? contactQ;
+    final name = resolved?.name ?? contactQ;
 
-    final ok = await _share.openChat(contact: phone, text: text, packageName: pkg, autoSend: autoSend);
+    // Esta herramienta solo navega. El envío vive en sendMessage y su policy.
+    final ok = await _share.openChat(
+      contact: phone,
+      text: text,
+      packageName: pkg,
+      autoSend: false,
+    );
     return ok
         ? '[completed] Chat abierto con "$name" ($phone).'
         : '[error] No se pudo abrir el chat con "$name".';
@@ -88,40 +70,66 @@ class WhatsAppToolHandler {
     final contactQ = _str(call, 'contact').isNotEmpty
         ? _str(call, 'contact')
         : (call.selectorArg ?? '');
-    final text = _str(call, 'text').isNotEmpty ? _str(call, 'text') : (call.textArg ?? '');
-    final message = text.isEmpty ? 'Hola desde NanoAI' : text;
-
+    final text = _str(call, 'text').isNotEmpty
+        ? _str(call, 'text')
+        : (call.textArg ?? '');
     if (contactQ.isEmpty) {
       return '[error] Falta especificar el contacto destinatario.';
     }
+    if (text.isEmpty) {
+      return '[error] Falta especificar el texto exacto del mensaje.';
+    }
 
-    final resolved = await _resolveContact(contactQ);
+    final resolved = await _contactResolver.resolve(contactQ);
     if (resolved == null) {
       return '[error] No se encontró el contacto "$contactQ" en la agenda del dispositivo.';
     }
 
-    final ok = await _share.openChat(contact: resolved.number, text: message, autoSend: true);
+    final ok = await _share.openChat(
+      contact: resolved.number,
+      text: text,
+      autoSend: true,
+    );
     return ok
-        ? '[completed] Mensaje enviado a "${resolved.name}" (${resolved.number}): "$message".'
-        : '[error] Falló el envío a "${resolved.name}".';
+        ? '[completedUnverified] Chat abierto para "${resolved.name}" '
+              '(${resolved.number}); el envío automático fue solicitado, pero '
+              'el clic y la entrega no están verificados.'
+        : '[error] No se pudo iniciar el envío a "${resolved.name}".';
   }
 
   /// Comparte un archivo (imagen, video, pdf, documento) con un contacto.
   Future<String> shareFile(ToolCall call) async {
-    final contactQ = _str(call, 'contact').isNotEmpty ? _str(call, 'contact') : (call.selectorArg ?? '');
-    final path = _str(call, 'path').isNotEmpty ? _str(call, 'path') : (call.textArg ?? '');
+    final contactQ = _str(call, 'contact').isNotEmpty
+        ? _str(call, 'contact')
+        : (call.selectorArg ?? '');
+    final path = _str(call, 'path').isNotEmpty
+        ? _str(call, 'path')
+        : (call.textArg ?? '');
     final caption = _str(call, 'caption');
 
-    if (path.isEmpty) return '[error] No se especificó la ruta del archivo a compartir.';
+    if (contactQ.isEmpty) {
+      return '[error] Falta especificar el contacto destinatario.';
+    }
+    if (path.isEmpty) {
+      return '[error] No se especificó la ruta del archivo a compartir.';
+    }
 
-    final resolved = await _resolveContact(contactQ);
-    final phone = resolved?.number ?? contactQ;
-    final name = resolved?.name ?? contactQ;
+    final resolved = await _contactResolver.resolve(contactQ);
+    if (resolved == null) {
+      return '[error] No se encontró el contacto "$contactQ" en la agenda del dispositivo.';
+    }
 
-    final ok = await _share.shareFile(path: path, contact: phone, caption: caption);
+    final ok = await _share.shareFile(
+      path: path,
+      contact: resolved.number,
+      caption: caption,
+      autoSend: true,
+    );
     return ok
-        ? '[completed] Archivo listo para "$name" ($phone).'
-        : '[error] No se pudo compartir el archivo con "$name".';
+        ? '[completedUnverified] Flujo de archivo abierto para '
+              '"${resolved.name}" (${resolved.number}); el clic y la entrega '
+              'no están verificados.'
+        : '[error] No se pudo iniciar el envío del archivo a "${resolved.name}".';
   }
 
   /// Lista y filtra contactos de WhatsApp con puntuación de relevancia.
@@ -130,14 +138,21 @@ class WhatsAppToolHandler {
     if (rawQ.isEmpty && call.textArg != null) {
       rawQ = WhatsAppIntentParser.parse(call.textArg!)?.contact ?? '';
     }
-    final query = rawQ.toLowerCase().replaceAll(
-      RegExp(r'\b(contactos?|whatsapp|buscar?|ver?|listar?|de|a|en|los|las|mis)\b'),
-      '',
-    ).trim();
+    final query = rawQ
+        .toLowerCase()
+        .replaceAll(
+          RegExp(
+            r'\b(contactos?|whatsapp|buscar?|ver?|listar?|de|a|en|los|las|mis)\b',
+          ),
+          '',
+        )
+        .trim();
 
     if (!await _contacts.hasPermission()) await _contacts.requestPermission();
     final all = await _contacts.getContacts();
-    if (all.isEmpty) return '[error] Sin contactos en el dispositivo o permiso denegado.';
+    if (all.isEmpty) {
+      return '[error] Sin contactos en el dispositivo o permiso denegado.';
+    }
 
     final filtered = query.isEmpty
         ? all.take(10).toList()
@@ -158,19 +173,18 @@ class WhatsAppToolHandler {
       return 'Uso: @whatsapp <contacto_o_numero> [mensaje opcional]';
     }
     final message = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-    return openChat(ToolCall(
-      tool: 'whatsapp.open_chat',
-      args: {
-        'contact': parts.first,
-        if (message.isNotEmpty) 'text': message,
-        'autoSend': message.isNotEmpty,
-      },
-    ));
+    final call = ToolCall(
+      tool: message.isEmpty ? 'whatsapp.open_chat' : 'whatsapp.send_message',
+      args: {'contact': parts.first, if (message.isNotEmpty) 'text': message},
+    );
+    // El comando humano con texto es consentimiento explícito para enviar.
+    return message.isEmpty ? openChat(call) : sendMessage(call);
   }
 
   // ── Helper ─────────────────────────────────────────────────────────────────
 
-  String _str(ToolCall call, String key) => (call.args?[key] ?? '').toString().trim();
+  String _str(ToolCall call, String key) =>
+      (call.args?[key] ?? '').toString().trim();
 }
 
 class _DefaultContactsService extends WhatsAppContactsService {

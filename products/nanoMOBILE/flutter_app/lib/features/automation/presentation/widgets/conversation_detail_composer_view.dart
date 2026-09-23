@@ -9,39 +9,47 @@ extension ConversationDetailComposerView on _ConversationDetailSheetState {
     return Row(
       children: [
         if (isLandscape) ...[
-          IconButton(
-            tooltip: 'Sugerir con IA',
-            onPressed: _busy ? null : _generateAiSuggestion,
-            icon: const Icon(CupertinoIcons.sparkles, size: 17),
-            color: const Color(0xFF007AFF),
-            visualDensity: VisualDensity.compact,
+          Semantics(
+            label: 'Sugerir con IA',
+            button: true,
+            child: IconButton(
+              onPressed: _busy ? null : _generateAiSuggestion,
+              icon: const Icon(CupertinoIcons.sparkles, size: 17),
+              color: const Color(0xFF007AFF),
+              visualDensity: VisualDensity.compact,
+            ),
           ),
           const SizedBox(width: 4),
         ],
-        IconButton.filledTonal(
-          tooltip: 'Adjuntar documento, imagen, PDF o formulario',
-          onPressed: _busy ? null : _showAttachmentMenu,
-          icon: Icon(CupertinoIcons.paperclip, size: isLandscape ? 18 : 20),
-          style: IconButton.styleFrom(
-            foregroundColor: visual.accent,
-            backgroundColor: visual.accent.withValues(alpha: 0.12),
+        Semantics(
+          label: 'Adjuntar documento, imagen, PDF o formulario',
+          button: true,
+          child: IconButton.filledTonal(
+            onPressed: _busy ? null : _showAttachmentMenu,
+            icon: Icon(CupertinoIcons.paperclip, size: isLandscape ? 18 : 20),
+            style: IconButton.styleFrom(
+              foregroundColor: visual.accent,
+              backgroundColor: visual.accent.withValues(alpha: 0.12),
+            ),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(child: _buildReplyField(visual, isLandscape: isLandscape)),
         const SizedBox(width: 8),
-        IconButton.filled(
-          tooltip: 'Enviar respuesta',
-          onPressed: _busy ? null : _sendReply,
-          style: IconButton.styleFrom(
-            fixedSize: Size.square(isLandscape ? 36 : 40),
-            backgroundColor: const Color(0xFF007AFF),
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: const Color(
-              0xFF007AFF,
-            ).withValues(alpha: 0.45),
-          ),
-          icon: _busy
+        Semantics(
+          label: 'Enviar respuesta',
+          button: true,
+          child: IconButton.filled(
+            onPressed: _busy ? null : _sendReply,
+            style: IconButton.styleFrom(
+              fixedSize: Size.square(isLandscape ? 36 : 40),
+              backgroundColor: const Color(0xFF007AFF),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(
+                0xFF007AFF,
+              ).withValues(alpha: 0.45),
+            ),
+            icon: _busy
               ? const SizedBox(
                   width: 16,
                   height: 16,
@@ -51,6 +59,7 @@ extension ConversationDetailComposerView on _ConversationDetailSheetState {
                   ),
                 )
               : Icon(CupertinoIcons.arrow_up, size: isLandscape ? 17 : 19),
+          ),
         ),
       ],
     );

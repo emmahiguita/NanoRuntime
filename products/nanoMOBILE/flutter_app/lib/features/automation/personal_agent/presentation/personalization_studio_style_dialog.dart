@@ -77,11 +77,12 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final isOwner = widget.scope.id == 'owner';
 
+    final size = MediaQuery.of(context).size;
     return AlertDialog(
       backgroundColor: const Color(0xFA101828),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 8 : 18),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: Color(0x28FFFFFF), width: 0.8)),
-      titlePadding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+      titlePadding: EdgeInsets.fromLTRB(16, isLandscape ? 8 : 14, 16, 4),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14),
       title: Row(
         children: [
@@ -100,7 +101,7 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
         ],
       ),
       content: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: isLandscape ? 480 : 380, maxHeight: MediaQuery.of(context).size.height * 0.58),
+        constraints: BoxConstraints(maxWidth: isLandscape ? 500 : 380, maxHeight: size.height * (isLandscape ? 0.74 : 0.58)),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

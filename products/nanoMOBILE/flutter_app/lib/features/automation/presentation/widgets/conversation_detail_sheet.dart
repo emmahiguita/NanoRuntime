@@ -27,6 +27,7 @@ import '../automation_visual_theme.dart';
 import 'conversation_history_resolver.dart';
 import 'conversation_media_bubble.dart';
 import 'conversation_phone_resolver.dart';
+import 'conversation_chess_board_card.dart';
 
 part 'conversation_detail_header_view.dart';
 part 'conversation_detail_empty_view.dart';

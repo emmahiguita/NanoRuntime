@@ -39,12 +39,15 @@ class WhatsAppMediaShare {
     required String contact,
     String caption = '',
     String? packageName,
+    bool autoSend = false,
   }) async {
     try {
       final ok = await _channel.invokeMethod<bool>('shareFile', {
         'path': path,
         'contact': contact,
         'caption': caption,
+        // Abrir el flujo nunca implica autorización para pulsar Enviar.
+        'autoSend': autoSend,
         if (packageName != null) 'packageName': packageName,
       });
       return ok == true;
@@ -56,14 +59,14 @@ class WhatsAppMediaShare {
   }
 
   /// Abre directamente el chat de WhatsApp con [contact], con el texto opcional [text].
-  /// Si [autoSend] es `true` y el servicio de accesibilidad está activo, envía
-  /// automáticamente el mensaje y regresa de inmediato a Nano en <150ms.
+  /// Si [autoSend] es `true`, Android solo arma el intento de accesibilidad.
+  /// El retorno del canal confirma apertura, no clic, entrega ni lectura.
   /// Utiliza com.whatsapp o com.whatsapp.w4b.
   Future<bool> openChat({
     required String contact,
     String text = '',
     String? packageName,
-    bool autoSend = true,
+    bool autoSend = false,
   }) async {
     try {
       final ok = await _channel.invokeMethod<bool>('openChat', {

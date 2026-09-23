@@ -103,14 +103,16 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
     final isLandscape = size.width > size.height;
 
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 8 : 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      title: const Text('Memoria personal', style: TextStyle(fontWeight: FontWeight.bold)),
+      titlePadding: EdgeInsets.fromLTRB(20, isLandscape ? 10 : 18, 20, isLandscape ? 4 : 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      actionsPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 4 : 10),
+      title: const Text('Memoria personal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
       content: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: isLandscape ? 480 : 380,
-          maxHeight: size.height * (isLandscape ? 0.72 : 0.65),
+          maxWidth: isLandscape ? 500 : 380,
+          maxHeight: size.height * (isLandscape ? 0.74 : 0.65),
         ),
         child: SingleChildScrollView(
           child: Column(

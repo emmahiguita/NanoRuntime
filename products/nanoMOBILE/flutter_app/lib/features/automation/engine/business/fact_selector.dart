@@ -1,117 +1,55 @@
-/// WA-BUSINESS-02 — selector determinista de hechos relevantes.
-///
-/// Lógica real sin LLM extra (una pasada, WA-CONVERSATION-01): el mensaje
-/// entrante decide QUÉ parte del catálogo entra al bloque <DATOS DEL
-/// NEGOCIO>. Un catálogo grande no se mete entero al prompt (tokens + el
-/// modelo se confunde entre productos parecidos); solo viajan los productos
-/// mencionados (por nombre O variante/color) y horario/envío cuando aplican.
-///
-/// Puro y sin estado: recibe texto + hechos, devuelve la selección. El
-/// producto referido por contexto ("¿y el negro?") matchea por la variante
-/// ("negro") aunque el nombre no aparezca: las variantes son tokens de
-/// match, no decoración.
+// fact_selector.dart
+//
+// QUÉ HACE:
+// Selector determinista de hechos comerciales relevantes para el mensaje entrante.
+// Filtra el catálogo de productos, horarios, cobertura de envíos, métodos de pago y ubicación.
+//
+// CÓMO FUNCIONA:
+// 1. Normaliza y tokeniza el mensaje recibido.
+// 2. Busca coincidencias semánticas y de variantes sobre el catálogo de productos.
+// 3. PRIORIZA productos específicos: si se menciona un producto concreto ("Samsung negro"),
+//    únicamente se inyecta dicho producto, anulando el volcado masivo del catálogo.
+// 4. Si no hay productos específicos y el usuario pide catálogo ("¿qué tienen?"), vuelca las opciones.
+// 5. Asocia información de despacho, horarios, pagos y ubicación según las preguntas del turno.
+//
+// POR QUÉ:
+// En modelos locales (0.5B/1.5B) con ventana de contexto limitada, volcar el catálogo completo ante
+// palabras generales como "tienen" o "precio" desborda el contexto e induce alucinaciones.
+
 library;
 
 import 'business_facts.dart';
 
 const List<String> _listAskTokens = [
-  'catálogo',
-  'catalogo',
-  'modelos',
-  'opciones',
-  'disponibles',
-  'producto',
-  'productos',
-  'tienes',
-  'tienen',
-  'vendes',
-  'ofrece',
-  'ofrecen',
-  'manejas',
-  'manejan',
-  'dispone',
-  'hay',
-  'cuál',
-  'cual',
-  'precio',
-  'precios',
-  'valor',
-  'valores',
-  'cuesta',
-  'cuestan',
-  'sale',
-  'salen',
+  'catalogo', 'modelos', 'opciones', 'disponibles', 'producto', 'productos',
+  'tienes', 'tienen', 'vendes', 'ofrece', 'ofrecen', 'manejas', 'manejan',
+  'dispone', 'hay', 'cual', 'precio', 'precios', 'valor', 'valores',
+  'cuesta', 'cuestan', 'sale', 'salen',
 ];
 
 const List<String> _hoursAskTokens = [
-  'horario',
-  'abren',
-  'abre',
-  'abiertos',
-  'abierto',
-  'cierran',
-  'cierra',
-  'atienden',
-  'atiende',
-  'atención',
-  'atencion',
+  'horario', 'abren', 'abre', 'abiertos', 'abierto', 'cierran', 'cierra',
+  'atienden', 'atiende', 'atencion', 'jornada', 'horas',
 ];
 
 const List<String> _deliveryAskTokens = [
-  'envío',
-  'envio',
-  'envian',
-  'domi',
-  'domicilio',
-  'domicilios',
-  'despacho',
-  'entrega',
-  'entregas',
-  'entregan',
-  'llevan',
-  'mandan',
+  'envio', 'envios', 'envian', 'domi', 'domicilio', 'domicilios', 'despacho',
+  'entrega', 'entregas', 'entregan', 'llevan', 'mandan', 'mandar', 'cobertura',
+  'flete', 'ruta', 'traen',
 ];
 
 const List<String> _paymentsAskTokens = [
-  'pago',
-  'pagos',
-  'pagar',
-  'cuenta',
-  'cuentas',
-  'transferir',
-  'transferencia',
-  'nequi',
-  'daviplata',
-  'bancolombia',
-  'tarjeta',
-  'efectivo',
-  'contraentrega',
-  'metodo',
-  'metodos',
-  'cobro',
-  'cobran',
-  'medio',
-  'medios',
+  'pago', 'pagos', 'pagar', 'cuenta', 'cuentas', 'transferir', 'transferencia',
+  'nequi', 'daviplata', 'bancolombia', 'tarjeta', 'efectivo', 'contraentrega',
+  'metodo', 'metodos', 'medio', 'medios',
 ];
 
 const List<String> _locationAskTokens = [
-  'donde',
-  'ubicados',
-  'ubicacion',
-  'dirección',
-  'direccion',
-  'tienda',
-  'local',
-  'sede',
-  'quedan',
-  'queda',
-  'llegar',
-  'recoger',
-  'recogida',
-  'ciudad',
+  'donde', 'ubicados', 'ubicacion', 'direccion', 'tienda', 'local', 'sede',
+  'quedan', 'queda', 'llegar', 'recoger', 'recogida', 'ciudad', 'punto',
 ];
 
-/// Qué entra al bloque autorizado del prompt.
+/// Contenedor de hechos comerciales autorizados para el turno.
 final class FactSelection {
   final List<BusinessProduct> products;
   final String hours;
@@ -145,37 +83,43 @@ final class FactSelection {
   );
 }
 
-/// Selecciona hechos relevantes para [message] contra [facts].
+/// Selecciona los hechos precisos que deben entrar al prompt del modelo.
 FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
   final tokens = tokenizeText(normalizeText(message));
   if (tokens.isEmpty || facts.isEmpty) return const FactSelection();
 
-  final wantsList = tokens.any(_listAskTokens.contains);
   final wantsHours = tokens.any(_hoursAskTokens.contains);
   final wantsDelivery = tokens.any(_deliveryAskTokens.contains);
   final wantsPayments = tokens.any(_paymentsAskTokens.contains);
   final wantsLocation = tokens.any(_locationAskTokens.contains);
+  final wantsList = tokens.any(_listAskTokens.contains);
 
-  List<BusinessProduct> products;
-  if (wantsList) {
-    // "¿qué teléfonos tienes?": no hay producto mencionado → catálogo
-    // completo (el agente lo resume con verdad).
-    products = facts.products;
+  // 1. Detección de productos específicos primero
+  final specificMatches = [
+    for (final p in facts.products)
+      if (_productMatches(tokens, p)) p,
+  ];
+
+  // 2. Si hay productos específicos que calzan, aislarlos para no saturar con el catálogo entero
+  List<BusinessProduct> selectedProducts;
+  if (specificMatches.isNotEmpty) {
+    selectedProducts = specificMatches;
+  } else if (wantsList) {
+    // Solo cuando no hay producto específico y la intención es ver opciones generales
+    selectedProducts = facts.products;
   } else {
-    products = [
-      for (final p in facts.products)
-        if (_productMatches(tokens, p)) p,
-    ];
+    selectedProducts = const [];
   }
 
   final hours = wantsHours ? facts.hours.trim() : '';
-  final delivery = (wantsDelivery || products.isNotEmpty)
+  final delivery = (wantsDelivery || selectedProducts.isNotEmpty)
       ? facts.delivery.trim()
       : '';
   final payments = wantsPayments ? facts.payments.trim() : '';
   final location = wantsLocation ? facts.location.trim() : '';
+
   return FactSelection(
-    products: products,
+    products: selectedProducts,
     hours: hours,
     delivery: delivery,
     payments: payments,
@@ -183,11 +127,12 @@ FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
   );
 }
 
+/// Verifica si los tokens del mensaje hacen match con el nombre o variante/detalles del producto.
 bool _productMatches(Set<String> messageTokens, BusinessProduct product) {
   final nameTokens = tokenizeText(normalizeText(product.name));
   final detailTokens = tokenizeText(normalizeText(product.details));
   for (final token in messageTokens) {
-    if (token.length < 3) continue; // "el", "de" nunca matchean solos
+    if (token.length < 3) continue; // Descarta conectores como "el", "de", "en"
     if (nameTokens.contains(token) || detailTokens.contains(token)) {
       return true;
     }
@@ -195,9 +140,7 @@ bool _productMatches(Set<String> messageTokens, BusinessProduct product) {
   return false;
 }
 
-/// Normaliza texto para matching determinista (minúsculas, sin tildes).
-/// Pública desde CONTEXT-GATE-01: el gating de relevancia del turno
-/// (conv_turn_state) reusa la MISMA normalización — una sola fuente.
+/// Normaliza texto removiendo acentos diacríticos para comparación uniforme.
 String normalizeText(String raw) {
   const withAccents = 'áéíóúñüÁÉÍÓÚÑÜ';
   const without = 'aeiounuAEIOUNU';
@@ -209,5 +152,6 @@ String normalizeText(String raw) {
   return buffer.toString().toLowerCase();
 }
 
+/// Extrae tokens alfanuméricos únicos.
 Set<String> tokenizeText(String normalized) =>
     RegExp(r'[a-z0-9]+').allMatches(normalized).map((m) => m.group(0)!).toSet();

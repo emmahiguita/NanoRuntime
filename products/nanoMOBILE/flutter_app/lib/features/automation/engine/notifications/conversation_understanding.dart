@@ -1,40 +1,47 @@
-/// WA-CONV-01 — entendimiento estructurado de conversación (JSON).
+/// QUÉ HACE:
+/// Estructura y tipifica la comprensión del mensaje entrante emitida por el LLM,
+/// garantizando que todas las obligaciones conversacionales se atiendan o aclaren.
 ///
-/// Reemplaza el protocolo textual "Razonamiento:/Respuesta:" del borrador de
-/// notificación: el modelo devuelve UN objeto JSON con claves ASCII estables
-/// y el valor `reply` listo para enviar. El razonamiento NO se pide en texto
-/// (tokens quemados + parseo frágil con el 0.5B); la comprensión viaja en
-/// campos estructurados que WA-BUSINESS-01 consumirá para resolver hechos
-/// antes de responder.
+/// CÓMO FUNCIONA:
+/// Decodifica JSON estructurado tolerando truncamiento de tokens y formatos legacy.
+/// Desglosa intenciones, preguntas, hechos faltantes, variantes de respuesta y
+/// sintetiza el estado de cobertura de cada obligación de turno.
 ///
-/// Parser TOLERANTE por diseño (modelos locales):
-/// 1. Objeto JSON completo (primera `{` a última `}`) → campos tipados.
-/// 2. JSON roto pero `"reply":"..."` recuperable → solo el reply (escapes
-///    básicos \", \\, \n).
-/// 3. Legacy: marcador "Respuesta:" (compatibilidad de arrastre mientras el
-///    modelo viejo/otro flujo emita el formato antiguo).
-/// 4. Nada → '' (sin borrador: honesto, nunca eco del JSON como respuesta).
+/// POR QUÉ:
+/// Evita que Nano responda solo una parte de un mensaje multitema (ej: precio sin
+/// aclarar envío) o ignore preguntas compuestas de los usuarios.
 library;
 
 import 'dart:convert';
+import 'conversation_obligation.dart';
+import 'conversation_understanding_recovery.dart';
 
-/// Entendimiento tipado del mensaje (v1: diagnóstico + reply; los campos
-/// comerciales se consumen en WA-BUSINESS-01).
-///
-/// CONV-SEM-01 — [relation]: relación SEMÁNTICA del mensaje con la
-/// conversación previa, declarada por la MISMA inferencia que escribe el
-/// reply (vocabulario cerrado, jamás una segunda pasada LLM):
-/// 'nuevo' | 'continua' | 'responde' | 'cambia' | 'corrige' | 'rechaza' | ''.
-/// El router determinista NO la consume (invariante ROUTER != FULL NLU):
-/// alimenta la decisión del engine (CONV-SEM-02) y la traza. Con el escalón
-/// de JSON roto queda '' (honesto, jamás se inventa relación).
+export 'conversation_obligation.dart';
+
+/// Comprensión estructurada del turno conversacional.
 final class ConversationUnderstanding {
+  /// Intención principal detectada en el mensaje.
   final String intent;
+
+  /// Relación con la conversación previa ('nuevo', 'continua', 'responde', 'corrige').
   final String relation;
+
+  /// Variantes alternativas de respuesta breve y natural.
   final List<String> options;
+
+  /// Preguntas semánticas explícitas o implícitas extraídas del mensaje.
   final List<String> questions;
+
+  /// Hechos requeridos ausentes del contexto que impiden responder con certeza.
   final List<String> missingFacts;
+
+  /// Obligaciones atómicas desglosadas (disponibilidad, precio, envío, etc.).
+  final List<TurnObligation> obligations;
+
+  /// Indica si responder con verdad requiere invocar una acción o consulta viva.
   final bool requiresAction;
+
+  /// Texto propuesto para enviar al interlocutor.
   final String reply;
 
   const ConversationUnderstanding({
@@ -43,91 +50,112 @@ final class ConversationUnderstanding {
     this.options = const [],
     this.questions = const [],
     this.missingFacts = const [],
+    this.obligations = const [],
     this.requiresAction = false,
     this.reply = '',
   });
 
+  /// True si el turno produjo una respuesta textual concreta.
   bool get hasReply => reply.isNotEmpty;
 
+  /// Determina si todas las obligaciones atómicas del turno fueron satisfechas o aclaradas.
+  bool get allObligationsCovered =>
+      obligations.isEmpty || obligations.every((o) => o.isCovered);
+
+  /// Cantidad de obligaciones atendidas en la respuesta actual.
+  int get coveredObligationCount => obligations.where((o) => o.isCovered).length;
+
+  /// Construye la instancia desde JSON tolerando tipos heterogéneos.
   factory ConversationUnderstanding.fromJson(Map<String, dynamic> json) {
-    List<String> strings(Object? raw) => [
+    List<String> parseStrings(Object? raw) => [
       for (final v in raw is List ? raw : const <dynamic>[])
-        if (v is String && v.isNotEmpty) v,
+        if (v is String && v.trim().isNotEmpty) v.trim(),
     ];
+
+    final rawObligations = json['obligations'];
+    final parsedObligations = <TurnObligation>[
+      if (rawObligations is List)
+        for (final item in rawObligations)
+          if (item is Map) TurnObligation.fromJson(item.cast<String, dynamic>()),
+    ];
+
+    final questions = parseStrings(json['questions']);
+    final missingFacts = parseStrings(json['missingFacts']);
+    final reply = cleanReplyText((json['reply'] as String?) ?? '');
+
+    final finalObligations = parsedObligations.isNotEmpty
+        ? parsedObligations
+        : _synthesizeObligations(questions, missingFacts, reply);
+
     return ConversationUnderstanding(
       intent: (json['intent'] as String?)?.trim() ?? '',
       relation: (json['relation'] as String?)?.trim() ?? '',
-      options: strings(json['options'] ?? json['suggestions']),
-      questions: strings(json['questions']),
-      missingFacts: strings(json['missingFacts']),
+      options: parseStrings(json['options'] ?? json['suggestions']),
+      questions: questions,
+      missingFacts: missingFacts,
+      obligations: finalObligations,
       requiresAction: json['requiresAction'] == true,
-      reply: _cleanReplyText((json['reply'] as String?) ?? ''),
+      reply: reply,
     );
   }
 }
 
-/// R5-05 — reply limpio: trim + etiquetas tipo <...> fuera CUANDO el
-/// contenido queda. El 1.5B emite etiquetas literales en turnos sociales
-/// (evidencia viva 16:28:03: reply "<Hola, me alegra verte.>" despachado
-/// CON los corchetes al cliente). Sin contenido tras el strip se conserva
-/// el original ("<3" no matchea: no tiene cierre de etiqueta).
-String _cleanReplyText(String raw) {
-  final trimmed = raw.trim();
-  // R5-CLEAN-01 — envoltura completa "<texto>": el regex de etiquetas
-  // `<[^>]*>` se traga TODO el contenido (es UNA sola etiqueta) y el guard
-  // de contenido vacío devolvía el original CON corchetes (evidencia viva
-  // 18:02:15: reply "<me alegra que estés bien>" despachado literal al
-  // cliente, y los corchetes rompían además el gate de eco del decision
-  // engine). El desempaquetado del par EXTERIOR va primero; las etiquetas
-  // internas se limpian después con el regex histórico.
-  var candidate = trimmed;
-  if (candidate.length > 2 &&
-      candidate.startsWith('<') &&
-      candidate.endsWith('>')) {
-    final inner = candidate.substring(1, candidate.length - 1);
-    if (!inner.contains('<') && !inner.contains('>')) {
-      candidate = inner.trim();
+List<TurnObligation> _synthesizeObligations(
+  List<String> questions,
+  List<String> missingFacts,
+  String reply,
+) {
+  if (questions.isEmpty) return const [];
+  final replyLower = reply.toLowerCase();
+  final missingLower = missingFacts.join(' ').toLowerCase();
+
+  return questions.map((q) {
+    final qLower = q.toLowerCase();
+    var kind = ObligationKind.information;
+    if (qLower.contains('precio') || qLower.contains('cuanto') || qLower.contains('vale') || qLower.contains('cuesta')) {
+      kind = ObligationKind.pricing;
+    } else if (qLower.contains('envio') || qLower.contains('mandar') || qLower.contains('llevar') || qLower.contains('entrega')) {
+      kind = ObligationKind.logistics;
+    } else if (qLower.contains('tienen') || qLower.contains('hay') || qLower.contains('disponible') || qLower.contains('queda')) {
+      kind = ObligationKind.availability;
     }
-  }
-  final stripped = candidate.replaceAll(RegExp(r'<[^>]*>'), '').trim();
-  if (stripped.isEmpty) return trimmed;
-  return stripped;
+
+    var status = ObligationStatus.pending;
+    if (kind == ObligationKind.pricing && (replyLower.contains('\$') || RegExp(r'\d+').hasMatch(replyLower))) {
+      status = ObligationStatus.answered;
+    } else if (kind == ObligationKind.availability && (replyLower.contains('si') || replyLower.contains('disponible') || replyLower.contains('tenemos'))) {
+      status = ObligationStatus.answered;
+    } else if (missingLower.contains('envio') || missingLower.contains('entrega') || replyLower.contains('?')) {
+      status = ObligationStatus.clarifying;
+    } else if (reply.isNotEmpty) {
+      status = ObligationStatus.answered;
+    }
+
+    return TurnObligation(
+      topic: q,
+      kind: kind,
+      status: status,
+    );
+  }).toList();
 }
 
-/// PERSONA-CORE-01 — parsea la salida cruda y devuelve el entendimiento
-/// COMPLETO, no solo el reply. Antes el writer descartaba `intent`,
-/// `questions`, `missingFacts` y `requiresAction` justo antes de necesitarlos
-/// (el DecisionEngine los consume para decidir qué hacer). null = nada
-/// recuperable (sin borrador).
-///
-/// Mismos escalones tolerantes que el parser histórico, conservando los
-/// campos que cada nivel puede recuperar:
-/// 1. JSON completo → todos los campos tipados.
-/// 2. JSON roto → solo reply (resto vacío: honesto, no se inventa intent).
-/// 3. Legacy "Respuesta:" → solo reply.
+/// Parsea la salida del modelo a un [ConversationUnderstanding] estructurado.
 ConversationUnderstanding? parseConversationUnderstanding(String raw) {
   final trimmed = raw.trim();
   if (trimmed.isEmpty) return null;
 
-  // 1) Objeto JSON completo.
   final full = _tryFullJson(trimmed);
   if (full != null) return full;
 
-  // 2) reply recuperable de un JSON roto (recorte a mitad de objeto).
-  final recovered = _recoverReply(trimmed);
+  final recovered = recoverReplyFromJson(trimmed);
   if (recovered != null) return ConversationUnderstanding(reply: recovered);
 
-  // 3) Legacy: marcador textual del protocolo anterior.
-  final legacy = _legacyMarkerReply(trimmed);
+  final legacy = legacyMarkerReply(trimmed);
   if (legacy != null) return ConversationUnderstanding(reply: legacy);
 
   return null;
 }
 
-/// Parsea la salida cruda del modelo y devuelve el texto a enviar ('' si no
-/// hay nada recuperable). Traza corta para diagnóstico físico (logcat).
-/// Conservado por compatibilidad: delega en el parser completo y se queda
-/// solo con el reply.
 String parseConversationReply(String raw) =>
     parseConversationUnderstanding(raw)?.reply ?? '';
 
@@ -141,74 +169,12 @@ ConversationUnderstanding? _tryFullJson(String trimmed) {
       final understanding = ConversationUnderstanding.fromJson(
         decoded.cast<String, dynamic>(),
       );
-      if (understanding.intent.isNotEmpty || understanding.hasReply) {
+      if (understanding.intent.isNotEmpty ||
+          understanding.hasReply ||
+          understanding.obligations.isNotEmpty) {
         return understanding;
       }
     }
-  } on Object {
-    // JSON inválido: cae al siguiente escalón.
-  }
+  } on Object catch (_) {}
   return null;
-}
-
-/// Recupera el valor de `"reply": "..."` cuando el JSON está incompleto
-/// (salida recortada por maxTokens): toma el texto entre la apertura de
-/// comillas y el cierre no escapado; sin cierre, el resto hasta `}`.
-String? _recoverReply(String trimmed) {
-  final keyMatch = RegExp(
-    r'"reply"\s*:\s*"',
-    caseSensitive: false,
-  ).firstMatch(trimmed);
-  if (keyMatch == null) return null;
-  var body = trimmed.substring(keyMatch.end);
-  final close = _findUnescapedQuote(body);
-  if (close >= 0) {
-    body = body.substring(0, close);
-  } else {
-    // Recorte: quitar sobrantes estructurales y el cierre parcial.
-    final cut = body.lastIndexOf('}');
-    if (cut >= 0) body = body.substring(0, cut);
-    body = body.trimRight();
-    if (body.endsWith(',')) body = body.substring(0, body.length - 1);
-    body = body.trimRight();
-  }
-  return _cleanReplyText(_unescape(body.trim()));
-}
-
-int _findUnescapedQuote(String body) {
-  var escaped = false;
-  for (var i = 0; i < body.length; i++) {
-    final c = body.codeUnitAt(i);
-    if (escaped) {
-      escaped = false;
-      continue;
-    }
-    if (c == 0x5C) {
-      // backslash
-      escaped = true;
-      continue;
-    }
-    if (c == 0x22) return i; // comilla sin escapar
-  }
-  return -1;
-}
-
-String _unescape(String body) {
-  if (!body.contains(r'\')) return body;
-  try {
-    // Re-encodear como JSON string valida los escapes reales del modelo.
-    return jsonDecode('"${body.replaceAll('"', r'\"')}"') as String;
-  } on Object {
-    return body
-        .replaceAll(r'\"', '"')
-        .replaceAll(r'\\', r'\')
-        .replaceAll(r'\n', '\n');
-  }
-}
-
-String? _legacyMarkerReply(String trimmed) {
-  final m = RegExp(r'Respuesta\s*:', caseSensitive: false).firstMatch(trimmed);
-  if (m == null) return null;
-  final tail = trimmed.substring(m.end).trim();
-  return tail.isEmpty ? null : _cleanReplyText(tail);
 }

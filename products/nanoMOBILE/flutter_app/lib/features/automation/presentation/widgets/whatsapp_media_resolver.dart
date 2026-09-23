@@ -1,21 +1,24 @@
 // whatsapp_media_resolver.dart
 //
 // QUÉ HACE:
-// Localiza de forma real y factual las fotos, videos y notas de voz almacenadas por WhatsApp
-// en el almacenamiento del dispositivo Android cuando se reciben notificaciones.
+// Localiza de forma real y factual las fotos, videos y notas de voz almacenadas
+// por WhatsApp en el almacenamiento del dispositivo Android sin bloquear el hilo
+// de interfaz de usuario.
 //
 // CÓMO FUNCIONA:
-// - Escanea las rutas oficiales de WhatsApp y WhatsApp Business en Android/media.
-// - Si se proporciona un timestamp de referencia, busca el archivo más cercano en tiempo.
-// - Si no hay timestamp, selecciona el archivo más reciente ordenado por fecha de modificación.
+// - Escanea en segundo plano mediante `Isolate.run` las rutas oficiales de WhatsApp.
+// - Lee los metadatos de fecha en una sola pasada O(N), evitando lecturas repetidas a disco.
+// - Si se provee un timestamp de referencia, selecciona el archivo más cercano en tiempo.
+// - Si no hay timestamp, selecciona el más reciente según la fecha de modificación.
 //
 // POR QUÉ:
-// Resuelve el problema visual donde fotos y videos aparecían como texto plano ("📷 Envió una foto."),
-// garantizando visualización real sin inventar datos (SOLID - Clean Architecture, < 200 líneas).
+// Resuelve el cuello de botella (AUT-P2-12) donde el escaneo recursivo y las múltiples
+// llamadas síncronas a stat() congelaban los frames de la UI. Cumple SOLID y límite < 200 líneas.
 
 library;
 
 import 'dart:io';
+import 'dart:isolate';
 
 /// Resuelve medios reales de WhatsApp guardados en el almacenamiento del dispositivo.
 abstract final class WhatsAppMediaResolver {
@@ -44,73 +47,71 @@ abstract final class WhatsAppMediaResolver {
     '/storage/emulated/0/Android/media/com.whatsapp.w4b/WhatsApp Business/Media/WhatsApp Business Voice Notes',
   ];
 
-  /// Busca la imagen más reciente o más cercana al timestamp de WhatsApp.
+  /// Busca la imagen más reciente o más cercana al timestamp de WhatsApp en un isolate secundario.
   static Future<String?> findRecentWhatsAppImage({int? referenceTimestampMs}) async {
     final cacheKey = 'img_${referenceTimestampMs ?? 0}';
     if (_resolvedCache.containsKey(cacheKey)) return _resolvedCache[cacheKey];
 
     try {
-      final file = _findClosestFile(
+      final path = await Isolate.run(() => _findClosestFilePath(
         dirs: _possibleImageDirs,
-        validExtensions: {'.jpg', '.jpeg', '.png', '.webp'},
+        validExtensions: const {'.jpg', '.jpeg', '.png', '.webp'},
         referenceTimestampMs: referenceTimestampMs,
         recursive: false,
-      );
-      final result = file?.path;
-      _resolvedCache[cacheKey] = result;
-      return result;
+      ));
+      _resolvedCache[cacheKey] = path;
+      return path;
     } catch (_) {
       return null;
     }
   }
 
-  /// Busca el video más reciente o más cercano al timestamp de WhatsApp.
+  /// Busca el video más reciente o más cercano al timestamp de WhatsApp en un isolate secundario.
   static Future<String?> findRecentWhatsAppVideo({int? referenceTimestampMs}) async {
     final cacheKey = 'vid_${referenceTimestampMs ?? 0}';
     if (_resolvedCache.containsKey(cacheKey)) return _resolvedCache[cacheKey];
 
     try {
-      final file = _findClosestFile(
+      final path = await Isolate.run(() => _findClosestFilePath(
         dirs: _possibleVideoDirs,
-        validExtensions: {'.mp4', '.mov', '.3gp', '.mkv'},
+        validExtensions: const {'.mp4', '.mov', '.3gp', '.mkv'},
         referenceTimestampMs: referenceTimestampMs,
         recursive: false,
-      );
-      final result = file?.path;
-      _resolvedCache[cacheKey] = result;
-      return result;
+      ));
+      _resolvedCache[cacheKey] = path;
+      return path;
     } catch (_) {
       return null;
     }
   }
 
-  /// Busca la nota de voz más reciente o más cercana al timestamp de WhatsApp.
+  /// Busca la nota de voz más reciente o más cercana al timestamp en un isolate secundario.
   static Future<String?> findRecentWhatsAppVoiceNote({int? referenceTimestampMs}) async {
     final cacheKey = 'voice_${referenceTimestampMs ?? 0}';
     if (_resolvedCache.containsKey(cacheKey)) return _resolvedCache[cacheKey];
 
     try {
-      final file = _findClosestFile(
+      final path = await Isolate.run(() => _findClosestFilePath(
         dirs: _possibleVoiceDirs,
-        validExtensions: {'.opus', '.ogg', '.m4a', '.mp3', '.aac'},
+        validExtensions: const {'.opus', '.ogg', '.m4a', '.mp3', '.aac'},
         referenceTimestampMs: referenceTimestampMs,
         recursive: true,
-      );
-      final result = file?.path;
-      _resolvedCache[cacheKey] = result;
-      return result;
+      ));
+      _resolvedCache[cacheKey] = path;
+      return path;
     } catch (_) {
       return null;
     }
   }
 
-  static File? _findClosestFile({
+  /// Escanea directorios en el isolate de fondo recolectando metadatos en una única pasada O(N).
+  static String? _findClosestFilePath({
     required List<String> dirs,
     required Set<String> validExtensions,
     int? referenceTimestampMs,
     required bool recursive,
   }) {
-    final candidates = <File>[];
+    final candidates = <({String path, int modifiedMs})>[];
 
     for (final dirPath in dirs) {
       final dir = Directory(dirPath);
@@ -121,10 +122,12 @@ abstract final class WhatsAppMediaResolver {
         for (final entity in entities) {
           if (entity is! File) continue;
           final p = entity.path.toLowerCase();
-          // Ignorar archivos enviados por el propio usuario (carpeta Sent)
           if (p.contains('/sent/')) continue;
           if (validExtensions.any((ext) => p.endsWith(ext))) {
-            candidates.add(entity);
+            try {
+              final mod = entity.statSync().modified.millisecondsSinceEpoch;
+              candidates.add((path: entity.path, modifiedMs: mod));
+            } catch (_) {}
           }
         }
       } catch (_) {}
@@ -132,31 +135,22 @@ abstract final class WhatsAppMediaResolver {
 
     if (candidates.isEmpty) return null;
 
-    // Si hay timestamp de referencia, encontrar el más cercano (hasta 24h de margen)
     if (referenceTimestampMs != null && referenceTimestampMs > 0) {
-      File? bestMatch;
-      int bestDiff = 1000 * 60 * 60 * 24; // 24 horas
+      String? bestPath;
+      int bestDiff = 1000 * 60 * 60 * 24; // Margen de 24 horas
 
       for (final candidate in candidates) {
-        try {
-          final mod = candidate.statSync().modified.millisecondsSinceEpoch;
-          final diff = (referenceTimestampMs - mod).abs();
-          if (diff < bestDiff) {
-            bestDiff = diff;
-            bestMatch = candidate;
-          }
-        } catch (_) {}
+        final diff = (referenceTimestampMs - candidate.modifiedMs).abs();
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestPath = candidate.path;
+        }
       }
-      if (bestMatch != null) return bestMatch;
+      if (bestPath != null) return bestPath;
     }
 
-    // Fallback: ordenar por fecha de modificación descendente (el más reciente)
-    candidates.sort((a, b) {
-      final aMod = a.statSync().modified.millisecondsSinceEpoch;
-      final bMod = b.statSync().modified.millisecondsSinceEpoch;
-      return bMod.compareTo(aMod);
-    });
-
-    return candidates.first;
+    // Ordenamiento puramente en memoria O(N log N) sin llamadas a disco adicionales
+    candidates.sort((a, b) => b.modifiedMs.compareTo(a.modifiedMs));
+    return candidates.first.path;
   }
 }

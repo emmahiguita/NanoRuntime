@@ -18,6 +18,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../engine/business/business_facts.dart';
 import '../../engine/business/business_facts_providers.dart';
 import '../automation_visual_theme.dart';
+import '../connectors/business_connectors_sheet.dart';
+import 'catalog_pdf_preview_dialog.dart';
 import '../widgets/dialogs/product_dialog.dart';
 import '../widgets/settings_tile_components.dart';
 
@@ -33,25 +35,55 @@ class NanoBusinessCatalogTab extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       children: [
-        FilledButton.icon(
-          onPressed: () async {
-            final prod = await showDialog<BusinessProduct>(
-              context: context,
-              useRootNavigator: true,
-              builder: (_) => const ProductDialog(),
-            );
-            if (prod != null) notifier.upsertProduct(prod);
-          },
-          icon: const Icon(Icons.add_shopping_cart_rounded, size: 18),
-          label: const Text('Agregar producto o servicio'),
-          style: FilledButton.styleFrom(
-            backgroundColor: visual.accent,
-            foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final prod = await showDialog<BusinessProduct>(
+                    context: context,
+                    useRootNavigator: true,
+                    builder: (_) => const ProductDialog(),
+                  );
+                  if (prod != null) notifier.upsertProduct(prod);
+                },
+                icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
+                label: const Text('Agregar manual', style: TextStyle(fontSize: 12)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: visual.accent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => BusinessConnectorsSheet.show(context),
+                icon: const Icon(Icons.hub_rounded, size: 16),
+                label: const Text('Conectar datos', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  side: BorderSide(color: visual.accent.withValues(alpha: 0.6)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (facts.products.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          FilledButton.tonalIcon(
+            onPressed: () => CatalogPdfPreviewDialog.show(context, facts),
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+            label: const Text('Compartir Catálogo en PDF para WhatsApp', style: TextStyle(fontSize: 12)),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
-        ),
+        ],
         const SizedBox(height: 16),
         if (facts.products.isEmpty)
           Padding(

@@ -27,23 +27,27 @@ abstract final class ConversationContextResolver {
     final seenScopes = <String>{};
 
     void add(ConversationMemory? memory) {
-      if (memory != null && seenScopes.add(memory.scopeId)) memories.add(memory);
+      if (memory != null && seenScopes.add(memory.scopeId)) {
+        memories.add(memory);
+      }
     }
 
     add(direct);
-    final sender = _humanName(notification);
-    final isGroup = notification.isGroup || _isGroupId(primaryId);
     for (final knownId in store.knownConversationIds()) {
       final canonical = canonicalConversationId(knownId);
-      if (canonical == primaryId || !_samePackage(canonical, notification)) {
+      if (canonical == primaryId ||
+          !_sameIdentityScope(canonical, primaryId, notification)) {
         continue;
       }
       final memory = store.memoryFor(canonical);
       if (memory == null) continue;
-      final sameIdentity = _fingerprint(canonical) == _fingerprint(primaryId);
-      final samePerson =
-          !isGroup && sender.isNotEmpty && memory.entries.any((entry) => _normalizeName(entry.sender) == sender);
-      if (sameIdentity || samePerson) add(memory);
+      // Un alias solo es válido si ambos IDs aportan evidencia estable. El
+      // nombre visible etiqueta el chat, pero nunca demuestra identidad.
+      final sameIdentity =
+          _hasStrongIdentity(canonical) &&
+          _hasStrongIdentity(primaryId) &&
+          _fingerprint(canonical) == _fingerprint(primaryId);
+      if (sameIdentity) add(memory);
     }
     if (memories.isEmpty) return null;
 
@@ -62,8 +66,12 @@ abstract final class ConversationContextResolver {
     }
 
     final newest = memories.reduce((a, b) => a.lastAtMs >= b.lastAtMs ? a : b);
-    final obligations = <String>{for (final memory in memories) ...memory.unresolvedObligations};
-    final manualAt = memories.map((memory) => memory.lastManualInterventionMs ?? 0).reduce((a, b) => a >= b ? a : b);
+    final obligations = <String>{
+      for (final memory in memories) ...memory.unresolvedObligations,
+    };
+    final manualAt = memories
+        .map((memory) => memory.lastManualInterventionMs ?? 0)
+        .reduce((a, b) => a >= b ? a : b);
     return ConversationMemory(
       conversationId: primaryId,
       scopeId: direct?.scopeId ?? newest.scopeId,
@@ -76,52 +84,63 @@ abstract final class ConversationContextResolver {
     );
   }
 
-  static bool _samePackage(String id, NotificationObject notification) {
-    if (!id.contains('/')) return true; // Compatibilidad con IDs históricos.
-    return id.contains('/${notification.packageName}/');
+  /// Exige paquete y cuenta explícitos en ambos IDs. Los IDs históricos sin
+  /// ámbito se conservan como memoria directa, pero no contaminan otro chat.
+  static bool _sameIdentityScope(
+    String candidate,
+    String primary,
+    NotificationObject notification,
+  ) {
+    final candidateParts = candidate.split('/');
+    final primaryParts = primary.split('/');
+    if (candidateParts.length < 4 || primaryParts.length < 4) return false;
+    return candidateParts[1] == notification.packageName &&
+        primaryParts[1] == notification.packageName &&
+        candidateParts[2] == primaryParts[2];
   }
 
-  static bool _isGroupId(String id) => id.contains('@g.us') || id.contains('/group:');
+  /// Solo locus/shortcut/person/conversation/notificación/JID son puentes.
+  /// Título, grupo visible y nombre humano pueden repetirse entre personas.
+  static bool _hasStrongIdentity(String raw) {
+    final canonical = canonicalConversationId(raw).toLowerCase();
+    if (canonical.split('/').length < 4) return false;
+    return const [
+      'locus:',
+      'shortcut:',
+      'person:',
+      'conv:',
+      'notification:',
+      'jid:',
+    ].any((prefix) => canonical.contains('/$prefix'));
+  }
 
   static String _fingerprint(String raw) {
     var value = canonicalConversationId(raw).toLowerCase();
     if (value.contains('/')) value = value.split('/').last;
-    for (final prefix in const ['locus:', 'shortcut:', 'person:', 'conv:', 'jid:', 'group:', 'title:']) {
+    for (final prefix in const [
+      'locus:',
+      'shortcut:',
+      'person:',
+      'conv:',
+      'notification:',
+      'jid:',
+    ]) {
       if (value.startsWith(prefix)) return value.substring(prefix.length);
     }
     return value;
   }
 
-  static String _humanName(NotificationObject notification) {
-    for (final raw in [notification.sender, notification.title, notification.conversationTitle]) {
-      final normalized = _normalizeName(raw);
-      if (normalized.isNotEmpty) return normalized;
-    }
-    return '';
-  }
-
-  static String _normalizeName(String raw) {
-    final lower = raw.trim().toLowerCase();
-    final value = lower
-        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-    if (value.length < 2 ||
-        value == 'whatsapp' ||
-        value.startsWith('chat de whatsapp') ||
-        value.startsWith('contacto whatsapp') ||
-        lower.contains('@lid') ||
-        lower.contains('@g.us') ||
-        lower.contains('@s.whatsapp.net')) {
-      return '';
-    }
-    return value;
-  }
-
-  static bool _isCurrent(ConversationMemoryEntry entry, IncomingMessage current) {
+  static bool _isCurrent(
+    ConversationMemoryEntry entry,
+    IncomingMessage current,
+  ) {
     if (entry.kind != ConversationMemoryEntryKind.inbound) return false;
-    if (entry.eventId.isNotEmpty && entry.eventId == current.eventId) return true;
-    final stamp = current.messageTimestamp > 0 ? current.messageTimestamp : current.receivedAt;
+    if (entry.eventId.isNotEmpty && entry.eventId == current.eventId) {
+      return true;
+    }
+    final stamp = current.messageTimestamp > 0
+        ? current.messageTimestamp
+        : current.receivedAt;
     return stamp > 0 &&
         (entry.atMs - stamp).abs() <= 2000 &&
         entry.text.trim().toLowerCase() == current.text.trim().toLowerCase();
@@ -132,7 +151,8 @@ abstract final class ConversationContextResolver {
       return a.eventId == b.eventId;
     }
     final sameDirection =
-        (a.kind == ConversationMemoryEntryKind.inbound) == (b.kind == ConversationMemoryEntryKind.inbound);
+        (a.kind == ConversationMemoryEntryKind.inbound) ==
+        (b.kind == ConversationMemoryEntryKind.inbound);
     return sameDirection &&
         (a.atMs - b.atMs).abs() <= 2000 &&
         a.text.trim().toLowerCase() == b.text.trim().toLowerCase();

@@ -10,13 +10,12 @@ import 'package:nanoai/features/browser/presentation/widgets/browser_window_scro
 import 'package:nanoai/features/browser/presentation/widgets/browser_window_stack_bar.dart';
 import 'package:nanoai/features/browser/presentation/widgets/single_browser_instance_widget.dart';
 
-/// Vista de ventanas múltiples apiladas — con reordenamiento por drag y soporte landscape.
+/// Vista de ventanas múltiples apiladas — con claves estables y soporte adaptativo.
 /// 
-/// - QUÉ HACE: En portrait: lista de ventanas con drag-and-drop para moverlas a primera,
-///   última o cualquier posición, y tiradores táctiles para ajustar su tamaño libremente.
-///   En landscape + ≥2 pestañas: layout profesional de doble panel lado a lado.
-/// - CÓMO FUNCIONA: Usa [ReorderableListView.builder] conectado a [BrowserTabNotifier.reorderTab].
-/// - POR QUÉ: Brinda control total al usuario para organizar y redimensionar sus ventanas sin componentes muertos.
+/// - QUÉ HACE: Presenta la colección de pestañas en lista reordenable (portrait) o panel split (landscape).
+/// - CÓMO FUNCIONA: Mantiene una clave estable [ValueKey] ('browser_instance_${tab.id}') entre orientaciones
+///   evitando que Flutter destruya la PlatformView nativa del WebView al rotar de vertical a horizontal.
+/// - POR QUÉ: Elimina la pérdida de sonido y pantallas negras por reconstrucción destructiva (<200 líneas).
 class BrowserWindowStackView extends StatelessWidget {
   final BrowserTabState tabState;
   final Set<String> minimizedWindowIds;
@@ -41,7 +40,8 @@ class BrowserWindowStackView extends StatelessWidget {
 
   Widget _buildPane(BuildContext context, BrowserTabModel tab, {bool isActive = true}) {
     return SingleBrowserInstanceWidget(
-      key: ValueKey('pane_${tab.id}'), tab: tab, fillHeight: true, showCardHeader: true,
+      key: ValueKey('browser_instance_${tab.id}'),
+      tab: tab, fillHeight: true, showCardHeader: true,
       isMinimized: false, isMaximized: true, isCurrentActive: isActive,
       currentZoom: tab.zoomLevel, isDesktopMode: isDesktopMode, isDarkModeWeb: isDarkModeWeb,
       onToggleMinimize: () => onToggleMinimize(tab.id), onToggleMaximize: () => onToggleMaximize(tab.id),
@@ -55,7 +55,8 @@ class BrowserWindowStackView extends StatelessWidget {
     final isMin = minimizedWindowIds.contains(tab.id);
     final isMax = maximizedWindowId == tab.id;
     return SingleBrowserInstanceWidget(
-      key: ValueKey('stack_${tab.id}'), tab: tab, fillHeight: false, showCardHeader: true,
+      key: ValueKey('browser_instance_${tab.id}'),
+      tab: tab, fillHeight: false, showCardHeader: true,
       isMinimized: isMin, isMaximized: isMax, isCurrentActive: tab.id == tabState.activeTabId,
       currentZoom: tab.zoomLevel, isDesktopMode: isDesktopMode, isDarkModeWeb: isDarkModeWeb, dragIndex: index,
       onToggleMinimize: () => onToggleMinimize(tab.id), onToggleMaximize: () => onToggleMaximize(tab.id),
@@ -66,7 +67,7 @@ class BrowserWindowStackView extends StatelessWidget {
   }
 
   Widget _buildSplitDivider() => Container(
-    width: 3, margin: const EdgeInsets.symmetric(vertical: 2),
+    width: 2, margin: const EdgeInsets.symmetric(vertical: 2),
     decoration: const BoxDecoration(
       gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF059669), Color(0xFF10B981), Color(0xFF059669)]),
     ),
@@ -88,7 +89,8 @@ class BrowserWindowStackView extends StatelessWidget {
         ),
         if (showFindInPage) BrowserFindInPageWidget(controller: reg.controllerFor(maxTab.id), onClose: onCloseFindInPage),
         Expanded(child: SingleBrowserInstanceWidget(
-          key: ValueKey('max_${maxTab.id}'), tab: maxTab, fillHeight: true, showCardHeader: true,
+          key: ValueKey('browser_instance_${maxTab.id}'),
+          tab: maxTab, fillHeight: true, showCardHeader: true,
           isMinimized: false, isMaximized: true, isCurrentActive: true, currentZoom: maxTab.zoomLevel,
           isDesktopMode: isDesktopMode, isDarkModeWeb: isDarkModeWeb,
           onToggleMinimize: () => onToggleMinimize(maxTab.id), onToggleMaximize: onBackToStack,
@@ -131,7 +133,6 @@ class BrowserWindowStackView extends StatelessWidget {
       ]);
     }
 
-    // PORTRAIT: ReorderableListView con Drag-and-Drop y ajuste de tamaño
     return Column(children: [
       stackBar,
       if (showFindInPage) BrowserFindInPageWidget(controller: reg.controllerFor(activeTab.id), onClose: onCloseFindInPage),
@@ -140,12 +141,12 @@ class BrowserWindowStackView extends StatelessWidget {
           ReorderableListView.builder(
             scrollController: scrollController,
             buildDefaultDragHandles: false,
-            padding: const EdgeInsets.only(left: 6, right: 6, top: 2, bottom: 180),
+            padding: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 120),
             physics: const BouncingScrollPhysics(),
             itemCount: tabs.length,
             onReorder: (oldIdx, newIdx) => ref.read(browserTabProvider.notifier).reorderTab(oldIdx, newIdx),
             itemBuilder: (c, i) => KeyedSubtree(
-              key: ValueKey('tab_reorder_${tabs[i].id}'),
+              key: ValueKey('tab_item_${tabs[i].id}'),
               child: _buildItem(context, tabs[i], index: i),
             ),
           ),

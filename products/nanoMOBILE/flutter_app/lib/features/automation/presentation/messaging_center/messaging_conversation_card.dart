@@ -1,12 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../chess/application/chess_game_store.dart';
 import '../../domain/messaging_platform.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import 'messaging_platform_icon.dart';
 
 /// Tarjeta de conversación hiperrealista con micro-animaciones táctiles,
 /// badges de estado y diseño idéntico a la referencia visual.
-class MessagingConversationCard extends StatefulWidget {
+class MessagingConversationCard extends ConsumerStatefulWidget {
   final ConversationSummaryItem item;
   final VoidCallback onTap;
   /// Si true, la notificación está activa en Android pero aún no en la BD.
@@ -20,11 +22,12 @@ class MessagingConversationCard extends StatefulWidget {
   });
 
   @override
-  State<MessagingConversationCard> createState() =>
+  ConsumerState<MessagingConversationCard> createState() =>
       _MessagingConversationCardState();
 }
 
-class _MessagingConversationCardState extends State<MessagingConversationCard> {
+class _MessagingConversationCardState
+    extends ConsumerState<MessagingConversationCard> {
   bool _pressed = false;
 
   static const List<List<Color>> _avatarGradients = [
@@ -48,6 +51,8 @@ class _MessagingConversationCardState extends State<MessagingConversationCard> {
     final isVip = item.displayName.toLowerCase().contains('emmanuel') ||
         item.displayName.toLowerCase().contains('emma');
     final isVerified = item.displayName.contains('@');
+    final chessStore = ref.watch(chessGameStoreProvider);
+    final activeChess = chessStore.getGame(item.conversationId);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -206,6 +211,38 @@ class _MessagingConversationCardState extends State<MessagingConversationCard> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                    if (activeChess != null && !activeChess.status.isGameOver) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00FF88).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: const Color(0xFF00FF88).withValues(alpha: 0.35),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('♟️', style: TextStyle(fontSize: 10)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Ajedrez: Turno de ${activeChess.turn == 'w' ? 'Blancas' : 'Negras'}',
+                              style: const TextStyle(
+                                color: Color(0xFF00FF88),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

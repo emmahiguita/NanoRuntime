@@ -19,8 +19,12 @@ import 'package:nanoai/features/browser/presentation/widgets/browser_window_card
 import 'package:nanoai/features/browser/presentation/widgets/browser_zoom_badge_overlay.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_owl_assistant_sheet.dart';
 
-/// Una vista nativa por pestaña; conserva su controlador mediante keep-alive.
-/// El estado informa navegación y zoom sin generar otra carga de la página.
+/// Instancia nativa única por pestaña con soporte de rotación fluida portrait/landscape.
+/// 
+/// - QUÉ HACE: Renderiza la plataforma InAppWebView conservando sesión de audio y renderizado.
+/// - CÓMO FUNCIONA: En [didChangeDependencies], detecta cambios de orientación y despacha
+///   'resize' en JavaScript manteniendo el hilo nativo de audio/video activo sin destruir el canvas.
+/// - POR QUÉ: Previene la pantalla negra y pérdida de sonido al rotar el dispositivo (<200 líneas).
 class SingleBrowserInstanceWidget extends ConsumerStatefulWidget {
   final BrowserTabModel tab;
   final bool isMaximized, isMinimized, isCurrentActive, fillHeight, showCardHeader, isDesktopMode, isDarkModeWeb;
@@ -49,6 +53,7 @@ class _SingleBrowserInstanceWidgetState extends ConsumerState<SingleBrowserInsta
   bool _showZoomBadge = false, _showSaveBanner = false;
   double _currentScale = 1.0;
   String? _pendingDomain, _pendingUser, _pendingPass;
+  Orientation? _lastOrientation;
   late BrowserWebViewLifecycleHandler _handler;
   final _appearance = BrowserWebViewAppearanceSync();
 
@@ -59,17 +64,29 @@ class _SingleBrowserInstanceWidgetState extends ConsumerState<SingleBrowserInsta
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final currentOri = MediaQuery.of(context).orientation;
+    if (_lastOrientation != null && _lastOrientation != currentOri) {
+      final ctrl = ref.read(browserWebViewRegistryProvider).controllerFor(widget.tab.id);
+      if (ctrl != null) {
+        ctrl.evaluateJavascript(source: 'window.dispatchEvent(new Event("resize"));');
+        if (!widget.isMinimized) ctrl.resume();
+      }
+    }
+    _lastOrientation = currentOri;
+  }
+
+  @override
   void didUpdateWidget(covariant SingleBrowserInstanceWidget old) {
     super.didUpdateWidget(old);
     final registry = ref.read(browserWebViewRegistryProvider);
     final ctrl = registry.controllerFor(widget.tab.id);
     if (old.isMinimized != widget.isMinimized) {
-      if (widget.isMinimized) { registry.pauseTab(widget.tab.id); }
-      else { registry.resumeTab(widget.tab.id); }
+      if (widget.isMinimized) { registry.pauseTab(widget.tab.id); } else { registry.resumeTab(widget.tab.id); }
     }
     _handler..tab = widget.tab..isDesktopMode = widget.isDesktopMode
       ..isDarkModeWeb = widget.isDarkModeWeb..currentZoom = widget.currentZoom;
-    // Los eventos nativos informan URL; no son una orden de recargarla.
     if (widget.tab.url != old.tab.url && widget.tab.url != _handler.reportedUrl) {
       ctrl?.loadUrl(urlRequest: URLRequest(url: WebUri(widget.tab.url)));
     }
@@ -115,7 +132,7 @@ class _SingleBrowserInstanceWidgetState extends ConsumerState<SingleBrowserInsta
   void _confirmSave() {
     if (_pendingDomain != null && _pendingPass != null) {
       ref.read(browserCredentialProvider.notifier).saveCredential(domain: _pendingDomain!, username: _pendingUser ?? '', password: _pendingPass!);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña guardada en bóveda cifrada'), duration: Duration(seconds: 2)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Contraseña guardada'), duration: Duration(seconds: 2)));
     }
     setState(() { _showSaveBanner = false; _pendingDomain = null; _pendingUser = null; _pendingPass = null; });
   }
@@ -142,13 +159,9 @@ class _SingleBrowserInstanceWidgetState extends ConsumerState<SingleBrowserInsta
         gestureRecognizers: BrowserGestureArena.buildGestureRecognizers(isMaximized: isFull, isInteractive: true),
         onWebViewCreated: (ctrl) {
           _handler.onWebViewCreated(ctrl);
-          if (widget.isMinimized) { registry.pauseTab(widget.tab.id); }
-          else { registry.resumeTab(widget.tab.id); }
+          if (widget.isMinimized) { registry.pauseTab(widget.tab.id); } else { registry.resumeTab(widget.tab.id); }
         },
-        onZoomScaleChanged: (ctrl, oldS, newS) {
-          _triggerZoomBadge(newS);
-          // La escala nativa no se persiste como zoom CSS: se multiplicarían.
-        },
+        onZoomScaleChanged: (ctrl, oldS, newS) => _triggerZoomBadge(newS),
         onLoadStart: _handler.onLoadStart, onLoadStop: _handler.onLoadStop,
         onProgressChanged: (ctrl, p) { if (mounted) ref.read(browserTabProvider.notifier).updateTabById(widget.tab.id, progress: p / 100.0, isLoading: p < 100); },
         onTitleChanged: (ctrl, t) { if (t?.isNotEmpty == true && mounted) ref.read(browserTabProvider.notifier).updateTabById(widget.tab.id, title: t); },
@@ -158,7 +171,7 @@ class _SingleBrowserInstanceWidgetState extends ConsumerState<SingleBrowserInsta
         onPermissionRequest: _handler.onPermissionRequest,
       )),
       if (widget.tab.isLoading && widget.tab.progress < 1.0) Positioned(top: 0, left: 0, right: 0, child: LinearProgressIndicator(
-        value: widget.tab.progress, minHeight: 2.5, backgroundColor: Colors.transparent, valueColor: AlwaysStoppedAnimation<Color>(siteColor),
+        value: widget.tab.progress, minHeight: 2.0, backgroundColor: Colors.transparent, valueColor: AlwaysStoppedAnimation<Color>(siteColor),
       )),
       if (_showSaveBanner && _pendingDomain != null) Positioned(top: 4, left: 8, right: 8, child: BrowserCredentialSaveBanner(
         domain: _pendingDomain!, username: _pendingUser ?? '', onSave: _confirmSave, onDismiss: () => setState(() => _showSaveBanner = false),

@@ -1,344 +1,32 @@
-/// WA-STATE-01 — estado conversacional del cliente (por conversación).
+/// QUÉ HACE:
+/// Administra y persiste el estado conversacional del cliente (memoria de productos,
+/// preguntas pendientes y hebras multitema activas).
 ///
-/// Un turno suele necesitar lo que el cliente consultó ANTES: "¿y el que te
-/// pregunté ayer?", "ese teléfono negro". Meter 8 mensajes al prompt ayuda,
-/// pero el estado estructurado es determinista y barato: cuando un turno
-/// matchea un producto del catálogo (el MISMO selector determinista de
-/// WA-BUSINESS-02), se recuerda {producto, variante, precio, cuándo} para
-/// esa conversación y viaja al prompt como <CONTEXTO DEL CLIENTE>.
+/// CÓMO FUNCIONA:
+/// Exporta los modelos y compuertas de gating. [ConversationStateNotifier] procesa
+/// cada turno para actualizar el producto consultado, detectar preguntas abiertas
+/// que esperan respuesta del usuario, y actualizar hebras de obligaciones activas.
 ///
-/// CONTEXT-GATE-01 — MEMORIA DISPONIBLE != MEMORIA RELEVANTE: el recuerdo
-/// NO entra al prompt por defecto. `clientContextBlockForTurn` decide
-/// determinista según el mensaje ACTUAL (referencia explícita, respuesta
-/// corta dependiente, producto explícito o nada). Evidencia física del
-/// fallo: "Hola" tras una consulta del Negro respondió con el Negro y su
-/// precio — el 1.5B no ignora contexto inyectado por orden textual; la
-/// corrección es que lo irrelevante nunca llegue al prompt.
+/// POR QUÉ:
+/// Permite que Nano mantenga coherencia conversacional a lo largo de múltiples turnos,
+/// sabiendo exactamente si hay una compra en curso, qué información falta y qué
+/// se confirmó, todo con persistencia determinista en base de datos.
 library;
 
 import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../business/business_facts.dart';
 import '../business/fact_selector.dart';
 import '../storage/automation_db_store_client.dart';
+import 'conv_turn_state_models.dart';
 
-/// Recordatorio estructurado de la última consulta de producto.
-final class ClientProductContext {
-  final String name;
-  final String details;
-  final String priceLabel;
-  final int atMs;
+export 'conv_turn_state_gating.dart';
+export 'conv_turn_state_models.dart';
 
-  const ClientProductContext({
-    required this.name,
-    required this.details,
-    required this.priceLabel,
-    required this.atMs,
-  });
-
-  String get label {
-    final variant = details.trim();
-    return variant.isEmpty ? name : '$name ($variant)';
-  }
-
-  factory ClientProductContext.fromJson(Map<String, dynamic> json) =>
-      ClientProductContext(
-        name: (json['name'] as String?) ?? '',
-        details: (json['details'] as String?) ?? '',
-        priceLabel: (json['price'] as String?) ?? '',
-        atMs: (json['atMs'] as num?)?.toInt() ?? 0,
-      );
-
-  Map<String, Object?> toJson() => {
-    'name': name,
-    'details': details,
-    'price': priceLabel,
-    'atMs': atMs,
-  };
-}
-
-/// Recordatorio del producto (v1: el último consultado con éxito de match)
-/// + estado del turno (Ronda 3: pregunta pendiente y cierre de tema).
-final class ClientContextEntry {
-  final ClientProductContext? product;
-
-  /// Última pregunta que Nano dejó abierta (reply enviado terminado en '?').
-  /// '' = sin pregunta pendiente. Resuelve "sí"/"M"/"mañana" contra ELLA,
-  /// no contra el último producto.
-  final String pendingQuestion;
-
-  /// 'active' = tema comercial en curso; 'resolved' = el cliente cerró
-  /// ("gracias"/"listo gracias"); '' = sin tema. Un tema resuelto NO
-  /// reaparece con saludos ni respuestas dependientes sin pregunta.
-  final String topicStatus;
-
-  /// CONV-STATE-01 — tipo SEMÁNTICO de la pregunta pendiente:
-  /// 'confirm' = espera sí/no/dale; 'value' = espera un dato corto
-  /// (talla, número, cantidad, fecha); '' = sin clasificación. Viaja al
-  /// prompt como hint: el 1.5B lee "M" mejor cuando sabe qué esperar.
-  final String pendingKind;
-
-  final int atMs;
-
-  const ClientContextEntry({
-    this.product,
-    this.pendingQuestion = '',
-    this.topicStatus = '',
-    this.pendingKind = '',
-    required this.atMs,
-  });
-
-  factory ClientContextEntry.fromJson(Map<String, dynamic> json) =>
-      ClientContextEntry(
-        product: json['product'] == null
-            ? null
-            : ClientProductContext.fromJson(
-                (json['product'] as Map).cast<String, dynamic>(),
-              ),
-        pendingQuestion: (json['pendingQuestion'] as String?) ?? '',
-        topicStatus: (json['topicStatus'] as String?) ?? '',
-        pendingKind: (json['pendingKind'] as String?) ?? '',
-        atMs: (json['atMs'] as num?)?.toInt() ?? 0,
-      );
-
-  Map<String, Object?> toJson() => {
-    if (product != null) 'product': product!.toJson(),
-    'pendingQuestion': pendingQuestion,
-    'topicStatus': topicStatus,
-    'pendingKind': pendingKind,
-    'atMs': atMs,
-  };
-}
-
-/// Bloque <CONTEXTO DEL CLIENTE> para el prompt ('' si no hay nada que
-/// recordar). Auto-instruido: recuerda la consulta anterior y se ignora si
-/// el cliente pide algo distinto.
-String formatClientContextBlock(ClientContextEntry? entry) {
-  final product = entry?.product;
-  if (product == null) return '';
-  final days = DateTime.now()
-      .difference(DateTime.fromMillisecondsSinceEpoch(entry!.atMs))
-      .inDays;
-  final when = days <= 0
-      ? 'hoy'
-      : days == 1
-      ? 'ayer'
-      : 'hace $days días';
-  return '''
-<CONTEXTO DEL CLIENTE>
-Consulta anterior de ESTE cliente: ${product.label} por ${product.priceLabel}
-($when). Usa este recuerdo para resolver referencias como "el que te
-pregunté", "ese teléfono", "la negra". Si el cliente pide algo distinto o el
-recuerdo no aplica, ignóralo por completo.
-</CONTEXTO DEL CLIENTE>''';
-}
-
-/// CONTEXT-GATE-01 — tokens de saludo puro. Si TODOS los tokens del mensaje
-/// caen aquí, es un saludo: el turno no reactiva contexto comercial.
-const Set<String> greetingTokens = {
-  'hola',
-  'holas',
-  'buenas',
-  'buenos',
-  'dias',
-  'tardes',
-  'noches',
-  'buen',
-  'dia',
-  'tarde',
-  'noche',
-  'hey',
-  'saludos',
-  'que',
-  'tal',
-  'mas',
-  'como',
-  'estas',
-  'esta',
-  'todo',
-  'bien',
-  'vos',
-  'tu',
-  'ola',
-  // P0-ROUTE — saludos casuales del español coloquial: "oe", "¿estás ahí?"
-  // ("estas ahi" = todo el mensaje en el set → saludo puro → PERSONAL).
-  'oe',
-  'ahi',
-  'y',
-  'ti',
-  'usted',
-  'parce',
-  'emma',
-  'emm',
-};
-
-/// ¿Saludo/social puro? Determinista: cada token del mensaje pertenece a
-/// [greetingTokens]. "hola, ¿tienen el negro?" NO es puro ('tienen' fuera).
-bool isPureGreeting(String messageText) {
-  final tokens = tokenizeText(normalizeText(messageText));
-  if (tokens.isEmpty) return false;
-  return tokens.every(greetingTokens.contains);
-}
-
-/// CONTEXT-GATE-01 — tokens de respuesta corta dependiente del turno
-/// anterior ("sí", "dale", "cuánto"): solo estos re-activan el recuerdo
-/// sin referencia explícita ni producto mencionado. OJO: "vale" está
-/// FUERA — "vale" suele ser confirmación ("de acuerdo"), no consulta de
-/// precio; "¿cuánto vale?" igual activa por 'cuanto'. Inyectar recuerdo
-/// con un "vale" de cierre incita eco del producto viejo (P1).
-const Set<String> dependentReplyTokens = {
-  'si',
-  'no',
-  'dale',
-  'listo',
-  'ok',
-  'okay',
-  'perfecto',
-  'cuanto',
-  'cuantos',
-  'cuantas',
-  'cual',
-  'cuales',
-  'cuando',
-  'manana',
-  'hoy',
-};
-
-/// CONTEXT-GATE-01 — tokens de referencia explícita a lo conversado antes
-/// ("ese", "el anterior", "el que te dije"). No matchean catálogo: son la
-/// señal de que el recuerdo SÍ aplica.
-const Set<String> referenceTokens = {
-  'ese',
-  'esa',
-  'esos',
-  'esas',
-  'aquel',
-  'aquella',
-  'aquellos',
-  'aquellas',
-  'anterior',
-  'mismo',
-  'misma',
-  'dije',
-  'pregunte',
-  'pregunto',
-  'dicho',
-  'contaste',
-};
-
-/// CONTEXT-GATE-01 — señales deterministas del gating para ESTE mensaje.
-/// Una sola fuente: la decisión de [clientContextBlockForTurn] y la traza
-/// diagnóstica [ctx:gate] leen lo MISMO (sin divergencia posible).
-({bool reference, bool dependent, bool explicitProduct}) contextSignalsFor(
-  String messageText,
-  BusinessFacts facts,
-) {
-  final tokens = tokenizeText(normalizeText(messageText));
-  return (
-    reference: tokens.any(referenceTokens.contains),
-    dependent:
-        tokens.isNotEmpty &&
-        tokens.length <= 2 &&
-        tokens.every(dependentReplyTokens.contains),
-    explicitProduct: selectFactsForMessage(
-      messageText,
-      facts,
-    ).products.isNotEmpty,
-  );
-}
-
-/// Ronda 3 — bloque <PREGUNTA PENDIENTE>: Nano dejó una pregunta abierta y
-/// el mensaje corto actual probablemente la responde. Auto-instruido: si no
-/// encaja, se ignora (jamás desplaza al mensaje actual).
-///
-/// CONV-STATE-01 — el hint tipado por [ClientContextEntry.pendingKind]
-/// condiciona la lectura: confirm espera sí/no/dale; value espera un dato
-/// corto ("M", "2", "mañana"). El 1.5B sin la pista lee "M" como mensaje
-/// suelto y pierde la dependencia con la pregunta.
-String formatPendingQuestionBlock(ClientContextEntry entry) {
-  final pending = entry.pendingQuestion.trim();
-  if (pending.isEmpty) return '';
-  final kindHint = switch (entry.pendingKind) {
-    'confirm' =>
-      ' Es una pregunta de confirmación: espera un sí/no/dale corto, '
-          'no una frase completa.',
-    'value' =>
-      ' Es una pregunta de dato: espera una respuesta corta (talla, '
-          'número, cantidad, fecha), no una frase completa.',
-    _ => '',
-  };
-  return '''
-<PREGUNTA PENDIENTE>
-Nano preguntó antes: "$pending". El mensaje actual del cliente probablemente
-la responde ("sí", "no", "M", "mañana" = respuesta a ESTA pregunta, no una
-consulta nueva).$kindHint Responde a partir de ella. Si el mensaje no encaja
-con la pregunta, ignórala por completo.
-</PREGUNTA PENDIENTE>''';
-}
-
-/// CONTEXT-GATE-01 — decisión determinista de si el recuerdo de producto
-/// entra al prompt para ESTE mensaje. Orden de prioridad:
-/// 1. Sin recuerdo ni pregunta pendiente → nada.
-/// 2. Referencia explícita → recuerdo (resuelve "ese"/"el anterior"),
-///    incluso con tema resuelto.
-/// 3. Producto explícito en el mensaje → nada: <DATOS DEL NEGOCIO> ya trae
-///    los hechos frescos del selector; duplicar el recuerdo incita eco.
-/// 4. Pregunta de precio ("cuánto") → recuerdo (el precio es del producto
-///    activo).
-/// 5. Pregunta pendiente de Nano + mensaje corto (≤3 tokens, sin producto
-///    explícito) → bloque <PREGUNTA PENDIENTE>: "sí"/"M"/"mañana" resuelven
-///    contra ella, no contra el último producto.
-/// 6. Respuesta corta dependiente ("sí", "cuánto") con tema activo → recuerdo.
-/// 7. Resto (saludo puro, tema nuevo, cierre social) → nada.
-String clientContextBlockForTurn({
-  required ClientContextEntry? entry,
-  required String messageText,
-  required BusinessFacts facts,
-}) {
-  if (entry?.product == null && (entry?.pendingQuestion ?? '').isEmpty) {
-    return '';
-  }
-  final signals = contextSignalsFor(messageText, facts);
-  if (signals.reference) return formatClientContextBlock(entry);
-  if (signals.explicitProduct) return '';
-  final tokens = tokenizeText(normalizeText(messageText));
-  // any, no every: "¿cuánto vale?" trae 'cuanto' (precio) Y 'vale' (fuera
-  // del set); la señal de precio gana aunque haya tokens extra.
-  if (tokens.isNotEmpty && tokens.any(priceQuestionTokens.contains)) {
-    return formatClientContextBlock(entry);
-  }
-  if ((entry?.pendingQuestion ?? '').isNotEmpty &&
-      tokens.isNotEmpty &&
-      tokens.length <= 3) {
-    return formatPendingQuestionBlock(entry!);
-  }
-  if (signals.dependent &&
-      entry?.topicStatus != 'resolved' &&
-      entry?.product != null) {
-    return formatClientContextBlock(entry);
-  }
-  return '';
-}
-
-/// CONTEXT-GATE-01 — tokens de consulta de precio: activan el recuerdo del
-/// producto incluso con pregunta pendiente ("¿cuánto vale?" pregunta por el
-/// PRECIO del producto activo, no responde la pregunta pendiente).
-const Set<String> priceQuestionTokens = {
-  'cuanto',
-  'cuantos',
-  'cuantas',
-  'precio',
-  'precios',
-  'coste',
-  'cuesta',
-};
-
-/// Persistencia (sección `convstate` del AutomationStoreDb).
+/// Almacenamiento persistente del estado conversacional en AutomationDbStore.
 class ConversationStateStore {
   const ConversationStateStore();
-
   static const section = 'convstate';
 
   Future<Map<String, ClientContextEntry>> load() async {
@@ -364,6 +52,7 @@ class ConversationStateStore {
       );
 }
 
+/// Gestor de estado conversacional con Riverpod.
 final class ConversationStateNotifier
     extends StateNotifier<Map<String, ClientContextEntry>> {
   ConversationStateNotifier(this._store) : super(const {});
@@ -376,37 +65,23 @@ final class ConversationStateNotifier
   Future<void> _load() async {
     try {
       state = await _store.load();
-    } on Object {
-      // Sin estado: empieza vacío (los recordatorios se construyen solos).
-    }
+    } on Object catch (_) {}
   }
 
-  /// Ronda 3 — registra el turno completo para ESTA conversación:
-  /// 1. Producto consultado por el cliente (selector determinista, una sola
-  ///    fuente; sin match se conserva el recordado antes).
-  /// 2. Pregunta pendiente: el reply de Nano terminó en '?' → esa pregunta
-  ///    queda abierta para el próximo turno; sin '?' se limpia (la anterior
-  ///    ya fue respondida o abandonada).
-  /// 3. Tema: match de producto → 'active'; agradecimiento del cliente
-  ///    ("gracias"/"perfecto") → 'resolved'; si no, conserva el anterior.
-  ///
-  /// CONV-STATE-03 — [correction]: el cliente corrige o rechaza el turno
-  /// anterior ("¿de qué hablas?", "no es eso"). El recuerdo de producto y
-  /// el tema activo se INVALIDAN (contexto muerto): un "sí" posterior no
-  /// puede reactivar un producto que el cliente acaba de deshacer. La
-  /// pregunta pendiente sigue su regla normal (una corrección puede dejar
-  /// una pregunta nueva legítima).
+  /// Registra el turno conversacional y actualiza el hilo de intenciones.
   Future<void> recordTurn({
     required String conversationId,
     required String userText,
     required String nanoReply,
     required BusinessFacts facts,
     bool correction = false,
+    List<ClientTopicThread> newThreads = const [],
   }) async {
     if (conversationId.isEmpty) return;
     final now = DateTime.now().millisecondsSinceEpoch;
     final existing = state[conversationId];
     final selection = selectFactsForMessage(userText, facts);
+
     final product = correction
         ? null
         : selection.products.isEmpty
@@ -417,11 +92,17 @@ final class ConversationStateNotifier
             priceLabel: selection.products.first.priceLabel,
             atMs: now,
           );
+
     final pendingQuestion = _pendingQuestionFrom(nanoReply);
     final entry = ClientContextEntry(
       product: product,
       pendingQuestion: pendingQuestion,
       pendingKind: _pendingKindFor(pendingQuestion),
+      openThreads: correction
+          ? const []
+          : newThreads.isNotEmpty
+          ? newThreads
+          : existing?.openThreads ?? const [],
       topicStatus: correction
           ? ''
           : _topicStatusFor(
@@ -435,109 +116,39 @@ final class ConversationStateNotifier
     await _store.save(state);
   }
 
-  /// P1-FIX — pendingQuestion solo cuando el reply ESPERA un dato o una
-  /// confirmación del cliente (talla/cantidad/fecha/color/confirmación).
-  /// Antes cualquier '?' creaba dependencia: "¿En qué puedo ayudarte?" o
-  /// "¿Cómo estás?" convertían el siguiente mensaje corto en una respuesta
-  /// pendiente y heredaba contexto ajeno. Ronda 3 C01-C04 se conserva:
-  /// "¿quieres que revise disponibilidad?" contiene 'quieres' y sigue
-  /// generando pregunta pendiente. (Capado: un reply completo de 500 chars
-  /// no es una pregunta útil para el prompt.)
   static String _pendingQuestionFrom(String nanoReply) {
     final reply = nanoReply.trim();
     if (!reply.contains('?')) return '';
     final asked = normalizeText(reply).split('?').first.toLowerCase();
-    // Cortesía pura: el modelo abre diálogo o saluda; no espera un dato.
     if (_courtesyQuestions.any(asked.contains)) return '';
-    // EXPECTED REPLY: solo si pide un dato o confirmación concreta.
     if (!_expectationTokens.any(asked.contains)) return '';
-    final question = reply.length <= 160 ? reply : reply.substring(0, 160);
-    return question;
+    return reply.length <= 160 ? reply : reply.substring(0, 160);
   }
 
   static const Set<String> _courtesyQuestions = {
-    'en que puedo ayudarte',
-    'como estas',
-    'como te va',
-    'no te parece',
-    'que necesitas',
-    'te ayudo',
-    'que tal',
+    'en que puedo ayudarte', 'como estas', 'como te va', 'no te parece',
+    'que necesitas', 'te ayudo', 'que tal',
   };
 
   static const List<String> _expectationTokens = [
-    'quieres',
-    'cuantos',
-    'cuantas',
-    'talla',
-    'color',
-    'fecha',
-    'confirma',
-    'confirmo',
-    'deseas',
-    'te gustaria',
-    'cantidad',
-    'cuando',
-    'donde',
-    'cuanto',
-    'reviso',
-    'te envio',
-    'que dia',
-    'te parece',
-    // CONV-STATE-01 — formas naturales antes ausentes: "¿Cuál prefieres?"
-    // no creaba pregunta pendiente (token ausente) y el "M" del cliente
-    // llegaba sin contexto. 'prefieres'/'medida'/'numero'/'direccion'/
-    // 'hora' cubren la pregunta de elección/dato típica de venta.
-    'prefieres',
-    'prefieren',
-    'medida',
-    'medidas',
-    'numero',
-    'numeros',
-    'direccion',
-    'hora',
-    'horario',
-    'entrega',
+    'quieres', 'cuantos', 'cuantas', 'talla', 'color', 'fecha', 'confirma',
+    'confirmo', 'deseas', 'te gustaria', 'cantidad', 'cuando', 'donde',
+    'cuanto', 'reviso', 'te envio', 'que dia', 'te parece', 'prefieres',
+    'prefieren', 'medida', 'medidas', 'numero', 'numeros', 'direccion',
+    'hora', 'horario', 'entrega',
   ];
 
-  /// CONV-STATE-01 — clasificación SEMÁNTICA de la pregunta pendiente
-  /// (misma evidencia del texto ya validado; cero LLM extra).
-  /// 'confirm' = espera sí/no/dale; 'value' = espera un dato corto.
   static const Set<String> _confirmExpectationTokens = {
-    'quieres',
-    'deseas',
-    'confirma',
-    'confirmo',
-    'te gustaria',
-    'reviso',
-    'te envio',
-    'te parece',
+    'quieres', 'deseas', 'confirma', 'confirmo', 'te gustaria', 'reviso',
+    'te envio', 'te parece',
   };
 
   static const Set<String> _valueExpectationTokens = {
-    'cuantos',
-    'cuantas',
-    'talla',
-    'color',
-    'fecha',
-    'cantidad',
-    'cuando',
-    'donde',
-    'cuanto',
-    'que dia',
-    'prefieres',
-    'prefieren',
-    'medida',
-    'medidas',
-    'numero',
-    'numeros',
-    'direccion',
-    'hora',
-    'horario',
-    'entrega',
+    'cuantos', 'cuantas', 'talla', 'color', 'fecha', 'cantidad', 'cuando',
+    'donde', 'cuanto', 'que dia', 'prefieres', 'prefieren', 'medida',
+    'medidas', 'numero', 'numeros', 'direccion', 'hora', 'horario', 'entrega',
   };
 
-  /// CONV-STATE-01 — tipo de la pregunta pendiente para el hint del prompt.
   static String _pendingKindFor(String pendingQuestion) {
     final q = normalizeText(pendingQuestion);
     if (_confirmExpectationTokens.any(q.contains)) return 'confirm';
@@ -545,8 +156,6 @@ final class ConversationStateNotifier
     return '';
   }
 
-  /// Cierre de tema: el cliente agradeció ("gracias"/"perfecto") → resolved.
-  /// Match de producto nuevo → active. Sin señal → conserva el anterior.
   static String _topicStatusFor(
     String userText, {
     required bool hasProductMatch,
@@ -565,14 +174,13 @@ final conversationStateStoreProvider = Provider<ConversationStateStore>(
   (ref) => const ConversationStateStore(),
 );
 
-final conversationStateNotifierProvider =
-    StateNotifierProvider<
-      ConversationStateNotifier,
-      Map<String, ClientContextEntry>
-    >((ref) {
-      final notifier = ConversationStateNotifier(
-        ref.watch(conversationStateStoreProvider),
-      );
-      notifier.ready;
-      return notifier;
-    });
+final conversationStateNotifierProvider = StateNotifierProvider<
+  ConversationStateNotifier,
+  Map<String, ClientContextEntry>
+>((ref) {
+  final notifier = ConversationStateNotifier(
+    ref.watch(conversationStateStoreProvider),
+  );
+  notifier.ready;
+  return notifier;
+});

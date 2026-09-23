@@ -1,184 +1,130 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>NanoRuntime — Terminal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NanoRuntime — Chat local</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0e14;color:#cdd6f4;font-family:'JetBrains Mono','Cascadia Code','Fira Code',monospace;height:100vh;display:flex;flex-direction:column}
-.header{background:#111820;padding:10px 16px;font-size:12px;display:flex;justify-content:space-between;border-bottom:1px solid #1e2a38}
-.header .dev{color:#58A6FF}
-.header .stats{color:#6c7a8d;font-size:11px}
-.output{flex:1;overflow-y:auto;padding:12px 16px;font-size:13px;line-height:1.6}
-.output .prompt{color:#F78166;margin-top:12px}
-.output .response{color:#cdd6f4;white-space:pre-wrap;word-break:break-word}
-.output .meta{color:#484f58;font-size:11px;margin-top:4px;margin-bottom:8px}
-.output .streaming{animation:pulse 1s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.input-bar{display:flex;padding:10px 16px;background:#111820;border-top:1px solid #1e2a38}
-.input-bar input{flex:1;background:#0d1117;border:1px solid#21262d;color:#cdd6f4;padding:10px 14px;font-size:14px;border-radius:6px;outline:none;font-family:inherit}
-.input-bar input:focus{border-color:#58A6FF}
-.input-bar button{background:#238636;color:white;border:none;padding:10px 20px;margin-left:8px;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px}
-.input-bar button:hover{background:#2ea043}
-.input-bar button:disabled{background:#21262d;color:#484f58;cursor:default}
-.cursor{display:inline-block;width:8px;height:14px;background:#58A6FF;animation:blink 1s infinite;vertical-align:middle;margin-left:2px}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+:root{color-scheme:dark;--bg:#080b10;--panel:#10161f;--line:#243143;--text:#e8edf5;--muted:#8b99ab;--blue:#58a6ff;--green:#3fb950;--red:#f85149;--amber:#d29922}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:radial-gradient(circle at 50% -20%,#162235 0,var(--bg) 46%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;overflow:hidden}
+button,textarea{font:inherit}button{cursor:pointer}
+.app{height:100%;display:grid;grid-template-rows:auto 1fr auto}
+.topbar{display:flex;align-items:center;gap:14px;padding:12px 18px;background:rgba(16,22,31,.94);border-bottom:1px solid var(--line);backdrop-filter:blur(16px)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}.logo{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,#1f6feb,#58a6ff);font-size:18px;box-shadow:0 8px 30px rgba(31,111,235,.28)}
+.brand-copy{min-width:0}.brand-title{font-weight:720;letter-spacing:-.02em}.model-name{max-width:48vw;color:var(--muted);font:12px ui-monospace,SFMono-Regular,Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;white-space:nowrap}.dot{width:9px;height:9px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 4px rgba(210,153,34,.12)}
+.status.ready .dot{background:var(--green);box-shadow:0 0 0 4px rgba(63,185,80,.12)}.status.error .dot,.status.offline .dot{background:var(--red);box-shadow:0 0 0 4px rgba(248,81,73,.12)}
+.ghost{border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:9px;padding:7px 10px}.ghost:hover{border-color:#3a4b61;color:var(--text)}.ghost:disabled{opacity:.45;cursor:default}
+.messages{overflow-y:auto;padding:28px max(18px,calc((100vw - 860px)/2));scroll-behavior:smooth}.empty{height:100%;display:grid;place-content:center;text-align:center;color:var(--muted);padding:24px}.empty strong{display:block;color:var(--text);font-size:22px;margin-bottom:8px}
+.message{display:flex;flex-direction:column;align-items:flex-start;margin:0 0 20px}.message.user{align-items:flex-end}.bubble{max-width:min(760px,88%);white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.58;padding:13px 15px;border:1px solid var(--line);border-radius:16px;background:var(--panel)}
+.user .bubble{background:#17345d;border-color:#28528a;border-bottom-right-radius:5px}.assistant .bubble{border-bottom-left-radius:5px}.error .bubble{background:#2b171a;border-color:#6e292d;color:#ffb4b0}.pending .bubble{color:var(--muted)}
+.pending .bubble::after{content:"";display:inline-block;width:7px;height:7px;margin-left:8px;border-radius:50%;background:var(--blue);animation:pulse 1s infinite}.meta{margin:6px 5px 0;color:#68778a;font-size:11px}@keyframes pulse{50%{opacity:.2;transform:scale(.72)}}
+.composer-wrap{padding:12px max(14px,calc((100vw - 900px)/2)) calc(12px + env(safe-area-inset-bottom));background:linear-gradient(180deg,transparent,rgba(8,11,16,.98) 25%)}.composer{display:flex;align-items:flex-end;gap:10px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.28)}
+textarea{flex:1;min-height:42px;max-height:160px;resize:none;border:0;outline:0;background:transparent;color:var(--text);padding:10px 11px;line-height:1.45}textarea::placeholder{color:#68778a}.send{min-width:82px;height:42px;border:0;border-radius:11px;background:var(--blue);color:#07111f;font-weight:750}.send:hover{filter:brightness(1.08)}.send:disabled{background:#263448;color:#65758a;cursor:default}.hint{padding:7px 4px 0;text-align:center;color:#607086;font-size:11px}
+@media(max-width:640px){.topbar{padding:10px 12px;gap:9px}.model-name{max-width:38vw}.status-label{display:none}.messages{padding:20px 12px}.bubble{max-width:94%}.ghost{padding:7px 8px}.composer-wrap{padding-left:8px;padding-right:8px}.send{min-width:68px}}
 </style>
 </head>
 <body>
-
-<div class="header">
-  <span>🧠 <span class="dev">NanoRuntime Terminal</span></span>
-  <span class="stats" id="stats">RAM: -- | ctx: -- | tok/s: --</span>
-</div>
-
-<div class="output" id="output">
-  <div class="meta">NanoRuntime v1.2 — Samsung Galaxy A30s (3.72 GB) — Qwen 1.5B Q4_K_M</div>
-  <div class="meta">Type a question. Press Enter or click Send.</div>
-</div>
-
-<div class="input-bar">
-  <input type="text" id="prompt" placeholder="Ask anything..." autofocus>
-  <button id="sendBtn" onclick="sendPrompt()">Send</button>
-</div>
-
+<main class="app">
+  <header class="topbar">
+    <div class="brand"><div class="logo" aria-hidden="true">N</div><div class="brand-copy"><div class="brand-title">NanoRuntime</div><div class="model-name" id="modelName">Comprobando modelo…</div></div></div>
+    <div class="status" id="connectionStatus" title="Comprobando conexión"><span class="dot" aria-hidden="true"></span><span class="status-label" id="statusLabel">Conectando…</span></div>
+    <button class="ghost" id="clearBtn" type="button">Nuevo chat</button>
+  </header>
+  <section class="messages" id="messages" aria-live="polite"><div class="empty" id="emptyState"><div><strong>Chat local y privado</strong>Los mensajes se envían únicamente al modelo GGUF configurado en este equipo.</div></div></section>
+  <footer class="composer-wrap"><div class="composer"><textarea id="prompt" rows="1" maxlength="12000" placeholder="Escribe un mensaje…" aria-label="Mensaje"></textarea><button class="send" id="sendBtn" type="button">Enviar</button></div><div class="hint">Enter para enviar · Shift + Enter para una nueva línea</div></footer>
+</main>
 <script>
-// WebSocket connection (replace with your daemon address)
-const WS_URL = 'ws://localhost:9001';
-let ws = null;
-let currentResponse = null;
-let isConnected = false;
-
-function connect() {
-  try {
-    ws = new WebSocket(WS_URL);
-    ws.onopen = () => { isConnected = true; updateStats('Connected'); };
-    ws.onmessage = (e) => handleStreamEvent(JSON.parse(e.data));
-    ws.onclose = () => { isConnected = false; updateStats('Disconnected'); setTimeout(connect, 2000); };
-    ws.onerror = () => { isConnected = false; };
-  } catch(e) {
-    // WebSocket not available — use simulated streaming
-    updateStats('Offline mode');
-  }
-}
-
-function updateStats(status) {
-  document.getElementById('stats').textContent = status;
-}
-
-// ── Simulated streaming (when no daemon is connected) ──────────────
-
-const SIMULATED_RESPONSES = {
-  'hello': 'Hello! I am NanoRuntime, running locally on this device.\n\nHow can I help you today?',
-  'what is nanoruntime': 'NanoRuntime is a lightweight inference runtime that enables large language models to run on Android devices without crashing due to memory limits.\n\nIt uses dynamic memory paging and graceful degradation to prevent OOM (Out of Memory) errors.',
-  'explain quantum': 'Quantum computing uses quantum-mechanical phenomena like superposition and entanglement to perform computations.\n\nUnlike classical bits (0 or 1), quantum bits (qubits) can exist in multiple states simultaneously, enabling certain calculations to be performed exponentially faster.',
-  'python function': 'def binary_search(arr, target):\n    left, right = 0, len(arr) - 1\n    while left <= right:\n        mid = (left + right) // 2\n        if arr[mid] == target: return mid\n        elif arr[mid] < target: left = mid + 1\n        else: right = mid - 1\n    return -1',
-  'default': 'I am processing your request locally on this device.\n\nFeel free to ask about technology, programming, science, or any topic — I will respond based on the model running on this hardware.'
+const elements = {
+  messages: document.getElementById('messages'), empty: document.getElementById('emptyState'),
+  prompt: document.getElementById('prompt'), send: document.getElementById('sendBtn'),
+  clear: document.getElementById('clearBtn'), status: document.getElementById('connectionStatus'),
+  statusLabel: document.getElementById('statusLabel'), modelName: document.getElementById('modelName'),
 };
+const chat = { history: [], sessionId: createSessionId(), sending: false };
 
-async function sendPrompt() {
-  const input = document.getElementById('prompt');
-  const prompt = input.value.trim();
-  if (!prompt) return;
-
-  input.value = '';
-  input.disabled = true;
-  document.getElementById('sendBtn').disabled = true;
-
-  addMessage('prompt', '> ' + prompt);
-
-  // ── Intentar con el servidor real (HTTP POST) ────────────────
-  const realResponse = await sendToServer(prompt);
-  if (realResponse !== null) {
-    // Respuesta real del runtime
-    const container = addMessage('response', realResponse.text);
-    container.textContent = realResponse.text;
-    addMessage('meta', `[Done: ${realResponse.tok_s.toFixed(2)} tok/s, conf ${realResponse.confidence.toFixed(2)}]`);
-  } else {
-    // Fallback a simulación si el servidor no responde
-    await simulateStreaming(prompt);
-  }
-
-  input.disabled = false;
-  document.getElementById('sendBtn').disabled = false;
-  input.focus();
+function createSessionId() {
+  return globalThis.crypto?.randomUUID?.() ?? `web-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
-
-// ── Envía al servidor real via HTTP POST ─────────────────────────
-async function sendToServer(prompt) {
+function modelBasename(path) { return String(path || 'Modelo no configurado').split(/[\\/]/).pop(); }
+function setConnection(kind, label, detail = '') {
+  elements.status.className = `status ${kind}`;
+  elements.statusLabel.textContent = label;
+  elements.status.title = detail || label;
+}
+async function refreshStatus() {
+  try {
+    const response = await fetch('/api/status', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    elements.modelName.textContent = modelBasename(data.model);
+    const states = {
+      configured: ['loading', 'Modelo configurado'], loading: ['loading', 'Cargando modelo…'],
+      ready: ['ready', 'Modelo conectado'], missing: ['error', 'GGUF no encontrado'], error: ['error', 'Error del modelo'],
+    };
+    const [kind, label] = states[data.model_status] || ['loading', 'Servidor activo'];
+    setConnection(kind, label, data.model_error || data.message);
+  } catch (error) {
+    elements.modelName.textContent = 'Servidor sin conexión';
+    setConnection('offline', 'Desconectado', error.message);
+  }
+}
+function addMessage(role, text, metaText = '') {
+  elements.empty?.remove(); elements.empty = null;
+  const article = document.createElement('article'); article.className = `message ${role}`;
+  const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.textContent = text;
+  const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = metaText;
+  article.append(bubble, meta); elements.messages.appendChild(article);
+  elements.messages.scrollTop = elements.messages.scrollHeight;
+  return { article, bubble, meta };
+}
+function setBusy(busy) {
+  chat.sending = busy; elements.prompt.disabled = busy; elements.send.disabled = busy; elements.clear.disabled = busy;
+  elements.send.textContent = busy ? 'Pensando…' : 'Enviar';
+}
+function resizePrompt() {
+  elements.prompt.style.height = 'auto'; elements.prompt.style.height = `${Math.min(elements.prompt.scrollHeight, 160)}px`;
+}
+async function sendPrompt() {
+  if (chat.sending) return;
+  const prompt = elements.prompt.value.trim(); if (!prompt) return;
+  const requestHistory = chat.history.slice(-24);
+  addMessage('user', prompt, 'Tú'); elements.prompt.value = ''; resizePrompt(); setBusy(true);
+  const pending = addMessage('assistant pending', 'Procesando con el modelo local…', 'NanoRuntime');
   try {
     const response = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, max_tokens: 150 })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, max_tokens: 512, history: requestHistory, session_id: chat.sessionId }),
     });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (e) {
-    return null; // Servidor no disponible → simulación
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.response || `El runtime respondió HTTP ${response.status}`);
+    if (!data.response?.trim()) throw new Error('El modelo devolvió una respuesta vacía');
+    pending.article.className = 'message assistant'; pending.bubble.textContent = data.response;
+    const speed = Number(data.tok_s || 0);
+    const speedLabel = speed > 0 ? `${speed.toFixed(2)} tok/s` : 'velocidad no reportada';
+    pending.meta.textContent = `NanoRuntime · ${speedLabel} · confianza ${Number(data.confidence || 0).toFixed(2)}`;
+    chat.history.push({ role: 'user', content: prompt }, { role: 'assistant', content: data.response });
+  } catch (error) {
+    pending.article.className = 'message error'; pending.bubble.textContent = error.message || 'No se pudo conectar con NanoRuntime';
+    pending.meta.textContent = 'La respuesta no fue simulada';
+  } finally {
+    setBusy(false); elements.prompt.focus(); refreshStatus();
   }
 }
-
-async function simulateStreaming(prompt) {
-  const container = addMessage('response', '');
-  const lower = prompt.toLowerCase();
-  
-  let text = SIMULATED_RESPONSES['default'];
-  for (const [key, val] of Object.entries(SIMULATED_RESPONSES)) {
-    if (key !== 'default' && lower.includes(key)) {
-      text = val;
-      break;
-    }
-  }
-
-  // Stream character by character
-  for (let i = 0; i < text.length; i++) {
-    container.innerHTML = text.substring(0, i + 1) + '<span class="cursor"></span>';
-    await sleep(15 + Math.random() * 25);
-  }
-
-  container.innerHTML = text;
-  addMessage('meta', `[Done: ${text.split(' ').length} words]`);
+function clearConversation() {
+  if (chat.sending) return;
+  chat.history.length = 0; chat.sessionId = createSessionId(); elements.messages.replaceChildren();
+  const empty = document.createElement('div'); empty.className = 'empty'; empty.id = 'emptyState';
+  empty.innerHTML = '<div><strong>Nueva conversación</strong>El contexto anterior fue descartado.</div>';
+  elements.messages.appendChild(empty); elements.empty = empty; elements.prompt.focus();
 }
-
-function addMessage(type, text) {
-  const output = document.getElementById('output');
-  const div = document.createElement('div');
-  div.className = type;
-  div.textContent = text;
-  output.appendChild(div);
-  output.scrollTop = output.scrollHeight;
-  return div;
-}
-
-function handleStreamEvent(event) {
-  if (!currentResponse) {
-    currentResponse = addMessage('response', '');
-  }
-  if (event.type === 'token') {
-    currentResponse.textContent += event.text;
-  } else if (event.type === 'done') {
-    currentResponse = null;
-    addMessage('meta', `[Done: ${event.tokens} tokens, conf: ${event.confidence.toFixed(2)}]`);
-  }
-}
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ── Init ───────────────────────────────────────────────────────────
-
-connect();
-document.getElementById('prompt').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') sendPrompt();
+elements.send.addEventListener('click', sendPrompt); elements.clear.addEventListener('click', clearConversation);
+elements.prompt.addEventListener('input', resizePrompt);
+elements.prompt.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendPrompt(); }
 });
-
-// Demo: auto-type a welcome message
-setTimeout(() => {
-  if (!isConnected) {
-    addMessage('meta', '[Offline mode — responses are simulated. Connect daemon for real inference.]');
-  }
-}, 1000);
+refreshStatus(); setInterval(refreshStatus, 3000); elements.prompt.focus();
 </script>
 </body>
 </html>

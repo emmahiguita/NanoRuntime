@@ -1,18 +1,19 @@
 part of 'personalization_studio_screen.dart';
 
-/// PERSONALIZATION-STUDIO-HEADER — Cabecera Glassmorphic de Métricas y Selección.
-///
-/// **QUÉ HACE:**
-/// Renderiza los KPIs en tiempo real (ejemplos, contactos, memorias, plantillas),
-/// el selector de perfil conversacional activo (scope) y las acciones globales de estilo.
-///
-/// **CÓMO FUNCIONA:**
-/// Integra micro-pills con bordes translúcidos de vidrio ("iOS Glass"), selector de alcance
-/// y botón de inyección rápida de los diálogos de EMMA enriquecidos.
-///
-/// **POR QUÉ:**
-/// Desacopla la cabecera métrica del cuerpo principal respetando Single Responsibility (SRP)
-/// y manteniendo un tamaño estrictamente menor a 200 líneas de código.
+// personalization_studio_header.dart
+//
+// QUÉ HACE:
+// Cabecera adaptable (Portrait/Landscape) con Material Expressive para métricas, selector de scope y acciones.
+//
+// CÓMO FUNCIONA:
+// - Detecta orientación mediante MediaQuery:
+//   * Portrait: Column ergonómica con tarjetas métricas, selector y botones de acción.
+//   * Landscape: Row ultra-compacto de una sola línea para no consumir espacio vertical útil.
+// - Aplica bordes orgánicos, feedback táctil y micro-pills con acentos cromáticos.
+//
+// POR QUÉ:
+// Erradica RenderFlex overflows en modo horizontal y garantiza usabilidad móvil profesional (< 200 líneas).
+
 class _PersonalizationStudioHeader extends StatelessWidget {
   final Map<String, dynamic> summary;
   final String scope;
@@ -38,6 +39,79 @@ class _PersonalizationStudioHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
+    if (isLandscape) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+        child: Row(
+          children: [
+            Expanded(flex: 3, child: _buildScopeField()),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 4,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: !canEdit ? null : onEditStyle,
+                      icon: const Icon(Icons.tune_rounded, size: 12),
+                      label: const Text('Estilo', style: TextStyle(fontSize: 10)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  FilledButton.icon(
+                    onPressed: !canEdit ? null : onInjectEmma,
+                    icon: const Icon(Icons.auto_awesome, size: 11),
+                    label: const Text('EMMA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Semantics(
+                    label: 'Actualizar',
+                    child: IconButton(
+                      onPressed: working ? null : onRefresh,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0x0EFFFFFF),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0x22FFFFFF), width: 0.8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _metricPill('FRASES', '${summary['examples'] ?? 0}', Icons.forum_rounded, const Color(0xFF00E676)),
+                  const SizedBox(width: 8),
+                  _metricPill('CONTACTOS', '${summary['contacts'] ?? 0}', Icons.people_alt_rounded, const Color(0xFF00D2FF)),
+                  const SizedBox(width: 8),
+                  _metricPill('MEMORIAS', '${summary['memories'] ?? 0}', Icons.psychology_rounded, const Color(0xFFFFD54F)),
+                  const SizedBox(width: 8),
+                  _metricPill('PLANTILLAS', '${summary['templates'] ?? 0}', Icons.view_quilt_rounded, const Color(0xFFCE93D8)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
       child: Column(
@@ -92,7 +166,6 @@ class _PersonalizationStudioHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              // Semantics en lugar de Tooltip: previene el fallo "No Overlay"
               Semantics(
                 label: 'Actualizar',
                 child: IconButton(

@@ -11,12 +11,17 @@
 /// Arquitectura Android-First y Clean Architecture modular (< 200 LOC por archivo).
 library;
 
-import '../../../../core/services/device_metrics.dart' show DeviceMetrics, DeviceMetricsData;
+import '../../../../core/services/device_metrics.dart'
+    show DeviceMetrics, DeviceMetricsData;
 import '../../personal_agent/domain/conversation_agent_role.dart'
     show correctionPhrases, commercialIntentTokens, supportPhrases;
+import '../../personal_agent/domain/owner_live_fact_guard.dart'
+    show intentNeedsOwnerLiveFact;
 import '../business/fact_selector.dart' show normalizeText, tokenizeText;
-import '../messaging/conv_turn_state.dart' show ClientContextEntry, isPureGreeting;
-import '../messaging/conversation_memory.dart' show ConversationMemory, ConversationMemoryEntryKind;
+import '../messaging/conv_turn_state.dart'
+    show ClientContextEntry, isPureGreeting;
+import '../messaging/conversation_memory.dart'
+    show ConversationMemory, ConversationMemoryEntryKind;
 import '../notifications/conversation_understanding.dart';
 import 'fast_path_models.dart';
 import 'temporal_location_context.dart';
@@ -47,7 +52,12 @@ final class PragmaticFastPath {
   final String? Function()? ownerName;
   final Future<DeviceMetricsData> Function()? metricsSource;
 
-  const PragmaticFastPath({this.memoryFor, this.contextEntryFor, this.ownerName, this.metricsSource});
+  const PragmaticFastPath({
+    this.memoryFor,
+    this.contextEntryFor,
+    this.ownerName,
+    this.metricsSource,
+  });
 
   static DeviceMetricsData? _cachedMetrics;
   static DateTime? _lastMetricsFetch;
@@ -55,7 +65,9 @@ final class PragmaticFastPath {
 
   Future<DeviceMetricsData?> _getMetrics() async {
     final now = DateTime.now();
-    if (_cachedMetrics != null && _lastMetricsFetch != null && now.difference(_lastMetricsFetch!) < _metricsTtl) {
+    if (_cachedMetrics != null &&
+        _lastMetricsFetch != null &&
+        now.difference(_lastMetricsFetch!) < _metricsTtl) {
       return _cachedMetrics;
     }
     try {
@@ -85,7 +97,10 @@ final class PragmaticFastPath {
     if (_hasCommercialOrCommandSignal(normalized, tokens)) return null;
 
     // 2. Escape de contenido narrativo / sustantivo / estado personal
-    if (_PragmaticFastPathNarrative.hasSubstantiveNarrative(normalized, tokens)) {
+    if (_PragmaticFastPathNarrative.hasSubstantiveNarrative(
+      normalized,
+      tokens,
+    )) {
       return null;
     }
 
@@ -97,7 +112,8 @@ final class PragmaticFastPath {
     // El compositor puede entregar memoria ya unificada entre nombre y JID.
     final memory = memoryOverride ?? memoryFor?.call(conversationId);
     if (memory != null && memory.unresolvedObligations.isNotEmpty) {
-      final isGreeting = intents.contains(ConversationIntent.greeting) || isPureGreeting(raw);
+      final isGreeting =
+          intents.contains(ConversationIntent.greeting) || isPureGreeting(raw);
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       final isStale = memory.lastAtMs > 0 && (nowMs - memory.lastAtMs) > 900000;
       if (!isGreeting && !isStale) return null;
@@ -117,28 +133,12 @@ final class PragmaticFastPath {
     if (memory != null && memory.entries.isNotEmpty) {
       final recent = memory.entries.reversed.take(10);
       for (final entry in recent) {
-        if (entry.kind == ConversationMemoryEntryKind.outboundVerified ||
+        final isOut = entry.kind == ConversationMemoryEntryKind.outboundVerified ||
             entry.kind == ConversationMemoryEntryKind.outboundDispatched ||
-            entry.kind == ConversationMemoryEntryKind.outboundObservedManual) {
-          lastOutboundText ??= entry.text;
-          if (nowMs - entry.atMs < 900000) recentlyGreeted = true;
-        }
+            entry.kind == ConversationMemoryEntryKind.outboundObservedManual;
+        if (isOut) lastOutboundText ??= entry.text;
         if (nowMs - entry.atMs < 900000) {
-          final folded = normalizeText(entry.text);
-          const greetingKeywords = [
-            'hola',
-            'buenas',
-            'buen dia',
-            'buenos dias',
-            'que mas',
-            'quiubo',
-            'como estas',
-            'como te va',
-            'todo bien',
-          ];
-          if (greetingKeywords.any(folded.contains)) {
-            recentlyGreeted = true;
-          }
+          if (isOut || _isGreetingSnippet(entry.text)) recentlyGreeted = true;
         }
       }
     }
@@ -157,26 +157,8 @@ final class PragmaticFastPath {
     if (result == null || result.reply.trim().isEmpty) return null;
 
     final actLabel = intents.map((i) => i.name).join('+');
-    const respondingIntents = {
-      ConversationIntent.reciprocalQuestion,
-      ConversationIntent.userWellbeing,
-      ConversationIntent.negation,
-      ConversationIntent.affirmation,
-      ConversationIntent.askRap,
-      ConversationIntent.invitation,
-      ConversationIntent.wellbeingClarification,
-      ConversationIntent.askAvailability,
-      ConversationIntent.askFood,
-      ConversationIntent.askPhysicalLocation,
-      ConversationIntent.askFamily,
-      ConversationIntent.askSleep,
-      ConversationIntent.askMusic,
-      ConversationIntent.askWeatherSocial,
-      ConversationIntent.askCall,
-      ConversationIntent.askLostOrMissing,
-      ConversationIntent.askOpinionSocial,
-    };
-    final isResponse = intents.any(respondingIntents.contains);
+    final needsOwnerFact = intentNeedsOwnerLiveFact(intents.map((i) => i.name));
+    final isResponse = intents.any(_isRespondingIntent);
 
     return FastPathCandidate(
       act: actLabel,
@@ -188,9 +170,37 @@ final class PragmaticFastPath {
         intent: actLabel,
         relation: isResponse ? 'responde' : 'nuevo',
         questions: const [],
-        missingFacts: const [],
+        missingFacts: needsOwnerFact ? const ['estado actual del dueño'] : const [],
         requiresAction: false,
       ),
     );
   }
+
+  static bool _isGreetingSnippet(String text) {
+    final f = normalizeText(text);
+    return f.contains('hola') || f.contains('buenas') || f.contains('buen dia') ||
+        f.contains('buenos dias') || f.contains('que mas') || f.contains('quiubo') ||
+        f.contains('como estas') || f.contains('como te va') || f.contains('todo bien');
+  }
+
+  static bool _isRespondingIntent(ConversationIntent i) => switch (i) {
+    ConversationIntent.reciprocalQuestion ||
+    ConversationIntent.userWellbeing ||
+    ConversationIntent.negation ||
+    ConversationIntent.affirmation ||
+    ConversationIntent.askRap ||
+    ConversationIntent.invitation ||
+    ConversationIntent.wellbeingClarification ||
+    ConversationIntent.askAvailability ||
+    ConversationIntent.askFood ||
+    ConversationIntent.askPhysicalLocation ||
+    ConversationIntent.askFamily ||
+    ConversationIntent.askSleep ||
+    ConversationIntent.askMusic ||
+    ConversationIntent.askWeatherSocial ||
+    ConversationIntent.askCall ||
+    ConversationIntent.askLostOrMissing ||
+    ConversationIntent.askOpinionSocial => true,
+    _ => false,
+  };
 }

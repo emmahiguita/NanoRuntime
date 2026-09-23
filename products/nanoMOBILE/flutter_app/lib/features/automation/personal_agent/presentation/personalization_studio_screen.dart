@@ -96,7 +96,14 @@ class _PersonalizationStudioScreenState extends ConsumerState<PersonalizationStu
         appBar: AppBar(
           title: const Text('Agente Personal · EMMA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           actions: [
-            IconButton(icon: const Icon(Icons.help_outline, size: 20), tooltip: 'Ayuda', onPressed: _openHelpSheet),
+            Semantics(
+              label: 'Ayuda',
+              button: true,
+              child: IconButton(
+                icon: const Icon(Icons.help_outline, size: 20),
+                onPressed: _openHelpSheet,
+              ),
+            ),
           ],
           bottom: const TabBar(
             isScrollable: true,

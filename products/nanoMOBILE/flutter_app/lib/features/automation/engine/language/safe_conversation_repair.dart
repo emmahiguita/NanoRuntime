@@ -1,8 +1,7 @@
-﻿/// WA-LIVE-STATE-REPAIR-01 — Motor de reparación determinista sin LLM.
+/// WA-LIVE-STATE-REPAIR-01 — Motor de reparación determinista sin LLM.
 ///
 /// **QUÉ HACE:**
-/// Corrige fallos de calidad conversacional (afirmación o espejado de live-state,
-/// muletillas de call-center y preguntas redundantes) usando reemplazos honestos.
+/// Corrige muletillas de call-center y preguntas redundantes con reemplazos seguros.
 ///
 /// **CÓMO FUNCIONA:**
 /// Clasifica el tipo de fallo (RepairCase), extrae intenciones del texto de entrada
@@ -19,8 +18,6 @@ enum RepairCase {
   echoReply,
   callCenterPhrase,
   wrongTurnGreeting,
-  liveStateAffirmed,
-  liveStateQuestionMirror,
   redundantQuestion,
 }
 
@@ -38,42 +35,6 @@ final class SafeConversationRepair {
     String? senderName,
   }) {
     switch (cause) {
-      case RepairCase.liveStateAffirmed:
-      case RepairCase.liveStateQuestionMirror:
-        final u = userText?.toLowerCase() ?? '';
-
-        // Detección de preguntas sobre actividad, rutina o planes cotidianos del dueño.
-        final isActivityOrPlans = u.contains('hacer') ||
-            u.contains('haces') ||
-            u.contains('haciendo') ||
-            u.contains('haras') ||
-            u.contains('planes') ||
-            u.contains('pensado') ||
-            u.contains('estas en') ||
-            u.contains('en que andas') ||
-            u.contains('que cuentas') ||
-            u.contains('que hay de nuevo');
-        if (isActivityOrPlans) {
-          return _pick(safeRepairActivityOptions, userText);
-        }
-
-        // Detección de preguntas de desplazamiento, asistencia o salida física.
-        final isGoingOrOut = u.contains('vas a ir') ||
-            u.contains('vas ir') ||
-            u.contains('iras') ||
-            u.contains('vas a salir') ||
-            u.contains('vas a caer') ||
-            u.contains('vas a venir') ||
-            u.contains('sales hoy') ||
-            u.contains('salir') ||
-            u.contains('caer') ||
-            (u.contains('ir') && !u.contains('decir'));
-        if (isGoingOrOut) {
-          return _pick(safeRepairGoingOptions, userText);
-        }
-
-        return _pick(safeRepairGeneralLiveStateOptions, userText);
-
       case RepairCase.redundantQuestion:
         return _repairRedundantQuestion(reply, userText: userText);
 
@@ -96,9 +57,18 @@ final class SafeConversationRepair {
 
   static String? _repairRedundantQuestion(String reply, {String? userText}) {
     final redundantRegexes = [
-      RegExp(r'¿?(?:y\s+)?(?:que|qué)\s+tal(?:\s+(?:tu|el|su))?\s+d[ií]a\??', caseSensitive: false),
-      RegExp(r'¿?(?:cómo|como)\s+(?:te\s+ha\s+ido|te\s+fue|va\s+tu\s+d[ií]a)\??', caseSensitive: false),
-      RegExp(r'¿?(?:y\s+)?(?:t[uú]|usted)\s+(?:que|qué)\s+tal\??', caseSensitive: false),
+      RegExp(
+        r'¿?(?:y\s+)?(?:que|qué)\s+tal(?:\s+(?:tu|el|su))?\s+d[ií]a\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:cómo|como)\s+(?:te\s+ha\s+ido|te\s+fue|va\s+tu\s+d[ií]a)\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:y\s+)?(?:t[uú]|usted)\s+(?:que|qué)\s+tal\??',
+        caseSensitive: false,
+      ),
     ];
 
     var cleaned = reply;
@@ -117,9 +87,18 @@ final class SafeConversationRepair {
 
   static String? _repairCallCenter(String reply, {String? userText}) {
     final phrases = [
-      RegExp(r'¿?(?:en qué|en que|cómo|como)\s+(?:te|le|nos)?\s*(?:puedo|podemos|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+hoy)?\??', caseSensitive: false),
-      RegExp(r'soy nano,?\s*(?:el asistente(?: de este negocio)?)?\.?', caseSensitive: false),
-      RegExp(r'¿?(?:cómo|como)\s+estás\??\s*¿?(?:cómo|como)\s+puedo\s+ayudar(?:te)?(?:\s+hoy)?\??', caseSensitive: false),
+      RegExp(
+        r'¿?(?:en qué|en que|cómo|como)\s+(?:te|le|nos)?\s*(?:puedo|podemos|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+hoy)?\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'soy nano,?\s*(?:el asistente(?: de este negocio)?)?\.?',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:cómo|como)\s+estás\??\s*¿?(?:cómo|como)\s+puedo\s+ayudar(?:te)?(?:\s+hoy)?\??',
+        caseSensitive: false,
+      ),
     ];
 
     var cleaned = reply;

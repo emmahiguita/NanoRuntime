@@ -1,10 +1,21 @@
+// location_edit_dialog.dart
+//
+// QUÉ HACE:
+// Diálogo profesional con Material Expressive 3 para configuración de ubicación, sede y dirección comercial.
+//
+// CÓMO FUNCIONA:
+// - Desglosa modalidad (física/virtual), dirección, ciudad, referencia y notas complementarias.
+// - Utiliza DialogContainerShell para ajustar la altura y márgenes en Landscape y Portrait (< 160 líneas).
+//
+// POR QUÉ:
+// Previene RenderFlex overflows al abrir teclado en modo horizontal asegurando legibilidad (SOLID - SRP).
+
 import 'package:flutter/material.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
+import 'dialog_container_shell.dart';
 
-/// Diálogo profesional para la configuración de ubicación, sede y dirección del negocio.
 class LocationEditDialog extends StatefulWidget {
   final String initial;
-
   const LocationEditDialog({super.key, required this.initial});
 
   @override
@@ -12,13 +23,8 @@ class LocationEditDialog extends StatefulWidget {
 }
 
 class _LocationEditDialogState extends State<LocationEditDialog> {
-  late final TextEditingController _modality;
-  late final TextEditingController _address;
-  late final TextEditingController _city;
-  late final TextEditingController _reference;
-  late final TextEditingController _notes;
+  late final TextEditingController _modality, _address, _city, _reference, _notes, _rawController;
   bool _isRawMode = false;
-  late final TextEditingController _rawController;
 
   @override
   void initState() {
@@ -28,22 +34,17 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
   }
 
   void _initFromText(String text) {
-    String mod = 'Tienda física y atención virtual';
-    String addr = '';
-    String c = '';
-    String ref = '';
+    String mod = 'Tienda física y atención virtual', addr = '', c = '', ref = '';
     final extra = <String>[];
-
     final clean = text.trim();
     if (clean.isNotEmpty) {
-      final parts = clean.split(RegExp(r'\.\s+'));
-      for (final p in parts) {
+      for (final p in clean.split(RegExp(r'\.\s+'))) {
         final lower = p.toLowerCase();
         if (lower.startsWith('dirección:') || lower.startsWith('direccion:')) {
           addr = p.substring(p.indexOf(':') + 1).trim();
-        } else if (lower.startsWith('ciudad:') || lower.startsWith('municipio:') || lower.startsWith('barrio:')) {
+        } else if (lower.startsWith('ciudad:') || lower.startsWith('municipio:')) {
           c = p.substring(p.indexOf(':') + 1).trim();
-        } else if (lower.startsWith('referencia:') || lower.startsWith('punto de referencia:')) {
+        } else if (lower.startsWith('referencia:')) {
           ref = p.substring(p.indexOf(':') + 1).trim();
         } else if (lower.contains('virtual') || lower.contains('física') || lower.contains('fisica')) {
           mod = p.trim();
@@ -52,7 +53,6 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
         }
       }
     }
-
     _modality = TextEditingController(text: mod);
     _address = TextEditingController(text: addr);
     _city = TextEditingController(text: c);
@@ -78,220 +78,122 @@ class _LocationEditDialogState extends State<LocationEditDialog> {
     if (_city.text.trim().isNotEmpty) parts.add('Ciudad: ${_city.text.trim()}');
     if (_reference.text.trim().isNotEmpty) parts.add('Referencia: ${_reference.text.trim()}');
     if (_notes.text.trim().isNotEmpty) parts.add(_notes.text.trim());
-
-    if (parts.isEmpty && widget.initial.trim().isNotEmpty) {
-      return widget.initial.trim();
-    }
-    return parts.join('. ');
+    return parts.isEmpty ? widget.initial.trim() : parts.join('. ');
   }
 
   @override
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 650),
-        decoration: BoxDecoration(
-          color: visual.isDark ? const Color(0xFF0F172A) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: visual.isDark
-                ? Colors.white.withValues(alpha: 0.16)
-                : const Color(0xFFCBD5E1),
-            width: 1.2,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 28,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 14, 12),
-              child: Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      color: visual.accentSoft,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.location_on_outlined, color: visual.accent, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Ubicación del Negocio',
-                      style: TextStyle(
-                        color: visual.text,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                  ),
-                  // Semantics en lugar de Tooltip: previene el fallo "No Overlay" (cajas rojas con texto amarillo)
-                  // al evitar llamadas a Overlay.of(context) en sub-árboles de diálogo.
-                  Semantics(
-                    label: _isRawMode ? 'Modo guiado' : 'Texto libre',
-                    button: true,
-                    child: IconButton(
-                      icon: Icon(_isRawMode ? Icons.view_list_rounded : Icons.edit_note_rounded, color: visual.accent),
-                      onPressed: () {
-                        if (!_isRawMode) _rawController.text = _buildConsolidated();
-                        setState(() => _isRawMode = !_isRawMode);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-
-            // Body
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: _isRawMode
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Escribe la dirección y puntos de referencia exactamente como deseas que se comuniquen:',
-                            style: TextStyle(color: visual.textMuted, fontSize: 13),
-                          ),
-                          const SizedBox(height: 12),
-                          TextField(
-                            controller: _rawController,
-                            maxLines: 6,
-                            style: TextStyle(color: visual.text, fontSize: 14),
-                            decoration: InputDecoration(
-                              hintText: 'Ej. Calle 10 # 40-20, El Poblado, Medellín. Cerca al parque principal.',
-                              filled: true,
-                              fillColor: visual.inputFill,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextField(
-                            controller: _modality,
-                            style: TextStyle(color: visual.text, fontSize: 13.5),
-                            decoration: InputDecoration(
-                              labelText: 'Modalidad (Física, Virtual, Ambas)',
-                              filled: true,
-                              fillColor: visual.inputFill,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              isDense: true,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: _address,
-                            style: TextStyle(color: visual.text, fontSize: 13.5),
-                            decoration: InputDecoration(
-                              labelText: 'Dirección exacta',
-                              hintText: 'Ej. Cra 43A # 1-50 Local 102',
-                              filled: true,
-                              fillColor: visual.inputFill,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              isDense: true,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: _city,
-                            style: TextStyle(color: visual.text, fontSize: 13.5),
-                            decoration: InputDecoration(
-                              labelText: 'Ciudad y Barrio',
-                              hintText: 'Ej. Medellín, El Poblado',
-                              filled: true,
-                              fillColor: visual.inputFill,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              isDense: true,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: _reference,
-                            style: TextStyle(color: visual.text, fontSize: 13.5),
-                            decoration: InputDecoration(
-                              labelText: 'Punto de referencia o cómo llegar',
-                              hintText: 'Ej. Frente a la estación del metro',
-                              filled: true,
-                              fillColor: visual.inputFill,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              isDense: true,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: _notes,
-                            style: TextStyle(color: visual.text, fontSize: 13.5),
-                            decoration: InputDecoration(
-                              labelText: 'Notas adicionales (parqueadero, acceso)',
-                              filled: true,
-                              fillColor: visual.inputFill,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                              isDense: true,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-
-            const Divider(height: 1),
-            // Actions
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: visual.textMuted,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    ),
-                    child: const Text('Cancelar'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
+    return DialogContainerShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(color: visual.accentSoft, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.place_rounded, color: visual.accent, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text('Ubicación y Sede', style: TextStyle(color: visual.text, fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+                Semantics(
+                  label: _isRawMode ? 'Modo guiado' : 'Texto libre',
+                  button: true,
+                  child: IconButton(
+                    icon: Icon(_isRawMode ? Icons.view_list_rounded : Icons.edit_note_rounded, color: visual.accent, size: 22),
                     onPressed: () {
-                      final res = _isRawMode ? _rawController.text.trim() : _buildConsolidated();
-                      Navigator.of(context).pop(res.isNotEmpty ? res : null);
+                      if (!_isRawMode) _rawController.text = _buildConsolidated();
+                      setState(() => _isRawMode = !_isRawMode);
                     },
-                    style: FilledButton.styleFrom(
-                      backgroundColor: visual.accent,
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: const Text('Guardar'),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: _isRawMode
+                  ? TextField(
+                      controller: _rawController,
+                      maxLines: 6,
+                      style: TextStyle(color: visual.text, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Ej. Calle 10 # 40-20, El Poblado, Medellín. Atención virtual a todo el país.',
+                        filled: true,
+                        fillColor: visual.inputFill,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      ),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _field(_modality, 'Modalidad de atención', visual, hint: 'Ej. Tienda física y virtual'),
+                        const SizedBox(height: 8),
+                        _field(_address, 'Dirección', visual, hint: 'Ej. Cra 43A # 1-50 Local 102'),
+                        const SizedBox(height: 8),
+                        _field(_city, 'Ciudad / Municipio', visual, hint: 'Ej. Medellín, Antioquia'),
+                        const SizedBox(height: 8),
+                        _field(_reference, 'Puntos de referencia', visual, hint: 'Ej. Al lado del parque principal'),
+                        const SizedBox(height: 8),
+                        _field(_notes, 'Notas de llegada o parqueo', visual, hint: 'Ej. Contamos con parqueadero gratuito'),
+                      ],
+                    ),
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text('Cancelar', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () {
+                    final res = _isRawMode ? _rawController.text.trim() : _buildConsolidated();
+                    Navigator.of(context).pop(res.isNotEmpty ? res : null);
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: visual.accent,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Guardar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _field(TextEditingController ctrl, String label, AutomationVisualPalette visual, {String? hint}) => TextField(
+        controller: ctrl,
+        style: TextStyle(color: visual.text, fontSize: 12.5),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(fontSize: 11, color: visual.textMuted),
+          hintText: hint,
+          hintStyle: TextStyle(fontSize: 10, color: visual.textMuted.withValues(alpha: 0.5)),
+          filled: true,
+          fillColor: visual.inputFill,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        ),
+      );
 }

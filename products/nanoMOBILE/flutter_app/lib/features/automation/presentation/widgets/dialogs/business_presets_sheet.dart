@@ -7,13 +7,25 @@ import 'package:nanoai/features/automation/engine/messaging/tone_profile.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
-/// Hoja modal para previsualizar y cargar plantillas de negocio predefinidas.
+// business_presets_sheet.dart
+//
+// QUÉ HACE:
+// Hoja modal adaptada con Material Expressive para previsualizar y aplicar plantillas de negocio predefinidas.
+//
+// CÓMO FUNCIONA:
+// - Despliega catálogo de plantillas comerciales con selección rápida y diálogo confirmatorio.
+// - Aplica restricciones de altura y márgenes proporcionales en Landscape y Portrait.
+//
+// POR QUÉ:
+// Facilita la configuración del asistente con un toque sin sobrepasar el límite de 200 líneas (SOLID).
+
 class BusinessPresetsSheet extends ConsumerWidget {
   const BusinessPresetsSheet({super.key});
 
   static Future<void> show(BuildContext context) {
     return showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -24,22 +36,19 @@ class BusinessPresetsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visual = AutomationVisual.of(context);
+    final size = MediaQuery.sizeOf(context);
+    final isLandscape = size.width > size.height;
 
     return SafeArea(
-      child: Container(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        decoration: BoxDecoration(
-          color: visual.isDark ? const Color(0xFF0F172A) : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        padding: EdgeInsets.fromLTRB(
-          18,
-          4,
-          18,
-          MediaQuery.of(context).viewInsets.bottom + 20,
-        ),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          constraints: BoxConstraints(maxHeight: size.height * (isLandscape ? 0.92 : 0.85)),
+          decoration: BoxDecoration(
+            color: visual.isDark ? const Color(0xFF0F172A) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: EdgeInsets.fromLTRB(18, 4, 18, MediaQuery.of(context).viewInsets.bottom + (isLandscape ? 8 : 16)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -47,77 +56,50 @@ class BusinessPresetsSheet extends ConsumerWidget {
             Row(
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: visual.accentSoft,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.dashboard_customize_outlined, color: visual.accent, size: 22),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(color: visual.accentSoft, borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.dashboard_customize_outlined, color: visual.accent, size: 20),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Plantillas de Negocio',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: visual.text,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      Text(
-                        'Configura estrategia, tono y políticas con 1 toque.',
-                        style: TextStyle(fontSize: 12.5, color: visual.textMuted),
-                      ),
+                      Text('Plantillas de Negocio', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: visual.text)),
+                      Text('Configura estrategia y tono con 1 toque.', style: TextStyle(fontSize: 11.5, color: visual.textMuted)),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             const Divider(height: 1),
-            const SizedBox(height: 8),
-
+            const SizedBox(height: 6),
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: BusinessPresetsCatalog.presets.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                separatorBuilder: (_, __) => const SizedBox(height: 6),
                 itemBuilder: (ctx, i) {
                   final preset = BusinessPresetsCatalog.presets[i];
                   return Container(
                     decoration: BoxDecoration(
                       color: visual.isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: visual.isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0),
-                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: visual.isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0)),
                     ),
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                       leading: CircleAvatar(
-                        radius: 20,
+                        radius: 18,
                         backgroundColor: visual.accentSoft,
-                        child: Icon(preset.icon, color: visual.accent, size: 20),
+                        child: Icon(preset.icon, color: visual.accent, size: 18),
                       ),
-                      title: Text(
-                        preset.title,
-                        style: TextStyle(
-                          color: visual.text,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14.5,
-                        ),
-                      ),
-                      subtitle: Text(
-                        preset.description,
-                        style: TextStyle(color: visual.textMuted, fontSize: 12),
-                      ),
-                      trailing: Icon(Icons.chevron_right_rounded, color: visual.textMuted),
-                      onTap: () => _applyPresetDialog(context, ref, preset),
+                      title: Text(preset.title, style: TextStyle(color: visual.text, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                      subtitle: Text(preset.description, style: TextStyle(color: visual.textMuted, fontSize: 11)),
+                      trailing: Icon(Icons.chevron_right_rounded, color: visual.textMuted, size: 18),
+                      onTap: () => _applyPresetDialog(context, ref, preset, isLandscape),
                     ),
                   );
                 },
@@ -126,65 +108,48 @@ class BusinessPresetsSheet extends ConsumerWidget {
           ],
         ),
       ),
+      ),
     );
   }
 
-  Future<void> _applyPresetDialog(
-    BuildContext context,
-    WidgetRef ref,
-    BusinessPreset preset,
-  ) async {
+  Future<void> _applyPresetDialog(BuildContext context, WidgetRef ref, BusinessPreset preset, bool isLandscape) async {
     bool loadBaseFacts = true;
     final confirmed = await showDialog<bool>(
       context: context,
+      useRootNavigator: true,
       builder: (dlgContext) => StatefulBuilder(
-        builder: (context, setDlgState) {
+        builder: (ctx, setDlgState) {
           final visual = AutomationVisual.of(dlgContext);
           return AlertDialog(
+            insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 8 : 20),
             backgroundColor: visual.isDark ? const Color(0xFF0F172A) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: Text(
-              'Aplicar plantilla "${preset.title}"',
-              style: TextStyle(color: visual.text, fontSize: 17, fontWeight: FontWeight.bold),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: Text('Aplicar "${preset.title}"', style: TextStyle(color: visual.text, fontSize: 15, fontWeight: FontWeight.bold)),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Se configurará el tono comercial (${preset.tone.sales == ToneSales.persuasivo ? "Persuasivo" : "Natural"}, trato ${preset.tone.warmth == ToneWarmth.cercano ? "Cercano" : "Formal"}).',
-                    style: TextStyle(color: visual.text, fontSize: 13),
-                  ),
-                  const SizedBox(height: 14),
+                  Text('Tono: ${preset.tone.sales == ToneSales.persuasivo ? "Persuasivo" : "Natural"}, ${preset.tone.warmth == ToneWarmth.cercano ? "Cercano" : "Formal"}.', style: TextStyle(color: visual.text, fontSize: 12)),
+                  const SizedBox(height: 8),
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
+                    dense: true,
                     value: loadBaseFacts,
                     activeColor: visual.accent,
-                    onChanged: (v) {
-                      setDlgState(() => loadBaseFacts = v ?? true);
-                    },
-                    title: Text(
-                      'Cargar políticas y datos recomendados',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: visual.text),
-                    ),
-                    subtitle: Text(
-                      'Aplica horarios, políticas de pago y logística recomendadas para este rubro (conservando tus productos actuales).',
-                      style: TextStyle(fontSize: 11.5, color: visual.textMuted),
-                    ),
+                    onChanged: (v) => setDlgState(() => loadBaseFacts = v ?? true),
+                    title: Text('Cargar políticas y datos recomendados', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: visual.text)),
+                    subtitle: Text('Horarios, pagos y logística para este rubro.', style: TextStyle(fontSize: 10.5, color: visual.textMuted)),
                   ),
                 ],
               ),
             ),
             actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dlgContext).pop(false),
-                child: Text('Cancelar', style: TextStyle(color: visual.textMuted)),
-              ),
+              TextButton(onPressed: () => Navigator.of(dlgContext).pop(false), child: Text('Cancelar', style: TextStyle(color: visual.textMuted, fontSize: 12))),
               FilledButton(
                 onPressed: () => Navigator.of(dlgContext).pop(true),
-                style: FilledButton.styleFrom(backgroundColor: visual.accent),
-                child: const Text('Aplicar'),
+                style: FilledButton.styleFrom(backgroundColor: visual.accent, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
+                child: const Text('Aplicar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           );
@@ -194,7 +159,6 @@ class BusinessPresetsSheet extends ConsumerWidget {
 
     if (confirmed == true && context.mounted) {
       await ref.read(toneProfileNotifierProvider.notifier).update(preset.tone);
-
       if (loadBaseFacts) {
         final currentFacts = ref.read(businessFactsNotifierProvider);
         await ref.read(businessFactsNotifierProvider.notifier).loadPreset(
@@ -207,15 +171,9 @@ class BusinessPresetsSheet extends ConsumerWidget {
           ),
         );
       }
-
       if (context.mounted) {
-        Navigator.of(context).pop(); // Close bottom sheet
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Plantilla "${preset.title}" aplicada con éxito.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Plantilla "${preset.title}" aplicada.'), behavior: SnackBarBehavior.floating));
       }
     }
   }

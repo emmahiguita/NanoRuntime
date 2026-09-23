@@ -4,37 +4,19 @@
 /// Determina si dos elementos de conversación representan el mismo hilo de chat real.
 ///
 /// **CÓMO FUNCIONA:**
-/// Compara canal/paquete, identificadores JID (@g.us, @s.whatsapp.net), números telefónicos,
-/// títulos de grupo normalizados ("THE BOYS") y nombres normalizados.
+/// Compara canal/paquete e identificadores técnicos observados. El nombre y
+/// el título son etiquetas humanas: nunca se usan como identidad.
 ///
 /// **POR QUÉ:**
 /// Erradica conversaciones duplicadas y fragmentadas, manteniendo el código < 200 líneas.
 library;
 
-import '../../engine/messaging/conversation_group_resolver.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_key.dart';
 
 abstract final class MessagingConversationIdentity {
-  static String? extractPhoneDigits(String raw) => RegExp(r'\d{7,18}').firstMatch(raw)?.group(0);
-
-  static String normalizeName(String raw) {
-    var lower = ConversationGroupResolver.cleanTitle(raw).toLowerCase();
-    if (lower.contains(':') && lower.split(':').first.contains('.')) {
-      lower = lower.split(':').last;
-    }
-    lower = lower.trim();
-    if (lower.isEmpty ||
-        lower.startsWith('contacto whatsapp') ||
-        lower.startsWith('chat de whatsapp') ||
-        lower.startsWith('grupo de whatsapp') ||
-        lower == 'grupo' ||
-        lower == 'whatsapp' ||
-        lower.length < 2) {
-      return '';
-    }
-    return lower;
-  }
+  static String? extractPhoneDigits(String raw) =>
+      RegExp(r'\d{7,18}').firstMatch(raw)?.group(0);
 
   /// Distingue nombres humanos de IDs que Android expone como título.
   static bool isTechnicalName(String raw) {
@@ -47,45 +29,15 @@ abstract final class MessagingConversationIdentity {
         RegExp(r'^\d{7,18}$').hasMatch(value);
   }
 
-  static String _evidence(String raw) {
-    final canonical = canonicalConversationId(raw).toLowerCase();
-    if (canonical.isEmpty) return '';
-    var evidence = canonical.contains('/') ? canonical.split('/').last : canonical;
-    if (evidence.contains(':') && evidence.split(':').first.contains('.')) {
-      evidence = evidence.split(':').last;
-    }
-    for (final prefix in const ['locus:', 'shortcut:', 'person:', 'conv:', 'group:', 'title:', 'jid:']) {
-      if (evidence.startsWith(prefix)) {
-        evidence = evidence.substring(prefix.length);
-        break;
-      }
-    }
-    return evidence.trim();
-  }
-
-  static bool _isStrong(String raw) {
-    final canonical = canonicalConversationId(raw).toLowerCase();
-    final evidence = _evidence(raw);
-    if (evidence.isEmpty) return false;
-    return const [
-          'locus:',
-          'shortcut:',
-          'person:',
-          'conv:',
-          'jid:',
-        ].any((prefix) => canonical.startsWith(prefix) || canonical.contains('/$prefix')) ||
-        evidence.contains('@g.us') ||
-        evidence.contains('@s.whatsapp.net') ||
-        extractPhoneDigits(evidence) != null;
-  }
-
   static bool areSame(ConversationSummaryItem a, ConversationSummaryItem b) {
     if (a.packageName.toLowerCase() != b.packageName.toLowerCase()) {
       return false;
     }
     final idA = canonicalConversationId(a.conversationId);
     final idB = canonicalConversationId(b.conversationId);
-    if (idA.isNotEmpty && idA == idB) return true;
+    if (idA.isNotEmpty && idA == idB && _strongIdentity(idA) != null) {
+      return true;
+    }
 
     // La misma notificación o el mismo evento observado por SQLite y Android
     // son evidencia fuerte aunque una fuente tenga nombre y la otra un @lid.
@@ -94,66 +46,43 @@ abstract final class MessagingConversationIdentity {
     if (notificationA.isNotEmpty && notificationA == notificationB) {
       return true;
     }
-    if (_sameObservedEvent(a, b)) return true;
-
-    final evidenceA = _evidence(idA);
-    final evidenceB = _evidence(idB);
-    if (evidenceA.isNotEmpty && evidenceA == evidenceB) return true;
-
-    // 1. Fusión de JID WhatsApp (@g.us para grupos, @s.whatsapp.net para individuales)
-    final jidRegex = RegExp(r'[\w\.\-]+@(g\.us|s\.whatsapp\.net)');
-    final jidA = jidRegex.firstMatch(idA)?.group(0) ?? jidRegex.firstMatch(a.notificationKey ?? '')?.group(0);
-    final jidB = jidRegex.firstMatch(idB)?.group(0) ?? jidRegex.firstMatch(b.notificationKey ?? '')?.group(0);
-    if (jidA != null && jidB != null && jidA.toLowerCase() == jidB.toLowerCase()) {
-      return true;
-    }
-
-    // 2. Fusión precisa de grupos por título real (ej: "THE BOYS")
-    if (a.isGroup || b.isGroup) {
-      final titleA = ConversationGroupResolver.cleanTitle(a.groupTitle ?? a.displayName);
-      final titleB = ConversationGroupResolver.cleanTitle(b.groupTitle ?? b.displayName);
-      if (titleA.isNotEmpty &&
-          titleB.isNotEmpty &&
-          !ConversationGroupResolver.isGenericTitle(titleA) &&
-          !ConversationGroupResolver.isGenericTitle(titleB) &&
-          titleA.toLowerCase() == titleB.toLowerCase()) {
-        return true;
-      }
-    }
-
-    // 3. Fusión por dígitos telefónicos o numéricos del JID
-    final digitsA = extractPhoneDigits(idA) ?? extractPhoneDigits(a.displayName);
-    final digitsB = extractPhoneDigits(idB) ?? extractPhoneDigits(b.displayName);
-    if (digitsA != null &&
-        digitsB != null &&
-        (digitsA == digitsB || digitsA.endsWith(digitsB) || digitsB.endsWith(digitsA))) {
-      return true;
-    }
-
-    // 4. Fusión por nombre de contacto normalizado
-    final nameA = normalizeName(a.displayName);
-    final nameB = normalizeName(b.displayName);
-    if (nameA.isEmpty || nameA != nameB) return false;
-
-    // Una notificación activa enlaza de forma factual el nombre visible con
-    // el shortcut/JID técnico. Esto une "Jaiber" y "...@lid" sin fusionar
-    // dos chats históricos solo porque casualmente compartan el mismo nombre.
-    final hasLiveBridge =
-        a.conversationId.startsWith('live:') ||
-        b.conversationId.startsWith('live:') ||
-        (a.notificationKey?.trim().isNotEmpty ?? false) ||
-        (b.notificationKey?.trim().isNotEmpty ?? false);
-    return hasLiveBridge || !_isStrong(idA) || !_isStrong(idB);
+    // Los aliases nacen únicamente de una unión ya probada (misma clave de
+    // notificación o mismo ID). Su intersección permite conservar continuidad
+    // sin inferir identidad por nombre, título o sufijos telefónicos.
+    final identitiesA = _strongIdentities(a);
+    final identitiesB = _strongIdentities(b);
+    return identitiesA.any(identitiesB.contains);
   }
 
-  static bool _sameObservedEvent(ConversationSummaryItem a, ConversationSummaryItem b) {
-    if (!a.conversationId.startsWith('live:') && !b.conversationId.startsWith('live:')) {
-      return false;
+  static Set<String> _strongIdentities(ConversationSummaryItem item) {
+    final result = <String>{};
+    for (final raw in [item.conversationId, ...item.conversationAliases]) {
+      final identity = _strongIdentity(raw);
+      if (identity != null) result.add(identity);
     }
-    if (a.lastAtMs <= 0 || b.lastAtMs <= 0) return false;
-    if ((a.lastAtMs - b.lastAtMs).abs() > 2000) return false;
-    final messageA = a.lastMessage.trim().toLowerCase();
-    final messageB = b.lastMessage.trim().toLowerCase();
-    return messageA.isNotEmpty && messageA == messageB;
+    return result;
+  }
+
+  /// Produce una clave con paquete+cuenta. Solo acepta IDs estructurados para
+  /// impedir que un alias legado sin procedencia mezcle plataformas o cuentas.
+  static String? _strongIdentity(String raw) {
+    final canonical = canonicalConversationId(raw).toLowerCase();
+    final parts = canonical.split('/');
+    if (parts.length < 4) return null;
+    final scope = '${parts[1]}/${parts[2]}';
+    final evidence = parts.sublist(3).join('/');
+    final jid = RegExp(
+      r'[\w\.\-]+@(g\.us|s\.whatsapp\.net)',
+    ).firstMatch(evidence)?.group(0);
+    if (jid != null) return '$scope/jid:$jid';
+    final strongPrefix = const [
+      'locus:',
+      'shortcut:',
+      'person:',
+      'conv:',
+      'notification:',
+      'jid:',
+    ].any(evidence.startsWith);
+    return strongPrefix ? '$scope/$evidence' : null;
   }
 }
