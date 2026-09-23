@@ -5,94 +5,123 @@
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/services/nano_runtime_api.dart';
 import '../../domain/messaging_platform.dart';
 import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../executors/notification_executor.dart';
 import '../../executors/notification_executor_provider.dart';
 import 'messaging_dedup_merger.dart';
+import 'messaging_live_notifications_provider.dart';
 
-final selectedPlatformFilterProvider = StateProvider<MessagingPlatform?>((ref) => null);
-final selectedCategoryTabProvider = StateProvider<MessagingCategoryFilter>((ref) => MessagingCategoryFilter.all);
+export 'messaging_live_notifications_provider.dart';
+
+final selectedPlatformFilterProvider = StateProvider<MessagingPlatform?>(
+  (ref) => null,
+);
+final selectedCategoryTabProvider = StateProvider<MessagingCategoryFilter>(
+  (ref) => MessagingCategoryFilter.all,
+);
 final messagingSearchQueryProvider = StateProvider<String>((ref) => '');
 
-final liveNotificationStreamProvider = StreamProvider.autoDispose<Map<dynamic, dynamic>>((ref) {
-  return NanoRuntimeApi.instance.notificationEvents;
-});
-
 /// Estado de acceso del listener de notificaciones en Android
-final notificationAccessProvider = FutureProvider.autoDispose<NotificationAccessStatus>((ref) async {
-  final executor = ref.watch(notificationExecutorProvider);
-  return executor.status();
-});
+final notificationAccessProvider =
+    FutureProvider.autoDispose<NotificationAccessStatus>((ref) async {
+      final executor = ref.watch(notificationExecutorProvider);
+      return executor.status();
+    });
 
 /// Agrega conversaciones de ambos agentes (personal y negocios) Y notificaciones en vivo.
-final allHubConversationsProvider = FutureProvider<List<ConversationSummaryItem>>((ref) async {
-  ref.watch(liveNotificationStreamProvider);
-  ref.watch(conversationHubVersionProvider);
+final allHubConversationsProvider =
+    FutureProvider<List<ConversationSummaryItem>>((ref) async {
+      ref.watch(liveNotificationStreamProvider);
+      ref.watch(conversationHubVersionProvider);
 
-  final personalList = await ref.watch(conversationHubListProvider(ConversationAgentId.personal).future);
-  final businessList = await ref.watch(conversationHubListProvider(ConversationAgentId.business).future);
-  final liveList = await ref.watch(liveNotificationsProvider.future);
+      final personalList = await ref.watch(
+        conversationHubListProvider(ConversationAgentId.personal).future,
+      );
+      final businessList = await ref.watch(
+        conversationHubListProvider(ConversationAgentId.business).future,
+      );
+      final liveList = await ref.watch(liveNotificationsProvider.future);
 
-  return MessagingDedupMerger.deduplicateAndSort([
-    ...personalList,
-    ...businessList,
-    ...liveList,
-  ]);
-});
+      return MessagingDedupMerger.deduplicateAndSort([
+        ...personalList,
+        ...businessList,
+        ...liveList,
+      ]);
+    });
 
-final filteredConversationsProvider = Provider<AsyncValue<List<ConversationSummaryItem>>>((ref) {
-  final allAsync = ref.watch(allHubConversationsProvider);
-  final platform = ref.watch(selectedPlatformFilterProvider);
-  final category = ref.watch(selectedCategoryTabProvider);
-  final search = ref.watch(messagingSearchQueryProvider).trim().toLowerCase();
+final filteredConversationsProvider =
+    Provider<AsyncValue<List<ConversationSummaryItem>>>((ref) {
+      final allAsync = ref.watch(allHubConversationsProvider);
+      final platform = ref.watch(selectedPlatformFilterProvider);
+      final category = ref.watch(selectedCategoryTabProvider);
+      final search = ref
+          .watch(messagingSearchQueryProvider)
+          .trim()
+          .toLowerCase();
 
-  return allAsync.whenData((list) {
-    return list.where((item) {
-      if (platform != null) {
-        final itemPlatform = MessagingPlatform.fromPackageName(item.packageName);
-        if (itemPlatform != platform) return false;
-      }
-      switch (category) {
-        case MessagingCategoryFilter.all || MessagingCategoryFilter.contacts:
-          break;
-        case MessagingCategoryFilter.unread:
-          if (!item.hasPendingReply) return false;
-        case MessagingCategoryFilter.personal:
-          if (item.agentId != ConversationAgentId.personal) return false;
-        case MessagingCategoryFilter.business:
-          if (item.agentId != ConversationAgentId.business) return false;
-        case MessagingCategoryFilter.bots:
-          if (item.humanOwns) return false;
-        case MessagingCategoryFilter.archived:
-          break;
-      }
-      if (search.isNotEmpty) {
-        final name = item.displayName.toLowerCase();
-        final last = item.lastMessage.toLowerCase();
-        if (!name.contains(search) && !last.contains(search)) return false;
-      }
-      return true;
-    }).toList();
-  });
-});
+      return allAsync.whenData((list) {
+        return list.where((item) {
+          if (platform != null) {
+            final itemPlatform = MessagingPlatform.fromPackageName(
+              item.packageName,
+            );
+            if (itemPlatform != platform) return false;
+          }
+          switch (category) {
+            case MessagingCategoryFilter.all ||
+                MessagingCategoryFilter.contacts:
+              break;
+            case MessagingCategoryFilter.groups:
+              if (!item.isGroup) return false;
+            case MessagingCategoryFilter.unread:
+              if (!item.hasPendingReply) return false;
+            case MessagingCategoryFilter.personal:
+              if (item.agentId != ConversationAgentId.personal) return false;
+            case MessagingCategoryFilter.business:
+              if (item.agentId != ConversationAgentId.business) return false;
+            case MessagingCategoryFilter.bots:
+              if (item.humanOwns) return false;
+            case MessagingCategoryFilter.archived:
+              break;
+          }
+          if (search.isNotEmpty) {
+            final name = item.displayName.toLowerCase();
+            final last = item.lastMessage.toLowerCase();
+            if (!name.contains(search) && !last.contains(search)) return false;
+          }
+          return true;
+        }).toList();
+      });
+    });
 
 final platformCountsProvider = Provider<Map<MessagingPlatform, int>>((ref) {
   final all = ref.watch(allHubConversationsProvider).value ?? const [];
   final counts = <MessagingPlatform, int>{};
   for (final platform in MessagingPlatform.values) {
-    counts[platform] = all.where((c) => MessagingPlatform.fromPackageName(c.packageName) == platform).length;
+    counts[platform] = all
+        .where(
+          (c) => MessagingPlatform.fromPackageName(c.packageName) == platform,
+        )
+        .length;
   }
   return counts;
 });
 
-final platformUnreadCountsProvider = Provider<Map<MessagingPlatform, int>>((ref) {
+final platformUnreadCountsProvider = Provider<Map<MessagingPlatform, int>>((
+  ref,
+) {
   final all = ref.watch(allHubConversationsProvider).value ?? const [];
   final counts = <MessagingPlatform, int>{};
   for (final platform in MessagingPlatform.values) {
-    counts[platform] = all.where((c) => MessagingPlatform.fromPackageName(c.packageName) == platform && c.hasPendingReply).length;
+    counts[platform] = all
+        .where(
+          (c) =>
+              MessagingPlatform.fromPackageName(c.packageName) == platform &&
+              c.hasPendingReply,
+        )
+        .length;
   }
   return counts;
 });
@@ -102,58 +131,22 @@ final pendingRepliesCountProvider = Provider<int>((ref) {
   return all.where((c) => c.hasPendingReply).length;
 });
 
-final categoryCountsProvider = Provider<Map<MessagingCategoryFilter, int>>((ref) {
+final categoryCountsProvider = Provider<Map<MessagingCategoryFilter, int>>((
+  ref,
+) {
   final all = ref.watch(allHubConversationsProvider).value ?? const [];
   return {
     MessagingCategoryFilter.all: all.length,
+    MessagingCategoryFilter.groups: all.where((c) => c.isGroup).length,
     MessagingCategoryFilter.contacts: 0,
     MessagingCategoryFilter.unread: all.where((c) => c.hasPendingReply).length,
-    MessagingCategoryFilter.personal: all.where((c) => c.agentId == ConversationAgentId.personal).length,
-    MessagingCategoryFilter.business: all.where((c) => c.agentId == ConversationAgentId.business).length,
+    MessagingCategoryFilter.personal: all
+        .where((c) => c.agentId == ConversationAgentId.personal)
+        .length,
+    MessagingCategoryFilter.business: all
+        .where((c) => c.agentId == ConversationAgentId.business)
+        .length,
     MessagingCategoryFilter.bots: all.where((c) => !c.humanOwns).length,
     MessagingCategoryFilter.archived: 0,
   };
-});
-
-final liveNotificationsProvider = FutureProvider.autoDispose<List<ConversationSummaryItem>>((ref) async {
-  ref.watch(liveNotificationStreamProvider);
-  final executor = ref.watch(notificationExecutorProvider);
-  final status = await executor.status();
-  if (!status.connected) return const [];
-
-  final notifications = await executor.list(limit: 50);
-  final seen = <String>{};
-  final items = <ConversationSummaryItem>[];
-  final now = DateTime.now().millisecondsSinceEpoch;
-
-  for (final notif in notifications) {
-    if (!MessagingDedupMerger.isSupportedMessagingApp(notif.packageName)) continue;
-
-    final convKey = notif.conversationId.isNotEmpty ? notif.conversationId : '${notif.packageName}:${notif.title}';
-    if (seen.contains(convKey)) continue;
-    seen.add(convKey);
-
-    final agentId = notif.packageName == 'com.whatsapp.w4b' ? ConversationAgentId.business : ConversationAgentId.personal;
-    final displayName = notif.sender.isNotEmpty ? notif.sender : (notif.title.isNotEmpty ? notif.title : 'Chat');
-    final messageText = notif.messageText.isNotEmpty ? notif.messageText : (notif.text.isNotEmpty ? notif.text : '');
-    final atMs = notif.messageTimestamp > 0
-        ? notif.messageTimestamp
-        : (notif.postedAt.millisecondsSinceEpoch > 0 ? notif.postedAt.millisecondsSinceEpoch : now);
-
-    items.add(
-      ConversationSummaryItem(
-        conversationId: 'live:$convKey',
-        displayName: displayName,
-        packageName: notif.packageName,
-        lastMessage: messageText,
-        lastAtMs: atMs,
-        hasPendingReply: notif.canReply,
-        agentId: agentId,
-        entryCount: 1,
-        notificationKey: notif.key,
-      ),
-    );
-  }
-
-  return MessagingDedupMerger.deduplicateAndSort(items);
 });

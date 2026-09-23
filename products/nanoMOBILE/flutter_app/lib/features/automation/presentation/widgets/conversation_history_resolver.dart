@@ -2,7 +2,7 @@ import '../../engine/messaging/conversation_memory.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 
 /// [ConversationHistoryResolver]
-/// 
+///
 /// QUÉ HACE:
 /// Unifica, deduplica y ordena cronológicamente el historial de mensajes de una conversación,
 /// combinando tanto los mensajes en vivo recibidos desde la barra de notificaciones del sistema
@@ -28,13 +28,10 @@ class ConversationHistoryResolver {
     List<ConversationMemoryEntry> liveEntries = const [],
   }) {
     final allEntries = <ConversationMemoryEntry>[];
-    final seenKeys = <String>{};
-
     void addEntries(List<ConversationMemoryEntry>? list) {
       if (list == null) return;
       for (final entry in list) {
-        final key = '${entry.atMs}_${entry.kind.name}_${entry.text.trim()}';
-        if (seenKeys.add(key)) {
+        if (!allEntries.any((saved) => _sameObservedMessage(saved, entry))) {
           allEntries.add(entry);
         }
       }
@@ -46,19 +43,20 @@ class ConversationHistoryResolver {
     }
 
     // 2. ID limpio y directo en SQLite
+    final directIds = <String>{item.conversationId, ...item.conversationAliases};
+    for (final rawId in directIds) {
+      var id = rawId.trim();
+      if (id.startsWith('live:')) id = id.substring(5).trim();
+      if (id.isNotEmpty) addEntries(store.memoryFor(id)?.entries);
+    }
+
     var cleanConvId = item.conversationId.trim();
     if (cleanConvId.startsWith('live:')) {
       cleanConvId = cleanConvId.substring(5).trim();
     }
-    if (cleanConvId.isNotEmpty) {
-      addEntries(store.memoryFor(cleanConvId)?.entries);
-      addEntries(store.memoryFor(item.conversationId)?.entries);
-    }
 
     // 3. Huella digital conversacional (JID, atajo o número directo)
-    final fingerprint = cleanConvId.contains('/-/')
-        ? cleanConvId.split('/-/').last
-        : cleanConvId;
+    final fingerprint = cleanConvId.contains('/-/') ? cleanConvId.split('/-/').last : cleanConvId;
     final cleanFingerprint = fingerprint
         .replaceFirst('shortcut:', '')
         .replaceFirst('person:', '')
@@ -83,7 +81,8 @@ class ConversationHistoryResolver {
 
     // 4. Búsqueda por nombre de contacto en SQLite (sin condicionar a allEntries.isEmpty)
     final targetName = item.displayName.trim().toLowerCase();
-    final isGeneric = targetName.isEmpty ||
+    final isGeneric =
+        targetName.isEmpty ||
         targetName.startsWith('contacto whatsapp') ||
         targetName.startsWith('chat de whatsapp') ||
         targetName.length < 3;
@@ -91,10 +90,7 @@ class ConversationHistoryResolver {
     if (!isGeneric) {
       for (final id in store.knownConversationIds()) {
         final mem = store.memoryFor(id);
-        if (mem != null &&
-            mem.entries.any(
-              (e) => e.sender.trim().toLowerCase() == targetName,
-            )) {
+        if (mem != null && mem.entries.any((e) => e.sender.trim().toLowerCase() == targetName)) {
           addEntries(mem.entries);
         }
       }
@@ -119,5 +115,23 @@ class ConversationHistoryResolver {
     // Ordenar cronológicamente
     allEntries.sort((a, b) => a.atMs.compareTo(b.atMs));
     return allEntries;
+  }
+
+  /// Android y SQLite pueden registrar el mismo evento con una diferencia
+  /// mínima entre `messageTimestamp` y `postTime`; se compara esa tolerancia
+  /// además del eventId para que una burbuja real aparezca una sola vez.
+  static bool _sameObservedMessage(
+    ConversationMemoryEntry a,
+    ConversationMemoryEntry b,
+  ) {
+    if (a.eventId.isNotEmpty && b.eventId.isNotEmpty) {
+      return a.eventId == b.eventId;
+    }
+    final sameDirection =
+        (a.kind == ConversationMemoryEntryKind.inbound) ==
+        (b.kind == ConversationMemoryEntryKind.inbound);
+    return sameDirection &&
+        (a.atMs - b.atMs).abs() <= 2000 &&
+        a.text.trim().toLowerCase() == b.text.trim().toLowerCase();
   }
 }

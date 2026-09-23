@@ -14,7 +14,9 @@
 library;
 
 import 'dart:math' as math;
+import '../../engine/messaging/conversation_group_resolver.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
+import 'messaging_conversation_identity.dart';
 
 abstract final class MessagingDedupMerger {
   /// Paquetes de mensajería reales permitidos (filtra apps del sistema como systemui o phonemanager)
@@ -46,74 +48,73 @@ abstract final class MessagingDedupMerger {
     final cleanPkg = pkg.trim().toLowerCase();
     if (cleanPkg.isEmpty) return false;
     if (rejectedSystemPackages.contains(cleanPkg)) return false;
-    if (cleanPkg.startsWith('com.android.') || cleanPkg.startsWith('com.coloros.')) return false;
+    if (cleanPkg.startsWith('com.android.') || cleanPkg.startsWith('com.coloros.')) {
+      return false;
+    }
     return supportedPackages.contains(cleanPkg);
   }
 
-  /// Extrae dígitos de teléfono de 7 a 15 números para matching
-  static String? extractPhoneDigits(String raw) {
-    final match = RegExp(r'\d{7,15}').firstMatch(raw);
-    return match?.group(0);
-  }
+  static String? extractPhoneDigits(String raw) => MessagingConversationIdentity.extractPhoneDigits(raw);
+  static String normalizeName(String raw) => MessagingConversationIdentity.normalizeName(raw);
 
-  /// Normaliza el nombre visible del contacto
-  static String normalizeName(String raw) {
-    final lower = raw.trim().toLowerCase();
-    if (lower.isEmpty ||
-        lower.startsWith('contacto whatsapp') ||
-        lower.startsWith('chat de whatsapp') ||
-        lower == 'whatsapp' ||
-        lower.length < 2) {
-      return '';
-    }
-    return lower;
-  }
+  static bool areSameConversation(ConversationSummaryItem a, ConversationSummaryItem b) =>
+      MessagingConversationIdentity.areSame(a, b);
 
-  /// Determina si dos items corresponden a la misma conversación humana
-  static bool areSameConversation(ConversationSummaryItem a, ConversationSummaryItem b) {
-    if (a.packageName != b.packageName) return false;
-
-    // 1. Coincidencia por conversationId limpio
-    final idA = a.conversationId.replaceFirst('live:', '').trim();
-    final idB = b.conversationId.replaceFirst('live:', '').trim();
-    if (idA.isNotEmpty && idA == idB) return true;
-
-    // 2. Coincidencia por dígitos telefónicos
-    final digitsA = extractPhoneDigits(idA) ?? extractPhoneDigits(a.displayName);
-    final digitsB = extractPhoneDigits(idB) ?? extractPhoneDigits(b.displayName);
-    if (digitsA != null && digitsB != null && digitsA.length >= 7 && digitsB.length >= 7) {
-      if (digitsA == digitsB || digitsA.endsWith(digitsB) || digitsB.endsWith(digitsA)) {
-        return true;
-      }
-    }
-
-    // 3. Coincidencia por nombre de contacto exacto
-    final nameA = normalizeName(a.displayName);
-    final nameB = normalizeName(b.displayName);
-    if (nameA.isNotEmpty && nameA == nameB) {
-      return true;
-    }
-
-    return false;
-  }
-
-  /// Fusiona dos items de la misma conversación priorizando los datos más recientes
-  static ConversationSummaryItem mergeItems(
-    ConversationSummaryItem existing,
-    ConversationSummaryItem incoming,
-  ) {
+  /// Fusiona dos items de la misma conversación priorizando los datos más recientes y nombres reales
+  static ConversationSummaryItem mergeItems(ConversationSummaryItem existing, ConversationSummaryItem incoming) {
     final useIncoming = incoming.lastAtMs >= existing.lastAtMs;
     final latestMessage = useIncoming
         ? (incoming.lastMessage.isNotEmpty ? incoming.lastMessage : existing.lastMessage)
         : (existing.lastMessage.isNotEmpty ? existing.lastMessage : incoming.lastMessage);
 
+    final isGroup = existing.isGroup || incoming.isGroup;
+
+    // WA-GROUP-MERGE: Priorizar título real sobre marcadores genéricos como "Grupo de WhatsApp"
+    final groupTitle = (incoming.groupTitle != null && !ConversationGroupResolver.isGenericTitle(incoming.groupTitle))
+        ? incoming.groupTitle
+        : ((existing.groupTitle != null && !ConversationGroupResolver.isGenericTitle(existing.groupTitle))
+              ? existing.groupTitle
+              : null);
+
+    final String displayName;
+    if (isGroup && groupTitle != null) {
+      displayName = groupTitle;
+    } else {
+      final existingGeneric = ConversationGroupResolver.isGenericTitle(existing.displayName);
+      final incomingGeneric = ConversationGroupResolver.isGenericTitle(incoming.displayName);
+      if (existingGeneric && !incomingGeneric) {
+        displayName = incoming.displayName;
+      } else if (!existingGeneric && incomingGeneric) {
+        displayName = existing.displayName;
+      } else if (MessagingConversationIdentity.isTechnicalName(incoming.displayName) &&
+          !MessagingConversationIdentity.isTechnicalName(existing.displayName)) {
+        displayName = existing.displayName;
+      } else if (MessagingConversationIdentity.isTechnicalName(existing.displayName) &&
+          !MessagingConversationIdentity.isTechnicalName(incoming.displayName)) {
+        displayName = incoming.displayName;
+      } else {
+        displayName = useIncoming ? incoming.displayName : existing.displayName;
+      }
+    }
+
+    if (isGroup && groupTitle != null) {
+      ConversationGroupResolver.cacheGroupTitle(existing.conversationId, groupTitle);
+      ConversationGroupResolver.cacheGroupTitle(incoming.conversationId, groupTitle);
+    }
+
+    // Conserva todas las identidades observadas del mismo chat. La vista y
+    // el compositor pueden recuperar así el historial legado que quedó
+    // repartido entre un nombre visible y un shortcut/JID de WhatsApp.
+    final aliases = <String>{
+      ...existing.conversationAliases,
+      ...incoming.conversationAliases,
+      existing.conversationId,
+      incoming.conversationId,
+    }.where((id) => id.trim().isNotEmpty).toList(growable: false);
+
     return ConversationSummaryItem(
-      conversationId: existing.conversationId.startsWith('live:')
-          ? incoming.conversationId
-          : existing.conversationId,
-      displayName: existing.displayName.length >= incoming.displayName.length
-          ? existing.displayName
-          : incoming.displayName,
+      conversationId: existing.conversationId.startsWith('live:') ? incoming.conversationId : existing.conversationId,
+      displayName: displayName,
       packageName: existing.packageName,
       lastMessage: latestMessage,
       lastAtMs: math.max(existing.lastAtMs, incoming.lastAtMs),
@@ -127,8 +128,14 @@ abstract final class MessagingDedupMerger {
       activeRole: existing.activeRole,
       agentId: existing.agentId,
       activeProductName: existing.activeProductName ?? incoming.activeProductName,
-      entryCount: math.max(existing.entryCount, incoming.entryCount) + 1,
+      entryCount: math.max(existing.entryCount, incoming.entryCount),
       notificationKey: incoming.notificationKey ?? existing.notificationKey,
+      isGroup: isGroup,
+      groupTitle: groupTitle,
+      lastSender: useIncoming
+          ? (incoming.lastSender ?? existing.lastSender)
+          : (existing.lastSender ?? incoming.lastSender),
+      conversationAliases: aliases,
     );
   }
 
@@ -138,19 +145,18 @@ abstract final class MessagingDedupMerger {
     final result = <ConversationSummaryItem>[];
 
     for (final item in valid) {
-      var foundIndex = -1;
-      for (var i = 0; i < result.length; i++) {
-        if (areSameConversation(result[i], item)) {
-          foundIndex = i;
-          break;
+      var merged = item;
+      // Reinicia el recorrido tras cada unión: el elemento fusionado puede
+      // enlazar otro alias que antes no coincidía (nombre <-> live <-> JID).
+      for (var index = 0; index < result.length;) {
+        if (!areSameConversation(result[index], merged)) {
+          index++;
+          continue;
         }
+        merged = mergeItems(result.removeAt(index), merged);
+        index = 0;
       }
-
-      if (foundIndex >= 0) {
-        result[foundIndex] = mergeItems(result[foundIndex], item);
-      } else {
-        result.add(item);
-      }
+      result.add(merged);
     }
 
     result.sort((a, b) => b.lastAtMs.compareTo(a.lastAtMs));

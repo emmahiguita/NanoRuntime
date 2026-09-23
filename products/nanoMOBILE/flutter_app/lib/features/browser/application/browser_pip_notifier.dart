@@ -81,7 +81,8 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
     state = state.copyWith(isActive: false, isPlaying: false, isSystemPip: false, isMaximized: false, transferPending: false);
   }
 
-  void toggleCompact() => state = state.copyWith(isCompact: false);
+  // Alterna entre modo compacto y expandido del PiP (era bug: siempre forzaba false)
+  void toggleCompact() => state = state.copyWith(isCompact: !state.isCompact);
 
   void toggleMaximized() => state = state.copyWith(isMaximized: !state.isMaximized);
 

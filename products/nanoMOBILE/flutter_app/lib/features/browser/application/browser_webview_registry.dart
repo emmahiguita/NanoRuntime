@@ -3,44 +3,70 @@ import 'dart:async';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Owns the native identity of every browser tab independently from the UI.
+/// Registro central del estado nativo de cada pestaña del navegador.
 ///
-/// A browser surface may move from the Home card to the fullscreen route, but
-/// its native WebView must not be recreated. The plugin keep-alive token is the
-/// stable identity that makes that handoff possible.
+/// - QUÉ HACE: Mantiene vivos los [InAppWebViewKeepAlive] y [InAppWebViewController]
+///   para que el WebView no se destruya al cambiar de ruta o minimizar una pestaña.
+/// - CÓMO FUNCIONA: Los keep-alive tokens son la identidad estable que permite mover
+///   una superficie WebView entre rutas sin reinstanciar el widget nativo.
+/// - POR QUÉ: Sin esto cada navegación al Home recrearía el WebView y cortaría el audio.
+///   La pausa por vista preserva las otras pestañas y el audio activo.
 class BrowserWebViewRegistry {
   final Map<String, InAppWebViewKeepAlive> _keepAlives = {};
   final Map<String, InAppWebViewController> _controllers = {};
   final Set<String> _initializedTabs = {};
+  final Map<String, Object> _pauseRequests = {};
 
-  InAppWebViewKeepAlive keepAliveFor(String tabId) {
-    return _keepAlives.putIfAbsent(tabId, InAppWebViewKeepAlive.new);
-  }
+  /// Devuelve o crea el token keep-alive para una pestaña.
+  InAppWebViewKeepAlive keepAliveFor(String tabId) =>
+      _keepAlives.putIfAbsent(tabId, InAppWebViewKeepAlive.new);
 
   bool isInitialized(String tabId) => _initializedTabs.contains(tabId);
 
   InAppWebViewController? controllerFor(String tabId) => _controllers[tabId];
 
+  /// Registra el controlador nativo al ser creado el WebView.
   void attachController(String tabId, InAppWebViewController controller) {
+    _pauseRequests.remove(tabId);
     _initializedTabs.add(tabId);
     _controllers[tabId] = controller;
   }
 
-  /// Pausa los temporizadores de JS de una pestaña (previene procesos zombis de CPU).
+  /// Pausa esta vista, nunca pauseTimers(): en Android detiene TODAS las vistas.
+  /// Un token invalida consultas pendientes cuando la pestaña vuelve a abrirse.
   Future<void> pauseTab(String tabId) async {
+    final ctrl = _controllers[tabId];
+    if (ctrl == null) return;
+    final request = Object();
+    _pauseRequests[tabId] = request;
     try {
-      await _controllers[tabId]?.pauseTimers();
+      // Revisar todos los reproductores, no solo el primero del documento.
+      final raw = await ctrl.evaluateJavascript(
+        source: '''(function(){
+          return Array.from(document.querySelectorAll('video,audio'))
+            .some(m => !m.paused && !m.ended);
+        })();''',
+      );
+      if (raw == true ||
+          _pauseRequests[tabId] != request ||
+          !identical(_controllers[tabId], ctrl)) {
+        return;
+      }
+      await ctrl.pause();
     } catch (_) {}
   }
 
-  /// Reanuda los temporizadores de JS al restaurar o maximizar una pestaña.
+  /// Invalida una pausa en curso y reanuda únicamente la vista restaurada.
   Future<void> resumeTab(String tabId) async {
+    _pauseRequests.remove(tabId);
     try {
-      await _controllers[tabId]?.resumeTimers();
+      await _controllers[tabId]?.resume();
     } catch (_) {}
   }
 
+  /// Elimina la pestaña y libera su keep-alive nativo.
   Future<void> removeTab(String tabId) async {
+    _pauseRequests.remove(tabId);
     _controllers.remove(tabId);
     _initializedTabs.remove(tabId);
     final keepAlive = _keepAlives.remove(tabId);
@@ -49,19 +75,19 @@ class BrowserWebViewRegistry {
     }
   }
 
+  /// Limpia pestañas cuyo ID ya no existe en el state (evita leaks de memoria).
   void removeMissing(Set<String> liveTabIds) {
     final staleIds = _keepAlives.keys
-        .where((tabId) => !liveTabIds.contains(tabId))
+        .where((id) => !liveTabIds.contains(id))
         .toList(growable: false);
-    for (final tabId in staleIds) {
-      unawaited(removeTab(tabId));
+    for (final id in staleIds) {
+      unawaited(removeTab(id));
     }
   }
 
   Future<void> dispose() async {
-    final tabIds = _keepAlives.keys.toList(growable: false);
-    for (final tabId in tabIds) {
-      await removeTab(tabId);
+    for (final id in _keepAlives.keys.toList(growable: false)) {
+      await removeTab(id);
     }
   }
 }

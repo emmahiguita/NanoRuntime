@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "name": "Nano AI FeatherCore",
+    "version": "1.0.0",
+    "platform": "Desktop/Web"
+  },
+  "colors": {
+    "brand": {
+      "blue": "#1769FF",
+      "cyan": "#19C8FF",
+      "violet": "#715CFF"
+    },
+    "surface": {
+      "background": "#F8FAFE",
+      "surface": "#FFFFFF",
+      "soft": "#F5F8FD",
+      "ice": "#EDF4FF"
+    },
+    "text": {
+      "primary": "#0B1533",
+      "secondary": "#425574",
+      "muted": "#72829F"
+    },
+    "semantic": {
+      "success": "#17C67A",
+      "warning": "#F2B94B",
+      "danger": "#F04455",
+      "whatsapp": "#20C76A"
+    }
+  },
+  "typography": {
+    "family": "Inter, SF Pro, Segoe UI, sans-serif",
+    "hero": {
+      "size": 54,
+      "weight": 720,
+      "lineHeight": 1.04
+    },
+    "body": {
+      "size": 14,
+      "weight": 400,
+      "lineHeight": 1.55
+    }
+  },
+  "radius": {
+    "button": 12,
+    "card": 16,
+    "panel": 22,
+    "composer": 24,
+    "pill": 999
+  },
+  "layout": {
+    "sidebar": 292,
+    "collapsedSidebar": 74,
+    "topbar": 68,
+    "chatList": 360,
+    "contextPanel": 390,
+    "contentMax": 1460
+  },
+  "icons": {
+    "sidebar": 21,
+    "feature": 25,
+    "featureTile": 46,
+    "avatar": 34
+  }
+}

@@ -83,6 +83,16 @@ class SessionGateNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Actualiza los datos del perfil tanto en almacenamiento como en la máquina de estado.
+  Future<void> updateProfile(AccountProfile updated) async {
+    await _accountRepository.updateProfile(updated);
+    if (state.status == AuthStatus.authenticated) {
+      state = AuthState.authenticated(user: state.user, profile: updated);
+    } else {
+      state = AuthState.offlineAuthenticated(user: state.user, profile: updated);
+    }
+  }
+
   @override
   void dispose() {
     _authSubscription?.cancel();

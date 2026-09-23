@@ -37,6 +37,7 @@ import dev.nanoai.mobile.channels.ShareChannelHandler
 import dev.nanoai.mobile.channels.SpeechChannelHandler
 import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
 import dev.nanoai.mobile.services.NotificationAutomationBridge
+import dev.nanoai.mobile.services.NanoOverlayBridge
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -206,6 +207,12 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        isForeground = false
+    }
+
+
     override fun onDestroy() {
         languageAssistHandler?.close()
         languageAssistHandler = null
@@ -218,6 +225,7 @@ class MainActivity : FlutterActivity() {
         nanoFloatingChannel = null
         nanoNativeAiChannel?.detach()
         nanoNativeAiChannel = null
+        NanoOverlayBridge.detach() // OVERLAY-03: limpiar puente al engine Flutter.
         ioScope.cancel()
         // Si el diálogo de permisos quedó abierto al destruirse la Activity,
         // resolver el Result pendiente — un Future Dart colgado para siempre.
@@ -455,6 +463,10 @@ class MainActivity : FlutterActivity() {
         // OVERLAY-02: handoff de prompts a apps nativas de IA (ChatGPT, Gemini app…).
         nanoNativeAiChannel = NanoNativeAiChannel(this, messenger)
 
+        // OVERLAY-03: puente singleton que enruta overlayQuery del servicio nativo
+        // al NanoAiController de Flutter. Sin esto, el overlay abre Nano vía Intent.
+        NanoOverlayBridge.attach(messenger)
+
         // BROWSER-PIP: soporte para Picture-in-Picture nativo del sistema.
         val pipChan = MethodChannel(messenger, "com.nanoai/browser_pip")
         pipChannel = pipChan
@@ -514,13 +526,20 @@ class MainActivity : FlutterActivity() {
 
     override fun onResume() {
         super.onResume()
+        isForeground = true
+        // Al estar en Nano, el asistente in-app ya existe; detener overlay nativo para evitar doble ventana
+        try { stopService(Intent(this, dev.nanoai.mobile.services.NanoFloatingService::class.java)) }
+        catch (_: Exception) {}
         // Resuelve requestAllFilesAccess (MANAGE_EXTERNAL_STORAGE) al
         // volver de la pantalla del sistema.
         modelStorageHandler?.onResume()
         applyImmersiveMode()
     }
 
-    private companion object {
+    companion object {
+        @Volatile
+        var isForeground: Boolean = false
+
         private val SINK_UI = Any()
         private const val RUNTIME_WARMUP_DELAY_MS = 1_500L
         private const val REQ_STORAGE_PERMISSION = 4101

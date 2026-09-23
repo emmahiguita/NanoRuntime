@@ -1,846 +1,356 @@
-/* ==========================================================================
-   NANO AI — COMPONENTS: IVORY COSMIC UI
-   ========================================================================== */
-
-/* Command Bar Flotante */
-.command-bar-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 48px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: var(--blur-crystal);
-  border: 1px solid var(--border-normal);
-  border-radius: var(--radius-xl);
-  padding: 0 16px;
-  box-shadow: var(--shadow-floating);
-  gap: 16px;
-  width: 100%;
-}
-
-.command-bar-search {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  max-width: 520px;
-}
-
-.command-search-icon {
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-}
-
-.command-search-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  outline: none;
-  font-family: var(--font-sans);
-  font-size: 13.5px;
-  color: var(--text-primary);
-}
-
-.command-search-input::placeholder {
-  color: var(--text-tertiary);
-}
-
-.command-kbd-badge {
-  padding: 2px 7px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-normal);
-  border-radius: var(--radius-xs);
-  font-size: 11px;
-  color: var(--text-tertiary);
-  font-family: var(--font-sans);
-}
-
-.command-bar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-icon:hover {
-  background: rgba(31, 111, 255, 0.08);
-  color: var(--accent-blue);
-}
-
-/* Badge de Usuario */
-.user-profile-badge {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 10px 4px 6px;
-  border-radius: var(--radius-full);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-}
-
-.user-avatar-circle {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  position: relative;
-  overflow: hidden;
-  background: #E0E7FF;
-}
-
-.avatar-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.user-online-dot {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 6px;
-  height: 6px;
-  background: var(--accent-status);
-  border: 1px solid #fff;
-  border-radius: 50%;
-}
-
-.user-info-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.user-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.user-status-label {
-  font-size: 10px;
-  color: var(--accent-status);
-}
+/* Nano AI — FeatherCore Components System */
 
 /* ==========================================================================
-   HOME VIEW ESTILOS
+   ICONOS Y TILES VECTORIALES
    ========================================================================== */
-.home-scroll-container {
-  padding: 16px 28px 24px 28px;
-  overflow-y: auto;
+.nano-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.nano-icon svg {
+  width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.home-scroll-container::-webkit-scrollbar {
-  width: 6px;
-}
-.home-scroll-container::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: var(--radius-full);
+.nano-nav-icon {
+  width: 21px;
+  height: 21px;
 }
 
-/* Hero Banner Inteligente Ivory Cosmic */
-.home-hero-card {
-  background: 
-    radial-gradient(ellipse 90% 70% at 85% 50%, rgba(56, 189, 248, 0.12), transparent 60%),
-    radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.06), transparent 45%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 246, 255, 0.88) 100%);
-  border: 1px solid var(--border-normal);
-  border-radius: var(--radius-xl);
-  padding: 26px 36px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  position: relative;
-  overflow: hidden;
-  box-shadow: var(--shadow-md);
-  min-height: 220px;
-}
-
-/* Fondo de atmósfera curva terrestre en Hero */
-.hero-celestial-backdrop {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  background-image: radial-gradient(circle at 82% 120%, rgba(31, 111, 255, 0.18) 0%, rgba(56, 189, 248, 0.08) 40%, transparent 70%);
-  pointer-events: none;
-  z-index: 1;
-}
-
-.hero-text-col {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  z-index: 2;
-  max-width: 560px;
-}
-
-.hero-badge-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  background: rgba(31, 111, 255, 0.08);
-  border: 1px solid rgba(31, 111, 255, 0.18);
-  border-radius: var(--radius-full);
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--accent-blue);
-  width: fit-content;
-  margin-bottom: 4px;
-}
-
-.hero-badge-pill .sparkle-icon {
-  display: flex;
-  align-items: center;
-}
-
-.hero-title {
-  font-size: 30px;
-  font-weight: 800;
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.wave-emoji {
-  display: inline-block;
-  transform-origin: 70% 70%;
-  animation: waveHand 2.4s ease-in-out infinite;
-}
-
-.hero-subtitle {
-  font-size: 19px;
-  font-weight: 700;
-  background: linear-gradient(135deg, #1F6FFF 0%, #7467F8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-top: 1px;
-}
-
-.hero-caption {
-  font-size: 13.5px;
-  color: var(--text-secondary);
-  line-height: 1.45;
-  margin-top: 2px;
-}
-
-.hero-quote {
-  margin-top: 14px;
-  font-size: 12px;
-  font-style: italic;
-  color: var(--text-tertiary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.65);
-  border-left: 2px solid var(--accent-blue);
-  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
-  width: fit-content;
-}
-
-.hero-quote-author {
-  color: var(--accent-blue);
-  font-style: normal;
-  font-weight: 600;
-}
-
-/* Columna de Mascota Viva & Pedestal */
-.hero-mascot-col {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  padding-right: 48px;
-}
-
-.mascot-halo {
-  position: absolute;
-  width: 170px;
-  height: 170px;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.32), rgba(31, 111, 255, 0.12) 50%, transparent 75%);
-  border-radius: 50%;
-  pointer-events: none;
-  animation: mascotHaloPulse 4.5s ease-in-out infinite;
-}
-
-.hero-crystal-pedestal {
-  position: absolute;
-  bottom: -6px;
-  width: 130px;
-  height: 38px;
-  background: radial-gradient(ellipse at center, rgba(167, 139, 250, 0.45) 0%, rgba(56, 189, 248, 0.2) 50%, transparent 80%);
-  border-radius: 50%;
-  filter: blur(5px);
-  pointer-events: none;
-}
-
-.hero-mascot-wrapper {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  cursor: pointer;
-}
-
-.hero-mascot-img {
-  width: 215px;
-  height: 215px;
-  object-fit: contain;
-  filter: drop-shadow(0 12px 28px rgba(31, 111, 255, 0.22));
-  animation: owlBreathing 4.2s ease-in-out infinite;
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-  will-change: transform;
-}
-
-.hero-mascot-wrapper:hover .hero-mascot-img {
-  transform: translateY(-5px) scale(1.03) rotate(-1.5deg);
-}
-
-/* Bocadillo de diálogo del búho */
-.mascot-speech-bubble {
-  position: absolute;
-  top: -36px;
-  right: 10px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: var(--blur-crystal);
-  border: 1px solid var(--border-normal);
-  border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 2px;
-  padding: 5px 12px;
-  font-size: 11.5px;
-  font-weight: 600;
-  color: var(--text-primary);
-  box-shadow: var(--shadow-floating);
-  white-space: nowrap;
-  pointer-events: none;
-  animation: speechBubbleFade 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  z-index: 10;
-}
-
-.mascot-speech-bubble::after {
-  content: "";
-  position: absolute;
-  bottom: -6px;
-  left: 12px;
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 6px solid rgba(255, 255, 255, 0.95);
-}
-
-/* Tira de Etiquetas Verticales Derecha */
-.hero-vertical-tags {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  color: var(--text-tertiary);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  opacity: 0.65;
-  user-select: none;
-  pointer-events: none;
-}
-
-.hero-vertical-tags .tag-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--accent-blue);
-  box-shadow: 0 0 6px var(--accent-blue);
-}
-
-/* Fila de Atajos Principales (6 cards) */
-.shortcuts-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 14px;
-}
-
-.shortcut-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-normal);
-  border-radius: var(--radius-lg);
-  padding: 16px 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all var(--transition-normal);
-  box-shadow: var(--shadow-sm);
-  position: relative;
-  overflow: hidden;
-}
-
-.shortcut-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: transparent;
-  transition: background var(--transition-fast);
-}
-
-.shortcut-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--border-active);
-  box-shadow: var(--shadow-md);
-}
-
-.shortcut-card:hover::before {
-  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
-}
-
-.shortcut-icon-wrapper {
+.nano-icon-tile {
   width: 46px;
   height: 46px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform var(--transition-fast);
-}
-
-.shortcut-card:hover .shortcut-icon-wrapper {
-  transform: scale(1.08);
-}
-
-.shortcut-icon-wrapper.blue { background: rgba(31, 111, 255, 0.1); color: var(--accent-blue); }
-.shortcut-icon-wrapper.purple { background: rgba(116, 103, 248, 0.1); color: var(--accent-violet); }
-.shortcut-icon-wrapper.cyan { background: rgba(56, 189, 248, 0.1); color: var(--accent-cyan); }
-.shortcut-icon-wrapper.indigo { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
-.shortcut-icon-wrapper.emerald { background: rgba(24, 185, 129, 0.1); color: var(--accent-status); }
-.shortcut-icon-wrapper.slate { background: rgba(100, 116, 139, 0.1); color: #64748b; }
-
-.shortcut-title {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.shortcut-desc {
-  font-size: 11px;
-  color: var(--text-tertiary);
-  line-height: 1.3;
-}
-
-/* Panel Dual Inferior: Terminal + Widgets */
-.home-dual-panel {
   display: grid;
-  grid-template-columns: 1fr 310px;
-  gap: 18px;
-  min-height: 310px;
-}
-
-@media (max-width: 1024px) {
-  .home-dual-panel {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Terminal Integrada en Home con Resplandor Planetario */
-.home-terminal-card {
-  background: #07101C;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 12px 36px rgba(7, 16, 28, 0.22);
-  font-family: var(--font-mono);
-  position: relative;
-}
-
-/* Atmósfera de curvatura planetaria dentro de la terminal */
-.terminal-planet-glow {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 220px;
-  background: radial-gradient(ellipse at 100% 50%, rgba(31, 111, 255, 0.15) 0%, rgba(56, 189, 248, 0.06) 40%, transparent 75%);
-  pointer-events: none;
-  animation: earthAtmosphereGlow 6s ease-in-out infinite;
-  z-index: 1;
-}
-
-.terminal-card-topbar {
-  background: #0B1626;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 10px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 2;
-}
-
-.terminal-dots {
-  display: flex;
-  gap: 7px;
-}
-.terminal-dot { 
-  width: 10px; 
-  height: 10px; 
-  border-radius: 50%; 
-  transition: transform var(--transition-fast), filter var(--transition-fast);
-}
-.terminal-dots:hover .terminal-dot { transform: scale(1.1); }
-.dot-red { background: #FF5A70; box-shadow: 0 0 6px rgba(255, 90, 112, 0.4); }
-.dot-yellow { background: #F5B942; box-shadow: 0 0 6px rgba(245, 185, 66, 0.4); }
-.dot-green { background: #36D7A0; box-shadow: 0 0 6px rgba(54, 215, 160, 0.4); }
-
-.terminal-card-title {
-  font-size: 11.5px;
-  color: #94A3B8;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.terminal-session-pill {
-  padding: 1px 7px;
-  border-radius: var(--radius-full);
-  background: rgba(31, 111, 255, 0.15);
-  color: #38BDF8;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.terminal-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-terminal-pill {
-  padding: 4px 10px;
-  border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  color: #CBD5E1;
-  font-size: 11px;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.btn-terminal-pill:hover {
-  background: rgba(255, 255, 255, 0.16);
-  color: #FFFFFF;
-}
-
-.home-terminal-body {
-  flex: 1;
-  padding: 14px 18px;
-  overflow-y: auto;
-  font-size: 12.5px;
-  color: #DCE7F7;
-  line-height: 1.6;
-  max-height: 220px;
-  z-index: 2;
-}
-
-.term-line.diag { color: #A78BFA; }
-
-.home-terminal-inputbar {
-  background: #050A12;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 8px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 2;
-}
-
-.term-prompt { color: #53D5FF; font-weight: 700; font-size: 13px; }
-
-.home-terminal-inputbar input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  color: #FFFFFF;
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  outline: none;
-}
-
-.term-engine-pill {
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  background: rgba(54, 215, 160, 0.12);
-  border: 1px solid rgba(54, 215, 160, 0.3);
-  color: #36D7A0;
-  font-size: 10.5px;
-  font-family: var(--font-sans);
-}
-
-/* Widgets Laterales en Home */
-.home-side-widgets {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.telemetry-widget-card,
-.model-widget-card,
-.quick-actions-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-normal);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: var(--shadow-sm);
-}
-
-.widget-title {
-  font-size: 11.5px;
-  font-weight: 700;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-/* Indicadores Radiales SVG en Telemetría */
-.gauges-row {
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-}
-
-.gauge-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.gauge-container {
-  position: relative;
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gauge-svg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-
-.gauge-track {
-  fill: none;
-  stroke: rgba(52, 74, 115, 0.1);
-  stroke-width: 4.5;
-}
-
-.gauge-progress {
-  fill: none;
-  stroke-width: 4.5;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.gauge-progress.blue { stroke: #1F6FFF; }
-.gauge-progress.violet { stroke: #7467F8; }
-.gauge-progress.emerald { stroke: #18B981; }
-
-.gauge-value-text {
-  position: absolute;
-  font-size: 12px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--text-primary);
-}
-
-.gauge-label {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-/* Card de Modelo Activo */
-.active-model-chip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-}
-
-.model-icon-box {
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-xs);
-  background: var(--accent-soft-blue);
-  color: var(--accent-blue);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  place-items: center;
+  border-radius: var(--radius-14);
+  color: var(--nano-blue-600);
+  background: linear-gradient(145deg, rgba(255, 255, 255, .99), #EDF4FF);
+  border: 1px solid rgba(56, 101, 170, .12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 5px 14px rgba(43, 84, 155, .07);
   flex-shrink: 0;
 }
 
-.model-meta-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow: hidden;
+[data-theme="dark"] .nano-icon-tile {
+  background: linear-gradient(145deg, #172A45, #102039);
+  border-color: rgba(137, 170, 220, .14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 5px 14px rgba(0, 0, 0, .3);
 }
 
-.model-name-text {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
+.nano-icon-tile .nano-icon {
+  width: 24px;
+  height: 24px;
 }
 
-.model-status-text {
-  font-size: 11px;
-  color: var(--accent-status);
-  display: flex;
+/* ==========================================================================
+   SELECTORES, CHIPS Y PILLS
+   ========================================================================== */
+.nano-model-selector {
+  height: 44px;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-weight: 500;
-}
-
-.model-status-text .dot-green {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--accent-status);
-  animation: statusDotPulse 2.2s infinite;
-}
-
-/* Acciones Rápidas (Grid 2x2 Canónico) */
-.quick-buttons-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.btn-quick {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  font-size: 11.5px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-quick:hover {
-  background: var(--accent-soft-blue);
-  color: var(--accent-blue);
-  border-color: var(--border-active);
-  transform: translateY(-1px);
-}
-
-.btn-quick svg {
-  flex-shrink: 0;
-}
-
-/* Barra de 5 Píldoras de Acciones Canónicas (Toolbar Inferior) */
-.bottom-action-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 10px 16px;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: var(--blur-crystal);
-  border: 1px solid var(--border-normal);
-  border-radius: var(--radius-xl);
+  gap: 10px;
+  padding: 0 15px;
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-14);
+  background: rgba(255, 255, 255, .94);
   box-shadow: var(--shadow-sm);
-  flex-wrap: wrap;
+  color: var(--nano-text-primary);
 }
 
-.action-pill-btn {
+[data-theme="dark"] .nano-model-selector {
+  background: rgba(13, 24, 42, .95);
+}
+
+.nano-model-selector strong {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.nano-model-badge {
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  background: var(--nano-success-soft);
+  color: #15905F;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+[data-theme="dark"] .nano-model-badge {
+  background: rgba(23, 198, 122, .16);
+  color: #44D27D;
+}
+
+.nano-deepthink, .nano-web-button, .nano-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
-  border-radius: var(--radius-full);
-  background: #FFFFFF;
-  border: 1px solid var(--border-normal);
-  color: var(--text-primary);
-  font-size: 12.5px;
+  border-radius: var(--radius-pill);
+}
+
+.nano-deepthink {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid rgba(78, 91, 255, .20);
+  background: linear-gradient(180deg, #F7F5FF, #EEF0FF);
+  color: #3850FF;
+  font-size: 14px;
   font-weight: 600;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  box-shadow: 0 6px 16px rgba(72, 80, 220, .08);
+}
+
+.nano-web-button {
+  height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--nano-border);
+  background: var(--nano-surface);
+  color: var(--nano-text-secondary);
+  font-size: 14px;
+}
+
+.nano-chip {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-pill);
+  background: var(--nano-surface);
+  color: var(--nano-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  transition: all var(--motion-fast);
+}
+
+.nano-chip:hover {
+  background: var(--nano-surface-hover);
+  border-color: var(--nano-border-active);
+}
+
+.nano-chip.active {
+  border-color: rgba(66, 82, 255, .24);
+  background: #EFF1FF;
+  color: #3B50FF;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .nano-chip.active {
+  background: rgba(113, 92, 255, .2);
+  color: #A99BFF;
+}
+
+/* ==========================================================================
+   TARJETAS Y FEATURE CARDS
+   ========================================================================== */
+.nano-card {
+  background: rgba(255, 255, 255, .90);
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-16);
   box-shadow: var(--shadow-sm);
 }
 
-.action-pill-btn:hover {
-  background: var(--accent-soft-blue);
-  color: var(--accent-blue);
-  border-color: var(--border-active);
+[data-theme="dark"] .nano-card {
+  background: rgba(13, 24, 42, .90);
+}
+
+.nano-feature-card, .suggestion-card {
+  min-height: 84px;
+  display: grid;
+  grid-template-columns: 46px 1fr 18px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-16);
+  background: rgba(255, 255, 255, .88);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--motion-normal) var(--ease-nano), border-color var(--motion-normal), box-shadow var(--motion-normal);
+  color: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+[data-theme="dark"] .nano-feature-card, [data-theme="dark"] .suggestion-card {
+  background: rgba(13, 24, 42, .86);
+}
+
+.nano-feature-card:hover, .suggestion-card:hover {
   transform: translateY(-2px);
+  border-color: var(--nano-border-active);
   box-shadow: var(--shadow-md);
 }
 
-.action-pill-btn svg {
-  color: var(--accent-blue);
-  transition: transform var(--transition-fast);
+.nano-feature-card-title, .suggestion-card-title {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--nano-text-primary);
 }
 
-.action-pill-btn:hover svg {
-  transform: scale(1.12);
+.nano-feature-card-description, .suggestion-card-desc {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--nano-text-muted);
+}
+
+.nano-feature-card .chevron, .suggestion-card-arrow {
+  font-size: 20px;
+  color: #83A0C9;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ==========================================================================
+   BOTONES PRIMARIOS Y DE ENVÍO
+   ========================================================================== */
+.nano-button-primary {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-12);
+  color: #fff;
+  background: var(--nano-gradient-primary);
+  box-shadow: var(--shadow-blue);
+  font-weight: 650;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform var(--motion-fast), opacity var(--motion-fast);
+}
+
+.nano-button-primary:hover {
+  transform: translateY(-1px);
+  opacity: .96;
+}
+
+.nano-send, .btn-send-circle {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--nano-gradient-primary);
+  box-shadow: var(--shadow-blue);
+  transition: transform var(--motion-fast), opacity var(--motion-fast);
+  flex-shrink: 0;
+}
+
+.nano-send:hover, .btn-send-circle:hover {
+  transform: translateY(-1px) scale(1.03);
+}
+
+.nano-send:active, .btn-send-circle:active {
+  transform: scale(.96);
+}
+
+/* ==========================================================================
+   INPUTS Y CAMPOS
+   ========================================================================== */
+.nano-input {
+  height: 42px;
+  width: 100%;
+  padding: 0 14px;
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-12);
+  background: var(--nano-surface);
+  color: var(--nano-text-primary);
+  outline: 0;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+.nano-input:focus {
+  border-color: #4785FF;
+  box-shadow: 0 0 0 3px rgba(23, 105, 255, .10);
+}
+
+/* ==========================================================================
+   ESTADOS DE SISTEMA Y TELEMETRÍA
+   ========================================================================== */
+.nano-status-online {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--nano-success);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.nano-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--nano-success);
+  box-shadow: 0 0 0 4px rgba(23, 198, 122, .12);
+}
+
+.nano-system-status {
+  padding: 12px 14px;
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-14);
+  background: rgba(255, 255, 255, .78);
+  box-shadow: var(--shadow-xs);
+}
+
+[data-theme="dark"] .nano-system-status {
+  background: rgba(13, 24, 42, .74);
+}
+
+.nano-meter {
+  display: grid;
+  grid-template-columns: 38px 1fr 42px;
+  gap: 9px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 11px;
+}
+
+.nano-meter-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: #E1E8F3;
+}
+
+[data-theme="dark"] .nano-meter-track {
+  background: rgba(255, 255, 255, .1);
+}
+
+.nano-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #26A8FF, #1769FF);
+}
+
+.nano-signature {
+  font-family: var(--nano-font-signature);
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 500;
+  transform: rotate(-4deg);
+  color: #2852A5;
+}
+
+/* Overlay & Command Bar */
+.nano-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 21, 51, .4);
+  backdrop-filter: blur(12px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }

@@ -1,28 +1,28 @@
 /**
- * app.js — Entrypoint Principal de la Aplicación Nano Desktop (< 200 LOC)
- * 
+ * app.js — Entrypoint Principal de Nano Desktop (< 200 LOC)
+ *
  * QUÉ HACE:
- * Inicializa el catálogo de iconos, coordina las vistas principales (Chat, Terminal,
- * Modelos, Automatizaciones y WhatsApp) y administra la navegación global.
- * 
+ * Inicializa iconos, coordina vistas principales (Chat, Terminal, Modelos,
+ * Automatizaciones, WhatsApp) y administra la navegación y atajos globales.
+ *
  * CÓMO FUNCIONA:
- * Conecta instancias de vista a los contenedores DOM correspondientes y conmuta
- * visibilidad mediante `switchView`, destruyendo y montando sin procesos zombi.
- * 
+ * Conecta instancias de vista a sus contenedores DOM y conmuta visibilidad
+ * mediante `switchView`, asegurando ciclo de vida limpio sin fugas.
+ *
  * POR QUÉ:
- * El principio de Inversión de Dependencias y orquestación limpia mantiene el punto
- * de entrada desacoplado de la lógica interna de cada módulo de negocio.
+ * DIP (Dependency Inversion): Mantiene el punto de entrada desacoplado
+ * de los detalles de implementación de cada vista de negocio.
  */
 
-import { appState }      from './core/state.js';
-import { escapeHtml }    from './core/utils.js'; // Utilidad compartida — sin duplicados
-import { NanoIcon }      from './components/nano_icon.js';
-import { NanoTopBar }    from './components/nano_top_bar.js';
-import { ChatView }      from './features/chat/chat_view.js';
-import { TerminalView }  from './features/terminal/terminal_view.js';
-import { SystemView }    from './features/system/system_view.js';
-import { AutomationView } from './features/automation/automation_view.js';
-import { WhatsAppView }  from './features/whatsapp/whatsapp_view.js';
+import { appState } from './core/state.js?v=v16';
+import { escapeHtml } from './core/utils.js?v=v16';
+import { NanoIcon } from './components/nano_icon.js?v=v16';
+import { NanoTopBar } from './components/nano_top_bar.js?v=v16';
+import { ChatView } from './features/chat/chat_view.js?v=v16';
+import { TerminalView } from './features/terminal/terminal_view.js?v=v16';
+import { SystemView } from './features/system/system_view.js?v=v16';
+import { AutomationView } from './features/automation/automation_view.js?v=v16';
+import { WhatsAppView } from './features/whatsapp/whatsapp_view.js?v=v16';
 
 class App {
   constructor() {
@@ -44,46 +44,48 @@ class App {
       onSwitchView: (view) => this.switchView(view),
     });
 
-    appState.subscribe(() => {
-      this.renderHistoryList();
-    });
+    appState.subscribe(() => this.renderHistoryList());
   }
 
   setupViews() {
-    const chatContainer = document.getElementById('view-chat');
-    const terminalContainer = document.getElementById('view-terminal');
-    const modelsContainer = document.getElementById('view-models');
-    const automationContainer = document.getElementById('view-automation');
-    const whatsappContainer = document.getElementById('view-whatsapp');
+    const chat = document.getElementById('view-chat');
+    const term = document.getElementById('view-terminal');
+    const mods = document.getElementById('view-models');
+    const auto = document.getElementById('view-automation');
+    const wapp = document.getElementById('view-whatsapp');
 
-    if (chatContainer) this.views.chat = new ChatView(chatContainer);
-    if (terminalContainer) this.views.terminal = new TerminalView(terminalContainer);
-    if (modelsContainer) this.views.models = new SystemView(modelsContainer);
-    if (automationContainer) this.views.automation = new AutomationView(automationContainer);
-    if (whatsappContainer) this.views.whatsapp = new WhatsAppView(whatsappContainer);
+    if (chat) this.views.chat = new ChatView(chat);
+    if (term) this.views.terminal = new TerminalView(term);
+    if (mods) this.views.models = new SystemView(mods);
+    if (auto) this.views.automation = new AutomationView(auto);
+    if (wapp) this.views.whatsapp = new WhatsAppView(wapp);
   }
 
   setupNavigation() {
-    const navItems = document.querySelectorAll('.sidebar-nav-item');
-    navItems.forEach((btn) => {
+    document.querySelectorAll('.sidebar-nav-item').forEach((btn) => {
       btn.addEventListener('click', () => {
         const view = btn.dataset.view;
         if (!view) return;
-        this.switchView(view);
+        if (view === 'chat' && this.currentView === 'chat') {
+          this.startNewChat();
+        } else {
+          this.switchView(view);
+        }
       });
     });
   }
 
   switchView(viewName) {
-    const navItems = document.querySelectorAll('.sidebar-nav-item');
-    navItems.forEach((b) => {
+    document.querySelectorAll('.sidebar-nav-item').forEach((b) => {
       b.classList.toggle('active', b.dataset.view === viewName);
     });
 
     ['chat', 'terminal', 'models', 'automation', 'whatsapp'].forEach((key) => {
-      const viewEl = document.getElementById(`view-${key}`);
-      if (viewEl) {
-        viewEl.style.display = key === viewName ? 'flex' : 'none';
+      const el = document.getElementById(`view-${key}`);
+      if (el) {
+        const isActive = key === viewName;
+        el.classList.toggle('active', isActive);
+        el.style.display = isActive ? 'flex' : 'none';
       }
     });
 
@@ -94,19 +96,14 @@ class App {
     const sidebar = document.getElementById('sidebar');
     const toggleBtn = document.getElementById('btn-collapse-sidebar');
     const newChatBtn = document.getElementById('btn-new-chat');
+    const brandLogo = document.querySelector('.sidebar-header.nano-brand');
 
-    if (toggleBtn && sidebar) {
-      toggleBtn.addEventListener('click', () => {
-        this.sidebarCollapsed = !this.sidebarCollapsed;
-        sidebar.classList.toggle('collapsed', this.sidebarCollapsed);
-      });
-    }
-
-    if (newChatBtn) {
-      newChatBtn.addEventListener('click', () => {
-        this.startNewChat();
-      });
-    }
+    brandLogo?.addEventListener('click', () => this.startNewChat());
+    toggleBtn?.addEventListener('click', () => {
+      this.sidebarCollapsed = !this.sidebarCollapsed;
+      sidebar?.classList.toggle('collapsed', this.sidebarCollapsed);
+    });
+    newChatBtn?.addEventListener('click', () => this.startNewChat());
   }
 
   renderHistoryList() {
@@ -117,20 +114,16 @@ class App {
     const sessions = state.sessions || [];
     const activeId = state.currentSessionId;
 
-    listContainer.innerHTML = sessions
-      .map(
-        (ses) => `
-        <div class="chat-history-item-row ${ses.id === activeId ? 'active' : ''}">
-          <button type="button" class="chat-history-item ${ses.id === activeId ? 'active' : ''}" data-session-id="${ses.id}" title="${ses.title}">
-            <span class="chat-item-text">${escapeHtml(ses.title)}</span>
-          </button>
-          <button type="button" class="btn-delete-session" data-session-id="${ses.id}" title="Eliminar conversación">
-            ${NanoIcon.get('trash', 12)}
-          </button>
-        </div>
-      `
-      )
-      .join('');
+    listContainer.innerHTML = sessions.map((ses) => `
+      <div class="chat-history-item-row ${ses.id === activeId ? 'active' : ''}">
+        <button type="button" class="chat-history-item ${ses.id === activeId ? 'active' : ''}" data-session-id="${ses.id}" title="${ses.title}">
+          <span class="chat-item-text">${escapeHtml(ses.title)}</span>
+        </button>
+        <button type="button" class="btn-delete-session" data-session-id="${ses.id}" title="Eliminar conversación">
+          ${NanoIcon.get('trash', 12)}
+        </button>
+      </div>
+    `).join('');
 
     listContainer.querySelectorAll('.chat-history-item').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -177,10 +170,6 @@ class App {
       }
     });
   }
-
-// escapeHtml ahora proviene de './core/utils.js' (importado arriba)
-// Se elimina la implementación duplicada que existía aquí y en automation_view.js
-
 }
 
 document.addEventListener('DOMContentLoaded', () => {

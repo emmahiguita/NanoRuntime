@@ -1,50 +1,69 @@
-/* ==========================================================================
-   NANO AI — DESIGN TOKENS: ULTRA-CLEAN PROFESSIONAL (CHATGPT / DEEPSEEK STYLE)
-   ========================================================================== */
-
+/* Nano AI — FeatherCore Design System v1.0 & Design Tokens */
 :root {
-  /* Paleta Base Limpia (Minimal Slate / Ivory Studio) */
-  --bg-primary: #F9FAFB;
-  --bg-secondary: #F8FAFC;
-  --bg-surface: #FFFFFF;
-  --bg-hover: #F1F5F9;
-  --bg-active: #E2E8F0;
-  --bg-composer: #FFFFFF;
+  /* Brand */
+  --nano-blue-50: #F1F6FF;
+  --nano-blue-100: #E8F0FF;
+  --nano-blue-200: #CFDEFF;
+  --nano-blue-300: #AAC5FF;
+  --nano-blue-400: #73A0FF;
+  --nano-blue-500: #377CFF;
+  --nano-blue-600: #1769FF;
+  --nano-blue-700: #0D55DB;
+  --nano-blue-800: #123FA4;
+  --nano-blue-900: #102F73;
+  --nano-cyan: #19C8FF;
+  --nano-violet: #715CFF;
 
-  /* Tipografía y Textos de Alto Contraste Profesional */
-  --text-primary: #0F172A;
-  --text-secondary: #475467;
-  --text-tertiary: #94A3B8;
-  --text-muted: #64748B;
+  /* Surfaces */
+  --nano-bg: #F8FAFE;
+  --nano-bg-elevated: #FBFCFF;
+  --nano-surface: #FFFFFF;
+  --nano-surface-soft: #F5F8FD;
+  --nano-surface-hover: #EFF4FC;
+  --nano-ice: #EDF4FF;
 
-  /* Acentos Funcionales (DeepSeek / ChatGPT) */
-  --accent-primary: #2563EB;
-  --accent-primary-hover: #1D4ED8;
-  --accent-primary-soft: #EFF6FF;
-  
-  --accent-thinking: #4F46E5;
-  --accent-thinking-soft: #EEF2FF;
-  --accent-thinking-border: #C7D2FE;
-  
-  --accent-status: #10B981;
-  --accent-status-soft: #ECFDF5;
-  --accent-warning: #F59E0B;
-  --accent-error: #EF4444;
+  /* Text */
+  --nano-text-primary: #0B1533;
+  --nano-text-secondary: #425574;
+  --nano-text-muted: #72829F;
+  --nano-text-faint: #A0ADC2;
 
-  /* Bordes Suaves y Precisos */
-  --border-subtle: #F1F5F9;
-  --border-normal: #E2E8F0;
-  --border-focus: #3B82F6;
-  --border-active: #94A3B8;
+  /* Border */
+  --nano-border: #DEE6F2;
+  --nano-border-soft: rgba(39, 82, 150, .10);
+  --nano-border-active: rgba(23, 105, 255, .26);
 
-  /* Sombras Modernas y Limpias */
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
-  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
-  --shadow-composer: 0 4px 24px rgba(15, 23, 42, 0.08);
+  /* Semantic */
+  --nano-success: #17C67A;
+  --nano-success-soft: #EAFBF3;
+  --nano-warning: #F2B94B;
+  --nano-warning-soft: #FFF5DF;
+  --nano-danger: #F04455;
+  --nano-danger-soft: #FFF0F2;
+  --nano-whatsapp: #20C76A;
+  --nano-whatsapp-soft: #ECFBF3;
 
-  /* Radios de Esquinas */
+  /* Gradients */
+  --nano-gradient-primary: linear-gradient(135deg, #1769FF 0%, #397CFF 52%, #6C5BFF 100%);
+  --nano-gradient-ice: linear-gradient(145deg, rgba(255, 255, 255, .98), rgba(240, 246, 255, .88));
+  --nano-gradient-galaxy: radial-gradient(circle at 45% 40%, #24D5FF 0%, #1769FF 32%, #493DD2 66%, #071535 100%);
+
+  /* Typography */
+  --nano-font: Inter, "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --nano-font-mono: "JetBrains Mono", "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  --nano-font-signature: 'Caveat', "Segoe Print", cursive;
+
+  /* Radius */
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-10: 10px;
+  --radius-12: 12px;
+  --radius-14: 14px;
+  --radius-16: 16px;
+  --radius-18: 18px;
+  --radius-22: 22px;
+  --radius-24: 24px;
+  --radius-pill: 999px;
   --radius-xs: 4px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -52,45 +71,125 @@
   --radius-xl: 20px;
   --radius-full: 9999px;
 
-  /* Tipografía */
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
 
-  /* Transiciones */
-  --transition-fast: 120ms cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-normal: 180ms cubic-bezier(0.16, 1, 0.3, 1);
-  --transition-sidebar: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  /* Shadows */
+  --shadow-xs: 0 1px 3px rgba(27, 55, 105, .04);
+  --shadow-sm: 0 4px 12px rgba(28, 65, 120, .055);
+  --shadow-md: 0 10px 30px rgba(31, 76, 160, .075);
+  --shadow-lg: 0 18px 48px rgba(31, 72, 145, .11);
+  --shadow-blue: 0 10px 28px rgba(23, 105, 255, .22);
+  --shadow-composer: 0 14px 38px rgba(35, 72, 140, .085);
+
+  /* Layout */
+  --nano-sidebar-width: 292px;
+  --nano-sidebar-collapsed: 74px;
+  --nano-topbar-height: 68px;
+  --nano-chat-list-width: 360px;
+  --nano-context-width: 390px;
+  --nano-content-max: 1460px;
+
+  /* 2026 Motion System Tokens */
+  --motion-duration-instant: 90ms;
+  --motion-duration-fast: 150ms;
+  --motion-duration-standard: 280ms;
+  --motion-duration-slow: 420ms;
+  --motion-duration-hero: 650ms;
+
+  --motion-ease-standard: cubic-bezier(.2, .8, .2, 1);
+  --motion-ease-emphasized: cubic-bezier(.05, .7, .1, 1);
+  --motion-ease-decelerate: cubic-bezier(0, 0, .2, 1);
+  --motion-ease-accelerate: cubic-bezier(.4, 0, 1, 1);
+
+  --motion-spring-soft: cubic-bezier(.175, .885, .32, 1.15);
+  --motion-spring-medium: cubic-bezier(.34, 1.4, .64, 1);
+  --motion-spring-snappy: cubic-bezier(.5, 1.75, .75, 1.25);
+
+  --blur-rest: 12px;
+  --blur-hover: 20px;
+  --blur-active: 28px;
+
+  --glass-opacity-rest: 0.72;
+  --glass-opacity-hover: 0.84;
+  --glass-opacity-active: 0.92;
+
+  --glow-rest: 0 0 16px rgba(23, 105, 255, .12);
+  --glow-focus: 0 0 28px rgba(23, 105, 255, .28);
+  --glow-thinking: 0 0 32px rgba(113, 92, 255, .32);
+
+  --parallax-depth-1: translateZ(10px);
+  --parallax-depth-2: translateZ(25px);
+  --parallax-depth-3: translateZ(45px);
+
+  /* Legacy & Standard Motion Aliases */
+  --motion-fast: var(--motion-duration-fast);
+  --motion-normal: var(--motion-duration-standard);
+  --motion-slow: var(--motion-duration-slow);
+  --ease-nano: var(--motion-ease-standard);
+
+  --transition-fast: var(--motion-duration-fast) var(--motion-ease-standard);
+  --transition-normal: var(--motion-duration-standard) var(--motion-ease-standard);
+  --transition-sidebar: var(--motion-duration-standard) var(--motion-ease-standard);
 }
 
-/* Modo Oscuro Minimalista Profesional */
+/* Modo Oscuro FeatherCore */
 [data-theme="dark"] {
-  --bg-primary: #0D1117;
-  --bg-secondary: #161B22;
-  --bg-surface: #21262D;
-  --bg-hover: #30363D;
-  --bg-active: #38404A;
-  --bg-composer: #161B22;
+  --nano-bg: #07101F;
+  --nano-bg-elevated: #091426;
+  --nano-surface: #0D182A;
+  --nano-surface-soft: #111F34;
+  --nano-surface-hover: #152640;
+  --nano-ice: #11213A;
 
-  --text-primary: #F0F6FC;
-  --text-secondary: #C9D1D9;
-  --text-tertiary: #8B949E;
-  --text-muted: #8B949E;
+  --nano-text-primary: #F8FAFF;
+  --nano-text-secondary: #D0DEF4;
+  --nano-text-muted: #A4B8D8;
+  --nano-text-faint: #889EC0;
 
-  --accent-primary: #388BFD;
-  --accent-primary-hover: #58A6FF;
-  --accent-primary-soft: rgba(56, 139, 253, 0.15);
+  --nano-border: rgba(137, 170, 220, .18);
+  --nano-border-soft: rgba(145, 178, 230, .12);
+  --nano-border-active: rgba(102, 152, 255, .38);
+  --nano-blue-600: #6698FF;
 
-  --accent-thinking: #818CF8;
-  --accent-thinking-soft: rgba(99, 102, 241, 0.15);
-  --accent-thinking-border: rgba(99, 102, 241, 0.4);
+  /* Aliases en modo oscuro */
+  --bg-primary: var(--nano-bg);
+  --bg-secondary: var(--nano-bg-elevated);
+  --bg-surface: var(--nano-surface);
+  --bg-hover: var(--nano-surface-hover);
+  --bg-active: var(--nano-surface-soft);
+  --bg-composer: var(--nano-surface);
 
-  --border-subtle: #21262D;
-  --border-normal: #30363D;
-  --border-focus: #58A6FF;
-  --border-active: #484F58;
+  --text-primary: var(--nano-text-primary);
+  --text-secondary: var(--nano-text-secondary);
+  --text-tertiary: var(--nano-text-muted);
+  --text-muted: var(--nano-text-muted);
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.5);
-  --shadow-composer: 0 8px 32px rgba(0, 0, 0, 0.6);
+  --accent-primary: var(--nano-blue-600);
+  --accent-primary-hover: #8AB3FF;
+  --accent-primary-soft: rgba(102, 152, 255, 0.16);
+
+  --accent-thinking: #9D8CFF;
+  --accent-thinking-soft: rgba(157, 140, 255, 0.16);
+  --accent-thinking-border: rgba(157, 140, 255, 0.35);
+
+  --border-subtle: var(--nano-border-soft);
+  --border-normal: var(--nano-border);
+  --border-focus: var(--nano-blue-600);
+  --border-active: var(--nano-border-active);
+
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.6);
+  --shadow-composer: 0 14px 44px rgba(0, 0, 0, 0.65);
 }

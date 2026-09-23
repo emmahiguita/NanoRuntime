@@ -1,11 +1,125 @@
+/**
+ * TerminalService: Puente interactivo para consola nativa PTY y comandos de diagnóstico.
+ * 
+ * QUÉ HACE: Conecta la vista de terminal con la shell del SO (PowerShell/CMD/Bash)
+ * mediante el PTY nativo de Tauri o provee comandos locales en entorno Web.
+ * 
+ * CÓMO FUNCIONA: En Tauri, abre una sesión en ShellManager y retransmite pulsaciones
+ * de teclas al stdin del PTY y eventos de salida ANSI a la pantalla.
+ * 
+ * POR QUÉ: Elimina la terminal JS simulada sustituyéndola por una consola real.
+ */
+
 import { transport } from '../../core/transport.js';
 
 export class TerminalService {
   constructor() {
+    this.isTauri = typeof window !== 'undefined' && Boolean(window.__TAURI__);
+    this.sessionId = 'desktop-main-terminal';
     this.history = [];
     this.historyIndex = -1;
+    this.unlistenOutput = null;
+    this.unlistenExit = null;
   }
 
+  /**
+   * Inicializa la sesión PTY nativa en Tauri con retransmisión reactiva.
+   */
+  async startPty({ onData = () => {}, onExit = () => {} } = {}) {
+    if (!this.isTauri) return false;
+
+    try {
+      const { invoke } = window.__TAURI__.core;
+      const { listen } = window.__TAURI__.event;
+
+      // Limpieza de listeners previos
+      this.closePty();
+
+      this.unlistenOutput = await listen('pty-output', (event) => {
+        if (event.payload?.session_id === this.sessionId) {
+          onData(event.payload.data);
+        }
+      });
+
+      this.unlistenExit = await listen('pty-exit', (event) => {
+        if (event.payload?.session_id === this.sessionId) {
+          onExit();
+        }
+      });
+
+      await invoke('nano_pty_open', {
+        sessionId: this.sessionId,
+        rows: 24,
+        cols: 80,
+      });
+
+      return true;
+    } catch (err) {
+      console.warn('[TerminalService] Error iniciando PTY nativo:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Envía caracteres o comandos al stdin del proceso PTY.
+   */
+  async writePty(data) {
+    if (!this.isTauri) return false;
+    try {
+      const { invoke } = window.__TAURI__.core;
+      await invoke('nano_pty_write', {
+        sessionId: this.sessionId,
+        data,
+      });
+      return true;
+    } catch (e) {
+      console.error('[TerminalService] Error escribiendo en PTY:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Redimensiona la geometría del PTY nativo.
+   */
+  async resizePty(rows, cols) {
+    if (!this.isTauri) return;
+    try {
+      const { invoke } = window.__TAURI__.core;
+      await invoke('nano_pty_resize', {
+        sessionId: this.sessionId,
+        rows,
+        cols,
+      });
+    } catch {
+      // Ignorar errores transitorios de resize
+    }
+  }
+
+  /**
+   * Cierra la sesión PTY y libera los descriptores del SO.
+   */
+  async closePty() {
+    if (this.unlistenOutput) {
+      this.unlistenOutput();
+      this.unlistenOutput = null;
+    }
+    if (this.unlistenExit) {
+      this.unlistenExit();
+      this.unlistenExit = null;
+    }
+    if (this.isTauri) {
+      try {
+        const { invoke } = window.__TAURI__.core;
+        await invoke('nano_pty_close', { sessionId: this.sessionId });
+      } catch {
+        // Sesión ya cerrada
+      }
+    }
+  }
+
+  /**
+   * Modo fallback de diagnóstico para entorno Web sin Tauri.
+   */
   async executeCommand(rawCmd) {
     const cmd = rawCmd.trim();
     if (!cmd) return null;
@@ -21,97 +135,61 @@ export class TerminalService {
       case 'help':
         return {
           type: 'sys',
-          output: `Comandos Disponibles:
-  help               - Muestra esta lista de comandos
-  status | sys       - Consulta telemetría de hardware en tiempo real
-  models             - Lista modelos GGUF detectados
-  infer <prompt>     - Ejecuta inferencia directa con nanortime-core
-  clear              - Limpia la pantalla de la consola
-  fit <modelo>       - Calcula viabilidad de VRAM y offload según la fórmula técnica
-  web <consulta>     - Ejecuta una búsqueda de conocimiento en vivo
-  version            - Muestra la versión del motor y runtime`
+          output: `Comandos de Diagnóstico:
+  status | sys       - Telemetría real de hardware en memoria
+  models             - Lista modelos GGUF locales
+  infer <prompt>     - Inferencia directa con nanortime-core
+  fit <modelo>       - Cálculo de adecuación VRAM
+  clear              - Limpia la pantalla
+  version            - Versión del motor y runtime`
         };
 
       case 'status':
-      case 'sys':
+      case 'sys': {
         const sys = await transport.getSystemStatus();
+        const ramStr = (sys.used_ram_mb != null && sys.total_ram_mb != null)
+          ? `${(sys.used_ram_mb / 1024).toFixed(2)} GB / ${(sys.total_ram_mb / 1024).toFixed(2)} GB`
+          : 'unavailable';
         return {
           type: 'success',
-          output: `[Hardware Telemetry — Real In-Memory Probe]
-OS: ${sys.os_name}
-Arch: ${sys.cpu_arch || sys.arch}
-RAM Usada: ${(sys.used_ram_mb / 1024).toFixed(2)} GB / ${(sys.total_ram_mb / 1024).toFixed(2)} GB (${Math.round((sys.used_ram_mb / sys.total_ram_mb) * 100)}%)
-GPU Estimada: ${sys.gpu_usage_pct || 27}%
-Runtime: ${sys.runtime_version} (${sys.status})`
+          output: `OS: ${sys.os_name || 'unavailable'}\nArch: ${sys.cpu_arch || 'unavailable'}\nRAM: ${ramStr}\nRuntime: ${sys.runtime_version || 'unknown'} (${sys.status})`
         };
+      }
 
-      case 'models':
+      case 'models': {
         const models = await transport.listModels();
-        if (models.length === 0) {
-          return { type: 'sys', output: 'No se encontraron modelos .gguf en las rutas del sistema.' };
-        }
-        const listStr = models.map((m) => `  * ${m.name} [${m.quant || 'GGUF'}] (${m.size_mb ? (m.size_mb / 1024).toFixed(1) + ' GB' : m.size})`).join('\n');
-        return { type: 'success', output: `Modelos Detectados en el Catálogo Local:\n${listStr}` };
-
-      case 'fit':
-        const modelTarget = args.trim() || 'deepseek-r1';
-        const fitReport = transport.calculateModelFit(modelTarget);
+        if (!models.length) return { type: 'sys', output: 'No se detectaron modelos locales.' };
         return {
           type: 'success',
-          output: `[Model Fitting Report — ${fitReport.model}]
-Weights: ${fitReport.weights_mb} MB
-KV Cache Overhead: ${fitReport.kv_cache_mb} MB (4096 ctx)
-Safety Buffer: ${fitReport.buffer_mb} MB
-Total VRAM Requerida: ${(fitReport.total_vram_required_mb / 1024).toFixed(2)} GB
-Recomendación de Offload: ${fitReport.recommended_offload_layers}
-Política de Ciclo de Vida: ${fitReport.ttl_policy}`
+          output: models.map(m => `* ${m.name} (${m.size_mb ? m.size_mb + 'MB' : 'GGUF'})`).join('\n')
         };
+      }
 
-      case 'web':
-        if (!args) {
-          return { type: 'error', output: 'Uso: web <consulta o tema>' };
-        }
-        const webRes = await transport.searchWebKnowledge(args);
-        if (webRes && webRes.found) {
-          return {
-            type: 'success',
-            output: `[Web Search Grounding — ${webRes.source}]\n${webRes.snippet}`
-          };
-        }
-        return {
-          type: 'sys',
-          output: `No se encontraron resultados instantáneos para "${args}".`
-        };
-
-      case 'infer':
-        if (!args) {
-          return { type: 'error', output: 'Uso: infer <texto del prompt>' };
-        }
-        const res = await transport.generateText({
-          model_path: '',
-          prompt: args,
-          max_tokens: 128,
-          temperature: 0.0
-        });
+      case 'fit': {
+        const fit = transport.calculateModelFit(args || 'deepseek-r1');
         return {
           type: 'success',
-          output: `[nanoRUNTIME Response]\n${res.text}\n(Tiempo: ${res.inference_time_ms.toFixed(1)}ms | ${res.tok_s.toFixed(1)} tok/s)`
+          output: `[Model Fit: ${fit.model}]\nVRAM Requerida: ${(fit.total_vram_required_mb / 1024).toFixed(2)} GB\nOffload: ${fit.recommended_offload_layers}\nTTL: ${fit.ttl_policy}`
         };
+      }
+
+      case 'infer': {
+        if (!args) return { type: 'error', output: 'Uso: infer <prompt>' };
+        const res = await transport.generateText({ prompt: args, max_tokens: 128 });
+        return {
+          type: 'success',
+          output: `[Inferencia]\n${res.text}\n(${res.tok_s.toFixed(1)} tok/s)`
+        };
+      }
 
       case 'version':
-        return {
-          type: 'sys',
-          output: 'nanoRUNTIME Core v0.2.0 | nanoDESKTOP Universal Tauri v2 + Web Shell'
-        };
+        return { type: 'sys', output: 'NanoRuntime v0.1.0 | Native PTY Shell Adapter' };
 
       case 'clear':
         return { type: 'clear' };
 
       default:
-        return {
-          type: 'error',
-          output: `Comando desconocido: "${primary}". Escribe 'help' para ver los comandos disponibles.`
-        };
+        return { type: 'error', output: `Comando desconocido: "${primary}". Escribe 'help'.` };
     }
   }
 }

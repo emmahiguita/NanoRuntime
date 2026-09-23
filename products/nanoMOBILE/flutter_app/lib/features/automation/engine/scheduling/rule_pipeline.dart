@@ -41,7 +41,7 @@ import 'turn_supersede_guard.dart';
 import '../language/turn_complexity_classifier.dart'
     show turnComplexityClassifier;
 import '../messaging/conv_turn_state.dart' show isPureGreeting;
-import '../../personal_agent/application/persona_repository.dart';
+import '../../personal_agent/application/personal_reply_learning_service.dart';
 
 class RulePipeline {
   RulePipeline({
@@ -173,7 +173,8 @@ class RulePipeline {
           // se registra como intervención manual del dueño en WhatsApp (outboundObservedManual).
           final convId = resolveConversationIdentity(event).key.id;
           final senderLower = event.sender.trim().toLowerCase();
-          final isExplicitSelfSender = senderLower == 'tú' ||
+          final isExplicitSelfSender =
+              senderLower == 'tú' ||
               senderLower == 'tu' ||
               senderLower == 'you' ||
               senderLower == 'yo' ||
@@ -217,17 +218,19 @@ class RulePipeline {
               );
               if (lastInbound != null && lastInbound.text.trim().isNotEmpty) {
                 try {
-                  PersonaRepository.instance.addExample(
-                    personaKey: 'owner',
-                    incomingText: lastInbound.text.trim(),
-                    body: message.text.trim(),
-                    source: 'whatsapp_manual_learned',
-                  );
-                  debugPrint(
-                    '[learning] owner outbound aprendido en FTS4: "${lastInbound.text}" -> "${message.text}"',
-                  );
+                  // La escritura se espera y se fusiona por entrada normalizada:
+                  // un eco repetido nunca deja tareas huérfanas ni otra fila.
+                  final learned = await PersonalReplyLearningService.instance
+                      .learnVerifiedReply(
+                        incomingText: lastInbound.text.trim(),
+                        replyText: message.text.trim(),
+                        source: 'whatsapp_manual_learned',
+                      );
+                  debugPrint('[learning] owner outbound: ${learned.name}');
                 } catch (e) {
-                  debugPrint('[learning] Error aprendiendo en PersonaRepository: $e');
+                  debugPrint(
+                    '[learning] Error aprendiendo en PersonaRepository: $e',
+                  );
                 }
               }
             }
@@ -320,9 +323,13 @@ class RulePipeline {
                     msg.text.trim().isNotEmpty) {
                   _memory.appendInbound(msg, atMs: stEv);
                   final lower = msg.text.toLowerCase();
-                  final isSocial = isPureGreeting(msg.text) ||
-                      turnComplexityClassifier.classify(msg.text).isSocialMinimal;
-                  final isBusinessInquiry = !isSocial &&
+                  final isSocial =
+                      isPureGreeting(msg.text) ||
+                      turnComplexityClassifier
+                          .classify(msg.text)
+                          .isSocialMinimal;
+                  final isBusinessInquiry =
+                      !isSocial &&
                       (lower.contains('precio') ||
                           lower.contains('cuanto') ||
                           lower.contains('cuánto') ||
@@ -415,12 +422,14 @@ class RulePipeline {
     await _assignments?.ensureAssignment(message.conversation.key);
     final conversationId = message.conversation.key.id;
     final senderLower = notif.sender.trim().toLowerCase();
-    final isExplicitSelf = senderLower == 'tú' ||
+    final isExplicitSelf =
+        senderLower == 'tú' ||
         senderLower == 'tu' ||
         senderLower == 'you' ||
         senderLower == 'yo' ||
         senderLower == 'me';
-    final isKnownEcho = conversationId.isNotEmpty &&
+    final isKnownEcho =
+        conversationId.isNotEmpty &&
         _dedupe.isKnownOutbound(conversationId, notif.text);
 
     if (notif.isSelf || isExplicitSelf || isKnownEcho) {
@@ -466,7 +475,9 @@ class RulePipeline {
     // duplicate conserva el estado del evento original): nada que re-anotar.
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     if (preAdmitted && _dedupe.isKnownOutbound(conversationId, message.text)) {
-      debugPrint('[dedupe] bounceback echo dropped in onNotification (preAdmitted)');
+      debugPrint(
+        '[dedupe] bounceback echo dropped in onNotification (preAdmitted)',
+      );
       return const [];
     }
     final verdict = preAdmitted

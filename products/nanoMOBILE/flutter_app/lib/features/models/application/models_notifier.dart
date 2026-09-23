@@ -8,13 +8,14 @@ import 'package:nanoai/features/models/application/models_state.dart';
 import 'package:nanoai/features/models/data/catalog_local_model_repository.dart';
 import 'package:nanoai/features/models/data/channel_model_storage_repository.dart';
 import 'package:nanoai/features/models/data/model_downloader.dart';
-import 'package:nanoai/features/models/data/model_file_installer.dart';
 import 'package:nanoai/features/models/data/model_integrity.dart';
 import 'package:nanoai/features/models/domain/detected_model.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
 import 'package:nanoai/features/models/domain/local_model_repository.dart';
 import 'package:nanoai/features/models/domain/model_storage_repository.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nanoai/core/services/whisper_stt_service.dart';
 
 /// MODELS-CAT-01 — pref de la carpeta de descarga elegida por el usuario.
 /// Las descargas quedan en el almacenamiento del dispositivo (externo) y
@@ -34,7 +35,6 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   final ModelDownloader _downloader;
   final ModelStorageRepository _storage;
   final Future<String?> Function() _modelsDir;
-  final ModelFileInstaller _fileInstaller;
 
   // Una descarga a la vez (GGUF de varios GB): la activa posee el token.
   String? _downloadingId;
@@ -54,15 +54,9 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     ModelDownloader? downloader,
     ModelStorageRepository? storage,
     Future<String?> Function()? modelsDir,
-    ModelFileInstaller? fileInstaller,
   }) : _downloader = downloader ?? ModelDownloader(),
        _storage = storage ?? const ChannelModelStorageRepository(),
        _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir,
-       _fileInstaller =
-           fileInstaller ??
-           ModelFileInstaller(
-             modelsDir ?? CatalogLocalModelRepository.modelsDir,
-           ),
        super(const ModelsState()) {
     _load();
   }
@@ -74,17 +68,11 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     super.initial, {
     ModelStorageRepository? storage,
     Future<String?> Function()? modelsDir,
-    ModelFileInstaller? fileInstaller,
   }) : _ref = ref,
        _repository = const CatalogLocalModelRepository(),
        _downloader = ModelDownloader(),
        _storage = storage ?? const ChannelModelStorageRepository(),
-       _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir,
-       _fileInstaller =
-           fileInstaller ??
-           ModelFileInstaller(
-             modelsDir ?? CatalogLocalModelRepository.modelsDir,
-           );
+       _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir;
 
   Future<void> _load() async {
     try {
@@ -292,7 +280,7 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   /// Si el GGUF no está instalado, no hay nada que cargar: la UI lo impide
   /// (botón de descarga primero). El path real del GGUF llega a ChatNotifier,
   /// que lo usa en el arranque del motor (--model <path>).
-  void loadModel(String id, {bool confirmedExtreme = false}) {
+  Future<void> loadModel(String id, {bool confirmedExtreme = false}) async {
     LocalModel? item;
     for (final model in state.models) {
       if (model.id == id) {
@@ -309,6 +297,18 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
         item.localPath == null) {
       return;
     }
+
+    // Los modelos de voz Whisper (GGML) se activan en WhisperSttService,
+    // separando el motor de audio del motor conversacional LLM (nanortime/llama.cpp)
+    if (item.kind == ModelKind.voiceStt) {
+      await WhisperSttService.instance.setActiveModel(
+        item.fileName,
+        item.localPath!,
+      );
+      state = state.copyWith(models: List.from(state.models));
+      return;
+    }
+
     // La selección empieza aquí, pero "activo" solo lo confirma el estado
     // ready del chat. No se publica éxito antes de que responda el motor.
     _ref
@@ -318,6 +318,52 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
           path: item.localPath,
           confirmedExtreme: confirmedExtreme,
         );
+  }
+
+  /// Desconecta el modelo activo del motor sin borrarlo del disco.
+  /// Simétrico a loadModel: permite al usuario cambiar de modelo o liberar RAM.
+  void unloadModel() {
+    _ref.read(chatProvider.notifier).selectModel('', path: null);
+  }
+
+  /// Desactiva el modelo de voz Whisper activo sin borrar el archivo.
+  Future<void> unloadVoiceModel() async {
+    await WhisperSttService.instance.clearActiveModel();
+    state = state.copyWith(models: List.from(state.models));
+  }
+
+  /// Elimina el archivo GGUF descargado del disco y resetea el estado del catálogo.
+  /// Solo actúa si el modelo tiene path local conocido y no está en descarga activa.
+  /// Simétrico a downloadModel: da al usuario control total del almacenamiento.
+  Future<void> deleteModel(String id) async {
+    LocalModel? item;
+    for (final model in state.models) {
+      if (model.id == id) {
+        item = model;
+        break;
+      }
+    }
+    if (item == null || !item.installed || item.localPath == null) return;
+    if (_downloadingId == id) return; // no borrar mientras descarga
+    try {
+      final file = File(item.localPath!);
+      if (await file.exists()) await file.delete();
+    } catch (e) {
+      debugPrint('[models] deleteModel falló: $e');
+    }
+    // Reseta al estado sin instalar independientemente del resultado del delete
+    _update(
+      id,
+      downloadState: ModelDownloadState.notInstalled,
+      progress: 0,
+      clearError: true,
+    );
+    // Si el modelo eliminado era el activo, lo desconecta del motor
+    final active = _ref.read(chatProvider).activeModel;
+    if (active.toLowerCase().contains(item.name.toLowerCase())) unloadModel();
+    if (WhisperSttService.instance.activeModelFile == item.fileName) {
+      await WhisperSttService.instance.clearActiveModel();
+    }
   }
 
   // ── Detección de modelos en storage SAF ────────────────────────────────
@@ -537,22 +583,19 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     final directPath = model.path;
     state = state.copyWith(loadingDetectedUri: directPath ?? model.uri);
     if (directPath != null) {
-      // El storage externo (FUSE) es lento para el acceso random de pesos
-      // (mmap + dequant por token). Copiar al storage interno de la app antes
-      // de cargar: el mismo modelo pasa de lento a ~5 tok/s.
+      // RENDIMIENTO ZERO-COPY: Ejecución honesta directa desde SD card o storage externo.
+      // Elimina la copia de 4GB-8GB que causaba saturación de disco, timeouts y bloqueos.
+      // nanortime y llama.cpp operan con acceso directo a la ruta física.
       try {
-        final internalPath = await _copyToInternal(directPath, model.name);
-        if (!mounted) return;
-        final pathToUse = internalPath ?? directPath;
         state = state.copyWith(loadingDetectedUri: null, scanError: null);
         _ref
             .read(chatProvider.notifier)
-            .selectModel(model.name, path: pathToUse);
+            .selectModel(model.name, path: directPath);
       } catch (e) {
         if (!mounted) return;
         state = state.copyWith(
           loadingDetectedUri: null,
-          scanError: 'No se pudo instalar ${model.name}: $e',
+          scanError: 'No se pudo activar ${model.name}: $e',
         );
       }
       return;
@@ -579,11 +622,81 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   }
 
   /// Copia un GGUF del storage externo al directorio canónico
-  /// `files/nano/models/` mediante publicación transaccional.
-  /// El externo vía FUSE es lento para el acceso random de pesos; el interno
-  /// permite mmap rápido. Solo reutiliza el destino si tamaño y SHA coinciden.
-  Future<String?> _copyToInternal(String srcPath, String name) =>
-      _fileInstaller.install(srcPath, name);
+  /// SD & EXTERNAL STORAGE: Permite al usuario elegir directamente cualquier archivo
+  /// de modelo (.gguf) desde su tarjeta SD, descargas o USB OTG.
+  /// Valida cabecera GGUF, crea el DetectedModel honesto y lo activa sin copias.
+  Future<bool> pickCustomModelFile() async {
+    try {
+      final result = await FilePicker.pickFiles(type: FileType.any);
+      if (result == null || result.files.isEmpty) return false;
+      final pickedPath = result.files.single.path;
+      if (pickedPath == null || pickedPath.isEmpty) return false;
+
+      final file = File(pickedPath);
+      if (!await file.exists()) return false;
+
+      final len = await file.length();
+      if (len < 24) {
+        if (mounted) {
+          state = state.copyWith(
+            scanError:
+                'El archivo es demasiado pequeño para ser un modelo GGUF válido.',
+          );
+        }
+        return false;
+      }
+
+      // Valida cabecera GGUF (0x47, 0x47, 0x55, 0x46)
+      final headerBytes = await file.openRead(0, 4).first;
+      final isGguf =
+          headerBytes.length >= 4 &&
+          headerBytes[0] == 0x47 &&
+          headerBytes[1] == 0x47 &&
+          headerBytes[2] == 0x55 &&
+          headerBytes[3] == 0x46;
+
+      if (!isGguf) {
+        if (mounted) {
+          state = state.copyWith(
+            scanError:
+                'El archivo seleccionado no contiene una cabecera GGUF válida.',
+          );
+        }
+        return false;
+      }
+
+      final fileName = file.uri.pathSegments.isNotEmpty
+          ? file.uri.pathSegments.last
+          : 'modelo_externo.gguf';
+
+      final customModel = DetectedModel(
+        name: fileName,
+        sizeBytes: len,
+        uri: file.uri.toString(),
+        format: DetectedModelFormat.gguf,
+        magicOk: true,
+        path: file.path,
+      );
+
+      final updatedDetected = [
+        customModel,
+        for (final m in state.detected)
+          if (m.path != customModel.path) m,
+      ];
+
+      state = state.copyWith(detected: updatedDetected, scanError: null);
+
+      await useDetected(customModel);
+      return true;
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(
+          scanError: 'Error al abrir modelo desde almacenamiento: $e',
+        );
+      }
+      return false;
+    }
+  }
 
   @override
   void dispose() {

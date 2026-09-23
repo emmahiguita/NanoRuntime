@@ -42,11 +42,11 @@ abstract interface class PersonaStyleResolver {
 
 /// Implementación por defecto usando [PersonaRetriever] de SQLite FTS4.
 final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
-  const RuntimePersonaStyleResolver({
-    required PersonaRetriever retriever,
-  }) : _retriever = retriever;
+  RuntimePersonaStyleResolver({required PersonaRetriever retriever})
+    : _retriever = retriever;
 
   final PersonaRetriever _retriever;
+  final Map<String, int> _lastVariantByConversation = {};
 
   @override
   Future<PersonaStyleMatch?> resolve({
@@ -76,25 +76,19 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
       for (final cand in candidates) {
         if (!cand.isPaired || !cand.enabled) continue;
 
-        final normalizedIncoming = normalizeText(cand.incomingText);
-        final incomingTokens = tokenizeText(normalizedIncoming);
-        if (incomingTokens.isEmpty) continue;
-
-        // Coincidencia exacta normalizada
-        if (normalizedInput == normalizedIncoming) {
-          bestExample = cand;
-          bestScore = 1.0;
-          break;
-        }
-
-        // Jaccard similarity entre tokens
-        final intersection = inputTokens.intersection(incomingTokens).length;
-        final union = inputTokens.union(incomingTokens).length;
-        final score = union > 0 ? intersection / union : 0.0;
-
-        if (score > bestScore) {
-          bestScore = score;
-          bestExample = cand;
+        // La mejor variante equivalente define la confianza del ejemplo.
+        for (final pattern in cand.incomingVariants) {
+          final normalizedIncoming = normalizeText(pattern);
+          final incomingTokens = tokenizeText(normalizedIncoming);
+          if (incomingTokens.isEmpty) continue;
+          final exact = normalizedInput == normalizedIncoming;
+          final intersection = inputTokens.intersection(incomingTokens).length;
+          final union = inputTokens.union(incomingTokens).length;
+          final score = exact ? 1.0 : (union > 0 ? intersection / union : 0.0);
+          if (score > bestScore) {
+            bestScore = score;
+            bestExample = cand;
+          }
         }
       }
 
@@ -102,21 +96,40 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
         return null;
       }
 
-      final variants = bestExample.variants;
+      final enabledOptions = bestExample.responseOptions
+          .where((option) => option.enabled)
+          .map((option) => option.text.trim())
+          .where((text) => text.isNotEmpty)
+          .toList();
+      final variants = enabledOptions.isNotEmpty
+          ? enabledOptions
+          : [bestExample.body.trim()];
       final String rawReply;
       final suggestions = <String>[];
 
       if (variants.length > 1) {
-        // Rotación dinámica variada basada en minuto y conversación (anti-repetición)
-        final seed = DateTime.now().minute + conversationId.hashCode.abs();
-        final selectedIndex = seed % variants.length;
+        // La primera opción depende de la conversación; las siguientes rotan
+        // sin repetir consecutivamente la misma respuesta aprendida.
+        final rotationKey = '$conversationId:${bestExample.id}';
+        final previous = _lastVariantByConversation[rotationKey];
+        final selectedIndex = previous == null
+            ? conversationId.hashCode.abs() % variants.length
+            : (previous + 1) % variants.length;
+        if (_lastVariantByConversation.length >= 128) {
+          _lastVariantByConversation.remove(
+            _lastVariantByConversation.keys.first,
+          );
+        }
+        _lastVariantByConversation[rotationKey] = selectedIndex;
         rawReply = variants[selectedIndex];
         for (final v in variants) {
           final clean = LanguageAssistService.safeCleanOutput(v);
-          if (clean.isNotEmpty && !suggestions.contains(clean)) suggestions.add(clean);
+          if (clean.isNotEmpty && !suggestions.contains(clean)) {
+            suggestions.add(clean);
+          }
         }
       } else {
-        rawReply = bestExample.body.trim();
+        rawReply = variants.first;
       }
 
       final cleanReply = LanguageAssistService.safeCleanOutput(rawReply);

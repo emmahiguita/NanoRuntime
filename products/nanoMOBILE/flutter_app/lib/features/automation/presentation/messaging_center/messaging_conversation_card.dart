@@ -41,7 +41,8 @@ class _MessagingConversationCardState extends State<MessagingConversationCard> {
     final item = widget.item;
     final platform = MessagingPlatform.fromPackageAndAgent(item.packageName, item.agentId);
     final timeStr = _formatTimestamp(item.lastAtMs);
-    final isGroup = item.displayName.toLowerCase().contains('grupo') ||
+    final isGroup = item.isGroup ||
+        item.displayName.toLowerCase().contains('grupo') ||
         item.displayName.toLowerCase().contains('equipo') ||
         item.displayName.toLowerCase().contains('team');
     final isVip = item.displayName.toLowerCase().contains('emmanuel') ||
@@ -123,20 +124,39 @@ class _MessagingConversationCardState extends State<MessagingConversationCard> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (isGroup) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF60A5FA).withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(color: const Color(0xFF60A5FA).withValues(alpha: 0.4), width: 0.6),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.groups_rounded, size: 11, color: Color(0xFF93C5FD)),
+                                SizedBox(width: 3),
+                                Text(
+                                  'GRUPO',
+                                  style: TextStyle(
+                                    color: Color(0xFF93C5FD),
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (isVip) ...[
                           const SizedBox(width: 5),
                           const Icon(
                             Icons.star_rounded,
                             size: 15,
                             color: Color(0xFFFFB800),
-                          ),
-                        ],
-                        if (isGroup) ...[
-                          const SizedBox(width: 5),
-                          const Icon(
-                            Icons.group_rounded,
-                            size: 14,
-                            color: Color(0xFF60A5FA),
                           ),
                         ],
                         if (isVerified) ...[
@@ -150,16 +170,42 @@ class _MessagingConversationCardState extends State<MessagingConversationCard> {
                       ],
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      item.lastMessage,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.65),
-                        fontSize: 12.5,
-                        height: 1.25,
+                    if (isGroup && item.lastSender != null && item.lastSender!.isNotEmpty)
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${item.lastSender}: ',
+                              style: const TextStyle(
+                                color: Color(0xFF60A5FA),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            TextSpan(
+                              text: item.lastMessage,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.65),
+                                fontSize: 12.5,
+                                height: 1.25,
+                              ),
+                            ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    else
+                      Text(
+                        item.lastMessage,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.65),
+                          fontSize: 12.5,
+                          height: 1.25,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
                   ],
                 ),
               ),
@@ -259,17 +305,28 @@ class _MessagingConversationCardState extends State<MessagingConversationCard> {
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2563EB), Color(0xFF1E40AF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
-            width: 1,
+            color: const Color(0xFF60A5FA).withValues(alpha: 0.5),
+            width: 1.2,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2563EB).withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: const Center(
           child: Icon(
             Icons.groups_rounded,
-            color: Color(0xFF94A3B8),
+            color: Colors.white,
             size: 20,
           ),
         ),

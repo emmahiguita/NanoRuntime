@@ -1,9 +1,8 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/domain/bot/bot_definition.dart';
 import 'package:nanoai/features/automation/domain/bot/bot_permissions.dart';
 import 'package:nanoai/features/automation/domain/bot/bot_role.dart';
 import 'package:nanoai/features/automation/domain/bot/bot_event.dart';
-import 'package:nanoai/features/automation/application/bot/bot_skills_catalog.dart';
 import 'package:nanoai/features/automation/engine/bot/bot_capability_router.dart';
 
 void main() {

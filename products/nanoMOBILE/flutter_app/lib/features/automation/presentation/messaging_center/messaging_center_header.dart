@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/theme/nano_type.dart';
-import '../../executors/notification_executor_provider.dart';
+import 'messaging_channel_sheet.dart';
 
 /// Encabezado principal del Centro de Mensajería con título y botón de conexión.
 class MessagingCenterHeader extends ConsumerWidget {
@@ -13,8 +13,8 @@ class MessagingCenterHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = NanoThemeExtension.of(context).colors;
-
     final canPop = Navigator.of(context).canPop();
+    final compact = MediaQuery.sizeOf(context).width < 390;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -53,11 +53,7 @@ class MessagingCenterHeader extends ConsumerWidget {
             ],
           ),
           child: const Center(
-            child: Icon(
-              Icons.forum_rounded,
-              color: Color(0xFF00FF88),
-              size: 22,
-            ),
+            child: Icon(Icons.forum_rounded, color: Color(0xFF00FF88), size: 22),
           ),
         ),
         const SizedBox(width: NanoSpacing.sm + 4),
@@ -68,29 +64,26 @@ class MessagingCenterHeader extends ConsumerWidget {
             children: [
               Text(
                 'Centro de Mensajería',
-                style: NanoType.title(colors.onSurface).copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  letterSpacing: -0.3,
-                ),
+                style: NanoType.title(
+                  colors.onSurface,
+                ).copyWith(fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.3),
               ),
               const SizedBox(height: 1),
               Text(
                 'Gestión multicanal activa y privada',
-                style: NanoType.caption(colors.onSurfaceVariant).copyWith(
-                  fontSize: 11.5,
-                ),
+                style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 11.5),
               ),
             ],
           ),
         ),
         const SizedBox(width: NanoSpacing.xs),
-        // Botón "+ Conectar App"
+        // Abre controles reales; en ancho compacto conserva una zona táctil amplia.
         InkWell(
-          onTap: onConnectApp ?? () => _showConnectAppsDialog(context, ref),
+          onTap: onConnectApp ?? () => showMessagingChannelSheet(context, ref),
+          customBorder: const CircleBorder(),
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 10, vertical: 7),
             decoration: BoxDecoration(
               color: const Color(0xFF00FF88).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
@@ -99,90 +92,26 @@ class MessagingCenterHeader extends ConsumerWidget {
                 width: 1,
               ),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.add_rounded,
-                  size: 14,
-                  color: Color(0xFF00FF88),
-                ),
-                SizedBox(width: 4),
-                Text(
-                  'Conectar',
-                  style: TextStyle(
-                    color: Color(0xFF00FF88),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
+                const Icon(Icons.add_rounded, size: 14, color: Color(0xFF00FF88)),
+                if (!compact) ...[
+                  const SizedBox(width: 4),
+                  const Text(
+                    'Canales',
+                    style: TextStyle(
+                      color: Color(0xFF00FF88),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
         ),
       ],
-    );
-  }
-
-  void _showConnectAppsDialog(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF0F172A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(NanoSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.hub_rounded, color: Color(0xFF00A3FF)),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Gestión de Canales y Permisos',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'NanoAI escucha y responde a través del Listener de Notificaciones de Android. Las respuestas automáticas se envían de forma nativa sin modificar las aplicaciones.',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await ref.read(notificationExecutorProvider).requestAccess();
-                  },
-                  icon: const Icon(Icons.security_rounded),
-                  label: const Text('Configurar Permisos de Android'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF00A3FF),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-          ),
-        );
-      },
     );
   }
 }

@@ -79,14 +79,22 @@ export class SystemView {
     if (osEl) osEl.textContent = telemetry.os_name || 'Desconocido';
     if (archEl) archEl.textContent = `Arquitectura: ${telemetry.cpu_arch || telemetry.arch || '--'}`;
 
-    const total = telemetry.total_memory_mb || telemetry.total_ram_mb || 16384;
-    const used = telemetry.used_memory_mb || telemetry.used_ram_mb || 4320;
-    const pct = Math.min(100, Math.round((used / total) * 100));
+    // Telemetría de memoria RAM real reportada por el kernel del sistema operativo
+    const total = telemetry.total_memory_mb ?? telemetry.total_ram_mb;
+    const used = telemetry.used_memory_mb ?? telemetry.used_ram_mb;
 
-    if (ramValEl) ramValEl.textContent = `${used.toLocaleString()} MB`;
-    if (ramSubEl) ramSubEl.textContent = `Total: ${total.toLocaleString()} MB`;
-    if (ramPctEl) ramPctEl.textContent = `${pct}%`;
-    if (ramFillEl) ramFillEl.style.width = `${pct}%`;
+    if (total != null && used != null && total > 0) {
+      const pct = Math.min(100, Math.round((used / total) * 100));
+      if (ramValEl) ramValEl.textContent = `${used.toLocaleString()} MB`;
+      if (ramSubEl) ramSubEl.textContent = `Total: ${total.toLocaleString()} MB`;
+      if (ramPctEl) ramPctEl.textContent = `${pct}%`;
+      if (ramFillEl) ramFillEl.style.width = `${pct}%`;
+    } else {
+      if (ramValEl) ramValEl.textContent = 'N/A';
+      if (ramSubEl) ramSubEl.textContent = 'Total: No disponible';
+      if (ramPctEl) ramPctEl.textContent = '--%';
+      if (ramFillEl) ramFillEl.style.width = '0%';
+    }
   }
 
   updateModels(models) {

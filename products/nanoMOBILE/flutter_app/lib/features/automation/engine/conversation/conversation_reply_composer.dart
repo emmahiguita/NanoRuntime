@@ -15,6 +15,7 @@ import '../language/language_assist.dart';
 import '../language/pragmatic_fast_path.dart';
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_memory.dart';
+import '../messaging/conversation_context_resolver.dart';
 import '../messaging/messaging_package.dart';
 import '../notifications/conversation_understanding.dart';
 import '../notifications/notification_draft_writer.dart';
@@ -67,8 +68,7 @@ abstract interface class ConversationReplyComposer {
 }
 
 /// Implementación concreta de producción de [ConversationReplyComposer].
-final class RuntimeConversationReplyComposer
-    implements ConversationReplyComposer {
+final class RuntimeConversationReplyComposer implements ConversationReplyComposer {
   RuntimeConversationReplyComposer({
     required NotificationDraftSource draftSource,
     PragmaticFastPath? fastPath,
@@ -100,8 +100,7 @@ final class RuntimeConversationReplyComposer
   final ConversationMemoryStore? _memoryStore;
   final ConversationDecisionEngine _decisionEngine;
   final Future<int> Function()? _thermalStatus;
-  final ConversationDecisionContext Function(NotificationObject)?
-  _decisionContext;
+  final ConversationDecisionContext Function(NotificationObject)? _decisionContext;
 
   @override
   Future<ConversationDraftResult?> compose(
@@ -111,19 +110,16 @@ final class RuntimeConversationReplyComposer
     final identity = resolveConversationIdentity(notification);
     final conversationId = identity.key.id;
     final resolvedContext =
-        decisionContext ??
-        _decisionContext?.call(notification) ??
-        const ConversationDecisionContext();
+        decisionContext ?? _decisionContext?.call(notification) ?? const ConversationDecisionContext();
 
-    final memory = _memoryStore?.memoryFor(conversationId);
-    final isBusiness =
-        notification.packageName == MessagingPackage.whatsappBusiness;
-
-    final analysis = _turnRouter.analyze(
+    final memory = ConversationContextResolver.resolve(
+      store: _memoryStore,
+      conversationId: conversationId,
       notification: notification,
-      memory: memory,
-      isBusinessChannel: isBusiness,
     );
+    final isBusiness = notification.packageName == MessagingPackage.whatsappBusiness;
+
+    final analysis = _turnRouter.analyze(notification: notification, memory: memory, isBusinessChannel: isBusiness);
 
     debugPrint(
       '[conversation-compose] conv=${conversationId.length <= 8 ? conversationId : conversationId.substring(0, 8)} '
@@ -133,9 +129,10 @@ final class RuntimeConversationReplyComposer
 
     // 1. Pragmatic Fast Path: Atajos cotidianos deterministas (<5ms, 0 LLM).
     if (analysis.isFastPathEligible && _fastPath != null) {
-      final fast = await _fastPath.resolve(text: analysis.targetText, conversationId: conversationId) ??
+      final fast =
+          await _fastPath.resolve(text: analysis.targetText, conversationId: conversationId, memoryOverride: memory) ??
           (analysis.targetText != notification.text
-              ? await _fastPath.resolve(text: notification.text, conversationId: conversationId)
+              ? await _fastPath.resolve(text: notification.text, conversationId: conversationId, memoryOverride: memory)
               : null);
       if (fast != null) {
         return _pack(fast.reply, fast.understanding, fast.suggestions, resolvedContext, conversationId, true);
@@ -143,7 +140,12 @@ final class RuntimeConversationReplyComposer
     }
 
     // 2. Persona Style Resolver: Recuperación directa FTS4 de respuestas del dueño.
-    if (!isBusiness && _styleResolver != null) {
+    final directStyleEligible =
+        !analysis.hasContextualContinuity &&
+        !analysis.targetComplexity.isNarrative &&
+        !analysis.targetComplexity.isContextual &&
+        !analysis.targetComplexity.isComplex;
+    if (!isBusiness && directStyleEligible && _styleResolver != null) {
       final match = await _styleResolver.resolve(
         text: analysis.targetText,
         conversationId: conversationId,
@@ -155,15 +157,10 @@ final class RuntimeConversationReplyComposer
     }
 
     // 3. Knowledge Router: Información fáctica externa expresada en estilo del dueño.
-    if (!isBusiness &&
-        _knowledgeRouter != null &&
-        _knowledgeRouter.needsExternalKnowledge(analysis.targetText)) {
+    if (!isBusiness && _knowledgeRouter != null && _knowledgeRouter.needsExternalKnowledge(analysis.targetText)) {
       final ext = await _knowledgeRouter.fetchKnowledge(analysis.targetText);
       if (ext.hasFacts && ext.rawKnowledge.trim().isNotEmpty) {
-        final styled = _styleFormatter.formatKnowledge(
-          rawFacts: ext.rawKnowledge,
-          query: analysis.targetText,
-        );
+        final styled = _styleFormatter.formatKnowledge(rawFacts: ext.rawKnowledge, query: analysis.targetText);
         return _pack(styled.text, styled.understanding, styled.suggestions, resolvedContext, conversationId, true);
       }
     }
@@ -178,7 +175,14 @@ final class RuntimeConversationReplyComposer
     // 5. Inferencia contextual LLM (Fallback / Casos complejos).
     final draft = await _draftSource(notification);
     if (draft != null && draft.hasReply) {
-      return _pack(draft.reply, draft.understanding, draft.understanding.options, resolvedContext, conversationId, false);
+      return _pack(
+        draft.reply,
+        draft.understanding,
+        draft.understanding.options,
+        resolvedContext,
+        conversationId,
+        false,
+      );
     }
 
     // 6. Fallback honesto sin LLM: estilo flexible o fast path relajado.
@@ -190,14 +194,32 @@ final class RuntimeConversationReplyComposer
           minConfidence: 0.50,
         );
         if (relaxed != null) {
-          return _pack(relaxed.reply, relaxed.understanding, relaxed.suggestions, resolvedContext, conversationId, true);
+          return _pack(
+            relaxed.reply,
+            relaxed.understanding,
+            relaxed.suggestions,
+            resolvedContext,
+            conversationId,
+            true,
+          );
         }
       }
 
       if (_fastPath != null) {
-        final fallbackFast = await _fastPath.resolve(text: analysis.targetText, conversationId: conversationId);
+        final fallbackFast = await _fastPath.resolve(
+          text: analysis.targetText,
+          conversationId: conversationId,
+          memoryOverride: memory,
+        );
         if (fallbackFast != null) {
-          return _pack(fallbackFast.reply, fallbackFast.understanding, fallbackFast.suggestions, resolvedContext, conversationId, true);
+          return _pack(
+            fallbackFast.reply,
+            fallbackFast.understanding,
+            fallbackFast.suggestions,
+            resolvedContext,
+            conversationId,
+            true,
+          );
         }
       }
     }
@@ -226,12 +248,8 @@ final class RuntimeConversationReplyComposer
     bool isFastPath,
   ) {
     final cleaned = LanguageAssistService.safeCleanOutput(reply);
-    final decision = _decisionEngine.decide(
-      understanding: understanding,
-      context: context,
-    );
-    final isRepaired =
-        decision.repairedText != null && decision.repairedText!.trim().isNotEmpty;
+    final decision = _decisionEngine.decide(understanding: understanding, context: context);
+    final isRepaired = decision.repairedText != null && decision.repairedText!.trim().isNotEmpty;
     final finalText = isRepaired ? decision.repairedText!.trim() : cleaned.trim();
 
     final resultSuggestions = <String>[finalText];

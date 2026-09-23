@@ -65,7 +65,13 @@ class AppTheme {
     ),
   );
 
-  static ThemeData _base(NanoColors c) {
+  static ThemeData _base(
+    NanoColors c, {
+    bool glassEnabled = true,
+    double glassOpacity = 0.70,
+    double glassClarity = 0.85,
+    double glassBlur = 18.0,
+  }) {
     final isDark = c is NanoDarkColors;
 
     return ThemeData(
@@ -335,9 +341,32 @@ class AppTheme {
           TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
         },
       ),
-      extensions: [NanoThemeExtension(colors: c)],
+      extensions: [
+        NanoThemeExtension(
+          colors: c,
+          glassEnabled: glassEnabled,
+          glassOpacity: glassOpacity,
+          glassClarity: glassClarity,
+          glassBlur: glassBlur,
+        ),
+      ],
     );
   }
+
+  /// Construye un tema dinámico con los parámetros ópticos de GlassSurface
+  static ThemeData buildTheme(
+    NanoColors c, {
+    bool glassEnabled = true,
+    double glassOpacity = 0.70,
+    double glassClarity = 0.85,
+    double glassBlur = 18.0,
+  }) => _base(
+    c,
+    glassEnabled: glassEnabled,
+    glassOpacity: glassOpacity,
+    glassClarity: glassClarity,
+    glassBlur: glassBlur,
+  );
 
   /// Tema claro: paleta azul iOS profesional, superficies limpias de alto contraste.
   static final light = _base(NanoLightColors());

@@ -1,0 +1,154 @@
+/* ==========================================================================
+   Nano AI — FeatherCore Owl State Animations (< 200 LOC)
+   Qué hace: Cinemática realista y transiciones GPU para los estados de Nano AI.
+   Cómo funciona: Aplica keyframes en Flight Rig, desacoplado del Physics Stage.
+   Por qué: Elimina interferencias con el loop RAF de física inversa.
+   ========================================================================== */
+
+.nano-owl-flight-rig {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+
+.nano-owl-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transform: scale(0.975);
+  pointer-events: none;
+  transition: opacity 0.45s cubic-bezier(0.2, 0.8, 0.3, 1),
+              transform 0.48s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 14px 28px rgba(35, 79, 160, 0.14));
+  user-select: none;
+  -webkit-user-drag: none;
+  will-change: opacity, transform;
+}
+
+.nano-owl-layer.active {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+/* 1. SALUDO (Wave / Greeting) */
+.nano-owl-flight-rig.state-wave {
+  animation: owlWaveMotion 3.0s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+}
+
+@keyframes owlWaveMotion {
+  0% { transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1); }
+  15% { transform: translate3d(0, -6px, 12px) rotateZ(-3deg) scale(1.02); }
+  35% { transform: translate3d(2px, -14px, 20px) rotateZ(4deg) scale(1.04); }
+  55% { transform: translate3d(-1px, -11px, 16px) rotateZ(1deg) scale(1.03); }
+  75% { transform: translate3d(1px, -13px, 18px) rotateZ(3deg) scale(1.035); }
+  90% { transform: translate3d(0, -4px, 8px) rotateZ(0.5deg) scale(1.01); }
+  100% { transform: translate3d(0, 0, 0) rotateZ(0deg) scale(1); }
+}
+
+/* 2. PLANEANDO EN VUELO (Flight Gliding Loop) */
+.nano-owl-flight-rig.state-flying,
+.nano-owl-flight-rig.state-fly {
+  animation: owlTakeoffLift 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+             owlGlideLoop 4.2s ease-in-out 1.1s infinite alternate;
+}
+
+@keyframes owlTakeoffLift {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  18% { transform: translate3d(0, 8px, -4px) scale(1.03, 0.95); }
+  100% { transform: translate3d(0, -28px, 32px) scale(1.02, 1.02) rotateX(-3deg); }
+}
+
+@keyframes owlGlideLoop {
+  0% { transform: translate3d(0, -28px, 32px) rotateX(-3deg) rotateZ(-1.8deg); }
+  33% { transform: translate3d(5px, -36px, 38px) rotateX(1.5deg) rotateZ(2.4deg); }
+  66% { transform: translate3d(-4px, -24px, 26px) rotateX(-2deg) rotateZ(-1.4deg); }
+  100% { transform: translate3d(1px, -32px, 34px) rotateX(-1deg) rotateZ(1.8deg); }
+}
+
+.nano-owl-flight-rig.state-flying ~ .nano-owl-ground-shadow,
+.nano-owl-flight-rig.state-fly ~ .nano-owl-ground-shadow {
+  animation: owlShadowGlide 1.1s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+             owlShadowGlideLoop 4.2s ease-in-out 1.1s infinite alternate;
+}
+
+@keyframes owlShadowGlide {
+  0% { transform: translateX(-50%) rotateX(75deg) scale(1); opacity: 0.34; }
+  100% { transform: translateX(-50%) rotateX(75deg) scale(0.55); opacity: 0.12; filter: blur(6px); }
+}
+
+@keyframes owlShadowGlideLoop {
+  0% { transform: translateX(-50%) rotateX(75deg) scale(0.55); opacity: 0.12; }
+  50% { transform: translateX(-48%) rotateX(75deg) scale(0.48); opacity: 0.08; }
+  100% { transform: translateX(-52%) rotateX(75deg) scale(0.58); opacity: 0.15; }
+}
+
+/* 3. DORMIDO RELAJADO (Deep Sleep Settle) */
+.nano-owl-flight-rig.state-sleep {
+  animation: owlSleepSettle 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+             owlSleepSway 5.2s ease-in-out 1.4s infinite alternate;
+}
+
+@keyframes owlSleepSettle {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(0, 6px, -6px) scale(0.985, 0.985) rotateX(4deg); }
+}
+
+@keyframes owlSleepSway {
+  0% { transform: translate3d(0, 6px, -6px) scale(0.985, 0.985) rotateX(4deg) rotateZ(-0.4deg); }
+  100% { transform: translate3d(1px, 9px, -8px) scale(1.01, 0.97) rotateX(5deg) rotateZ(0.6deg); }
+}
+
+/* 4. PARTÍCULAS Y BRILLOS */
+.pupil-star-shimmer {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 35% 35%, #FFFFFF 0%, rgba(25, 200, 255, 0.8) 25%, transparent 60%);
+  animation: starShimmerPulse 2.8s ease-in-out infinite alternate;
+}
+
+@keyframes starShimmerPulse {
+  0% { opacity: 0.65; transform: scale(0.92) rotate(0deg); }
+  100% { opacity: 1.0; transform: scale(1.08) rotate(12deg); }
+}
+
+.stardust-sparkle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #A0C5FF;
+  box-shadow: 0 0 8px #19C8FF;
+  animation: sparkleOrbit 4s ease-in-out infinite alternate;
+}
+
+.stardust-sparkle.p1 { top: 20%; left: 15%; animation-delay: 0s; }
+.stardust-sparkle.p2 { top: 35%; right: 12%; animation-delay: 0.8s; }
+.stardust-sparkle.p3 { bottom: 25%; left: 22%; animation-delay: 1.6s; }
+.stardust-sparkle.p4 { bottom: 15%; right: 20%; animation-delay: 2.4s; }
+
+@keyframes sparkleOrbit {
+  0% { transform: translate3d(0, 0, 0) scale(0.8); opacity: 0.3; }
+  100% { transform: translate3d(6px, -10px, 12px) scale(1.3); opacity: 0.95; }
+}
+
+/* 5. ACCESIBILIDAD */
+@media (prefers-reduced-motion: reduce) {
+  .nano-owl-flight-rig.state-wave,
+  .nano-owl-flight-rig.state-fly,
+  .nano-owl-flight-rig.state-flying,
+  .nano-owl-flight-rig.state-sleep,
+  .zzz-letter {
+    animation: none !important;
+    transform: none !important;
+  }
+}

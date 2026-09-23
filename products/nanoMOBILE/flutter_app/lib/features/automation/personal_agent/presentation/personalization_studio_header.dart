@@ -92,10 +92,13 @@ class _PersonalizationStudioHeader extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              IconButton(
-                tooltip: 'Actualizar',
-                onPressed: working ? null : onRefresh,
-                icon: const Icon(Icons.refresh, size: 18),
+              // Semantics en lugar de Tooltip: previene el fallo "No Overlay"
+              Semantics(
+                label: 'Actualizar',
+                child: IconButton(
+                  onPressed: working ? null : onRefresh,
+                  icon: const Icon(Icons.refresh, size: 18),
+                ),
               ),
             ],
           ),

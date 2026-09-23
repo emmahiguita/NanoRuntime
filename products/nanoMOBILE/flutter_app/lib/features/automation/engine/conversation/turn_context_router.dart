@@ -8,6 +8,7 @@ library;
 
 import '../language/turn_complexity_classifier.dart'
     show TurnComplexity, turnComplexityClassifier;
+import '../business/fact_selector.dart' show normalizeText;
 import '../messaging/conversation_memory.dart'
     show ConversationMemory, ConversationMemoryEntryKind;
 import '../notifications/notification_object.dart';
@@ -54,6 +55,11 @@ final class TurnContextRouter {
     'claro',
     'si',
     'sip',
+    'sisas',
+    'de acuerdo',
+    'comprendido',
+    'va',
+    'ta bien',
   };
 
   /// Analiza la notificación y la memoria previa para extraer el contexto del turno.
@@ -78,14 +84,20 @@ final class TurnContextRouter {
     // 2. El mensaje objetivo califica como social mínimo.
     // 3. No hay señales narrativas/contextuales/complejas en el turno completo.
     // 4. NO es una confirmación corta que hereda un hilo previo sustantivo (evita bug precio+ok).
-    final allFragmentsSocial = targetText == fullText ||
-        fullText.split(RegExp(r'\s*[·\n]\s*')).every(
-          (frag) =>
-              frag.trim().isEmpty ||
-              turnComplexityClassifier.classify(frag).eligibleForSocialPrompt,
-        );
+    final allFragmentsSocial =
+        targetText == fullText ||
+        fullText
+            .split(RegExp(r'\s*[·\n]\s*'))
+            .every(
+              (frag) =>
+                  frag.trim().isEmpty ||
+                  turnComplexityClassifier
+                      .classify(frag)
+                      .eligibleForSocialPrompt,
+            );
 
-    final isFastPathEligible = !isBusinessChannel &&
+    final isFastPathEligible =
+        !isBusinessChannel &&
         !hasContinuity &&
         targetComplexity.eligibleForSocialPrompt &&
         !fullComplexity.isNarrative &&
@@ -136,10 +148,9 @@ final class TurnContextRouter {
 
   /// Comprueba si el texto es un acuse de recibo o confirmación corta ("ok", "dale", etc.).
   static bool _isAcknowledgment(String text) {
-    final clean = text
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '')
-        .trim();
+    final clean = normalizeText(
+      text,
+    ).replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '').trim();
     return _acknowledgmentTokens.contains(clean);
   }
 

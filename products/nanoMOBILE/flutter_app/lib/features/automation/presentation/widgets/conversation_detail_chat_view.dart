@@ -1,22 +1,6 @@
 part of 'conversation_detail_sheet.dart';
 
-/// [ConversationDetailChatView]
-///
-/// QUÉ HACE:
-/// Renderiza las burbujas de mensaje (inbound/outbound), el badge de capacidades
-/// de envío en segundo plano y el fallback de último mensaje en caso necesario.
-///
-/// CÓMO FUNCIONA:
-/// 1. `_buildChatBubble`: Burbuja con efecto de cristal (glassmorphism) translúcido,
-///    desenfoque óptico y bordes adaptados. En horizontal (landscape) restringe el ancho
-///    al 60% de la pantalla para evitar estiramientos antiestéticos.
-/// 2. `_buildCapabilityBadge`: Informa si la respuesta se puede entregar en 2do plano sin salir
-///    de Nano (RemoteInput) o si requiere interacción.
-/// 3. `_buildFallbackLastMessage`: Si la lista no cargó de SQLite pero hay un mensaje previo.
-///
-/// POR QUÉ:
-/// Ofrece un diseño pulido, legible y profesional manteniendo los archivos estrictamente
-/// por debajo de 200 líneas.
+/// [ConversationDetailChatView] — Renderiza las burbujas de mensaje, capacidades y remitente (< 200 líneas).
 extension ConversationDetailChatView on _ConversationDetailSheetState {
   Widget _buildCapabilityBadge(AutomationVisualPalette visual) {
     final cap = WhatsAppCapabilityResolver.resolve(_activeNotification);
@@ -91,14 +75,26 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
           ),
         ),
         const SizedBox(height: 14),
-        _buildChatBubble(widget.item.lastMessage, true, visual),
+        _buildChatBubble(widget.item.lastMessage, true, visual, sender: widget.item.lastSender, timestampMs: widget.item.lastAtMs),
         if (widget.item.hasPendingReply && widget.item.pendingReplyText != null)
-          _buildChatBubble(widget.item.pendingReplyText!, false, visual),
+          _buildChatBubble(widget.item.pendingReplyText!, false, visual, timestampMs: widget.item.lastAtMs),
       ],
     );
   }
 
-  Widget _buildChatBubble(String text, bool isInbound, AutomationVisualPalette visual) {
+  Color _getSenderColor(String sender) {
+    const colors = [
+      Color(0xFF38BDF8),
+      Color(0xFF34D399),
+      Color(0xFFA78BFA),
+      Color(0xFFFBBF24),
+      Color(0xFFF472B6),
+      Color(0xFF2DD4BF),
+    ];
+    return colors[sender.hashCode.abs() % colors.length];
+  }
+
+  Widget _buildChatBubble(String text, bool isInbound, AutomationVisualPalette visual, {String? sender, int? timestampMs}) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     final borderRadius = BorderRadius.only(
       topLeft: const Radius.circular(20),
@@ -154,16 +150,36 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
                   width: 1.0,
                 ),
               ),
-              child: Text(
-                text,
-                style: TextStyle(
-                  color: isInbound ? visual.text : Colors.white,
-                  fontFamily: 'Inter',
-                  fontFamilyFallback: ConversationDetailSheet._sfFallback,
-                  fontSize: 14,
-                  height: 1.35,
-                  letterSpacing: -0.2,
-                ),
+              child: Column(
+                crossAxisAlignment: isInbound ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.item.isGroup && isInbound && sender != null && sender.isNotEmpty && sender != widget.item.displayName) ...[
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.person_rounded, size: 12, color: _getSenderColor(sender)),
+                        const SizedBox(width: 4),
+                        Text(
+                          sender,
+                          style: TextStyle(
+                            color: _getSenderColor(sender),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  ConversationMediaBubble(
+                    text: text,
+                    isInbound: isInbound,
+                    visual: visual,
+                    timestampMs: timestampMs,
+                  ),
+                ],
               ),
             ),
           ),

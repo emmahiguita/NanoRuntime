@@ -34,7 +34,7 @@ void main() {
     });
 
     test('BrowserAiQuery: Modela consultas con valores predeterminados y copyWith', () {
-      const query = BrowserAiQuery(prompt: 'Explica Clean Architecture');
+      final query = BrowserAiQuery(prompt: 'Explica Clean Architecture');
 
       expect(query.providerId, equals('auto'));
       expect(query.timeout.inSeconds, equals(45));

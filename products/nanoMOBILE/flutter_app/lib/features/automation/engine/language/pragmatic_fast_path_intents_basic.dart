@@ -19,14 +19,29 @@ extension _PragmaticBasicIntents on PragmaticFastPath {
     Set<String> tokens,
   ) {
     const greetingWords = {
-      'hola', 'holas', 'buenas', 'buenos', 'hey', 'oe', 'ey',
-      'saludos', 'ola', 'hol', 'oli', 'holi', 'quiubo', 'hubo',
+      'hola',
+      'holas',
+      'buenas',
+      'buenos',
+      'hey',
+      'oe',
+      'ey',
+      'saludo',
+      'saludos',
+      'ola',
+      'hol',
+      'oli',
+      'holi',
+      'quiubo',
+      'hubo',
     };
     if (tokens.any(greetingWords.contains) ||
         normalized.contains('buen dia') ||
         normalized.contains('buenos dias') ||
         normalized.contains('buenas tardes') ||
         normalized.contains('buenas noches') ||
+        normalized.contains('cordial saludo') ||
+        normalized.contains('muy buenos dias') ||
         normalized.contains('que mas') ||
         normalized.contains('q mas') ||
         normalized.contains('que hubo') ||
@@ -42,6 +57,10 @@ extension _PragmaticBasicIntents on PragmaticFastPath {
         normalized.contains('como andas') ||
         normalized.contains('como te encuentras') ||
         normalized.contains('como te ha ido') ||
+        normalized.contains('como se encuentra') ||
+        normalized.contains('como anda usted') ||
+        normalized.contains('q tal') ||
+        normalized.contains('todo bn') ||
         normalized.contains('que cuentas') ||
         normalized.contains('que me cuentas') ||
         normalized.contains('todo bien?') ||
@@ -121,14 +140,25 @@ extension _PragmaticBasicIntents on PragmaticFastPath {
       intents.add(ConversationIntent.farewell);
     }
 
-    if (tokens.any((t) => t.startsWith('jaja') || t.startsWith('jeje') || t.startsWith('jajaj'))) {
+    if (tokens.any(
+      (t) =>
+          t.startsWith('jaja') || t.startsWith('jeje') || t.startsWith('jajaj'),
+    )) {
       intents.add(ConversationIntent.laughter);
     }
 
     const siPhrases = {
-      'si', 'si claro', 'si de una', 'si hagamosle', 'si vamos',
-      'si creo que si', 'si esta bien', 'si porfa', 'si gracias',
-      'si quiero ir', 'si puede ser',
+      'si',
+      'si claro',
+      'si de una',
+      'si hagamosle',
+      'si vamos',
+      'si creo que si',
+      'si esta bien',
+      'si porfa',
+      'si gracias',
+      'si quiero ir',
+      'si puede ser',
     };
     if (siPhrases.contains(normalized) ||
         tokens.contains('dale') ||
@@ -147,7 +177,8 @@ extension _PragmaticBasicIntents on PragmaticFastPath {
       intents.add(ConversationIntent.affirmation);
     }
 
-    final isNegation = tokens.contains('no') ||
+    final isNegation =
+        tokens.contains('no') ||
         normalized.contains('para nada') ||
         normalized.contains('no gracias') ||
         normalized.contains('por ahora no') ||

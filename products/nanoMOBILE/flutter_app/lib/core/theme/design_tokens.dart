@@ -1027,14 +1027,37 @@ abstract final class NanoGlass {
   }
 }
 
-/// ── ThemeExtension for semantic colors ──
+/// ── ThemeExtension for semantic colors & glass optics ──
 class NanoThemeExtension extends ThemeExtension<NanoThemeExtension> {
   final NanoColors colors;
-  NanoThemeExtension({required this.colors});
+  final bool glassEnabled;
+  final double glassOpacity;
+  final double glassClarity;
+  final double glassBlur;
+
+  NanoThemeExtension({
+    required this.colors,
+    this.glassEnabled = true,
+    this.glassOpacity = 0.70,
+    this.glassClarity = 0.85,
+    this.glassBlur = 18.0,
+  });
 
   @override
-  ThemeExtension<NanoThemeExtension> copyWith({NanoColors? colors}) =>
-      NanoThemeExtension(colors: colors ?? this.colors);
+  ThemeExtension<NanoThemeExtension> copyWith({
+    NanoColors? colors,
+    bool? glassEnabled,
+    double? glassOpacity,
+    double? glassClarity,
+    double? glassBlur,
+  }) =>
+      NanoThemeExtension(
+        colors: colors ?? this.colors,
+        glassEnabled: glassEnabled ?? this.glassEnabled,
+        glassOpacity: glassOpacity ?? this.glassOpacity,
+        glassClarity: glassClarity ?? this.glassClarity,
+        glassBlur: glassBlur ?? this.glassBlur,
+      );
 
   @override
   ThemeExtension<NanoThemeExtension> lerp(
@@ -1044,6 +1067,10 @@ class NanoThemeExtension extends ThemeExtension<NanoThemeExtension> {
     if (other is! NanoThemeExtension) return this;
     return NanoThemeExtension(
       colors: _LerpedNanoColors(a: colors, b: other.colors, t: t),
+      glassEnabled: other.glassEnabled,
+      glassOpacity: glassOpacity + (other.glassOpacity - glassOpacity) * t,
+      glassClarity: glassClarity + (other.glassClarity - glassClarity) * t,
+      glassBlur: glassBlur + (other.glassBlur - glassBlur) * t,
     );
   }
 

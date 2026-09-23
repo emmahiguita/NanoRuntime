@@ -5,114 +5,139 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nano AI — Local & Autonomous Intelligence</title>
 
-  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <!-- Google Fonts: Inter, Caveat & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Core Stylesheets -->
-  <link rel="stylesheet" href="css/tokens.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/chat.css" />
-  <link rel="stylesheet" href="css/terminal.css" />
-  <link rel="stylesheet" href="css/system.css" />
-  <link rel="stylesheet" href="css/whatsapp.css" />
+  <!-- Core FeatherCore Stylesheets (Orden Oficial) -->
+  <link rel="stylesheet" href="css/tokens.css?v=v18" />
+  <link rel="stylesheet" href="css/base.css?v=v18" />
+  <link rel="stylesheet" href="css/layout.css?v=v18" />
+  <link rel="stylesheet" href="css/components.css?v=v18" />
+  <link rel="stylesheet" href="css/chat.css?v=v18" />
+  <link rel="stylesheet" href="css/owl.css?v=v18" />
+  <link rel="stylesheet" href="css/terminal.css?v=v18" />
+  <link rel="stylesheet" href="css/whatsapp.css?v=v18" />
+  <link rel="stylesheet" href="css/system.css?v=v18" />
+
+  <!-- Restauración Inmediata de Tema FeatherCore -->
+  <script>
+    (function() {
+      const savedTheme = localStorage.getItem('nano_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      document.documentElement.dataset.theme = savedTheme;
+    })();
+  </script>
 </head>
 <body>
-  <div id="app-container">
-    <!-- Sidebar (Estilo ChatGPT / Open WebUI) -->
-    <aside id="sidebar">
+  <div id="app-container" class="nano-app">
+    <!-- Sidebar (FeatherCore Design) -->
+    <aside id="sidebar" class="nano-sidebar">
       <!-- Cabecera de Marca -->
-      <div class="sidebar-header">
+      <div class="sidebar-header nano-brand">
         <div class="brand-row">
           <div class="brand-owl-container">
-            <img src="assets/nano_logo.png" class="brand-owl-img" alt="Nano AI" />
+            <img src="assets/brand/nano-logo-mark.svg" class="brand-owl-img nano-brand-logo" alt="Nano AI Logo" />
           </div>
-          <span class="brand-name">Nano AI</span>
-          <span class="brand-version-pill">v0.2</span>
+          <div class="nano-brand-copy">
+            <div class="brand-name nano-brand-title">Nano <span>AI</span></div>
+            <small class="nano-brand-tagline">Mucho más posible</small>
+          </div>
         </div>
         <button type="button" class="btn-sidebar-collapse" id="btn-collapse-sidebar" title="Colapsar menú lateral">
           <span data-nano-icon="sidebar" data-nano-size="16"></span>
         </button>
       </div>
 
-      <!-- Botón + Nuevo Chat -->
-      <button type="button" class="btn-new-chat" id="btn-new-chat">
-        <div class="new-chat-left">
-          <span data-nano-icon="newChat" data-nano-size="15"></span>
-          <span>Nuevo chat</span>
-        </div>
-        <span class="kbd-shortcut">Ctrl+N</span>
-      </button>
-
-      <!-- Historial de Conversaciones -->
-      <div class="sidebar-section-title">Recientes</div>
-      <div class="chat-history-scroll" id="chat-history-list">
-        <button type="button" class="chat-history-item active" data-chat-id="1">
-          <span class="chat-item-text">Arquitectura de NanoRuntime</span>
+      <!-- Navegación Principal -->
+      <div class="sidebar-nav-group nano-sidebar-nav">
+        <button type="button" class="sidebar-nav-item nano-nav-item active" data-view="chat" id="nav-chat">
+          <span data-nano-icon="home" data-nano-size="18"></span>
+          <span class="label">Conversación</span>
         </button>
-        <button type="button" class="chat-history-item" data-chat-id="2">
-          <span class="chat-item-text">Diagnóstico de VRAM y llama.cpp</span>
+        <button type="button" class="sidebar-nav-item nano-nav-item" data-view="terminal" id="nav-terminal">
+          <span data-nano-icon="terminal" data-nano-size="18"></span>
+          <span class="label">Harness & Terminal</span>
         </button>
-        <button type="button" class="chat-history-item" data-chat-id="3">
-          <span class="chat-item-text">Flujo de agentes y herramientas MCP</span>
+        <button type="button" class="sidebar-nav-item nano-nav-item" data-view="models" id="nav-models">
+          <span data-nano-icon="models" data-nano-size="18"></span>
+          <span class="label">Modelos & VRAM</span>
         </button>
-        <button type="button" class="chat-history-item" data-chat-id="4">
-          <span class="chat-item-text">Resumen de Deep Research</span>
+        <button type="button" class="sidebar-nav-item nano-nav-item" data-view="automation" id="nav-automation">
+          <span data-nano-icon="automation" data-nano-size="18"></span>
+          <span class="label">Automatizaciones</span>
         </button>
-      </div>
-
-      <!-- Navegación a Vistas Técnicas -->
-      <div class="sidebar-nav-group">
-        <button type="button" class="sidebar-nav-item active" data-view="chat" id="nav-chat">
-          <span data-nano-icon="chat" data-nano-size="16"></span>
-          <span>Conversación</span>
+        <button type="button" class="sidebar-nav-item nano-nav-item" data-view="whatsapp" id="nav-whatsapp">
+          <span data-nano-icon="whatsapp" data-nano-size="18"></span>
+          <span class="label">WhatsApp</span>
+          <span class="nav-badge">Nuevo</span>
         </button>
-        <button type="button" class="sidebar-nav-item" data-view="terminal" id="nav-terminal">
-          <span data-nano-icon="terminal" data-nano-size="16"></span>
-          <span>Harness & Terminal</span>
+        <button type="button" class="sidebar-nav-item nano-nav-item" data-view="files" id="nav-files">
+          <span data-nano-icon="files" data-nano-size="18"></span>
+          <span class="label">Archivos</span>
         </button>
-        <button type="button" class="sidebar-nav-item" data-view="models" id="nav-models">
-          <span data-nano-icon="models" data-nano-size="16"></span>
-          <span>Modelos & VRAM</span>
-        </button>
-        <button type="button" class="sidebar-nav-item" data-view="automation" id="nav-automation">
-          <span data-nano-icon="automation" data-nano-size="16"></span>
-          <span>Automatizaciones</span>
-        </button>
-        <button type="button" class="sidebar-nav-item" data-view="whatsapp" id="nav-whatsapp">
-          <span data-nano-icon="whatsapp" data-nano-size="16"></span>
-          <span>WhatsApp</span>
+        <button type="button" class="sidebar-nav-item nano-nav-item" data-view="settings" id="nav-settings">
+          <span data-nano-icon="settings" data-nano-size="18"></span>
+          <span class="label">Ajustes</span>
         </button>
       </div>
 
-      <!-- Cápsula Hardware Guardian Fina y Elegante -->
-      <div class="sidebar-hardware-chip" id="sidebar-hardware-chip">
-        <div class="hw-capsule-main">
-          <span class="hw-capsule-dot"></span>
-          <span class="hw-capsule-label">100% Local</span>
-          <span class="hw-capsule-sep">•</span>
-          <span class="hw-capsule-stat" id="hw-tps">18.7 tok/s</span>
+      <!-- Espacio Flexible -->
+      <div class="nano-sidebar-spacer"></div>
+
+      <!-- Sección: Uso del Sistema (Local) -->
+      <div class="sidebar-hardware-chip nano-sidebar-status nano-system-status" id="sidebar-hardware-chip">
+        <div class="sidebar-section-title-sm">USO DEL SISTEMA (LOCAL)</div>
+        
+        <div class="hw-capsule-main nano-status-online">
+          <span class="hw-capsule-dot nano-status-dot"></span>
+          <span class="hw-capsule-label status-copy">100% Local</span>
         </div>
-        <div class="hw-metrics-sub-row">
-          <span id="hw-ram-stat">RAM: 4.2 / 16 GB</span>
-          <span class="hw-sub-sep">•</span>
-          <span id="hw-gpu-stat">GPU: 27%</span>
+
+        <div class="nano-meter">
+          <b>RAM</b>
+          <div class="nano-meter-track">
+            <div class="nano-meter-fill" style="width: 26%;"></div>
+          </div>
+          <span id="hw-ram-stat">4.2 / 16 GB</span>
+          <span class="meter-pct">26%</span>
         </div>
+
+        <div class="nano-meter">
+          <b>GPU</b>
+          <div class="nano-meter-track">
+            <div class="nano-meter-fill" style="width: 52%;"></div>
+          </div>
+          <span id="hw-gpu-stat">12.1 / 24 GB</span>
+          <span class="meter-pct">52%</span>
+        </div>
+
+        <div class="hw-tps-row">
+          <span class="tps-icon">⚡</span>
+          <span class="tps-label">tok/s</span>
+          <span class="tps-value" id="hw-tps">18.7 tok/s</span>
+        </div>
+
+        <button type="button" class="btn-nanoruntime-pill" id="btn-nanoruntime-status">
+          <span class="nano-status-dot mini"></span>
+          <span>NanoRuntime Activo</span>
+          <span class="arrow">›</span>
+        </button>
       </div>
     </aside>
 
     <!-- Espacio Principal de Trabajo -->
-    <main id="main-view">
-      <!-- Barra Superior de Control (Estilo ChatGPT / DeepSeek) -->
-      <header class="top-control-bar">
-        <div class="top-bar-left">
+    <main id="main-view" class="nano-main">
+      <!-- Barra Superior de Control FeatherCore -->
+      <header class="top-control-bar nano-topbar">
+        <div class="top-bar-left nano-topbar-group">
           <!-- Selector de Modelo Desplegable -->
           <div class="model-picker-dropdown">
-            <button type="button" class="btn-model-selector" id="btn-model-selector">
-              <span data-nano-icon="brain" data-nano-size="16"></span>
-              <span id="active-model-name">DeepSeek-R1</span>
-              <span class="model-tag-pill">3.8B • Local</span>
+            <button type="button" class="btn-model-selector nano-model-selector" id="btn-model-selector">
+              <span data-nano-icon="brain" data-nano-size="18"></span>
+              <strong id="active-model-name">DeepSeek-R1 (Local)</strong>
+              <span class="model-tag-pill nano-model-badge">3.8B Q4_K_M</span>
               <span data-nano-icon="chevronDown" data-nano-size="14"></span>
             </button>
 
@@ -121,21 +146,21 @@
               <button type="button" class="model-option-item selected" data-model="deepseek-r1">
                 <span class="model-opt-title">
                   <span>DeepSeek-R1-Distill-Qwen</span>
-                  <span class="model-tag-pill">Recomendado</span>
+                  <span class="model-tag-pill nano-model-badge">Recomendado</span>
                 </span>
                 <span class="model-opt-desc">Razonamiento profundo nativo • 1.5B/7B/14B GGUF</span>
               </button>
               <button type="button" class="model-option-item" data-model="phi-3">
                 <span class="model-opt-title">
                   <span>Phi-3-mini-4k-instruct</span>
-                  <span class="model-tag-pill">Rápido</span>
+                  <span class="model-tag-pill nano-model-badge">Rápido</span>
                 </span>
                 <span class="model-opt-desc">Inferencia ultraligera en CPU/GPU • 3.8B Q4_K_M</span>
               </button>
               <button type="button" class="model-option-item" data-model="llama-3">
                 <span class="model-opt-title">
                   <span>Llama-3.1-8B-Instruct</span>
-                  <span class="model-tag-pill">General</span>
+                  <span class="model-tag-pill nano-model-badge">General</span>
                 </span>
                 <span class="model-opt-desc">Capacidad general para código y análisis de texto</span>
               </button>
@@ -143,35 +168,29 @@
           </div>
         </div>
 
-        <!-- Píldoras de Razonamiento DeepThink y Web -->
-        <div class="top-bar-center">
-          <button type="button" class="btn-toggle-pill active" id="btn-toggle-deepthink" title="Alternar proceso de razonamiento paso a paso">
-            <span data-nano-icon="brain" data-nano-size="14"></span>
-            <span>DeepThink (R1)</span>
-          </button>
-          <button type="button" class="btn-toggle-pill" id="btn-toggle-web" title="Habilitar consulta web en tiempo real">
-            <span data-nano-icon="globe" data-nano-size="14"></span>
-            <span>Web</span>
-          </button>
+        <!-- Estado Central de Inferencia -->
+        <div class="top-bar-center nano-topbar-group">
+          <div class="nano-topbar-status-chip">
+            <span class="status-indicator-dot"></span>
+            <span>Inferencia Local Soberana</span>
+          </div>
         </div>
 
         <!-- Acciones Rápidas Superiores -->
-        <div class="top-bar-right">
-          <button type="button" class="btn-top-action" id="btn-clear-chat" title="Limpiar conversación actual">
-            <span data-nano-icon="clear" data-nano-size="16"></span>
-          </button>
+        <div class="top-bar-right nano-topbar-group">
           <button type="button" class="btn-top-action" id="btn-toggle-theme" title="Alternar Modo Claro / Oscuro">
             <span data-nano-icon="sun" data-nano-size="16"></span>
           </button>
-          <button type="button" class="btn-top-action" id="btn-open-settings" title="Configuración de Runtime">
-            <span data-nano-icon="settings" data-nano-size="16"></span>
+          <button type="button" class="btn-top-action" id="btn-notifications" title="Notificaciones">
+            <span data-nano-icon="bell" data-nano-size="16"></span>
           </button>
+          <div class="user-avatar-badge" title="Emma Higuita">EH</div>
         </div>
       </header>
 
-      <!-- Paneles de Trabajo Dinámicos -->
-      <div class="workspace-panels">
-        <!-- Vista 1: Chat Principal (Limpio ChatGPT / DeepSeek) -->
+      <!-- Paneles de Trabajo Dinámicos con Watermark -->
+      <div class="workspace-panels nano-workspace">
+        <!-- Vista 1: Chat Principal (FeatherCore Hero & Thread) -->
         <section id="view-chat" class="view-panel active"></section>
 
         <!-- Vista 2: Harness & Terminal de Desarrollo -->
@@ -186,10 +205,24 @@
         <!-- Vista 5: Mensajería WhatsApp -->
         <section id="view-whatsapp" class="view-panel" style="display: none;"></section>
       </div>
+
+      <!-- Barra de Estado Inferior FeatherCore -->
+      <footer class="nano-window-statusbar">
+        <div class="statusbar-left">
+          <span class="statusbar-brand">Nano AI</span>
+          <span class="statusbar-sep">•</span>
+          <span class="statusbar-motto">v1.0.0-rc3</span>
+        </div>
+        <div class="statusbar-right">
+          <span class="status-indicator"><span class="status-indicator-dot"></span>Local</span>
+          <span class="statusbar-sep">•</span>
+          <span>100% Offline</span>
+        </div>
+      </footer>
     </main>
   </div>
 
   <!-- Entrypoint Modular -->
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=v18"></script>
 </body>
 </html>

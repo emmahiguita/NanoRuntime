@@ -57,6 +57,7 @@ class SpeechChannelHandler(
     private val mainHandler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
+    private var mediaPlayer: android.media.MediaPlayer? = null
     private var pendingRecognitionResult: MethodChannel.Result? = null
 
     // Sink del EventChannel de parciales. null = nadie escuchando.
@@ -86,6 +87,9 @@ class SpeechChannelHandler(
         recognizer = null
         tts?.shutdown()
         tts = null
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        mediaPlayer = null
         partialSink = null
     }
 
@@ -109,6 +113,9 @@ class SpeechChannelHandler(
                 cancelRecognition()
                 result.success(null)
             }
+            "playAudioFile" -> playAudioFile(call.argument<String>("path").orEmpty(), result)
+            "stopAudioFile" -> stopAudioFile(result)
+            "getAudioDuration" -> getAudioDuration(call.argument<String>("path").orEmpty(), result)
             else -> result.notImplemented()
         }
     }
@@ -412,5 +419,62 @@ class SpeechChannelHandler(
         if (pendingRecognitionResult !== result) return
         pendingRecognitionResult = null
         result.error(code, message, null)
+    }
+
+    private fun playAudioFile(path: String, result: MethodChannel.Result) {
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+            mediaPlayer = null
+
+            val clean = path.replaceFirst("file://", "")
+            val file = java.io.File(clean)
+            if (!file.exists()) {
+                result.error("file_not_found", "Audio file does not exist: $path", null)
+                return
+            }
+            mediaPlayer = android.media.MediaPlayer().apply {
+                setDataSource(file.absolutePath)
+                prepare()
+                setOnCompletionListener {
+                    it.release()
+                    mediaPlayer = null
+                }
+                start()
+            }
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("play_error", e.message, null)
+        }
+    }
+
+    private fun stopAudioFile(result: MethodChannel.Result) {
+        try {
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+            mediaPlayer = null
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("stop_error", e.message, null)
+        }
+    }
+
+    private fun getAudioDuration(path: String, result: MethodChannel.Result) {
+        try {
+            val clean = path.replaceFirst("file://", "")
+            val file = java.io.File(clean)
+            if (!file.exists()) {
+                result.success(0L)
+                return
+            }
+            val mmr = android.media.MediaMetadataRetriever()
+            mmr.setDataSource(file.absolutePath)
+            val durStr = mmr.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)
+            mmr.release()
+            val durMs = durStr?.toLongOrNull() ?: 0L
+            result.success(durMs)
+        } catch (e: Exception) {
+            result.success(0L)
+        }
     }
 }

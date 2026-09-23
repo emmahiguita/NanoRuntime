@@ -29,15 +29,16 @@ class BrowserAiGateway {
     BrowserAiProviderRegistry? registry,
     BrowserAiSessionManager? sessionManager,
     BrowserAiSanitizer sanitizer = const BrowserAiSanitizer(),
-  })  : _registry = registry ?? _ref.read(browserAiProviderRegistryProvider),
-        _sessionManager =
-            sessionManager ?? _ref.read(browserAiSessionManagerProvider),
-        _sanitizer = sanitizer;
+  }) : _registry = registry ?? _ref.read(browserAiProviderRegistryProvider),
+       _sessionManager =
+           sessionManager ?? _ref.read(browserAiSessionManagerProvider),
+       _sanitizer = sanitizer;
 
   /// Ejecuta una consulta hacia un proveedor web de IA garantizando exclusión mutua.
   Future<BrowserAiResponse> query(BrowserAiQuery query) async {
-    final providerId =
-        query.providerId == 'auto' ? 'deepseek' : query.providerId;
+    final providerId = query.providerId == 'auto'
+        ? 'deepseek'
+        : query.providerId;
     final provider = _registry.getProvider(providerId);
 
     if (provider == null) {
@@ -50,23 +51,21 @@ class BrowserAiGateway {
 
     return await _synchronized(provider.id, () async {
       try {
-        final controller = await _sessionManager.getOrCreateController(provider);
+        final controller = await _sessionManager.getOrCreateController(
+          provider,
+        );
         if (controller == null) {
           return BrowserAiResponse.failure(
             providerId: provider.id,
-            error: 'No se pudo inicializar la pestaña para ${provider.displayName}.',
+            error:
+                'No se pudo inicializar la pestaña para ${provider.displayName}.',
             requestId: query.requestId,
           );
         }
 
-        bool ready = false;
-        for (int i = 0; i < 8; i++) {
-          if (await provider.isLoggedIn(controller)) {
-            ready = true;
-            break;
-          }
-          await Future.delayed(const Duration(milliseconds: 500));
-        }
+        final ready = await waitUntilLoggedIn(
+          () => provider.isLoggedIn(controller),
+        );
 
         if (!ready) {
           _sessionManager.setPendingPrompt(provider.id, query.prompt);
@@ -77,7 +76,8 @@ class BrowserAiGateway {
 
           return BrowserAiResponse.userActionRequired(
             providerId: provider.id,
-            reason: 'Inicia sesión en ${provider.displayName} (se abrió la pestaña). '
+            reason:
+                'Inicia sesión en ${provider.displayName} (se abrió la pestaña). '
                 'Cuando termines, vuelve al chat y reenvía tu mensaje.',
             duration: Duration.zero,
             requestId: query.requestId,
@@ -90,7 +90,8 @@ class BrowserAiGateway {
         if (!submitted) {
           return BrowserAiResponse.failure(
             providerId: provider.id,
-            error: 'No se encontró el campo de texto en ${provider.displayName}.',
+            error:
+                'No se encontró el campo de texto en ${provider.displayName}.',
             requestId: query.requestId,
           );
         }
@@ -109,6 +110,35 @@ class BrowserAiGateway {
         );
       }
     });
+  }
+
+  /// Espera acotada y con backoff a que el DOM de sesión quede disponible.
+  /// La fecha límite también cubre una comprobación JavaScript que no responda.
+  static Future<bool> waitUntilLoggedIn(
+    Future<bool> Function() check, {
+    List<Duration> retryDelays = const [
+      Duration(milliseconds: 200),
+      Duration(milliseconds: 400),
+      Duration(milliseconds: 600),
+    ],
+    Duration timeout = const Duration(milliseconds: 1500),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+
+    Future<bool> checkBeforeDeadline() async {
+      final remaining = deadline.difference(DateTime.now());
+      if (remaining <= Duration.zero) return false;
+      return check().timeout(remaining, onTimeout: () => false);
+    }
+
+    if (await checkBeforeDeadline()) return true;
+    for (final delay in retryDelays) {
+      final remaining = deadline.difference(DateTime.now());
+      if (remaining <= Duration.zero) return false;
+      await Future<void>.delayed(delay < remaining ? delay : remaining);
+      if (await checkBeforeDeadline()) return true;
+    }
+    return false;
   }
 
   Future<T> _synchronized<T>(String key, Future<T> Function() action) async {

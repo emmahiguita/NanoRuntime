@@ -1,16 +1,46 @@
+/**
+ * TerminalView: Componente de interfaz de usuario para la terminal interactiva.
+ * 
+ * QUÉ HACE: Renderiza la ventana de consola y enlaza eventos de teclado con el
+ * backend nativo PTY o con el motor de diagnóstico local.
+ * 
+ * CÓMO FUNCIONA: En entorno Tauri Desktop, activa el flujo PTY bidireccional
+ * escribiendo directamente en stdin. Si está en entorno web puro, evalúa los
+ * comandos mediante el intérprete de diagnóstico.
+ * 
+ * POR QUÉ: Ofrece una experiencia de consola real sin romper la compatibilidad web.
+ */
+
 import { terminalService } from './terminal_service.js';
 
 export class TerminalView {
   constructor(containerElement) {
     this.container = containerElement;
+    this.isPtyActive = false;
     this.init();
   }
 
-  init() {
+  async init() {
     this.render();
     this.bindEvents();
-    this.appendLine('sys', 'nanoRUNTIME Diagnostics Console v0.2.0');
-    this.appendLine('sys', 'Escribe "help" para ver los comandos disponibles.\n');
+
+    // Intento de conexión al PTY nativo de Tauri
+    const ptyStarted = await terminalService.startPty({
+      onData: (chunk) => this.appendRaw(chunk),
+      onExit: () => this.appendLine('sys', '\n[Proceso de Shell Finalizado]'),
+    });
+
+    this.isPtyActive = ptyStarted;
+    const badge = this.container.querySelector('.term-badge-ready');
+
+    if (ptyStarted) {
+      if (badge) badge.textContent = 'Native PTY Active';
+      this.appendLine('sys', 'NanoAI Native PTY Terminal iniciada correctamente.\n');
+    } else {
+      if (badge) badge.textContent = 'Diagnostics Shell';
+      this.appendLine('sys', 'nanoRUNTIME Diagnostics Console v0.1.0');
+      this.appendLine('sys', 'Escribe "help" para ver los comandos disponibles.\n');
+    }
   }
 
   render() {
@@ -23,12 +53,11 @@ export class TerminalView {
             <span class="terminal-dot dot-green"></span>
           </div>
           <div class="terminal-title-center">
-            <span class="terminal-tag">● Nano Core</span>
-            <span class="terminal-title-text">Terminal — nanortime-core</span>
+            <span class="terminal-tag">● Nano Terminal</span>
+            <span class="terminal-title-text">Sovereign Shell — Native PTY</span>
           </div>
           <div class="terminal-header-tools">
             <button type="button" class="btn-term-header-pill" id="btn-term-clear">Limpiar</button>
-            <button type="button" class="btn-term-header-pill" id="btn-term-help">Ayuda</button>
           </div>
         </div>
 
@@ -40,11 +69,11 @@ export class TerminalView {
             type="text" 
             id="full-terminal-input" 
             class="terminal-real-input" 
-            placeholder="Escribe un comando (status, models, infer <prompt>, clear)..." 
+            placeholder="Introduce comandos (dir, echo, git, python, etc.)..." 
             autocomplete="off" 
             spellcheck="false"
           />
-          <span class="term-badge-ready">nanortime-core ready</span>
+          <span class="term-badge-ready">Conectando...</span>
         </div>
       </div>
     `;
@@ -58,46 +87,38 @@ export class TerminalView {
       if (this.outputEl) this.outputEl.innerHTML = '';
     });
 
-    this.container.querySelector('#btn-term-help')?.addEventListener('click', async () => {
-      const res = await terminalService.executeCommand('help');
-      if (res) this.appendLine(res.type, res.output);
-    });
-
     this.inputEl.addEventListener('keydown', async (e) => {
       if (e.key === 'Enter') {
         const val = this.inputEl.value;
-        if (!val.trim()) return;
-
         this.inputEl.value = '';
-        this.appendLine('input-echo', `> ${val}`);
 
-        try {
-          const result = await terminalService.executeCommand(val);
-          if (result) {
-            if (result.type === 'clear') {
-              this.outputEl.innerHTML = '';
-            } else {
-              this.appendLine(result.type, result.output);
-            }
-          }
-        } catch (err) {
-          this.appendLine('error', `Error: ${err.message || err}`);
-        }
-      } else if (e.key === 'ArrowUp') {
-        if (terminalService.history.length > 0 && terminalService.historyIndex > 0) {
-          terminalService.historyIndex--;
-          this.inputEl.value = terminalService.history[terminalService.historyIndex] || '';
-        }
-      } else if (e.key === 'ArrowDown') {
-        if (terminalService.historyIndex < terminalService.history.length - 1) {
-          terminalService.historyIndex++;
-          this.inputEl.value = terminalService.history[terminalService.historyIndex] || '';
+        if (this.isPtyActive) {
+          // Enrutamiento directo al stdin del proceso PTY
+          await terminalService.writePty(`${val}\r\n`);
         } else {
-          terminalService.historyIndex = terminalService.history.length;
-          this.inputEl.value = '';
+          // Modo diagnóstico fallback
+          if (!val.trim()) return;
+          this.appendLine('input-echo', `> ${val}`);
+          try {
+            const res = await terminalService.executeCommand(val);
+            if (res) {
+              if (res.type === 'clear') this.outputEl.innerHTML = '';
+              else this.appendLine(res.type, res.output);
+            }
+          } catch (err) {
+            this.appendLine('error', `Error: ${err.message || err}`);
+          }
         }
       }
     });
+  }
+
+  appendRaw(chunk) {
+    const span = document.createElement('span');
+    span.className = 'terminal-raw-text';
+    span.textContent = chunk;
+    this.outputEl.appendChild(span);
+    this.outputEl.scrollTop = this.outputEl.scrollHeight;
   }
 
   appendLine(type, text) {

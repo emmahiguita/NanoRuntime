@@ -10,6 +10,7 @@ import 'nano_glyph.dart';
 import 'nano_nav_tokens.dart';
 import 'nano_search_dispatcher.dart';
 import 'nano_universal_input.dart';
+import '../effects/nano_voice_beam.dart';
 
 /// Barra de navegación multifunción cósmica flotante de Nano AI.
 ///
@@ -238,6 +239,10 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
         return Semantics(
           container: true,
           label: 'Barra cósmica multifunción Nano AI',
+          child: NanoVoiceBeam(
+          isListening: (widget.inputConfig?.isListening ?? false) || _dictating,
+          isProcessing: widget.inputConfig?.isGenerating ?? false,
+          borderRadius: radius,
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(radius),
@@ -473,10 +478,11 @@ class _NanoMultiUseNavBarState extends State<NanoMultiUseNavBar> {
               ),
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 }
 
 class _SearchRow extends StatelessWidget {

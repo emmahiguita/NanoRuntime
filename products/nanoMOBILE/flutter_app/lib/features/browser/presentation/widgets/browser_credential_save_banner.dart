@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_tab_bar_widget.dart';
+import 'browser_tab_bar_widget.dart';
 
 /// Banner flotante animado para solicitar al usuario guardar credenciales al iniciar sesión.
 class BrowserCredentialSaveBanner extends StatelessWidget {

@@ -9,6 +9,7 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
@@ -92,13 +93,30 @@ class AgentAccessibilityService : AccessibilityService() {
                 accessibilityButtonController.registerAccessibilityButtonCallback(
                     object : android.accessibilityservice.AccessibilityButtonController.AccessibilityButtonCallback() {
                         override fun onClicked(controller: android.accessibilityservice.AccessibilityButtonController) {
-                            Log.i(TAG, "Botón de accesibilidad flotante presionado — abriendo Nano AI Owl Hub")
-                            val intent = Intent(this@AgentAccessibilityService, MainActivity::class.java).apply {
-                                action = Intent.ACTION_VIEW
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                                putExtra("action", "open_owl_hub")
+                            Log.i(TAG, "Botón de accesibilidad presionado — dirigiendo a Nano Everywhere")
+                            if (MainActivity.isForeground) {
+                                // Ya está en Nano: no lanzar overlay del sistema; activar in-app
+                                val intent = Intent(this@AgentAccessibilityService, MainActivity::class.java).apply {
+                                    action = Intent.ACTION_VIEW
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                                    putExtra("action", "open_assistant")
+                                }
+                                startActivity(intent)
+                            } else if (Settings.canDrawOverlays(this@AgentAccessibilityService)) {
+                                // Fuera de Nano: lanzar overlay flotante expandido sobre la app activa estilo Gemini
+                                val overlayIntent = Intent(this@AgentAccessibilityService, NanoFloatingService::class.java).apply {
+                                    action = "expand"
+                                    putExtra("action", "expand")
+                                }
+                                startService(overlayIntent)
+                            } else {
+                                val intent = Intent(this@AgentAccessibilityService, MainActivity::class.java).apply {
+                                    action = Intent.ACTION_VIEW
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                                    putExtra("action", "open_assistant")
+                                }
+                                startActivity(intent)
                             }
-                            startActivity(intent)
                         }
                     }
                 )

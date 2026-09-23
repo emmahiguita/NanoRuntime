@@ -57,9 +57,10 @@ class MessagingConversationsView extends ConsumerWidget {
 
     // 3. Fuente unificada deduplicada
     final filteredList = filteredAsync.value ?? const [];
-    final List<ConversationSummaryItem> itemsToShow = filteredList.isNotEmpty
-        ? filteredList
-        : (allHubAsync.value ?? (liveAsync.value ?? const []));
+    // Una búsqueda o pestaña sin coincidencias debe permanecer vacía. El
+    // fallback anterior volvía a mostrar todos los chats y hacía que la
+    // pestaña "Grupos" incluyera conversaciones directas.
+    final List<ConversationSummaryItem> itemsToShow = filteredList;
 
     if (itemsToShow.isEmpty) {
       return const MessagingEmptyState();

@@ -15,7 +15,7 @@ class MessagingFilterChips extends ConsumerWidget {
     final contactsCount = ref.watch(allWhatsAppContactsProvider).value?.length ?? 0;
 
     return SizedBox(
-      height: 38,
+      height: 36,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -31,16 +31,13 @@ class MessagingFilterChips extends ConsumerWidget {
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
               decoration: BoxDecoration(
                 gradient: isSelected
                     ? const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
-                          Color(0x3800FF88),
-                          Color(0x1F00FF88),
-                        ],
+                        colors: [Color(0x3800FF88), Color(0x1F00FF88)],
                       )
                     : LinearGradient(
                         begin: Alignment.topLeft,
@@ -73,7 +70,9 @@ class MessagingFilterChips extends ConsumerWidget {
                   Text(
                     tab.label,
                     style: TextStyle(
-                      color: isSelected ? const Color(0xFF00FF88) : Colors.white.withValues(alpha: 0.75),
+                      color: isSelected
+                          ? const Color(0xFF00FF88)
+                          : Colors.white.withValues(alpha: 0.75),
                       fontSize: 12,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     ),
@@ -101,7 +100,9 @@ class MessagingFilterChips extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF00FF88) : Colors.white.withValues(alpha: 0.2),
+                        color: isSelected
+                            ? const Color(0xFF00FF88)
+                            : Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(

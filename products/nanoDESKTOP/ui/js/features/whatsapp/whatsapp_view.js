@@ -2,30 +2,27 @@
  * whatsapp_view.js — Controlador Maestro de la Vista de WhatsApp Desktop
  * 
  * QUÉ HACE:
- * Orquesta la barra lateral de chats, el visor de mensajes, la barra de políticas
- * y el compositor en una interfaz soberana de escritorio moderna y fluida.
+ * Orquesta las 3 columnas de WhatsApp Desktop: Barra lateral de chats, Hilo central
+ * de conversación con compositor y Panel lateral de contexto e inteligencia de negocio.
  * 
  * CÓMO FUNCIONA:
- * Construye la estructura base en el elemento contenedor, inicializa los submódulos,
- * conecta los callbacks de selección y escucha eventos de apertura de modales.
+ * Asigna los contenedores en el DOM, inicializa los componentes de cada columna,
+ * sincroniza la selección del hilo activo y destruye limpiamente todos los recursos.
  * 
  * POR QUÉ:
- * Implementa el Patrón Mediador (Mediator Pattern) y respeta Clean Architecture,
- * asegurando un desmonte completo (`destroy()`) sin procesos ni listeners zombi.
+ * Implementa el Patrón Mediador (Mediator Pattern) respetando Clean Architecture y
+ * SOLID, manteniendo el código < 200 líneas y garantizando ausencia de procesos zombi.
  */
 
-import { WhatsAppChatList } from './ui/whatsapp_chat_list.js';
-import { WhatsAppChatConversation } from './ui/whatsapp_chat_conversation.js';
-import { WhatsAppComposer } from './ui/whatsapp_composer.js';
-import { WhatsAppPolicyBar } from './ui/whatsapp_policy_bar.js';
-import { WhatsAppPairingModal } from './ui/whatsapp_pairing_modal.js';
-import { whatsAppBus } from './domain/whatsapp_events.js';
-import { whatsAppStorage } from './services/whatsapp_storage.js';
+import { WhatsAppChatList } from './ui/whatsapp_chat_list.js?v=v4';
+import { WhatsAppChatConversation } from './ui/whatsapp_chat_conversation.js?v=v4';
+import { WhatsAppComposer } from './ui/whatsapp_composer.js?v=v4';
+import { WhatsAppContextPanel } from './ui/whatsapp_context_panel.js?v=v4';
+import { WhatsAppPairingModal } from './ui/whatsapp_pairing_modal.js?v=v4';
+import { whatsAppBus } from './domain/whatsapp_events.js?v=v4';
+import { whatsAppStorage } from './services/whatsapp_storage.js?v=v4';
 
 export class WhatsAppView {
-  /**
-   * @param {HTMLElement} containerElement - Contenedor `#view-whatsapp`.
-   */
   constructor(containerElement) {
     this.container = containerElement;
     this.activeThreadId = null;
@@ -36,63 +33,63 @@ export class WhatsAppView {
 
   _init() {
     this.container.innerHTML = `
-      <div class="wa-container">
-        <aside class="wa-sidebar" id="wa-sidebar-mount"></aside>
-        <main class="wa-main-panel">
-          <header id="wa-policy-mount"></header>
-          <section class="wa-messages-stream" id="wa-conversation-mount"></section>
-          <footer id="wa-composer-mount"></footer>
+      <div class="wa-container-three-col">
+        <!-- Columna 1: Lista de Chats -->
+        <aside class="wa-col-sidebar" id="wa-sidebar-mount"></aside>
+
+        <!-- Columna 2: Hilo de Conversación Central y Compositor -->
+        <main class="wa-col-conversation">
+          <section class="wa-conversation-stream" id="wa-conversation-mount"></section>
+          <footer class="wa-composer-wrapper" id="wa-composer-mount"></footer>
         </main>
+
+        <!-- Columna 3: Panel de Contexto e Inteligencia de Negocio -->
+        <aside class="wa-col-context" id="wa-context-mount"></aside>
       </div>
     `;
 
     const sidebarMount = this.container.querySelector('#wa-sidebar-mount');
-    const policyMount = this.container.querySelector('#wa-policy-mount');
     const conversationMount = this.container.querySelector('#wa-conversation-mount');
     const composerMount = this.container.querySelector('#wa-composer-mount');
+    const contextMount = this.container.querySelector('#wa-context-mount');
 
     this.chatList = new WhatsAppChatList(sidebarMount, (threadId) => {
       this.handleSelectThread(threadId);
     });
 
-    this.policyBar = new WhatsAppPolicyBar(policyMount);
     this.conversation = new WhatsAppChatConversation(conversationMount);
     this.composer = new WhatsAppComposer(composerMount);
+    this.contextPanel = new WhatsAppContextPanel(contextMount);
 
-    // Escuchar solicitud para abrir el modal de vinculación
+    // Escuchar solicitud para modal de vinculación
     const unsubModal = whatsAppBus.subscribe('ui:open_pairing_modal', () => {
       WhatsAppPairingModal.show();
     });
     this._unsubscribers.push(unsubModal);
 
-    // Seleccionar automáticamente el primer hilo si existe
+    // Seleccionar por defecto el primer hilo (María González)
     const convs = whatsAppStorage.getConversations();
     if (convs.length > 0) {
+      this.handleSelectThread(convs[0].id);
       this.chatList.selectThread(convs[0].id);
     }
   }
 
-  /**
-   * Maneja la selección de un hilo y sincroniza las subvistas.
-   * @param {string} threadId
-   */
   handleSelectThread(threadId) {
     this.activeThreadId = threadId;
-    this.policyBar.setActiveThread(threadId);
     this.conversation.loadThread(threadId);
     this.composer.setActiveThread(threadId);
+    this.contextPanel.setActiveThread(threadId);
   }
 
-  /**
-   * Limpia y desmantela todos los submódulos al salir o recargar la vista.
-   */
   destroy() {
     this._unsubscribers.forEach((fn) => fn());
     this._unsubscribers = [];
 
     if (this.chatList) this.chatList.destroy();
-    if (this.policyBar) this.policyBar.destroy();
     if (this.conversation) this.conversation.destroy();
     if (this.composer) this.composer.destroy();
+    if (this.contextPanel) this.contextPanel.destroy();
   }
 }
+

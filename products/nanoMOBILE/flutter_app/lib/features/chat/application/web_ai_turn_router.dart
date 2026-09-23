@@ -20,23 +20,33 @@ class WebAiTurnRouter {
   const WebAiTurnRouter();
 
   static final _regex = RegExp(
-    r'^(?:(?:consulta|pregunta|busca|averigua|pide|dile|usa)(?:\s+(?:en|a|con))?\s+)?(chatgpt|deepseek|gemini|claude|mistral|openai|ia|la ia)\s*[:,\-]?\s*(.+)$',
+    r'^(?:(?:consulta|pregunta|busca|averigua|pide|dile|usa)(?:\s+(?:en|a|con))?\s+)?(chat\s*gpt|deep\s*seek|gemini|claude|mistral|le\s+chat|openai|ia|la\s+ia)(?:\s*[:,\-]\s*|\s+)(.+)$',
     caseSensitive: false,
   );
+
+  /// Se mantiene público para poder probar el contrato lingüístico sin abrir
+  /// una WebView ni fabricar un [BrowserAiGateway].
+  static WebAiRouteRequest? parseRequest(String text) {
+    final match = _regex.firstMatch(text.trim());
+    if (match == null) return null;
+
+    final prompt = match.group(2)!.trim();
+    if (prompt.isEmpty) return null;
+    return WebAiRouteRequest(
+      providerId: _resolveProviderId(match.group(1)!.toLowerCase()),
+      prompt: prompt,
+    );
+  }
 
   Future<ChatTurnRouteResult?> tryRoute({
     required String text,
     required BrowserAiGateway? gateway,
   }) async {
-    final clean = text.trim();
-    final match = _regex.firstMatch(clean);
-    if (match == null || gateway == null) return null;
+    final request = parseRequest(text);
+    if (request == null || gateway == null) return null;
 
-    final rawProvider = match.group(1)!.toLowerCase();
-    final prompt = match.group(2)!.trim();
-    if (prompt.isEmpty) return null;
-
-    final providerId = _resolveProviderId(rawProvider);
+    final providerId = request.providerId;
+    final prompt = request.prompt;
 
     try {
       final query = BrowserAiQuery(
@@ -65,7 +75,8 @@ class WebAiTurnRouter {
           ChatMessage(
             id: DateTime.now().microsecondsSinceEpoch.toString(),
             sender: MessageSender.ai,
-            text: '🔐 **Sesión requerida en ${providerId.toUpperCase()}**\n\n'
+            text:
+                '🔐 **Sesión requerida en ${providerId.toUpperCase()}**\n\n'
                 '${aiResp.error}\n\n'
                 'La pestaña ya está abierta. Inicia sesión y **reenvía tu mensaje**.',
             timestamp: DateTime.now(),
@@ -79,7 +90,8 @@ class WebAiTurnRouter {
         ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           sender: MessageSender.ai,
-          text: '❌ **Error consultando ${providerId.toUpperCase()}**\n\n${aiResp.error}',
+          text:
+              '❌ **Error consultando ${providerId.toUpperCase()}**\n\n${aiResp.error}',
           timestamp: DateTime.now(),
           status: MessageStatus.error,
         ),
@@ -98,8 +110,18 @@ class WebAiTurnRouter {
   }
 
   static String _resolveProviderId(String raw) {
-    if (raw == 'openai') return 'chatgpt';
-    if (raw == 'ia' || raw == 'la ia') return 'deepseek';
-    return raw;
+    final compact = raw.replaceAll(RegExp(r'\s+'), '');
+    if (compact == 'openai' || compact == 'chatgpt') return 'chatgpt';
+    if (compact == 'ia' || compact == 'laia') return 'deepseek';
+    if (compact == 'deepseek') return 'deepseek';
+    if (compact == 'lechat') return 'mistral';
+    return compact;
   }
+}
+
+class WebAiRouteRequest {
+  const WebAiRouteRequest({required this.providerId, required this.prompt});
+
+  final String providerId;
+  final String prompt;
 }

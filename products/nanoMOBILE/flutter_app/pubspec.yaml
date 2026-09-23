@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Incluye la fuente de los CupertinoIcons ya utilizados en mensajería.
+  cupertino_icons: 1.0.8
   flutter_riverpod: ^2.5.1
   go_router: ^14.2.0
   shared_preferences: 2.3.2
@@ -17,15 +19,11 @@ dependencies:
   crypto: ^3.0.7
   file_picker: ^11.0.3
   flutter_markdown_plus: ^1.0.3
-  markdown: ^7.2.2
   pdf: ^3.11.1
   printing: ^5.13.2
   path_provider: ^2.1.4
   share_plus: ^12.0.2
   url_launcher: ^6.3.0
-  flutter_animate: ^4.5.2
-  google_fonts: ^6.2.1
-  cupertino_icons: ^1.0.8
   flutter_inappwebview: ^6.1.5
 dev_dependencies:
   flutter_test:
@@ -54,9 +52,6 @@ flutter:
     - assets/exe/
     - assets/config/
     - assets/terminal/
-    - assets/terminal_campaign_1.png
-    - assets/terminal_campaign_2.png
-    - assets/terminal_campaign_3.png
     - assets/promo/
     - assets/owl/states/
     - assets/owl/blink/
@@ -64,6 +59,7 @@ flutter:
     - assets/owl/idle/
     - assets/owl/sleep/
     - assets/owl/takeoff/
+    - assets/owl/
     - assets/nano/
     - assets/buho/portrait/
     - assets/buho/horizontal/

@@ -20,6 +20,11 @@
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32"/>
+    <!-- Escritura en Downloads/Nano/ para NanoMediaDownloader (API <=28).
+         A partir de API 29 DownloadManager no necesita este permiso. -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"/>
     <!-- Dictado por voz en el Chat (speech_to_text): runtime grant al primer
          uso del micrófono; sin él el reconocimiento falla con permiso. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>

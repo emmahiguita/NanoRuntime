@@ -11,11 +11,12 @@ import 'core/services/boot_orchestrator.dart';
 import 'core/services/nano_runtime_api.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/nano_motion.dart';
+import 'core/theme/design_tokens.dart';
 import 'features/automation/headless/automation_headless_runner.dart';
 import 'features/automation/application/automation_coordinator_provider.dart'
     show notificationEventRouterProvider, timeTickSchedulerProvider;
 import 'features/browser/presentation/widgets/browser_pip_overlay.dart';
-import 'features/browser/presentation/widgets/nano_floating_owl_hub_sheet.dart';
+import 'features/chat/nano_everywhere/nano_floating_wrapper.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
@@ -49,11 +50,8 @@ void _listenSystemNavigation() {
   _kNavChannel.setMethodCallHandler((call) async {
     if (call.method == 'openSettings') {
       AppRouter.router.go('/settings');
-    } else if (call.method == 'openOwlHub') {
-      final ctx = AppRouter.rootNavigatorKey.currentContext;
-      if (ctx != null) {
-        NanoFloatingOwlHubSheet.show(ctx);
-      }
+    } else if (call.method == 'openOwlHub' || call.method == 'openAssistant') {
+      NanoFloatingWrapper.expand();
     } else if (call.method == 'navigate') {
       final route = call.arguments as String?;
       if (route != null && route.isNotEmpty) {
@@ -128,7 +126,23 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider);
+    final settings = ref.watch(settingsProvider);
+
+    final lightTheme = AppTheme.buildTheme(
+      NanoLightColors(),
+      glassEnabled: settings.glassEnabled,
+      glassOpacity: settings.glassOpacity,
+      glassClarity: settings.glassClarity,
+      glassBlur: settings.glassBlur,
+    );
+
+    final darkTheme = AppTheme.buildTheme(
+      NanoDarkColors(),
+      glassEnabled: settings.glassEnabled,
+      glassOpacity: settings.glassOpacity,
+      glassClarity: settings.glassClarity,
+      glassBlur: settings.glassBlur,
+    );
 
     // Sin wrapper de orientación aquí: rotar forzaba rebuild del MaterialApp
     // completo y producía flicker ("pantalla dañada al voltearse"). La
@@ -137,9 +151,10 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
     return MaterialApp.router(
       title: 'NanoPlatform',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: themeMode,
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      // DARK_ONLY: el modo claro queda pendiente hasta completar su diseño.
+      themeMode: ThemeMode.dark,
       themeAnimationDuration:
           WidgetsBinding
               .instance
@@ -151,16 +166,16 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
       themeAnimationCurve: NanoMotionCurves.standardDecel,
       routerConfig: AppRouter.router,
       builder: (context, child) {
-        // OVERLAY-FIX-01: No encapsular en un OverlayEntry artificial aquí.
-        // MaterialApp.router ya provee su propio Overlay nativo con el Navigator.
-        // Un Overlay manual adicional en el builder destruye el lookup de Overlay.of(context)
-        // en diálogos, tooltips y menús, generando la caja roja "No Overlay".
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            child ?? const SizedBox.shrink(),
-            const BrowserPipOverlay(),
-          ],
+        // El PiP es hermano del Navigator: necesita su propio ancestro Overlay.
+        // wrap mantiene y libera la entrada, sin recrear pantallas ni rutas.
+        return Overlay.wrap(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              child ?? const SizedBox.shrink(),
+              const BrowserPipOverlay(),
+            ],
+          ),
         );
       },
     );

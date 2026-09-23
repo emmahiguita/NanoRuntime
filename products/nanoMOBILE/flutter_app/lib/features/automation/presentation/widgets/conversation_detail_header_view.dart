@@ -1,19 +1,6 @@
 part of 'conversation_detail_sheet.dart';
 
-/// [ConversationDetailHeaderView]
-///
-/// QUÉ HACE:
-/// Renderiza la cabecera del chat y la barra de alternancia entre Bot / Humano.
-/// Se adapta a orientación horizontal (landscape) compactando paddings y alturas.
-///
-/// CÓMO FUNCIONA:
-/// 1. `_buildHeader`: Avatar con inicial del remitente, nombre de contacto sanitizado,
-///    etiqueta de la app, botón para transferir a otro bot y botón de cierre.
-/// 2. `_buildControlBar`: Selector animado de dos estados ("IA Activa" vs "Control Humano").
-///
-/// POR QUÉ:
-/// Ofrece una interfaz táctil limpia, con respuesta háptica y estética de cristal líquido
-/// sin exceder el límite de 200 líneas y adaptada a cualquier orientación de pantalla.
+/// [ConversationDetailHeaderView] — Cabecera de chat y alternancia Bot/Humano (< 200 líneas).
 extension ConversationDetailHeaderView on _ConversationDetailSheetState {
   Widget _buildHeader(AutomationVisualPalette visual) {
     final title = _cleanName(widget.item.displayName);
@@ -23,11 +10,7 @@ extension ConversationDetailHeaderView on _ConversationDetailSheetState {
       padding: EdgeInsets.fromLTRB(16, isLandscape ? 6 : 10, 16, isLandscape ? 6 : 12),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
-        border: Border(
-          bottom: BorderSide(
-            color: visual.isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0x33CBD5E1),
-          ),
-        ),
+        border: Border(bottom: BorderSide(color: visual.isDark ? Colors.white.withValues(alpha: 0.12) : const Color(0x33CBD5E1))),
       ),
       child: Row(
         children: [
@@ -36,24 +19,13 @@ extension ConversationDetailHeaderView on _ConversationDetailSheetState {
             height: isLandscape ? 36 : 44,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [visual.accent, visual.accent.withValues(alpha: 0.65)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: LinearGradient(colors: [visual.accent, visual.accent.withValues(alpha: 0.65)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 1.5),
             ),
-            child: Text(
-              title.isNotEmpty ? title[0].toUpperCase() : '?',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: 'Inter',
-                fontFamilyFallback: ConversationDetailSheet._sfFallback,
-                fontWeight: FontWeight.w700,
-                fontSize: isLandscape ? 15 : 18,
-              ),
-            ),
+            child: widget.item.isGroup
+                ? Icon(Icons.groups_rounded, color: Colors.white, size: isLandscape ? 18 : 22)
+                : Text(title.isNotEmpty ? title[0].toUpperCase() : '?', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontFamilyFallback: ConversationDetailSheet._sfFallback, fontWeight: FontWeight.w700, fontSize: isLandscape ? 15 : 18)),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -61,18 +33,43 @@ extension ConversationDetailHeaderView on _ConversationDetailSheetState {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: visual.text,
-                    fontFamily: 'Inter',
-                    fontFamilyFallback: ConversationDetailSheet._sfFallback,
-                    fontSize: isLandscape ? 15 : 17,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.4,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          color: visual.text,
+                          fontFamily: 'Inter',
+                          fontFamilyFallback: ConversationDetailSheet._sfFallback,
+                          fontSize: isLandscape ? 15 : 17,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.4,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (widget.item.isGroup) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF60A5FA).withValues(alpha: 0.20),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(color: const Color(0xFF60A5FA).withValues(alpha: 0.45), width: 0.6),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.groups_rounded, size: 10, color: Color(0xFF93C5FD)),
+                            SizedBox(width: 3),
+                            Text('GRUPO', style: TextStyle(color: Color(0xFF93C5FD), fontSize: 8.5, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Row(
@@ -81,7 +78,7 @@ extension ConversationDetailHeaderView on _ConversationDetailSheetState {
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        '${widget.item.appLabel} · ${_agentId.displayName}',
+                        '${widget.item.appLabel}${widget.item.isGroup ? " · Grupo WhatsApp" : ""} · ${_agentId.displayName}',
                         style: TextStyle(
                           color: visual.textMuted,
                           fontFamily: 'Inter',

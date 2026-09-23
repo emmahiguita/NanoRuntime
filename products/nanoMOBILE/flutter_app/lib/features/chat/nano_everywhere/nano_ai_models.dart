@@ -5,10 +5,40 @@
 import 'package:flutter/foundation.dart';
 
 /// Modos de consulta disponibles en el panel flotante.
-enum NanoMode { quick, compare, debate, action }
+enum NanoMode { quick, compare, debate, action, media }
+
+/// Tipo de recurso multimedia identificado para descarga inteligente.
+enum NanoMediaType { video, image, audio, document }
+
+/// Recurso multimedia descubierto en una URL o página.
+@immutable
+class NanoMediaResource {
+  const NanoMediaResource({
+    required this.url,
+    required this.type,
+    required this.title,
+    this.estimatedBytes,
+    this.quality,
+    this.sourceUrl,
+  });
+
+  final String url;
+  final NanoMediaType type;
+  final String title;
+  final int? estimatedBytes;
+  final String? quality;
+  final String? sourceUrl;
+
+  String get typeLabel => switch (type) {
+    NanoMediaType.video => 'Vídeo',
+    NanoMediaType.image => 'Imagen',
+    NanoMediaType.audio => 'Audio',
+    NanoMediaType.document => 'Documento',
+  };
+}
 
 /// Estado visible del búho animado — dirige sprites y efectos.
-enum NanoActivity { idle, listening, thinking, comparing, debating, acting, success, error }
+enum NanoActivity { idle, listening, thinking, comparing, debating, acting, success, error, sleep, fly }
 
 /// Categoría de proveedor para controlar qué flujo de consulta se usa.
 enum NanoProviderKind { local, approvedWeb, nativeApp }

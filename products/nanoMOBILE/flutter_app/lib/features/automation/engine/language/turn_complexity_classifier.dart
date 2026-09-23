@@ -45,20 +45,20 @@ final class TurnComplexityClassifier {
 
   // Saludos puros (con nombre opcional y tolerancia a typos comunes como hol, ola).
   static final _pureGreeting = RegExp(
-    r'^(?:hola|hol|ola|oli|hey|hi|buenos días|buenas tardes|buenas noches|buenas|qué más|que más|qué hay|que hay|holi|holaa|hola hola)(?:\s+[\wáéíóúÁÉÍÓÚñÑ]+)?[\s.,!?]*$',
+    r'^(?:hola|hol|ola|oli|hey|hi|buen día|buen dia|buenos días|muy buenos días|muy buenos dias|buenas tardes|buenas noches|buenas|cordial saludo|saludos|qué más|que más|q más|q mas|qué hay|que hay|holi|holaa|hola hola)(?:\s+[\wáéíóúÁÉÍÓÚñÑ]+)?[\s.,!?]*$',
     caseSensitive: false,
   );
 
   // Pregunta simple de bienestar (social, no narrativo).
   static final _simpleStateConcern = RegExp(
-    r'^(?:cómo estás|como estás|cómo estas|como estas|bien\?|todo bien\?|todo bien$|qué tal|que tal)[\s.,!?]*$',
+    r'^(?:cómo estás|como estás|cómo estas|como estas|cómo se encuentra(?: usted)?|como se encuentra(?: usted)?|cómo anda(?: usted)?|como anda(?: usted)?|bien\?|todo bien\?|todo bien$|todo bn\?|todo bn$|qué tal|que tal|q tal)[\s.,!?]*$',
     caseSensitive: false,
   );
 
   // Saludo social compuesto con pregunta de bienestar ("hola cómo estás", "hola, ¿todo bien?", "buenas, qué tal").
   static final _socialGreetingWellbeing = RegExp(
-    r'^(?:hola|hol|ola|hey|hi|buenas|buenos días|buenas tardes|buenas noches|qué más|que más|holi|holaa|hola hola)?[\s,¡!¿?]*'
-    r'(?:cómo estás|como estás|cómo estas|como estas|cómo vas|como vas|cómo te va|como te va|qué tal|que tal|todo bien\??|cómo andas|como andas|qué hay|que hay)'
+    r'^(?:hola|hol|ola|hey|hi|buen día|buen dia|buenas|buenos días|muy buenos días|muy buenos dias|buenas tardes|buenas noches|cordial saludo|saludos|qué más|que más|q más|q mas|holi|holaa|hola hola)?[\s,¡!¿?]*'
+    r'(?:cómo estás|como estás|cómo estas|como estas|cómo se encuentra|como se encuentra|cómo anda|como anda|cómo vas|como vas|cómo te va|como te va|qué tal|que tal|q tal(?: todo bn)?|todo bien\??|todo bn\??|cómo andas|como andas|qué hay|que hay)'
     r'(?:\s+[\wáéíóúÁÉÍÓÚñÑ]+)?[\s.,!?]*$',
     caseSensitive: false,
   );
@@ -146,10 +146,13 @@ final class TurnComplexityClassifier {
     final isSocialClarification = _socialWellbeingClarification.hasMatch(t);
     final isSituationalInquiry = _situationalSocialInquiry.hasMatch(t);
     final isSocialExemption = isSocialClarification || isSituationalInquiry;
-    final narrativeDetected = _narrative.hasMatch(t) || (!isSocialExemption && signals.isCorrection);
-    final contextualDetected = !isSocialExemption && (_anaphora.hasMatch(t) || signals.hasReference);
+    final narrativeDetected =
+        _narrative.hasMatch(t) || (!isSocialExemption && signals.isCorrection);
+    final contextualDetected =
+        !isSocialExemption && (_anaphora.hasMatch(t) || signals.hasReference);
     final isSocialRefusal = _socialRefusal.hasMatch(t);
-    final complexDetected = !isSocialRefusal &&
+    final complexDetected =
+        !isSocialRefusal &&
         !isSocialExemption &&
         (_multiClause.hasMatch(t) ||
             signals.isMultiIntent ||

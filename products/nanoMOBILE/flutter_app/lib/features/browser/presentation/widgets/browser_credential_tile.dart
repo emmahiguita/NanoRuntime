@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nanoai/features/browser/domain/browser_credential_model.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_tab_bar_widget.dart';
+import 'browser_tab_bar_widget.dart';
 
 /// Tarjeta individual para mostrar una credencial en la bóveda (Liquid Glass).
 ///

@@ -6,6 +6,7 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
 import 'package:nanoai/features/automation/engine/planning/linux_voice_command_parser.dart';
 
 import '../../browser_ai/application/browser_ai_gateway.dart';
+import 'chat_control_intent.dart';
 import 'web_ai_turn_router.dart';
 
 import '../../../core/models/chat_models.dart';
@@ -37,19 +38,21 @@ class ChatTurnRouter {
   }) async {
     // 0. Consultas directas a Web AI (ChatGPT, DeepSeek, Gemini, etc.)
     if (browserAiGateway != null) {
-      final webAiRes = await const WebAiTurnRouter().tryRoute(text: text, gateway: browserAiGateway);
+      final webAiRes = await const WebAiTurnRouter().tryRoute(
+        text: text,
+        gateway: browserAiGateway,
+      );
       if (webAiRes != null) return webAiRes;
     }
 
     // 1. Cancelación determinista inmediata
-    final lowerCmd = text.toLowerCase();
-    if (lowerCmd == 'para' || lowerCmd == 'cancela' || lowerCmd == 'detente' || lowerCmd == 'detén' || lowerCmd == 'stop') {
+    if (ChatControlIntent.isCancellation(text)) {
       coordinator.cancelCurrent();
       return ChatTurnRouteResult.completed(
         ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           sender: MessageSender.ai,
-          text: 'Tarea cancelada.',
+          text: ChatControlIntent.cancellationReply(text),
           timestamp: DateTime.now(),
         ),
       );
@@ -70,7 +73,10 @@ class ChatTurnRouter {
     }
 
     // 3. Comandos Linux deterministas (list/write/read)
-    final linuxCmd = const LinuxVoiceCommandParser().parse(text, lastFilePath: lastLinuxFilePath);
+    final linuxCmd = const LinuxVoiceCommandParser().parse(
+      text,
+      lastFilePath: lastLinuxFilePath,
+    );
     if (linuxCmd != null) {
       String linuxText;
       String? newFilePath = lastLinuxFilePath;
@@ -81,9 +87,11 @@ class ChatTurnRouter {
         );
         if (result.isVerifiedSuccess) {
           newFilePath = linuxCmd.call.text;
-          linuxText = 'Creé ${linuxCmd.call.text} y verifiqué su contenido (existe y contiene el texto).';
+          linuxText =
+              'Creé ${linuxCmd.call.text} y verifiqué su contenido (existe y contiene el texto).';
         } else {
-          linuxText = 'No se pudo crear ${linuxCmd.call.text}: ${automationUserFacingReason(result.reason)}';
+          linuxText =
+              'No se pudo crear ${linuxCmd.call.text}: ${automationUserFacingReason(result.reason)}';
         }
       } else {
         final outcome = await coordinator.runTool(linuxCmd.call);
@@ -144,7 +152,9 @@ class ChatTurnRouter {
           pauseDescription: automationUserFacingReason(known.result.reason),
         );
       }
-      return ChatTurnRouteResult.completed(_deviceExecutionMessage(known.result));
+      return ChatTurnRouteResult.completed(
+        _deviceExecutionMessage(known.result),
+      );
     }
 
     // 6. Tareas semánticas Cross-App
@@ -158,12 +168,17 @@ class ChatTurnRouter {
           pauseDescription: automationUserFacingReason(crossApp.result.reason),
         );
       }
-      return ChatTurnRouteResult.completed(_deviceExecutionMessage(crossApp.result));
+      return ChatTurnRouteResult.completed(
+        _deviceExecutionMessage(crossApp.result),
+      );
     }
 
     // 7. Enrutador conversacional reactivo nativo
     final hasActiveModel = engineOnline && activeModelPath != null;
-    final nativeRes = const NativeConversationalRouter().tryResolve(text, hasModel: hasActiveModel);
+    final nativeRes = const NativeConversationalRouter().tryResolve(
+      text,
+      hasModel: hasActiveModel,
+    );
     if (nativeRes != null) {
       return ChatTurnRouteResult.completed(
         ChatMessage(
@@ -181,20 +196,24 @@ class ChatTurnRouter {
     return const ChatTurnRouteResult.notHandled();
   }
 
-  static ChatMessage _deviceExecutionMessage(AutomationResult result) => ChatMessage(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        sender: MessageSender.ai,
-        text: 'Ejecutado en el dispositivo (sin LLM):\n${automationUserFacingReason(result.reason)}',
-        timestamp: DateTime.now(),
-        source: MessageSource.device,
-        status: const {
+  static ChatMessage _deviceExecutionMessage(
+    AutomationResult result,
+  ) => ChatMessage(
+    id: DateTime.now().microsecondsSinceEpoch.toString(),
+    sender: MessageSender.ai,
+    text:
+        'Ejecutado en el dispositivo (sin LLM):\n${automationUserFacingReason(result.reason)}',
+    timestamp: DateTime.now(),
+    source: MessageSource.device,
+    status:
+        const {
           AutomationResultStatus.denied,
           AutomationResultStatus.noPlan,
           AutomationResultStatus.failed,
           AutomationResultStatus.outcomeUnknown,
           AutomationResultStatus.cancelled,
         }.contains(result.status)
-            ? MessageStatus.error
-            : MessageStatus.sent,
-      );
+        ? MessageStatus.error
+        : MessageStatus.sent,
+  );
 }

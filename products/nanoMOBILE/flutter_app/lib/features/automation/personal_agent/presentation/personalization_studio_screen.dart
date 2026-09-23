@@ -42,15 +42,16 @@ part 'personalization_studio_whatsapp_picker.dart';
 /// PERSONALIZATION-STUDIO-SCREEN — Orquestador del Agente Personal EMMA.
 ///
 /// **QUÉ HACE:**
-/// Coordina la personalización de EMMA: perfiles, diagramas, diálogos estructurados,
-/// contactos con WhatsApp y sincronización con notificaciones activas.
+/// Coordina la personalización de EMMA: perfiles de estilo, memorias declarativas,
+/// frases de ejemplo multirrespuesta y sincronización con contactos de mensajería.
 ///
 /// **CÓMO FUNCIONA:**
-/// Ensambla vistas modulares de menos de 200 líneas, consultando PersonaRepository
-/// durable en SQLite y aplicando arquitectura limpia y SOLID.
+/// Ensambla vistas modulares desacopladas de menos de 200 líneas cada una,
+/// consumiendo PersonaRepository sobre SQLite sin procesos zombi ni bloqueos.
 ///
 /// **POR QUÉ:**
-/// Elimina cuellos de botella y desacopla la UI de la persistencia durable.
+/// Previene cuellos de botella en la UI, elimina errores de Overlay mediante
+/// BottomSheets modales con rootNavigator y garantiza adherencia estricta a SOLID.
 class PersonalizationStudioScreen extends ConsumerStatefulWidget {
   final int initialIndex;
   const PersonalizationStudioScreen({super.key, this.initialIndex = 0});
@@ -95,19 +96,7 @@ class _PersonalizationStudioScreenState extends ConsumerState<PersonalizationStu
         appBar: AppBar(
           title: const Text('Agente Personal · EMMA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           actions: [
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.help_outline, size: 20),
-              onSelected: (a) {
-                if (a == 'how') _showHowItLearns();
-                if (a == 'formats') _formatHelp();
-                if (a == 'privacy') _showPrivacyNote();
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(value: 'how', child: Text('¿Cómo aprende Nano?', style: TextStyle(fontSize: 11.5))),
-                PopupMenuItem(value: 'formats', child: Text('Formatos de importación', style: TextStyle(fontSize: 11.5))),
-                PopupMenuItem(value: 'privacy', child: Text('Privacidad de datos', style: TextStyle(fontSize: 11.5))),
-              ],
-            ),
+            IconButton(icon: const Icon(Icons.help_outline, size: 20), tooltip: 'Ayuda', onPressed: _openHelpSheet),
           ],
           bottom: const TabBar(
             isScrollable: true,
@@ -144,18 +133,10 @@ class _PersonalizationStudioScreenState extends ConsumerState<PersonalizationStu
                     onAddPhrase: () => _editExample(),
                     onAddTemplate: () => _editExample(template: true),
                     onEditExample: (e) => _editExample(example: e),
-                    onAddResponse: (e) => _addResponseToExample(e),
-                    onDeleteExample: (e) async {
-                      if (await _confirm('Eliminar frase', 'Dejará de usarse en las respuestas.')) {
-                        await _run(() => _repo.deleteExample(e.id));
-                      }
-                    },
+                    onAddResponse: _addResponseToExample,
+                    onDeleteExample: _deleteExampleConfirmed,
                     onToggleExample: (e, v) => _run(() => _repo.updateExample(e, tone: {...e.tone, 'enabled': '$v'})),
-                    onLoadMore: () => _run(() async {
-                      final more = await _repo.listExamples(scopeKey: _scope, limit: 100, offset: _examples.length);
-                      if (mounted) setState(() => _examples.addAll(more));
-                      if (more.isEmpty) _notice('No hay más frases.');
-                    }, reload: false),
+                    onLoadMore: _loadMoreExamples,
                   ),
                   _PersonalizationStudioContactsTab(
                     contacts: contacts,
@@ -164,11 +145,7 @@ class _PersonalizationStudioScreenState extends ConsumerState<PersonalizationStu
                     onNewContact: _newContact,
                     onSelectAndEdit: (c) { _selectScope(c.id); unawaited(_editStyle(c)); },
                     onBind: _bind,
-                    onDelete: (c) async {
-                      if (await _confirm('Eliminar perfil', 'Se eliminará el perfil de ${c.label}.')) {
-                        await _run(() => _repo.deleteRelationship(c.id));
-                      }
-                    },
+                    onDelete: _deleteContactConfirmed,
                   ),
                   _PersonalizationStudioMemoriesTab(
                     memories: _memories,
@@ -177,16 +154,8 @@ class _PersonalizationStudioScreenState extends ConsumerState<PersonalizationStu
                     onAddMemory: () => _editMemory(),
                     onEditMemory: (m) => _editMemory(m),
                     onToggleMemory: (m) => _run(() => _repo.savePersonalMemory(m.copyWith(metadata: {...m.metadata, 'enabled': '${!m.enabled}'}))),
-                    onDeleteMemory: (m) async {
-                      if (await _confirm('Eliminar memoria', 'El dato dejará de estar disponible.')) {
-                        await _run(() => _repo.deletePersonalMemory(m.id));
-                      }
-                    },
-                    onLoadMore: () => _run(() async {
-                      final more = await _repo.listPersonalMemories(scopeKey: _scope, limit: 100, offset: _memories.length);
-                      if (mounted) setState(() => _memories.addAll(more));
-                      if (more.isEmpty) _notice('No hay más memorias.');
-                    }, reload: false),
+                    onDeleteMemory: _deleteMemoryConfirmed,
+                    onLoadMore: _loadMoreMemories,
                   ),
                   _PersonalizationStudioImportsTab(
                     batches: batches,

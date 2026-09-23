@@ -1,0 +1,115 @@
+/* Nano AI — FeatherCore Base Styles & Layout Core */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+*::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--nano-font);
+  color: var(--nano-text-primary);
+  background: var(--nano-bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+}
+
+button, input, textarea, select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Contenedor Principal de Aplicación */
+.nano-app, #app-container {
+  display: grid;
+  grid-template-columns: var(--nano-sidebar-width) minmax(0, 1fr);
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  background: radial-gradient(circle at 68% 24%, rgba(60, 121, 255, .08), transparent 32%), linear-gradient(180deg, #fff 0%, var(--nano-bg) 100%);
+  overflow: hidden;
+  transition: grid-template-columns var(--motion-normal) var(--ease-nano);
+}
+
+[data-theme="dark"] .nano-app, [data-theme="dark"] #app-container {
+  background: radial-gradient(circle at 68% 24%, rgba(60, 121, 255, .12), transparent 32%), linear-gradient(180deg, #07101F 0%, #091426 100%);
+}
+
+#app-container.sidebar-is-collapsed {
+  grid-template-columns: var(--nano-sidebar-collapsed) minmax(0, 1fr);
+}
+
+/* Vista Principal y Espacio de Trabajo */
+.nano-main, #main-view {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: var(--nano-topbar-height) minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.nano-workspace, .workspace-panels {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  background: radial-gradient(circle at 63% 20%, rgba(60, 115, 255, .075), transparent 30%), radial-gradient(circle at 78% 41%, rgba(115, 91, 255, .05), transparent 30%), linear-gradient(180deg, #fff 0%, #F9FBFF 100%);
+}
+
+[data-theme="dark"] .nano-workspace, [data-theme="dark"] .workspace-panels {
+  background: radial-gradient(circle at 74% 18%, rgba(53, 100, 255, .16), transparent 30%), linear-gradient(180deg, #07101F, #091426);
+}
+
+/* Watermark de la Pluma Nano */
+.nano-workspace::after, .workspace-panels::after {
+  content: "";
+  position: fixed;
+  right: 2.5vw;
+  top: 105px;
+  width: min(30vw, 480px);
+  height: min(30vw, 480px);
+  background: url("../assets/brand/nano-feather.svg") center/contain no-repeat;
+  opacity: .075;
+  pointer-events: none;
+  z-index: 0;
+}

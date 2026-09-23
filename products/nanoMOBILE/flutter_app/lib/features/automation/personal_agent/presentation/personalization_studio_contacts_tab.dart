@@ -80,24 +80,41 @@ class _PersonalizationStudioContactsTab extends StatelessWidget {
                 style: const TextStyle(fontSize: 9.5, color: Colors.white60),
               ),
               onTap: !canEdit ? null : () => onSelectAndEdit(contact),
-              trailing: PopupMenuButton<String>(
-                enabled: canEdit,
-                onSelected: (action) {
-                  if (action == 'bind') onBind(contact);
-                  if (action == 'delete') onDelete(contact);
+              trailing: IconButton(
+                icon: const Icon(Icons.more_vert_rounded, size: 18),
+                onPressed: !canEdit ? null : () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    useRootNavigator: true,
+                    builder: (ctx) => SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!contact.id.startsWith('contact:'))
+                            ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.link_rounded),
+                              title: const Text('Vincular a conversación'),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                onBind(contact);
+                              },
+                            ),
+                          if (contact.profile != null)
+                            ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                              title: const Text('Eliminar perfil', style: TextStyle(color: Colors.redAccent)),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                onDelete(contact);
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
                 },
-                itemBuilder: (_) => [
-                  if (!contact.id.startsWith('contact:'))
-                    const PopupMenuItem(
-                      value: 'bind',
-                      child: Text('Vincular a conversación', style: TextStyle(fontSize: 11)),
-                    ),
-                  if (contact.profile != null)
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Eliminar perfil', style: TextStyle(fontSize: 11, color: Colors.redAccent)),
-                    ),
-                ],
               ),
             ),
           ),

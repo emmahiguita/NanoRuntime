@@ -107,6 +107,10 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
     _api.setEngineStateListener(_onEngineStateEvent);
     WidgetsBinding.instance.addObserver(this);
     _startHealthMonitor();
+    // El proceso Android puede sobrevivir a la reconstrucción de Flutter.
+    // Recuperar su snapshot evita mostrar "Detenido" mientras el servidor
+    // real sigue vivo y permite diagnosticar si el GGUF no cargó.
+    unawaited(refresh());
   }
 
   /// Al volver a foreground, re-verificar el motor de inmediato: el timer de

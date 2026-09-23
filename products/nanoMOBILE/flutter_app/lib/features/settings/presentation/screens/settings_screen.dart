@@ -14,13 +14,11 @@ import 'package:nanoai/features/settings/presentation/widgets/device_permissions
 import 'package:nanoai/features/settings/presentation/widgets/floating_assistant_section.dart';
 import 'package:nanoai/features/settings/presentation/widgets/account_settings_card.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
+import 'package:nanoai/core/widgets/glass_surface.dart';
 
-
-/// Opciones disponibles para el modo de tema.
+/// Modo claro/sistema pendiente hasta completar sus superficies y contrastes.
 const _themeOptions = [
-  ChoiceOption('Sistema', 'Sistema', Icons.brightness_auto_rounded),
   ChoiceOption('Oscuro', 'Oscuro', Icons.dark_mode_rounded),
-  ChoiceOption('Claro', 'Claro', Icons.light_mode_rounded),
 ];
 
 class SettingsScreen extends ConsumerWidget {
@@ -37,79 +35,81 @@ class SettingsScreen extends ConsumerWidget {
     // Como funciona: elimina el retardo de 180ms del TweenAnimationBuilder.
     // Por que: hace que el cambio a Ajustes sea 100% instantáneo.
     return Stack(
-        fit: StackFit.expand,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final useColumns = constraints.maxWidth >= 600;
-              final pagePadding = constraints.maxWidth >= 900
-                  ? NanoSpacing.xl
-                  : NanoSpacing.md;
-              final primary = <Widget>[_themeSection(state, notifier, colors)];
-              final secondary = <Widget>[
-                _inferenceSection(state, notifier, colors),
+      fit: StackFit.expand,
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final useColumns = constraints.maxWidth >= 600;
+            final pagePadding = constraints.maxWidth >= 900
+                ? NanoSpacing.xl
+                : NanoSpacing.md;
+            final primary = <Widget>[
+              _themeSection(colors),
+              _glassSurfaceSection(context, state, notifier, colors),
+            ];
+            final secondary = <Widget>[
+              _inferenceSection(state, notifier, colors),
+              const SizedBox(height: NanoSpacing.md),
+              _voiceSection(state, notifier, colors),
+            ];
+
+            return ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                pagePadding,
+                NanoSpacing.md,
+                pagePadding,
+                kNanoBarScrollReserve,
+              ),
+              children: [
+                _SettingsIntro(colors: colors, themeMode: 'Oscuro'),
                 const SizedBox(height: NanoSpacing.md),
-                  _voiceSection(state, notifier, colors),
-                ];
-
-                return ListView(
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: EdgeInsets.fromLTRB(
-                    pagePadding,
-                    NanoSpacing.md,
-                    pagePadding,
-                    kNanoBarScrollReserve,
-                  ),
-                  children: [
-                    _SettingsIntro(colors: colors, themeMode: state.themeMode),
-                    const SizedBox(height: NanoSpacing.md),
-                    const AccountSettingsSection(),
-                    const SizedBox(height: NanoSpacing.md),
-                    if (useColumns)
-
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              children: [
-                                ...primary,
-                                const SizedBox(height: NanoSpacing.md),
-                                const FloatingAssistantSection(),
-                                const SizedBox(height: NanoSpacing.md),
-                                const DevicePermissionsSection(),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: NanoSpacing.lg),
-                          Expanded(
-                            child: Column(
-                              children: [
-                                ...secondary,
-                                const SizedBox(height: NanoSpacing.md),
-                                const _DesktopSection(),
-                              ],
-                            ),
-                          ),
-                        ],
-                      )
-                    else ...[
-                      ...primary,
-                      const SizedBox(height: NanoSpacing.md),
-                      ...secondary,
-                      const SizedBox(height: NanoSpacing.md),
-                      const FloatingAssistantSection(),
-                      const SizedBox(height: NanoSpacing.md),
-                      const DevicePermissionsSection(),
-                      const SizedBox(height: NanoSpacing.md),
-                      const _DesktopSection(),
+                const AccountSettingsSection(),
+                const SizedBox(height: NanoSpacing.md),
+                if (useColumns)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          children: [
+                            ...primary,
+                            const SizedBox(height: NanoSpacing.md),
+                            const FloatingAssistantSection(),
+                            const SizedBox(height: NanoSpacing.md),
+                            const DevicePermissionsSection(),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: NanoSpacing.lg),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            ...secondary,
+                            const SizedBox(height: NanoSpacing.md),
+                            const _DesktopSection(),
+                          ],
+                        ),
+                      ),
                     ],
-                  ],
-                );
-            },
-          ),
-        ],
-      );
+                  )
+                else ...[
+                  ...primary,
+                  const SizedBox(height: NanoSpacing.md),
+                  ...secondary,
+                  const SizedBox(height: NanoSpacing.md),
+                  const FloatingAssistantSection(),
+                  const SizedBox(height: NanoSpacing.md),
+                  const DevicePermissionsSection(),
+                  const SizedBox(height: NanoSpacing.md),
+                  const _DesktopSection(),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
   }
 
   Widget _section({
@@ -128,11 +128,7 @@ class SettingsScreen extends ConsumerWidget {
     ),
   );
 
-  Widget _themeSection(
-    SettingsState state,
-    SettingsNotifier notifier,
-    NanoColors colors,
-  ) => _section(
+  Widget _themeSection(NanoColors colors) => _section(
     title: 'Apariencia',
     icon: Icons.palette_rounded,
     colors: colors,
@@ -140,12 +136,284 @@ class SettingsScreen extends ConsumerWidget {
       padding: const EdgeInsets.all(NanoSpacing.md),
       child: ChoiceGroup(
         label: 'Tema de la interfaz',
-        description: 'Se aplica al instante y respeta el modo del sistema.',
+        description: 'Modo oscuro fijo mientras se finaliza el tema claro.',
         options: _themeOptions,
-        selectedValue: state.themeMode,
-        onSelected: notifier.setThemeMode,
+        selectedValue: 'Oscuro',
+        onSelected: (_) {},
         colors: colors,
       ),
+    ),
+  );
+
+  Widget _glassSurfaceSection(
+    BuildContext context,
+    SettingsState state,
+    SettingsNotifier notifier,
+    NanoColors colors,
+  ) => _section(
+    title: 'Superficie de Vidrio iOS (GlassSurface)',
+    icon: Icons.auto_awesome_rounded,
+    colors: colors,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: NanoSpacing.md,
+            vertical: NanoSpacing.sm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: state.glassEnabled
+                      ? colors.primary.withValues(alpha: 0.12)
+                      : colors.outlineVariant.withValues(alpha: 0.18),
+                ),
+                child: Icon(
+                  Icons.blur_on_rounded,
+                  size: 20,
+                  color: state.glassEnabled
+                      ? colors.primary
+                      : colors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(width: NanoSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Vidrio Líquido iOS (GlassSurface)',
+                      style: NanoType.body(colors.onSurface),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      state.glassEnabled
+                          ? 'Transparencia, opacidad y refracción hiperrealista activas.'
+                          : 'Efectos de vidrio óptico desactivados.',
+                      style: NanoType.caption(colors.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: NanoSpacing.sm),
+              Switch(
+                value: state.glassEnabled,
+                onChanged: notifier.setGlassEnabled,
+                activeThumbColor: colors.primary,
+                inactiveTrackColor: colors.outlineVariant.withValues(
+                  alpha: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (state.glassEnabled) ...[
+          const Divider(
+            height: 1,
+            indent: NanoSpacing.md,
+            endIndent: NanoSpacing.md,
+          ),
+          _SliderRow(
+            label: 'Transparencia y Claridad (Clarity)',
+            value: state.glassClarity,
+            min: 0.0,
+            max: 1.0,
+            divisions: 20,
+            fractionDigits: 2,
+            onChanged: notifier.setGlassClarity,
+            colors: colors,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: NanoSpacing.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Esmerilado (Frosted)',
+                  style: NanoType.caption(colors.onSurfaceVariant),
+                ),
+                Text(
+                  'Cristalino (Clear)',
+                  style: NanoType.caption(colors.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: NanoSpacing.xs),
+          _SliderRow(
+            label: 'Opacidad del sustrato',
+            value: state.glassOpacity,
+            min: 0.10,
+            max: 1.00,
+            divisions: 18,
+            fractionDigits: 2,
+            onChanged: notifier.setGlassOpacity,
+            colors: colors,
+          ),
+          _SliderRow(
+            label: 'Desenfoque óptico (Blur)',
+            value: state.glassBlur,
+            min: 5.0,
+            max: 35.0,
+            divisions: 30,
+            fractionDigits: 0,
+            unit: 'px',
+            onChanged: notifier.setGlassBlur,
+            colors: colors,
+          ),
+          const SizedBox(height: NanoSpacing.sm),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: NanoSpacing.md),
+            child: Text(
+              'Previsualización interactiva:',
+              style: NanoType.caption(colors.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(height: NanoSpacing.xs),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              NanoSpacing.md,
+              0,
+              NanoSpacing.md,
+              NanoSpacing.md,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                height: 165,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xFF007AFF), // iOS Blue
+                      Color(0xFF5856D6), // iOS Indigo
+                      Color(0xFFFF2D55), // iOS Pink
+                      Color(0xFFFF9500), // iOS Orange
+                    ],
+                  ),
+                ),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned(
+                      top: 18,
+                      left: 28,
+                      child: Container(
+                        width: 58,
+                        height: 58,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 12,
+                      right: 32,
+                      child: Container(
+                        width: 80,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          color: Colors.yellowAccent.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: NanoSpacing.md,
+                        vertical: NanoSpacing.sm,
+                      ),
+                      child: GlassSurface(
+                        opacity: state.glassOpacity,
+                        clarity: state.glassClarity,
+                        blur: state.glassBlur,
+                        interactive: true,
+                        radius: 18,
+                        padding: const EdgeInsets.all(NanoSpacing.md),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                  ),
+                                  child: const Icon(
+                                    Icons.touch_app_rounded,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: NanoSpacing.sm),
+                                Text(
+                                  'iOS GlassSurface Live',
+                                  style: NanoType.subtitle(Colors.white),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Arrastra el dedo para probar el tilt 3D y el reflejo especular dinámico.',
+                              style: NanoType.caption(
+                                Colors.white.withValues(alpha: 0.85),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: Colors.black.withValues(alpha: 0.25),
+                                  ),
+                                  child: Text(
+                                    'Opacidad: ${(state.glassOpacity * 100).toInt()}%',
+                                    style: NanoType.caption(Colors.white),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: Colors.black.withValues(alpha: 0.25),
+                                  ),
+                                  child: Text(
+                                    'Claridad: ${(state.glassClarity * 100).toInt()}%',
+                                    style: NanoType.caption(Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
     ),
   );
 

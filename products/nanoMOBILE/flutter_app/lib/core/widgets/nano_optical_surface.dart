@@ -203,9 +203,17 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final themeExt = NanoThemeExtension.maybeOf(context);
+    final colors = themeExt?.colors ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? NanoDarkColors()
+            : NanoLightColors());
     final isDark = colors is NanoDarkColors;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final glassEnabled = themeExt?.glassEnabled ?? true;
+    final glassOpacity = themeExt?.glassOpacity ?? 0.70;
+    final glassClarity = themeExt?.glassClarity ?? 0.85;
+    final glassBlur = themeExt?.glassBlur ?? widget.blurSigma;
 
     // Resolución de radio según geometría
     final BorderRadius resolvedRadius;
@@ -255,6 +263,10 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
                   effectiveAccent,
                   pressed,
                   _isPointerInside && !reduceMotion ? _pointerLight : null,
+                  glassEnabled,
+                  glassOpacity,
+                  glassClarity,
+                  glassBlur,
                 ),
               ),
             );
@@ -271,6 +283,10 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
           effectiveAccent,
           0.0,
           null,
+          glassEnabled,
+          glassOpacity,
+          glassClarity,
+          glassBlur,
         ),
       );
     }
@@ -308,6 +324,10 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     Color effectiveAccent,
     double pressed,
     Alignment? pointerLight,
+    bool glassEnabled,
+    double glassOpacity,
+    double glassClarity,
+    double glassBlur,
   ) {
     // Respuesta física del press (Regla 23): sombra -15%, bisel +7%,
     // destello desplazado 3–5px. Todo deriva del mismo _pressProgress.
@@ -381,8 +401,9 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     );
 
     // 3. Sustrato de vidrio blanco translúcido (opacidad escalada por
-    // glassOpacityScale: hero 1.0, laterales reducidas).
-    final opacityScale = widget.glassOpacityScale;
+    // glassOpacityScale: hero 1.0, laterales reducidas) y modulada universalmente.
+    final opacityScale = widget.glassOpacityScale *
+        (glassEnabled ? (glassOpacity / 0.70) : 1.0);
     final glassBodyGradient = isDark
         ? LinearGradient(
             begin: Alignment.topLeft,
@@ -563,12 +584,18 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     );
 
     if (widget.hasBackdropBlur) {
+      final effectiveBlur = (!glassEnabled || reduceMotion)
+          ? 0.0
+          : (widget.blurSigma *
+                  (glassBlur / 24.0) *
+                  (0.6 + 0.4 * (1.0 - glassClarity * 0.35)))
+              .clamp(0.0, 45.0);
       opticalStack = ClipRRect(
         borderRadius: resolvedRadius,
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: reduceMotion ? 0.0 : widget.blurSigma,
-            sigmaY: reduceMotion ? 0.0 : widget.blurSigma,
+            sigmaX: effectiveBlur,
+            sigmaY: effectiveBlur,
           ),
           child: opticalStack,
         ),

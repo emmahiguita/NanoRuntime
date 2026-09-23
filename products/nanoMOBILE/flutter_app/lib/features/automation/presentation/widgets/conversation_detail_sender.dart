@@ -28,24 +28,39 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       _statusText = 'Enviando mensaje...';
     });
     try {
+      final conversationId = canonicalConversationId(widget.item.conversationId);
+      final pendingId = widget.item.hasPendingReply
+          ? widget.item.pendingReplyId
+          : null;
+      final pendingStore = pendingId != null
+          ? ref.read(pendingReplyStoreProvider)
+          : null;
       if (widget.item.hasPendingReply && widget.item.pendingReplyId != null) {
-        final pendingStore = ref.read(pendingReplyStoreProvider);
-        await pendingStore.updateDraftText(widget.item.pendingReplyId!, text);
-        await pendingStore.approve(widget.item.pendingReplyId!);
+        await pendingStore!.updateDraftText(pendingId!, text);
       }
 
       final executor = ref.read(notificationExecutorProvider);
       final list = await executor.list(limit: 50);
-      final targetNotif = _findMatchingNotification(list, requireCanReply: true);
+      final targetNotif = _findMatchingNotification(
+        list,
+        requireCanReply: true,
+      );
 
       if (targetNotif != null) {
         final replyResult = await executor.confirmAndReply(targetNotif, text);
+        if (!replyResult.isAccepted) {
+          if (mounted) {
+            setState(() {
+              _statusText =
+                  'No se pudo enviar: ${replyResult.reason ?? replyResult.code}';
+            });
+          }
+          return;
+        }
         if (mounted) {
           setState(() {
             _inputController.clear();
-            _statusText = replyResult.isAccepted
-                ? 'Mensaje entregado en 2do plano sin abrir WhatsApp'
-                : 'No se pudo entregar en 2do plano: ${replyResult.code}';
+            _statusText = 'Mensaje entregado en 2do plano sin abrir WhatsApp';
           });
         }
       } else {
@@ -56,7 +71,7 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
         final whatsAppContacts = ref.read(allWhatsAppContactsProvider).value;
 
         final phoneDigits = ConversationPhoneResolver.resolve(
-          conversationId: widget.item.conversationId,
+          conversationId: conversationId,
           displayName: widget.item.displayName,
           lastMessage: widget.item.lastMessage,
           store: memoryStore,
@@ -67,7 +82,8 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
         if (phoneDigits == null || phoneDigits.length < 7) {
           if (mounted) {
             setState(() {
-              _statusText = 'Sin notificación activa ni teléfono para ${widget.item.displayName}.';
+              _statusText =
+                  'Sin notificación activa ni teléfono para ${widget.item.displayName}.';
             });
             await _showMissingPhoneDialog(context, widget.item.displayName);
           }
@@ -78,7 +94,9 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
 
         if (hasA11y) {
           if (mounted) {
-            setState(() => _statusText = '⚡ Despachando con retorno automático...');
+            setState(
+              () => _statusText = '⚡ Despachando con retorno automático...',
+            );
           }
           final ok = await share.openChat(
             contact: contact,
@@ -86,12 +104,18 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
             packageName: widget.item.packageName,
             autoSend: true,
           );
+          if (!ok) {
+            if (mounted) {
+              setState(() {
+                _statusText = 'No se pudo abrir el chat de WhatsApp';
+              });
+            }
+            return;
+          }
           if (mounted) {
             setState(() {
               _inputController.clear();
-              _statusText = ok
-                  ? 'Mensaje despachado y retornado a Nano'
-                  : 'No se pudo abrir el chat de WhatsApp';
+              _statusText = 'Mensaje despachado y retornado a Nano';
             });
           }
         } else {
@@ -100,7 +124,12 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
               _busy = false;
               _statusText = 'Acción requerida para enviar sin salir de Nano';
             });
-            final action = await _showNoA11yOptionsModal(context, share, contact, text);
+            final action = await _showNoA11yOptionsModal(
+              context,
+              share,
+              contact,
+              text,
+            );
             if (action == 'sent_whatsapp' && mounted) {
               setState(() {
                 _inputController.clear();
@@ -115,19 +144,25 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       final memoryStore = ref.read(conversationMemoryStoreProvider);
       memoryStore.appendOutbound(
-        widget.item.conversationId,
+        conversationId,
         text,
         kind: ConversationMemoryEntryKind.outboundDispatched,
         atMs: nowMs,
       );
-      ref.read(eventDedupeStoreProvider).recordVerifiedOutbound(
-        widget.item.conversationId,
-        text,
-        atMs: nowMs,
-      );
+      ref
+          .read(eventDedupeStoreProvider)
+          .recordVerifiedOutbound(
+            conversationId,
+            text,
+            atMs: nowMs,
+          );
 
       // Autoaprendizaje de estilo en SQLite FTS4
       await _recordStyleLearning(text);
+
+      if (pendingId != null) {
+        await pendingStore!.markSent(pendingId);
+      }
 
       ref.invalidate(conversationHubListProvider);
       ref.read(conversationHubVersionProvider.notifier).state++;
@@ -145,45 +180,4 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
     }
   }
 
-  Future<void> _recordStyleLearning(String text) async {
-    final lastMsg = widget.item.lastMessage.trim();
-    final isRealIncoming = lastMsg.isNotEmpty && !RegExp(r'^\+?[0-9\s\-]+$').hasMatch(lastMsg);
-    if (!isRealIncoming) return;
-
-    try {
-      final originalDraft = widget.item.pendingReplyText?.trim();
-      final isCorrection = originalDraft != null &&
-          originalDraft.isNotEmpty &&
-          originalDraft != text;
-
-      await PersonaRepository.instance.addExample(
-        personaKey: 'owner',
-        incomingText: lastMsg,
-        body: text,
-        source: isCorrection ? 'correction' : 'messaging_center_learning',
-        tone: {
-          'ownerVerified': 'true',
-          'kind': 'paired',
-          if (isCorrection) 'correctedFrom': originalDraft,
-        },
-      );
-
-      if (isCorrection) {
-        await PersonaRepository.instance.savePersonalMemory(
-          PersonalMemory(
-            scopeKey: 'owner',
-            key: 'correccion_estilo',
-            value: 'Preferir "$text" sobre "$originalDraft"',
-            kind: 'stylePreference',
-            observedAt: DateTime.now().millisecondsSinceEpoch,
-            metadata: {
-              'suggested': originalDraft,
-              'corrected': text,
-              'input': lastMsg,
-            },
-          ),
-        );
-      }
-    } catch (_) {}
-  }
 }

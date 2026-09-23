@@ -51,7 +51,8 @@ class ChatModelService {
       required String model,
       required String path,
       required ModelConnectionState connection,
-    }) onModelRestored,
+    })
+    onModelRestored,
     required Future<void> Function(String model, int revision) onCheckEngine,
   }) async {
     final revision = _modelSelectionRevision;
@@ -78,7 +79,8 @@ class ChatModelService {
   Future<void> refreshEngine({
     required String? activeModelPath,
     required bool Function() isMounted,
-    required void Function({required bool online, ModelConnectionState? conn}) onEngineUpdated,
+    required void Function({required bool online, ModelConnectionState? conn})
+    onEngineUpdated,
   }) async {
     final engine = _ref.read(runtimeEngineProvider.notifier);
     if (activeModelPath != null) {
@@ -95,7 +97,7 @@ class ChatModelService {
     onEngineUpdated(online: engine.isLive);
   }
 
-  /// Consulta el estado real del motor y actualiza el estado de conexión.
+  /// Arranca el modelo seleccionado y publica el estado real del motor.
   Future<void> checkEngine({
     required String activeModel,
     int? expectedRevision,
@@ -104,11 +106,19 @@ class ChatModelService {
       required String model,
       required ModelConnectionState connection,
       required bool online,
-    }) onStateUpdated,
+    })
+    onStateUpdated,
   }) async {
     final engine = _ref.read(runtimeEngineProvider.notifier);
-    await engine.refresh();
-    if (!isMounted() || (expectedRevision != null && expectedRevision != _modelSelectionRevision)) {
+    final selectedPath = _ref.read(settingsProvider).chatModelPath.trim();
+    // "Cargar" debe ejecutar el modelo, no limitarse a guardar su ruta.
+    if (selectedPath.isNotEmpty) {
+      await engine.ensureReady(modelPath: selectedPath);
+    } else {
+      await engine.refresh();
+    }
+    if (!isMounted() ||
+        (expectedRevision != null && expectedRevision != _modelSelectionRevision)) {
       return;
     }
     onStateUpdated(
@@ -129,12 +139,15 @@ class ChatModelService {
     bool confirmedExtreme = false,
     required String currentModel,
     required String? currentModelPath,
-    required void Function({required String selectedModel, required String? selectedPath}) onSelectionStarted,
+    required void Function({required String selectedModel, required String? selectedPath})
+    onSelectionStarted,
     required Future<void> Function(String model, int revision) onCheckEngine,
   }) {
     final entry = NeuralCatalog.entryOf(name);
     if (entry.name == name && entry.tier == ModelTier.extreme && !confirmedExtreme) {
-      debugPrint('[ChatModelService] selectModel extreme ($name) sin confirmación — ignorado');
+      debugPrint(
+        '[ChatModelService] selectModel extreme ($name) sin confirmación — ignorado',
+      );
       return;
     }
 

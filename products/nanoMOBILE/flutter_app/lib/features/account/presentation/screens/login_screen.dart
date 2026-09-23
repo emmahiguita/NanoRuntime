@@ -1,9 +1,7 @@
-// login_screen.dart — Pantalla oficial de autenticación de Nano AI.
-// QUÉ: Inicio de sesión mediante credenciales locales o federadas (Google).
-// CÓMO: Layout reactivo adaptado a orientación (portrait y landscape compacto).
-//       Valida en tiempo real, reporta errores inline y gestiona estado de carga.
-// POR QUÉ: Evita desbordamientos de pantalla en modo horizontal (isLandscape),
-//          asegura contraste nítido en modo claro y mantiene menos de 180 líneas.
+// login_screen.dart — Pantalla oficial de autenticación y acceso a Nano AI.
+// QUÉ: Inicio de sesión empresarial y soberano (Credenciales locales, Google y Modo Autónomo).
+// CÓMO: Layout reactivo adaptado a orientación con estética Glassmorphism de alta gama.
+// POR QUÉ: Garantiza alta fidelidad visual, tono corporativo/ciber-core y cero desbordamientos (<200 líneas).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,8 +9,8 @@ import '../../../../core/theme/adaptive_theme.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/theme/nano_type.dart';
 import '../../../../core/widgets/nano_components.dart';
-import '../../../../core/widgets/nano_owl_avatar.dart';
 import '../../application/account_providers.dart';
+import '../widgets/login_auth_header.dart';
 import '../widgets/nano_glass_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -24,15 +22,13 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _email = TextEditingController();
-  final _password = TextEditingController();
+  final _email = TextEditingController(), _password = TextEditingController();
   String? _errorMessage;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _email.dispose();
-    _password.dispose();
+    _email.dispose(); _password.dispose();
     super.dispose();
   }
 
@@ -47,140 +43,55 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _handleLogin() {
     if (!_formKey.currentState!.validate()) return;
-    final auth = ref.read(authControllerProvider.notifier);
-    _submit(() => auth.login(email: _email.text, password: _password.text));
+    _submit(() => ref.read(authControllerProvider.notifier).login(email: _email.text, password: _password.text));
   }
 
-  void _handleGoogle() {
+  void _handleGoogle() => _submit(() => ref.read(authControllerProvider.notifier).continueWithGoogle());
+
+  void _handleAutonomousLocal() {
     final auth = ref.read(authControllerProvider.notifier);
-    _submit(() => auth.continueWithGoogle());
+    _submit(() async {
+      final loginErr = await auth.login(email: 'operador@nano.local', password: 'nano-local-key');
+      if (loginErr != null) {
+        return auth.register(email: 'operador@nano.local', password: 'nano-local-key', displayName: 'Operador Soberano');
+      }
+      return null;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final landscape = AdaptiveTheme.isLandscape(context);
-    final gap = SizedBox(height: landscape ? 6 : NanoSpacing.md);
+    final gap = SizedBox(height: landscape ? 8 : NanoSpacing.md);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(
-              horizontal: landscape ? NanoSpacing.xl : NanoSpacing.lg,
+              horizontal: landscape ? NanoSpacing.xxl : NanoSpacing.lg,
               vertical: landscape ? 8 : NanoSpacing.md,
             ),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Cabecera compacta adaptable
-                  if (!landscape) ...[
-                    const NanoOwlAvatar(size: 52, state: NanoOwlState.idle),
-                    const SizedBox(height: 6),
-                    Text('NANO', style: NanoType.headline(colors.onSurface)),
-                    Text('Tu agente personal local-first', style: NanoType.caption(colors.onSurfaceVariant)),
-                    const SizedBox(height: NanoSpacing.lg),
-                  ] else ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const NanoOwlAvatar(size: 32, state: NanoOwlState.idle),
-                        const SizedBox(width: 8),
-                        Text('NANO', style: NanoType.title(colors.onSurface)),
-                        const SizedBox(width: 8),
-                        Text('·  Agente local-first', style: NanoType.caption(colors.onSurfaceVariant)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-
-                  if (_errorMessage != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: colors.error.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(NanoRadius.small),
-                        border: Border.all(color: colors.error.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.error_outline_rounded, color: colors.error, size: 16),
-                          const SizedBox(width: 6),
-                          Expanded(child: Text(_errorMessage!, style: NanoType.caption(colors.error))),
-                        ],
-                      ),
-                    ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LoginAuthHeader(isLandscape: landscape),
                     gap,
+                    if (_errorMessage != null) ...[
+                      _buildErrorBanner(colors, _errorMessage!),
+                      gap,
+                    ],
+                    _buildFormCard(colors, gap),
+                    gap,
+                    _buildFooterActions(colors),
                   ],
-
-                  NanoGlassField(
-                    controller: _email,
-                    label: 'Correo electrónico',
-                    hint: 'nombre@ejemplo.com',
-                    prefixIcon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (val) => val == null || !val.contains('@') ? 'Ingresa un correo válido' : null,
-                  ),
-                  gap,
-                  NanoGlassField(
-                    controller: _password,
-                    label: 'Contraseña',
-                    hint: '••••••••',
-                    prefixIcon: Icons.lock_outline_rounded,
-                    isPassword: true,
-                    validator: (val) => val == null || val.length < 6 ? 'Mínimo 6 caracteres' : null,
-                  ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
-                      onPressed: () => context.push('/auth/forgot-password'),
-                      child: Text('¿Olvidaste tu contraseña?', style: NanoType.caption(colors.primary)),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-
-                  NanoActionButton(
-                    label: _isLoading ? 'Iniciando...' : 'Iniciar sesión',
-                    primary: true,
-                    expanded: true,
-                    onPressed: _isLoading ? null : _handleLogin,
-                  ),
-                  gap,
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: colors.outlineVariant)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text('o', style: NanoType.caption(colors.onSurfaceVariant)),
-                      ),
-                      Expanded(child: Divider(color: colors.outlineVariant)),
-                    ],
-                  ),
-                  gap,
-                  NanoActionButton(
-                    label: 'Continuar con Google',
-                    primary: false,
-                    expanded: true,
-                    icon: Icons.g_mobiledata_rounded,
-                    onPressed: _isLoading ? null : _handleGoogle,
-                  ),
-                  gap,
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('¿Nuevo en Nano? ', style: NanoType.caption(colors.onSurfaceVariant)),
-                      GestureDetector(
-                        onTap: () => context.push('/auth/register'),
-                        child: Text('Crear cuenta', style: NanoType.label(colors.primary)),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -188,4 +99,100 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       ),
     );
   }
+
+  Widget _buildErrorBanner(NanoColors colors, String message) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: colors.error.withValues(alpha: 0.1),
+      borderRadius: BorderRadius.circular(NanoRadius.small),
+      border: Border.all(color: colors.error.withValues(alpha: 0.35)),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.error_outline_rounded, color: colors.error, size: 18),
+        const SizedBox(width: 8),
+        Expanded(child: Text(message, style: NanoType.caption(colors.error))),
+      ],
+    ),
+  );
+
+  Widget _buildFormCard(NanoColors colors, Widget gap) {
+    return NanoOpticalSurface(
+      borderRadius: NanoRadius.large,
+      padding: const EdgeInsets.all(NanoSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          NanoGlassField(
+            controller: _email, label: 'IDENTIFICADOR O CORREO',
+            hint: 'operador@nodo-nano.local', prefixIcon: Icons.fingerprint_rounded,
+            keyboardType: TextInputType.emailAddress,
+            validator: (val) => val == null || !val.contains('@') ? 'Ingresa un correo o ID válido' : null,
+          ),
+          gap,
+          NanoGlassField(
+            controller: _password, label: 'CLAVE DE ACCESO CRIPTOGRÁFICA',
+            hint: '••••••••••••', prefixIcon: Icons.lock_outline_rounded,
+            isPassword: true, validator: (val) => val == null || val.length < 6 ? 'Mínimo 6 caracteres' : null,
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              style: TextButton.styleFrom(padding: const EdgeInsets.only(top: 4), visualDensity: VisualDensity.compact),
+              onPressed: () => context.push('/auth/forgot-password'),
+              child: Text('¿Restablecer credenciales?', style: NanoType.caption(colors.primary)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          NanoActionButton(
+            label: _isLoading ? 'Autenticando en Nodo...' : 'Autenticar en Nodo Seguro',
+            primary: true, expanded: true, icon: Icons.shield_outlined,
+            onPressed: _isLoading ? null : _handleLogin,
+          ),
+          gap,
+          _buildDivider(colors),
+          gap,
+          NanoActionButton(
+            label: 'Continuar con Google Workspace',
+            primary: false, expanded: true, icon: Icons.g_mobiledata_rounded,
+            onPressed: _isLoading ? null : _handleGoogle,
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 11),
+              side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.6)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(NanoRadius.medium)),
+            ),
+            icon: Icon(Icons.offline_bolt_outlined, size: 18, color: colors.primary),
+            label: Text('Acceso en Modo Autónomo Local (100% Privado)',
+                style: NanoType.caption(colors.onSurface).copyWith(fontWeight: FontWeight.w600)),
+            onPressed: _isLoading ? null : _handleAutonomousLocal,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider(NanoColors colors) => Row(
+    children: [
+      Expanded(child: Divider(color: colors.outlineVariant.withValues(alpha: 0.5))),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Text('o autenticación federada', style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 11)),
+      ),
+      Expanded(child: Divider(color: colors.outlineVariant.withValues(alpha: 0.5))),
+    ],
+  );
+
+  Widget _buildFooterActions(NanoColors colors) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      Text('¿Nuevo en la red Nano? ', style: NanoType.caption(colors.onSurfaceVariant)),
+      GestureDetector(
+        onTap: () => context.push('/auth/register'),
+        child: Text('Crear nuevo nodo', style: NanoType.label(colors.primary).copyWith(fontWeight: FontWeight.w700)),
+      ),
+    ],
+  );
 }

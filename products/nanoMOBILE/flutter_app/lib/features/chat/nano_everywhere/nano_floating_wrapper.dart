@@ -1,30 +1,23 @@
-// nano_floating_wrapper.dart — Integra el búho flotante en la app existente.
-// QUÉ: StatefulWidget que envuelve la app con NanoFloatingAssistant y gestiona
-//      el ciclo de vida del NanoAiController + el handoff del overlay nativo.
-// CÓMO: WidgetsBindingObserver escucha lifecycle para recuperar el prompt
-//       cuando la app vuelve de background (usuario escribió en el overlay).
-// POR QUÉ: Separa el setup del controller de la UI (SOLID-S).
-//          REEMPLAZAR los callbacks placeholder con BrowserAiGateway y
-//          AgentToolDispatcher reales una vez conectados.
+// nano_floating_wrapper.dart — Punto de integración del asistente flotante en Nano.
+// QUÉ: Envuelve el contenido de la app con NanoFloatingAssistant y conecta:
+//       - NanoOverlayRuntime (recibe queries del overlay nativo)
+//       - NanoFloatingSystem (toma el prompt pendiente al resumir)
+//       - NanoAiController (ChangeNotifier que gestiona el estado)
+// CÓMO: WidgetsBindingObserver detecta resume → llama takeEntry() sin polling.
+//       didUpdateWidget recrea el controller solo si cambian providers o actions.
+// POR QUÉ: Un único controller compartido evita duplicar engines de Dart.
+//          El overlay nativo SOLO envía el prompt → Nano lo procesa aquí.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'nano_ai_controller.dart';
 import 'nano_ai_models.dart';
 import 'nano_android_native_ai_port.dart';
 import 'nano_floating_assistant.dart';
 import 'nano_floating_system.dart';
+import 'nano_overlay_runtime.dart';
 
-/// Envuelve [child] con el búho flotante de Nano.
-///
-/// ```dart
-/// // En main.dart, wrappear el MaterialApp.router o la pantalla raíz:
-/// NanoFloatingWrapper(
-///   child: MaterialApp.router(...),
-///   webProviders: [...],   // NanoProviders con ask = BrowserAiGateway.ask
-///   actions: myActionPort, // AgentToolDispatcher como NanoActionPort
-///   audioLevel: micLevel,  // ValueNotifier<double> del micrófono
-/// )
-/// ```
+/// Wrapper principal. Conectar a BrowserAiGateway y AgentToolDispatcher via nano_providers.dart.
 class NanoFloatingWrapper extends StatefulWidget {
   const NanoFloatingWrapper({
     super.key,
@@ -34,20 +27,29 @@ class NanoFloatingWrapper extends StatefulWidget {
     required this.audioLevel,
     this.onVoice,
   });
-
   final Widget child;
-
-  /// Lista de NanoProvider con ask≠null para consultas directas.
   final List<NanoProvider> webProviders;
-
-  /// Puerto al AgentToolDispatcher existente para el modo Acción.
   final NanoActionPort actions;
-
-  /// Nivel RMS del micrófono 0..1 — conectar al SpeechChannelHandler existente.
   final ValueListenable<double> audioLevel;
-
-  /// Callback de voz — invocar SpeechChannelHandler.startListening().
   final VoidCallback? onVoice;
+
+  static NanoAiController? activeController;
+  static bool expand({String? prompt, NanoMode? mode}) {
+    if (activeController == null) return false;
+    if (mode != null) activeController!.selectMode(mode);
+    activeController!.expand(prompt);
+    return true;
+  }
+  static bool toggle() {
+    if (activeController == null) return false;
+    activeController!.toggle();
+    return true;
+  }
+  static bool hide() {
+    if (activeController == null) return false;
+    activeController!.hide();
+    return true;
+  }
 
   @override
   State<NanoFloatingWrapper> createState() => _NanoFloatingWrapperState();
@@ -55,9 +57,10 @@ class NanoFloatingWrapper extends StatefulWidget {
 
 class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
     with WidgetsBindingObserver {
-  late NanoAiController _controller;
+  late NanoAiController controller;
+  late NanoOverlayRuntime overlay;
 
-  NanoAiController _build() => NanoAiController(
+  NanoAiController _makeController() => NanoAiController(
         providers: widget.webProviders,
         nativeApps: const NanoAndroidNativeAiPort(),
         actions: widget.actions,
@@ -66,63 +69,75 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
   @override
   void initState() {
     super.initState();
-    _controller = _build();
+    controller = _makeController();
+    NanoFloatingWrapper.activeController = controller;
+    overlay = NanoOverlayRuntime(controller)..attach();
     WidgetsBinding.instance.addObserver(this);
-    // Recuperar prompt si la app ya tenía uno pendiente al arrancar.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _takePending());
+    // Revisar si hay un prompt pendiente del overlay nativo al arrancar.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _takeEntry());
   }
 
   @override
-  void didUpdateWidget(covariant NanoFloatingWrapper old) {
-    super.didUpdateWidget(old);
-    // Reconstruye el controller si cambian providers o actions.
-    if (old.webProviders != widget.webProviders ||
-        old.actions != widget.actions) {
-      final prev = _controller;
-      _controller = _build();
-      prev.dispose();
+  void didUpdateWidget(covariant NanoFloatingWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Recrear el controller solo si cambia la configuración de proveedores.
+    if (oldWidget.webProviders != widget.webProviders ||
+        oldWidget.actions != widget.actions) {
+      overlay.detach();
+      controller.dispose();
+      controller = _makeController();
+      NanoFloatingWrapper.activeController = controller;
+      overlay = NanoOverlayRuntime(controller)..attach();
     }
   }
 
-  /// Recupera el prompt que el usuario escribió en el overlay nativo.
-  Future<void> _takePending() async {
+  // Recuperar prompt+mode del Intent del overlay nativo al volver a la app.
+  Future<void> _takeEntry() async {
     try {
-      final prompt = await const NanoFloatingSystem().takePendingPrompt();
-      if (mounted && prompt != null) _controller.queuePrompt(prompt);
-    } catch (_) {
-      // Canal no disponible (iOS, web, build sin Kotlin) — ignorar.
+      final entry = await const NanoFloatingSystem().takePendingEntry();
+      if (!mounted || entry == null) return;
+      controller.selectMode(switch (entry['mode']) {
+        'compare' => NanoMode.compare,
+        'debate'  => NanoMode.debate,
+        'action'  => NanoMode.action,
+        _         => NanoMode.quick,
+      });
+      controller.queuePrompt(entry['prompt']?.toString() ?? '');
+    } on MissingPluginException {
+      // Web / preview sin canal Android — ignorar silenciosamente.
+    } on PlatformException {
+      // El diagnóstico de integración nativa se reporta en logcat.
     }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Al volver de otra app, el usuario puede haber escrito en el overlay.
-    if (state == AppLifecycleState.resumed) _takePending();
+    // Al volver a primer plano, revisar si el overlay dejó un prompt.
+    if (state == AppLifecycleState.resumed) _takeEntry();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _controller.dispose();
+    if (NanoFloatingWrapper.activeController == controller) NanoFloatingWrapper.activeController = null;
+    overlay.detach();
+    controller.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Stack(children: [
-      // Contenido principal de la app.
-      Positioned.fill(child: widget.child),
-      // Búho flotante sobre el contenido.
-      Positioned.fill(
-        child: ListenableBuilder(
-          listenable: _controller,
-          builder: (_, __) => NanoFloatingAssistant(
-            controller: _controller,
-            audioLevel: widget.audioLevel,
-            onVoice: widget.onVoice,
+  Widget build(BuildContext context) => Stack(children: [
+        Positioned.fill(child: widget.child),
+        // El Navigator ya aporta Overlay; el asistente gestiona un solo listener.
+        Positioned.fill(
+          child: Material(
+            type: MaterialType.transparency,
+            child: NanoFloatingAssistant(
+              controller: controller,
+              audioLevel: widget.audioLevel,
+              onVoice: widget.onVoice,
+            ),
           ),
         ),
-      ),
-    ]);
-  }
+      ]);
 }

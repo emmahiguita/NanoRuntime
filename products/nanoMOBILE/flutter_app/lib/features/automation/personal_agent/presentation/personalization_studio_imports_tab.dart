@@ -80,16 +80,39 @@ class _PersonalizationStudioImportsTab extends StatelessWidget {
                     '${dateFormatter(batch['atMs'])} · ${metadata['accepted'] ?? 'Cantidad desconocida'} aceptados',
                     style: const TextStyle(fontSize: 9, color: Colors.white60),
                   ),
-                  trailing: PopupMenuButton<String>(
-                    enabled: canEdit,
-                    onSelected: (action) {
-                      if (action == 'view') onViewOrigin(batch);
-                      if (action == 'delete') onDeleteBatch(batch);
+                  trailing: IconButton(
+                    icon: const Icon(Icons.more_vert_rounded, size: 18),
+                    onPressed: !canEdit ? null : () {
+                      showModalBottomSheet<void>(
+                        context: context,
+                        useRootNavigator: true,
+                        builder: (ctx) => SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ListTile(
+                                dense: true,
+                                leading: const Icon(Icons.visibility_outlined),
+                                title: const Text('Ver origen'),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  onViewOrigin(batch);
+                                },
+                              ),
+                              ListTile(
+                                dense: true,
+                                leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                title: const Text('Retirar este lote', style: TextStyle(color: Colors.redAccent)),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  onDeleteBatch(batch);
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'view', child: Text('Ver origen', style: TextStyle(fontSize: 11))),
-                      PopupMenuItem(value: 'delete', child: Text('Retirar este lote', style: TextStyle(fontSize: 11, color: Colors.redAccent))),
-                    ],
                   ),
                 ),
               );

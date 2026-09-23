@@ -23,6 +23,7 @@ class NanoUniversalInputConfig {
     this.onStop,
     this.clearOnSubmit = true,
     this.keepFocusOnSubmit = false,
+    this.keepDockVisible = false,
     this.focusNode,
     this.controller,
   });
@@ -48,6 +49,10 @@ class NanoUniversalInputConfig {
   /// debe obligar a reabrir el teclado en cada mensaje.
   final bool keepFocusOnSubmit;
 
+  /// Mantiene la barra expandida en horizontal cuando escribir es la acción
+  /// principal. El usuario todavía puede contraerla con el control manual.
+  final bool keepDockVisible;
+
   /// FocusNode y controller únicos inyectados por el scope (Terminal, etc.)
   /// para garantizar una única fuente de verdad y foco directo.
   final FocusNode? focusNode;
@@ -67,6 +72,7 @@ class NanoUniversalInputConfig {
     VoidCallback? onStop,
     bool? clearOnSubmit,
     bool? keepFocusOnSubmit,
+    bool? keepDockVisible,
     FocusNode? focusNode,
     TextEditingController? controller,
   }) {
@@ -82,6 +88,7 @@ class NanoUniversalInputConfig {
       onStop: onStop ?? this.onStop,
       clearOnSubmit: clearOnSubmit ?? this.clearOnSubmit,
       keepFocusOnSubmit: keepFocusOnSubmit ?? this.keepFocusOnSubmit,
+      keepDockVisible: keepDockVisible ?? this.keepDockVisible,
       focusNode: focusNode ?? this.focusNode,
       controller: controller ?? this.controller,
     );
@@ -103,6 +110,7 @@ class NanoUniversalInputConfig {
           onStop == other.onStop &&
           clearOnSubmit == other.clearOnSubmit &&
           keepFocusOnSubmit == other.keepFocusOnSubmit &&
+          keepDockVisible == other.keepDockVisible &&
           focusNode == other.focusNode &&
           controller == other.controller;
 
@@ -119,6 +127,7 @@ class NanoUniversalInputConfig {
         onStop,
         clearOnSubmit,
         keepFocusOnSubmit,
+        keepDockVisible,
         focusNode,
         controller,
       );
@@ -170,7 +179,8 @@ class NanoUniversalInputNotifier extends StateNotifier<NanoUniversalInputConfig>
       a.isGenerating == b.isGenerating &&
       a.isListening == b.isListening &&
       a.clearOnSubmit == b.clearOnSubmit &&
-      a.keepFocusOnSubmit == b.keepFocusOnSubmit;
+      a.keepFocusOnSubmit == b.keepFocusOnSubmit &&
+      a.keepDockVisible == b.keepDockVisible;
 
   /// Olvida el slot del ámbito desmontado (ya no informa a la barra).
   void removeScope(String scopeId) {
@@ -215,6 +225,7 @@ class NanoInputScope extends ConsumerStatefulWidget {
     this.onStop,
     this.clearOnSubmit = true,
     this.keepFocusOnSubmit = false,
+    this.keepDockVisible = false,
     this.focusNode,
     this.controller,
   });
@@ -236,6 +247,7 @@ class NanoInputScope extends ConsumerStatefulWidget {
   final VoidCallback? onStop;
   final bool clearOnSubmit;
   final bool keepFocusOnSubmit;
+  final bool keepDockVisible;
   final FocusNode? focusNode;
   final TextEditingController? controller;
 
@@ -292,6 +304,7 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
         oldWidget.isListening != widget.isListening ||
         oldWidget.clearOnSubmit != widget.clearOnSubmit ||
         oldWidget.keepFocusOnSubmit != widget.keepFocusOnSubmit ||
+        oldWidget.keepDockVisible != widget.keepDockVisible ||
         oldWidget.focusNode != widget.focusNode ||
         oldWidget.controller != widget.controller) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _applyConfig());
@@ -312,6 +325,7 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
       onStop: widget.onStop,
       clearOnSubmit: widget.clearOnSubmit,
       keepFocusOnSubmit: widget.keepFocusOnSubmit,
+      keepDockVisible: widget.keepDockVisible,
       focusNode: widget.focusNode,
       controller: widget.controller,
     );

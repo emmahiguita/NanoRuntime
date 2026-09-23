@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 enum MessagingPlatform {
   whatsapp(
     id: 'whatsapp',
-    label: 'WPP Personal',
+    label: 'WhatsApp',
     packageName: 'com.whatsapp',
     primaryColor: Color(0xFF25D366),
     gradientColors: [Color(0xFF25D366), Color(0xFF128C7E)],
   ),
   whatsappBusiness(
     id: 'whatsapp_business',
-    label: 'WPP Negocio',
+    label: 'WhatsApp Business',
     packageName: 'com.whatsapp.w4b',
     primaryColor: Color(0xFF00A884),
     gradientColors: [Color(0xFF00A884), Color(0xFF128C7E)],
@@ -89,12 +89,16 @@ enum MessagingPlatform {
 
   static MessagingPlatform fromPackageName(String pkg) {
     final lower = pkg.toLowerCase();
-    if (lower.contains('w4b') || lower.contains('whatsapp.b') || lower.contains('business')) {
+    if (lower.contains('w4b') ||
+        lower.contains('whatsapp.b') ||
+        lower.contains('business')) {
       return MessagingPlatform.whatsappBusiness;
     }
     if (lower.contains('whatsapp')) return MessagingPlatform.whatsapp;
     if (lower.contains('telegram')) return MessagingPlatform.telegram;
-    if (lower.contains('gmail') || lower.contains('android.gm')) return MessagingPlatform.gmail;
+    if (lower.contains('gmail') || lower.contains('android.gm')) {
+      return MessagingPlatform.gmail;
+    }
     if (lower.contains('slack')) return MessagingPlatform.slack;
     if (lower.contains('instagram')) return MessagingPlatform.instagram;
     if (lower.contains('facebook') || lower.contains('katana') || lower.contains('orca')) {
@@ -109,7 +113,9 @@ enum MessagingPlatform {
 
   static MessagingPlatform fromPackageAndAgent(String pkg, dynamic agentId) {
     final lower = pkg.toLowerCase();
-    if (agentId != null && agentId.toString().contains('business') && lower.contains('whatsapp')) {
+    if (agentId != null &&
+        agentId.toString().contains('business') &&
+        lower.contains('whatsapp')) {
       return MessagingPlatform.whatsappBusiness;
     }
     return fromPackageName(pkg);
@@ -119,6 +125,7 @@ enum MessagingPlatform {
 /// Filtros de categorías para el Centro de Mensajería.
 enum MessagingCategoryFilter {
   all(id: 'all', label: 'Todos'),
+  groups(id: 'groups', label: 'Grupos'),
   contacts(id: 'contacts', label: 'Contactos'),
   unread(id: 'unread', label: 'No leídos'),
   personal(id: 'personal', label: 'Personales'),

@@ -8,6 +8,7 @@ library;
 
 import '../domain/persona_example.dart';
 import 'persona_repository.dart';
+import 'personal_learning_text.dart';
 
 final class PersonaRetriever {
   PersonaRetriever({PersonaRepository? repository})
@@ -24,26 +25,45 @@ final class PersonaRetriever {
     String roleKey = 'role:personal',
   }) async {
     if (context.trim().isEmpty) return const [];
-    final candidates = await _repository.searchExamples(
+    final indexed = await _repository.searchExamples(
       context,
       limit: 40,
       scopeKey: scopeKey,
       roleKey: roleKey,
     );
-    final terms = context
-        .toLowerCase()
-        .split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
-        .where((s) => s.length > 2)
-        .toSet();
+    final terms = normalizePersonalLearningText(
+      context,
+    ).split(' ').where((s) => s.length > 2).toSet();
     int score(PersonaExample example) {
-      final allPatterns = [example.incomingText, ...example.incomingVariants].join(' ');
-      return allPatterns
-          .toLowerCase()
-          .split(RegExp(r'[^\p{L}\p{N}]+', unicode: true))
-          .where(terms.contains)
-          .toSet()
-          .length;
+      var best = 0;
+      for (final pattern in example.incomingVariants) {
+        final matches = normalizePersonalLearningText(
+          pattern,
+        ).split(' ').where(terms.contains).toSet().length;
+        if (matches > best) best = matches;
+      }
+      return best;
     }
+
+    // FTS indexa la frase principal. Sólo los mensajes cortos sin una buena
+    // coincidencia hacen el fallback acotado que incluye variantes; párrafos
+    // grandes siguen por el índice/LLM y no escanean todo el catálogo.
+    var indexedBest = 0;
+    for (final example in indexed) {
+      final current = score(example);
+      if (current > indexedBest) indexedBest = current;
+    }
+    final needsVariantFallback =
+        terms.length <= 8 && (indexed.isEmpty || indexedBest < terms.length);
+    final stored = needsVariantFallback
+        ? await _repository.listExamples(limit: 200)
+        : const <PersonaExample>[];
+    final byId = <int, PersonaExample>{
+      for (final example in indexed) example.id: example,
+      for (final example in stored) example.id: example,
+    };
+    final candidates = byId.values.toList();
+
     final eligible = candidates
         .where(
           (e) =>

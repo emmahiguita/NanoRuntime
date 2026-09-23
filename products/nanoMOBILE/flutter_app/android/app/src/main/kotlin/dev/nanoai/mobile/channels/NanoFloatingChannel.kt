@@ -11,7 +11,8 @@ import io.flutter.plugin.common.MethodChannel
 /**
  * NanoFloatingChannel — Canal Flutter↔Kotlin para el overlay flotante.
  *
- * QUÉ: Expone hasPermission, requestPermission, show, hide y takePendingPrompt.
+ * QUÉ: Expone hasPermission, requestPermission, show, hide,
+ *      takePendingPrompt y takePendingEntry (prompt + mode).
  * CÓMO: MethodChannel 'dev.nanoai/floating'; delega show/hide a NanoFloatingService.
  * POR QUÉ: Separar el canal del servicio sigue SOLID-S; el canal solo enruta,
  *          el servicio solo dibuja. Arranque solo posible desde Activity visible
@@ -27,42 +28,58 @@ class NanoFloatingChannel(private val activity: Activity, messenger: BinaryMesse
     init {
         channel.setMethodCallHandler { call, result ->
             when (call.method) {
-                // Toma el prompt del Extra que NanoFloatingService puso en el Intent.
-                "takePendingPrompt" -> {
-                    val entry = activity.intent?.getStringExtra("nano.entry.prompt")
-                    // Limpiar el extra para no consumirlo dos veces.
-                    activity.intent?.removeExtra("nano.entry.prompt")
-                    result.success(entry) // null si no hay prompt pendiente.
+
+                // Kit v2: devuelve {prompt, mode} como mapa; null si no hay prompt.
+                "takePendingEntry" -> {
+                    val original = activity.intent
+                    val prompt = original?.getStringExtra("nano.entry.prompt")
+                    val mode   = original?.getStringExtra("nano.entry.mode") ?: "quick"
+                    // Limpiar los extras para no consumirlos dos veces.
+                    original?.removeExtra("nano.entry.prompt")
+                    original?.removeExtra("nano.entry.mode")
+                    result.success(
+                        if (prompt == null) null
+                        else mapOf("prompt" to prompt, "mode" to mode)
+                    )
                 }
+
+                // Compat v1: devuelve solo el String del prompt.
+                "takePendingPrompt" -> {
+                    val prompt = activity.intent?.getStringExtra("nano.entry.prompt")
+                    activity.intent?.removeExtra("nano.entry.prompt")
+                    result.success(prompt)
+                }
+
                 // Verifica si SYSTEM_ALERT_WINDOW está concedido.
                 "hasPermission" -> result.success(Settings.canDrawOverlays(activity))
 
                 // Abre la pantalla del sistema para otorgar el permiso.
                 "requestPermission" -> {
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:${activity.packageName}")
+                    activity.startActivity(
+                        Intent(
+                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                            Uri.parse("package:${activity.packageName}")
+                        )
                     )
-                    activity.startActivity(intent)
                     result.success(null)
                 }
+
                 // Inicia el servicio de overlay (requiere SYSTEM_ALERT_WINDOW).
                 "show" -> {
                     if (!Settings.canDrawOverlays(activity)) {
-                        // Flutter recibirá false y mostrará el diálogo de permiso.
                         result.error("permission_required", "Autoriza superposición", null)
                     } else {
-                        activity.startService(
-                            Intent(activity, NanoFloatingService::class.java)
-                        )
+                        activity.startService(Intent(activity, NanoFloatingService::class.java))
                         result.success(true)
                     }
                 }
+
                 // Detiene el servicio de overlay.
                 "hide" -> {
                     activity.stopService(Intent(activity, NanoFloatingService::class.java))
                     result.success(true)
                 }
+
                 else -> result.notImplemented()
             }
         }

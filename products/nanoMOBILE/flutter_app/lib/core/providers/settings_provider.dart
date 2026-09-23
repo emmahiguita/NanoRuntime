@@ -73,6 +73,10 @@ class SettingsRepository {
         // 'autonomous' por defecto). La conversión segura la hace
         // ConversationAutonomyModeName.fromName (null → safeAuto).
         waAutonomyMode: m['waAutonomyMode'] as String?,
+        glassEnabled: m['glassEnabled'] as bool? ?? true,
+        glassOpacity: (m['glassOpacity'] as num?)?.toDouble() ?? 0.70,
+        glassClarity: (m['glassClarity'] as num?)?.toDouble() ?? 0.85,
+        glassBlur: (m['glassBlur'] as num?)?.toDouble() ?? 18.0,
       );
     } catch (_) {
       // Un campo nuevo corrupto no debe borrar la selección legacy del
@@ -108,6 +112,10 @@ class SettingsRepository {
         'waReplyDelaySeconds': s.waReplyDelaySeconds,
         'waTargetContactsMode': s.waTargetContactsMode,
         'waAutonomyMode': s.waAutonomyMode,
+        'glassEnabled': s.glassEnabled,
+        'glassOpacity': s.glassOpacity,
+        'glassClarity': s.glassClarity,
+        'glassBlur': s.glassBlur,
       }),
     );
     if (!ok) {
@@ -168,6 +176,12 @@ class SettingsState {
   /// 'selected': responde ÚNICAMENTE a los contactos explícitamente activados.
   final String waTargetContactsMode;
 
+  /// Vidrio Líquido hiperrealista estilo iOS (GlassSurface).
+  final bool glassEnabled;
+  final double glassOpacity;
+  final double glassClarity;
+  final double glassBlur;
+
   const SettingsState({
     this.themeMode = 'Oscuro',
     this.temperature = 0.7,
@@ -187,6 +201,10 @@ class SettingsState {
     this.waReplyDelaySeconds = 0,
     this.waTargetContactsMode = 'all',
     this.waAutonomyMode,
+    this.glassEnabled = true,
+    this.glassOpacity = 0.70,
+    this.glassClarity = 0.85,
+    this.glassBlur = 18.0,
   });
 
   SettingsState copyWith({
@@ -208,6 +226,10 @@ class SettingsState {
     int? waReplyDelaySeconds,
     String? waTargetContactsMode,
     String? waAutonomyMode,
+    bool? glassEnabled,
+    double? glassOpacity,
+    double? glassClarity,
+    double? glassBlur,
   }) => SettingsState(
     themeMode: themeMode ?? this.themeMode,
     temperature: temperature ?? this.temperature,
@@ -227,6 +249,10 @@ class SettingsState {
     waReplyDelaySeconds: waReplyDelaySeconds ?? this.waReplyDelaySeconds,
     waTargetContactsMode: waTargetContactsMode ?? this.waTargetContactsMode,
     waAutonomyMode: waAutonomyMode ?? this.waAutonomyMode,
+    glassEnabled: glassEnabled ?? this.glassEnabled,
+    glassOpacity: glassOpacity ?? this.glassOpacity,
+    glassClarity: glassClarity ?? this.glassClarity,
+    glassBlur: glassBlur ?? this.glassBlur,
   );
 }
 
@@ -258,6 +284,9 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     final rev = ++_mutationRevision;
     state = s;
     final write = _lastWrite.then((_) async {
+      // Conflación de escrituras: si una mutación más reciente ya fue encolada
+      // (ej. arrastre continuo de sliders), omitimos el tick obsoleto en disco.
+      if (rev != _mutationRevision) return;
       try {
         await _repo.save(s);
         if (rev >= _durableRevision) {
@@ -345,6 +374,15 @@ class SettingsNotifier extends StateNotifier<SettingsState> {
     }
     await write;
   }
+
+  /// GLASS-01 — Configuración óptica hiperrealista iOS GlassSurface.
+  void setGlassEnabled(bool v) => _persist(state.copyWith(glassEnabled: v));
+  void setGlassOpacity(double v) =>
+      _persist(state.copyWith(glassOpacity: v.clamp(0.05, 1.0)));
+  void setGlassClarity(double v) =>
+      _persist(state.copyWith(glassClarity: v.clamp(0.0, 1.0)));
+  void setGlassBlur(double v) =>
+      _persist(state.copyWith(glassBlur: v.clamp(0.0, 40.0)));
 }
 
 final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(

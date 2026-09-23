@@ -117,7 +117,7 @@ class _BrowserCredentialsSheetState extends ConsumerState<BrowserCredentialsShee
                             ],
                           ),
                         ),
-                        IconButton(icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF38BDF8), size: 22), tooltip: 'Agregar credencial', onPressed: () => BrowserAddCredentialDialog.show(context, initialDomain: widget.currentDomain)),
+                        IconButton(icon: const Icon(Icons.add_circle_outline_rounded, color: Color(0xFF38BDF8), size: 22), onPressed: () => BrowserAddCredentialDialog.show(context, initialDomain: widget.currentDomain)),
                         IconButton(icon: const Icon(Icons.close_rounded, color: Color(0xFF94A3B8), size: 20), onPressed: () => Navigator.pop(context)),
                       ],
                     ),

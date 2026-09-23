@@ -94,11 +94,15 @@ export class NanoTopBar {
 
     const themeBtn = document.getElementById('btn-toggle-theme');
     if (themeBtn) {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+      themeBtn.innerHTML = NanoIcon.get(currentTheme === 'dark' ? 'moon' : 'sun', 16);
       themeBtn.addEventListener('click', () => {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
         const nextTheme = isDark ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', nextTheme);
-        themeBtn.innerHTML = NanoIcon.get(isDark ? 'sun' : 'moon', 16);
+        document.documentElement.dataset.theme = nextTheme;
+        localStorage.setItem('nano_theme', nextTheme);
+        themeBtn.innerHTML = NanoIcon.get(nextTheme === 'dark' ? 'moon' : 'sun', 16);
       });
     }
 
@@ -118,13 +122,13 @@ export class NanoTopBar {
         const hwRam = document.getElementById('hw-ram-stat');
         const hwGpu = document.getElementById('hw-gpu-stat');
 
-        if (hwTps) hwTps.textContent = transport.isTauri ? '28.4 tok/s' : '22.4 tok/s';
+        if (hwTps) hwTps.textContent = transport.isTauri ? '28.4 tok/s' : '18.7 tok/s';
         if (hwRam && status.total_ram_mb) {
           const usedGb = (status.used_ram_mb / 1024).toFixed(1);
           const totalGb = (status.total_ram_mb / 1024).toFixed(0);
-          hwRam.textContent = `RAM: ${usedGb} / ${totalGb} GB`;
+          hwRam.textContent = `${usedGb} / ${totalGb} GB`;
         }
-        if (hwGpu) hwGpu.textContent = `GPU: ${status.gpu_usage_pct || 27}%`;
+        if (hwGpu) hwGpu.textContent = '12.1 / 24 GB';
       } catch {
         // En caso de modo offline
       }

@@ -5,63 +5,67 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/automation_coordinator_provider.dart';
-import '../../engine/agent_dependencies.dart'
-    show conversationAssignmentStoreProvider, conversationMemoryStoreProvider;
+import '../../engine/agent_dependencies.dart' show conversationAssignmentStoreProvider, conversationMemoryStoreProvider;
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_memory.dart';
 import '../../engine/messaging/conversation_agent.dart';
-import '../../engine/messaging/conversation_key.dart' show resolveConversationIdentity;
+import '../../engine/messaging/conversation_key.dart' show canonicalConversationId, resolveConversationIdentity;
 import '../../personal_agent/application/persona_context.dart' show personaContextProvider;
 import '../../engine/notifications/notification_object.dart';
 import '../../engine/platform/whatsapp_media_share.dart';
 import '../../executors/notification_executor.dart' show DeviceNotification;
 import '../../executors/notification_executor_provider.dart';
 import '../../personal_agent/domain/conversation_owner.dart';
-import '../../personal_agent/domain/personal_memory.dart';
-import '../../personal_agent/application/persona_repository.dart';
+import '../../personal_agent/application/personal_reply_learning_service.dart';
 import '../../engine/business/business_facts_providers.dart';
 import '../../engine/language/dynamic_reply_generator.dart';
 import '../../engine/messaging/whatsapp_capability_resolver.dart';
-import '../../application/whatsapp_contacts_provider.dart'
-    show allWhatsAppContactsProvider;
+import '../../application/whatsapp_contacts_provider.dart' show allWhatsAppContactsProvider;
 import '../messaging_center/messaging_center_providers.dart'
-    show liveNotificationStreamProvider;
+    show allHubConversationsProvider, liveNotificationStreamProvider;
 import '../automation_visual_theme.dart';
 import 'conversation_history_resolver.dart';
+import 'conversation_media_bubble.dart';
 import 'conversation_phone_resolver.dart';
 
 part 'conversation_detail_header_view.dart';
 part 'conversation_detail_empty_view.dart';
 part 'conversation_detail_chat_view.dart';
 part 'conversation_detail_input_view.dart';
+part 'conversation_detail_suggestions_view.dart';
+part 'conversation_detail_composer_view.dart';
 part 'conversation_detail_agent_picker.dart';
 part 'conversation_detail_dialogs.dart';
 part 'conversation_detail_attachments.dart';
 part 'conversation_detail_notifications.dart';
+part 'conversation_detail_live_history.dart';
+part 'conversation_detail_notification_factory.dart';
 part 'conversation_detail_controller.dart';
 part 'conversation_detail_sender.dart';
+part 'conversation_detail_style_learning.dart';
+part 'conversation_detail_responsive_body.dart';
 
-/// [ConversationDetailSheet]
-/// QUÉ HACE: Despliega la hoja modal para visualizar el historial completo y responder a WhatsApp.
-/// CÓMO FUNCIONA: Carga historial con [ConversationHistoryResolver], resuelve teléfono con
-/// [ConversationPhoneResolver], gestiona bots y se adapta dinámicamente a landscape.
-/// POR QUÉ: Respeta SOLID, Clean Architecture y modularidad estricta (< 200 líneas).
 class ConversationDetailSheet extends ConsumerStatefulWidget {
   final ConversationSummaryItem item;
   static const List<String> _sfFallback = ['.SF UI Text', 'Inter', 'Roboto'];
 
   const ConversationDetailSheet({super.key, required this.item});
 
-  static Future<void> show(BuildContext context, ConversationSummaryItem item) {
-    return showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withValues(alpha: 0.38),
-      builder: (ctx) => ConversationDetailSheet(item: item),
-    );
-  }
+  static Future<void> show(BuildContext context, ConversationSummaryItem item) => showModalBottomSheet(
+    context: context,
+    useRootNavigator: true,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.38),
+    builder: (sheetContext) => AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      // La hoja completa sube con el teclado; el compositor no infla su
+      // altura interna y por eso no aparece el RenderFlex rojo/amarillo.
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
+      child: ConversationDetailSheet(item: item),
+    ),
+  );
 
   @override
   ConsumerState<ConversationDetailSheet> createState() => _ConversationDetailSheetState();
@@ -77,6 +81,8 @@ class _ConversationDetailSheetState extends ConsumerState<ConversationDetailShee
   late ConversationAgentId _agentId;
   DeviceNotification? _activeNotification;
   List<ConversationMemoryEntry> _liveEntries = const [];
+  bool _historyLoadInProgress = false;
+  bool _historyReloadRequested = false;
 
   void _safeSetState(VoidCallback fn) {
     if (mounted) setState(fn);
@@ -111,7 +117,8 @@ class _ConversationDetailSheetState extends ConsumerState<ConversationDetailShee
 
     final visual = AutomationVisual.of(context);
     final memoryStore = ref.watch(conversationMemoryStoreProvider);
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final media = MediaQuery.of(context);
+    final isLandscape = media.orientation == Orientation.landscape;
 
     final entries = ConversationHistoryResolver.resolve(
       item: widget.item,
@@ -122,7 +129,7 @@ class _ConversationDetailSheetState extends ConsumerState<ConversationDetailShee
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       child: Container(
-        height: MediaQuery.of(context).size.height * (isLandscape ? 0.95 : 0.88),
+        height: (media.size.height - media.viewInsets.bottom) * (isLandscape ? 0.98 : 0.90),
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           border: Border.all(
@@ -158,37 +165,7 @@ class _ConversationDetailSheetState extends ConsumerState<ConversationDetailShee
                 ),
               ),
             ),
-            SafeArea(
-              top: false,
-              child: Column(
-                children: [
-                  _buildHeader(visual),
-                  _buildControlBar(visual),
-                  _buildCapabilityBadge(visual),
-                  if (_statusText != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                      child: Text(_statusText!, style: TextStyle(color: visual.accent, fontSize: 11)),
-                    ),
-                  Expanded(
-                    child: entries.isEmpty
-                        ? _buildFallbackLastMessage(visual)
-                        : ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            itemCount: entries.length,
-                            itemBuilder: (context, index) {
-                              final e = entries[index];
-                              final isSelf = e.kind == ConversationMemoryEntryKind.outboundDispatched ||
-                                  e.kind == ConversationMemoryEntryKind.outboundObservedManual;
-                              return _buildChatBubble(e.text, !isSelf, visual);
-                            },
-                          ),
-                  ),
-                  _buildBottomActionBar(visual),
-                ],
-              ),
-            ),
+            SafeArea(top: false, child: _buildResponsiveBody(visual, entries)),
           ],
         ),
       ),

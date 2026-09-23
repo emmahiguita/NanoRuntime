@@ -13,6 +13,11 @@ import dev.nanoai.mobile.NanoApplication
 import dev.nanoai.mobile.automation.AutomationRuntimeService
 import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
 import java.util.Locale
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Icon
+import java.io.File
+import java.io.FileOutputStream
 
 /**
  * Listener local de notificaciones. WA-PROD-01: persiste SOLO la identidad
@@ -204,6 +209,101 @@ class NotificationAutomationService : NotificationListenerService() {
         return ReplyResult(dispatch.ok, dispatch.code)
     }
 
+    private fun extractAndSaveImage(extras: android.os.Bundle?, messages: List<MessagingStyle.Message>?, postTime: Long): String? {
+        if (extras == null) return null
+        return try {
+            var bitmap: Bitmap? = extras.get(Notification.EXTRA_PICTURE) as? Bitmap
+                ?: (extras.getParcelable("android.picture") as? Bitmap)
+            if (bitmap == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    extras.getParcelable(Notification.EXTRA_PICTURE_ICON) as? Icon
+                } else null
+                    ?: (extras.getParcelable(Notification.EXTRA_LARGE_ICON) as? Icon)
+                if (icon != null) {
+                    val drawable = icon.loadDrawable(this)
+                    if (drawable is BitmapDrawable) {
+                        bitmap = drawable.bitmap
+                    }
+                }
+            }
+            if (bitmap == null) {
+                bitmap = extras.get(Notification.EXTRA_LARGE_ICON) as? Bitmap
+            }
+            if (bitmap != null) {
+                val dir = File(cacheDir, "nano_notif_media")
+                if (!dir.exists()) dir.mkdirs()
+                val file = File(dir, "img_${postTime}.jpg")
+                FileOutputStream(file).use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+                }
+                file.absolutePath
+            } else if (messages != null) {
+                val imgMsg = messages.lastOrNull { 
+                    it.dataMimeType?.startsWith("image/") == true && it.dataUri != null 
+                }
+                if (imgMsg?.dataUri != null) {
+                    val dir = File(cacheDir, "nano_notif_media")
+                    if (!dir.exists()) dir.mkdirs()
+                    val file = File(dir, "img_${postTime}.jpg")
+                    contentResolver.openInputStream(imgMsg.dataUri!!)?.use { input ->
+                        FileOutputStream(file).use { out ->
+                            input.copyTo(out)
+                        }
+                    }
+                    file.absolutePath
+                } else null
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun extractAndSaveVideo(messages: List<MessagingStyle.Message>?, postTime: Long): String? {
+        if (messages == null || messages.isEmpty()) return null
+        return try {
+            val vidMsg = messages.lastOrNull { 
+                it.dataMimeType?.startsWith("video/") == true && it.dataUri != null 
+            }
+            if (vidMsg?.dataUri != null) {
+                val dir = File(cacheDir, "nano_notif_media")
+                if (!dir.exists()) dir.mkdirs()
+                val file = File(dir, "vid_${postTime}.mp4")
+                contentResolver.openInputStream(vidMsg.dataUri!!)?.use { input ->
+                    FileOutputStream(file).use { out ->
+                        input.copyTo(out)
+                    }
+                }
+                file.absolutePath
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun extractAndSaveAudio(messages: List<MessagingStyle.Message>?, postTime: Long): String? {
+        if (messages == null || messages.isEmpty()) return null
+        return try {
+            val audioMsg = messages.lastOrNull { 
+                it.dataMimeType?.startsWith("audio/") == true && it.dataUri != null 
+            }
+            if (audioMsg?.dataUri != null) {
+                val dir = File(cacheDir, "nano_notif_media")
+                if (!dir.exists()) dir.mkdirs()
+                val file = File(dir, "voice_${postTime}.opus")
+                contentResolver.openInputStream(audioMsg.dataUri!!)?.use { input ->
+                    FileOutputStream(file).use { out ->
+                        input.copyTo(out)
+                    }
+                }
+                file.absolutePath
+            } else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private fun toMap(source: StatusBarNotification): Map<String, Any?> {
         val notification = source.notification
         val extras = notification.extras
@@ -215,23 +315,123 @@ class NotificationAutomationService : NotificationListenerService() {
 
         // A14.6 — Notification Capability Graph: extrae identidad/estructura
         // real de la conversación desde el MessagingStyle (sender, isGroup,
-        // conversationTitle, mensaje individual). Vía extras + getMessagesFromBundleArray
-        // (público; extractMessagingStyleFromNotification no está en la API 36).
-        // Apps sin MessagingStyle quedan con campos vacíos (honesto).
+        // conversationTitle, mensaje individual).
         val messages = MessagingStyle.Message.getMessagesFromBundleArray(
             extras.getParcelableArray(Notification.EXTRA_MESSAGES),
         )
+        val savedImagePath = extractAndSaveImage(extras, messages, source.postTime)
+        val savedVideoPath = extractAndSaveVideo(messages, source.postTime)
+        val savedAudioPath = extractAndSaveAudio(messages, source.postTime)
+
         val lastMessage = messages.lastOrNull()
         val sender = lastMessage?.sender?.toString().orEmpty()
-        val messageText = lastMessage?.text?.toString().orEmpty()
+        var messageText = lastMessage?.text?.toString().orEmpty()
+
+        val combinedLower = "$title $text $messageText".lowercase(Locale.ROOT)
+        val isViewOnce = combinedLower.contains("ver una sola vez") ||
+            combinedLower.contains("view once") ||
+            combinedLower.contains("1 foto") ||
+            combinedLower.contains("1 video") ||
+            combinedLower.contains("una sola vez") ||
+            extras.getBoolean("android.viewOnce", false) ||
+            extras.getBoolean("is_view_once", false)
+
+        val isPhotoMsg = combinedLower.contains("foto") ||
+            combinedLower.contains("imagen") ||
+            combinedLower.contains("envió una foto") ||
+            combinedLower.contains("envio una foto")
+        val isVideoMsg = combinedLower.contains("video") ||
+            combinedLower.contains("envió un video") ||
+            combinedLower.contains("envio un video")
+
+        if (isViewOnce) {
+            val tag = if (savedImagePath != null) "[VerUnaVez: $savedImagePath]" else "[VerUnaVez]"
+            if (!messageText.contains("[VerUnaVez")) {
+                messageText = "$messageText\n$tag".trim()
+            }
+        } else if (savedImagePath != null && !messageText.contains("[Imagen:")) {
+            messageText = "$messageText\n[Imagen: $savedImagePath]".trim()
+        }
+
+        if (savedVideoPath != null && !messageText.contains("[Video:")) {
+            messageText = "$messageText\n[Video: $savedVideoPath]".trim()
+        }
+
+        if (savedAudioPath != null && !messageText.contains("[Audio:")) {
+            messageText = "$messageText\n[Audio: $savedAudioPath]".trim()
+        }
+
+        var cleanedText = text
+        if (isViewOnce) {
+            val tag = if (savedImagePath != null) "[VerUnaVez: $savedImagePath]" else "[VerUnaVez]"
+            if (!cleanedText.contains("[VerUnaVez")) {
+                cleanedText = "$cleanedText\n$tag".trim()
+            }
+        } else if (savedImagePath != null && !cleanedText.contains("[Imagen:")) {
+            cleanedText = "$cleanedText\n[Imagen: $savedImagePath]".trim()
+        }
+
+        if (savedVideoPath != null && !cleanedText.contains("[Video:")) {
+            cleanedText = "$cleanedText\n[Video: $savedVideoPath]".trim()
+        }
+
+        if (savedAudioPath != null && !cleanedText.contains("[Audio:")) {
+            cleanedText = "$cleanedText\n[Audio: $savedAudioPath]".trim()
+        }
+        // WA-GROUP-IDENT — Detección fidedigna de grupos de WhatsApp (ej: "infinity")
+        // QUÉ HACE: Extrae el nombre real del grupo y el remitente individual desde los metadatos de Android.
+        // CÓMO FUNCIONA: Examina EXTRA_CONVERSATION_TITLE, el patrón "Remitente @ Grupo" en el título, sufijos numéricos y flags @g.us.
+        // POR QUÉ: Evita que chats grupales se muestren como "Grupo de WhatsApp", con JID numérico o con el nombre del remitente.
+        val rawConvTitle = extras
+            .getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+            ?.toString().orEmpty().trim()
+        val conversationId = extras.getString("android.conversationId").orEmpty()
+        val shortcutId = notification.shortcutId.orEmpty()
+        val rawTitle = title.trim()
+
+        var extractedGroupTitle = ""
+        var extractedSender = sender
+
+        if (rawConvTitle.isNotEmpty()) {
+            extractedGroupTitle = rawConvTitle
+        } else if (rawTitle.contains(" @ ")) {
+            val parts = rawTitle.split(" @ ", limit = 2)
+            if (parts.size == 2) {
+                if (extractedSender.isEmpty()) {
+                    extractedSender = parts[0].trim()
+                }
+                extractedGroupTitle = parts[1].trim()
+            }
+        }
+
+        // Limpiar sufijos de recuento de mensajes como "(2 mensajes)", "(3 nuevos)", etc.
+        if (extractedGroupTitle.isNotEmpty()) {
+            extractedGroupTitle = extractedGroupTitle.replace(Regex("""\s*\(\d+[^)]*\)"""), "").trim()
+        }
+
         val isGroup = extras.getBoolean(
             Notification.EXTRA_IS_GROUP_CONVERSATION,
             false,
-        )
-        val conversationTitle = extras
-            .getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
-            ?.toString().orEmpty()
-        val conversationId = extras.getString("android.conversationId").orEmpty()
+        ) || extractedGroupTitle.isNotEmpty() ||
+            conversationId.contains("@g.us") ||
+            shortcutId.contains("@g.us") ||
+            source.key.contains("@g.us") ||
+            (source.tag?.contains("@g.us") == true) ||
+            rawTitle.contains(" @ ")
+
+        // Si es grupo y aún no tenemos título pero el title general no es el remitente
+        if (isGroup && extractedGroupTitle.isEmpty() && rawTitle.isNotEmpty() && rawTitle != extractedSender) {
+            extractedGroupTitle = rawTitle.replace(Regex("""\s*\(\d+[^)]*\)"""), "").trim()
+        }
+
+        val conversationTitle = extractedGroupTitle
+        val finalSender = if (extractedSender.isNotEmpty()) {
+            extractedSender
+        } else if (!isGroup && rawTitle.isNotEmpty()) {
+            rawTitle
+        } else {
+            ""
+        }
 
         // WA-ID-02 — evidencia adicional de identidad. Sólo metadata PÚBLICA de
         // la plataforma; vacío = la app origen no la expone (honesto, jamás se
@@ -245,7 +445,6 @@ class NotificationAutomationService : NotificationListenerService() {
         }
         val senderKey = senderPerson?.key.orEmpty()
         val senderUri = senderPerson?.uri.orEmpty()
-        val shortcutId = notification.shortcutId.orEmpty()
         val locusId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             notification.locusId?.id.orEmpty()
         } else {
@@ -283,29 +482,42 @@ class NotificationAutomationService : NotificationListenerService() {
             "key" to source.key,
             "package" to source.packageName,
             "title" to title.take(MAX_FIELD_CHARS),
-            "text" to text.take(MAX_FIELD_CHARS),
+            "text" to cleanedText.take(MAX_FIELD_CHARS),
             "messageText" to messageText.take(MAX_FIELD_CHARS),
             "messageTimestamp" to messageTimestamp,
-            "isTruncated" to (messageText.length > MAX_FIELD_CHARS || text.length > MAX_FIELD_CHARS),
+            "isTruncated" to (messageText.length > MAX_FIELD_CHARS || cleanedText.length > MAX_FIELD_CHARS),
             "isSelf" to isSelfMessage,
+            "imagePath" to (savedImagePath ?: ""),
+            "videoPath" to (savedVideoPath ?: ""),
             // Preserve the individual MessagingStyle events on live updates
             // and cold replay. Dart deduplicates each original timestamp.
             "messages" to messages.map { message ->
                 val person = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     message.senderPerson
                 } else null
+                var mText = message.text?.toString().orEmpty()
+                if (savedImagePath != null && !mText.contains("[Imagen:") && 
+                    (mText.contains("foto", ignoreCase = true) || mText.contains("imagen", ignoreCase = true))) {
+                    mText = "$mText\n[Imagen: $savedImagePath]"
+                }
+                if (savedVideoPath != null && !mText.contains("[Video:") && 
+                    mText.contains("video", ignoreCase = true)) {
+                    mText = "$mText\n[Video: $savedVideoPath]"
+                }
                 mapOf(
-                    "messageText" to message.text?.toString().orEmpty().take(MAX_FIELD_CHARS),
-                    "text" to message.text?.toString().orEmpty().take(MAX_FIELD_CHARS),
+                    "messageText" to mText.take(MAX_FIELD_CHARS),
+                    "text" to mText.take(MAX_FIELD_CHARS),
                     "messageTimestamp" to message.timestamp,
-                    "isTruncated" to ((message.text?.length ?: 0) > MAX_FIELD_CHARS),
+                    "isTruncated" to (mText.length > MAX_FIELD_CHARS),
                     "sender" to message.sender?.toString().orEmpty().take(200),
                     "senderKey" to person?.key.orEmpty().take(200),
                     "senderUri" to person?.uri.orEmpty().take(500),
                     "isSelf" to isSelfSender(message.sender, person, userPerson),
+                    "imagePath" to (savedImagePath ?: ""),
+                    "videoPath" to (savedVideoPath ?: ""),
                 )
             },
-            "sender" to sender.take(200),
+            "sender" to finalSender.take(200),
             "senderKey" to senderKey.take(200),
             "senderUri" to senderUri.take(500),
             "conversationTitle" to conversationTitle.take(200),
@@ -314,6 +526,8 @@ class NotificationAutomationService : NotificationListenerService() {
             "locusId" to locusId.take(200),
             "accountHint" to subText.take(200),
             "isGroup" to isGroup,
+            "isViewOnce" to isViewOnce,
+            "audioPath" to (savedAudioPath ?: ""),
             "isSummary" to (
                 notification.flags and Notification.FLAG_GROUP_SUMMARY != 0
             ),
@@ -392,11 +606,29 @@ class NotificationAutomationService : NotificationListenerService() {
         } else {
             null
         }
+        val rawConvTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
+            ?.toString().orEmpty().trim()
+        val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim()
+        var extractedGroupTitle = rawConvTitle
+        if (extractedGroupTitle.isEmpty() && rawTitle.contains(" @ ")) {
+            extractedGroupTitle = rawTitle.split(" @ ", limit = 2).getOrNull(1)?.trim().orEmpty()
+        }
+        if (extractedGroupTitle.isNotEmpty()) {
+            extractedGroupTitle = extractedGroupTitle.replace(Regex("""\s*\(\d+[^)]*\)"""), "").trim()
+        }
+        val conversationId = extras.getString("android.conversationId").orEmpty()
+        val shortcutId = notification.shortcutId.orEmpty()
         val isGroup = extras.getBoolean(
             Notification.EXTRA_IS_GROUP_CONVERSATION,
             false,
-        )
-        val shortcutId = notification.shortcutId.orEmpty()
+        ) || extractedGroupTitle.isNotEmpty() ||
+            conversationId.contains("@g.us") ||
+            shortcutId.contains("@g.us") ||
+            notification.shortcutId?.contains("@g.us") == true ||
+            rawTitle.contains(" @ ")
+        if (isGroup && extractedGroupTitle.isEmpty() && rawTitle.isNotEmpty() && rawTitle != lastMessage?.sender?.toString()) {
+            extractedGroupTitle = rawTitle.replace(Regex("""\s*\(\d+[^)]*\)"""), "").trim()
+        }
         val locusId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             notification.locusId?.id.orEmpty()
         } else {
@@ -407,9 +639,7 @@ class NotificationAutomationService : NotificationListenerService() {
             shortcutId,
             locusId,
             senderPerson?.key.orEmpty(),
-            extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
-                ?.toString()
-                .orEmpty(),
+            extractedGroupTitle,
             lastMessage?.sender?.toString().orEmpty(),
             if (isGroup) "group" else "direct",
         ).joinToString(separator = "\u0000")

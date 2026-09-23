@@ -41,15 +41,15 @@ class MessagingCenterView extends ConsumerWidget {
       children: [
         // 1. Header principal estilizado
         const MessagingCenterHeader(),
-        const SizedBox(height: NanoSpacing.lg),
+        const SizedBox(height: NanoSpacing.md),
 
         // 2. Fila horizontal de selección de apps
         const MessagingAppsBar(),
-        const SizedBox(height: NanoSpacing.md),
+        const SizedBox(height: NanoSpacing.sm),
 
         // 3. Barra de búsqueda rápida
         const MessagingSearchBar(),
-        const SizedBox(height: NanoSpacing.md),
+        const SizedBox(height: NanoSpacing.sm),
 
         // 4. Banner de estado de conexión del listener de notificaciones
         accessAsync.when(
@@ -59,7 +59,8 @@ class MessagingCenterView extends ConsumerWidget {
                 icon: Icons.notifications_off_rounded,
                 color: const Color(0xFFFF6B35),
                 title: 'Permiso de Notificaciones requerido',
-                subtitle: 'NanoAI necesita acceso para leer y responder mensajes en segundo plano.',
+                subtitle:
+                    'NanoAI necesita acceso para leer y responder mensajes en segundo plano.',
                 actionLabel: 'Conceder permiso',
                 onAction: () async {
                   await NanoRuntimeApi.instance.openNotificationAccessSettings();
@@ -88,7 +89,7 @@ class MessagingCenterView extends ConsumerWidget {
 
         // 5. Filtros de categorías (Todos, No leídos, Personal, Negocios, Contactos)
         const MessagingFilterChips(),
-        const SizedBox(height: NanoSpacing.md),
+        const SizedBox(height: NanoSpacing.sm),
 
         // 6. Contenido dinámico según la pestaña activa
         currentTab == MessagingCategoryFilter.contacts

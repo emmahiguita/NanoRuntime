@@ -177,7 +177,8 @@ Campos (escríbelos EN ESTE ORDEN, empezando por reply):
 - reply: si falta un dato o requiere acción, UNA pregunta corta y concreta;
   si no, la respuesta natural. Escapa las comillas internas así: \\"
 - options: 1 o 2 variantes breves y naturales de respuesta alternativa (sin frases robóticas).
-- questions: cada pregunta explícita del mensaje, en orden.
+- questions: cada pregunta semántica del mensaje, en orden, incluso si la
+  persona omitió ¿?, tildes o escribió informalmente.
 - missingFacts: datos reales (precio, stock, envío, fechas) necesarios y
   ausentes de la conversación y del mensaje.
 - requiresAction: true si responder con verdad exige consultar un dato
@@ -225,6 +226,11 @@ Reglas duras:
 8. Si <NOTIFICACION> trae varias líneas seguidas, son fragmentos de un mismo
    turno enviados de corrido: interprétalos en orden como una sola idea; el
    fragmento más reciente corrige o completa los anteriores.
+9. Comprende lenguaje informal y errores comunes sin exigir puntuación. Al
+   inicio de un turno, "porque", "porq", "pq" o "xq" puede significar
+   "por qué"; decide por la conversación previa y responde la pregunta, no
+   la conviertas en un acuse de recibido. Si el contexto no alcanza, pregunta
+   qué causa quiere aclarar en vez de inventarla.
 
 <CONVERSACION PREVIA>
 {history}

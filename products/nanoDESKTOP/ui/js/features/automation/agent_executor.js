@@ -29,14 +29,19 @@ export async function runAgentTools(agent) {
     // Herramienta 1: Hardware Watcher / VRAM Optimizer
     // Se activa si el agente tiene acceso al telemetría de sistema
     if (agent.tools.includes('Hardware Watcher') || agent.tools.includes('VRAM Optimizer')) {
-      const sys     = await transport.getSystemStatus();
+      const sys = await transport.getSystemStatus();
       const vramReq = transport.calculateModelFit('DeepSeek-R1');
-      const usedMb  = sys.used_ram_mb  || 4320;
-      const totalMb = sys.total_ram_mb || 16384;
-      const pct     = ((usedMb / totalMb) * 100).toFixed(1);
+      const usedMb = sys.used_ram_mb;
+      const totalMb = sys.total_ram_mb;
 
-      actionSummary  = `Verificación VRAM: ${(usedMb / 1024).toFixed(1)} GB / ${(totalMb / 1024).toFixed(1)} GB (${pct}%). Offload: ${vramReq.recommended_offload_layers}`;
-      detailedOutput = `[Diagnóstico Hardware Soberano]\nRAM en uso: ${usedMb} MB (${pct}%)\nPresión: Normal\nTTL policy: ${vramReq.ttl_policy}\nAcción: No se requiere auto-eviction.`;
+      if (usedMb != null && totalMb != null && totalMb > 0) {
+        const pct = ((usedMb / totalMb) * 100).toFixed(1);
+        actionSummary  = `Verificación VRAM: ${(usedMb / 1024).toFixed(1)} GB / ${(totalMb / 1024).toFixed(1)} GB (${pct}%). Offload: ${vramReq.recommended_offload_layers}`;
+        detailedOutput = `[Diagnóstico Hardware Soberano]\nRAM en uso: ${usedMb} MB (${pct}%)\nPresión: Normal\nTTL policy: ${vramReq.ttl_policy}\nAcción: No se requiere auto-eviction.`;
+      } else {
+        actionSummary  = `Verificación VRAM: Telemetría de memoria no disponible`;
+        detailedOutput = `[Diagnóstico Hardware Soberano]\nEstado: Hardware probe sin respuesta de memoria.\nTTL policy: ${vramReq.ttl_policy}`;
+      }
     }
     // Herramienta 2: Web Search / MCP DuckDuckGo
     // Se activa si el agente tiene acceso a búsqueda web en tiempo real

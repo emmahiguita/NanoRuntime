@@ -20,6 +20,7 @@ import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/pdf_report_service.dart';
+import '../../nano_everywhere/nano_floating_wrapper.dart';
 
 /// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
@@ -334,13 +335,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       isListening: _listening,
       onStop: notifier.stop,
       keepFocusOnSubmit: true,
+      // En horizontal el compositor no se oculta solo: escribir y enviar
+      // sigue disponible sin depender de una píldora minimizada.
+      keepDockVisible: true,
       child: NanoScreenShell(
         title: 'Chat',
-        hideHeader: _isReadingMode || isLandscape,
+        hideHeader: _isReadingMode,
         resizeToAvoidBottomInset: false,
-        trailing: isLandscape
+        trailing: _isReadingMode
             ? null
-            : _chatActions(state, notifier, colors, landscape: false),
+            : _chatActions(state, notifier, colors, landscape: isLandscape),
         body: Stack(
           fit: StackFit.expand,
           children: [
@@ -520,6 +524,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
           ),
 
+        // Invocar Asistente Búho AI bajo demanda (evita que esté fijo en pantalla)
+        Semantics(
+          label: 'Invocar Asistente Búho',
+          button: true,
+          child: IconButton(
+            key: const ValueKey('chat_invoke_owl_button'),
+            tooltip: 'Invocar Búho AI',
+            constraints: const BoxConstraints(minWidth: 30, minHeight: 30),
+            padding: const EdgeInsets.all(5),
+            icon: Icon(
+              Icons.smart_toy_outlined,
+              size: 19,
+              color: colors.primary,
+            ),
+            onPressed: () => NanoFloatingWrapper.toggle(),
+          ),
+        ),
+
         // Menú ⋮ con exportación y limpieza (libre de PopupMenuButton para erradicar el error "No Overlay")
         Semantics(
           label: 'Más opciones',
@@ -549,6 +571,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) => Container(
@@ -583,6 +606,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 color: colors.onSurface.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
+            ),
+            _buildChatOptionTile(
+              icon: Icons.smart_toy_rounded,
+              label: 'Invocar Asistente Búho AI',
+              colors: colors,
+              onTap: () {
+                Navigator.pop(ctx);
+                NanoFloatingWrapper.expand();
+              },
             ),
             if (state.messages.isNotEmpty) ...[
               _buildChatOptionTile(
@@ -708,7 +740,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ChatNotifier notifier,
     MediaQueryData mediaQuery,
   ) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final screenWidth = mediaQuery.size.width;
+    final targetWidth = screenWidth >= 900
+        ? screenWidth * 0.60
+        : screenWidth * 0.82;
+    final contentWidth = targetWidth.clamp(360.0, 760.0).toDouble();
+    final availableSide = (screenWidth - contentWidth) / 2;
+    final sidePadding = availableSide > 12.0 ? availableSide : 12.0;
+    final attachmentTopPadding = state.attachments.isEmpty ? 8.0 : 58.0;
 
     return Stack(
       fit: StackFit.expand,
@@ -717,29 +756,23 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: _messageList(
             state,
             notifier,
-            topPadding: 52,
-            // NAV-FLOAT-01 — la barra flota en landscape compacta: reserva ergonómica de 76dp.
-            bottomPadding: 76.0,
+            topPadding: attachmentTopPadding,
+            bottomPadding: kNanoBarScrollReserve,
             emptyBottomPadding: 24,
-            sidePadding: 18,
-          ),
-        ),
-        // UI-REV-15: cápsula de vidrio con el menú ⋮ del chat.
-        Positioned(
-          top: 4,
-          right: 4,
-          child: _FloatingChatActions(
-            child: _chatActions(state, notifier, colors, landscape: true),
+            sidePadding: sidePadding,
           ),
         ),
         if (state.attachments.isNotEmpty)
           Positioned(
-            left: 20,
-            right: 20,
-            bottom: 12,
-            child: _AttachmentPillsStrip(
-              attachments: state.attachments,
-              onRemove: notifier.removeAttachment,
+            top: 8,
+            left: sidePadding,
+            right: sidePadding,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: _AttachmentPillsStrip(
+                attachments: state.attachments,
+                onRemove: notifier.removeAttachment,
+              ),
             ),
           ),
       ],
@@ -1082,65 +1115,49 @@ class _ReadingModeState extends State<_ReadingMode> {
 }
 
 /// Barra de progreso de lectura: refleja la fracción de scroll de forma sutil.
-class _ReadingProgress extends StatefulWidget {
+class _ReadingProgress extends StatelessWidget {
   const _ReadingProgress({required this.scroll});
 
   final ScrollController scroll;
 
   @override
-  State<_ReadingProgress> createState() => _ReadingProgressState();
-}
-
-class _ReadingProgressState extends State<_ReadingProgress> {
-  @override
-  void initState() {
-    super.initState();
-    widget.scroll.addListener(_onChange);
-  }
-
-  void _onChange() {
-    if (mounted) setState(() {});
-  }
-
-  @override
-  void dispose() {
-    widget.scroll.removeListener(_onChange);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final pos = widget.scroll.hasClients ? widget.scroll.position : null;
-    // hasViewportDimension: antes del layout el viewport no fijó su dimensión
-    // y maxScrollExtent es null (acceder a él revienta con un null-check).
-    if (pos == null || !pos.hasViewportDimension) {
-      return const SizedBox(height: 2.5);
-    }
-    final max = pos.maxScrollExtent;
-    final frac = max <= 0 ? 1.0 : (pos.pixels / max).clamp(0.0, 1.0);
+    return AnimatedBuilder(
+      animation: scroll,
+      builder: (context, _) {
+        final colors = Theme.of(
+          context,
+        ).extension<NanoThemeExtension>()!.colors;
+        final pos = scroll.hasClients ? scroll.position : null;
+        if (pos == null || !pos.hasViewportDimension) {
+          return const SizedBox(height: 2.5);
+        }
+        final max = pos.maxScrollExtent;
+        final frac = max <= 0 ? 1.0 : (pos.pixels / max).clamp(0.0, 1.0);
 
-    return Container(
-      height: 2.5,
-      alignment: Alignment.centerLeft,
-      child: FractionallySizedBox(
-        alignment: Alignment.centerLeft,
-        widthFactor: frac,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [colors.accent, colors.accentCyan],
-            ),
-            borderRadius: BorderRadius.circular(3),
-            boxShadow: [
-              BoxShadow(
-                color: colors.accent.withValues(alpha: 0.45),
-                blurRadius: 6,
+        return Container(
+          height: 2.5,
+          alignment: Alignment.centerLeft,
+          child: FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: frac,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [colors.accent, colors.accentCyan],
+                ),
+                borderRadius: BorderRadius.circular(3),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.accent.withValues(alpha: 0.45),
+                    blurRadius: 6,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -1399,32 +1416,6 @@ Widget _buildReadingAiBody(BuildContext context, String text) {
         ),
     ],
   );
-}
-
-/// UI-REV-15 — cápsula de vidrio para las acciones del chat cuando flotan
-/// sobre los mensajes en horizontal (sin header). Legibles sobre cualquier
-/// contenido, sin tapar con bloques opacos.
-class _FloatingChatActions extends StatelessWidget {
-  const _FloatingChatActions({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
-    return NanoOpticalSurface(
-      geometry: NanoSurfaceGeometry.capsule,
-      borderRadius: 999,
-      blurSigma: 14,
-      borderStrength: 0.70,
-      reflectionStrength: 0.40,
-      depth: 0.9,
-      accent: isDark ? colors.accentCyan : colors.primary,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      child: child,
-    );
-  }
 }
 
 class _AttachmentPillsStrip extends StatelessWidget {

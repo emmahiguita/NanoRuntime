@@ -2,30 +2,26 @@
  * whatsapp_composer.js — Barra de Composición y Envío de Mensajes
  * 
  * QUÉ HACE:
- * Gestiona el campo de texto, el botón de envío, la inserción de borradores de IA
- * y la simulación controlada de mensajes entrantes para pruebas deterministas.
+ * Gestiona el campo de texto, botón de adjuntar, selector de emoji y botón de envío
+ * 'Enviar' para despachar mensajes en el hilo de WhatsApp activo.
  * 
  * CÓMO FUNCIONA:
- * Captura pulsaciones de teclado (`Enter` para enviar, `Shift+Enter` para salto de línea),
- * interactúa con `whatsAppDispatcher` y rellena el input con borradores sugeridos.
+ * Captura pulsaciones de teclado (Enter para enviar), gestiona habilitación
+ * reactiva y despacha a través de `whatsAppDispatcher`.
  * 
  * POR QUÉ:
- * El principio de Responsabilidad Única (SRP) aísla el manejo del teclado y del formulario
- * de la vista de mensajes, previniendo cuellos de botella y código espagueti.
+ * Separa el formulario de entrada de la visualización de mensajes (SRP), evitando
+ * acoplamientos innecesarios y garantizando un código limpio < 200 líneas.
  */
 
 import { whatsAppDispatcher } from '../services/whatsapp_dispatcher.js';
-import { whatsAppAiAgent } from '../services/whatsapp_ai_agent.js';
 import { whatsAppBus, WhatsAppEvents } from '../domain/whatsapp_events.js';
+import { NanoIcon } from '../../../components/nano_icon.js';
 
 export class WhatsAppComposer {
-  /**
-   * @param {HTMLElement} container - Elemento contenedor de la barra de composición.
-   */
   constructor(container) {
     this.container = container;
     this.activeThreadId = null;
-    this.isGenerating = false;
     this._unsubscribers = [];
 
     this._render();
@@ -34,50 +30,54 @@ export class WhatsAppComposer {
 
   _render() {
     this.container.innerHTML = `
-      <div class="wa-composer-bar">
-        <button type="button" class="wa-pill-btn" id="wa-btn-attach" title="Adjuntar archivo">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+      <form class="wa-composer-bar" id="wa-composer-form">
+        <button type="button" class="wa-composer-icon-btn" id="wa-btn-attach" title="Adjuntar archivo o imagen">
+          ${NanoIcon.get('attach', 18)}
+        </button>
+        <input 
+          type="text" 
+          class="wa-composer-input" 
+          id="wa-composer-input" 
+          placeholder="Escribe un mensaje en WhatsApp..." 
+          autocomplete="off"
+        />
+        <button type="button" class="wa-composer-icon-btn" id="wa-btn-emoji" title="Insertar emoji">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+            <line x1="9" y1="9" x2="9.01" y2="9"/>
+            <line x1="15" y1="9" x2="15.01" y2="9"/>
           </svg>
         </button>
-        <input type="text" class="wa-composer-input" id="wa-composer-input" placeholder="Escribe un mensaje en WhatsApp..." disabled />
-        <button type="button" class="wa-pill-btn" id="wa-btn-ai-draft" title="Sugerir borrador con IA Local" disabled>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-          </svg>
-          <span>Sugerir con IA</span>
-        </button>
-        <button type="button" class="wa-btn-send" id="wa-btn-send" disabled>
+        <button type="submit" class="wa-btn-send" id="wa-btn-send">
+          ${NanoIcon.get('send', 15)}
           <span>Enviar</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
         </button>
-      </div>
+      </form>
     `;
 
+    this.form = this.container.querySelector('#wa-composer-form');
     this.input = this.container.querySelector('#wa-composer-input');
     this.btnSend = this.container.querySelector('#wa-btn-send');
-    this.btnAi = this.container.querySelector('#wa-btn-ai-draft');
     this.btnAttach = this.container.querySelector('#wa-btn-attach');
+    this.btnEmoji = this.container.querySelector('#wa-btn-emoji');
   }
 
   _bindEvents() {
-    this.btnSend.addEventListener('click', () => this.submitMessage());
+    this.form?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.submitMessage();
+    });
 
-    this.input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        this.submitMessage();
+    this.btnEmoji?.addEventListener('click', () => {
+      if (this.input) {
+        this.input.value += ' 😊';
+        this.input.focus();
       }
     });
 
-    this.btnAi.addEventListener('click', () => this.requestAiDraft());
-
-    // Escuchar si llega un borrador sugerido externamente
     const unsubDraft = whatsAppBus.subscribe(WhatsAppEvents.DRAFT_SUGGESTED, ({ conversationId, draft }) => {
-      if (conversationId === this.activeThreadId && draft) {
+      if (conversationId === this.activeThreadId && draft && this.input) {
         this.input.value = draft;
         this.input.focus();
       }
@@ -85,27 +85,20 @@ export class WhatsAppComposer {
     this._unsubscribers.push(unsubDraft);
   }
 
-  /**
-   * Actualiza el hilo activo y habilita los controles de entrada.
-   * @param {string | null} threadId
-   */
   setActiveThread(threadId) {
     this.activeThreadId = threadId;
     const hasThread = Boolean(threadId);
-
-    this.input.disabled = !hasThread;
-    this.btnSend.disabled = !hasThread;
-    this.btnAi.disabled = !hasThread;
-    if (hasThread) {
-      this.input.focus();
+    if (this.input) {
+      this.input.disabled = !hasThread;
+      if (hasThread) this.input.focus();
+    }
+    if (this.btnSend) {
+      this.btnSend.disabled = !hasThread;
     }
   }
 
-  /**
-   * Envía el mensaje actual a través del despachador.
-   */
   async submitMessage() {
-    if (!this.activeThreadId) return;
+    if (!this.activeThreadId || !this.input) return;
     const text = this.input.value.trim();
     if (!text) return;
 
@@ -116,33 +109,6 @@ export class WhatsAppComposer {
     });
   }
 
-  /**
-   * Solicita un borrador asistido al motor de IA local.
-   */
-  async requestAiDraft() {
-    if (!this.activeThreadId || this.isGenerating) return;
-
-    this.isGenerating = true;
-    const prevText = this.btnAi.innerHTML;
-    this.btnAi.innerHTML = `<span>Pensando...</span>`;
-    this.btnAi.disabled = true;
-
-    try {
-      const draft = await whatsAppAiAgent.generateDraft(this.activeThreadId);
-      if (draft) {
-        this.input.value = draft;
-        this.input.focus();
-      }
-    } finally {
-      this.isGenerating = false;
-      this.btnAi.innerHTML = prevText;
-      this.btnAi.disabled = false;
-    }
-  }
-
-  /**
-   * Limpieza de eventos al cerrar el componente.
-   */
   destroy() {
     this._unsubscribers.forEach((fn) => fn());
     this._unsubscribers = [];

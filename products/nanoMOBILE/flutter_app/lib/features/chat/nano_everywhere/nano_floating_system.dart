@@ -1,59 +1,29 @@
-// nano_floating_system.dart — Puente Flutter→Kotlin para el overlay del sistema.
-// QUÉ: Expone hasPermission, requestPermission, show, hide y takePendingPrompt.
-// CÓMO: MethodChannel 'dev.nanoai/floating' hacia NanoFloatingChannel.kt.
-// POR QUÉ: El overlay nativo (tipo Gemini) solo puede gestionarse desde Kotlin;
-//          este bridge es la única puerta para controlarlo desde Dart.
+// nano_floating_system.dart — Canal Flutter → Kotlin para el overlay nativo.
+// QUÉ: Expone takePendingEntry, hasPermission, requestPermission, show, hide.
+// CÓMO: MethodChannel 'dev.nanoai/floating'. Kotlin responde desde NanoFloatingChannel.
+// POR QUÉ: La interfaz es síncrona desde Flutter; el canal es el único puente.
+//          const constructor — sin estado, reutilizable sin instanciar.
 import 'package:flutter/services.dart';
 
+/// El overlay nativo vive fuera de la Activity de Nano — pide permiso desde un tap.
 class NanoFloatingSystem {
   const NanoFloatingSystem();
-  static const _ch = MethodChannel('dev.nanoai/floating');
+  static const _channel = MethodChannel('dev.nanoai/floating');
 
-  /// Toma el prompt que el usuario escribió en el overlay nativo y lo borra.
-  /// Retorna null si no hay prompt pendiente o el canal no está disponible.
-  Future<String?> takePendingPrompt() async {
-    try {
-      return await _ch.invokeMethod<String>('takePendingPrompt');
-    } on MissingPluginException {
-      return null; // Canal no registrado (iOS / web).
-    }
+  /// Toma el prompt + modo del overlay nativo (null si no hay pendiente).
+  Future<Map<String, dynamic>?> takePendingEntry() async {
+    final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('takePendingEntry');
+    return raw?.map((key, value) => MapEntry(key.toString(), value));
   }
 
-  /// True si SYSTEM_ALERT_WINDOW está concedido — prerrequisito del overlay.
-  Future<bool> get permitted async {
-    try {
-      return await _ch.invokeMethod<bool>('hasPermission') ?? false;
-    } on MissingPluginException {
-      return false;
-    }
-  }
+  Future<bool> get permitted async =>
+      await _channel.invokeMethod<bool>('hasPermission') ?? false;
 
-  /// Abre la pantalla de sistema para que el usuario otorgue el permiso.
-  Future<void> requestPermission() async {
-    try {
-      await _ch.invokeMethod<void>('requestPermission');
-    } on MissingPluginException {
-      // No disponible fuera de Android — ignorar silenciosamente.
-    }
-  }
+  Future<void> requestPermission() =>
+      _channel.invokeMethod<void>('requestPermission');
 
-  /// Muestra el búho flotante sobre otras apps. Retorna false si falta permiso.
-  Future<bool> show() async {
-    try {
-      return await _ch.invokeMethod<bool>('show') ?? false;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
-      return false;
-    }
-  }
+  Future<bool> show() async =>
+      await _channel.invokeMethod<bool>('show') ?? false;
 
-  /// Oculta el overlay nativo y detiene NanoFloatingService.
-  Future<void> hide() async {
-    try {
-      await _ch.invokeMethod<void>('hide');
-    } on MissingPluginException {
-      // Ignorar en plataformas sin soporte.
-    }
-  }
+  Future<void> hide() => _channel.invokeMethod<void>('hide');
 }

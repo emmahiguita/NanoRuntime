@@ -121,8 +121,7 @@ class NanoFloatingNavigationFrame extends ConsumerStatefulWidget {
       _NanoFloatingNavigationFrameState();
 }
 
-class _NanoFloatingNavigationFrameState
-    extends ConsumerState<NanoFloatingNavigationFrame> {
+class _NanoFloatingNavigationFrameState extends ConsumerState<NanoFloatingNavigationFrame> {
   /// Altura real de la barra (crece con el campo multilínea). Inicial 132:
   /// coincide con la altura calculada en reposo (~132.8px), eliminando
   /// el salto visual (twitch de 23px) que ocurría en el primer frame.
@@ -242,7 +241,13 @@ class _NanoFloatingNavigationFrameState
             (isDeviceLandscape && constraints.maxHeight < 520);
         final baseGap = isLandscape ? _kDockGapLandscape : _kDockGapPortrait;
 
-        if (isLandscape && !_hasAutoShrunkInLandscape && !_isBarMinimized) {
+        // Un campo activo (chat, control humano, búsqueda) debe seguir visible
+        // en horizontal. Minimizarlo automáticamente dejaba solo una píldora
+        // y hacía parecer que no se podía escribir ni enviar.
+        if (isLandscape &&
+            !inputConfig.keepDockVisible &&
+            !_hasAutoShrunkInLandscape &&
+            !_isBarMinimized) {
           _hasAutoShrunkInLandscape = true;
           _scheduleAutoShrink(milliseconds: 2500);
         } else if (!isLandscape && _hasAutoShrunkInLandscape) {
@@ -250,15 +255,17 @@ class _NanoFloatingNavigationFrameState
         }
 
         final canDockToSide = widget.allowSideDock;
-        final isLeftDock = canDockToSide &&
+        final isLeftDock =
+            canDockToSide &&
             (_dockMode == NanoNavDockMode.leftCollapsed ||
-             _dockMode == NanoNavDockMode.topLeft);
-        final isRightDock = canDockToSide &&
+                _dockMode == NanoNavDockMode.topLeft);
+        final isRightDock =
+            canDockToSide &&
             (_dockMode == NanoNavDockMode.rightCollapsed ||
-             _dockMode == NanoNavDockMode.topRight);
-        final isTopCorner = canDockToSide &&
-            (_dockMode == NanoNavDockMode.topLeft ||
-             _dockMode == NanoNavDockMode.topRight);
+                _dockMode == NanoNavDockMode.topRight);
+        final isTopCorner =
+            canDockToSide &&
+            (_dockMode == NanoNavDockMode.topLeft || _dockMode == NanoNavDockMode.topRight);
         final isCollapsed = isLeftDock || isRightDock;
         final isBottomDock = !isCollapsed;
         final hideBar = !isBottomDock || _isBarMinimized;
@@ -272,33 +279,38 @@ class _NanoFloatingNavigationFrameState
         final dockIconSize = isShortScreen ? 16.0 : 19.0;
         final dockSpacing = isShortScreen ? 3.0 : 5.0;
         final dockPaddingVert = isShortScreen ? 6.0 : 10.0;
-        final estimatedDockHeight = (dockPaddingVert * 2) +
-            (7 * (dockItemSize + 4.0)) +
-            (7 * dockSpacing) +
-            18.0;
+        final estimatedDockHeight =
+            (dockPaddingVert * 2) + (7 * (dockItemSize + 4.0)) + (7 * dockSpacing) + 18.0;
 
         // Flotación real: si el teclado está abierto, flota sobre el teclado.
         final floatingBottom = keyboardInset > 0
             ? (keyboardInset + 10.0)
-            : (systemBottomInset > 0
-                  ? (systemBottomInset + baseGap)
-                  : (baseGap + 8.0));
+            : (systemBottomInset > 0 ? (systemBottomInset + baseGap) : (baseGap + 8.0));
 
         final minDockTop = topSafe + 8.0;
         final maxDockTop = (constraints.maxHeight - estimatedDockHeight - bottomSafe - 8.0)
             .clamp(minDockTop, double.infinity);
         final defaultDockTop = isTopCorner
             ? minDockTop
-            : (constraints.maxHeight - estimatedDockHeight - floatingBottom).clamp(minDockTop, maxDockTop);
-        final effectiveDockTop = (_sideDockY ?? defaultDockTop).clamp(minDockTop, maxDockTop);
+            : (constraints.maxHeight - estimatedDockHeight - floatingBottom).clamp(
+                minDockTop,
+                maxDockTop,
+              );
+        final effectiveDockTop = (_sideDockY ?? defaultDockTop).clamp(
+          minDockTop,
+          maxDockTop,
+        );
 
         final horizontalMargin = isLandscape ? 16.0 : (isCompact ? 16.0 : 20.0);
 
         // Padding inferior del contenido: 0 en modos contraídos o minimizados para liberar pantalla
         final totalBottomPad = (isBottomDock && !_isBarMinimized)
             ? (isLandscape
-                ? (_dockHeight + (systemBottomInset > 0 ? systemBottomInset : 4.0)).clamp(28.0, 44.0)
-                : (_dockHeight + floatingBottom + 12.0))
+                  ? (_dockHeight + (systemBottomInset > 0 ? systemBottomInset : 4.0)).clamp(
+                      28.0,
+                      44.0,
+                    )
+                  : (_dockHeight + floatingBottom + 12.0))
             : 0.0;
 
         return Stack(
@@ -317,18 +329,21 @@ class _NanoFloatingNavigationFrameState
                   bottom: widget.fullBleed
                       ? 0
                       : (isCollapsed || _isDrawerSearchExpanded || _isBarMinimized)
-                          ? 0
-                          : widget.floatOverContent
-                              ? keyboardInset
-                              : totalBottomPad,
+                      ? 0
+                      : widget.floatOverContent
+                      ? keyboardInset
+                      : totalBottomPad,
                 ),
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
-                    if (notification is UserScrollNotification) {
-                      if (notification.direction == ScrollDirection.reverse && !_isBarMinimized) {
+                    if (notification is UserScrollNotification &&
+                        !inputConfig.keepDockVisible) {
+                      if (notification.direction == ScrollDirection.reverse &&
+                          !_isBarMinimized) {
                         setState(() => _isBarMinimized = true);
                         _cancelAutoShrink();
-                      } else if (notification.direction == ScrollDirection.forward && _isBarMinimized) {
+                      } else if (notification.direction == ScrollDirection.forward &&
+                          _isBarMinimized) {
                         setState(() => _isBarMinimized = false);
                       }
                     }
@@ -341,9 +356,7 @@ class _NanoFloatingNavigationFrameState
 
             // Estado 1: Barra inferior cósmica interactiva con física de arrastre
             AnimatedPositioned(
-              duration: _isDragging
-                  ? Duration.zero
-                  : NanoMotionDurations.quick,
+              duration: _isDragging ? Duration.zero : NanoMotionDurations.quick,
               curve: Curves.easeOutCubic,
               left: 0,
               right: 0,
@@ -352,7 +365,9 @@ class _NanoFloatingNavigationFrameState
                   : (floatingBottom - _dragOffset.dy.clamp(0.0, 120.0)),
               child: AnimatedOpacity(
                 duration: NanoMotionDurations.press,
-                opacity: hideBar ? 0.0 : (1.0 - (_dragOffset.distance / 160.0).clamp(0.0, 0.8)),
+                opacity: hideBar
+                    ? 0.0
+                    : (1.0 - (_dragOffset.distance / 160.0).clamp(0.0, 0.8)),
                 child: IgnorePointer(
                   ignoring: hideBar,
                   child: NotificationListener<SizeChangedLayoutNotification>(
@@ -366,13 +381,14 @@ class _NanoFloatingNavigationFrameState
                         child: ConstrainedBox(
                           constraints: BoxConstraints(maxWidth: isLandscape ? 760 : 520),
                           child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: horizontalMargin,
-                            ),
+                            padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
                             child: Transform.translate(
                               offset: Offset(_dragOffset.dx.clamp(-80.0, 80.0), 0),
                               child: Transform.scale(
-                                scale: (1.0 - (_dragOffset.distance / 600.0)).clamp(0.92, 1.0),
+                                scale: (1.0 - (_dragOffset.distance / 600.0)).clamp(
+                                  0.92,
+                                  1.0,
+                                ),
                                 child: canDockToSide
                                     ? GestureDetector(
                                         onPanStart: (_) {
@@ -436,7 +452,11 @@ class _NanoFloatingNavigationFrameState
                                             onSearch:
                                                 widget.onSearch ??
                                                 (query) {
-                                                  NanoSearchDispatcher.dispatch(context, query, ref: ref);
+                                                  NanoSearchDispatcher.dispatch(
+                                                    context,
+                                                    query,
+                                                    ref: ref,
+                                                  );
                                                 },
                                             onVoice: widget.onVoice,
                                           ),
@@ -462,7 +482,11 @@ class _NanoFloatingNavigationFrameState
                                           onSearch:
                                               widget.onSearch ??
                                               (query) {
-                                                NanoSearchDispatcher.dispatch(context, query, ref: ref);
+                                                NanoSearchDispatcher.dispatch(
+                                                  context,
+                                                  query,
+                                                  ref: ref,
+                                                );
                                               },
                                           onVoice: widget.onVoice,
                                         ),
@@ -512,9 +536,7 @@ class _NanoFloatingNavigationFrameState
 
             // Estado 2: Vertical Cyber-Glass Dock (Deslizamiento Libre Premium)
             AnimatedPositioned(
-              duration: _isDragging
-                  ? Duration.zero
-                  : const Duration(milliseconds: 260),
+              duration: _isDragging ? Duration.zero : const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
               left: isLeftDock ? 0 : (isRightDock ? null : -80),
               right: isRightDock ? 0 : (isLeftDock ? null : -80),
@@ -544,8 +566,10 @@ class _NanoFloatingNavigationFrameState
                       setState(() {
                         _isDragging = false;
                         final inertia = velocityY * 0.12;
-                        _sideDockY = ((_sideDockY ?? effectiveDockTop) + inertia)
-                            .clamp(minDockTop, maxDockTop);
+                        _sideDockY = ((_sideDockY ?? effectiveDockTop) + inertia).clamp(
+                          minDockTop,
+                          maxDockTop,
+                        );
                       });
                     },
                     onHorizontalDragUpdate: (details) {
@@ -570,10 +594,7 @@ class _NanoFloatingNavigationFrameState
                         gradient: const LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [
-                            Color(0xF207131D),
-                            Color(0xFA02070C),
-                          ],
+                          colors: [Color(0xF207131D), Color(0xFA02070C)],
                         ),
                         border: Border.all(
                           color: const Color(0xFF10B981).withValues(alpha: 0.38),
@@ -622,7 +643,9 @@ class _NanoFloatingNavigationFrameState
                               ),
                               ConstrainedBox(
                                 constraints: BoxConstraints(
-                                  maxHeight: (constraints.maxHeight - topSafe - bottomSafe - 16.0).clamp(100.0, double.infinity),
+                                  maxHeight:
+                                      (constraints.maxHeight - topSafe - bottomSafe - 16.0)
+                                          .clamp(100.0, double.infinity),
                                 ),
                                 child: SingleChildScrollView(
                                   physics: const ClampingScrollPhysics(),
@@ -641,11 +664,16 @@ class _NanoFloatingNavigationFrameState
                                         onTap: () {
                                           HapticFeedback.lightImpact();
                                           setState(() {
-                                            _isDrawerSearchExpanded = !_isDrawerSearchExpanded;
+                                            _isDrawerSearchExpanded =
+                                                !_isDrawerSearchExpanded;
                                           });
                                           if (_isDrawerSearchExpanded) {
-                                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                                              if (mounted) _drawerSearchFocusNode.requestFocus();
+                                            WidgetsBinding.instance.addPostFrameCallback((
+                                              _,
+                                            ) {
+                                              if (mounted) {
+                                                _drawerSearchFocusNode.requestFocus();
+                                              }
                                             });
                                           }
                                         },
@@ -657,7 +685,8 @@ class _NanoFloatingNavigationFrameState
                                         _buildCyberDockDestination(
                                           context,
                                           destination: d,
-                                          isActive: destination == d && !_isDrawerSearchExpanded,
+                                          isActive:
+                                              destination == d && !_isDrawerSearchExpanded,
                                           isLeftDock: isLeftDock,
                                           itemSize: dockItemSize,
                                           iconSize: dockIconSize,
@@ -686,15 +715,22 @@ class _NanoFloatingNavigationFrameState
                                           padding: const EdgeInsets.symmetric(vertical: 4),
                                           child: Center(
                                             child: Container(
-                                              margin: const EdgeInsets.only(top: 4, bottom: 4),
+                                              margin: const EdgeInsets.only(
+                                                top: 4,
+                                                bottom: 4,
+                                              ),
                                               width: 22,
                                               height: 3.5,
                                               decoration: BoxDecoration(
                                                 borderRadius: BorderRadius.circular(2),
-                                                color: const Color(0xFF10B981).withValues(alpha: 0.45),
+                                                color: const Color(
+                                                  0xFF10B981,
+                                                ).withValues(alpha: 0.45),
                                                 boxShadow: [
                                                   BoxShadow(
-                                                    color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                                                    color: const Color(
+                                                      0xFF10B981,
+                                                    ).withValues(alpha: 0.35),
                                                     blurRadius: 6,
                                                   ),
                                                 ],
@@ -761,10 +797,7 @@ class _NanoFloatingNavigationFrameState
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xF2071622),
-                          Color(0xF802080E),
-                        ],
+                        colors: [Color(0xF2071622), Color(0xF802080E)],
                       ),
                       border: Border.all(
                         color: const Color(0xFF10B981).withValues(alpha: 0.75),
@@ -843,13 +876,18 @@ class _NanoFloatingNavigationFrameState
                                       errorBorder: InputBorder.none,
                                       filled: false,
                                       fillColor: Colors.transparent,
-                                      hintText: inputConfig.hint ?? 'Buscar, conversar o ejecutar...',
+                                      hintText:
+                                          inputConfig.hint ??
+                                          'Buscar, conversar o ejecutar...',
                                       hintStyle: TextStyle(
                                         fontFamily: 'Inter',
                                         fontSize: 13,
                                         color: Colors.white.withValues(alpha: 0.55),
                                       ),
-                                      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                        horizontal: 2,
+                                      ),
                                     ),
                                     onSubmitted: (query) {
                                       final trimmed = query.trim();
@@ -860,7 +898,11 @@ class _NanoFloatingNavigationFrameState
                                         } else if (widget.onSearch != null) {
                                           widget.onSearch!(trimmed);
                                         } else {
-                                          NanoSearchDispatcher.dispatch(context, trimmed, ref: ref);
+                                          NanoSearchDispatcher.dispatch(
+                                            context,
+                                            trimmed,
+                                            ref: ref,
+                                          );
                                         }
                                         _drawerSearchController.clear();
                                         _drawerSearchFocusNode.unfocus();
@@ -891,7 +933,10 @@ class _NanoFloatingNavigationFrameState
                                         ),
                                       ),
                                       padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                                      constraints: const BoxConstraints.tightFor(
+                                        width: 28,
+                                        height: 28,
+                                      ),
                                       onPressed: () {
                                         _drawerSearchController.clear();
                                       },
@@ -912,7 +957,11 @@ class _NanoFloatingNavigationFrameState
                                           } else if (widget.onSearch != null) {
                                             widget.onSearch!(trimmed);
                                           } else {
-                                            NanoSearchDispatcher.dispatch(context, trimmed, ref: ref);
+                                            NanoSearchDispatcher.dispatch(
+                                              context,
+                                              trimmed,
+                                              ref: ref,
+                                            );
                                           }
                                           _drawerSearchController.clear();
                                           _drawerSearchFocusNode.unfocus();
@@ -930,14 +979,13 @@ class _NanoFloatingNavigationFrameState
                                           gradient: const LinearGradient(
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
-                                            colors: [
-                                              Color(0xFF34D399),
-                                              Color(0xFF10B981),
-                                            ],
+                                            colors: [Color(0xFF34D399), Color(0xFF10B981)],
                                           ),
                                           boxShadow: [
                                             BoxShadow(
-                                              color: const Color(0xFF10B981).withValues(alpha: 0.55),
+                                              color: const Color(
+                                                0xFF10B981,
+                                              ).withValues(alpha: 0.55),
                                               blurRadius: 10,
                                               offset: const Offset(0, 2),
                                             ),
@@ -962,7 +1010,10 @@ class _NanoFloatingNavigationFrameState
                                         color: Color(0xFF10B981),
                                       ),
                                       padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints.tightFor(width: 32, height: 32),
+                                      constraints: const BoxConstraints.tightFor(
+                                        width: 32,
+                                        height: 32,
+                                      ),
                                       onPressed: widget.onVoice ?? inputConfig.onVoice,
                                     ),
                                   ),
@@ -976,7 +1027,10 @@ class _NanoFloatingNavigationFrameState
                                         color: Colors.white70,
                                       ),
                                       padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+                                      constraints: const BoxConstraints.tightFor(
+                                        width: 28,
+                                        height: 28,
+                                      ),
                                       onPressed: () {
                                         _drawerSearchController.clear();
                                         _drawerSearchFocusNode.unfocus();
@@ -1029,8 +1083,7 @@ class _NanoFloatingNavigationFrameState
                   padding: const EdgeInsets.fromLTRB(0, 6, 10, 6),
                   child: GestureDetector(
                     onHorizontalDragUpdate: (details) {
-                      if (details.primaryDelta != null &&
-                          details.primaryDelta! > 6) {
+                      if (details.primaryDelta != null && details.primaryDelta! > 6) {
                         HapticFeedback.lightImpact();
                         setState(() {
                           _dockMode = NanoNavDockMode.rightCollapsed;
@@ -1038,8 +1091,7 @@ class _NanoFloatingNavigationFrameState
                       }
                     },
                     onVerticalDragUpdate: (details) {
-                      if (details.primaryDelta != null &&
-                          details.primaryDelta! > 10) {
+                      if (details.primaryDelta != null && details.primaryDelta! > 10) {
                         HapticFeedback.mediumImpact();
                         setState(() {
                           _dockMode = NanoNavDockMode.bottom;
@@ -1053,18 +1105,12 @@ class _NanoFloatingNavigationFrameState
                             ? const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xF2102040),
-                                  Color(0xF7081226),
-                                ],
+                                colors: [Color(0xF2102040), Color(0xF7081226)],
                               )
                             : const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xF8FFFFFF),
-                                  Color(0xF0F0F5FF),
-                                ],
+                                colors: [Color(0xF8FFFFFF), Color(0xF0F0F5FF)],
                               ),
                         border: Border.all(
                           color: isDark
@@ -1074,15 +1120,14 @@ class _NanoFloatingNavigationFrameState
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: isDark ? 0.60 : 0.20,
-                            ),
+                            color: Colors.black.withValues(alpha: isDark ? 0.60 : 0.20),
                             blurRadius: 32,
                             offset: const Offset(-6, 8),
                           ),
                           BoxShadow(
-                            color: NanoNavTokens.activeAccent(brightness)
-                                .withValues(alpha: isDark ? 0.15 : 0.08),
+                            color: NanoNavTokens.activeAccent(
+                              brightness,
+                            ).withValues(alpha: isDark ? 0.15 : 0.08),
                             blurRadius: 20,
                             spreadRadius: -2,
                           ),
@@ -1204,8 +1249,12 @@ class _NanoFloatingNavigationFrameState
                                               setState(() {
                                                 _isDrawerSearchExpanded = true;
                                               });
-                                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                if (mounted) _drawerSearchFocusNode.requestFocus();
+                                              WidgetsBinding.instance.addPostFrameCallback((
+                                                _,
+                                              ) {
+                                                if (mounted) {
+                                                  _drawerSearchFocusNode.requestFocus();
+                                                }
                                               });
                                             },
                                           ),
@@ -1264,18 +1313,18 @@ class _NanoFloatingNavigationFrameState
           decoration: BoxDecoration(
             color: isDark
                 ? (_drawerSearchFocusNode.hasFocus
-                    ? const Color(0x801E3A68)
-                    : const Color(0x60162B4E))
+                      ? const Color(0x801E3A68)
+                      : const Color(0x60162B4E))
                 : (_drawerSearchFocusNode.hasFocus
-                    ? Colors.white
-                    : const Color(0xF2FFFFFF)),
+                      ? Colors.white
+                      : const Color(0xF2FFFFFF)),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: _drawerSearchFocusNode.hasFocus
                   ? active
                   : (isDark
-                      ? Colors.white.withValues(alpha: 0.22)
-                      : Colors.black.withValues(alpha: 0.12)),
+                        ? Colors.white.withValues(alpha: 0.22)
+                        : Colors.black.withValues(alpha: 0.12)),
               width: _drawerSearchFocusNode.hasFocus ? 1.4 : 1.0,
             ),
             boxShadow: _drawerSearchFocusNode.hasFocus
@@ -1288,9 +1337,7 @@ class _NanoFloatingNavigationFrameState
                   ]
                 : [
                     BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: isDark ? 0.25 : 0.06,
-                      ),
+                      color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -1366,11 +1413,7 @@ class _NanoFloatingNavigationFrameState
                   label: 'Adjuntar',
                   button: true,
                   child: IconButton(
-                    icon: Icon(
-                      Icons.attach_file_rounded,
-                      size: 17,
-                      color: muted,
-                    ),
+                    icon: Icon(Icons.attach_file_rounded, size: 17, color: muted),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(width: 26, height: 26),
                     onPressed: inputConfig!.onAttach,
@@ -1462,10 +1505,7 @@ class _NanoFloatingNavigationFrameState
                           icon: const Icon(Icons.close_rounded, size: 17),
                           color: muted,
                           padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 26,
-                            height: 26,
-                          ),
+                          constraints: const BoxConstraints.tightFor(width: 26, height: 26),
                           onPressed: () {
                             _drawerSearchController.clear();
                             setState(() {
@@ -1502,19 +1542,12 @@ class _NanoFloatingNavigationFrameState
             ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0x4D10B981),
-                  Color(0x24059669),
-                ],
+                colors: [Color(0x4D10B981), Color(0x24059669)],
               )
             : null,
-        color: isActive
-            ? null
-            : Colors.white.withValues(alpha: 0.05),
+        color: isActive ? null : Colors.white.withValues(alpha: 0.05),
         border: Border.all(
-          color: isActive
-              ? const Color(0xFF10B981)
-              : Colors.white.withValues(alpha: 0.12),
+          color: isActive ? const Color(0xFF10B981) : Colors.white.withValues(alpha: 0.12),
           width: isActive ? 1.5 : 1.0,
         ),
         boxShadow: isActive
@@ -1550,9 +1583,7 @@ class _NanoFloatingNavigationFrameState
           left: isLeftDock ? Radius.zero : const Radius.circular(3),
           right: isLeftDock ? const Radius.circular(3) : Radius.zero,
         ),
-        color: isActive
-            ? const Color(0xFF10B981)
-            : Colors.transparent,
+        color: isActive ? const Color(0xFF10B981) : Colors.transparent,
         boxShadow: isActive
             ? [
                 BoxShadow(
@@ -1581,10 +1612,7 @@ class _NanoFloatingNavigationFrameState
                 customBorder: const CircleBorder(),
                 splashColor: const Color(0x3310B981),
                 highlightColor: const Color(0x1A10B981),
-                child: Padding(
-                  padding: const EdgeInsets.all(2.0),
-                  child: iconWidget,
-                ),
+                child: Padding(padding: const EdgeInsets.all(2.0), child: iconWidget),
               ),
             ),
             Positioned(
@@ -1617,19 +1645,12 @@ class _NanoFloatingNavigationFrameState
             ? const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Color(0x4D10B981),
-                  Color(0x24059669),
-                ],
+                colors: [Color(0x4D10B981), Color(0x24059669)],
               )
             : null,
-        color: isActive
-            ? null
-            : Colors.white.withValues(alpha: 0.05),
+        color: isActive ? null : Colors.white.withValues(alpha: 0.05),
         border: Border.all(
-          color: isActive
-              ? const Color(0xFF10B981)
-              : Colors.white.withValues(alpha: 0.12),
+          color: isActive ? const Color(0xFF10B981) : Colors.white.withValues(alpha: 0.12),
           width: isActive ? 1.5 : 1.0,
         ),
         boxShadow: isActive
@@ -1651,9 +1672,7 @@ class _NanoFloatingNavigationFrameState
         child: NanoGlyph(
           type: destination.glyph,
           size: iconSize,
-          color: isActive
-              ? const Color(0xFF10B981)
-              : Colors.white.withValues(alpha: 0.85),
+          color: isActive ? const Color(0xFF10B981) : Colors.white.withValues(alpha: 0.85),
           glow: isActive,
         ),
       ),
@@ -1668,9 +1687,7 @@ class _NanoFloatingNavigationFrameState
           left: isLeftDock ? Radius.zero : const Radius.circular(3),
           right: isLeftDock ? const Radius.circular(3) : Radius.zero,
         ),
-        color: isActive
-            ? const Color(0xFF10B981)
-            : Colors.transparent,
+        color: isActive ? const Color(0xFF10B981) : Colors.transparent,
         boxShadow: isActive
             ? [
                 BoxShadow(
@@ -1699,10 +1716,7 @@ class _NanoFloatingNavigationFrameState
                 customBorder: const CircleBorder(),
                 splashColor: const Color(0x3310B981),
                 highlightColor: const Color(0x1A10B981),
-                child: Padding(
-                  padding: const EdgeInsets.all(2.0),
-                  child: iconWidget,
-                ),
+                child: Padding(padding: const EdgeInsets.all(2.0), child: iconWidget),
               ),
             ),
             Positioned(
@@ -1731,21 +1745,14 @@ class _NanoFloatingNavigationFrameState
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         color: isSelected
-            ? (isDark
-                ? active.withValues(alpha: 0.16)
-                : active.withValues(alpha: 0.10))
+            ? (isDark ? active.withValues(alpha: 0.16) : active.withValues(alpha: 0.10))
             : Colors.transparent,
         border: isSelected
-            ? Border.all(
-                color: active.withValues(alpha: 0.40),
-                width: 1.0,
-              )
+            ? Border.all(color: active.withValues(alpha: 0.40), width: 1.0)
             : null,
       ),
       child: ListTile(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
         leading: NanoGlyph(
@@ -1771,10 +1778,7 @@ class _NanoFloatingNavigationFrameState
                   shape: BoxShape.circle,
                   color: active,
                   boxShadow: [
-                    BoxShadow(
-                      color: active.withValues(alpha: 0.8),
-                      blurRadius: 6,
-                    ),
+                    BoxShadow(color: active.withValues(alpha: 0.8), blurRadius: 6),
                   ],
                 ),
               )

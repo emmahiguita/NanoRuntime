@@ -1,144 +1,187 @@
+// account_center_screen.dart — Pantalla estándar de gestión de perfil personal.
+// QUÉ HACE: Permite ver y editar fotografía, datos personales, ubicación y contacto del usuario.
+// CÓMO FUNCIONA: Orquesta widgets modulares con persistencia local y sincronizable sin métricas de sistema.
+// POR QUÉ: Otorga una experiencia humana, limpia y profesional idéntica a apps ejecutivas.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/theme/nano_type.dart';
-import '../../../../core/widgets/nano_components.dart';
 import '../../application/account_providers.dart';
-
-import '../widgets/nano_account_tile.dart';
 import '../widgets/nano_danger_dialog.dart';
+import '../widgets/profile_avatar_header.dart';
+import '../widgets/profile_contact_fields.dart';
+import '../widgets/profile_location_fields.dart';
+import '../widgets/profile_personal_fields.dart';
 
-/// QUÉ HACE:
-/// Centro de gestión oficial de Cuenta Nano (Account Center).
-///
-/// CÓMO FUNCIONA:
-/// Muestra avatar con iniciales, datos de perfil, plan activo, accesos a suscripciones,
-/// dispositivos, apoyo voluntario, cierre de sesión y zona de peligro (eliminar cuenta).
-///
-/// POR QUÉ:
-/// Cumple la regla 21 y 25: organiza toda la identidad de forma estructurada y segura.
-class AccountCenterScreen extends ConsumerWidget {
+class AccountCenterScreen extends ConsumerStatefulWidget {
   const AccountCenterScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountCenterScreen> createState() => _AccountCenterScreenState();
+}
+
+class _AccountCenterScreenState extends ConsumerState<AccountCenterScreen> {
+  late final TextEditingController _nameCtrl, _usernameCtrl, _bioCtrl;
+  late final TextEditingController _countryCtrl, _stateCtrl, _cityCtrl, _addressCtrl;
+  late final TextEditingController _phoneCtrl, _emailCtrl;
+  String? _photoPath;
+  DateTime? _birthDate;
+  String _gender = '', _language = 'Español';
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = ref.read(sessionGateProvider).profile, u = ref.read(sessionGateProvider).user;
+    _nameCtrl = TextEditingController(text: p.displayName.isNotEmpty ? p.displayName : u.displayName);
+    _usernameCtrl = TextEditingController(text: p.username.isNotEmpty ? p.username : '@emmanuel');
+    _bioCtrl = TextEditingController(text: p.bio);
+    _countryCtrl = TextEditingController(text: p.country.isNotEmpty ? p.country : 'Colombia');
+    _stateCtrl = TextEditingController(text: p.stateProvince.isNotEmpty ? p.stateProvince : 'Antioquia');
+    _cityCtrl = TextEditingController(text: p.city.isNotEmpty ? p.city : 'Medellín');
+    _addressCtrl = TextEditingController(text: p.address);
+    _phoneCtrl = TextEditingController(text: p.phone);
+    _emailCtrl = TextEditingController(text: p.email.isNotEmpty ? p.email : u.email);
+    _photoPath = p.photoUrl;
+    _birthDate = p.birthDate;
+    _gender = p.gender;
+    _language = p.language.isNotEmpty ? p.language : 'Español';
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose(); _usernameCtrl.dispose(); _bioCtrl.dispose();
+    _countryCtrl.dispose(); _stateCtrl.dispose(); _cityCtrl.dispose();
+    _addressCtrl.dispose(); _phoneCtrl.dispose(); _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
+        backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(NanoRadius.small)),
+      ),
+    );
+  }
+
+  Future<void> _handleSave() async {
+    setState(() => _isSaving = true);
+    final p = ref.read(sessionGateProvider).profile;
+    final updated = p.copyWith(
+      displayName: _nameCtrl.text.trim(), username: _usernameCtrl.text.trim(),
+      bio: _bioCtrl.text.trim(), country: _countryCtrl.text.trim(),
+      stateProvince: _stateCtrl.text.trim(), city: _cityCtrl.text.trim(),
+      address: _addressCtrl.text.trim(), phone: _phoneCtrl.text.trim(),
+      email: _emailCtrl.text.trim(), photoUrl: _photoPath,
+      birthDate: _birthDate, gender: _gender, language: _language,
+    );
+    await ref.read(sessionGateProvider.notifier).updateProfile(updated);
+    if (mounted) {
+      setState(() => _isSaving = false);
+      _showSnack('Perfil guardado exitosamente');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final authState = ref.watch(sessionGateProvider);
-    final user = authState.user;
-    final profile = authState.profile;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text('Cuenta Nano', style: NanoType.headline(colors.onSurface)),
+        backgroundColor: colors.background,
+        elevation: 0, scrolledUnderElevation: 0,
+        title: Text('Mi perfil', style: NanoType.headline(colors.onSurface)),
         leading: IconButton(
           icon: Icon(Icons.arrow_back_rounded, color: colors.onSurface),
           onPressed: () => context.pop(),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(NanoSpacing.md),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         children: [
-          _buildHeader(colors, user.displayName, user.email, profile.planTier, user.initials),
-          const SizedBox(height: NanoSpacing.lg),
-          Text('SERVICIOS Y DISPOSITIVOS', style: NanoType.overline(colors.onSurfaceVariant)),
-          const SizedBox(height: NanoSpacing.xs),
-          NanoAccountTile(
-            icon: Icons.star_outline_rounded,
-            title: 'Plan y suscripción',
-            subtitle: 'Gestionar o mejorar tu plan actual (${profile.planTier.toUpperCase()})',
-            onTap: () => context.push('/account/subscription'),
+          ProfileAvatarHeader(
+            displayName: _nameCtrl.text,
+            username: _usernameCtrl.text,
+            photoPath: _photoPath,
+            onPhotoChanged: (path) => setState(() => _photoPath = path),
           ),
-          NanoAccountTile(
-            icon: Icons.devices_rounded,
-            title: 'Dispositivos vinculados',
-            subtitle: 'Administrar sesiones en Mobile, Desktop y Web',
-            onTap: () => context.push('/account/devices'),
+          const SizedBox(height: 24),
+          ProfilePersonalFields(
+            nameController: _nameCtrl,
+            usernameController: _usernameCtrl,
+            bioController: _bioCtrl,
+            birthDate: _birthDate,
+            gender: _gender,
+            onBirthDateChanged: (d) => setState(() => _birthDate = d),
+            onGenderChanged: (g) => setState(() => _gender = g),
           ),
-          NanoAccountTile(
-            icon: Icons.volunteer_activism_outlined,
-            title: 'Apoyar Nano',
-            subtitle: 'Aporte voluntario para el desarrollo del proyecto',
-            onTap: () => context.push('/account/support'),
+          const SizedBox(height: 24),
+          ProfileLocationFields(
+            countryController: _countryCtrl,
+            stateController: _stateCtrl,
+            cityController: _cityCtrl,
+            addressController: _addressCtrl,
           ),
-          const SizedBox(height: NanoSpacing.lg),
-          Text('SESIÓN', style: NanoType.overline(colors.onSurfaceVariant)),
-          const SizedBox(height: NanoSpacing.xs),
-          NanoAccountTile(
-            icon: Icons.logout_rounded,
-            title: 'Cerrar sesión',
-            subtitle: 'Revoca la sesión activa sin borrar datos locales',
-            onTap: () async {
-              await ref.read(authControllerProvider.notifier).signOut();
-              if (context.mounted) context.go('/auth/login');
-            },
+          const SizedBox(height: 24),
+          ProfileContactFields(
+            phoneController: _phoneCtrl,
+            emailController: _emailCtrl,
+            language: _language,
+            onLanguageChanged: (l) => setState(() => _language = l),
           ),
-          const SizedBox(height: NanoSpacing.lg),
-          Text('ZONA DE PELIGRO', style: NanoType.overline(colors.error)),
-          const SizedBox(height: NanoSpacing.xs),
-          NanoAccountTile(
-            icon: Icons.delete_forever_rounded,
-            title: 'Eliminar cuenta',
-            subtitle: 'Borra definitivamente tu cuenta y datos asociados',
-            isDanger: true,
-            onTap: () async {
-              final confirmed = await NanoDangerDialog.show(
-                context: context,
-                title: '¿Eliminar tu cuenta?',
-                message: 'Esta acción es irreversible. Se eliminará tu perfil, suscripciones y configuración en la nube. Tus datos locales se desvincularán.',
-                confirmLabel: 'Sí, eliminar cuenta',
-              );
-              if (confirmed == true && context.mounted) {
-                await ref.read(authControllerProvider.notifier).deleteAccount();
-                if (context.mounted) context.go('/auth/login');
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(
-    NanoColors colors,
-    String name,
-    String email,
-    String plan,
-    String initials,
-  ) {
-    return NanoOpticalSurface(
-      borderRadius: NanoRadius.large,
-      padding: const EdgeInsets.all(NanoSpacing.md),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: colors.primary.withValues(alpha: 0.15),
-            child: Text(initials, style: NanoType.headline(colors.primary)),
-          ),
-          const SizedBox(width: NanoSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name.isNotEmpty ? name : 'Usuario Nano',
-                  style: NanoType.title(colors.onSurface),
-                ),
-                Text(email, style: NanoType.caption(colors.onSurfaceVariant)),
-                const SizedBox(height: 4),
-                NanoBadge(
-                  plan.toUpperCase(),
-                  kind: plan.toLowerCase() == 'free'
-                      ? BadgeKind.neutral
-                      : BadgeKind.success,
-                ),
-              ],
+          const SizedBox(height: 28),
+          FilledButton.icon(
+            onPressed: _isSaving ? null : _handleSave,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(NanoRadius.medium)),
             ),
+            icon: _isSaving
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.check_circle_outline_rounded, size: 20),
+            label: Text(_isSaving ? 'Guardando...' : 'Guardar cambios',
+                style: NanoType.title(Colors.white).copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextButton.icon(
+                onPressed: () async {
+                  await ref.read(authControllerProvider.notifier).signOut();
+                  if (context.mounted) context.go('/auth/login');
+                },
+                icon: Icon(Icons.logout_rounded, size: 16, color: colors.onSurfaceVariant),
+                label: Text('Cerrar sesión', style: NanoType.caption(colors.onSurfaceVariant)),
+              ),
+              const SizedBox(width: 16),
+              TextButton.icon(
+                onPressed: () async {
+                  final confirmed = await NanoDangerDialog.show(
+                    context: context,
+                    title: '¿Eliminar cuenta?',
+                    message: 'Esta acción borrará tus datos de perfil permanentemente.',
+                    confirmLabel: 'Sí, eliminar',
+                  );
+                  if (confirmed == true && context.mounted) {
+                    await ref.read(authControllerProvider.notifier).deleteAccount();
+                    if (context.mounted) context.go('/auth/login');
+                  }
+                },
+                icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFEF4444)),
+                label: Text('Eliminar cuenta', style: NanoType.caption(const Color(0xFFEF4444))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );

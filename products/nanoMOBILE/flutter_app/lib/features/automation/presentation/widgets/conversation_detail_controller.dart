@@ -11,43 +11,63 @@ part of 'conversation_detail_sheet.dart';
 ///    dueño humano o si Nano AI tiene autorización de responder automáticamente.
 /// 2. `_transferAgent`: Cambia el bot/agente asignado (ej: Ventas, Soporte, Personal) migrando
 ///    únicamente el contexto imprescindible para evitar contaminación cruzada de memoria.
-/// 3. `_generateAiSuggestion`: Invoca el `DynamicReplyGenerator` local combinando hechos de
-///    negocio reales (precios, despachos, catálogo) con aprendizaje de estilo de Persona.
+/// 3. `_generateAiSuggestion`: prioriza el compositor contextual; el generador
+///    determinista solo agrega variantes cuando existen hechos comerciales reales.
 ///
 /// POR QUÉ:
 /// Desacopla la lógica de control y generación IA de la presentación gráfica, manteniendo
 /// cada archivo con una sola responsabilidad y por debajo del límite de 200 líneas.
 extension ConversationDetailController on _ConversationDetailSheetState {
   Future<void> _toggleOwnership(bool human) async {
-    setState(() => _isHumanOwned = human);
-    final store = ref.read(conversationOwnershipStoreProvider);
-    await store.load();
-    await store.setOwner(
-      widget.item.conversationId,
-      human ? ConversationOwner.human : ConversationOwner.bot,
-    );
-    ref.invalidate(conversationHubListProvider);
+    if (_isHumanOwned == human) return;
+    final previous = _isHumanOwned;
+    setState(() {
+      _isHumanOwned = human;
+      _statusText = human ? 'Activando control humano...' : 'Devolviendo el control a Nano...';
+    });
+    try {
+      final store = ref.read(conversationOwnershipStoreProvider);
+      await store.load();
+      await store.setOwner(
+        canonicalConversationId(widget.item.conversationId),
+        human ? ConversationOwner.human : ConversationOwner.bot,
+      );
+      if (!mounted) return;
+      setState(() {
+        _statusText = human
+            ? 'Control humano activo. Puedes escribir y enviar directamente.'
+            : 'IA activa para esta conversación.';
+      });
+      ref.invalidate(conversationHubListProvider);
+      ref.invalidate(allHubConversationsProvider);
+    } on Object catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isHumanOwned = previous;
+        _statusText = 'No se pudo cambiar el control: $error';
+      });
+    }
   }
 
   Future<void> _transferAgent(ConversationAgentId target) async {
     if (target == _agentId || _busy) return;
+    final conversationId = canonicalConversationId(widget.item.conversationId);
     setState(() {
       _busy = true;
       _statusText = 'Transfiriendo a ${target.displayName}...';
     });
     try {
-      final memory = ref
-          .read(conversationMemoryStoreProvider)
-          .memoryFor(widget.item.conversationId);
+      final memory = ref.read(conversationMemoryStoreProvider).memoryFor(conversationId);
       final minimalContext = <String>[
-        if (memory?.activeTopic?.isNotEmpty == true)
-          'tema=${memory!.activeTopic}',
+        if (memory?.activeTopic?.isNotEmpty == true) 'tema=${memory!.activeTopic}',
         if (memory?.unresolvedObligations.isNotEmpty == true)
           'pendiente=${memory!.unresolvedObligations.take(2).join(' | ')}',
       ].join('; ');
 
-      await ref.read(conversationAssignmentStoreProvider).transfer(
-            widget.item.conversationId,
+      await ref
+          .read(conversationAssignmentStoreProvider)
+          .transfer(
+            conversationId,
             target,
             reason: 'transferencia explícita desde Centro de Conversaciones',
             minimalContext: minimalContext,
@@ -79,26 +99,12 @@ extension ConversationDetailController on _ConversationDetailSheetState {
 
       final list = await executor.list(limit: 10);
       final targetNotif = list
-          .where(
-            (n) =>
-                n.text == widget.item.lastMessage ||
-                n.sender == widget.item.displayName,
-          )
+          .where((n) => n.text == widget.item.lastMessage || n.sender == widget.item.displayName)
           .firstOrNull;
 
       final notifObj = targetNotif != null
           ? targetNotif.toNotificationObject()
-          : NotificationObject.fromMap({
-              'key': 'hub_${widget.item.conversationId}',
-              'package': widget.item.packageName,
-              'title': widget.item.displayName,
-              'text': widget.item.lastMessage,
-              'messageText': widget.item.lastMessage,
-              'sender': widget.item.displayName,
-              'conversationId': widget.item.conversationId,
-              'postTime': widget.item.lastAtMs,
-              'canReply': true,
-            });
+          : notificationFromConversationSummary(widget.item);
 
       final draftResult = await composer.compose(notifObj);
       final allOptions = <String>[];
@@ -113,6 +119,8 @@ extension ConversationDetailController on _ConversationDetailSheetState {
         }
       }
 
+      // El generador local no interpreta conversación personal: únicamente
+      // agrega opciones si FactSelection encontró catálogo real aplicable.
       final rawMsg = widget.item.lastMessage.trim();
       final businessFacts = ref.read(businessFactsNotifierProvider);
       final generated = dynamicReplyGenerator.generateOptions(
@@ -141,9 +149,11 @@ extension ConversationDetailController on _ConversationDetailSheetState {
           if (uniqueOptions.isNotEmpty) {
             _inputController.text = uniqueOptions.first;
           }
-          _statusText = uniqueOptions.length > 1
-              ? '${uniqueOptions.length} opciones generadas'
-              : 'Sugerencia generada con catálogo';
+          _statusText = uniqueOptions.isEmpty
+              ? 'Sin respuesta fiable. Instala o activa un modelo real.'
+              : uniqueOptions.length > 1
+              ? '${uniqueOptions.length} opciones contextuales'
+              : '1 opción contextual';
         });
       }
     } catch (e) {

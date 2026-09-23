@@ -1,27 +1,55 @@
-/* ==========================================================================
-   NANO AI — TERMINAL CORE CSS: FUNCTIONAL CONTRAST SHELL
-   ========================================================================== */
+/* Nano AI — FeatherCore Terminal System */
 
-.terminal-container-view {
+/* Contenedor del Terminal */
+.nano-terminal, .terminal-container-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  margin: 16px 28px;
-  background: #07101C;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 36px rgba(7, 16, 28, 0.25);
+  height: calc(100vh - var(--nano-topbar-height) - 48px);
+  margin: 24px;
+  border: 1px solid #1E2A3C;
+  border-radius: var(--radius-18);
   overflow: hidden;
-  font-family: var(--font-mono);
+  background: #060B16;
+  box-shadow: 0 16px 44px rgba(0, 10, 30, .24);
 }
 
-.terminal-mac-header {
+/* Barra Superior de Terminal (Estilo macOS / FeatherCore) */
+.nano-terminal-toolbar, .terminal-mac-header {
+  height: 46px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 10px 18px;
-  background: #0B1626;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #0B1220;
+  border-bottom: 1px solid #1E2A3C;
+  color: #AFC2DD;
+  font-size: 12.5px;
+  user-select: none;
+}
+
+.nano-terminal-dots, .terminal-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.nano-terminal-dot, .terminal-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.nano-terminal-dot.red, .dot-red {
+  background: #F46168;
+}
+
+.nano-terminal-dot.yellow, .dot-yellow {
+  background: #F7C352;
+}
+
+.nano-terminal-dot.green, .dot-green {
+  background: #44D27D;
 }
 
 .terminal-title-center {
@@ -31,96 +59,113 @@
 }
 
 .terminal-tag {
-  color: #38BDF8;
-  font-size: 11.5px;
-  font-weight: 600;
+  color: #35E8FF;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--nano-font-mono);
 }
 
 .terminal-title-text {
-  color: #94A3B8;
+  color: #8FA2C2;
   font-size: 12px;
 }
 
 .terminal-header-tools {
   display: flex;
+  align-items: center;
   gap: 8px;
 }
 
 .btn-term-header-pill {
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-full);
-  color: #CBD5E1;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid #233348;
+  background: #111B2C;
+  color: #A0B2CC;
   font-size: 11px;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  transition: all var(--transition-fast);
+  transition: all var(--motion-fast);
 }
 
 .btn-term-header-pill:hover {
-  background: rgba(56, 189, 248, 0.15);
-  color: #38BDF8;
-  border-color: rgba(56, 189, 248, 0.3);
+  background: #1A2840;
+  color: #F0F6FF;
 }
 
-.terminal-screen-output {
+/* Pantalla de Salida / Output */
+.nano-terminal-body, .terminal-screen-output {
   flex: 1;
-  padding: 18px 24px;
+  padding: 18px 22px;
   overflow-y: auto;
+  font-family: var(--nano-font-mono);
   font-size: 13px;
-  line-height: 1.65;
-  color: #DCE7F7;
-  white-space: pre-wrap;
-  word-break: break-all;
+  line-height: 1.58;
+  color: #D9E7F8;
+  background: #060B16;
 }
 
-.terminal-screen-output::-webkit-scrollbar {
-  width: 5px;
-}
-.terminal-screen-output::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-full);
+.nano-terminal-body::-webkit-scrollbar, .terminal-screen-output::-webkit-scrollbar {
+  width: 6px;
 }
 
-.terminal-line.sys { color: #53D5FF; }
-.terminal-line.success { color: #36D7A0; }
-.terminal-line.warning { color: #F5B942; }
-.terminal-line.error { color: #FF6B78; }
-.terminal-line.input-echo { color: #5FB6FF; font-weight: 600; }
+.nano-terminal-body::-webkit-scrollbar-thumb, .terminal-screen-output::-webkit-scrollbar-thumb {
+  background: #1E2A3C;
+  border-radius: var(--radius-pill);
+}
 
-.terminal-command-input-bar {
+.nano-terminal-body .prompt, .terminal-line .term-cyan {
+  color: #35E8FF;
+}
+
+.nano-terminal-body .ok, .terminal-line .term-green {
+  color: #55EFAE;
+}
+
+.nano-terminal-body .muted, .terminal-line .term-gray {
+  color: #7E91AD;
+}
+
+.terminal-line .term-yellow {
+  color: #F7C352;
+}
+
+.terminal-line .term-red {
+  color: #F46168;
+}
+
+/* Barra de Entrada / Input */
+.nano-terminal-input, .terminal-command-input-bar {
   display: flex;
   align-items: center;
-  padding: 10px 18px;
-  background: #050A12;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  gap: 12px;
+  gap: 10px;
+  padding: 12px 18px;
+  border-top: 1px solid #1E2A3C;
+  background: #090F1B;
+  font-family: var(--nano-font-mono);
+  color: #D9E7F8;
 }
 
-.terminal-chevron {
-  color: #53D5FF;
+.terminal-chevron, .nano-terminal-input .prompt {
+  color: #35E8FF;
   font-weight: 700;
   font-size: 14px;
 }
 
-.terminal-real-input {
+.terminal-real-input, .nano-terminal-input input {
   flex: 1;
+  border: 0;
+  outline: 0;
   background: transparent;
-  border: none;
-  color: #FFFFFF;
-  font-family: var(--font-mono);
+  color: #D9E7F8;
+  font-family: var(--nano-font-mono);
   font-size: 13px;
-  outline: none;
 }
 
 .term-badge-ready {
-  padding: 3px 10px;
-  border-radius: var(--radius-full);
-  background: rgba(54, 215, 160, 0.12);
-  border: 1px solid rgba(54, 215, 160, 0.25);
-  color: #36D7A0;
   font-size: 11px;
-  font-family: var(--font-sans);
-  font-weight: 500;
+  font-family: var(--nano-font-mono);
+  color: #55EFAE;
+  background: rgba(85, 239, 174, .12);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
 }

@@ -71,22 +71,39 @@ class _PersonalizationStudioMemoriesTab extends StatelessWidget {
                 style: const TextStyle(fontSize: 9, color: Colors.white60),
               ),
               onTap: !canEdit ? null : () => onEditMemory(memory),
-              trailing: PopupMenuButton<String>(
-                enabled: canEdit,
-                onSelected: (action) {
-                  if (action == 'toggle') onToggleMemory(memory);
-                  if (action == 'delete') onDeleteMemory(memory);
+              trailing: IconButton(
+                icon: const Icon(Icons.more_vert_rounded, size: 18),
+                onPressed: !canEdit ? null : () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    useRootNavigator: true,
+                    builder: (ctx) => SafeArea(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            dense: true,
+                            leading: Icon(memory.enabled ? Icons.pause_circle_outline : Icons.play_circle_outline),
+                            title: Text(memory.enabled ? 'Desactivar memoria' : 'Activar memoria'),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              onToggleMemory(memory);
+                            },
+                          ),
+                          ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                            title: const Text('Eliminar memoria', style: TextStyle(color: Colors.redAccent)),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              onDeleteMemory(memory);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
                 },
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'toggle',
-                    child: Text(memory.enabled ? 'Desactivar' : 'Activar', style: const TextStyle(fontSize: 11)),
-                  ),
-                  const PopupMenuItem(
-                    value: 'delete',
-                    child: Text('Eliminar', style: TextStyle(fontSize: 11, color: Colors.redAccent)),
-                  ),
-                ],
               ),
             ),
           ),

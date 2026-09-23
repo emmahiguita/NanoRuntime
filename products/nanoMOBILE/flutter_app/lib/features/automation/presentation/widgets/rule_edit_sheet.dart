@@ -289,19 +289,26 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
                     borderSide: BorderSide(color: visual.outline),
                   ),
                 ),
-                items: const [
-                  DropdownMenuItem(
+                items: [
+                  const DropdownMenuItem(
                     value: null,
                     child: Text('Cualquier aplicación (Any)'),
                   ),
-                  DropdownMenuItem(
+                  const DropdownMenuItem(
                     value: 'com.whatsapp',
                     child: Text('WhatsApp'),
                   ),
-                  DropdownMenuItem(
+                  const DropdownMenuItem(
                     value: 'com.whatsapp.w4b',
                     child: Text('WhatsApp Business'),
                   ),
+                  if (_packageName != null &&
+                      _packageName != 'com.whatsapp' &&
+                      _packageName != 'com.whatsapp.w4b')
+                    DropdownMenuItem(
+                      value: _packageName,
+                      child: Text(_packageName!),
+                    ),
                 ],
                 onChanged: (pkg) => setState(() => _packageName = pkg),
               ),

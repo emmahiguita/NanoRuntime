@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/design_tokens.dart';
@@ -6,10 +7,14 @@ import '../router/app_router.dart';
 import '../theme/nano_breakpoint.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
 import '../../features/home/buho_wallpaper.dart';
+import '../../features/chat/nano_everywhere/nano_floating_wrapper.dart';
+import '../../features/chat/nano_everywhere/nano_providers.dart';
 
 /// Shell principal: conserva los stacks de cada pestaña y entrega la
 /// navegación visual al único FAB glass compartido por toda la aplicación.
-class ScaffoldShell extends StatelessWidget {
+/// NANO-EVERYWHERE-01: NanoFloatingWrapper envuelve el contenido completo
+/// para que el búho flotante esté siempre disponible sobre cualquier pantalla.
+class ScaffoldShell extends ConsumerWidget {
   const ScaffoldShell({super.key, required this.shell});
 
   final StatefulNavigationShell shell;
@@ -20,7 +25,7 @@ class ScaffoldShell extends StatelessWidget {
   static const int _automationShortcutIndex = 5;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = shell.currentIndex;
     final branchCanPop =
         AppRouter.branchKeys[currentIndex].currentState?.canPop() ?? false;
@@ -31,6 +36,11 @@ class ScaffoldShell extends StatelessWidget {
 
     final location = GoRouterState.of(context).matchedLocation;
     final isDashboardHome = location == '/dashboard';
+
+    // Recursos del asistente flotante (Riverpod, sin recrearse en cada frame).
+    final webProviders = ref.watch(nanoWebProvidersProvider);
+    final actionPort  = ref.watch(nanoActionPortProvider);
+    final audioLevel  = ref.watch(nanoAudioLevelProvider);
 
     final shellContent = MediaQuery.removePadding(
       context: context,
@@ -90,7 +100,15 @@ class ScaffoldShell extends StatelessWidget {
                 }
                 shell.goBranch(index, initialLocation: index == currentIndex);
               },
-              child: boundedContent,
+              // NANO-EVERYWHERE-02: NanoFloatingWrapper añade el búho flotante
+              // como capa superior dentro del stack de navegación. Escucha el
+              // lifecycle y recupera prompts del overlay nativo Android.
+              child: NanoFloatingWrapper(
+                webProviders: webProviders,
+                actions: actionPort,
+                audioLevel: audioLevel,
+                child: boundedContent,
+              ),
             ),
           ],
         ),

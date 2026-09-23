@@ -1,31 +1,22 @@
+// browser_owl_assistant_sheet.dart — Invocador unificado de Nano Everywhere desde el navegador.
+// QUÉ: Abre el asistente interactivo Búho Nano contextualizado con la URL activa.
+// CÓMO: Invoca directamente [NanoFloatingWrapper.expand] sin crear hojas duplicadas.
+// POR QUÉ: Unifica el punto de entrada (Single Source of Truth) y elimina redundancia.
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import '../../../chat/nano_everywhere/nano_ai_models.dart';
+import '../../../chat/nano_everywhere/nano_floating_wrapper.dart';
 import '../../domain/browser_tab_model.dart';
-import 'nano_floating_owl_hub_sheet.dart';
 
-/// QUÉ HACE:
-/// Facade unificado para invocar el asistente de Búho IA desde el navegador.
-///
-/// CÓMO FUNCIONA:
-/// Delega la presentación en [NanoFloatingOwlHubSheet.show], pasando la pestaña
-/// web y el controlador de WebView activos para contextualizar la sesión.
-///
-/// POR QUÉ:
-/// Elimina la duplicación de hojas modales (DRY / Single Responsibility),
-/// unificando la experiencia del Asistente Búho en una sola arquitectura limpia.
 class BrowserOwlAssistantSheet {
   const BrowserOwlAssistantSheet._();
 
-  /// Muestra la hoja del Búho IA contextualizada con la página web activa.
   static void show(
     BuildContext context, {
     BrowserTabModel? tab,
     InAppWebViewController? controller,
   }) {
-    NanoFloatingOwlHubSheet.show(
-      context,
-      tab: tab,
-      controller: controller,
-    );
+    final prompt = tab != null && tab.url.isNotEmpty ? tab.url : null;
+    NanoFloatingWrapper.expand(prompt: prompt, mode: NanoMode.quick);
   }
 }

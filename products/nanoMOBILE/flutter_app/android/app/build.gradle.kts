@@ -91,6 +91,8 @@ android {
         jniLibs {
             // El runtime abre .so por ruta: deben ir comprimidas y extraerse.
             useLegacyPackaging = true
+            // Excluye libnanortime_ffi.so (60.75 MB huérfana sin consumidor) para reducir el APK
+            excludes += "**/libnanortime_ffi.so"
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"

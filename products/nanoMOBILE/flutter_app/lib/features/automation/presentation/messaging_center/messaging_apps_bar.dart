@@ -27,7 +27,7 @@ class MessagingAppsBar extends ConsumerWidget {
     final unreadCounts = ref.watch(platformUnreadCountsProvider);
 
     return SizedBox(
-      height: 70,
+      height: 64,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
@@ -39,9 +39,16 @@ class MessagingAppsBar extends ConsumerWidget {
           final unread = unreadCounts[platform] ?? 0;
           final isMore = platform == MessagingPlatform.other;
 
+          final compactLabel = switch (platform) {
+            MessagingPlatform.whatsapp => 'Personal',
+            MessagingPlatform.whatsappBusiness => 'Negocio',
+            MessagingPlatform.other => 'Más',
+            _ => platform.label,
+          };
+
           return _AppTile(
             platform: platform,
-            label: isMore ? 'Más' : platform.label,
+            label: isMore ? 'Más' : compactLabel,
             isSelected: isSelected,
             unreadCount: unread,
             onTap: () {
@@ -80,7 +87,7 @@ class _AppTile extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 60,
+        width: 58,
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFF00FF88).withValues(alpha: 0.12)
@@ -109,16 +116,14 @@ class _AppTile extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  MessagingPlatformIcon(
-                    platform: platform,
-                    size: 28,
-                    borderRadius: 8,
-                  ),
+                  MessagingPlatformIcon(platform: platform, size: 26, borderRadius: 8),
                   const SizedBox(height: 4),
                   Text(
                     label,
                     style: TextStyle(
-                      color: isSelected ? const Color(0xFF00FF88) : Colors.white.withValues(alpha: 0.85),
+                      color: isSelected
+                          ? const Color(0xFF00FF88)
+                          : Colors.white.withValues(alpha: 0.85),
                       fontSize: 10,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       letterSpacing: -0.2,

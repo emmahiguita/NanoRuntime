@@ -39,6 +39,25 @@ abstract final class AutomationVisual {
     final inheritedColors = NanoThemeExtension.of(context).colors;
     final isDark = inheritedColors is NanoDarkColors;
     final colors = inheritedColors;
+    final themeExt = NanoThemeExtension.maybeOf(context);
+    final glassOpacity = themeExt?.glassOpacity ?? 0.70;
+    final glassClarity = themeExt?.glassClarity ?? 0.85;
+    final glassEnabled = themeExt?.glassEnabled ?? true;
+
+    final darkCardAlphaStart = !glassEnabled
+        ? 1.0
+        : ((0.18 + 0.65 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(0.08, 0.98);
+    final darkCardAlphaEnd = !glassEnabled
+        ? 1.0
+        : ((0.22 + 0.68 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(0.10, 0.98);
+
+    final lightCardAlphaStart = !glassEnabled
+        ? 1.0
+        : ((0.30 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(0.12, 0.98);
+    final lightCardAlphaEnd = !glassEnabled
+        ? 1.0
+        : ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(0.10, 0.98);
+
     return AutomationVisualPalette(
       resolvedColors: colors,
       isDark: isDark,
@@ -49,7 +68,7 @@ abstract final class AutomationVisual {
           : const Color(0xFFDBEAFE), // Blue 100
       canvas: colors.backgroundPrimary,
       surface: isDark
-          ? colors.glassPrimary.withValues(alpha: 0.72)
+          ? colors.glassPrimary.withValues(alpha: 0.72 * glassOpacity)
           : colors.glassSurface,
       inputFill: isDark
           ? colors.backgroundDeep.withValues(alpha: 0.62)
@@ -60,13 +79,15 @@ abstract final class AutomationVisual {
       outline: isDark ? colors.outline : const Color(0xFFCBD5E1),
       // Vidrio líquido iOS con alta transparencia y contraste cinematográfico
       cardStart: isDark
-          ? const Color(0x660E182D) // ~40% zafiro obsidiana esmerilado
-          : const Color(0xF2FFFFFF), // Blanco 95% en modo claro
+          ? const Color(0xFF0E182D).withValues(alpha: darkCardAlphaStart)
+          : Colors.white.withValues(alpha: lightCardAlphaStart),
       cardEnd: isDark
-          ? const Color(0x7C080E1D) // ~49% obsidiana profunda
-          : const Color(0xEBF8FAFC), // Slate 50 translúcido
+          ? const Color(0xFF080E1D).withValues(alpha: darkCardAlphaEnd)
+          : const Color(0xFFF8FAFC).withValues(alpha: lightCardAlphaEnd),
       cardBorder: isDark
-          ? Colors.white.withValues(alpha: 0.18)
+          ? Colors.white.withValues(
+              alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
+            )
           : const Color(0xFFE2E8F0),
       shadow: isDark
           ? const Color(0x35000000)
@@ -307,8 +328,45 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
   @override
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
+    final themeExt = NanoThemeExtension.maybeOf(context);
+    final glassEnabled = themeExt?.glassEnabled ?? true;
+    final glassOpacity = themeExt?.glassOpacity ?? 0.70;
+    final glassClarity = themeExt?.glassClarity ?? 0.85;
+    final glassBlur = themeExt?.glassBlur ?? widget.blurSigma;
+
     final borderRadius = BorderRadius.circular(widget.radius);
     final isDark = visual.isDark;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    final effectiveBlur = (!glassEnabled || reduceMotion)
+        ? 0.0
+        : (glassBlur * (0.6 + 0.4 * (1.0 - glassClarity * 0.35))).clamp(0.0, 40.0);
+
+    // Color de tarjeta y sustrato adaptativo con transparencia y opacidad iOS
+    final cardColor = !glassEnabled
+        ? (isDark ? const Color(0xFF0F172A) : Colors.white)
+        : isDark
+            ? Color.fromRGBO(
+                14,
+                24,
+                45,
+                ((0.15 + 0.70 * glassOpacity) * (1.15 - glassClarity * 0.45))
+                    .clamp(0.04, 0.98),
+              )
+            : Colors.white.withValues(
+                alpha: ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35))
+                    .clamp(0.08, 0.98),
+              );
+
+    final borderColor = !glassEnabled
+        ? (isDark ? Colors.white12 : Colors.black12)
+        : isDark
+            ? Colors.white.withValues(
+                alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
+              )
+            : Colors.black.withValues(
+                alpha: (0.03 + 0.08 * (1.0 - glassClarity)).clamp(0.02, 0.15),
+              );
 
     final card = Container(
       decoration: BoxDecoration(
@@ -326,19 +384,15 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
         borderRadius: borderRadius,
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: widget.blurSigma,
-            sigmaY: widget.blurSigma,
+            sigmaX: effectiveBlur,
+            sigmaY: effectiveBlur,
           ),
           child: Container(
             decoration: BoxDecoration(
-              color: isDark 
-                  ? Colors.white.withValues(alpha: 0.05)
-                  : Colors.white.withValues(alpha: 0.65),
+              color: cardColor,
               borderRadius: borderRadius,
               border: Border.all(
-                color: isDark 
-                    ? Colors.white.withValues(alpha: 0.1)
-                    : Colors.black.withValues(alpha: 0.05),
+                color: borderColor,
                 width: 0.5,
               ),
             ),

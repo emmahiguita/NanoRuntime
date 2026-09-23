@@ -15,6 +15,17 @@ library;
 import '../notifications/notification_object.dart';
 import 'messaging_package.dart';
 
+/// El Centro de Mensajes marca como `live:` los elementos que aún provienen
+/// de una notificación activa. Ese prefijo es de presentación y nunca forma
+/// parte de la identidad que usan memoria, ownership o despacho.
+String canonicalConversationId(String raw) {
+  var id = raw.trim();
+  while (id.toLowerCase().startsWith('live:')) {
+    id = id.substring(5).trim();
+  }
+  return id;
+}
+
 /// Clave estable de conversación. Igualdad por valor: dos eventos de la
 /// misma conversación lógica producen la misma clave.
 final class ConversationKey {
@@ -168,9 +179,31 @@ ConversationIdentity conversationIdentityFor({
       evidenceUsed: const {'senderKey'},
     );
   }
-  if (conversationId.isNotEmpty) {
+  final jid =
+      RegExp(
+        r'[\w\.\-]+@(g\.us|s\.whatsapp\.net)',
+      ).firstMatch(notificationKey)?.group(0) ??
+      RegExp(
+        r'[\w\.\-]+@(g\.us|s\.whatsapp\.net)',
+      ).firstMatch(conversationId)?.group(0) ??
+      RegExp(
+        r'[\w\.\-]+@(g\.us|s\.whatsapp\.net)',
+      ).firstMatch(shortcutId)?.group(0);
+  if (jid != null && jid.isNotEmpty) {
     return ConversationIdentity(
-      key: key('conv:$conversationId'),
+      key: key('jid:$jid'),
+      confidence: 0.95,
+      evidenceUsed: const {'jid'},
+    );
+  }
+
+  // Android puede publicar un conversationId estable sin formato JID. Antes
+  // se recibía pero se ignoraba, por lo que el mismo chat caía al título y se
+  // fragmentaba al cambiar de nombre visible.
+  final stableConversationId = conversationId.trim();
+  if (stableConversationId.isNotEmpty) {
+    return ConversationIdentity(
+      key: key('conv:$stableConversationId'),
       confidence: 0.85,
       evidenceUsed: const {'conversationId'},
     );
@@ -179,6 +212,28 @@ ConversationIdentity conversationIdentityFor({
   final convTitle = conversationTitle.trim();
   final cleanTitle = title.trim();
   final cleanSender = sender.trim();
+
+  // Resolución fidedigna de identidad grupal para evitar fragmentación por remitente o menciones
+  if (isGroup) {
+    var groupName = convTitle.isNotEmpty ? convTitle : '';
+    if (groupName.isEmpty && cleanTitle.contains(' @ ')) {
+      groupName = cleanTitle.split(' @ ').last.trim();
+    }
+    if (groupName.isEmpty &&
+        cleanTitle.isNotEmpty &&
+        cleanTitle != cleanSender) {
+      groupName = cleanTitle;
+    }
+    if (groupName.isNotEmpty &&
+        !groupName.startsWith('@') &&
+        groupName.toLowerCase() != 'whatsapp') {
+      return ConversationIdentity(
+        key: key('group:$groupName'),
+        confidence: 0.85,
+        evidenceUsed: const {'groupTitle'},
+      );
+    }
+  }
 
   // En Android MessagingStyle, las conversaciones 1:1 tienen EXTRA_CONVERSATION_TITLE vacío
   // y el nombre del contacto aparece en title y/o sender.

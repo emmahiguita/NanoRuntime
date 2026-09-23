@@ -30,10 +30,11 @@ import '../../features/database/presentation/screens/database_studio_screen.dart
 import 'scaffold_shell.dart';
 
 class AppRouter {
-  static GoRouter router = _build('/session-gate');
+  static GoRouter? _router;
+  static GoRouter get router => _router ??= _build('/session-gate');
 
-
-  static final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> rootNavigatorKey =
+      GlobalKey<NavigatorState>(debugLabel: 'rootNav');
 
   /// Claves de Navigator por branch (orden: dashboard, chat, models,
   /// terminal, settings). Permiten que ScaffoldShell resuelva el back real:
@@ -41,14 +42,12 @@ class AppRouter {
   /// del branch (p.ej. /terminal/shell → /terminal) ANTES de saltar a Inicio.
   static final List<GlobalKey<NavigatorState>> branchKeys = List.generate(
     5,
-    (_) => GlobalKey<NavigatorState>(),
+    (i) => GlobalKey<NavigatorState>(debugLabel: 'branchNav_$i'),
   );
 
-  /// (Re)construye el router. [initialRoute] permite arrancar en /settings
-  /// cuando el sistema lanza la app desde Ajustes → Apps → Configuración
-  /// (ACTION_APPLICATION_PREFERENCES). Null → dashboard por defecto.
+  /// Inicializa el router una sola vez con [initialRoute] sin duplicar claves.
   static void init(String? initialRoute) {
-    router = _build(initialRoute ?? '/session-gate');
+    _router ??= _build(initialRoute ?? '/session-gate');
   }
 
   static GoRouter _build(String initialLocation) => GoRouter(

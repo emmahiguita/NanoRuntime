@@ -11,15 +11,12 @@
 /// Arquitectura Android-First y Clean Architecture modular (< 200 LOC por archivo).
 library;
 
-import '../../../../core/services/device_metrics.dart'
-    show DeviceMetrics, DeviceMetricsData;
+import '../../../../core/services/device_metrics.dart' show DeviceMetrics, DeviceMetricsData;
 import '../../personal_agent/domain/conversation_agent_role.dart'
     show correctionPhrases, commercialIntentTokens, supportPhrases;
 import '../business/fact_selector.dart' show normalizeText, tokenizeText;
-import '../messaging/conv_turn_state.dart'
-    show ClientContextEntry, isPureGreeting;
-import '../messaging/conversation_memory.dart'
-    show ConversationMemory, ConversationMemoryEntryKind;
+import '../messaging/conv_turn_state.dart' show ClientContextEntry, isPureGreeting;
+import '../messaging/conversation_memory.dart' show ConversationMemory, ConversationMemoryEntryKind;
 import '../notifications/conversation_understanding.dart';
 import 'fast_path_models.dart';
 import 'temporal_location_context.dart';
@@ -50,12 +47,7 @@ final class PragmaticFastPath {
   final String? Function()? ownerName;
   final Future<DeviceMetricsData> Function()? metricsSource;
 
-  const PragmaticFastPath({
-    this.memoryFor,
-    this.contextEntryFor,
-    this.ownerName,
-    this.metricsSource,
-  });
+  const PragmaticFastPath({this.memoryFor, this.contextEntryFor, this.ownerName, this.metricsSource});
 
   static DeviceMetricsData? _cachedMetrics;
   static DateTime? _lastMetricsFetch;
@@ -63,9 +55,7 @@ final class PragmaticFastPath {
 
   Future<DeviceMetricsData?> _getMetrics() async {
     final now = DateTime.now();
-    if (_cachedMetrics != null &&
-        _lastMetricsFetch != null &&
-        now.difference(_lastMetricsFetch!) < _metricsTtl) {
+    if (_cachedMetrics != null && _lastMetricsFetch != null && now.difference(_lastMetricsFetch!) < _metricsTtl) {
       return _cachedMetrics;
     }
     try {
@@ -82,6 +72,7 @@ final class PragmaticFastPath {
   Future<FastPathCandidate?> resolve({
     required String text,
     required String conversationId,
+    ConversationMemory? memoryOverride,
   }) async {
     final raw = text.trim();
     if (raw.isEmpty) return null;
@@ -103,7 +94,8 @@ final class PragmaticFastPath {
     if (intents.isEmpty) return null;
 
     // 4. Si la conversación tiene obligaciones pendientes activas
-    final memory = memoryFor?.call(conversationId);
+    // El compositor puede entregar memoria ya unificada entre nombre y JID.
+    final memory = memoryOverride ?? memoryFor?.call(conversationId);
     if (memory != null && memory.unresolvedObligations.isNotEmpty) {
       final isGreeting = intents.contains(ConversationIntent.greeting) || isPureGreeting(raw);
       final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -134,8 +126,15 @@ final class PragmaticFastPath {
         if (nowMs - entry.atMs < 900000) {
           final folded = normalizeText(entry.text);
           const greetingKeywords = [
-            'hola', 'buenas', 'buen dia', 'buenos dias', 'que mas',
-            'quiubo', 'como estas', 'como te va', 'todo bien'
+            'hola',
+            'buenas',
+            'buen dia',
+            'buenos dias',
+            'que mas',
+            'quiubo',
+            'como estas',
+            'como te va',
+            'todo bien',
           ];
           if (greetingKeywords.any(folded.contains)) {
             recentlyGreeted = true;
@@ -159,14 +158,22 @@ final class PragmaticFastPath {
 
     final actLabel = intents.map((i) => i.name).join('+');
     const respondingIntents = {
-      ConversationIntent.reciprocalQuestion, ConversationIntent.userWellbeing,
-      ConversationIntent.negation, ConversationIntent.affirmation,
-      ConversationIntent.askRap, ConversationIntent.invitation,
-      ConversationIntent.wellbeingClarification, ConversationIntent.askAvailability,
-      ConversationIntent.askFood, ConversationIntent.askPhysicalLocation,
-      ConversationIntent.askFamily, ConversationIntent.askSleep,
-      ConversationIntent.askMusic, ConversationIntent.askWeatherSocial,
-      ConversationIntent.askCall, ConversationIntent.askLostOrMissing,
+      ConversationIntent.reciprocalQuestion,
+      ConversationIntent.userWellbeing,
+      ConversationIntent.negation,
+      ConversationIntent.affirmation,
+      ConversationIntent.askRap,
+      ConversationIntent.invitation,
+      ConversationIntent.wellbeingClarification,
+      ConversationIntent.askAvailability,
+      ConversationIntent.askFood,
+      ConversationIntent.askPhysicalLocation,
+      ConversationIntent.askFamily,
+      ConversationIntent.askSleep,
+      ConversationIntent.askMusic,
+      ConversationIntent.askWeatherSocial,
+      ConversationIntent.askCall,
+      ConversationIntent.askLostOrMissing,
       ConversationIntent.askOpinionSocial,
     };
     final isResponse = intents.any(respondingIntents.contains);

@@ -36,15 +36,19 @@ export class ChatService {
       model: appState.getState().currentModel,
     });
 
+    // Obtiene el modelo activo del estado global o usa el fallback por defecto
+    const activeModel = appState.getState().currentModel || 'qwen.gguf';
+
     try {
       // Iniciar estado thinking en el búho
       if (this.owlInstance) {
         this.owlInstance.setState('thinking');
       }
 
+      // Invoca el transporte hacia el backend (Tauri IPC o REST) transmitiendo tokens en tiempo real
       await transport.chatPromptStream({
         prompt: trimmed,
-        model,
+        model: activeModel,
         maxTokens: 512,
         webSearch: webEnabled,
         deepThink: deepThinkEnabled,
@@ -59,9 +63,9 @@ export class ChatService {
         onDone: (meta) => {
           appState.updateLastMessage(null, {
             isStreaming: false,
-            tok_s: meta.tok_s ? meta.tok_s.toFixed(1) : '22.4',
-            time: meta.time || '1.85s',
-            model: meta.model || model,
+            tok_s: meta.tok_s ? meta.tok_s.toFixed(1) : '0.0',
+            time: meta.time || '0.00s',
+            model: meta.model || activeModel,
           });
 
           // Notificar al búho éxito: despliegue de alas y júbilo (owl_fly)
