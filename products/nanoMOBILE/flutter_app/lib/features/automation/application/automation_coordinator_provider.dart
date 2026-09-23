@@ -60,6 +60,7 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart'
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
+import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
 import 'package:nanoai/features/automation/chess/application/chess_game_store.dart';
 import 'package:nanoai/features/automation/chess/application/chess_referee_service.dart';
 import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
