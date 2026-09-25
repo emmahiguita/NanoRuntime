@@ -38,12 +38,30 @@ final class PersonaExample {
 
   bool get enabled => tone['enabled'] != 'false';
   bool get isTemplate => tone['kind'] == 'template';
+  bool get isStyleOnly => tone['kind'] == 'style' || tone['reusable'] == 'false';
+  String get memoryRole => tone['memoryRole']?.trim() ?? (isStyleOnly ? 'style_and_historical_fact' : 'reusable_dialogue');
   String get importBatch => tone['importBatch'] ?? '';
   bool get ownerVerified => source == 'manual' || tone['ownerVerified'] == 'true';
   bool get isPaired => incomingText.trim().isNotEmpty;
+  bool get canReuseLiterally => isPaired && !isTemplate && !isStyleOnly;
   String get categoryTitle => tone['title']?.trim() ?? '';
   String get intent => tone['intent']?.trim() ?? '';
   String get category => tone['category']?.trim() ?? (categoryTitle.isNotEmpty ? categoryTitle : 'Conversación cotidiana');
+
+  /// Filtra únicamente las opciones de respuesta aptas para reutilización literal en el presente,
+  /// excluyendo aquellas que afirman un estado temporal efímero pasado ([isTemporalState]).
+  List<String> reusableVariants(bool Function(String text) isTemporalState) {
+    if (!canReuseLiterally) return const [];
+    final enabledOptions = responseOptions
+        .where((option) => option.enabled)
+        .map((option) => option.text.trim())
+        .where((text) => text.isNotEmpty)
+        .toList();
+    final sourceVariants = enabledOptions.isNotEmpty
+        ? enabledOptions
+        : (body.trim().isNotEmpty ? [body.trim()] : const <String>[]);
+    return sourceVariants.where((text) => !isTemporalState(text)).toList();
+  }
 
   /// Título o frase principal recibida.
   String get displayTrigger {

@@ -1,4 +1,4 @@
-﻿part of 'personalization_studio_screen.dart';
+part of 'personalization_studio_screen.dart';
 
 /// PERSONALIZATION-STUDIO-DATA-LOADER — Carga reactiva de perfiles y estados.
 ///
@@ -35,7 +35,7 @@ extension _PersonalizationStudioDataLoader on _PersonalizationStudioScreenState 
       }
       for (final k in (sum['scopeKeys'] as List? ?? const []).whereType<String>()) {
         if (k.isNotEmpty && !scs.containsKey(k)) {
-          scs[k] = _Scope(k, _scopes[k]?.label ?? 'Perfil · ', conversationId: _scopes[k]?.conversationId);
+          scs[k] = _Scope(k, _scopes[k]?.label ?? 'Perfil · $k', conversationId: _scopes[k]?.conversationId);
         }
       }
       for (final r in active) {
@@ -44,7 +44,7 @@ extension _PersonalizationStudioDataLoader on _PersonalizationStudioScreenState 
         if (id.safeToWrite && id.key.id.isNotEmpty && n.canReply) {
           final k = personalizationScope(id.key.id);
           final lbl = n.isGroup ? n.conversationTitle : n.sender;
-          if (lbl.isNotEmpty) scs[k] = _Scope(k, ' · ', conversationId: id.key.id, profile: scs[k]?.profile);
+          if (lbl.isNotEmpty) scs[k] = _Scope(k, lbl, conversationId: id.key.id, profile: scs[k]?.profile);
         }
       }
       final sel = scs.containsKey(req) ? req : 'owner';
@@ -56,7 +56,7 @@ extension _PersonalizationStudioDataLoader on _PersonalizationStudioScreenState 
         _examples = exs; _memories = mems; _error = null; _loading = false;
       });
     } catch (e) {
-      if (mounted && gen == _reloadGeneration) _safeSetState(() { _error = ''; _loading = false; });
+      if (mounted && gen == _reloadGeneration) _safeSetState(() { _error = e.toString(); _loading = false; });
     }
   }
 }

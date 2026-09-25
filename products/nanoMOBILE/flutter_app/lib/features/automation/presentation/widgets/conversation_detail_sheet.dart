@@ -9,6 +9,7 @@ import '../../engine/agent_dependencies.dart' show conversationAssignmentStorePr
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_memory.dart';
 import '../../engine/messaging/conversation_agent.dart';
+import '../../engine/language/conversation_semantic_tag.dart';
 import '../../engine/messaging/conversation_key.dart' show canonicalConversationId, resolveConversationIdentity;
 import '../../personal_agent/application/persona_context.dart' show personaContextProvider;
 import '../../engine/notifications/notification_object.dart';
@@ -27,7 +28,7 @@ import '../automation_visual_theme.dart';
 import 'conversation_history_resolver.dart';
 import 'conversation_media_bubble.dart';
 import 'conversation_phone_resolver.dart';
-import 'conversation_chess_board_card.dart';
+import 'conversation_semantic_badge.dart';
 
 part 'conversation_detail_header_view.dart';
 part 'conversation_detail_empty_view.dart';

@@ -75,19 +75,30 @@ final class RuntimePersonalStyleFormatter implements PersonalStyleFormatter {
     final minuteSeed = (query.hashCode ^ DateTime.now().minute).abs();
     final intro = _intros[minuteSeed % _intros.length];
 
-    // Formatear texto conciso en 1-2 frases
-    final firstSentence = cleanFacts.split(RegExp(r'(?<=[.!?])\s+')).first;
-    final formattedPrimary = '$intro $firstSentence'.trim();
+    // Formatear texto conciso y completo (1 a 3 oraciones)
+    final sentences = cleanFacts.split(RegExp(r'(?<=[.!?])\s+'));
+    final textBody = sentences.take(3).join(' ').trim();
+    final isAlreadyConversational = cleanFacts.toLowerCase().startsWith('hola') ||
+        cleanFacts.toLowerCase().startsWith('claro') ||
+        cleanFacts.toLowerCase().startsWith('mira') ||
+        cleanFacts.toLowerCase().startsWith('pillá') ||
+        cleanFacts.toLowerCase().startsWith('pilla');
+
+    final formattedPrimary = isAlreadyConversational
+        ? textBody
+        : '$intro $textBody'.trim();
     final cleaned = LanguageAssistService.safeCleanOutput(formattedPrimary);
 
     final suggestions = <String>[cleaned];
 
     // Alternativas estilísticas
-    final alt1 = 'Estuve mirando y $firstSentence'.trim();
+    final alt1 = isAlreadyConversational
+        ? textBody
+        : 'Estuve mirando y $textBody'.trim();
     final cleanAlt1 = LanguageAssistService.safeCleanOutput(alt1);
     if (!suggestions.contains(cleanAlt1)) suggestions.add(cleanAlt1);
 
-    final alt2 = cleanFacts;
+    final alt2 = textBody;
     final cleanAlt2 = LanguageAssistService.safeCleanOutput(alt2);
     if (!suggestions.contains(cleanAlt2)) suggestions.add(cleanAlt2);
 

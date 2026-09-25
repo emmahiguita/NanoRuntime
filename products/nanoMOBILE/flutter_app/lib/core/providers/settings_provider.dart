@@ -69,10 +69,14 @@ class SettingsRepository {
         waStyleText: m['waStyleText'] as String? ?? '',
         waReplyDelaySeconds: (m['waReplyDelaySeconds'] as num?)?.toInt() ?? 0,
         waTargetContactsMode: m['waTargetContactsMode'] as String? ?? 'all',
-        // AUTONOMY FAIL-SAFE (PROD-02): key ausente/legacy → null (jamás
-        // 'autonomous' por defecto). La conversión segura la hace
-        // ConversationAutonomyModeName.fromName (null → safeAuto).
-        waAutonomyMode: m['waAutonomyMode'] as String?,
+        // QUÉ HACE: Sincroniza waAutonomyMode con el modo de agente autónomo principal.
+        // CÓMO: Si agentAutomationMode es 'autonomous' y el canal quedó en 'suggestions', se eleva a 'autonomous'.
+        // POR QUÉ: Elimina el bloqueo donde el usuario cree que el bot está activo pero el sub-canal retiene borradores.
+        waAutonomyMode: (AgentAutomationMode.fromName(m['agentAutomationMode'] as String?) ==
+                    AgentAutomationMode.autonomous &&
+                m['waAutonomyMode'] == 'suggestions')
+            ? 'autonomous'
+            : (m['waAutonomyMode'] as String? ?? 'autonomous'),
         glassEnabled: m['glassEnabled'] as bool? ?? true,
         glassOpacity: (m['glassOpacity'] as num?)?.toDouble() ?? 0.70,
         glassClarity: (m['glassClarity'] as num?)?.toDouble() ?? 0.85,
@@ -200,7 +204,7 @@ class SettingsState {
     this.waStyleText = '',
     this.waReplyDelaySeconds = 0,
     this.waTargetContactsMode = 'all',
-    this.waAutonomyMode,
+    this.waAutonomyMode = 'autonomous',
     this.glassEnabled = true,
     this.glassOpacity = 0.70,
     this.glassClarity = 0.85,

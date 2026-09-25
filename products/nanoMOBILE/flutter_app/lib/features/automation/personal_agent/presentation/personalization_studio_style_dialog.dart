@@ -4,13 +4,7 @@
 /// Presenta el formulario para configurar tono, registro, emojis y uso del nombre
 /// con diseño estilo iOS Glass, micro-tipografía organizada y cero desbordamientos (overflows).
 ///
-/// **CÓMO FUNCIONA:**
-/// Emplea tarjetas agrupadas con bordes sutiles de vidrio translúcido, scroll vertical
-/// con `shrinkWrap` seguro y dimensiones calculadas para cualquier orientación móvil.
-///
-/// **POR QUÉ:**
-/// Elimina definitivamente el error "BOTTOM OVERFLOWED BY 18 PIXELS" y entrega una
-/// estética premium inspirada en iOS (Cupertino glass) con código < 200 líneas.
+/// Usa contenido desplazable y dimensiones seguras en cualquier orientación.
 part of 'personalization_studio_screen.dart';
 
 class _StyleEditDialog extends StatefulWidget {
@@ -37,7 +31,9 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
     final e = widget.existing;
     register = _registers.contains(e['styleRegister']) ? e['styleRegister']! : 'casual';
     relationship = _relationships.contains(e['relationship']) ? e['relationship']! : 'known';
-    learn = e['learnStyle'] != 'false';
+    learn = widget.scope.id == 'owner'
+        ? e['learnStyle'] != 'false'
+        : e['learnStyle'] == 'true';
     enabled = e['profileEnabled'] != 'false';
     slang = e['allowSlang'] == 'true';
     usesName = e['usesContactName'] == 'never' ? 'never' : 'natural';
@@ -111,6 +107,21 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
                 SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, title: const Text('Aplicar perfil', style: TextStyle(fontSize: 11)), value: enabled, onChanged: (v) => setState(() => enabled = v)),
                 const SizedBox(height: 4),
               ],
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(
+                  isOwner ? 'Aprendizaje automático de estilo' : 'Aprender de este contacto',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                subtitle: const Text(
+                  'Sólo usa respuestas tuyas ya enviadas y verificadas.',
+                  style: TextStyle(fontSize: 9.5, color: Colors.white54),
+                ),
+                value: learn,
+                onChanged: (v) => setState(() => learn = v),
+              ),
+              const SizedBox(height: 4),
               DropdownButtonFormField<String>(
                 initialValue: register,
                 decoration: _inputDeco('Registro conversacional'),

@@ -1,5 +1,7 @@
 import '../../../database/domain/data_models.dart';
 import '../business/business_facts.dart';
+import '../business/business_text_matcher.dart';
+import 'business_data_value_parser.dart';
 import 'business_connector_models.dart';
 
 // business_data_normalizer.dart
@@ -22,6 +24,7 @@ class BusinessDataNormalizer {
   static BusinessValidationReport normalize({
     required DataTable table,
     required BusinessColumnMapping mapping,
+    List<BusinessProduct>? existingProducts,
   }) {
     if (!mapping.isValid || table.isEmpty) {
       return const BusinessValidationReport(
@@ -36,9 +39,26 @@ class BusinessDataNormalizer {
 
     final nameIdx = table.columns.indexOf(mapping.nameColumn!);
     final priceIdx = table.columns.indexOf(mapping.priceColumn!);
-    final stockIdx = mapping.stockColumn != null ? table.columns.indexOf(mapping.stockColumn!) : -1;
-    final skuIdx = mapping.skuColumn != null ? table.columns.indexOf(mapping.skuColumn!) : -1;
-    final detailsIdx = mapping.detailsColumn != null ? table.columns.indexOf(mapping.detailsColumn!) : -1;
+    final stockIdx = mapping.stockColumn != null
+        ? table.columns.indexOf(mapping.stockColumn!)
+        : -1;
+    final skuIdx = mapping.skuColumn != null
+        ? table.columns.indexOf(mapping.skuColumn!)
+        : -1;
+    final categoryIdx = mapping.categoryColumn != null
+        ? table.columns.indexOf(mapping.categoryColumn!)
+        : -1;
+    final detailsIdx = mapping.detailsColumn != null
+        ? table.columns.indexOf(mapping.detailsColumn!)
+        : -1;
+
+    final existingMapById = {
+      for (final p in existingProducts ?? const <BusinessProduct>[]) p.id: p,
+    };
+    final existingMapByName = {
+      for (final p in existingProducts ?? const <BusinessProduct>[])
+        normalizeText(p.name.trim()): p,
+    };
 
     final seenIds = <String>{};
     final seenNames = <String>{};
@@ -49,50 +69,92 @@ class BusinessDataNormalizer {
 
     for (int i = 0; i < table.rows.length; i++) {
       final row = table.rows[i];
-      final rawName = _getValue(row, nameIdx);
-      final rawPrice = _getValue(row, priceIdx);
-      final rawStock = _getValue(row, stockIdx);
-      final rawSku = _getValue(row, skuIdx);
-      final rawDetails = _getValue(row, detailsIdx);
+      final rawName = dataCellValue(row, nameIdx);
+      final rawPrice = dataCellValue(row, priceIdx);
+      final rawStock = dataCellValue(row, stockIdx);
+      final rawSku = dataCellValue(row, skuIdx);
+      final rawCategory = dataCellValue(row, categoryIdx);
+      final rawDetails = dataCellValue(row, detailsIdx);
 
       final cleanName = rawName.trim();
+      final nameKey = normalizeText(cleanName);
       if (cleanName.isEmpty) {
         invalidCount++;
         continue;
       }
 
-      final parsedPrice = parseRegionalPrice(rawPrice);
+      final parsedPrice = parseRegionalPriceValue(rawPrice);
       if (parsedPrice <= 0) {
         invalidCount++;
-        warnings.add('Fila ${i + 1}: "$cleanName" tiene precio inválido o cero ("$rawPrice").');
+        warnings.add(
+          'Fila ${i + 1}: "$cleanName" tiene precio inválido o cero ("$rawPrice").',
+        );
         continue;
       }
 
-      final parsedStock = _parseStock(rawStock);
+      final parsedStock = parseStockValue(rawStock);
       if (parsedStock != null && parsedStock < 0) {
-        warnings.add('Fila ${i + 1}: "$cleanName" tiene existencias negativas ($parsedStock). Ajustado a 0.');
+        warnings.add(
+          'Fila ${i + 1}: "$cleanName" tiene existencias negativas ($parsedStock). Ajustado a 0.',
+        );
       }
 
-      final productId = rawSku.trim().isNotEmpty
+      final generatedId = rawSku.trim().isNotEmpty
           ? rawSku.trim()
-          : 'PRD_${cleanName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+          : 'PRD_${nameKey.replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+      final existing =
+          existingMapById[generatedId] ?? existingMapByName[nameKey];
+      // Conserva la identidad durable al coincidir por nombre tras una importación.
+      final productId = existing?.id ?? generatedId;
 
-      if (seenIds.contains(productId) || seenNames.contains(cleanName.toLowerCase())) {
+      if (seenIds.contains(productId) || seenNames.contains(nameKey)) {
         duplicateCount++;
-        warnings.add('Fila ${i + 1}: Producto duplicado detectado ("$cleanName").');
+        warnings.add(
+          'Fila ${i + 1}: Producto duplicado detectado ("$cleanName").',
+        );
         continue;
       }
 
       seenIds.add(productId);
-      seenNames.add(cleanName.toLowerCase());
+      seenNames.add(nameKey);
+
+      int finalPrice = parsedPrice;
+      int? finalStock = parsedStock != null
+          ? (parsedStock < 0 ? 0 : parsedStock)
+          : null;
+      bool isManual = false;
+
+      // Safe Merge: Preservar ediciones manuales previas hechas en el móvil
+      if (existing != null && existing.isManualEdit) {
+        isManual = true;
+        if (existing.price != parsedPrice) {
+          warnings.add(
+            'Fila ${i + 1}: "$cleanName" fue editado manualmente en el móvil (\$${existing.price}). Se conservó tu edición manual.',
+          );
+          finalPrice = existing.price;
+        }
+        if (existing.stock != null) {
+          finalStock = existing.stock;
+        }
+      }
 
       validProducts.add(
         BusinessProduct(
           id: productId,
           name: cleanName,
-          details: rawDetails.trim(),
-          price: parsedPrice,
-          stock: parsedStock != null ? (parsedStock < 0 ? 0 : parsedStock) : null,
+          details: rawDetails.trim().isNotEmpty
+              ? rawDetails.trim()
+              : (existing?.details ?? ''),
+          price: finalPrice,
+          stock: finalStock,
+          sku: rawSku.trim().isNotEmpty ? rawSku.trim() : existing?.sku,
+          category: rawCategory.trim().isNotEmpty
+              ? rawCategory.trim()
+              : existing?.category,
+          isAvailable: existing?.isAvailable ?? true,
+          variants: existing?.variants ?? const [],
+          imagePath: existing?.imagePath,
+          isManualEdit: isManual,
         ),
       );
     }
@@ -105,49 +167,5 @@ class BusinessDataNormalizer {
       warnings: warnings,
       validProducts: validProducts,
     );
-  }
-
-  /// Parsea cadenas de precio en formatos como "$ 1.200.000", "1200000", "1,200.50".
-  static int parseRegionalPrice(String raw) {
-    if (raw.trim().isEmpty) return 0;
-    var clean = raw.replaceAll(RegExp(r'[^\d.,]'), '').trim();
-    if (clean.isEmpty) return 0;
-
-    // Caso: formato hispano con puntos de miles (ej: 1.200.000 o 1.200.000,00)
-    if (clean.contains('.') && clean.contains(',')) {
-      if (clean.lastIndexOf(',') > clean.lastIndexOf('.')) {
-        clean = clean.split(',')[0].replaceAll('.', '');
-      } else {
-        clean = clean.split('.')[0].replaceAll(',', '');
-      }
-    } else if (clean.contains('.')) {
-      final parts = clean.split('.');
-      if (parts.length > 2 || (parts.length == 2 && parts.last.length == 3)) {
-        clean = clean.replaceAll('.', '');
-      } else {
-        clean = parts[0];
-      }
-    } else if (clean.contains(',')) {
-      final parts = clean.split(',');
-      if (parts.length > 2 || (parts.length == 2 && parts.last.length == 3)) {
-        clean = clean.replaceAll(',', '');
-      } else {
-        clean = parts[0];
-      }
-    }
-
-    return int.tryParse(clean) ?? 0;
-  }
-
-  static int? _parseStock(String raw) {
-    final clean = raw.replaceAll(RegExp(r'[^\d-]'), '').trim();
-    return clean.isNotEmpty ? int.tryParse(clean) : null;
-  }
-
-  static String _getValue(List<dynamic> row, int index) {
-    if (index >= 0 && index < row.length) {
-      return row[index]?.toString() ?? '';
-    }
-    return '';
   }
 }

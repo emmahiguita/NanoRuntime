@@ -17,33 +17,9 @@ library;
 import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../domain/persona_example.dart';
+import 'validated_persona_context.dart';
 
-/// Contexto personal limpio, listo para el prompt. Los campos acotados son
-/// los que el validador autoriza; [rejected] registra cada recorte para que
-/// el dueño vea qué no entró (traza honesta, jamás silencio).
-final class ValidatedPersonaContext {
-  const ValidatedPersonaContext({
-    required this.ownerName,
-    required this.ownerNotes,
-    required this.relationshipName,
-    required this.relationshipNotes,
-    required this.examples,
-    required this.rejected,
-  });
-
-  final String ownerName;
-  final String ownerNotes;
-  final String? relationshipName;
-  final String? relationshipNotes;
-  final List<PersonaExample> examples;
-  final List<String> rejected;
-
-  bool get hasContent =>
-      ownerName.isNotEmpty ||
-      ownerNotes.isNotEmpty ||
-      (relationshipNotes?.isNotEmpty ?? false) ||
-      examples.isNotEmpty;
-}
+export 'validated_persona_context.dart';
 
 final class PersonaValidator {
   const PersonaValidator();

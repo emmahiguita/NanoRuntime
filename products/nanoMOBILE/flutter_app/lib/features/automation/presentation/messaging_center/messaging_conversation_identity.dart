@@ -4,8 +4,8 @@
 /// Determina si dos elementos de conversación representan el mismo hilo de chat real.
 ///
 /// **CÓMO FUNCIONA:**
-/// Compara canal/paquete e identificadores técnicos observados. El nombre y
-/// el título son etiquetas humanas: nunca se usan como identidad.
+/// Compara canal/paquete e identificadores técnicos observados. El nombre sólo
+/// actúa como puente acotado entre una notificación viva y su fila persistida.
 ///
 /// **POR QUÉ:**
 /// Erradica conversaciones duplicadas y fragmentadas, manteniendo el código < 200 líneas.
@@ -39,6 +39,15 @@ abstract final class MessagingConversationIdentity {
       return true;
     }
 
+    // Android puede entregar el mismo JID o teléfono dentro de envoltorios
+    // distintos (`live:` frente a la dirección canónica persistida).
+    final jidA = _jidFrom(a.conversationId);
+    final jidB = _jidFrom(b.conversationId);
+    if (jidA != null && jidA == jidB) return true;
+    final phoneA = extractPhoneDigits(a.conversationId);
+    final phoneB = extractPhoneDigits(b.conversationId);
+    if (phoneA != null && phoneA == phoneB) return true;
+
     // La misma notificación o el mismo evento observado por SQLite y Android
     // son evidencia fuerte aunque una fuente tenga nombre y la otra un @lid.
     final notificationA = a.notificationKey?.trim() ?? '';
@@ -51,8 +60,25 @@ abstract final class MessagingConversationIdentity {
     // sin inferir identidad por nombre, título o sufijos telefónicos.
     final identitiesA = _strongIdentities(a);
     final identitiesB = _strongIdentities(b);
-    return identitiesA.any(identitiesB.contains);
+    if (identitiesA.any(identitiesB.contains)) return true;
+
+    // Último puente permitido: misma etiqueta humana no técnica y exactamente
+    // una fuente viva. Nunca fusiona dos filas persistidas sólo por nombre.
+    final aLive = a.conversationId.toLowerCase().startsWith('live:');
+    final bLive = b.conversationId.toLowerCase().startsWith('live:');
+    final nameA = a.displayName.trim().toLowerCase();
+    final nameB = b.displayName.trim().toLowerCase();
+    return aLive != bLive &&
+        nameA.isNotEmpty &&
+        nameA == nameB &&
+        !isTechnicalName(nameA) &&
+        !isTechnicalName(nameB);
   }
+
+  static String? _jidFrom(String raw) => RegExp(
+    r'[\w\.\-]+@(g\.us|s\.whatsapp\.net)',
+    caseSensitive: false,
+  ).firstMatch(raw)?.group(0)?.toLowerCase();
 
   static Set<String> _strongIdentities(ConversationSummaryItem item) {
     final result = <String>{};

@@ -6,13 +6,12 @@
 //
 // CÓMO FUNCIONA:
 // - Controla la concurrencia mediante `_pendingBatches` y amortigua ráfagas en `BurstTurnGate`.
+// - Filtra difusiones de estados y reacciones a historias con `WhatsAppStatusClassifier`.
 // - Maneja el arranque en frío recuperando eventos no procesados de la cola durable `DurableInbox`.
-// - Soporta detención determinista (`stop`) esperando la cancelación de la suscripción nativa
-//   e invalidando cualquier replay o callback en vuelo mediante un token de generación creciente.
+// - Invalida callbacks en vuelo por generación y espera el cierre antes de soltar estado.
 //
 // POR QUÉ:
-// Resuelve la carrera de apagado y la saturación ciega de admisión (AUT-P2-15), garantizando
-// que los eventos no se pierdan ni se admitan de forma zombi tras desmontar el router (< 200 líneas).
+// Previene que reacciones o difusiones de estados disparen respuestas automáticas erróneas (<200 líneas).
 
 library;
 
@@ -21,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 import '../notifications/notification_object.dart';
+import '../platform/whatsapp_status_classifier.dart';
 import 'burst_turn_gate.dart';
 import 'rule_pipeline.dart';
 
@@ -28,8 +28,6 @@ class NotificationEventRouter {
   NotificationEventRouter({required this.pipeline, this.gate});
 
   final RulePipeline pipeline;
-
-  /// Puerta de agregación de ráfagas por conversación (BurstTurnGate).
   final BurstTurnGate? gate;
   StreamSubscription<Map<dynamic, dynamic>>? _sub;
   int _generation = 0;
@@ -37,43 +35,43 @@ class NotificationEventRouter {
   bool _hasDeferredBatches = false;
   bool _isDrainingBacklog = false;
 
-  /// Inicia la escucha activa de eventos nativos y el replay de arranque en frío.
   void start() {
     if (_sub != null) return;
     final generation = ++_generation;
-    _sub = NanoRuntimeApi.instance.notificationEvents.listen(
-      (m) {
-        if (_sub == null || generation != _generation) return;
-        unawaited(_routeBatch(m, generation));
-      },
-      onError: (Object e) {
-        debugPrint('[notifications] error en flujo de eventos: $e');
-      },
-    );
+    _sub = NanoRuntimeApi.instance.notificationEvents.listen((m) {
+      if (_sub == null || generation != _generation) return;
+      unawaited(_routeBatch(m, generation));
+    }, onError: (Object e) => debugPrint('[notifications] error en flujo: $e'));
     unawaited(_coldStartReplay(generation));
   }
 
-  /// Procesa un lote individual de notificaciones respetando la capacidad máxima del sistema.
   Future<void> _routeBatch(Map<dynamic, dynamic> map, int generation) async {
     if (_sub == null || generation != _generation) return;
 
     if (_pendingBatches >= 64) {
       _hasDeferredBatches = true;
-      debugPrint('[notifications] capacidad máxima alcanzada (64); evento retenido en DurableInbox');
+      debugPrint(
+        '[notifications] capacidad máxima alcanzada (64); evento retenido',
+      );
       return;
     }
 
     _pendingBatches++;
     try {
       final events = NotificationObject.eventsFromMap(map);
+      // Excluir estados e historias de WhatsApp antes de admitir al pipeline
+      final validEvents = events
+          .where((e) => !WhatsAppStatusClassifier.shouldIgnoreFromChatHub(e))
+          .toList();
+
       final g = gate;
       if (g == null) {
-        for (final event in events) {
+        for (final event in validEvents) {
           if (_sub == null || generation != _generation) return;
           await pipeline.onNotification(event);
         }
-      } else {
-        await pipeline.submitNotifications(events, g);
+      } else if (validEvents.isNotEmpty) {
+        await pipeline.submitNotifications(validEvents, g);
         await g.drain();
       }
       if (_sub != null && generation == _generation) {
@@ -83,14 +81,16 @@ class NotificationEventRouter {
       debugPrint('[notifications] ingreso de notificación diferido: $error');
     } finally {
       _pendingBatches--;
-      if (_pendingBatches <= 16 && _hasDeferredBatches && _sub != null && generation == _generation) {
+      if (_pendingBatches <= 16 &&
+          _hasDeferredBatches &&
+          _sub != null &&
+          generation == _generation) {
         _hasDeferredBatches = false;
         unawaited(_drainBacklog(_generation));
       }
     }
   }
 
-  /// Drena eventos pendientes de la base de datos DurableInbox cuando la cola recupera capacidad.
   Future<void> _drainBacklog(int generation) async {
     if (_isDrainingBacklog) return;
     _isDrainingBacklog = true;
@@ -115,7 +115,6 @@ class NotificationEventRouter {
     }
   }
 
-  /// Recuperación serializada en frío de eventos pendientes en SQLite al iniciar el runtime.
   Future<void> _coldStartReplay(int generation) async {
     for (var attempt = 0; attempt < 3; attempt++) {
       await Future<void>.delayed(Duration(seconds: attempt == 0 ? 2 : 5));
@@ -141,21 +140,23 @@ class NotificationEventRouter {
     }
   }
 
-  /// Detención determinista y asíncrona del router, cancelando la suscripción nativa.
+  /// Cancela la fuente primero; los lotes ya iniciados observan la generación
+  /// inválida y terminan sin despachar ni reactivar el drenado del backlog.
   Future<void> stop() async {
     _generation++;
-    final sub = _sub;
+    final subscription = _sub;
     _sub = null;
+    _hasDeferredBatches = false;
     try {
-      await sub?.cancel();
-    } catch (_) {}
+      await subscription?.cancel();
+    } catch (error) {
+      debugPrint('[notifications] error cancelando flujo: $error');
+    }
 
-    // Espera hasta 1.5s para que los batches en vuelo terminen limpiamente
-    for (var i = 0; i < 15 && _pendingBatches > 0; i++) {
+    // No se falsea el contador: cada lote conserva su `finally`. La espera
+    // acotada permite teardown limpio sin dejar bloqueado el ciclo de Flutter.
+    for (var attempt = 0; attempt < 15 && _pendingBatches > 0; attempt++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }
   }
-
-  /// Método de conveniencia sincrónico para teardown en callbacks de frameworks.
-  void dispose() => unawaited(stop());
 }

@@ -127,6 +127,30 @@ void main() {
       expect(merged.first.notificationKey, equals('notif_key_123'));
     });
 
+    test('No fusiona dos historiales persistidos sólo porque comparten nombre', () {
+      const first = ConversationSummaryItem(
+        conversationId: 'whatsapp/com.whatsapp/-/person:juan-1',
+        displayName: 'Juan',
+        packageName: 'com.whatsapp',
+        lastMessage: 'Hola',
+        lastAtMs: 1000,
+        agentId: ConversationAgentId.personal,
+      );
+      const second = ConversationSummaryItem(
+        conversationId: 'whatsapp/com.whatsapp/-/person:juan-2',
+        displayName: 'Juan',
+        packageName: 'com.whatsapp',
+        lastMessage: 'Buenas',
+        lastAtMs: 2000,
+        agentId: ConversationAgentId.personal,
+      );
+
+      expect(
+        MessagingDedupMerger.deduplicateAndSort([first, second]),
+        hasLength(2),
+      );
+    });
+
     test('Deduplica contactos por dígitos de teléfono iguales', () {
       const item1 = ConversationSummaryItem(
         conversationId: '573001234567@s.whatsapp.net',
@@ -272,6 +296,31 @@ void main() {
       final parsedTag = ParsedMediaMessage.parse('Mira esto\n[Imagen: /data/user/0/dev.nanoai.mobile/cache/img_123.jpg]');
       expect(parsedTag.hasMedia, isTrue);
       expect(parsedTag.images, contains('/data/user/0/dev.nanoai.mobile/cache/img_123.jpg'));
+    });
+
+    test('Detecta archivos locales aunque la ruta tenga espacios', () {
+      final image = ParsedMediaMessage.parse(
+        '/storage/emulated/0/Download/Foto familiar.JPG',
+      );
+      final video = ParsedMediaMessage.parse(
+        '/storage/emulated/0/Download/Video vacaciones.MP4',
+      );
+      final pdf = ParsedMediaMessage.parse(
+        '/storage/emulated/0/Download/Estado de cuenta.PDF',
+      );
+
+      expect(image.images, hasLength(1));
+      expect(video.videos, hasLength(1));
+      expect(pdf.pdfs, hasLength(1));
+    });
+
+    test('Ignora puntuación posterior al clasificar enlaces multimedia', () {
+      final parsed = ParsedMediaMessage.parse(
+        'Abre el informe (https://dominio.com/docs/informe.pdf).',
+      );
+
+      expect(parsed.pdfs, ['https://dominio.com/docs/informe.pdf']);
+      expect(parsed.links, isEmpty);
     });
   });
 

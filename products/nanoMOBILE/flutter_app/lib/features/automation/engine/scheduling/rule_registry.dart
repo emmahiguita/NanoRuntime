@@ -139,24 +139,25 @@ class RuleRegistry with ChangeNotifier {
     _rules
       ..clear()
       ..addAll(unique);
-    // WA-FILTER-01: Garantizar que la regla de WhatsApp responda ÚNICAMENTE a Emm / Emma / Emma Hg
-    for (var i = 0; i < _rules.length; i++) {
-      final r = _rules[i];
-      if (r.id == universalWhatsAppRuleId && r.trigger is NotificationTrigger) {
-        final nt = r.trigger as NotificationTrigger;
-        if (nt.senderMatch != 'Emm') {
-          _rules[i] = r.copyWith(
-            trigger: NotificationTrigger(
-              packageName: nt.packageName,
-              senderMatch: 'Emm',
-              textMatch: nt.textMatch,
-              excludedSenderMatch: nt.excludedSenderMatch,
-            ),
-          );
-        }
-      }
+
+    // Auto-seed regla universal de WhatsApp si no existe
+    final waId = ruleIdForPackage(MessagingPackage.whatsapp);
+    if (!_rules.any((r) => r.id == waId)) {
+      _rules.add(ScheduledRule(
+        id: waId,
+        trigger: const NotificationTrigger(
+          packageName: MessagingPackage.whatsapp,
+        ),
+        action: RuleAction.reply,
+        dynamicReply: true,
+        enabled: true,
+        createdAt: DateTime.now(),
+        createdByUser: true,
+      ));
     }
+
     _loaded = true;
+    _persist();
     notifyListeners();
   }
 
@@ -167,7 +168,7 @@ class RuleRegistry with ChangeNotifier {
           : universalWhatsAppRuleId;
 
   /// WA-CONSENT-01 — siembra o reactiva la regla universal de WhatsApp para el paquete.
-  void seedWhatsAppRule(String packageName) {
+  void seedWhatsAppRule(String packageName, {String? senderMatch}) {
     final id = ruleIdForPackage(packageName);
     final matches = _rules.where((r) => r.id == id).toList();
     if (matches.isNotEmpty) {
@@ -176,7 +177,7 @@ class RuleRegistry with ChangeNotifier {
         enabled: true,
         trigger: NotificationTrigger(
           packageName: packageName,
-          senderMatch: packageName == MessagingPackage.whatsapp ? 'Emm' : null,
+          senderMatch: senderMatch,
         ),
       ));
       _persist();
@@ -186,7 +187,7 @@ class RuleRegistry with ChangeNotifier {
       id: id,
       trigger: NotificationTrigger(
         packageName: packageName,
-        senderMatch: packageName == MessagingPackage.whatsapp ? 'Emm' : null,
+        senderMatch: senderMatch,
       ),
       action: RuleAction.reply,
       dynamicReply: true,
@@ -196,7 +197,7 @@ class RuleRegistry with ChangeNotifier {
     );
     _rules.add(rule);
     debugPrint(
-      '[rules] seed WhatsApp rule id=$id pkg=$packageName (responder a Emm)',
+      '[rules] seed WhatsApp rule id=$id pkg=$packageName',
     );
     _persist();
   }

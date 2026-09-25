@@ -21,6 +21,9 @@ class MessagingEmptyState extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final archived =
+        ref.watch(selectedCategoryTabProvider) ==
+        MessagingCategoryFilter.archived;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
       alignment: Alignment.center,
@@ -33,36 +36,57 @@ class MessagingEmptyState extends ConsumerWidget {
             decoration: BoxDecoration(
               color: const Color(0xFF00FF88).withValues(alpha: 0.08),
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF00FF88).withValues(alpha: 0.2)),
+              border: Border.all(
+                color: const Color(0xFF00FF88).withValues(alpha: 0.2),
+              ),
             ),
             child: const Center(
-              child: Icon(Icons.mark_chat_unread_rounded, size: 32, color: Color(0xFF00FF88)),
+              child: Icon(
+                Icons.mark_chat_unread_rounded,
+                size: 32,
+                color: Color(0xFF00FF88),
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Sin mensajes activos',
-            style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+          Text(
+            archived ? 'Sin conversaciones archivadas' : 'Sin mensajes activos',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
-            'Cuando recibas mensajes de WhatsApp, Telegram u otras apps, aparecerán aquí en tiempo real.',
+            archived
+                ? 'Las conversaciones que archives en Nano aparecerán aquí.'
+                : 'Los chats observados desde las notificaciones reales aparecerán aquí.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13, height: 1.4),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.5),
+              fontSize: 13,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 20),
           TextButton.icon(
             onPressed: () {
-              ref.read(selectedPlatformFilterProvider.notifier).state = null;
-              ref.read(selectedCategoryTabProvider.notifier).state = MessagingCategoryFilter.all;
-              ref.read(messagingSearchQueryProvider.notifier).state = '';
               ref.invalidate(liveNotificationsProvider);
               ref.invalidate(allHubConversationsProvider);
+              ref.invalidate(archivedConversationIdsProvider);
             },
-            icon: const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF00FF88)),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              size: 16,
+              color: Color(0xFF00FF88),
+            ),
             label: const Text(
               'Actualizar',
-              style: TextStyle(color: Color(0xFF00FF88), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Color(0xFF00FF88),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

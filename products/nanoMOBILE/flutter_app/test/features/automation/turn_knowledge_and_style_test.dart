@@ -9,7 +9,7 @@ import 'package:nanoai/features/automation/personal_agent/domain/conversation_de
 
 void main() {
   group('TurnKnowledgeRouter & PersonalStyleFormatter Tests', () {
-    const knowledgeRouter = RuntimeTurnKnowledgeRouter();
+    final knowledgeRouter = RuntimeTurnKnowledgeRouter();
     const styleFormatter = RuntimePersonalStyleFormatter();
 
     test('TurnKnowledgeRouter detecta necesidad de conocimiento externo', () {
@@ -101,6 +101,9 @@ final class _MockKnowledgeRouter implements TurnKnowledgeRouter {
       source: 'mock_provider',
     );
   }
+
+  @override
+  Future<void> dispose() async {}
 }
 
 NotificationObject _createNotification({

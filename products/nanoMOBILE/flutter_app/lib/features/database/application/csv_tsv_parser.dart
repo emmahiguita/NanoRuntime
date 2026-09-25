@@ -1,8 +1,22 @@
+// csv_tsv_parser.dart
+//
+// QUÉ HACE:
+// Parser robusto y rápido de hojas de cálculo CSV / TSV / DSV para el módulo de bases de datos.
+//
+// CÓMO FUNCIONA:
+// - Detecta automáticamente delimitadores (coma, punto y coma, tabulación o pipe).
+// - Procesa campos delimitados con comillas y saltos de línea embebidos.
+// - Infiere dinámicamente tipos de datos (enteros, decimales, booleanos y texto).
+//
+// POR QUÉ:
+// Permite importar archivos del dispositivo o volcados de shell a `DataTable` de forma fiable (< 180 líneas).
+
+library;
+
 import '../domain/data_models.dart';
 
-/// Analizador rápido y robusto de hojas de cálculo CSV / TSV / DSV
 class CsvTsvParser {
-  /// Detecta automáticamente el delimitador y analiza el contenido de la hoja de cálculo
+  /// Analiza el contenido CSV/TSV y retorna un [DataTable] estructurado.
   static DataTable parse({
     required String name,
     required String rawContent,
@@ -14,128 +28,85 @@ class CsvTsvParser {
 
     final delimiter = explicitDelimiter ?? _detectDelimiter(rawContent);
     final rawLines = _splitCsvLines(rawContent);
+    if (rawLines.isEmpty) return DataTable(name: name, columns: [], rows: []);
 
-    if (rawLines.isEmpty) {
-      return DataTable(name: name, columns: [], rows: []);
-    }
-
-    // Cabeceras
     final headerTokens = _tokenizeLine(rawLines.first, delimiter);
     final columns = headerTokens.map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
-
-    if (columns.isEmpty) {
-      return DataTable(name: name, columns: [], rows: []);
-    }
+    if (columns.isEmpty) return DataTable(name: name, columns: [], rows: []);
 
     final rows = <List<dynamic>>[];
     for (int i = 1; i < rawLines.length; i++) {
       final line = rawLines[i].trim();
       if (line.isEmpty) continue;
-
       final tokens = _tokenizeLine(line, delimiter);
       final row = <dynamic>[];
-
       for (int c = 0; c < columns.length; c++) {
-        if (c < tokens.length) {
-          final rawVal = tokens[c].trim();
-          row.add(_inferValue(rawVal));
-        } else {
-          row.add(null);
-        }
+        row.add(c < tokens.length ? _inferValue(tokens[c].trim()) : null);
       }
       rows.add(row);
     }
 
-    // Inferir tipos por columna
     final columnTypes = <String, DataColumnType>{};
     for (int c = 0; c < columns.length; c++) {
-      final colName = columns[c];
-      columnTypes[colName] = _detectColumnType(rows, c);
+      columnTypes[columns[c]] = _detectColumnType(rows, c);
     }
 
-    return DataTable(
-      name: name,
-      columns: columns,
-      rows: rows,
-      columnTypes: columnTypes,
-    );
+    return DataTable(name: name, columns: columns, rows: rows, columnTypes: columnTypes);
   }
 
-  /// Detecta el delimitador analizando la primera línea representativa
   static String _detectDelimiter(String content) {
-    final firstLine = content.split(RegExp(r'\r?\n')).firstWhere(
-      (l) => l.trim().isNotEmpty,
-      orElse: () => '',
-    );
-
-    int commaCount = 0;
-    int tabCount = 0;
-    int semicolonCount = 0;
-    int pipeCount = 0;
-
+    final firstLine = content.split(RegExp(r'\r?\n')).firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
+    int comma = 0, tab = 0, semi = 0, pipe = 0;
     bool inQuotes = false;
     for (int i = 0; i < firstLine.length; i++) {
       final ch = firstLine[i];
       if (ch == '"') {
         inQuotes = !inQuotes;
       } else if (!inQuotes) {
-        if (ch == ',') commaCount++;
-        if (ch == '\t') tabCount++;
-        if (ch == ';') semicolonCount++;
-        if (ch == '|') pipeCount++;
+        if (ch == ',') comma++;
+        if (ch == '\t') tab++;
+        if (ch == ';') semi++;
+        if (ch == '|') pipe++;
       }
     }
-
-    if (tabCount > commaCount && tabCount > semicolonCount) return '\t';
-    if (semicolonCount > commaCount && semicolonCount > pipeCount) return ';';
-    if (pipeCount > commaCount) return '|';
+    if (tab > comma && tab > semi) return '\t';
+    if (semi > comma && semi > pipe) return ';';
+    if (pipe > comma) return '|';
     return ',';
   }
 
-  /// Divide el contenido respetando saltos de línea dentro de campos entre comillas
   static List<String> _splitCsvLines(String content) {
     final lines = <String>[];
     final buffer = StringBuffer();
     bool inQuotes = false;
-
     for (int i = 0; i < content.length; i++) {
       final char = content[i];
       if (char == '"') {
-        // Chequeo de comilla escapada ("")
         if (i + 1 < content.length && content[i + 1] == '"') {
           buffer.write('""');
-          i++; // Saltamos la siguiente comilla
+          i++;
         } else {
           inQuotes = !inQuotes;
           buffer.write(char);
         }
       } else if ((char == '\n' || char == '\r') && !inQuotes) {
-        if (char == '\r' && i + 1 < content.length && content[i + 1] == '\n') {
-          i++;
-        }
+        if (char == '\r' && i + 1 < content.length && content[i + 1] == '\n') i++;
         lines.add(buffer.toString());
         buffer.clear();
       } else {
         buffer.write(char);
       }
     }
-
-    if (buffer.isNotEmpty) {
-      lines.add(buffer.toString());
-    }
-
+    if (buffer.isNotEmpty) lines.add(buffer.toString());
     return lines;
   }
 
-  /// Descompone una línea en celdas respetando comillas y delimitador
   static List<String> _tokenizeLine(String line, String delimiter) {
     final tokens = <String>[];
     final current = StringBuffer();
     bool inQuotes = false;
-
     for (int i = 0; i < line.length; i++) {
       final char = line[i];
-
       if (char == '"') {
         if (i + 1 < line.length && line[i + 1] == '"') {
           current.write('"');
@@ -151,45 +122,29 @@ class CsvTsvParser {
         current.write(char);
       }
     }
-
     tokens.add(current.toString());
     return tokens;
   }
 
-  /// Infiere si un texto es entero, decimal, booleano o texto plano
   static dynamic _inferValue(String val) {
     if (val.isEmpty) return '';
-    if (val.equalsIgnoreCase('true')) return true;
-    if (val.equalsIgnoreCase('false')) return false;
-
-    // Entero
+    if (val.toLowerCase() == 'true') return true;
+    if (val.toLowerCase() == 'false') return false;
     final intVal = int.tryParse(val);
     if (intVal != null) return intVal;
-
-    // Decimal (acepta coma o punto)
-    final normalizedDecimal = val.replaceAll(',', '.');
-    final doubleVal = double.tryParse(normalizedDecimal);
-    if (doubleVal != null && !doubleVal.isNaN && !doubleVal.isInfinite) {
-      return doubleVal;
-    }
-
+    final doubleVal = double.tryParse(val.replaceAll(',', '.'));
+    if (doubleVal != null && !doubleVal.isNaN && !doubleVal.isInfinite) return doubleVal;
     return val;
   }
 
-  static DataColumnType _detectColumnType(List<List<dynamic>> rows, int columnIndex) {
+  static DataColumnType _detectColumnType(List<List<dynamic>> rows, int colIdx) {
     if (rows.isEmpty) return DataColumnType.text;
-
-    int intCount = 0;
-    int realCount = 0;
-    int boolCount = 0;
-    int totalValid = 0;
-
+    int intCount = 0, realCount = 0, boolCount = 0, valid = 0;
     for (final row in rows) {
-      if (columnIndex >= row.length) continue;
-      final val = row[columnIndex];
+      if (colIdx >= row.length) continue;
+      final val = row[colIdx];
       if (val == null || (val is String && val.isEmpty)) continue;
-
-      totalValid++;
+      valid++;
       if (val is int) {
         intCount++;
       } else if (val is double) {
@@ -198,16 +153,10 @@ class CsvTsvParser {
         boolCount++;
       }
     }
-
-    if (totalValid == 0) return DataColumnType.text;
-    if (intCount == totalValid) return DataColumnType.integer;
-    if ((intCount + realCount) == totalValid) return DataColumnType.real;
-    if (boolCount == totalValid) return DataColumnType.boolean;
-
+    if (valid == 0) return DataColumnType.text;
+    if (intCount == valid) return DataColumnType.integer;
+    if ((intCount + realCount) == valid) return DataColumnType.real;
+    if (boolCount == valid) return DataColumnType.boolean;
     return DataColumnType.text;
   }
-}
-
-extension on String {
-  bool equalsIgnoreCase(String other) => toLowerCase() == other.toLowerCase();
 }

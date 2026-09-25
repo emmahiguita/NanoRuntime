@@ -48,7 +48,8 @@ extension _PragmaticFastPathComposerMisc on PragmaticFastPath {
       return _selectCandidate(locationCandidates, conversationId, lastOutboundText);
     }
 
-    if (intents.contains(ConversationIntent.askPresence)) {
+    if (intents.contains(ConversationIntent.askPresence) &&
+        !intents.contains(ConversationIntent.askPhysicalLocation)) {
       return _selectCandidate(presenceCandidates, conversationId, lastOutboundText);
     }
 

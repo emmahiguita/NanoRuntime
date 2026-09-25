@@ -30,6 +30,10 @@ abstract interface class ConversationMemoryStore {
   /// Ids de conversaciones con historial retenido.
   Set<String> knownConversationIds({ConversationAgentId? agentId});
 
+  /// Elimina el historial local de una conversación y su estado derivado.
+  /// No modifica el chat ni los mensajes almacenados dentro de WhatsApp.
+  Future<void> clearConversation(String conversationId);
+
   /// Registra la observación de un mensaje entrante.
   void appendInbound(IncomingMessage message, {required int atMs});
 

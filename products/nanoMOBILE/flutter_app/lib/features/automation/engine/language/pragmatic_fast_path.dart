@@ -13,6 +13,8 @@ library;
 
 import '../../../../core/services/device_metrics.dart'
     show DeviceMetrics, DeviceMetricsData;
+import '../../personal_agent/application/conversation_decision_guards.dart'
+    show ConversationDecisionGuards;
 import '../../personal_agent/domain/conversation_agent_role.dart'
     show correctionPhrases, commercialIntentTokens, supportPhrases;
 import '../../personal_agent/domain/owner_live_fact_guard.dart'
@@ -108,9 +110,26 @@ final class PragmaticFastPath {
     final intents = _extractIntents(normalized, tokens);
     if (intents.isEmpty) return null;
 
-    // 4. Si la conversación tiene obligaciones pendientes activas
-    // El compositor puede entregar memoria ya unificada entre nombre y JID.
+    // 4. Ciclo 13: FastPath = optimización, no cerebro conversacional.
     final memory = memoryOverride ?? memoryFor?.call(conversationId);
+    if (intents.any(
+      (i) =>
+          i.routingClass == FastPathRoutingClass.liveStateRequired ||
+          i.routingClass == FastPathRoutingClass.llmRequired,
+    )) {
+      return null;
+    }
+    final hasContextRequired = intents.any(
+      (i) => i.routingClass == FastPathRoutingClass.contextRequired,
+    );
+    if (hasContextRequired &&
+        (intents.length >= 2 ||
+            tokens.length > 5 ||
+            (memory != null && memory.entries.isNotEmpty))) {
+      return null;
+    }
+
+    // 5. Si la conversación tiene obligaciones pendientes activas
     if (memory != null && memory.unresolvedObligations.isNotEmpty) {
       final isGreeting =
           intents.contains(ConversationIntent.greeting) || isPureGreeting(raw);
@@ -133,12 +152,16 @@ final class PragmaticFastPath {
     if (memory != null && memory.entries.isNotEmpty) {
       final recent = memory.entries.reversed.take(10);
       for (final entry in recent) {
-        final isOut = entry.kind == ConversationMemoryEntryKind.outboundVerified ||
+        final isOut =
+            entry.kind == ConversationMemoryEntryKind.outboundVerified ||
             entry.kind == ConversationMemoryEntryKind.outboundDispatched ||
             entry.kind == ConversationMemoryEntryKind.outboundObservedManual;
         if (isOut) lastOutboundText ??= entry.text;
-        if (nowMs - entry.atMs < 900000) {
-          if (isOut || _isGreetingSnippet(entry.text)) recentlyGreeted = true;
+        if (entry.kind != ConversationMemoryEntryKind.outboundDispatched &&
+            entry.kind != ConversationMemoryEntryKind.effectUnknown &&
+            nowMs - entry.atMs < 900000 &&
+            _isGreetingSnippet(entry.text)) {
+          recentlyGreeted = true;
         }
       }
     }
@@ -170,7 +193,9 @@ final class PragmaticFastPath {
         intent: actLabel,
         relation: isResponse ? 'responde' : 'nuevo',
         questions: const [],
-        missingFacts: needsOwnerFact ? const ['estado actual del dueño'] : const [],
+        missingFacts: needsOwnerFact
+            ? const ['estado actual del dueño']
+            : const [],
         requiresAction: false,
       ),
     );
@@ -178,9 +203,15 @@ final class PragmaticFastPath {
 
   static bool _isGreetingSnippet(String text) {
     final f = normalizeText(text);
-    return f.contains('hola') || f.contains('buenas') || f.contains('buen dia') ||
-        f.contains('buenos dias') || f.contains('que mas') || f.contains('quiubo') ||
-        f.contains('como estas') || f.contains('como te va') || f.contains('todo bien');
+    return f.contains('hola') ||
+        f.contains('buenas') ||
+        f.contains('buen dia') ||
+        f.contains('buenos dias') ||
+        f.contains('que mas') ||
+        f.contains('quiubo') ||
+        f.contains('como estas') ||
+        f.contains('como te va') ||
+        f.contains('todo bien');
   }
 
   static bool _isRespondingIntent(ConversationIntent i) => switch (i) {

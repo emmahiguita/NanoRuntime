@@ -1,41 +1,55 @@
 // dynamic_reply_generator.dart
 //
-// Generador de opciones respaldadas por información real del negocio.
-// - ¿Qué hace?: Produce variantes únicamente cuando el mensaje coincide con
-//   productos, precios, envíos, pagos u horarios guardados por el usuario.
-// - ¿Cómo funciona?: FactSelection selecciona primero los hechos aplicables y
-//   esta clase solo cambia su redacción; nunca completa un dato desconocido.
-// - ¿Por qué?: La conversación personal pertenece al compositor contextual.
-//   Devolver acuses genéricos aquí ocultaba preguntas que el motor no entendió.
+// QUÉ HACE:
+// Genera variantes comerciales únicamente desde hechos configurados.
+//
+// CÓMO FUNCIONA:
+// - Analiza la entrada con `BusinessIntentAnalyzer` y selecciona hechos con `selectFactsForMessage`.
+// - Los saludos puros quedan en el compositor contextual, sin frases enlatadas.
+// - Para consultas reales combina precio, envío, pago, horario y ubicación.
+// - Una solicitud humana no produce una promesa ficticia de transferencia.
+//
+// POR QUÉ:
+// Evita opciones que afirmen stock, descuentos o acciones no observadas (< 180 líneas).
 
 library;
 
 import '../business/business_facts.dart';
+import '../business/business_intent_analyzer.dart';
 import '../business/fact_selector.dart';
+import '../messaging/tone_profile.dart';
 
 /// Generador determinista de opciones comerciales basadas en hechos.
 final class DynamicReplyGenerator {
-  const DynamicReplyGenerator();
+  final BusinessIntentAnalyzer _analyzer;
+
+  const DynamicReplyGenerator({
+    BusinessIntentAnalyzer analyzer = const BusinessIntentAnalyzer(),
+  }) : _analyzer = analyzer;
 
   /// Analiza [incomingText] y genera opciones inteligentes con respaldo en [facts].
   List<String> generateOptions({
     required String incomingText,
     required BusinessFacts facts,
-    String? senderName,
+    ToneProfile tone = const ToneProfile(),
   }) {
     final raw = incomingText.trim();
     if (raw.isEmpty) return const [];
 
-    final options = <String>[];
+    final analysis = _analyzer.analyze(raw, facts);
+
+    // Saludos y solicitudes humanas dependen del compositor/traspaso real.
+    if (analysis.isHumanRequest ||
+        analysis.totalIntentsCount == 1 && analysis.isGreeting) {
+      return const [];
+    }
+
+    // Resolver con hechos comerciales específicos
     final selection = facts.isEmpty
         ? const FactSelection()
         : selectFactsForMessage(raw, facts);
+    final options = <String>[];
 
-    // Sin hechos seleccionados no hay respuesta segura. El compositor con
-    // memoria y modelo real decide el turno personal; aquí no se lo tapa.
-    if (selection.isEmpty) return const [];
-
-    // Las tres variantes usan exactamente el mismo conjunto de hechos.
     if (selection.isNotEmpty) {
       final productInfo = selection.products.isNotEmpty
           ? selection.products
@@ -44,7 +58,7 @@ final class DynamicReplyGenerator {
                 .join(' y ')
           : '';
 
-      // Opción A: Resolutiva directa (Responde todo con datos concretos)
+      // Opción A: Resolutiva directa con datos concretos
       final bufA = StringBuffer();
       if (productInfo.isNotEmpty) bufA.write('El valor es: $productInfo. ');
       if (selection.delivery.isNotEmpty) {
@@ -56,30 +70,43 @@ final class DynamicReplyGenerator {
       if (selection.hours.isNotEmpty) {
         bufA.write('Horario: ${selection.hours}. ');
       }
-      options.add(bufA.toString().trim());
+      if (selection.location.isNotEmpty) {
+        bufA.write('Ubicación: ${selection.location}. ');
+      }
+      if (bufA.isNotEmpty) options.add(bufA.toString().trim());
 
-      // Opción B: Consultiva amable (Invita a continuar la orden o aclara dudas)
+      // Opción B: misma evidencia, con una pregunta contextual verificable.
       final bufB = StringBuffer();
       if (productInfo.isNotEmpty) {
-        bufB.write('Tenemos disponible $productInfo. ');
+        bufB.write('La información registrada es $productInfo. ');
       }
       if (selection.delivery.isNotEmpty) {
-        bufB.write('Manejamos despacho a domicilio. ');
+        bufB.write('${selection.delivery}. ');
       }
-      bufB.write('¿Para cuándo o a qué dirección lo necesitarías?');
+      if (productInfo.isNotEmpty || selection.delivery.isNotEmpty) {
+        bufB.write(
+          tone.warmth == ToneWarmth.cercano
+              ? '¿Qué dato necesitas confirmar?'
+              : '¿Qué información desea confirmar?',
+        );
+      }
       options.add(bufB.toString().trim());
 
-      // Opción C: Práctica / Ejecutiva (Ágil para confirmación inmediata)
+      // Opción C: versión breve, sin afirmar stock ni acciones inexistentes.
       final bufC = StringBuffer();
-      bufC.write('Claro que sí, tenemos disponibilidad');
+      if (productInfo.isNotEmpty) bufC.write(productInfo);
       if (selection.payments.isNotEmpty) {
-        bufC.write(' y recibimos ${selection.payments}');
+        if (bufC.isNotEmpty) bufC.write('. ');
+        bufC.write(selection.payments);
       }
-      bufC.write('. ¿Deseas que te tomemos los datos de una?');
-      options.add(bufC.toString().trim());
+      if (selection.hours.isNotEmpty) {
+        if (bufC.isNotEmpty) bufC.write('. ');
+        bufC.write(selection.hours);
+      }
+      if (bufC.isNotEmpty) options.add('${bufC.toString().trim()}.');
     }
 
-    // Deduplicar manteniendo el orden de relevancia.
+    // Deduplicar manteniendo orden de relevancia
     final unique = <String>[];
     for (final opt in options) {
       final clean = opt.trim();
@@ -87,7 +114,7 @@ final class DynamicReplyGenerator {
         unique.add(clean);
       }
     }
-    return unique;
+    return unique.take(3).toList();
   }
 }
 

@@ -26,6 +26,7 @@ import '../messaging/conversation_assignment_store.dart';
 import '../messaging/incoming_message.dart';
 import '../messaging/messaging_package.dart';
 import '../notifications/notification_object.dart';
+import '../platform/whatsapp_status_classifier.dart';
 import 'contact_rate_limiter.dart';
 import 'burst_turn_gate.dart';
 import 'messaging_metrics.dart';
@@ -54,6 +55,7 @@ class RulePipeline {
     required ContactRateLimiter rateLimiter,
     Future<void>? readiness,
     TurnSupersedeGuard? supersedeGuard,
+    bool Function(String sender, String conversationId)? allowsStyleLearning,
 
     /// Callback disparado tras registrar cada mensaje entrante en memoria.
     /// Usado por el coordinator de Riverpod para invalidar la señal reactiva
@@ -68,6 +70,7 @@ class RulePipeline {
        _rateLimiter = rateLimiter,
        _readiness = readiness,
        _supersedeGuard = supersedeGuard,
+       _allowsStyleLearning = allowsStyleLearning,
        _onInboundMessage = onInboundMessage;
 
   final RuleRegistry _registry;
@@ -83,6 +86,8 @@ class RulePipeline {
   /// WA-CONV-03 — versión por conversación: incrementa con cada mensaje REAL
   /// que entra al pipeline (rutas sin gate; el gate ya lo hace en su push).
   final TurnSupersedeGuard? _supersedeGuard;
+  final bool Function(String sender, String conversationId)?
+  _allowsStyleLearning;
 
   /// WA-HUB-REACTIVE-01 — callback para invalidar la señal reactiva del hub.
   final void Function(String conversationId)? _onInboundMessage;
@@ -161,7 +166,9 @@ class RulePipeline {
         await _registry.flush();
         for (final event in events) {
           MessagingMetrics.increment('notificationsObserved');
-          if (!isNotificationEligible(event.packageName) || event.isSummary) {
+          if (!isNotificationEligible(event.packageName) ||
+              event.isSummary ||
+              WhatsAppStatusClassifier.shouldIgnoreFromChatHub(event)) {
             MessagingMetrics.increment('noiseDropped');
             continue;
           }
@@ -206,8 +213,26 @@ class RulePipeline {
                 '[memory] owner outbound reconciliado: "${message.text}"',
               );
 
-              // WA-LEARN-01: Autoaprendizaje de respuesta manual en WhatsApp
+              // WA-LEARN-01: Autoaprendizaje EXCLUSIVO de respuesta manual humana.
+              // Si el mensaje es eco de un despacho de Nano (isKnownEcho o outboundVerified),
+              // se prohíbe reforzarlo como estilo humano (Ciclo 12: Self-Learning Loop).
               final mem = _memory.memoryFor(message.conversation.key.id);
+              final lastOutbound = mem?.entries.reversed.firstWhere(
+                (e) =>
+                    e.kind ==
+                        ConversationMemoryEntryKind.outboundObservedManual ||
+                    e.kind == ConversationMemoryEntryKind.outboundVerified ||
+                    e.kind == ConversationMemoryEntryKind.outboundDispatched,
+                orElse: () => const ConversationMemoryEntry(
+                  kind: ConversationMemoryEntryKind.outboundVerified,
+                  text: '',
+                  atMs: 0,
+                ),
+              );
+              final isHumanManualOutbound =
+                  !isKnownEcho &&
+                  lastOutbound?.kind ==
+                      ConversationMemoryEntryKind.outboundObservedManual;
               final lastInbound = mem?.entries.reversed.firstWhere(
                 (e) => e.kind == ConversationMemoryEntryKind.inbound,
                 orElse: () => const ConversationMemoryEntry(
@@ -216,10 +241,13 @@ class RulePipeline {
                   atMs: 0,
                 ),
               );
-              if (lastInbound != null && lastInbound.text.trim().isNotEmpty) {
+              final learningAllowed =
+                  isHumanManualOutbound &&
+                  (_allowsStyleLearning?.call(event.sender, convId) ?? false);
+              if (learningAllowed &&
+                  lastInbound != null &&
+                  lastInbound.text.trim().isNotEmpty) {
                 try {
-                  // La escritura se espera y se fusiona por entrada normalizada:
-                  // un eco repetido nunca deja tareas huérfanas ni otra fila.
                   final learned = await PersonalReplyLearningService.instance
                       .learnVerifiedReply(
                         incomingText: lastInbound.text.trim(),
@@ -411,7 +439,9 @@ class RulePipeline {
     // batch, rutas legacy sin gate). Paquete sin regla habilitada que pueda
     // matchearlo = no es un evento de automatización: ni bitácora, ni dedupe,
     // ni memoria, ni LLM.
-    if (!isNotificationEligible(notif.packageName)) {
+    if (!isNotificationEligible(notif.packageName) ||
+        notif.isSummary ||
+        WhatsAppStatusClassifier.shouldIgnoreFromChatHub(notif)) {
       debugPrint(
         '[noise] pkg=${notif.packageName} descartado: '
         'sin regla habilitada aplicable',
@@ -437,12 +467,8 @@ class RulePipeline {
         final atMs = message.messageTimestamp > 0
             ? message.messageTimestamp
             : DateTime.now().millisecondsSinceEpoch;
-        _memory.appendOutbound(
-          conversationId,
-          message.text,
-          kind: ConversationMemoryEntryKind.outboundVerified,
-          atMs: atMs,
-        );
+        // El eco de WhatsApp confirma el envío existente y no crea otra memoria.
+        _memory.reconcileOutbound(conversationId, message.text, atMs: atMs);
         _dedupe.recordVerifiedOutbound(
           conversationId,
           message.text,

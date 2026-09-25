@@ -36,6 +36,7 @@ class ScaffoldShell extends ConsumerWidget {
 
     final location = GoRouterState.of(context).matchedLocation;
     final isDashboardHome = location == '/dashboard';
+    final isBrowser = location.startsWith('/browser');
 
     // Recursos del asistente flotante (Riverpod, sin recrearse en cada frame).
     final webProviders = ref.watch(nanoWebProvidersProvider);
@@ -101,9 +102,10 @@ class ScaffoldShell extends ConsumerWidget {
                 shell.goBranch(index, initialLocation: index == currentIndex);
               },
               // NANO-EVERYWHERE-02: NanoFloatingWrapper añade el búho flotante
-              // como capa superior dentro del stack de navegación. Escucha el
-              // lifecycle y recupera prompts del overlay nativo Android.
+              // como capa superior dentro del stack de navegación.
+              // En el navegador web se desactiva para mantener el área 100% limpia.
               child: NanoFloatingWrapper(
+                enabled: !isBrowser,
                 webProviders: webProviders,
                 actions: actionPort,
                 audioLevel: audioLevel,

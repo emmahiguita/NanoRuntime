@@ -9,12 +9,11 @@ class BrowserWindowStackBar extends StatelessWidget {
   final int tabCount;
   final bool allMinimized;
   final VoidCallback onToggleAllMinimized, onAddTab, onOpenCarousel, onOpenFocused, onOpenOptions;
-  final VoidCallback? onAskOwl;
 
   const BrowserWindowStackBar({
     super.key, required this.tabCount, required this.allMinimized,
     required this.onToggleAllMinimized, required this.onAddTab, required this.onOpenCarousel,
-    required this.onOpenFocused, required this.onOpenOptions, this.onAskOwl,
+    required this.onOpenFocused, required this.onOpenOptions,
   });
 
   @override
@@ -35,7 +34,7 @@ class BrowserWindowStackBar extends StatelessWidget {
                   border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(allMinimized ? Icons.unfold_more_rounded : Icons.unfold_less_rounded, size: 13, color: const Color(0xFFF59E0B)),
+                  Icon(allMinimized ? Icons.unfold_more_rounded : Icons.unfold_less_rounded, size: 13, color: const Color(0xFF10B981)),
                   const SizedBox(width: 4),
                   Text('Ventanas ($tabCount)', style: const TextStyle(fontSize: 11.0, fontWeight: FontWeight.bold, color: Color(0xFF94A3B8)), overflow: TextOverflow.ellipsis),
                 ]),
@@ -50,7 +49,7 @@ class BrowserWindowStackBar extends StatelessWidget {
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             _StackActionBtn(icon: Icons.add_rounded, tooltip: 'Nueva Ventana', color: const Color(0xFF38BDF8), onTap: onAddTab),
             const SizedBox(width: 2),
-            _StackMenuBtn(onOpenCarousel: onOpenCarousel, onOpenFocused: onOpenFocused, onAskOwl: onAskOwl, onOpenOptions: onOpenOptions),
+            _StackMenuBtn(onOpenCarousel: onOpenCarousel, onOpenFocused: onOpenFocused, onOpenOptions: onOpenOptions),
           ]),
         ),
       ]),
@@ -82,9 +81,8 @@ class _StackActionBtn extends StatelessWidget {
 
 class _StackMenuBtn extends StatelessWidget {
   final VoidCallback onOpenCarousel, onOpenFocused, onOpenOptions;
-  final VoidCallback? onAskOwl;
 
-  const _StackMenuBtn({required this.onOpenCarousel, required this.onOpenFocused, required this.onOpenOptions, this.onAskOwl});
+  const _StackMenuBtn({required this.onOpenCarousel, required this.onOpenFocused, required this.onOpenOptions});
 
   @override
   Widget build(BuildContext context) => PopupMenuButton<String>(
@@ -94,13 +92,11 @@ class _StackMenuBtn extends StatelessWidget {
     onSelected: (v) {
       if (v == 'carousel') onOpenCarousel();
       if (v == 'focused') onOpenFocused();
-      if (v == 'owl') onAskOwl?.call();
       if (v == 'options') onOpenOptions();
     },
     itemBuilder: (_) => [
       const PopupMenuItem(value: 'carousel', height: 34, child: _MenuItem(icon: Icons.view_in_ar_rounded, label: 'Carrusel 3D', color: Color(0xFF10B981))),
       const PopupMenuItem(value: 'focused', height: 34, child: _MenuItem(icon: Icons.fullscreen_rounded, label: 'Vista Completa', color: Color(0xFFCBD5E1))),
-      if (onAskOwl != null) const PopupMenuItem(value: 'owl', height: 34, child: _MenuItem(icon: Icons.auto_awesome_rounded, label: 'Búho IA', color: Color(0xFF10B981))),
       const PopupMenuItem(value: 'options', height: 34, child: _MenuItem(icon: Icons.settings_rounded, label: 'Opciones', color: Color(0xFF94A3B8))),
     ],
   );
@@ -123,9 +119,8 @@ class _MenuItem extends StatelessWidget {
 /// Barra superior cuando una ventana está maximizada en modo Stack.
 class BrowserWindowMaximizedBar extends StatelessWidget {
   final VoidCallback onBackToStack, onOpenOptions;
-  final VoidCallback? onAskOwl;
 
-  const BrowserWindowMaximizedBar({super.key, required this.onBackToStack, required this.onOpenOptions, this.onAskOwl});
+  const BrowserWindowMaximizedBar({super.key, required this.onBackToStack, required this.onOpenOptions});
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -147,10 +142,6 @@ class BrowserWindowMaximizedBar extends StatelessWidget {
         ),
       ),
       const Spacer(),
-      if (onAskOwl != null) ...[
-        _StackActionBtn(icon: Icons.auto_awesome_rounded, tooltip: 'Búho IA', color: const Color(0xFF10B981), onTap: onAskOwl!),
-        const SizedBox(width: 4),
-      ],
       _StackActionBtn(icon: Icons.more_vert_rounded, tooltip: 'Opciones', color: const Color(0xFFE2E8F0), onTap: onOpenOptions),
     ]),
   );

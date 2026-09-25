@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'conversation_media_source.dart';
 import 'floating_video_overlay.dart';
 
 /// Modal interactivo para reproducir videos (YouTube, HTML5, clips locales) y previsualizar enlaces web.
@@ -75,7 +76,9 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isYouTube = widget.youTubeId != null && widget.youTubeId!.isNotEmpty;
-    final displayTitle = widget.title ?? (isYouTube ? 'YouTube Video' : 'Reproductor de Video');
+    final source = ConversationMediaSource(widget.urlOrPath);
+    final playbackUrl = source.playbackUrl;
+    final displayTitle = widget.title ?? (isYouTube ? 'YouTube Video' : source.displayName);
 
     return Container(
       height: size.height * 0.75,
@@ -140,10 +143,12 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                   label: 'Abrir en app externa',
                   child: IconButton(
                     icon: const Icon(Icons.open_in_new_rounded, color: Colors.white70, size: 20),
-                    onPressed: () => launchUrl(
-                      Uri.parse(widget.urlOrPath.startsWith('http') ? widget.urlOrPath : 'https://${widget.urlOrPath}'),
-                      mode: LaunchMode.externalApplication,
-                    ),
+                    onPressed: () {
+                      final uri = source.launchUri;
+                      if (uri != null) {
+                        launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
                   ),
                 ),
                 IconButton(
@@ -169,6 +174,8 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                   javaScriptEnabled: true,
                   mediaPlaybackRequiresUserGesture: false,
                   allowsInlineMediaPlayback: true,
+                  allowFileAccess: true,
+                  allowFileAccessFromFileURLs: true,
                   supportZoom: false,
                   transparentBackground: true,
                 ),
@@ -190,9 +197,10 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                           </html>
                         ''',
                       )
-                    : (widget.urlOrPath.startsWith('http')
+                    : (source.isRemote
                         ? null
                         : InAppWebViewInitialData(
+                            baseUrl: WebUri('file:///'),
                             data: '''
                               <!DOCTYPE html>
                               <html>
@@ -204,22 +212,25 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                                 </style>
                               </head>
                               <body>
-                                <video controls autoplay playsinline src="${widget.urlOrPath.startsWith('file://') ? widget.urlOrPath : 'file://${widget.urlOrPath}'}"></video>
+                                <video controls autoplay playsinline src="$playbackUrl"></video>
                               </body>
                               </html>
                             ''',
                           )),
-                initialUrlRequest: !isYouTube && widget.urlOrPath.startsWith('http')
-                    ? URLRequest(url: WebUri(widget.urlOrPath))
+                initialUrlRequest: !isYouTube && source.isRemote
+                    ? URLRequest(url: WebUri(source.value))
                     : null,
                 onWebViewCreated: (_) {},
                 onProgressChanged: (_, p) {
+                  if (!mounted) return;
                   setState(() {
                     _progress = p / 100.0;
                     _isLoading = p < 100;
                   });
                 },
-                onLoadStop: (_, __) => setState(() => _isLoading = false),
+                onLoadStop: (_, __) {
+                  if (mounted) setState(() => _isLoading = false);
+                },
               ),
             ),
           ),

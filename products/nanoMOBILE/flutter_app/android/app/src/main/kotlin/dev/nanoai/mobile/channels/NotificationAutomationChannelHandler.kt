@@ -15,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import dev.nanoai.mobile.MainActivity
 import dev.nanoai.mobile.R
 import dev.nanoai.mobile.services.NotificationAutomationBridge
+import dev.nanoai.mobile.services.dismissMessagingNotification
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -142,6 +143,15 @@ class NotificationAutomationChannelHandler(
             "list" -> {
                 val limit = call.argument<Number>("limit")?.toInt() ?: 30
                 result.success(NotificationAutomationBridge.service?.snapshot(limit) ?: emptyList<Any>())
+            }
+
+            "dismiss" -> {
+                val key = call.argument<String>("key").orEmpty()
+                val service = NotificationAutomationBridge.service
+                result.success(
+                    key.isNotBlank() &&
+                        service?.dismissMessagingNotification(key) == true,
+                )
             }
 
             "showAutomationConfirmation" ->

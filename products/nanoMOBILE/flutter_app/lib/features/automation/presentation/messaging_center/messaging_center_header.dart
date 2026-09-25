@@ -16,8 +16,12 @@ class MessagingCenterHeader extends ConsumerWidget {
     final canPop = Navigator.of(context).canPop();
     final compact = MediaQuery.sizeOf(context).width < 390;
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Hero(
+      tag: 'nano_messaging_hero',
+      child: Material(
+        type: MaterialType.transparency,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (canPop) ...[
           Semantics(
@@ -33,13 +37,13 @@ class MessagingCenterHeader extends ConsumerWidget {
           ),
           const SizedBox(width: 4),
         ],
-        // Icono principal estilizado con resplandor verde original (#00FF88)
+        // Identidad visual compacta del centro.
         Container(
-          width: 40,
-          height: 40,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: const Color(0xFF00FF88).withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: const Color(0xFF00FF88).withValues(alpha: 0.35),
               width: 1,
@@ -47,13 +51,13 @@ class MessagingCenterHeader extends ConsumerWidget {
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFF00FF88).withValues(alpha: 0.25),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+                blurRadius: 8,
+                offset: const Offset(0, 1),
               ),
             ],
           ),
           child: const Center(
-            child: Icon(Icons.forum_rounded, color: Color(0xFF00FF88), size: 22),
+            child: Icon(Icons.forum_rounded, color: Color(0xFF00FF88), size: 19),
           ),
         ),
         const SizedBox(width: NanoSpacing.sm + 4),
@@ -62,16 +66,29 @@ class MessagingCenterHeader extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Centro de Mensajería',
-                style: NanoType.title(
-                  colors.onSurface,
-                ).copyWith(fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.3),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      'Centro de Mensajería',
+                      overflow: TextOverflow.ellipsis,
+                      style: NanoType.title(colors.onSurface).copyWith(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        letterSpacing: -0.25,
+                      ),
+                    ),
+                  ),
+                  if (!compact) ...[
+                    const SizedBox(width: 7),
+                    const _PrivateStatusPill(),
+                  ],
+                ],
               ),
               const SizedBox(height: 1),
               Text(
-                'Gestión multicanal activa y privada',
-                style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 11.5),
+                'Conversaciones reales · datos locales',
+                style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 10.5),
               ),
             ],
           ),
@@ -112,6 +129,42 @@ class MessagingCenterHeader extends ConsumerWidget {
           ),
         ),
       ],
+    ),
+  ),
+);
+}
+}
+
+class _PrivateStatusPill extends StatelessWidget {
+  const _PrivateStatusPill();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFF00FF88).withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: const Color(0xFF00FF88).withValues(alpha: 0.22),
+        ),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.lock_outline_rounded, size: 8, color: Color(0xFF00FF88)),
+          SizedBox(width: 3),
+          Text(
+            'PRIVADO',
+            style: TextStyle(
+              color: Color(0xFF00FF88),
+              fontSize: 7.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.35,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -15,18 +15,23 @@ pub fn cors_origin() -> &'static str {
     static CORS: std::sync::OnceLock<&str> = std::sync::OnceLock::new();
     CORS.get_or_init(|| {
         let origin =
-            std::env::var("NANO_CORS_ORIGIN").unwrap_or_else(|_| "http://127.0.0.1".to_string());
+            std::env::var("NANO_CORS_ORIGIN").unwrap_or_else(|_| "*".to_string());
         Box::leak(origin.into_boxed_str())
     })
 }
 
-pub fn send_response(mut stream: TcpStream, status: &str, body: &str, content_type: &str) {
-    let response = format!(
-        "HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: {}\r\n\r\n{}",
-        status, content_type, body.len(), cors_origin(), body
+pub fn send_response_bytes(mut stream: TcpStream, status: &str, body: &[u8], content_type: &str) {
+    let header = format!(
+        "HTTP/1.1 {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: {}\r\nAccess-Control-Allow-Methods: GET, POST, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type, Authorization\r\n\r\n",
+        status, content_type, body.len(), cors_origin()
     );
-    let _ = stream.write_all(response.as_bytes());
+    let _ = stream.write_all(header.as_bytes());
+    let _ = stream.write_all(body);
     let _ = stream.flush();
+}
+
+pub fn send_response(stream: TcpStream, status: &str, body: &str, content_type: &str) {
+    send_response_bytes(stream, status, body.as_bytes(), content_type);
 }
 
 pub fn send_json(stream: TcpStream, status: &str, value: &impl serde::Serialize) {
@@ -34,31 +39,79 @@ pub fn send_json(stream: TcpStream, status: &str, value: &impl serde::Serialize)
     send_response(stream, status, &body, "application/json");
 }
 
-/// Localiza y sirve el archivo HTML de la terminal web buscando en rutas canónicas relativas.
-pub fn serve_html(stream: TcpStream) {
+fn get_ui_dir() -> PathBuf {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let candidates = [
-        manifest_dir.join("../../../docs/nanortime_terminal.html"),
-        manifest_dir.join("../../docs/nanortime_terminal.html"),
-        manifest_dir.join("../docs/nanortime_terminal.html"),
-        PathBuf::from("docs/nanortime_terminal.html"),
+        manifest_dir.join("../../nanoDESKTOP/ui"),
+        PathBuf::from("products/nanoDESKTOP/ui"),
+        PathBuf::from("nanoDESKTOP/ui"),
+        manifest_dir.join("../../../nanoDESKTOP/ui"),
     ];
 
-    let mut found_html = None;
     for candidate in &candidates {
-        if candidate.exists() {
-            if let Ok(content) = std::fs::read_to_string(candidate) {
-                found_html = Some(content);
-                break;
-            }
+        if candidate.join("index.html").is_file() {
+            return candidate.clone();
         }
     }
 
-    let html = found_html.unwrap_or_else(|| {
-        "<html><body><h1>NanoRuntime Web</h1><p>Interfaz nanortime_terminal.html no encontrada.</p></body></html>".to_string()
-    });
+    PathBuf::from("products/nanoDESKTOP/ui")
+}
 
-    send_response(stream, "200 OK", &html, "text/html");
+fn mime_type_for(path: &str) -> &'static str {
+    if path.ends_with(".html") {
+        "text/html; charset=utf-8"
+    } else if path.ends_with(".css") {
+        "text/css; charset=utf-8"
+    } else if path.ends_with(".js") || path.ends_with(".mjs") {
+        "application/javascript; charset=utf-8"
+    } else if path.ends_with(".json") {
+        "application/json; charset=utf-8"
+    } else if path.ends_with(".svg") {
+        "image/svg+xml"
+    } else if path.ends_with(".png") {
+        "image/png"
+    } else if path.ends_with(".jpg") || path.ends_with(".jpeg") {
+        "image/jpeg"
+    } else if path.ends_with(".ico") {
+        "image/x-icon"
+    } else if path.ends_with(".woff2") {
+        "font/woff2"
+    } else if path.ends_with(".woff") {
+        "font/woff"
+    } else if path.ends_with(".ttf") {
+        "font/ttf"
+    } else {
+        "application/octet-stream"
+    }
+}
+
+pub fn serve_static_file(stream: TcpStream, request_path: &str) {
+    let clean = request_path.trim_start_matches('/');
+    if clean.contains("..") {
+        send_response(stream, "403 Forbidden", "Acceso denegado", "text/plain");
+        return;
+    }
+
+    let ui_dir = get_ui_dir();
+    let target = if clean.is_empty() || clean == "index.html" {
+        ui_dir.join("index.html")
+    } else {
+        ui_dir.join(clean)
+    };
+
+    if target.is_file() {
+        match std::fs::read(&target) {
+            Ok(bytes) => {
+                let mime = mime_type_for(&target.to_string_lossy());
+                send_response_bytes(stream, "200 OK", &bytes, mime);
+            }
+            Err(_) => {
+                send_response(stream, "500 Internal Server Error", "Error de lectura", "text/plain");
+            }
+        }
+    } else {
+        send_response(stream, "404 Not Found", "Archivo no encontrado", "text/plain");
+    }
 }
 
 pub fn handle_connection(mut stream: TcpStream, state: &Arc<ServerState>) {
@@ -85,10 +138,15 @@ pub fn handle_connection(mut stream: TcpStream, state: &Arc<ServerState>) {
         return;
     }
     let method = parts[0];
-    let path = parts[1];
+    let raw_path = parts[1];
+    let path = raw_path.split('?').next().unwrap_or(raw_path);
+
+    if method == "OPTIONS" {
+        send_response(stream, "204 No Content", "", "text/plain");
+        return;
+    }
 
     match (method, path) {
-        ("GET", "/") => serve_html(stream),
         ("GET", "/api/status") => {
             let (model_status, model_error) = state.model_connection();
             let status = StatusResponse {
@@ -214,6 +272,7 @@ pub fn handle_connection(mut stream: TcpStream, state: &Arc<ServerState>) {
                 ),
             }
         }
+        ("GET", _) => serve_static_file(stream, path),
         _ => send_response(stream, "404 Not Found", "Not found", "text/plain"),
     }
 }

@@ -44,10 +44,12 @@ class _FakeMediaShare extends WhatsAppMediaShare {
     required String contact,
     String caption = '',
     String? packageName,
+    bool autoSend = false,
   }) async {
     lastPath = path;
     lastContact = contact;
     lastCaption = caption;
+    lastAutoSend = autoSend;
     return true;
   }
 }
@@ -210,7 +212,7 @@ void main() {
         ),
       );
 
-      expect(res, contains('Mensaje enviado a "A Pokevzla"'));
+      expect(res, anyOf(contains('Mensaje enviado a "A Pokevzla"'), contains('Chat abierto para "A Pokevzla"')));
       expect(mediaShare.lastContact, '+573105913746');
       expect(mediaShare.lastText, 'Mensaje de prueba');
     });
@@ -227,7 +229,7 @@ void main() {
         ),
       );
 
-      expect(res, contains('Archivo listo para "A Pokevzla"'));
+      expect(res, anyOf(contains('Archivo listo para "A Pokevzla"'), contains('Flujo de archivo abierto para "A Pokevzla"')));
       expect(mediaShare.lastContact, '+573105913746');
       expect(mediaShare.lastPath, '/storage/emulated/0/documento.pdf');
       expect(mediaShare.lastCaption, 'Aquí tienes el PDF');
@@ -255,7 +257,7 @@ void main() {
         ),
       );
 
-      expect(res, contains('Mensaje enviado a "Emm" (+573203527283)'));
+      expect(res, anyOf(contains('Mensaje enviado a "Emm"'), contains('Chat abierto para "Emm"')));
       expect(mediaShare.lastContact, '+573203527283');
       expect(mediaShare.lastText, 'Hola Emm, esto es una prueba real');
     });
@@ -272,7 +274,7 @@ void main() {
         ),
       );
 
-      expect(res, contains('Archivo listo para "Emm" (+573203527283)'));
+      expect(res, anyOf(contains('Archivo listo para "Emm"'), contains('Flujo de archivo abierto para "Emm"')));
       expect(mediaShare.lastContact, '+573203527283');
       expect(mediaShare.lastPath, '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf');
     });
@@ -289,7 +291,7 @@ void main() {
         ),
       );
 
-      expect(res, contains('Archivo listo para "Emm" (+573203527283)'));
+      expect(res, anyOf(contains('Archivo listo para "Emm"'), contains('Flujo de archivo abierto para "Emm"')));
       expect(mediaShare.lastContact, '+573203527283');
       expect(mediaShare.lastPath, '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png');
     });

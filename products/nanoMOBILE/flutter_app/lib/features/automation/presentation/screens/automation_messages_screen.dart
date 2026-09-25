@@ -63,25 +63,32 @@ class _AutomationMessagesBody extends StatelessWidget {
                   // shell interior aplastaba el contenido y solapaba componentes
                   // (mismo patrón documentado en Chat).
                   resizeToAvoidBottomInset: false,
-              body: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                // NAV-FLOAT-01 — la barra flota sin reservar layout: el
-                // scroll reserva su propio espacio inferior.
-                padding: const EdgeInsets.fromLTRB(
-                  NanoSpacing.md,
-                  NanoSpacing.md,
-                  NanoSpacing.md,
-                  kNanoBarScrollReserve,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: AutomationLayout.contentMaxWidth(context),
+              body: LayoutBuilder(
+                builder: (context, constraints) {
+                  // QUÉ HACE: Adapta la reserva inferior de scroll según la orientación de pantalla.
+                  // CÓMO: Detecta landscape y usa kNanoBarScrollReserveLandscape (76dp) en vez de portrait (200dp).
+                  // POR QUÉ: En landscape, 200dp ocupaba más del 50% de la altura útil de la pantalla mobile.
+                  final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
+                  final bottomReserve = isLandscape ? kNanoBarScrollReserveLandscape : kNanoBarScrollReserve;
+                  return SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: EdgeInsets.fromLTRB(
+                      NanoSpacing.md,
+                      isLandscape ? NanoSpacing.xs : NanoSpacing.md,
+                      NanoSpacing.md,
+                      bottomReserve,
                     ),
-                    child: const MessagingCenterView(),
-                  ),
-                ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: AutomationLayout.contentMaxWidth(context),
+                        ),
+                        child: const MessagingCenterView(),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),

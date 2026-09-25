@@ -29,10 +29,6 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
               _buildControlBar(visual),
               _buildCapabilityBadge(visual),
               _buildStatus(visual),
-              ConversationChessBoardCard(
-                conversationId: widget.item.conversationId,
-                onMoveExecuted: () => _safeSetState(() {}),
-              ),
               Expanded(child: _buildMessageList(visual, entries)),
               _buildBottomActionBar(visual),
             ],
@@ -69,10 +65,6 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
             Expanded(
               child: Column(
                 children: [
-                  ConversationChessBoardCard(
-                    conversationId: widget.item.conversationId,
-                    onMoveExecuted: () => _safeSetState(() {}),
-                  ),
                   Expanded(child: _buildMessageList(visual, entries)),
                   _buildBottomActionBar(visual),
                 ],
@@ -105,10 +97,13 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
     if (entries.isEmpty) return _buildFallbackLastMessage(visual);
     return ListView.builder(
       controller: _scrollController,
+      // El origen queda en el final del hilo: al abrir el chat, la posición 0
+      // corresponde al mensaje más reciente y no al inicio histórico.
+      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: entries.length,
       itemBuilder: (context, index) {
-        final entry = entries[index];
+        final entry = entries[entries.length - 1 - index];
         final isSelf =
             entry.kind == ConversationMemoryEntryKind.outboundDispatched ||
             entry.kind == ConversationMemoryEntryKind.outboundObservedManual;

@@ -71,14 +71,11 @@ class BrowserWindowTabsStrip extends StatelessWidget {
                 padding: EdgeInsets.symmetric(horizontal: isLandscape ? 6 : 10, vertical: isLandscape ? 2 : 5),
                 decoration: BoxDecoration(
                   color: isActive ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: isActive ? const Color(0xFF38BDF8).withValues(alpha: 0.8) : const Color(0xFF334155).withValues(alpha: 0.4),
-                    width: isActive ? 1.4 : 1.0,
+                    color: isActive ? const Color(0xFF10B981).withValues(alpha: 0.6) : const Color(0xFF334155).withValues(alpha: 0.4),
+                    width: 1.0,
                   ),
-                  boxShadow: isActive
-                      ? [BoxShadow(color: const Color(0xFF38BDF8).withValues(alpha: 0.2), blurRadius: 8, spreadRadius: -1)]
-                      : null,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

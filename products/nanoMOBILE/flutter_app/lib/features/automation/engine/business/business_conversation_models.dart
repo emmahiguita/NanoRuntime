@@ -37,7 +37,6 @@ final class BusinessMessageAnalysis {
   });
 
   bool get hasCommercialIntent =>
-      isGreeting ||
       isHumanRequest ||
       isCatalogAsk ||
       isDeliveryAsk ||
@@ -54,10 +53,14 @@ final class BusinessTurnReply {
   final String text;
   final List<String> suggestions;
   final bool isDirectResolution;
+  final List<String> missingFacts;
+  final bool needsHuman;
 
   const BusinessTurnReply({
     required this.text,
     required this.suggestions,
     this.isDirectResolution = true,
+    this.missingFacts = const [],
+    this.needsHuman = false,
   });
 }

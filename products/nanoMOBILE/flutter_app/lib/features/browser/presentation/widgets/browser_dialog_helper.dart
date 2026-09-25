@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_owl_assistant_sheet.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_security_dialogs.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -98,11 +97,6 @@ class BrowserDialogHelper {
         ],
       ),
     );
-  }
-
-  /// Abre el asistente Búho IA para la pestaña activa
-  static void showOwlAssistantDialog({required BuildContext context, required BrowserTabModel tab, required InAppWebViewController? controller, required void Function(String prompt) onSendToChat}) {
-    BrowserOwlAssistantSheet.show(context, tab: tab, controller: controller);
   }
 
   // Delegaciones a BrowserSecurityDialogs para compatibilidad

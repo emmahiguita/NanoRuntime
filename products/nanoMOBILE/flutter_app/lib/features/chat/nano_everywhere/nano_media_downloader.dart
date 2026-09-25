@@ -5,23 +5,49 @@
 // POR QUÉ: No satura RAM, previene archivos corruptos y cumple Scoped Storage de Android.
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'nano_ai_models.dart';
+import 'nano_media_detector.dart';
 
 class NanoMediaDownloader {
-  NanoMediaDownloader({http.Client? client, String? basePath})
-      : _client = client ?? http.Client(),
-        _basePath = basePath ?? '/storage/emulated/0/Download/NanoAI';
+  NanoMediaDownloader({
+    http.Client? client,
+    String? basePath,
+    MethodChannel? channel,
+  })  : _client = client ?? http.Client(),
+        _basePath = basePath ?? '/storage/emulated/0/Download/NanoAI',
+        _channel = channel ?? const MethodChannel('dev.nanoai/floating');
 
   final http.Client _client;
   final String _basePath;
+  final MethodChannel _channel;
 
   /// Descarga [resource] hacia la subcarpeta correspondiente según su tipo.
-  /// Notifica progreso [0.0..1.0] si [onProgress] es provisto.
+  /// Si proviene de redes sociales (YouTube, FB, X, Instagram, TikTok),
+  /// delega primero al DownloadManager nativo de Android e indexa en Galería.
   Future<File> download(
     NanoMediaResource resource, {
     void Function(double progress)? onProgress,
   }) async {
+    final sourceOrUrl = resource.sourceUrl ?? resource.url;
+    if (NanoMediaDetector.isSocialMediaUrl(sourceOrUrl)) {
+      try {
+        final res = await _channel.invokeMethod<Map<Object?, Object?>>('downloadMedia', {
+          'url': resource.url,
+          'audioOnly': resource.type == NanoMediaType.audio,
+        });
+        if (res != null && res['ok'] == true) {
+          onProgress?.call(1.0);
+          final nativePath = (res['path'] as String?) ??
+              '$_basePath/${resource.type == NanoMediaType.audio ? "Audios" : "Videos"}/${_sanitizeFilename(resource.title, resource.url, resource.type)}';
+          return File(nativePath);
+        }
+      } catch (_) {
+        // Si no está disponible el canal nativo, continúa con descarga HTTP por streaming
+      }
+    }
+
     final subfolder = switch (resource.type) {
       NanoMediaType.video => 'Videos',
       NanoMediaType.image => 'Imagenes',

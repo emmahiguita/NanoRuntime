@@ -7,6 +7,7 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'business_facts.dart';
+import 'business_text_matcher.dart';
 
 final businessFactsStoreProvider = Provider<BusinessFactsStore>((ref) {
   return const BusinessFactsStore();
@@ -23,7 +24,13 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
 
   Future<void> _load() async {
     try {
-      state = await _store.load();
+      final loaded = await _store.load();
+      final cleanProducts = _mergeProducts([], loaded.products);
+      state = loaded.copyWith(products: cleanProducts);
+      // Repara una vez los duplicados históricos para que no reaparezcan al reiniciar.
+      if (cleanProducts.length != loaded.products.length) {
+        await _store.save(state);
+      }
     } on Object {
       // Sin datos: estado vacío honesto.
     }
@@ -36,17 +43,12 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
 
   Future<bool> loadPreset(BusinessFacts preset) => _persist(preset);
 
+  Future<bool> setBusinessName(String name) =>
+      _persist(state.copyWith(businessName: name.trim()));
+
   Future<bool> upsertProduct(BusinessProduct product) {
-    final next = BusinessFacts(
-      products: [
-        for (final p in state.products)
-          if (p.id != product.id) p,
-        product,
-      ],
-      hours: state.hours,
-      delivery: state.delivery,
-      payments: state.payments,
-      location: state.location,
+    final next = state.copyWith(
+      products: _mergeProducts(state.products, [product]),
     );
     return _persist(next);
   }
@@ -63,92 +65,38 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
     bool replaceAll = false,
   }) {
     if (replaceAll) {
-      return _persist(
-        BusinessFacts(
-          products: List.unmodifiable(incoming),
-          hours: state.hours,
-          delivery: state.delivery,
-          payments: state.payments,
-          location: state.location,
-        ),
-      );
-    }
-    final existingMap = {for (final p in state.products) p.id: p};
-    for (final p in incoming) {
-      existingMap[p.id] = p;
+      return _persist(state.copyWith(products: _mergeProducts([], incoming)));
     }
     return _persist(
-      BusinessFacts(
-        products: List.unmodifiable(existingMap.values),
-        hours: state.hours,
-        delivery: state.delivery,
-        payments: state.payments,
-        location: state.location,
-      ),
+      state.copyWith(products: _mergeProducts(state.products, incoming)),
     );
   }
 
   Future<bool> removeProduct(String id) {
     return _persist(
-      BusinessFacts(
+      state.copyWith(
         products: [
           for (final p in state.products)
             if (p.id != id) p,
         ],
-        hours: state.hours,
-        delivery: state.delivery,
-        payments: state.payments,
-        location: state.location,
       ),
     );
   }
 
   Future<bool> setHours(String hours) {
-    return _persist(
-      BusinessFacts(
-        products: state.products,
-        hours: hours.trim(),
-        delivery: state.delivery,
-        payments: state.payments,
-        location: state.location,
-      ),
-    );
+    return _persist(state.copyWith(hours: hours.trim()));
   }
 
   Future<bool> setDelivery(String delivery) {
-    return _persist(
-      BusinessFacts(
-        products: state.products,
-        hours: state.hours,
-        delivery: delivery.trim(),
-        payments: state.payments,
-        location: state.location,
-      ),
-    );
+    return _persist(state.copyWith(delivery: delivery.trim()));
   }
 
   Future<bool> setPayments(String payments) {
-    return _persist(
-      BusinessFacts(
-        products: state.products,
-        hours: state.hours,
-        delivery: state.delivery,
-        payments: payments.trim(),
-        location: state.location,
-      ),
-    );
+    return _persist(state.copyWith(payments: payments.trim()));
   }
 
   Future<bool> setLocation(String location) {
-    return _persist(
-      BusinessFacts(
-        products: state.products,
-        hours: state.hours,
-        delivery: state.delivery,
-        payments: state.payments,
-        location: location.trim(),
-      ),
-    );
+    return _persist(state.copyWith(location: location.trim()));
   }
 
   Future<bool> _persist(BusinessFacts next) async {
@@ -163,13 +111,37 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
       return false;
     }
   }
+
+  /// Fusiona por ID o nombre canónico para impedir productos visualmente duplicados.
+  List<BusinessProduct> _mergeProducts(
+    List<BusinessProduct> current,
+    List<BusinessProduct> incoming,
+  ) {
+    final merged = [...current];
+    for (final candidate in incoming) {
+      final nameKey = normalizeText(candidate.name.trim());
+      if (candidate.id.trim().isEmpty || nameKey.isEmpty) continue;
+      final index = merged.indexWhere(
+        (item) =>
+            item.id == candidate.id ||
+            normalizeText(item.name.trim()) == nameKey,
+      );
+      if (index < 0) {
+        merged.add(candidate);
+      } else {
+        // El ID durable evita romper referencias creadas antes de una importación.
+        merged[index] = candidate.copyWith(id: merged[index].id);
+      }
+    }
+    return List.unmodifiable(merged);
+  }
 }
 
 final businessFactsNotifierProvider =
     StateNotifierProvider<BusinessFactsNotifier, BusinessFacts>((ref) {
-      final notifier = BusinessFactsNotifier(ref.watch(
-        businessFactsStoreProvider,
-      ));
+      final notifier = BusinessFactsNotifier(
+        ref.watch(businessFactsStoreProvider),
+      );
       // Carga asíncrona de arranque; la barrera global espera `ready`.
       notifier.ready;
       return notifier;

@@ -2,24 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nanoai/features/browser/domain/browser_url_resolver.dart';
 
-/// Barra de direcciones Omnibox Material Expressive 3 para el navegador móvil.
+/// Barra de direcciones Omnibox profesional y limpia para el navegador móvil.
 /// 
-/// - QUÉ HACE: Presenta la URL estilizada como píldora ergonómica interactiva.
-///   Al tocarla, pasa a modo edición en vivo con selección total y botón 'Go'.
-/// - CÓMO FUNCIONA: Gestiona [TextEditingController] y [FocusNode] locales;
-///   despacha [onSubmitted] con la URL sanitizada y resuelve esquemas faltantes.
-/// - POR QUÉ: Sustituye modales obstructivos por una barra moderna integrada (<200 líneas).
+/// - QUÉ HACE: Presenta la URL/búsqueda con indicador de seguridad SSL, dominio limpio,
+///   barra de progreso de carga y botón de recargar/detener sin saturación ni botones invasivos.
+/// - CÓMO FUNCIONA: Al tocar, activa edición con selección total de la URL y teclado 'Go'.
+/// - POR QUÉ: Diseño sobrio, profesional, de máxima legibilidad y sin elementos infantiles.
 class BrowserWindowOmnibox extends StatefulWidget {
   final String url, title;
   final Color siteColor;
-  final bool isLandscape;
+  final bool isLandscape, isLoading;
+  final double progress;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onReload;
-  final VoidCallback? onZoom;
+  final VoidCallback? onStop;
 
   const BrowserWindowOmnibox({
-    super.key, required this.url, required this.title, required this.siteColor,
-    required this.isLandscape, required this.onSubmitted, required this.onReload, this.onZoom,
+    super.key,
+    required this.url,
+    required this.title,
+    required this.siteColor,
+    required this.isLandscape,
+    required this.onSubmitted,
+    required this.onReload,
+    this.isLoading = false,
+    this.progress = 1.0,
+    this.onStop,
   });
 
   @override
@@ -36,14 +44,18 @@ class _BrowserWindowOmniboxState extends State<BrowserWindowOmnibox> {
     super.initState();
     _controller = TextEditingController(text: widget.url);
     _focusNode = FocusNode()..addListener(() {
-      if (!_focusNode.hasFocus && _isEditing && mounted) setState(() => _isEditing = false);
+      if (!_focusNode.hasFocus && _isEditing && mounted) {
+        setState(() => _isEditing = false);
+      }
     });
   }
 
   @override
   void didUpdateWidget(covariant BrowserWindowOmnibox old) {
     super.didUpdateWidget(old);
-    if (!_isEditing && widget.url != old.url) _controller.text = widget.url;
+    if (!_isEditing && widget.url != old.url) {
+      _controller.text = widget.url;
+    }
   }
 
   @override
@@ -65,7 +77,9 @@ class _BrowserWindowOmniboxState extends State<BrowserWindowOmnibox> {
 
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isNotEmpty) widget.onSubmitted(BrowserUrlResolver.resolveUrl(text));
+    if (text.isNotEmpty) {
+      widget.onSubmitted(BrowserUrlResolver.resolveUrl(text));
+    }
     setState(() => _isEditing = false);
     _focusNode.unfocus();
   }
@@ -74,108 +88,131 @@ class _BrowserWindowOmniboxState extends State<BrowserWindowOmnibox> {
   Widget build(BuildContext context) {
     final isLand = widget.isLandscape;
     final isHttps = widget.url.startsWith('https://');
+    const emeraldAccent = Color(0xFF10B981);
+
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 180),
-      height: isLand ? 28 : 36,
-      padding: EdgeInsets.symmetric(horizontal: isLand ? 6 : 10),
+      duration: const Duration(milliseconds: 160),
+      height: isLand ? 30 : 38,
+      padding: EdgeInsets.symmetric(horizontal: isLand ? 8 : 12),
       decoration: BoxDecoration(
-        color: _isEditing ? const Color(0xFF0F1E2E) : const Color(0xFF0A1520),
+        color: _isEditing ? const Color(0xFF0F1B2C) : const Color(0xFF0B1420),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: _isEditing ? widget.siteColor : const Color(0xFF1E3A4A).withValues(alpha: 0.6),
-          width: _isEditing ? 1.4 : 1.0,
+          color: _isEditing ? emeraldAccent : const Color(0xFF1E2D3D),
+          width: _isEditing ? 1.2 : 1.0,
         ),
       ),
-      child: Row(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Icon(
-            _isEditing ? Icons.search_rounded : (isHttps ? Icons.lock_rounded : Icons.lock_open_rounded),
-            color: _isEditing ? widget.siteColor : (isHttps ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
-            size: isLand ? 12 : 14,
+          Row(
+            children: [
+              Icon(
+                _isEditing
+                    ? Icons.search_rounded
+                    : (isHttps ? Icons.lock_rounded : Icons.lock_open_rounded),
+                color: _isEditing
+                    ? emeraldAccent
+                    : (isHttps ? emeraldAccent : const Color(0xFF94A3B8)),
+                size: isLand ? 13 : 15,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _isEditing ? _buildInput(isLand) : _buildLabel(isLand),
+              ),
+              if (_isEditing) ...[
+                if (_controller.text.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => setState(() => _controller.clear()),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        Icons.cancel_rounded,
+                        size: isLand ? 14 : 16,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ),
+              ] else ...[
+                GestureDetector(
+                  onTap: widget.isLoading
+                      ? (widget.onStop ?? widget.onReload)
+                      : widget.onReload,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: Icon(
+                      widget.isLoading ? Icons.close_rounded : Icons.refresh_rounded,
+                      size: isLand ? 14 : 17,
+                      color: widget.isLoading ? const Color(0xFFEF4444) : const Color(0xFF94A3B8),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
-          const SizedBox(width: 6),
-          Expanded(child: _isEditing ? _buildInput(isLand) : _buildLabel(isLand)),
-          if (_isEditing) ...[
-            if (_controller.text.isNotEmpty)
-              _Btn(label: 'Borrar', icon: Icons.cancel_rounded, size: isLand ? 12 : 15, color: const Color(0xFF94A3B8), onTap: () => setState(() => _controller.clear())),
-            const SizedBox(width: 4),
-            _Btn(label: 'Ir', icon: Icons.arrow_forward_rounded, size: isLand ? 11 : 13, color: Colors.white, bg: widget.siteColor, onTap: _submit),
-          ] else ...[
-            if (widget.onZoom != null)
-              _ZoomBtn(isLandscape: isLand, onTap: widget.onZoom!),
-            _Btn(label: 'Recargar', icon: Icons.refresh_rounded, size: isLand ? 13 : 16, color: const Color(0xFF94A3B8), onTap: widget.onReload),
-          ],
+          if (widget.isLoading && widget.progress < 1.0)
+            Positioned(
+              left: 4,
+              right: 4,
+              bottom: 0,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: widget.progress.clamp(0.05, 1.0),
+                  minHeight: 2.0,
+                  backgroundColor: Colors.transparent,
+                  valueColor: const AlwaysStoppedAnimation<Color>(emeraldAccent),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildInput(bool isLand) => TextField(
-    controller: _controller, focusNode: _focusNode,
-    textInputAction: TextInputAction.go, onSubmitted: (_) => _submit(),
-    style: TextStyle(color: Colors.white, fontSize: isLand ? 11.0 : 13.0, fontWeight: FontWeight.w500),
+    controller: _controller,
+    focusNode: _focusNode,
+    textInputAction: TextInputAction.go,
+    onSubmitted: (_) => _submit(),
+    style: TextStyle(
+      color: Colors.white,
+      fontSize: isLand ? 11.5 : 13.5,
+      fontWeight: FontWeight.w500,
+    ),
     decoration: InputDecoration(
-      isDense: true, contentPadding: EdgeInsets.zero, border: InputBorder.none,
+      isDense: true,
+      contentPadding: EdgeInsets.zero,
+      border: InputBorder.none,
       hintText: 'Buscar o escribir dirección web…',
-      hintStyle: TextStyle(color: const Color(0xFF64748B), fontSize: isLand ? 10.5 : 12.5),
+      hintStyle: TextStyle(
+        color: const Color(0xFF64748B),
+        fontSize: isLand ? 11.0 : 13.0,
+      ),
     ),
   );
 
   Widget _buildLabel(bool isLand) {
-    final display = widget.url.isEmpty ? 'Buscar o escribir URL…' : widget.url.replaceAll(RegExp(r'^https?://'), '');
+    final display = widget.url.isEmpty
+        ? 'Buscar o escribir URL…'
+        : widget.url.replaceAll(RegExp(r'^https?://'), '');
     return InkWell(
-      onTap: _startEditing, borderRadius: BorderRadius.circular(14),
+      onTap: _startEditing,
+      borderRadius: BorderRadius.circular(12),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Text(
-          display, maxLines: 1, overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: widget.url.isEmpty ? const Color(0xFF64748B) : Colors.white, fontSize: isLand ? 10.5 : 12.5, fontWeight: FontWeight.w500),
+          display,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: widget.url.isEmpty ? const Color(0xFF64748B) : const Color(0xFFF1F5F9),
+            fontSize: isLand ? 11.0 : 13.0,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.1,
+          ),
         ),
       ),
     );
   }
-}
-
-class _Btn extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final double size;
-  final Color color;
-  final Color? bg;
-  final VoidCallback onTap;
-
-  const _Btn({required this.label, required this.icon, required this.size, required this.color, this.bg, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    label: label, button: true,
-    child: InkWell(
-      onTap: onTap, borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: bg != null ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : const EdgeInsets.all(3),
-        decoration: bg != null ? BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)) : null,
-        child: Icon(icon, size: size, color: color),
-      ),
-    ),
-  );
-}
-
-class _ZoomBtn extends StatelessWidget {
-  final bool isLandscape;
-  final VoidCallback onTap;
-  const _ZoomBtn({required this.isLandscape, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    label: 'Ajustar zoom', button: true,
-    child: InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        margin: const EdgeInsets.only(right: 4),
-        decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(6)),
-        child: Text('aA', style: TextStyle(color: const Color(0xFFCBD5E1), fontSize: isLandscape ? 8.5 : 10.5, fontWeight: FontWeight.bold)),
-      ),
-    ),
-  );
 }

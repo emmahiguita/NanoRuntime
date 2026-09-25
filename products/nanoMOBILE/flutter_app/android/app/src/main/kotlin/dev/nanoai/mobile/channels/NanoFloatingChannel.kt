@@ -5,25 +5,25 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import dev.nanoai.mobile.services.NanoFloatingService
+import dev.nanoai.mobile.services.NanoMediaDownloader
+import dev.nanoai.mobile.services.NanoMediaResolver
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * NanoFloatingChannel — Canal Flutter↔Kotlin para el overlay flotante.
+ * NanoFloatingChannel — Canal Flutter↔Kotlin para el overlay flotante y descargas multimedia.
  *
  * QUÉ: Expone hasPermission, requestPermission, show, hide,
- *      takePendingPrompt y takePendingEntry (prompt + mode).
- * CÓMO: MethodChannel 'dev.nanoai/floating'; delega show/hide a NanoFloatingService.
- * POR QUÉ: Separar el canal del servicio sigue SOLID-S; el canal solo enruta,
- *          el servicio solo dibuja. Arranque solo posible desde Activity visible
- *          → sin zombis de overlay iniciados desde background.
- *
- * REGISTRAR en MainActivity.configureFlutterEngine:
- *   NanoFloatingChannel(this, messenger).also { nanoFloatingChannel = it }
+ *      takePendingPrompt, takePendingEntry, resolveMedia y downloadMedia.
+ * CÓMO: MethodChannel 'dev.nanoai/floating'; delega show/hide a NanoFloatingService
+ *       y resolveMedia/downloadMedia a NanoMediaResolver y NanoMediaDownloader.
+ * POR QUÉ: Conecta tanto el panel Flutter como la burbuja nativa al mismo motor Snaptube.
  */
 class NanoFloatingChannel(private val activity: Activity, messenger: BinaryMessenger) {
 
     private val channel = MethodChannel(messenger, "dev.nanoai/floating")
+    private val mediaResolver by lazy { NanoMediaResolver(activity) }
+    private val mediaDownloader by lazy { NanoMediaDownloader(activity) }
 
     init {
         channel.setMethodCallHandler { call, result ->
@@ -80,11 +80,65 @@ class NanoFloatingChannel(private val activity: Activity, messenger: BinaryMesse
                     result.success(true)
                 }
 
+                // Resuelve enlaces de YouTube, Facebook, X, Instagram, TikTok a stream MP4/MP3 directo.
+                "resolveMedia" -> {
+                    val url = call.argument<String>("url")?.trim().orEmpty()
+                    val audioOnly = call.argument<Boolean>("audioOnly") ?: false
+                    if (url.isEmpty()) {
+                        result.success(mapOf("ok" to false, "error" to "URL vacía"))
+                        return@setMethodCallHandler
+                    }
+                    mediaResolver.resolveMedia(url, audioOnly) { media, err ->
+                        if (media != null) {
+                            result.success(
+                                mapOf(
+                                    "ok" to true,
+                                    "downloadUrl" to media.downloadUrl,
+                                    "filename" to media.filename,
+                                    "isAudioOnly" to media.isAudioOnly,
+                                    "sourceService" to media.sourceService,
+                                )
+                            )
+                        } else {
+                            result.success(mapOf("ok" to false, "error" to (err ?: "No se pudo resolver el enlace")))
+                        }
+                    }
+                }
+
+                // Descarga mediante DownloadManager nativo de Android e indexa en Galería.
+                "downloadMedia" -> {
+                    val url = call.argument<String>("url")?.trim().orEmpty()
+                    val audioOnly = call.argument<Boolean>("audioOnly") ?: false
+                    if (url.isEmpty()) {
+                        result.success(mapOf("ok" to false, "error" to "URL vacía"))
+                        return@setMethodCallHandler
+                    }
+                    if (NanoMediaResolver.isSupportedSocialUrl(url) && !NanoMediaDownloader.isMediaUrl(url)) {
+                        mediaResolver.resolveMedia(url, audioOnly) { media, err ->
+                            if (media != null) {
+                                mediaDownloader.download(media.downloadUrl) { ok, path ->
+                                    result.success(mapOf("ok" to ok, "path" to path, "filename" to media.filename))
+                                }
+                            } else {
+                                result.success(mapOf("ok" to false, "error" to (err ?: "Error al extraer stream")))
+                            }
+                        }
+                    } else {
+                        mediaDownloader.download(url) { ok, path ->
+                            result.success(mapOf("ok" to ok, "path" to path))
+                        }
+                    }
+                }
+
                 else -> result.notImplemented()
             }
         }
     }
 
     /** Llamar en cleanupFlutterEngine para evitar leaks de canal. */
-    fun detach() = channel.setMethodCallHandler(null)
+    fun detach() {
+        channel.setMethodCallHandler(null)
+        mediaResolver.destroy()
+        mediaDownloader.detach()
+    }
 }

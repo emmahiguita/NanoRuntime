@@ -16,7 +16,6 @@
 library;
 
 import '../language/language_assist.dart';
-import '../language/safe_repair_options.dart';
 import '../notifications/conversation_understanding.dart';
 import '../notifications/notification_object.dart';
 import '../../personal_agent/application/conversation_decision_engine.dart';
@@ -62,7 +61,7 @@ abstract interface class ConversationReplyComposer {
   });
 }
 
-/// Función pura que empaqueta, sanitiza y garantiza 2-3 sugerencias interactivas.
+/// Empaqueta, sanitiza y arbitra (Generation -> Ranking -> Factual Validation -> Repair -> Revalidation -> Governance).
 ConversationDraftResult packConversationDraftResult({
   required String reply,
   required ConversationUnderstanding understanding,
@@ -72,33 +71,42 @@ ConversationDraftResult packConversationDraftResult({
   required bool isFastPath,
   required ConversationDecisionEngine decisionEngine,
 }) {
-  final cleaned = LanguageAssistService.safeCleanOutput(reply);
-  final decision = decisionEngine.decide(understanding: understanding, context: context);
-  final isRepaired = decision.repairedText != null && decision.repairedText!.trim().isNotEmpty;
-  final finalText = isRepaired ? decision.repairedText!.trim() : cleaned.trim();
+  final cleaned = LanguageAssistService.safeCleanOutput(reply).trim();
+  final candidateUnderstanding = understanding.reply.trim() == cleaned
+      ? understanding
+      : ConversationUnderstanding(
+          intent: understanding.intent,
+          relation: understanding.relation,
+          options: understanding.options,
+          questions: understanding.questions,
+          missingFacts: understanding.missingFacts,
+          obligations: understanding.obligations,
+          requiresAction: understanding.requiresAction,
+          reply: cleaned,
+        );
+  final decision = decisionEngine.decide(
+    understanding: candidateUnderstanding,
+    context: context,
+  );
+  final isRepaired =
+      decision.repairedText != null && decision.repairedText!.trim().isNotEmpty;
+  final finalText = isRepaired
+      ? LanguageAssistService.safeCleanOutput(decision.repairedText!).trim()
+      : cleaned;
 
   final resultSuggestions = <String>[];
   if (finalText.isNotEmpty) resultSuggestions.add(finalText);
   for (final s in suggestions) {
-    final cleanS = LanguageAssistService.safeCleanOutput(s);
+    final cleanS = LanguageAssistService.safeCleanOutput(s).trim();
     if (cleanS.isNotEmpty && !resultSuggestions.contains(cleanS)) {
       resultSuggestions.add(cleanS);
     }
     if (resultSuggestions.length >= 3) break;
   }
 
-  if (resultSuggestions.length < 2) {
-    for (final opt in safeRepairCallCenterGreetingOptions) {
-      if (!resultSuggestions.contains(opt)) {
-        resultSuggestions.add(opt);
-        if (resultSuggestions.length >= 2) break;
-      }
-    }
-  }
-
   return ConversationDraftResult(
     text: finalText,
-    understanding: understanding,
+    understanding: candidateUnderstanding,
     decision: decision,
     role: context.agentRole,
     conversationId: conversationId,

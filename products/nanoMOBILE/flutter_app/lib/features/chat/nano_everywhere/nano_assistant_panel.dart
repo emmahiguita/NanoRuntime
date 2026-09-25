@@ -70,17 +70,25 @@ class _NanoAssistantPanelState extends State<NanoAssistantPanel> {
   Widget build(BuildContext context) {
     final controller = widget.controller;
     final isMedia = controller.mode == NanoMode.media;
+    final screen = MediaQuery.sizeOf(context);
+    // QUÉ HACE: Detecta modo horizontal o altura reducida para compactar componentes.
+    // CÓMO FUNCIONA: Activa `isCompactLandscape` cuando el ancho supera el alto o alto < 460px.
+    // POR QUÉ: Garantiza que todos los controles quepan organizados y usables sin solaparse.
+    final isCompactLandscape = screen.width > screen.height || screen.height < 460;
+    final gap = isCompactLandscape ? 6.0 : 10.0;
 
     return Material(
       type: MaterialType.transparency,
       child: NanoGlass(
-        radius: 28,
+        radius: isCompactLandscape ? 20 : 28,
         child: Stack(
           children: [
             const _PanelFeather(),
             // Un solo scroll evita overflow con teclado, zoom de texto o landscape.
             SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+              padding: isCompactLandscape
+                  ? const EdgeInsets.fromLTRB(10, 6, 10, 10)
+                  : const EdgeInsets.fromLTRB(14, 8, 14, 14),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -89,8 +97,9 @@ class _NanoAssistantPanelState extends State<NanoAssistantPanel> {
                     activity: controller.activity,
                     isMedia: isMedia,
                     onClose: widget.onCollapse,
+                    compact: isCompactLandscape,
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: gap),
                   NanoAssistantComposer(
                     input: widget.input,
                     isMedia: isMedia,
@@ -98,8 +107,9 @@ class _NanoAssistantPanelState extends State<NanoAssistantPanel> {
                     audioLevel: widget.audioLevel,
                     onVoice: _busy ? null : widget.onVoice,
                     onSend: _send,
+                    compact: isCompactLandscape,
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: gap),
                   NanoAssistantModeBar(
                     currentMode: controller.mode,
                     enabled: !_busy,

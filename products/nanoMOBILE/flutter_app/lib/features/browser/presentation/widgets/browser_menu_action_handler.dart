@@ -10,7 +10,6 @@ import 'package:nanoai/features/browser/infrastructure/browser_scripts.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_credentials_sheet.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_dialog_helper.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_history_bookmarks_dialog.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_owl_assistant_sheet.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_zoom_sheet.dart';
 
 /// Despachador de acciones del menú de opciones del navegador.
@@ -100,9 +99,6 @@ class BrowserMenuActionHandler {
           currentDomain: domain,
           onAutofill: (u, p) => controller?.evaluateJavascript(source: BrowserScripts.buildAutofillScript(u, p)),
         );
-        break;
-      case 'ask_owl':
-        BrowserOwlAssistantSheet.show(context, tab: tab, controller: controller);
         break;
       case 'clear_cache':
         await InAppWebViewController.clearAllCache();

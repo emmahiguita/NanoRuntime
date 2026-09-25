@@ -14,8 +14,6 @@ import dev.nanoai.mobile.automation.AutomationRuntimeService
 import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
 import java.util.Locale
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Icon
 import java.io.File
 import java.io.FileOutputStream
 
@@ -64,6 +62,17 @@ class NotificationAutomationService : NotificationListenerService() {
         if (sbn == null) return
         if (sbn.packageName == packageName) return
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+
+        // WA-ADMISSION-01: estados, reacciones y avisos de servicio mueren
+        // antes del inbox durable; así nunca despiertan ni crean un chat.
+        val conversationEvidence = WhatsAppConversationNotificationClassifier.inspect(sbn)
+        if (conversationEvidence.applies && !conversationEvidence.isConversationEvent) {
+            android.util.Log.d(
+                "NanoNotifications",
+                "WhatsApp event rejected: ${conversationEvidence.reason}",
+            )
+            return
+        }
 
         val sink = NotificationAutomationBridge.notificationEventsSink
         if (sink == null && !AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) return
@@ -127,6 +136,7 @@ class NotificationAutomationService : NotificationListenerService() {
             .asSequence()
             .filter { it.packageName != packageName }
             .filterNot { it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0 }
+            .filter(WhatsAppConversationNotificationClassifier::allows)
             .sortedByDescending(StatusBarNotification::getPostTime)
             .take(limit.coerceIn(1, MAX_NOTIFICATIONS))
             .map(::toMap)
@@ -137,7 +147,9 @@ class NotificationAutomationService : NotificationListenerService() {
      *  persistido no hay otra fuente honesta). */
     fun byKey(key: String): Map<String, Any?>? =
         (activeNotifications ?: emptyArray())
-            .firstOrNull { it.key == key }
+            .firstOrNull {
+                it.key == key && WhatsAppConversationNotificationClassifier.allows(it)
+            }
             ?.let(::toMap)
 
     /**
@@ -212,24 +224,28 @@ class NotificationAutomationService : NotificationListenerService() {
     private fun extractAndSaveImage(extras: android.os.Bundle?, messages: List<MessagingStyle.Message>?, postTime: Long): String? {
         if (extras == null) return null
         return try {
-            var bitmap: Bitmap? = extras.get(Notification.EXTRA_PICTURE) as? Bitmap
-                ?: (extras.getParcelable("android.picture") as? Bitmap)
-            if (bitmap == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    extras.getParcelable(Notification.EXTRA_PICTURE_ICON) as? Icon
-                } else null
-                    ?: (extras.getParcelable(Notification.EXTRA_LARGE_ICON) as? Icon)
-                if (icon != null) {
-                    val drawable = icon.loadDrawable(this)
-                    if (drawable is BitmapDrawable) {
-                        bitmap = drawable.bitmap
-                    }
+            // MessagingStyle.dataUri es el adjunto real. EXTRA_LARGE_ICON no
+            // se usa: normalmente es el avatar del contacto y no una foto.
+            val imgMsg = messages?.lastOrNull {
+                it.dataMimeType?.startsWith("image/") == true && it.dataUri != null
+            }
+            if (imgMsg?.dataUri != null) {
+                val dir = File(cacheDir, "nano_notif_media")
+                if (!dir.exists()) dir.mkdirs()
+                val extension = when (imgMsg.dataMimeType?.lowercase(Locale.ROOT)) {
+                    "image/png" -> "png"
+                    "image/webp" -> "webp"
+                    else -> "jpg"
                 }
-            }
-            if (bitmap == null) {
-                bitmap = extras.get(Notification.EXTRA_LARGE_ICON) as? Bitmap
-            }
-            if (bitmap != null) {
+                val file = File(dir, "img_${postTime}.$extension")
+                contentResolver.openInputStream(imgMsg.dataUri!!)?.use { input ->
+                    FileOutputStream(file).use { out -> input.copyTo(out) }
+                } ?: return null
+                file.absolutePath
+            } else {
+                val bitmap = extras.get(Notification.EXTRA_PICTURE) as? Bitmap
+                    ?: (extras.getParcelable("android.picture") as? Bitmap)
+                if (bitmap == null) return null
                 val dir = File(cacheDir, "nano_notif_media")
                 if (!dir.exists()) dir.mkdirs()
                 val file = File(dir, "img_${postTime}.jpg")
@@ -237,23 +253,6 @@ class NotificationAutomationService : NotificationListenerService() {
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
                 }
                 file.absolutePath
-            } else if (messages != null) {
-                val imgMsg = messages.lastOrNull { 
-                    it.dataMimeType?.startsWith("image/") == true && it.dataUri != null 
-                }
-                if (imgMsg?.dataUri != null) {
-                    val dir = File(cacheDir, "nano_notif_media")
-                    if (!dir.exists()) dir.mkdirs()
-                    val file = File(dir, "img_${postTime}.jpg")
-                    contentResolver.openInputStream(imgMsg.dataUri!!)?.use { input ->
-                        FileOutputStream(file).use { out ->
-                            input.copyTo(out)
-                        }
-                    }
-                    file.absolutePath
-                } else null
-            } else {
-                null
             }
         } catch (e: Exception) {
             null
@@ -304,9 +303,31 @@ class NotificationAutomationService : NotificationListenerService() {
         }
     }
 
+    private fun extractAndSavePdf(messages: List<MessagingStyle.Message>?, postTime: Long): String? {
+        if (messages == null || messages.isEmpty()) return null
+        return try {
+            val pdfMsg = messages.lastOrNull {
+                it.dataMimeType.equals("application/pdf", ignoreCase = true) &&
+                    it.dataUri != null
+            }
+            if (pdfMsg?.dataUri == null) return null
+            val dir = File(cacheDir, "nano_notif_media")
+            if (!dir.exists()) dir.mkdirs()
+            val file = File(dir, "document_${postTime}.pdf")
+            contentResolver.openInputStream(pdfMsg.dataUri!!)?.use { input ->
+                FileOutputStream(file).use { out -> input.copyTo(out) }
+            } ?: return null
+            file.absolutePath
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private fun toMap(source: StatusBarNotification): Map<String, Any?> {
         val notification = source.notification
         val extras = notification.extras
+        val conversationEvidence =
+            WhatsAppConversationNotificationClassifier.inspect(source)
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = (
             extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
@@ -319,13 +340,13 @@ class NotificationAutomationService : NotificationListenerService() {
         val messages = MessagingStyle.Message.getMessagesFromBundleArray(
             extras.getParcelableArray(Notification.EXTRA_MESSAGES),
         )
-        val savedImagePath = extractAndSaveImage(extras, messages, source.postTime)
-        val savedVideoPath = extractAndSaveVideo(messages, source.postTime)
-        val savedAudioPath = extractAndSaveAudio(messages, source.postTime)
 
         val lastMessage = messages.lastOrNull()
         val sender = lastMessage?.sender?.toString().orEmpty()
         var messageText = lastMessage?.text?.toString().orEmpty()
+        if (messageText.isBlank()) {
+            messageText = text
+        }
 
         val combinedLower = "$title $text $messageText".lowercase(Locale.ROOT)
         val isViewOnce = combinedLower.contains("ver una sola vez") ||
@@ -343,6 +364,21 @@ class NotificationAutomationService : NotificationListenerService() {
         val isVideoMsg = combinedLower.contains("video") ||
             combinedLower.contains("envió un video") ||
             combinedLower.contains("envio un video")
+        val hasImageData = messages.any {
+            it.dataMimeType?.startsWith("image/") == true && it.dataUri != null
+        }
+        val hasPdfData = messages.any {
+            it.dataMimeType.equals("application/pdf", ignoreCase = true) &&
+                it.dataUri != null
+        }
+        val savedImagePath = if (isPhotoMsg || isViewOnce || hasImageData) {
+            extractAndSaveImage(extras, messages, source.postTime)
+        } else null
+        val savedVideoPath = extractAndSaveVideo(messages, source.postTime)
+        val savedAudioPath = extractAndSaveAudio(messages, source.postTime)
+        val savedPdfPath = if (hasPdfData) {
+            extractAndSavePdf(messages, source.postTime)
+        } else null
 
         if (isViewOnce) {
             val tag = if (savedImagePath != null) "[VerUnaVez: $savedImagePath]" else "[VerUnaVez]"
@@ -361,6 +397,10 @@ class NotificationAutomationService : NotificationListenerService() {
             messageText = "$messageText\n[Audio: $savedAudioPath]".trim()
         }
 
+        if (savedPdfPath != null && !messageText.contains("[PDF:")) {
+            messageText = "$messageText\n[PDF: $savedPdfPath]".trim()
+        }
+
         var cleanedText = text
         if (isViewOnce) {
             val tag = if (savedImagePath != null) "[VerUnaVez: $savedImagePath]" else "[VerUnaVez]"
@@ -377,6 +417,9 @@ class NotificationAutomationService : NotificationListenerService() {
 
         if (savedAudioPath != null && !cleanedText.contains("[Audio:")) {
             cleanedText = "$cleanedText\n[Audio: $savedAudioPath]".trim()
+        }
+        if (savedPdfPath != null && !cleanedText.contains("[PDF:")) {
+            cleanedText = "$cleanedText\n[PDF: $savedPdfPath]".trim()
         }
         // WA-GROUP-IDENT — Detección fidedigna de grupos de WhatsApp (ej: "infinity")
         // QUÉ HACE: Extrae el nombre real del grupo y el remitente individual desde los metadatos de Android.
@@ -489,6 +532,7 @@ class NotificationAutomationService : NotificationListenerService() {
             "isSelf" to isSelfMessage,
             "imagePath" to (savedImagePath ?: ""),
             "videoPath" to (savedVideoPath ?: ""),
+            "pdfPath" to (savedPdfPath ?: ""),
             // Preserve the individual MessagingStyle events on live updates
             // and cold replay. Dart deduplicates each original timestamp.
             "messages" to messages.map { message ->
@@ -504,6 +548,11 @@ class NotificationAutomationService : NotificationListenerService() {
                     mText.contains("video", ignoreCase = true)) {
                     mText = "$mText\n[Video: $savedVideoPath]"
                 }
+                if (savedPdfPath != null && !mText.contains("[PDF:") &&
+                    (message.dataMimeType.equals("application/pdf", ignoreCase = true) ||
+                        mText.contains("pdf", ignoreCase = true))) {
+                    mText = "$mText\n[PDF: $savedPdfPath]"
+                }
                 mapOf(
                     "messageText" to mText.take(MAX_FIELD_CHARS),
                     "text" to mText.take(MAX_FIELD_CHARS),
@@ -515,6 +564,7 @@ class NotificationAutomationService : NotificationListenerService() {
                     "isSelf" to isSelfSender(message.sender, person, userPerson),
                     "imagePath" to (savedImagePath ?: ""),
                     "videoPath" to (savedVideoPath ?: ""),
+                    "pdfPath" to (savedPdfPath ?: ""),
                 )
             },
             "sender" to finalSender.take(200),
@@ -525,6 +575,11 @@ class NotificationAutomationService : NotificationListenerService() {
             "shortcutId" to shortcutId.take(200),
             "locusId" to locusId.take(200),
             "accountHint" to subText.take(200),
+            // La capa Dart vuelve a verificar esta evidencia para cubrir rutas
+            // legacy/directas sin depender de frases localizadas.
+            "notificationCategory" to conversationEvidence.category,
+            "hasMessagingStyle" to conversationEvidence.hasMessagingStyle,
+            "isConversationEvent" to conversationEvidence.isConversationEvent,
             "isGroup" to isGroup,
             "isViewOnce" to isViewOnce,
             "audioPath" to (savedAudioPath ?: ""),

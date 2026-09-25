@@ -7,10 +7,17 @@ library;
 import 'dart:convert';
 
 import '../domain/persona_example.dart';
+import '../domain/personal_memory.dart';
+import 'conversation_decision_guards.dart';
 import 'persona_repository.dart';
 import 'personal_learning_text.dart';
 import 'personal_reply_correction_memory.dart';
 import 'personal_reply_variants.dart';
+import '../../engine/language/conversation_semantic_tag.dart';
+
+part 'personal_reply_learning_metadata.dart';
+part 'personal_reply_learning_consolidation.dart';
+part 'personal_reply_learning_flow.dart';
 
 enum PersonalReplyLearningResult { created, merged, unchanged, rejected }
 
@@ -19,45 +26,90 @@ final class PersonalReplyLearningService {
     : _repository = repository ?? PersonaRepository.instance;
 
   static final instance = PersonalReplyLearningService();
+  static const _observationScope = 'learning_observation';
+  static const _observationTtlMs = 14 * 24 * 60 * 60 * 1000; // 14 días
   static const _automaticSources = {
     'whatsapp_manual_learned',
     'messaging_center_learning',
     'correction',
+    'owner_import',
   };
 
   final PersonaRepository _repository;
+  final Map<String, int> _passiveSignalCountByKey = {};
 
-  /// Guarda sólo evidencia real: texto entrante y respuesta ya enviada.
-  /// Si la entrada existe, agrega una variante única y elimina filas repetidas.
+  /// Guarda sólo evidencia humana real verificada; separa Observation != ConsolidatedMemory.
   Future<PersonalReplyLearningResult> learnVerifiedReply({
     required String incomingText,
     required String replyText,
     required String source,
     String? correctedFrom,
   }) async {
-    final incoming = incomingText.trim();
-    final reply = replyText.trim();
-    if (incoming.isEmpty || reply.isEmpty) {
+    final provenance = ReplyProvenance.fromSource(
+      source,
+      correctedFrom: correctedFrom,
+    );
+    if (!provenance.canTeachPersonalStyle) {
       return PersonalReplyLearningResult.rejected;
     }
 
-    final all = await _repository.listExamples(limit: 200, scopeKey: 'owner');
+    final incoming = incomingText.trim();
+    final reply = replyText.trim();
+    if (!isLearnablePersonalPrompt(incoming) ||
+        reply.isEmpty ||
+        reply.length > 280) {
+      return PersonalReplyLearningResult.rejected;
+    }
+
     final key = promptKey(incoming);
+    final normalizedReply = replyKey(reply);
+    if (key.isEmpty || normalizedReply.isEmpty) {
+      return PersonalReplyLearningResult.rejected;
+    }
+    if (key == normalizedReply && key.split(' ').length > 2) {
+      return PersonalReplyLearningResult.rejected;
+    }
+
+    final all = await _allExamples('owner');
     final matches = all
-        .where((example) => promptKey(example.incomingText) == key)
+        .where(
+          (example) =>
+              promptKey(example.incomingText) == key ||
+              example.incomingVariants.any(
+                (variant) => promptKey(variant) == key,
+              ),
+        )
         .toList();
 
     if (matches.isEmpty) {
+      // Ciclo 11: Una observación pasiva única (Observation) no entra directo a
+      // Persona permanente (ConsolidatedMemory); se persiste con TTL de 14 días.
+      if (provenance == ReplyProvenance.humanPassiveObservation) {
+        final count = await _recordPersistentObservation(
+          patternFingerprint: key,
+          responseFingerprint: normalizedReply,
+          incoming: incoming,
+          reply: reply,
+          source: source,
+        );
+        if (count < 2) {
+          return PersonalReplyLearningResult.unchanged;
+        }
+      }
+
       final created = await _repository.addExample(
         personaKey: 'owner',
         incomingText: incoming,
         body: reply,
         source: source,
-        tone: _toneFor(
+        tone: _learningToneFor(
           base: const {},
           incoming: incoming,
+          incomingVariants: [incoming],
           replies: [reply],
+          provenance: provenance,
           correctedFrom: correctedFrom,
+          frequencyIncrement: (_passiveSignalCountByKey.remove(key) ?? 1),
         ),
       );
       if (created && correctedFrom != null) {
@@ -76,6 +128,7 @@ final class PersonalReplyLearningService {
       matches,
       incoming: incoming,
       newestReply: reply,
+      provenance: provenance,
       correctedFrom: correctedFrom,
     );
     if (correctedFrom != null) {
@@ -90,94 +143,6 @@ final class PersonalReplyLearningService {
         : PersonalReplyLearningResult.unchanged;
   }
 
-  /// Repara datos creados por la lógica anterior sin tocar ejemplos manuales
-  /// que no estén relacionados con aprendizaje automático.
-  Future<int> consolidateExisting() async {
-    final all = await _repository.listExamples(limit: 200, scopeKey: 'owner');
-    final groups = <String, List<PersonaExample>>{};
-    for (final example in all.where((item) => item.isPaired)) {
-      groups
-          .putIfAbsent(promptKey(example.incomingText), () => [])
-          .add(example);
-    }
-
-    var repaired = 0;
-    for (final group in groups.values) {
-      final wasAutomaticallyDuplicated =
-          group.length > 1 &&
-          group.any((item) => _automaticSources.contains(item.source));
-      if (!wasAutomaticallyDuplicated) continue;
-      if (await _mergeMatches(group, incoming: group.first.incomingText)) {
-        repaired++;
-      }
-    }
-    return repaired;
-  }
-
-  Future<bool> _mergeMatches(
-    List<PersonaExample> matches, {
-    required String incoming,
-    String? newestReply,
-    String? correctedFrom,
-  }) async {
-    // Una fila manual conserva su categoría; si no existe, gana la más reciente.
-    final keeper = matches.firstWhere(
-      (item) => item.source == 'manual',
-      orElse: () => matches.first,
-    );
-    final replies = <String>[
-      if (newestReply != null) newestReply,
-      for (final item in matches) ...item.variants,
-    ];
-    final uniqueReplies = uniqueLearningReplies(replies);
-    final previous = uniqueLearningReplies(keeper.variants);
-    final tone = _toneFor(
-      base: keeper.tone,
-      incoming: incoming,
-      replies: uniqueReplies,
-      correctedFrom: correctedFrom,
-    );
-    final changed =
-        matches.length > 1 ||
-        !sameLearningReplies(previous, uniqueReplies) ||
-        keeper.tone['ownerVerified'] != 'true';
-    if (!changed) return false;
-
-    await _repository.updateExample(
-      keeper,
-      body: uniqueReplies.first,
-      incomingText: incoming,
-      tone: tone,
-    );
-    for (final duplicate in matches.where((item) => item.id != keeper.id)) {
-      await _repository.deleteExample(duplicate.id);
-    }
-    return true;
-  }
-
-  Map<String, String> _toneFor({
-    required Map<String, String> base,
-    required String incoming,
-    required List<String> replies,
-    String? correctedFrom,
-  }) {
-    final bounded = fitLearningMetadata(replies);
-    return {
-      ...base,
-      'ownerVerified': 'true',
-      'kind': 'paired',
-      'incomingVariants': jsonEncode([incoming]),
-      'variants': jsonEncode(bounded),
-      'responses': jsonEncode(
-        bounded
-            .map((text) => PersonaResponseOption(text: text).toMap())
-            .toList(),
-      ),
-      if (correctedFrom != null) 'correctedFrom': correctedFrom,
-    };
-  }
-
   static String promptKey(String raw) => normalizePersonalLearningText(raw);
-
   static String replyKey(String raw) => promptKey(raw);
 }

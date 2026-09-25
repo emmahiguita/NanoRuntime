@@ -13,10 +13,10 @@
 
 library;
 
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'conversation_media_source.dart';
 
 /// Visor interactivo a pantalla completa para imágenes locales o remotas.
 abstract final class ConversationPhotoViewer {
@@ -24,11 +24,12 @@ abstract final class ConversationPhotoViewer {
     BuildContext context, {
     required String pathOrUrl,
     String? caption,
+    Object? heroTag,
   }) {
-    final isLocal = !pathOrUrl.startsWith('http://') && !pathOrUrl.startsWith('https://');
-    final cleanPath = pathOrUrl.startsWith('file://') ? pathOrUrl.replaceFirst('file://', '') : pathOrUrl;
-    final file = isLocal ? File(cleanPath) : null;
-    final fileName = cleanPath.split(Platform.pathSeparator).last.split('/').last;
+    final source = ConversationMediaSource(pathOrUrl);
+    final file = source.localFile;
+    final fileName = source.displayName;
+    final tag = heroTag ?? 'media_photo_$pathOrUrl';
 
     showDialog(
       context: context,
@@ -51,21 +52,23 @@ abstract final class ConversationPhotoViewer {
                   minScale: 0.7,
                   maxScale: 4.5,
                   child: Hero(
-                    tag: 'media_photo_$pathOrUrl',
-                    child: isLocal && file != null && file.existsSync()
-                        ? Image.file(
-                            file,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, __, ___) => _buildErrorWidget('Error al cargar imagen local'),
-                          )
+                    tag: tag,
+                    child: source.isLocal
+                        ? file != null && file.existsSync()
+                            ? Image.file(
+                                file,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => _buildErrorWidget('No se pudo cargar la imagen'),
+                              )
+                            : _buildErrorWidget('La imagen ya no está disponible')
                         : Image.network(
-                            pathOrUrl,
+                            source.value,
                             fit: BoxFit.contain,
                             loadingBuilder: (ctx, child, progress) {
                               if (progress == null) return child;
                               return const Center(child: CircularProgressIndicator(color: Color(0xFF00FF88)));
                             },
-                            errorBuilder: (_, __, ___) => _buildErrorWidget('Error al cargar imagen remota'),
+                            errorBuilder: (_, __, ___) => _buildErrorWidget('No se pudo cargar la imagen'),
                           ),
                   ),
                 ),
@@ -100,7 +103,7 @@ abstract final class ConversationPhotoViewer {
                           child: IconButton(
                             icon: const Icon(Icons.share_rounded, color: Colors.white, size: 24),
                             onPressed: () async {
-                              if (isLocal && file != null && file.existsSync()) {
+                              if (source.isLocal && file != null && file.existsSync()) {
                                 await SharePlus.instance.share(
                                   ShareParams(files: [XFile(file.path)], subject: caption ?? fileName),
                                 );

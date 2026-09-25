@@ -248,11 +248,12 @@ final alarmToolHandlerProvider = Provider<AlarmToolHandler>((ref) {
 });
 
 /// Detector universal de capacidades del dispositivo (hardware/software agnóstico).
-final universalCapabilityDetectorProvider = Provider<UniversalCapabilityDetector>((ref) {
-  return UniversalCapabilityDetector(
-    inventory: ref.watch(systemInventoryProvider),
-  );
-});
+final universalCapabilityDetectorProvider =
+    Provider<UniversalCapabilityDetector>((ref) {
+      return UniversalCapabilityDetector(
+        inventory: ref.watch(systemInventoryProvider),
+      );
+    });
 
 /// Memoria operativa de tareas multietapa (retención y recuperación de progreso).
 final taskExecutionMemoryProvider = Provider<TaskExecutionMemoryStore>((ref) {
@@ -260,7 +261,9 @@ final taskExecutionMemoryProvider = Provider<TaskExecutionMemoryStore>((ref) {
 });
 
 /// Inspector de aplicaciones (Nano Developer).
-final appInspectorToolHandlerProvider = Provider<AppInspectorToolHandler>((ref) {
+final appInspectorToolHandlerProvider = Provider<AppInspectorToolHandler>((
+  ref,
+) {
   return AppInspectorToolHandler(
     catalog: ref.watch(installedAppCatalogProvider),
     situationSource: ref.watch(currentSituationSourceProvider),
@@ -268,11 +271,12 @@ final appInspectorToolHandlerProvider = Provider<AppInspectorToolHandler>((ref) 
 });
 
 /// Diagnósticos factuales de sistema (Nano Developer).
-final systemDiagnosticsToolHandlerProvider = Provider<SystemDiagnosticsToolHandler>((ref) {
-  return SystemDiagnosticsToolHandler(
-    detector: ref.watch(universalCapabilityDetectorProvider),
-  );
-});
+final systemDiagnosticsToolHandlerProvider =
+    Provider<SystemDiagnosticsToolHandler>((ref) {
+      return SystemDiagnosticsToolHandler(
+        detector: ref.watch(universalCapabilityDetectorProvider),
+      );
+    });
 
 /// Manejador de ADB inalámbrico local (Nano Developer).
 final adbToolHandlerProvider = Provider<AdbToolHandler>((ref) {
@@ -280,7 +284,9 @@ final adbToolHandlerProvider = Provider<AdbToolHandler>((ref) {
 });
 
 /// Ejecutor de benchmark de automatización móvil (comparativo con ARTEMIS/AndroidWorld).
-final automationBenchmarkRunnerProvider = Provider<AutomationBenchmarkRunner>((ref) {
+final automationBenchmarkRunnerProvider = Provider<AutomationBenchmarkRunner>((
+  ref,
+) {
   return AutomationBenchmarkRunner(
     detector: ref.watch(universalCapabilityDetectorProvider),
   );
@@ -696,7 +702,8 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
       ref.read(businessFactsNotifierProvider),
     ).render(),
     // WA-NATURAL-01 — tono leído EN VIVO ('' si deshabilitado).
-    toneBlock: () => ref.read(toneProfileNotifierProvider).renderBlock(),
+    toneBlock: () =>
+        ref.read(businessToneProfileNotifierProvider).renderBlock(),
     // WA-STATE-01 + CONTEXT-GATE-01 — recuerdo de la consulta anterior de
     // ESTA conversación, gated por el mensaje actual (determinista: sin
     // referencia ni dependencia el recuerdo no entra al prompt).

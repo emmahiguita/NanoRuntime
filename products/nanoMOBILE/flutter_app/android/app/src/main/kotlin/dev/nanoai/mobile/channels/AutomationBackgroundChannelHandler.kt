@@ -75,10 +75,9 @@ class AutomationBackgroundChannelHandler(
         private const val PREFS = "nano_automation"
         private const val KEY_ENABLED = "background_enabled"
 
-        /** Puerta del listener (NLS): procesar en segundo plano exige permiso
-         *  explícito; desactivado = comportamiento histórico (solo UI abierta). */
+        /** Puerta del listener (NLS): procesar en segundo plano activo por defecto. */
         fun isBackgroundEnabled(context: Context): Boolean =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getBoolean(KEY_ENABLED, false)
+                .getBoolean(KEY_ENABLED, true)
     }
 }

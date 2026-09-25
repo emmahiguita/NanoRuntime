@@ -126,12 +126,35 @@ final class LinguisticAnalyzer {
       }
     }
 
-    // 4. Multi-intenciones articuladas
+    // 4. Multi-intenciones articuladas (personales, sociales y comerciales)
     final intents = <String>[];
+    if (RegExp(r'\b(hola|buenas|buenos dias|tardes|noches|hey|quiubo)\b').hasMatch(lower)) {
+      intents.add('saludo');
+    }
+    if (RegExp(r'\b(bro|brother|parce|parcero|amigo|amiga|hermano|pana|amor|socio)\b').hasMatch(lower)) {
+      intents.add('relacion_social');
+    }
+    if (RegExp(r'\b(qu[eé]\s+haces|haciendo|vas\s+a\s+salir|qu[eé]\s+planes|en\s+qu[eé]\s+andas|qu[eé]\s+cuentas)\b').hasMatch(lower)) {
+      intents.add('pregunta_actividad');
+    }
+    if (RegExp(r'\b(hablaste\s+con|viste\s+a|le\s+dijiste\s+a|llamaste\s+a|con\s+[a-záéíóúñ]{3,})\b').hasMatch(lower)) {
+      intents.add('referencia_persona');
+    }
+    if (RegExp(r'\b(ya\s+hablaste|todav[ií]a|a[uú]n|al\s+final|si\s+pudiste|qu[eé]\s+pas[oó]\s+con|c[oó]mo\s+qued[oó])\b').hasMatch(lower)) {
+      intents.add('continuidad');
+    }
+    if (RegExp(r'\b(puedes|podr[ií]as|ay[uú]dame|m[aá]ndame|av[ií]same|dime)\b').hasMatch(lower)) {
+      intents.add('solicitud');
+    }
     if (RegExp(r'\b(precio|cuanto|cuánto|vale|cuesta|valor)\b').hasMatch(lower)) intents.add('precio');
     if (RegExp(r'\b(tienen|tienes|disponible|hay|stock|queda)\b').hasMatch(lower)) intents.add('disponibilidad');
-    if (RegExp(r'\b(envio|envío|mandan|mandar|domicilio|entregan|entrega|llegar)\b').hasMatch(lower)) intents.add('envio');
-    if (RegExp(r'\b(hola|buenas|buenos dias|tardes|noches|hey)\b').hasMatch(lower)) intents.add('saludo');
+    if (RegExp(r'\b(env[ií]os?|mandan|mandar|domicilios?|entregan?|entregas?|llegar)\b').hasMatch(lower)) intents.add('envio');
+
+    final substantiveCount = intents
+        .where((i) => i != 'saludo' && i != 'relacion_social')
+        .length;
+    final isMultiIntent =
+        substantiveCount >= 2 || (intents.contains('saludo') && substantiveCount >= 1 && intents.length >= 3);
 
     // 5. Tiempo verbal predominante
     var tense = 'presente';
@@ -149,7 +172,7 @@ final class LinguisticAnalyzer {
       correctionTarget: correctionTarget,
       hasReference: hasReference,
       referenceCandidate: referenceCandidate,
-      isMultiIntent: intents.length >= 2,
+      isMultiIntent: isMultiIntent,
       detectedIntents: intents,
       tense: tense,
     );

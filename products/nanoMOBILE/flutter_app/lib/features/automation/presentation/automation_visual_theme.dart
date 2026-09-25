@@ -563,19 +563,31 @@ class AutomationBackHeader extends StatelessWidget {
 /// scrim para contraste y legibilidad óptima de las tarjetas de cristal; y
 /// aurora fluida (LiquidFluidBackground) en horizontal.
 class AutomationBackdrop extends StatelessWidget {
-  const AutomationBackdrop({super.key, this.scrimOpacity});
+  const AutomationBackdrop({
+    super.key,
+    this.scrimOpacity,
+    this.useImage = false,
+  });
 
-  /// Opacidad base del scrim protector sobre la imagen.
+  /// Opacidad base del scrim protector sobre la imagen si se activa useImage.
   final double? scrimOpacity;
+
+  /// Si es false (por defecto), renderiza un lienzo limpio y serio sin decodificar
+  /// texturas JPEG de fondo, otorgando máxima nitidez y rendimiento a las tarjetas de negocio.
+  final bool useImage;
 
   @override
   Widget build(BuildContext context) {
+    if (!useImage) {
+      return const BuhoWallpaper(useImage: false);
+    }
+
     final size = MediaQuery.sizeOf(context);
     final landscape = size.width > size.height;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (landscape) {
-      return BuhoWallpaper(scrimOpacity: scrimOpacity);
+      return BuhoWallpaper(scrimOpacity: scrimOpacity, useImage: true);
     }
 
     final baseScrim = isDark ? 0.35 : 0.52;

@@ -166,15 +166,21 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
       themeAnimationCurve: NanoMotionCurves.standardDecel,
       routerConfig: AppRouter.router,
       builder: (context, child) {
-        // El PiP es hermano del Navigator: necesita su propio ancestro Overlay.
-        // wrap mantiene y libera la entrada, sin recrear pantallas ni rutas.
+        // QUÉ HACE: Envuelve la raíz visual con Overlay.wrap + Material transparente.
+        // CÓMO FUNCIONA: Crea un ancestro Overlay y un ancestro Material para todos
+        //   los widgets hermanos del Navigator (como BrowserPipOverlay y diálogos).
+        // POR QUÉ: Erradica definitivamente el error visual "No Overlay" / "No Material"
+        //   (cajas rojas con texto amarillo subrayado) al mostrar controles flotantes.
         return Overlay.wrap(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              child ?? const SizedBox.shrink(),
-              const BrowserPipOverlay(),
-            ],
+          child: Material(
+            type: MaterialType.transparency,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                child ?? const SizedBox.shrink(),
+                const BrowserPipOverlay(),
+              ],
+            ),
           ),
         );
       },

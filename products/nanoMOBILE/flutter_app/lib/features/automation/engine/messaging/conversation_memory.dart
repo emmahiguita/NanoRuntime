@@ -24,6 +24,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../storage/automation_db_store_client.dart';
+import '../storage/conversation_cleanup_client.dart';
 import 'conversation_agent.dart';
 import 'conversation_assignment_store.dart';
 import 'conversation_memory_models.dart';
@@ -34,6 +35,9 @@ export 'conversation_memory_models.dart';
 export 'conversation_memory_store.dart';
 
 part 'conversation_memory_core.dart';
+part 'conversation_memory_cleanup.dart';
+part 'conversation_memory_entries.dart';
 part 'conversation_memory_hydration.dart';
 part 'conversation_memory_obligations.dart';
+part 'shared_prefs_conversation_memory_store.dart';
 part 'sqlite_conversation_memory_store.dart';

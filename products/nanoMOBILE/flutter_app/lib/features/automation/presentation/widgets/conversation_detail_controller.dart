@@ -19,19 +19,30 @@ part of 'conversation_detail_sheet.dart';
 /// cada archivo con una sola responsabilidad y por debajo del límite de 200 líneas.
 extension ConversationDetailController on _ConversationDetailSheetState {
   Future<void> _toggleOwnership(bool human) async {
-    if (_isHumanOwned == human) return;
     final previous = _isHumanOwned;
     setState(() {
       _isHumanOwned = human;
-      _statusText = human ? 'Activando control humano...' : 'Devolviendo el control a Nano...';
+      _statusText = human
+          ? 'Activando control humano...'
+          : 'Devolviendo el control a Nano...';
     });
     try {
       final store = ref.read(conversationOwnershipStoreProvider);
       await store.load();
-      await store.setOwner(
+      final newOwner = human ? ConversationOwner.human : ConversationOwner.bot;
+      // El merger conserva únicamente aliases cuya equivalencia técnica ya
+      // fue demostrada. Persistirlos evita que Android cambie de shortcut y
+      // vuelva a dejar el chat como no seleccionado.
+      final conversationIds = <String>{
         canonicalConversationId(widget.item.conversationId),
-        human ? ConversationOwner.human : ConversationOwner.bot,
-      );
+        ...widget.item.conversationAliases.map(canonicalConversationId),
+      }..removeWhere((id) => id.isEmpty);
+      if (conversationIds.isEmpty) {
+        throw StateError('La conversación no tiene identidad técnica');
+      }
+      for (final conversationId in conversationIds) {
+        await store.setOwner(conversationId, newOwner);
+      }
       if (!mounted) return;
       setState(() {
         _statusText = human
@@ -57,9 +68,12 @@ extension ConversationDetailController on _ConversationDetailSheetState {
       _statusText = 'Transfiriendo a ${target.displayName}...';
     });
     try {
-      final memory = ref.read(conversationMemoryStoreProvider).memoryFor(conversationId);
+      final memory = ref
+          .read(conversationMemoryStoreProvider)
+          .memoryFor(conversationId);
       final minimalContext = <String>[
-        if (memory?.activeTopic?.isNotEmpty == true) 'tema=${memory!.activeTopic}',
+        if (memory?.activeTopic?.isNotEmpty == true)
+          'tema=${memory!.activeTopic}',
         if (memory?.unresolvedObligations.isNotEmpty == true)
           'pendiente=${memory!.unresolvedObligations.take(2).join(' | ')}',
       ].join('; ');
@@ -98,9 +112,22 @@ extension ConversationDetailController on _ConversationDetailSheetState {
       final composer = ref.read(conversationReplyComposerProvider);
 
       final list = await executor.list(limit: 10);
-      final targetNotif = list
-          .where((n) => n.text == widget.item.lastMessage || n.sender == widget.item.displayName)
-          .firstOrNull;
+      final expectedKey = (widget.item.notificationKey ?? '').trim();
+      final expectedConversation = canonicalConversationId(
+        widget.item.conversationId,
+      );
+      // La identidad visible puede repetirse. Solo una key exacta o la
+      // identidad técnica resuelta puede seleccionar la notificación activa.
+      final targetNotif = list.where((notification) {
+        if (expectedKey.isNotEmpty && notification.key == expectedKey) {
+          return true;
+        }
+        final resolved = resolveConversationIdentity(
+          notification.toNotificationObject(),
+        ).key.id;
+        return resolved.isNotEmpty &&
+            canonicalConversationId(resolved) == expectedConversation;
+      }).firstOrNull;
 
       final notifObj = targetNotif != null
           ? targetNotif.toNotificationObject()
@@ -123,11 +150,13 @@ extension ConversationDetailController on _ConversationDetailSheetState {
       // agrega opciones si FactSelection encontró catálogo real aplicable.
       final rawMsg = widget.item.lastMessage.trim();
       final businessFacts = ref.read(businessFactsNotifierProvider);
-      final generated = dynamicReplyGenerator.generateOptions(
-        incomingText: rawMsg,
-        facts: businessFacts,
-        senderName: widget.item.displayName,
-      );
+      final generated =
+          _agentId == ConversationAgentId.business && !businessFacts.isEmpty
+          ? dynamicReplyGenerator.generateOptions(
+              incomingText: rawMsg,
+              facts: businessFacts,
+            )
+          : const <String>[];
       for (final opt in generated) {
         if (!allOptions.contains(opt)) {
           allOptions.add(opt);

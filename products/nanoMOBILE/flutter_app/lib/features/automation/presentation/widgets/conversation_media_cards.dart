@@ -12,23 +12,32 @@
 
 library;
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'conversation_media_viewer.dart';
+import 'conversation_media_source.dart';
 
 /// Tarjeta de previsualización de imagen con soporte interactivo a pantalla completa.
 class ConversationImageCard extends StatelessWidget {
   final String pathOrUrl;
-  const ConversationImageCard({super.key, required this.pathOrUrl});
+  final Object? heroTag;
+  const ConversationImageCard({
+    super.key,
+    required this.pathOrUrl,
+    this.heroTag,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isLocal = !pathOrUrl.startsWith('http://') && !pathOrUrl.startsWith('https://');
-    final clean = pathOrUrl.startsWith('file://') ? pathOrUrl.replaceFirst('file://', '') : pathOrUrl;
-    final file = isLocal ? File(clean) : null;
+    final source = ConversationMediaSource(pathOrUrl);
+    final file = source.localFile;
+    final tag = heroTag ?? 'media_photo_$pathOrUrl';
 
     return GestureDetector(
-      onTap: () => ConversationMediaViewer.showPhotoViewer(context, pathOrUrl: pathOrUrl),
+      onTap: () => ConversationMediaViewer.showPhotoViewer(
+        context,
+        pathOrUrl: pathOrUrl,
+        heroTag: tag,
+      ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: Container(
@@ -41,20 +50,22 @@ class ConversationImageCard extends StatelessWidget {
           child: Stack(
             children: [
               Hero(
-                tag: 'media_photo_$pathOrUrl',
-                child: isLocal && file != null && file.existsSync()
-                    ? Image.file(
-                        file,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const ConversationFallbackTile(icon: Icons.broken_image_rounded, label: 'Foto local'),
-                      )
+                tag: tag,
+                child: source.isLocal
+                    ? file != null && file.existsSync()
+                        ? Image.file(
+                            file,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const ConversationFallbackTile(icon: Icons.broken_image_rounded, label: 'Foto no disponible'),
+                          )
+                        : const ConversationFallbackTile(icon: Icons.broken_image_rounded, label: 'Foto no disponible')
                     : Image.network(
-                        pathOrUrl,
+                        source.value,
                         fit: BoxFit.cover,
                         loadingBuilder: (ctx, child, progress) => progress == null
                             ? child
                             : const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00FF88)))),
-                        errorBuilder: (_, __, ___) => const ConversationFallbackTile(icon: Icons.broken_image_rounded, label: 'Foto remota'),
+                        errorBuilder: (_, __, ___) => const ConversationFallbackTile(icon: Icons.broken_image_rounded, label: 'Foto no disponible'),
                       ),
               ),
               Positioned(
@@ -92,7 +103,7 @@ class ConversationVideoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fileName = urlOrPath.split('/').last;
+    final fileName = ConversationMediaSource(urlOrPath).displayName;
     return GestureDetector(
       onTap: () => ConversationMediaViewer.openVideo(context, urlOrPath, title: fileName),
       child: Container(

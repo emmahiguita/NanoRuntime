@@ -138,13 +138,13 @@ class AutomationHomeView extends ConsumerWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Automatización',
-              style: TextStyle(
-                color: visual.text,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                children: [
+                  TextSpan(text: 'NANO ', style: TextStyle(color: visual.text)),
+                  TextSpan(text: 'AI', style: TextStyle(color: visual.accent)),
+                ],
               ),
             ),
             const SizedBox(height: 3),

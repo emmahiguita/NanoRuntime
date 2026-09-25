@@ -83,6 +83,32 @@ class BootOrchestrator {
         return;
       }
 
+      // ARRANQUE RÁPIDO Y MODULAR:
+      // En frío NO ejecutamos extracción masiva ni instalación en bucle de 60 paquetes.
+      // Si el rootfs ya está instalado, verificamos su estado y configuramos bashrc pasivamente.
+      // La instalación pesada de paquetes y el entorno gráfico se activan bajo demanda
+      // cuando el usuario abre la Terminal o el Escritorio Linux.
+      final installed = await _rootfs.checkInstalled();
+      if (installed) {
+        _setupBashrc();
+        debugPrint(
+          '[boot] rootfs listo en ${_rootfs.usrDir}. Servicios Linux bajo demanda habilitados.',
+        );
+      } else {
+        debugPrint(
+          '[boot] rootfs no instalado. Se provisionará bajo demanda al acceder a Terminal/Linux.',
+        );
+      }
+    } catch (e, st) {
+      debugPrint('[boot] startup failed: $e');
+      debugPrint('$st');
+    }
+  }
+
+  /// Provisiona el entorno de escritorio completo y paquetes de runtime
+  /// bajo demanda (ej. al abrir DesktopLaunchScreen o invocar herramientas avanzadas).
+  Future<void> ensureLinuxEnvironmentOnDemand() async {
+    try {
       await _ensureRootfs();
       if (!_rootfs.isInstalled) return;
 
@@ -92,7 +118,7 @@ class BootOrchestrator {
       await _ensureRuntimeLibraries();
       await _deployDesktopEyeCandy();
     } catch (e, st) {
-      debugPrint('[boot] startup failed: $e');
+      debugPrint('[boot] on-demand linux provisioning failed: $e');
       debugPrint('$st');
     }
   }

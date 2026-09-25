@@ -18,9 +18,6 @@ import 'package:nanoai/features/automation/engine/business/business_conversation
 import 'package:nanoai/features/automation/engine/language/language_assist.dart';
 import 'package:nanoai/features/automation/engine/language/pragmatic_fast_path.dart';
 import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
-import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart'
-    show resolveConversationIdentity;
-import 'package:nanoai/features/automation/engine/messaging/conversation_agent.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall, ToolExecutionStatus, ToolOutcome;
@@ -44,9 +41,9 @@ import 'package:nanoai/features/automation/engine/perception/search_result_resol
 import 'package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/conversation_agent_role.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_agent_message_classifier.dart'
+    show isCorrectionMessage;
+import 'conversation_decision_context_builder.dart';
 
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart';
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
@@ -61,9 +58,6 @@ import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart'
 import 'package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
 import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
-import 'package:nanoai/features/automation/chess/application/chess_game_store.dart';
-import 'package:nanoai/features/automation/chess/application/chess_referee_service.dart';
-import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
 import 'package:nanoai/features/automation/engine/storage/automation_db_store_client.dart';
@@ -72,6 +66,7 @@ import 'package:nanoai/features/automation/engine/conversation/persona_style_res
 import 'package:nanoai/features/automation/engine/conversation/personal_style_formatter.dart';
 import 'package:nanoai/features/automation/engine/conversation/turn_knowledge_router.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_retriever.dart';
+import 'package:nanoai/features/automation/personal_agent/application/personal_conversation_resolver.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_hub_providers.dart'
     show conversationHubVersionProvider;
 import 'package:nanoai/features/automation/engine/messaging/reply_transport.dart';
@@ -475,6 +470,7 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
     ref.read(conversationMemoryStoreProvider).load(),
     ref.read(businessFactsNotifierProvider.notifier).ready,
     ref.read(toneProfileNotifierProvider.notifier).ready,
+    ref.read(businessToneProfileNotifierProvider.notifier).ready,
     ref.read(conversationStateNotifierProvider.notifier).ready,
     // PERSONA-STORAGE-04 — ownership hidratado antes de decidir.
     ref.read(conversationOwnershipStoreProvider).load(),
@@ -487,66 +483,13 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
 });
 
 /// Helper canónico para construir el contexto de decisión factual del turno.
+// QUÉ HACE: Enlaza la construcción del contexto de decisión factual del turno.
+// CÓMO: Delega a buildConversationDecisionContext en conversation_decision_context_builder.dart.
+// POR QUÉ: Desacopla la lógica de gobernanza de ownership respetando módulos limpios y legibles.
 ConversationDecisionContext _buildConversationDecisionContext(
   Ref ref,
   NotificationObject notif,
-) {
-  final identity = resolveConversationIdentity(notif);
-  final ownership = ref
-      .read(conversationOwnershipStoreProvider)
-      .ownershipFor(identity.key.id);
-  final entry = ref.read(conversationStateNotifierProvider)[identity.key.id];
-  final hasActiveProduct =
-      entry != null && entry.product != null && entry.topicStatus == 'active';
-  final hasPendingQuestion = entry != null && entry.pendingQuestion.isNotEmpty;
-  final routing = routeConversationAgent(
-    messageText: notif.text,
-    facts: ref.read(businessFactsNotifierProvider),
-    hasRelationship: ref
-        .read(personaContextProvider)
-        .hasRelationshipFor(
-          notif.sender,
-          conversationId: resolveConversationIdentity(notif).key.id,
-        ),
-    hasActiveProduct: hasActiveProduct,
-    ownerName: ref.read(personaContextProvider).ownerName,
-    hasPendingQuestion: hasPendingQuestion,
-    isBusinessChannel: notif.packageName == MessagingPackage.whatsappBusiness,
-  );
-  final assignedAgent = ref
-      .read(conversationAssignmentStoreProvider)
-      .agentForConversationId(identity.key.id);
-  final effectiveRole = switch (assignedAgent) {
-    ConversationAgentId.personal => ConversationAgentRole.personal,
-    ConversationAgentId.business =>
-      routing.role == ConversationAgentRole.personal
-          ? ConversationAgentRole.general
-          : routing.role,
-  };
-  final settings = ref.read(settingsProvider);
-  final mode = ConversationAutonomyModeName.fromName(
-    settings.waAutonomyMode,
-  );
-  final targetMode = settings.waTargetContactsMode;
-  final bool effectiveHumanOwns = targetMode == 'selected'
-      ? ownership?.owner != ConversationOwner.bot
-      : (ownership?.humanOwns ?? false);
-
-  debugPrint(
-    '[agent] agente=${assignedAgent.name} rol=${effectiveRole.name} modo=${mode.name} '
-    'targetMode=$targetMode humanOwns=$effectiveHumanOwns '
-    '${routing.reasons.join(' | ')}',
-  );
-  return ConversationDecisionContext(
-    humanOwnsConversation: effectiveHumanOwns,
-    identityConfidence: identity.confidence,
-    autonomyMode: mode,
-    agentRole: effectiveRole,
-    agentId: assignedAgent,
-    userText: notif.text,
-    senderName: notif.sender,
-  );
-}
+) => buildConversationDecisionContext(ref, notif);
 
 /// Proveedor de resolución de estilo personal sin LLM.
 final personaStyleResolverProvider = Provider<PersonaStyleResolver>((ref) {
@@ -557,18 +500,17 @@ final personaStyleResolverProvider = Provider<PersonaStyleResolver>((ref) {
 final turnKnowledgeRouterProvider = Provider<TurnKnowledgeRouter>((ref) {
   final router = RuntimeTurnKnowledgeRouter(
     browserAiGateway: ref.watch(browserAiGatewayProvider),
+    mcpConnectionRegistry: ref.watch(mcpConnectionRegistryProvider),
   );
   ref.onDispose(router.dispose);
   return router;
 });
 
-/// Proveedor único del compositor conversacional canónico para toda la aplicación.
-/// Orquesta FastPath, PersonaStyleResolver, KnowledgeRouter, LLM Fallback y
-/// ConversationDecisionEngine con la misma identidad, memoria y persona.
-final canonicalConversationReplyComposerProvider =
-    Provider<ConversationReplyComposer>((ref) {
-      return RuntimeConversationReplyComposer(
-        draftSource: ref.watch(notificationDraftSourceProvider),
+/// Proveedor especializado del Agente Personal (SOLID: SRP, ISP).
+/// Resuelve de forma determinista atajos de estilo real (Emma FTS4), fast-path y hechos personales.
+final personalConversationResolverProvider =
+    Provider<PersonalConversationResolver>((ref) {
+      return PersonalConversationResolver(
         fastPath: PragmaticFastPath(
           memoryFor: (id) =>
               ref.read(conversationMemoryStoreProvider).memoryFor(id),
@@ -579,13 +521,23 @@ final canonicalConversationReplyComposerProvider =
         ),
         styleResolver: ref.watch(personaStyleResolverProvider),
         knowledgeRouter: ref.watch(turnKnowledgeRouterProvider),
+        styleFormatter: const RuntimePersonalStyleFormatter(),
+      );
+    });
+
+/// Proveedor único del compositor conversacional canónico para toda la aplicación.
+/// Orquesta PersonalConversationResolver, BusinessConversationResolver, LLM Fallback y
+/// ConversationDecisionEngine con la misma identidad, memoria y persona.
+final canonicalConversationReplyComposerProvider =
+    Provider<ConversationReplyComposer>((ref) {
+      return RuntimeConversationReplyComposer(
+        draftSource: ref.watch(notificationDraftSourceProvider),
+        personalResolver: ref.watch(personalConversationResolverProvider),
         businessResolver: const BusinessConversationResolver(),
         factsSource: () => ref.read(businessFactsNotifierProvider),
-        toneSource: () => ref.read(toneProfileNotifierProvider),
-        styleFormatter: const RuntimePersonalStyleFormatter(),
+        toneSource: () => ref.read(businessToneProfileNotifierProvider),
         memoryStore: ref.watch(conversationMemoryStoreProvider),
         decisionEngine: const ConversationDecisionEngine(),
-        chessService: ChessRefereeService(store: ref.watch(chessGameStoreProvider)),
         thermalStatus: () => LanguageAssistService().thermalStatus(),
         decisionContext: (notif) =>
             _buildConversationDecisionContext(ref, notif),
@@ -648,6 +600,9 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
     rateLimiter: ref.watch(contactRateLimiterProvider),
     readiness: ref.watch(automationStoresHydratedProvider),
     supersedeGuard: ref.watch(turnSupersedeGuardProvider),
+    allowsStyleLearning: (sender, conversationId) => ref
+        .read(personaContextProvider)
+        .allowsStyleLearningFor(sender, conversationId: conversationId),
     // WA-HUB-REACTIVE-01: cada mensaje entrante incrementa la señal reactiva
     // del hub para que la UI de Centro de Conversaciones se reconstruya.
     onInboundMessage: (_) {
@@ -767,6 +722,8 @@ final pendingRepliesProvider = FutureProvider.autoDispose<List<PendingReply>>((
 });
 
 /// A15 — Servicio de aprendizaje asistido para componentes no resueltos.
-final assistedLearningServiceProvider = Provider<AssistedLearningService>((ref) {
+final assistedLearningServiceProvider = Provider<AssistedLearningService>((
+  ref,
+) {
   return AssistedLearningService();
 });

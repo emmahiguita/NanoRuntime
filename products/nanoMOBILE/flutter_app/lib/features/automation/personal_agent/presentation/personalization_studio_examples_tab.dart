@@ -38,6 +38,12 @@ class _PersonalizationStudioExamplesTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final groups = <String, List<PersonaExample>>{};
+    for (final example in examples) {
+      groups.putIfAbsent(example.category, () => []).add(example);
+    }
+    final categories = groups.keys.toList()..sort();
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 90),
       children: [
@@ -82,21 +88,69 @@ class _PersonalizationStudioExamplesTab extends StatelessWidget {
               ),
             ),
           ),
-        for (final example in examples)
-          _PersonaExampleCard(
-            example: example,
-            canEdit: canEdit,
-            onToggleEnabled: (v) => onToggleExample(example, v),
-            onEdit: () => onEditExample(example),
-            onAddResponse: () => onAddResponse(example),
-            onDelete: () => onDeleteExample(example),
+        for (final category in categories) ...[
+          _DialogueCategoryHeader(
+            category: category,
+            examples: groups[category]!,
           ),
+          for (final example in groups[category]!)
+            _PersonaExampleCard(
+              example: example,
+              canEdit: canEdit,
+              onToggleEnabled: (v) => onToggleExample(example, v),
+              onEdit: () => onEditExample(example),
+              onAddResponse: () => onAddResponse(example),
+              onDelete: () => onDeleteExample(example),
+            ),
+        ],
         if (examples.length >= 100 && onLoadMore != null)
           TextButton(
             onPressed: !canEdit ? null : onLoadMore,
             child: const Text('Cargar más frases', style: TextStyle(fontSize: 11)),
           ),
       ],
+    );
+  }
+}
+
+class _DialogueCategoryHeader extends StatelessWidget {
+  const _DialogueCategoryHeader({
+    required this.category,
+    required this.examples,
+  });
+
+  final String category;
+  final List<PersonaExample> examples;
+
+  @override
+  Widget build(BuildContext context) {
+    final first = examples.first;
+    final stored = ConversationSemanticTag.fromStorageKey(first.intent);
+    final tag = stored == ConversationSemanticTag.conversation
+        ? ConversationSemanticClassifier.classify(first.incomingText)
+        : stored;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 6, 2, 6),
+      child: Row(
+        children: [
+          ConversationSemanticBadge(tag: tag),
+          const SizedBox(width: 7),
+          Expanded(
+            child: Text(
+              category,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            '${examples.length}',
+            style: const TextStyle(color: Colors.white38, fontSize: 9),
+          ),
+        ],
+      ),
     );
   }
 }

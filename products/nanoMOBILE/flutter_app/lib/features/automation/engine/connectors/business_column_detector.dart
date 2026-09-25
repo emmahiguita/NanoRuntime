@@ -41,12 +41,18 @@ class BusinessColumnDetector {
     'variante', 'especificaciones', 'presentacion', 'presentación',
   ];
 
+  static const _categorySynonyms = [
+    'categoria', 'categoría', 'category', 'rubro', 'grupo', 'linea', 'línea',
+    'departamento', 'seccion', 'sección', 'tipo',
+  ];
+
   /// Detecta automáticamente el mapeo más probable a partir de la lista de columnas.
   static BusinessColumnMapping detect(List<String> availableColumns) {
     String? matchedName;
     String? matchedPrice;
     String? matchedStock;
     String? matchedSku;
+    String? matchedCategory;
     String? matchedDetails;
 
     for (final col in availableColumns) {
@@ -68,6 +74,10 @@ class BusinessColumnDetector {
         matchedSku = col;
         continue;
       }
+      if (matchedCategory == null && _matchesAny(norm, _categorySynonyms)) {
+        matchedCategory = col;
+        continue;
+      }
       if (matchedDetails == null && _matchesAny(norm, _detailsSynonyms)) {
         matchedDetails = col;
         continue;
@@ -82,6 +92,7 @@ class BusinessColumnDetector {
       priceColumn: matchedPrice,
       stockColumn: matchedStock,
       skuColumn: matchedSku,
+      categoryColumn: matchedCategory,
       detailsColumn: matchedDetails,
     );
   }

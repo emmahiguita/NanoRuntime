@@ -19,6 +19,8 @@ enum RepairCase {
   callCenterPhrase,
   wrongTurnGreeting,
   redundantQuestion,
+  liveStateAffirmed,
+  liveStateQuestionMirror,
 }
 
 final class SafeConversationRepair {
@@ -35,6 +37,39 @@ final class SafeConversationRepair {
     String? senderName,
   }) {
     switch (cause) {
+      case RepairCase.liveStateQuestionMirror:
+      case RepairCase.liveStateAffirmed:
+        final u = userText?.trim().toLowerCase() ?? '';
+        final isActivityOrPlans = u.contains('hacer') ||
+            u.contains('haces') ||
+            u.contains('haciendo') ||
+            u.contains('haras') ||
+            u.contains('planes') ||
+            u.contains('pensado') ||
+            u.contains('estas en') ||
+            u.contains('en que andas') ||
+            u.contains('que cuentas') ||
+            u.contains('que hay de nuevo');
+        if (isActivityOrPlans) {
+          return _pick(safeRepairActivityOptions, userText);
+        }
+
+        final isGoingOrOut = u.contains('vas a ir') ||
+            u.contains('vas ir') ||
+            u.contains('iras') ||
+            u.contains('vas a salir') ||
+            u.contains('vas a caer') ||
+            u.contains('vas a venir') ||
+            u.contains('sales hoy') ||
+            u.contains('salir') ||
+            u.contains('caer') ||
+            (u.contains('ir') && !u.contains('decir'));
+        if (isGoingOrOut) {
+          return _pick(safeRepairGoingOptions, userText);
+        }
+
+        return _pick(safeRepairGeneralLiveStateOptions, userText);
+
       case RepairCase.redundantQuestion:
         return _repairRedundantQuestion(reply, userText: userText);
 

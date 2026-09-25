@@ -21,6 +21,8 @@ import '../widgets/conversation_detail_sheet.dart';
 import 'messaging_center_banners.dart';
 import 'messaging_center_providers.dart';
 import 'messaging_conversation_card.dart';
+import 'messaging_conversation_actions_sheet.dart';
+import 'messaging_conversation_keys.dart';
 
 class MessagingConversationsView extends ConsumerWidget {
   const MessagingConversationsView({super.key});
@@ -30,9 +32,12 @@ class MessagingConversationsView extends ConsumerWidget {
     final filteredAsync = ref.watch(filteredConversationsProvider);
     final allHubAsync = ref.watch(allHubConversationsProvider);
     final liveAsync = ref.watch(liveNotificationsProvider);
+    final archivedIds =
+        ref.watch(archivedConversationIdsProvider).value ?? const {};
 
     // 1. Carga inicial
-    if (allHubAsync.isLoading && liveAsync.isLoading) {
+    if ((allHubAsync.isLoading && liveAsync.isLoading) ||
+        filteredAsync.isLoading) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32),
@@ -52,6 +57,17 @@ class MessagingConversationsView extends ConsumerWidget {
       );
     }
 
+    // El archivo durable falla de forma visible; no se oculta como lista vacía.
+    if (filteredAsync.hasError) {
+      return MessagingErrorCard(
+        error: filteredAsync.error.toString(),
+        onRetry: () {
+          ref.invalidate(archivedConversationIdsProvider);
+          ref.invalidate(allHubConversationsProvider);
+        },
+      );
+    }
+
     final hubItems = allHubAsync.value ?? const [];
     final liveItems = liveAsync.value ?? const [];
 
@@ -67,7 +83,8 @@ class MessagingConversationsView extends ConsumerWidget {
     }
 
     final bool showLiveBadge = liveItems.isNotEmpty && filteredList.isEmpty;
-    final liveIds = liveItems.map((l) => l.conversationId).toSet();
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,20 +98,62 @@ class MessagingConversationsView extends ConsumerWidget {
           ),
           const SizedBox(height: NanoSpacing.xs),
         ],
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: itemsToShow.length,
-          itemBuilder: (context, index) {
-            final item = itemsToShow[index];
-            final isLive = liveIds.contains(item.conversationId);
-            return MessagingConversationCard(
-              item: item,
-              isLive: isLive,
-              onTap: () => ConversationDetailSheet.show(context, item),
-            );
-          },
-        ),
+        if (isLandscape)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 76,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+            ),
+            itemCount: itemsToShow.length,
+            itemBuilder: (context, index) {
+              final item = itemsToShow[index];
+              final isLive = item.notificationKey?.trim().isNotEmpty == true;
+              final isArchived = isMessagingConversationArchived(
+                item,
+                archivedIds,
+              );
+              return MessagingConversationCard(
+                item: item,
+                isLive: isLive,
+                onTap: () => ConversationDetailSheet.show(context, item),
+                onMore: () => showMessagingConversationActions(
+                  context,
+                  ref,
+                  item,
+                  isArchived: isArchived,
+                ),
+              );
+            },
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: itemsToShow.length,
+            itemBuilder: (context, index) {
+              final item = itemsToShow[index];
+              final isLive = item.notificationKey?.trim().isNotEmpty == true;
+              final isArchived = isMessagingConversationArchived(
+                item,
+                archivedIds,
+              );
+              return MessagingConversationCard(
+                item: item,
+                isLive: isLive,
+                onTap: () => ConversationDetailSheet.show(context, item),
+                onMore: () => showMessagingConversationActions(
+                  context,
+                  ref,
+                  item,
+                  isArchived: isArchived,
+                ),
+              );
+            },
+          ),
       ],
     );
   }

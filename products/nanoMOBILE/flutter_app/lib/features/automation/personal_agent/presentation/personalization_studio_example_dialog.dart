@@ -38,12 +38,16 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
   late final List<String> _respTones;
   late final List<bool> _respActives;
   late String _scope;
+  late ConversationSemanticTag _semanticTag;
 
   @override
   void initState() {
     super.initState();
     final ex = widget.example;
     _scope = widget.initialScope;
+    _semanticTag = ex == null
+        ? ConversationSemanticTag.conversation
+        : ConversationSemanticTag.fromStorageKey(ex.intent);
     _triggerCtrl = TextEditingController(text: ex?.displayTrigger ?? '');
     final inVars = ex?.incomingVariants ?? [];
     _inVarCtrls = inVars.isEmpty ? [TextEditingController(text: ex?.incomingText ?? '')] : inVars.map((v) => TextEditingController(text: v)).toList();
@@ -97,6 +101,21 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
               _label('TEXTO / INTENCIÓN RECIBIDA'),
               TextField(controller: _triggerCtrl, style: const TextStyle(fontSize: 11), decoration: _dec('Ej: ¿Qué haces?, ¿Cómo estás?')),
               const SizedBox(height: 6),
+              DropdownButtonFormField<ConversationSemanticTag>(
+                initialValue: _semanticTag,
+                isExpanded: true,
+                decoration: _dec('Etiqueta del diálogo'),
+                dropdownColor: const Color(0xFF162036),
+                style: const TextStyle(fontSize: 10.5, color: Colors.white),
+                items: [
+                  for (final tag in ConversationSemanticTag.values)
+                    DropdownMenuItem(value: tag, child: Text(tag.label)),
+                ],
+                onChanged: (tag) {
+                  if (tag != null) setState(() => _semanticTag = tag);
+                },
+              ),
+              const SizedBox(height: 7),
               Row(
                 children: [
                   _label('VARIANTES EQUIVALENTES'),
@@ -139,45 +158,6 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
     );
   }
 
-  Widget _respItem(int i) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 3.5),
-      padding: const EdgeInsets.all(4.5),
-      decoration: BoxDecoration(color: const Color(0x0EFFFFFF), borderRadius: BorderRadius.circular(6), border: Border.all(color: const Color(0x22FFFFFF), width: 0.6)),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Text('#${i + 1}', style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
-              const Spacer(),
-              InkWell(onTap: () => setState(() => _respActives[i] = !_respActives[i]), child: Text(_respActives[i] ? 'Activo ✓' : 'Inactivo', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: _respActives[i] ? const Color(0xFF00E676) : Colors.white38))),
-              if (_respCtrls.length > 1) ...[
-                const SizedBox(width: 4),
-                InkWell(onTap: () => setState(() { _respCtrls.removeAt(i).dispose(); _respTones.removeAt(i); _respActives.removeAt(i); }), child: const Icon(Icons.delete_outline, size: 11, color: Colors.redAccent)),
-              ],
-            ],
-          ),
-          const SizedBox(height: 1.5),
-          TextField(controller: _respCtrls[i], maxLines: 2, minLines: 1, style: const TextStyle(fontSize: 10), decoration: _dec('Respuesta posible #${i + 1}')),
-        ],
-      ),
-    );
-  }
-
-  Widget _label(String t) => Text(t, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.3, color: Colors.white70));
-
-  InputDecoration _dec(String h) => InputDecoration(
-    hintText: h,
-    hintStyle: const TextStyle(fontSize: 9, color: Colors.white24),
-    filled: true,
-    fillColor: const Color(0x0BFFFFFF),
-    isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3.5),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0x22FFFFFF), width: 0.7)),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0x22FFFFFF), width: 0.7)),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0x8000E676), width: 0.7)),
-  );
-
   void _save() {
     final trigger = _triggerCtrl.text.trim();
     final inVars = _inVarCtrls.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
@@ -188,6 +168,10 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
     }
     if (responses.isEmpty) return;
 
+    final semantic = _semanticTag == ConversationSemanticTag.conversation
+        ? ConversationSemanticClassifier.classify(trigger)
+        : _semanticTag;
+
     Navigator.pop(context, _ExampleResult(
       scope: _scope,
       input: trigger.isNotEmpty ? trigger : (inVars.isNotEmpty ? inVars.first : ''),
@@ -195,9 +179,9 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
       verified: true,
       enabled: true,
       isTemplate: widget.isTemplate,
-      title: widget.example?.categoryTitle ?? 'Cotidiano · conversación',
-      category: widget.example?.category ?? 'Cotidiano · conversación',
-      intent: widget.example?.intent ?? 'custom_intent',
+      title: semantic.label,
+      category: semantic.label,
+      intent: semantic.storageKey,
       incomingVariants: inVars,
       variants: responses.map((r) => r.text).toList(),
       responses: responses,

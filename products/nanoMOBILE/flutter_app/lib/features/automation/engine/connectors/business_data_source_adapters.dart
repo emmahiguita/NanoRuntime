@@ -52,10 +52,14 @@ class BusinessDataSourceAdapters {
     String? tableName,
   }) async {
     final cleanUrl = _buildGoogleSheetsExportUrl(sheetUrl);
-    final response = await http.get(Uri.parse(cleanUrl)).timeout(const Duration(seconds: 15));
+    final response = await http
+        .get(Uri.parse(cleanUrl))
+        .timeout(const Duration(seconds: 15));
 
     if (response.statusCode != 200) {
-      throw Exception('Fallo al conectar con Google Sheets (HTTP ${response.statusCode}).');
+      throw Exception(
+        'Fallo al conectar con Google Sheets (HTTP ${response.statusCode}).',
+      );
     }
 
     final csvText = utf8.decode(response.bodyBytes);
@@ -72,32 +76,51 @@ class BusinessDataSourceAdapters {
     String? authToken,
   }) async {
     final uri = Uri.parse(endpointUrl);
+    if (!uri.hasAuthority || (uri.scheme != 'https' && uri.scheme != 'http')) {
+      throw const FormatException(
+        'La API debe usar una URL HTTP o HTTPS válida.',
+      );
+    }
     final headers = <String, String>{
       'Accept': 'application/json',
       if (authToken != null && authToken.trim().isNotEmpty)
-        'Authorization': authToken.startsWith('Bearer ') ? authToken : 'Bearer $authToken',
+        'Authorization': authToken.startsWith('Bearer ')
+            ? authToken
+            : 'Bearer $authToken',
     };
 
-    final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 15));
+    final res = await http
+        .get(uri, headers: headers)
+        .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200) {
       throw Exception('Error al consultar API REST (HTTP ${res.statusCode}).');
     }
 
     final dynamic decoded = jsonDecode(utf8.decode(res.bodyBytes));
-    final List<dynamic> items = decoded is List ? decoded : (decoded is Map ? (decoded['data'] as List? ?? decoded['items'] as List? ?? []) : []);
+    final List<dynamic> items = decoded is List
+        ? decoded
+        : (decoded is Map
+              ? (decoded['data'] as List? ?? decoded['items'] as List? ?? [])
+              : []);
 
     if (items.isEmpty) {
       return const DataTable(name: 'rest_api', columns: [], rows: []);
     }
 
-    final firstItem = items.first as Map<String, dynamic>;
+    final maps = <Map<String, dynamic>>[
+      for (final item in items)
+        if (item is Map)
+          {for (final entry in item.entries) entry.key.toString(): entry.value},
+    ];
+    if (maps.isEmpty) {
+      throw const FormatException('La API no devolvió objetos de productos.');
+    }
+    final firstItem = maps.first;
     final columns = firstItem.keys.toList();
     final rows = <List<dynamic>>[];
 
-    for (final item in items) {
-      if (item is Map) {
-        rows.add([for (final col in columns) item[col]?.toString() ?? '']);
-      }
+    for (final item in maps) {
+      rows.add([for (final col in columns) item[col]?.toString() ?? '']);
     }
 
     return DataTable(name: 'rest_api', columns: columns, rows: rows);
@@ -110,19 +133,32 @@ class BusinessDataSourceAdapters {
   }) async {
     final cleanTable = tableName.replaceAll(RegExp(r'[^\w_]'), '');
     final query = 'SELECT * FROM $cleanTable LIMIT 1000;';
-    final result = await SqlQueryEngine.executeShellSqliteQuery(dbPath: dbPath, query: query);
+    final result = await SqlQueryEngine.executeShellSqliteQuery(
+      dbPath: dbPath,
+      query: query,
+    );
     if (!result.isSuccess || result.table == null) {
-      throw Exception(result.errorMessage ?? 'No se pudo leer la tabla $tableName');
+      throw Exception(
+        result.errorMessage ?? 'No se pudo leer la tabla $tableName',
+      );
     }
     return result.table!;
   }
 
   static String _buildGoogleSheetsExportUrl(String rawUrl) {
     if (rawUrl.contains('export?format=csv')) return rawUrl;
-    final match = RegExp(r'/spreadsheets/d/([a-zA-Z0-9-_]+)').firstMatch(rawUrl);
+    final match = RegExp(
+      r'/spreadsheets/d/([a-zA-Z0-9-_]+)',
+    ).firstMatch(rawUrl);
     if (match != null) {
       final docId = match.group(1);
-      return 'https://docs.google.com/spreadsheets/d/$docId/export?format=csv';
+      final uri = Uri.tryParse(rawUrl);
+      final fragmentGid = RegExp(
+        r'(?:^|&)gid=(\d+)',
+      ).firstMatch(uri?.fragment ?? '');
+      final gid = uri?.queryParameters['gid'] ?? fragmentGid?.group(1);
+      final suffix = gid == null ? '' : '&gid=$gid';
+      return 'https://docs.google.com/spreadsheets/d/$docId/export?format=csv$suffix';
     }
     return rawUrl;
   }

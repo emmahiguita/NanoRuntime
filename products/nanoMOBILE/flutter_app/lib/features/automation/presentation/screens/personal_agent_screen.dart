@@ -3,9 +3,11 @@ import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/personal_agent/personal_agent_autonomy_card.dart';
+import '../widgets/personal_agent/personal_agent_contacts_card.dart';
 import '../widgets/personal_agent/personal_agent_header_banner.dart';
 import '../widgets/personal_agent/personal_agent_identity_card.dart';
 import '../widgets/personal_agent/personal_agent_learning_card.dart';
+import '../widgets/personal_agent/personal_agent_mcp_card.dart';
 import '../widgets/personal_agent/personal_agent_tone_card.dart';
 import '../widgets/settings_tile_components.dart';
 import '../widgets/whatsapp_integration_cards.dart';
@@ -85,11 +87,15 @@ class PersonalAgentScreen extends StatelessWidget {
       children: [
         AutomationSectionLabel('Modo de Atención Personal'),
         PersonalAgentAutonomyCard(),
+        SizedBox(height: 12),
+        PersonalAgentContactsCard(),
         SizedBox(height: 20),
         AutomationSectionLabel('Diagnóstico y Capacidad Operativa'),
         BackgroundAutomationCard(),
         SizedBox(height: 12),
         WhatsAppWebBridgeCard(),
+        SizedBox(height: 12),
+        PersonalAgentMcpCard(),
         SizedBox(height: 20),
         AutomationSectionLabel('Mi Identidad y Preferencias'),
         PersonalAgentIdentityCard(),
@@ -119,6 +125,8 @@ class PersonalAgentScreen extends StatelessWidget {
             children: [
               AutomationSectionLabel('Modo de Atención Personal'),
               PersonalAgentAutonomyCard(),
+              SizedBox(height: 12),
+              PersonalAgentContactsCard(),
               SizedBox(height: 16),
               AutomationSectionLabel('Mi Identidad y Preferencias'),
               PersonalAgentIdentityCard(),
@@ -137,6 +145,8 @@ class PersonalAgentScreen extends StatelessWidget {
               BackgroundAutomationCard(),
               SizedBox(height: 10),
               WhatsAppWebBridgeCard(),
+              SizedBox(height: 10),
+              PersonalAgentMcpCard(),
               SizedBox(height: 16),
               AutomationSectionLabel('Trato y Estilo de Expresión'),
               PersonalAgentToneCard(),

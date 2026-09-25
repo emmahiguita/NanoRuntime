@@ -48,6 +48,7 @@ class BusinessDataConnectorService {
       case BusinessSourceType.restApi:
         return BusinessDataSourceAdapters.loadFromRestApi(
           endpointUrl: config.sourceUri,
+          authToken: config.authToken,
         );
     }
   }
@@ -62,7 +63,12 @@ class BusinessDataConnectorService {
     required DataTable table,
     required BusinessColumnMapping mapping,
   }) {
-    return BusinessDataNormalizer.normalize(table: table, mapping: mapping);
+    final existing = _ref.read(businessFactsNotifierProvider).products;
+    return BusinessDataNormalizer.normalize(
+      table: table,
+      mapping: mapping,
+      existingProducts: existing,
+    );
   }
 
   /// Aplica los productos validados al catálogo activo del agente comercial.
@@ -80,6 +86,7 @@ class BusinessDataConnectorService {
   }
 }
 
-final businessDataConnectorServiceProvider = Provider<BusinessDataConnectorService>((ref) {
-  return BusinessDataConnectorService(ref);
-});
+final businessDataConnectorServiceProvider =
+    Provider<BusinessDataConnectorService>((ref) {
+      return BusinessDataConnectorService(ref);
+    });

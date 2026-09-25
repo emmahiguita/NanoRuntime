@@ -66,10 +66,21 @@ final class PersonaContext {
       relationshipFor(sender, conversationId: conversationId) != null;
 
   RelationshipProfile? relationshipFor(String sender, {String conversationId = ''}) {
-    final profile = _relationships[conversationId.isEmpty
-        ? sender.trim().toLowerCase()
-        : personalizationScope(conversationId)];
+    final senderKey = sender.trim().toLowerCase();
+    final profile = conversationId.isEmpty
+        ? _relationships[senderKey]
+        : _relationships[personalizationScope(conversationId)] ??
+              _relationships[senderKey];
     return profile?.facts['profileEnabled'] == 'false' ? null : profile;
+  }
+
+  /// El historial operativo siempre conserva contexto. El aprendizaje de
+  /// personalidad, en cambio, sólo se permite para perfiles habilitados de
+  /// forma explícita y respeta el interruptor global del dueño.
+  bool allowsStyleLearningFor(String sender, {String conversationId = ''}) {
+    if (_ownerFacts['learnStyle'] == 'false') return false;
+    final profile = relationshipFor(sender, conversationId: conversationId);
+    return profile?.facts['learnStyle'] == 'true';
   }
 
   String get ownerName => _ownerName;

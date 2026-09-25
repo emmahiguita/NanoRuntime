@@ -53,11 +53,20 @@ abstract final class ConversationContextResolver {
 
     final current = IncomingMessage.fromNotification(notification);
     final entries = <ConversationMemoryEntry>[];
+    final seenEventIds = <String>{};
     for (final memory in memories) {
       for (final entry in memory.entries) {
         if (_isCurrent(entry, current)) continue;
-        final duplicate = entries.any((saved) => _sameEvent(saved, entry));
-        if (!duplicate) entries.add(entry);
+        // El identificador real hace la deduplicación O(1); solo el legado sin
+        // eventId usa la comparación temporal, evitando el cuello de botella
+        // O(n²) para historiales persistentes normales.
+        if (entry.eventId.isNotEmpty) {
+          if (seenEventIds.add(entry.eventId)) entries.add(entry);
+          continue;
+        }
+        if (!entries.any((saved) => _sameEvent(saved, entry))) {
+          entries.add(entry);
+        }
       }
     }
     entries.sort((a, b) => a.atMs.compareTo(b.atMs));

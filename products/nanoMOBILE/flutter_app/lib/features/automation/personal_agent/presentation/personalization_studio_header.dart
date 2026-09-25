@@ -22,7 +22,7 @@ class _PersonalizationStudioHeader extends StatelessWidget {
   final bool working;
   final ValueChanged<String> onSelectScope;
   final VoidCallback onEditStyle;
-  final VoidCallback onInjectEmma;
+  final VoidCallback onOrganizeLearning;
   final VoidCallback onRefresh;
 
   const _PersonalizationStudioHeader({
@@ -33,13 +33,14 @@ class _PersonalizationStudioHeader extends StatelessWidget {
     required this.working,
     required this.onSelectScope,
     required this.onEditStyle,
-    required this.onInjectEmma,
+    required this.onOrganizeLearning,
     required this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     if (isLandscape) {
       return Padding(
@@ -56,21 +57,40 @@ class _PersonalizationStudioHeader extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: !canEdit ? null : onEditStyle,
                       icon: const Icon(Icons.tune_rounded, size: 12),
-                      label: const Text('Estilo', style: TextStyle(fontSize: 10)),
+                      label: const Text(
+                        'Estilo',
+                        style: TextStyle(fontSize: 10),
+                      ),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 4,
+                          horizontal: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 4),
                   FilledButton.icon(
-                    onPressed: !canEdit ? null : onInjectEmma,
-                    icon: const Icon(Icons.auto_awesome, size: 11),
-                    label: const Text('EMMA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                    onPressed: !canEdit ? null : onOrganizeLearning,
+                    icon: const Icon(Icons.cleaning_services_rounded, size: 11),
+                    label: const Text(
+                      'Organizar',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 6,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -97,13 +117,33 @@ class _PersonalizationStudioHeader extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _metricPill('FRASES', '${summary['examples'] ?? 0}', Icons.forum_rounded, const Color(0xFF00E676)),
+                  _metricPill(
+                    'FRASES',
+                    '${summary['examples'] ?? 0}',
+                    Icons.forum_rounded,
+                    const Color(0xFF00E676),
+                  ),
                   const SizedBox(width: 8),
-                  _metricPill('CONTACTOS', '${summary['contacts'] ?? 0}', Icons.people_alt_rounded, const Color(0xFF00D2FF)),
+                  _metricPill(
+                    'CONTACTOS',
+                    '${summary['contacts'] ?? 0}',
+                    Icons.people_alt_rounded,
+                    const Color(0xFF00D2FF),
+                  ),
                   const SizedBox(width: 8),
-                  _metricPill('MEMORIAS', '${summary['memories'] ?? 0}', Icons.psychology_rounded, const Color(0xFFFFD54F)),
+                  _metricPill(
+                    'MEMORIAS',
+                    '${summary['memories'] ?? 0}',
+                    Icons.psychology_rounded,
+                    const Color(0xFFFFD54F),
+                  ),
                   const SizedBox(width: 8),
-                  _metricPill('PLANTILLAS', '${summary['templates'] ?? 0}', Icons.view_quilt_rounded, const Color(0xFFCE93D8)),
+                  _metricPill(
+                    'PLANTILLAS',
+                    '${summary['templates'] ?? 0}',
+                    Icons.view_quilt_rounded,
+                    const Color(0xFFCE93D8),
+                  ),
                 ],
               ),
             ),
@@ -127,10 +167,30 @@ class _PersonalizationStudioHeader extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _metricPill('FRASES', '${summary['examples'] ?? 0}', Icons.forum_rounded, const Color(0xFF00E676)),
-                _metricPill('CONTACTOS', '${summary['contacts'] ?? 0}', Icons.people_alt_rounded, const Color(0xFF00D2FF)),
-                _metricPill('MEMORIAS', '${summary['memories'] ?? 0}', Icons.psychology_rounded, const Color(0xFFFFD54F)),
-                _metricPill('PLANTILLAS', '${summary['templates'] ?? 0}', Icons.view_quilt_rounded, const Color(0xFFCE93D8)),
+                _metricPill(
+                  'FRASES',
+                  '${summary['examples'] ?? 0}',
+                  Icons.forum_rounded,
+                  const Color(0xFF00E676),
+                ),
+                _metricPill(
+                  'CONTACTOS',
+                  '${summary['contacts'] ?? 0}',
+                  Icons.people_alt_rounded,
+                  const Color(0xFF00D2FF),
+                ),
+                _metricPill(
+                  'MEMORIAS',
+                  '${summary['memories'] ?? 0}',
+                  Icons.psychology_rounded,
+                  const Color(0xFFFFD54F),
+                ),
+                _metricPill(
+                  'PLANTILLAS',
+                  '${summary['templates'] ?? 0}',
+                  Icons.view_quilt_rounded,
+                  const Color(0xFFCE93D8),
+                ),
               ],
             ),
           ),
@@ -142,23 +202,37 @@ class _PersonalizationStudioHeader extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: !canEdit ? null : onEditStyle,
                   icon: const Icon(Icons.tune_rounded, size: 13),
-                  label: const Text('Configurar estilo', style: TextStyle(fontSize: 10.5)),
+                  label: const Text(
+                    'Configurar estilo',
+                    style: TextStyle(fontSize: 10.5),
+                  ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0x33FFFFFF)),
-                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 7,
+                      horizontal: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 6),
               FilledButton.icon(
-                onPressed: !canEdit ? null : onInjectEmma,
-                icon: const Icon(Icons.auto_awesome, size: 12.5),
-                label: const Text('Diálogos EMMA', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                onPressed: !canEdit ? null : onOrganizeLearning,
+                icon: const Icon(Icons.cleaning_services_rounded, size: 12.5),
+                label: const Text(
+                  'Organizar aprendizaje',
+                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0x2B00E676),
                   foregroundColor: const Color(0xFF00E676),
-                  padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 7,
+                    horizontal: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                     side: const BorderSide(color: Color(0x6000E676)),
@@ -181,18 +255,34 @@ class _PersonalizationStudioHeader extends StatelessWidget {
   }
 
   Widget _buildScopeField() {
-    final effectiveValue = scopes.containsKey(scope) ? scope : (scopes.keys.firstOrNull ?? 'owner');
+    final effectiveValue = scopes.containsKey(scope)
+        ? scope
+        : (scopes.keys.firstOrNull ?? 'owner');
     return InputDecorator(
       decoration: InputDecoration(
         labelText: 'APLICAR PERFIL A:',
-        labelStyle: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 0.4, color: Color(0xFF00E676)),
+        labelStyle: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.4,
+          color: Color(0xFF00E676),
+        ),
         filled: true,
         fillColor: const Color(0x0EFFFFFF),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0x22FFFFFF), width: 0.8)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0x22FFFFFF), width: 0.8)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0x8000E676), width: 0.8)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0x22FFFFFF), width: 0.8),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0x22FFFFFF), width: 0.8),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0x8000E676), width: 0.8),
+        ),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -205,10 +295,18 @@ class _PersonalizationStudioHeader extends StatelessWidget {
             for (final item in scopes.values)
               DropdownMenuItem(
                 value: item.id,
-                child: Text(item.label, style: const TextStyle(fontSize: 10.5), overflow: TextOverflow.ellipsis),
+                child: Text(
+                  item.label,
+                  style: const TextStyle(fontSize: 10.5),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
           ],
-          onChanged: working ? null : (v) { if (v != null) onSelectScope(v); },
+          onChanged: working
+              ? null
+              : (v) {
+                  if (v != null) onSelectScope(v);
+                },
         ),
       ),
     );
@@ -223,10 +321,25 @@ class _PersonalizationStudioHeader extends StatelessWidget {
           children: [
             Icon(icon, size: 9.5, color: color),
             const SizedBox(width: 3),
-            Text(value, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: color)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
           ],
         ),
-        Text(label, style: const TextStyle(fontSize: 8, color: Colors.white54, letterSpacing: 0.3, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 8,
+            color: Colors.white54,
+            letterSpacing: 0.3,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     );
   }

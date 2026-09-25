@@ -7,13 +7,17 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/messaging_platform.dart';
 import '../../engine/messaging/conversation_agent.dart';
+import '../../engine/messaging/conversation_hub_archive_store.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../executors/notification_executor.dart';
 import '../../executors/notification_executor_provider.dart';
 import 'messaging_dedup_merger.dart';
 import 'messaging_live_notifications_provider.dart';
+import 'messaging_conversation_keys.dart';
 
 export 'messaging_live_notifications_provider.dart';
+
+part 'messaging_center_counts.dart';
 
 final selectedPlatformFilterProvider = StateProvider<MessagingPlatform?>(
   (ref) => null,
@@ -22,6 +26,16 @@ final selectedCategoryTabProvider = StateProvider<MessagingCategoryFilter>(
   (ref) => MessagingCategoryFilter.all,
 );
 final messagingSearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// Estado local y reversible de archivo del hub; no muta WhatsApp.
+final conversationHubArchiveStoreProvider =
+    Provider<ConversationHubArchiveStore>((ref) {
+      return ConversationHubArchiveStore();
+    });
+
+final archivedConversationIdsProvider = FutureProvider<Set<String>>((ref) {
+  return ref.watch(conversationHubArchiveStoreProvider).load();
+});
 
 /// Estado de acceso del listener de notificaciones en Android
 final notificationAccessProvider =
@@ -54,6 +68,7 @@ final allHubConversationsProvider =
 final filteredConversationsProvider =
     Provider<AsyncValue<List<ConversationSummaryItem>>>((ref) {
       final allAsync = ref.watch(allHubConversationsProvider);
+      final archivedAsync = ref.watch(archivedConversationIdsProvider);
       final platform = ref.watch(selectedPlatformFilterProvider);
       final category = ref.watch(selectedCategoryTabProvider);
       final search = ref
@@ -61,92 +76,54 @@ final filteredConversationsProvider =
           .trim()
           .toLowerCase();
 
-      return allAsync.whenData((list) {
-        return list.where((item) {
-          if (platform != null) {
-            final itemPlatform = MessagingPlatform.fromPackageName(
-              item.packageName,
+      return archivedAsync.when(
+        loading: () => const AsyncLoading(),
+        error: AsyncError.new,
+        data: (archivedIds) => allAsync.whenData((list) {
+          return list.where((item) {
+            final isArchived = isMessagingConversationArchived(
+              item,
+              archivedIds,
             );
-            if (itemPlatform != platform) return false;
-          }
-          switch (category) {
-            case MessagingCategoryFilter.all ||
-                MessagingCategoryFilter.contacts:
-              break;
-            case MessagingCategoryFilter.groups:
-              if (!item.isGroup) return false;
-            case MessagingCategoryFilter.unread:
-              if (!item.hasPendingReply) return false;
-            case MessagingCategoryFilter.personal:
-              if (item.agentId != ConversationAgentId.personal) return false;
-            case MessagingCategoryFilter.business:
-              if (item.agentId != ConversationAgentId.business) return false;
-            case MessagingCategoryFilter.bots:
-              if (item.humanOwns) return false;
-            case MessagingCategoryFilter.archived:
-              break;
-          }
-          if (search.isNotEmpty) {
-            final name = item.displayName.toLowerCase();
-            final last = item.lastMessage.toLowerCase();
-            if (!name.contains(search) && !last.contains(search)) return false;
-          }
-          return true;
-        }).toList();
-      });
+            if (category == MessagingCategoryFilter.archived) {
+              if (!isArchived) return false;
+            } else if (isArchived) {
+              return false;
+            }
+            if (platform != null) {
+              final itemPlatform = MessagingPlatform.fromPackageName(
+                item.packageName,
+              );
+              if (itemPlatform != platform) return false;
+            }
+            switch (category) {
+              case MessagingCategoryFilter.all ||
+                  MessagingCategoryFilter.contacts:
+                break;
+              case MessagingCategoryFilter.groups:
+                if (!item.isGroup) return false;
+              case MessagingCategoryFilter.unread:
+                if (!item.hasPendingReply) {
+                  return false;
+                }
+              case MessagingCategoryFilter.personal:
+                if (item.agentId != ConversationAgentId.personal) return false;
+              case MessagingCategoryFilter.business:
+                if (item.agentId != ConversationAgentId.business) return false;
+              case MessagingCategoryFilter.bots:
+                if (item.humanOwns) return false;
+              case MessagingCategoryFilter.archived:
+                break;
+            }
+            if (search.isNotEmpty) {
+              final name = item.displayName.toLowerCase();
+              final last = item.lastMessage.toLowerCase();
+              if (!name.contains(search) && !last.contains(search)) {
+                return false;
+              }
+            }
+            return true;
+          }).toList();
+        }),
+      );
     });
-
-final platformCountsProvider = Provider<Map<MessagingPlatform, int>>((ref) {
-  final all = ref.watch(allHubConversationsProvider).value ?? const [];
-  final counts = <MessagingPlatform, int>{};
-  for (final platform in MessagingPlatform.values) {
-    counts[platform] = all
-        .where(
-          (c) => MessagingPlatform.fromPackageName(c.packageName) == platform,
-        )
-        .length;
-  }
-  return counts;
-});
-
-final platformUnreadCountsProvider = Provider<Map<MessagingPlatform, int>>((
-  ref,
-) {
-  final all = ref.watch(allHubConversationsProvider).value ?? const [];
-  final counts = <MessagingPlatform, int>{};
-  for (final platform in MessagingPlatform.values) {
-    counts[platform] = all
-        .where(
-          (c) =>
-              MessagingPlatform.fromPackageName(c.packageName) == platform &&
-              c.hasPendingReply,
-        )
-        .length;
-  }
-  return counts;
-});
-
-final pendingRepliesCountProvider = Provider<int>((ref) {
-  final all = ref.watch(allHubConversationsProvider).value ?? const [];
-  return all.where((c) => c.hasPendingReply).length;
-});
-
-final categoryCountsProvider = Provider<Map<MessagingCategoryFilter, int>>((
-  ref,
-) {
-  final all = ref.watch(allHubConversationsProvider).value ?? const [];
-  return {
-    MessagingCategoryFilter.all: all.length,
-    MessagingCategoryFilter.groups: all.where((c) => c.isGroup).length,
-    MessagingCategoryFilter.contacts: 0,
-    MessagingCategoryFilter.unread: all.where((c) => c.hasPendingReply).length,
-    MessagingCategoryFilter.personal: all
-        .where((c) => c.agentId == ConversationAgentId.personal)
-        .length,
-    MessagingCategoryFilter.business: all
-        .where((c) => c.agentId == ConversationAgentId.business)
-        .length,
-    MessagingCategoryFilter.bots: all.where((c) => !c.humanOwns).length,
-    MessagingCategoryFilter.archived: 0,
-  };
-});

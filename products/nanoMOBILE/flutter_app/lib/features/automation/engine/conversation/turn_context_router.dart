@@ -13,6 +13,8 @@
 library;
 
 import '../business/fact_selector.dart' show normalizeText;
+import '../language/conversation_semantic_tag.dart'
+    show ConversationSemanticClassifier, ConversationSemanticTag;
 import '../language/turn_complexity_classifier.dart'
     show TurnComplexity, turnComplexityClassifier;
 import '../messaging/conversation_memory.dart'
@@ -25,9 +27,11 @@ final class TurnRoutingAnalysis {
   final String fullText;
   final TurnComplexity targetComplexity;
   final TurnComplexity fullComplexity;
+  final Set<ConversationSemanticTag> semanticTags;
   final bool isShortAcknowledgment;
   final bool isShortValueAnswer;
   final bool hasContextualContinuity;
+  final bool hasEntityContinuity;
   final bool isFastPathEligible;
 
   const TurnRoutingAnalysis({
@@ -35,9 +39,11 @@ final class TurnRoutingAnalysis {
     required this.fullText,
     required this.targetComplexity,
     required this.fullComplexity,
+    this.semanticTags = const {},
     required this.isShortAcknowledgment,
     this.isShortValueAnswer = false,
     required this.hasContextualContinuity,
+    this.hasEntityContinuity = false,
     required this.isFastPathEligible,
   });
 }
@@ -57,6 +63,11 @@ final class TurnContextRouter {
     'rojo', 'roja', 'verde', 'hoy', 'manana', 'tarde', 'uno', 'dos', 'tres',
   };
 
+  static const _anaphoricTokens = {
+    'ella', 'el', 'eso', 'esa', 'ese', 'ahi', 'alli', 'le', 'les', 'lo', 'la',
+    'cambié', 'cambie', 'dijo', 'llamo', 'llamó', 'acuerdas',
+  };
+
   /// Analiza la notificación y la memoria previa para extraer el contexto del turno.
   TurnRoutingAnalysis analyze({
     required NotificationObject notification,
@@ -70,11 +81,23 @@ final class TurnContextRouter {
     final fullComplexity = targetText == fullText
         ? targetComplexity
         : turnComplexityClassifier.classify(fullText);
+    final semanticTags = ConversationSemanticClassifier.classifyAll(fullText);
 
     final isShortAck = _isAcknowledgment(targetText);
     final isShortVal = _isShortValue(targetText);
-    final hasContinuity = (isShortAck || isShortVal) &&
-        _hasSubstantivePrecedingContext(memory);
+    final hasAnaphora =
+        memory != null &&
+        memory.entries.isNotEmpty &&
+        _hasAnaphoricReference(targetText);
+    final hasContinuity =
+        hasAnaphora ||
+        ((isShortAck || isShortVal) && _hasSubstantivePrecedingContext(memory));
+
+    final hasCompoundOrSubstantiveTag =
+        semanticTags.length >= 2 ||
+        semanticTags.contains(ConversationSemanticTag.correction) ||
+        semanticTags.contains(ConversationSemanticTag.request) ||
+        semanticTags.contains(ConversationSemanticTag.question);
 
     final allFragmentsSocial =
         targetText == fullText ||
@@ -91,6 +114,7 @@ final class TurnContextRouter {
     final isFastPathEligible =
         !isBusinessChannel &&
         !hasContinuity &&
+        !hasCompoundOrSubstantiveTag &&
         targetComplexity.eligibleForSocialPrompt &&
         !fullComplexity.isNarrative &&
         !fullComplexity.isContextual &&
@@ -102,11 +126,21 @@ final class TurnContextRouter {
       fullText: fullText,
       targetComplexity: targetComplexity,
       fullComplexity: fullComplexity,
+      semanticTags: semanticTags,
       isShortAcknowledgment: isShortAck,
       isShortValueAnswer: isShortVal,
       hasContextualContinuity: hasContinuity,
+      hasEntityContinuity: hasAnaphora,
       isFastPathEligible: isFastPathEligible,
     );
+  }
+
+  static bool _hasAnaphoricReference(String text) {
+    final words = normalizeText(text)
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toSet();
+    return words.any(_anaphoricTokens.contains);
   }
 
   static String _extractTargetText(NotificationObject notification) {

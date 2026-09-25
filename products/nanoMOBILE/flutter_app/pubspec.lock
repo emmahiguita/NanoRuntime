@@ -57,14 +57,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
-  chess:
-    dependency: "direct main"
-    description:
-      name: chess
-      sha256: "6e5a8222931bfb5cd14a4bb9b030c24e257e23957ec3c533fb0ff74a48984ddb"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.8.1"
   clock:
     dependency: transitive
     description:

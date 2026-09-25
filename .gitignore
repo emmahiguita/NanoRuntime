@@ -212,3 +212,8 @@ platforms/mobile/flutter_app/find_reals.py
 # Live test and debug captures
 products/live_*.png
 products/old_home.dart
+
+# SQLite local databases
+*.db
+*.sqlite
+*.sqlite3

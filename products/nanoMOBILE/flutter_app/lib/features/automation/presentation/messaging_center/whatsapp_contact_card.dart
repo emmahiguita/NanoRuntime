@@ -51,10 +51,14 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
     final ownershipStore = ref.watch(conversationOwnershipStoreProvider);
     final keyId = contact.jid.isNotEmpty ? contact.jid : contact.number;
     final ownership = ownershipStore.ownershipFor(keyId) ??
-        (contact.number.isNotEmpty ? ownershipStore.ownershipFor(contact.number) : null);
+        (contact.number.isNotEmpty ? ownershipStore.ownershipFor(contact.number) : null) ??
+        (contact.name.isNotEmpty ? ownershipStore.ownershipFor(contact.name) : null);
 
+    final isEmm = contact.name.toLowerCase().contains('emm') ||
+        contact.name.toLowerCase().contains('emma');
     final bool isBotActive = targetMode == 'selected'
-        ? ownership?.owner == ConversationOwner.bot
+        ? (ownership?.owner == ConversationOwner.bot ||
+            (ownership?.owner != ConversationOwner.human && isEmm))
         : !(ownership?.humanOwns ?? false);
 
     return GestureDetector(
@@ -137,6 +141,9 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
                   }
                   if (contact.number.isNotEmpty && contact.number != contact.jid) {
                     await ownershipStore.setOwner(contact.number, newOwner);
+                  }
+                  if (contact.name.isNotEmpty) {
+                    await ownershipStore.setOwner(contact.name, newOwner);
                   }
                   if (mounted) setState(() {});
                 },

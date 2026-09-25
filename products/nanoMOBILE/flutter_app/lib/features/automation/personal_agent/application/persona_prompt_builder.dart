@@ -15,7 +15,10 @@
 
 library;
 
+import '../../engine/language/dialogue_state.dart' show linguisticAnalyzer;
+import '../../engine/messaging/social_context_retriever.dart';
 import '../domain/conversation_agent_role.dart' show isLiveStateQuestion;
+import '../domain/owner_live_fact_guard.dart' show FactualEvidenceLevel;
 import '../domain/personal_memory.dart';
 import '../domain/personal_style_constraints.dart';
 import '../domain/persona_example.dart';
@@ -80,7 +83,9 @@ abstract final class PersonaPromptBuilder {
         'Solo si preguntan explícitamente quién eres, responde tu nombre: Nano.',
       );
     }
-    if (valid.ownerNotes.isNotEmpty) parts.add('Datos del dueño: ${valid.ownerNotes}');
+    if (valid.ownerNotes.isNotEmpty) {
+      parts.add('Hechos estables del dueño (Nivel 3 - ${FactualEvidenceLevel.knownStableFact.label}): ${valid.ownerNotes}');
+    }
 
     final roleStyle = RelationshipRegister.styleLine(roleEnabled ? roleProfile?.facts ?? const {} : const {});
     if (roleStyle.isNotEmpty) parts.add('Estilo de este rol: $roleStyle');
@@ -91,27 +96,43 @@ abstract final class PersonaPromptBuilder {
     if (valid.relationshipNotes != null && valid.relationshipNotes!.isNotEmpty) {
       parts.add('Sobre el contacto ${valid.relationshipName ?? 'el remitente'}: ${valid.relationshipNotes}');
     }
-    if (valid.examples.isNotEmpty) {
-      parts.add('Ejemplos históricos de estilo: imita solo longitud, registro y tono. Su contenido NO acredita hechos.');
-      parts.addAll(valid.examples.map((e) => _exampleLine(e, sender: sender)).where((line) => line.isNotEmpty));
+
+    final signals = linguisticAnalyzer.analyze(messageText);
+    if (signals.detectedIntents.length >= 2) {
+      parts.add(
+        'Intenciones compuestas detectadas (${signals.detectedIntents.join(' + ')}): '
+        'conserva cada intención del mensaje y responde de forma integrada sin reducirlo solo al saludo.',
+      );
     }
 
+    // Ciclo 19: Prioridad de presupuesto de prompt:
+    // 1. Estado actual / 2. Hechos estables y relación / 3. Conversación actual /
+    // 4. Memoria relevante (con supersession y degradación temporal) / 5. Ejemplos de estilo al final.
     if (!liveState) {
       await _appendMemories(parts, repository, scope, contactEnabled, roleEnabled, role, messageText);
+    }
+
+    if (valid.examples.isNotEmpty) {
+      parts.add('Ejemplos de estilo (Nivel 4 - menor prioridad que hechos; jamás contradigas hechos actuales o estables):');
+      parts.addAll(valid.examples.map((e) => _exampleLine(e, sender: sender)).where((line) => line.isNotEmpty));
     }
 
     if (parts.isEmpty) return '';
     var remaining = 3000;
     final bounded = <String>[];
+    final seenLines = <String>{};
     for (final part in parts) {
-      if (part.length + 1 <= remaining) {
-        bounded.add(part);
-        remaining -= part.length + 1;
+      final norm = part.trim();
+      if (norm.isEmpty || !seenLines.add(norm)) continue;
+      if (norm.length + 1 <= remaining) {
+        bounded.add(norm);
+        remaining -= norm.length + 1;
       }
     }
     return '<DATOS DE LA PERSONA>\n'
         '${bounded.join('\n')}\n'
-        'Hechos sobre el dueño y sus contactos: úsalos SOLO para forma y contexto real; jamás inventes datos.\n'
+        'Jerarquía factual: 1.estado_actual_observado > 2.estado_actual_explicito > 3.hecho_estable_conocido > 4.memoria_historica_contextual > 5.inferencia > 6.desconocido. '
+        'PROHIBIDO convertir memoria histórica o expirada (nivel 4) en hecho actual (niveles 1-2).\n'
         '</DATOS DE LA PERSONA>';
   }
 
@@ -124,36 +145,59 @@ abstract final class PersonaPromptBuilder {
     String role,
     String messageText,
   ) async {
-    final memories = await repo.listPersonalMemories(scopeKey: contactEnabled ? scope : 'owner', limit: 100);
+    final rawMemories = await repo.listPersonalMemories(scopeKey: contactEnabled ? scope : 'owner', limit: 100);
     if (roleEnabled) {
-      memories.addAll(await repo.listPersonalMemories(scopeKey: 'role:$role', limit: 100));
+      rawMemories.addAll(await repo.listPersonalMemories(scopeKey: 'role:$role', limit: 100));
     }
     final now = DateTime.now().millisecondsSinceEpoch;
-    final relevant = memories.where((m) =>
+    final resolved = PersonalMemory.resolveSupersession(rawMemories);
+    final relevant = resolved.where((m) =>
         m.enabled &&
-        !m.expired &&
+        m.kind != 'pendingObservation' &&
+        m.lifecycleAt(now) != MemoryLifecycleState.superseded &&
         ((contactEnabled && m.scopeKey == scope) || m.scopeKey == 'owner' || (roleEnabled && m.scopeKey == 'role:$role')) &&
         m.value.length <= 450 &&
-        m.observedAt > 0 &&
-        m.observedAt <= now &&
-        (role == 'personal' || m.kind == 'stylePreference') &&
-        (m.kind == 'stablePreference' || m.kind == 'stableRelationshipFact' || m.kind == 'stylePreference' || m.kind == 'episodicMemory')).toList();
+        (role == 'personal' || m.kind == 'stylePreference')).toList();
 
-    final words = messageText.toLowerCase().split(RegExp(r'[^\p{L}\p{N}]+', unicode: true)).where((w) => w.length > 2).toSet();
-    int score(PersonalMemory m) => words.where((w) => '${m.key} ${m.value}'.toLowerCase().contains(w)).length;
+    double score(PersonalMemory m) {
+      final thematic = SocialContextRetriever.scoreThematicRelevance(
+        messageText,
+        '${m.key} ${m.value}',
+      );
+      final ageMs = m.hasReliableTimestamp ? (now - m.observedAt).clamp(0, 31536000000) : 31536000000;
+      final recencyDays = (ageMs / 86400000).clamp(0.0, 365.0);
+      final recencyBonus = 0.5 / (1.0 + (recencyDays / 30.0));
+      final lifecycleBonus = m.lifecycleAt(now) == MemoryLifecycleState.current ? 0.35 : 0.0;
+      return thematic + (m.confidence * 0.4) + recencyBonus + lifecycleBonus;
+    }
     relevant.sort((a, b) {
-      final local = (b.scopeKey == scope ? 1 : 0).compareTo(a.scopeKey == scope ? 1 : 0);
-      return local != 0 ? local : score(b).compareTo(score(a));
+      final relevance = score(b).compareTo(score(a));
+      if (relevance != 0) return relevance;
+      return (b.scopeKey == scope ? 1 : 0).compareTo(a.scopeKey == scope ? 1 : 0);
     });
 
     final seen = <int>{};
-    final lines = relevant
+    final selected = relevant
         .where((m) => seen.add(m.id))
-        .where((m) => score(m) > 0 || m.kind == 'stylePreference')
-        .take(3)
-        .map((m) => '${m.kind}: ${_safe(m.key)}: ${_safe(m.value)}');
-    for (final line in lines) {
-      parts.add('Memoria histórica; NO prueba estado actual: $line');
+        .where((m) =>
+            SocialContextRetriever.scoreThematicRelevance(messageText, '${m.key} ${m.value}') > 0 ||
+            m.kind == 'stylePreference' ||
+            m.kind == 'stableRelationshipFact')
+        .take(3);
+    for (final m in selected) {
+      final lifecycle = m.lifecycleAt(now);
+      final effKind = m.effectiveKind(now);
+      final level = FactualEvidenceLevel.fromMemoryKind(
+        effKind,
+        hasReliableTimestamp: m.hasReliableTimestamp,
+        isExpiredOrSuperseded: lifecycle != MemoryLifecycleState.current,
+      );
+      final prefix = level.canAssertCurrentOwnerState
+          ? 'Estado actual vigente (${level.label})'
+          : level.canAssertStableFact
+          ? 'Hecho estable vigente (${level.label})'
+          : 'Evento/memoria histórica (${level.label}; NO afirma estado actual)';
+      parts.add('$prefix: $effKind: ${_safe(m.key)}: ${_safe(m.value)}');
     }
   }
 

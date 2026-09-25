@@ -93,6 +93,15 @@ class AutomationStoreChannelHandler(
                 )
             }
 
+            "conversationClear" -> {
+                result.success(
+                    db.clearConversationData(
+                        scopeId = call.argument<String>("scopeId").orEmpty(),
+                        memoryJson = call.argument<String>("memoryJson").orEmpty(),
+                    ),
+                )
+            }
+
             "conversationMessageList" -> {
                 result.success(
                     db.listConversationMessages(

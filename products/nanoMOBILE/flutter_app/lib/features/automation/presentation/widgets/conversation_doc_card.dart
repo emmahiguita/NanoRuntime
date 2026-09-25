@@ -14,6 +14,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'conversation_media_viewer.dart';
+import 'conversation_media_source.dart';
 
 /// Tarjeta para documentos PDF con acción táctil de visualización.
 class ConversationPdfCard extends StatelessWidget {
@@ -22,7 +23,7 @@ class ConversationPdfCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fileName = pathOrUrl.split('/').last;
+    final fileName = ConversationMediaSource(pathOrUrl).displayName;
     return GestureDetector(
       onTap: () => ConversationMediaViewer.openPdfDocument(context, pathOrUrl: pathOrUrl),
       child: Container(
@@ -75,7 +76,7 @@ class ConversationFileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = pathOrUrl.split('/').last;
+    final name = ConversationMediaSource(pathOrUrl).displayName;
     return GestureDetector(
       onTap: () => ConversationMediaViewer.openExternalLink(context, pathOrUrl),
       child: Container(

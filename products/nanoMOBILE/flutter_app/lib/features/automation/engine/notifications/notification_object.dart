@@ -65,6 +65,11 @@ final class NotificationObject {
   final List<String> actions;
   final bool ongoing;
 
+  /// Evidencia nativa que distingue chats reales de estados/avisos del sistema.
+  final String notificationCategory;
+  final bool hasMessagingStyle;
+  final bool isConversationEvent;
+
   const NotificationObject({
     required this.key,
     required this.packageName,
@@ -90,6 +95,9 @@ final class NotificationObject {
     required this.actionIndex,
     required this.actions,
     required this.ongoing,
+    this.notificationCategory = '',
+    this.hasMessagingStyle = true,
+    this.isConversationEvent = true,
   });
 
   /// Expand Android's visible message history using each original event's
@@ -101,14 +109,14 @@ final class NotificationObject {
     }
     return [
       for (final message in messages)
-        if (message is Map)
-          NotificationObject.fromMap({...raw, ...message}),
+        if (message is Map) NotificationObject.fromMap({...raw, ...message}),
     ];
   }
 
   factory NotificationObject.fromMap(Map<dynamic, dynamic> raw) {
     final rawSender = '${raw['sender'] ?? ''}'.trim().toLowerCase();
-    final isExplicitSelfSender = rawSender.isNotEmpty &&
+    final isExplicitSelfSender =
+        rawSender.isNotEmpty &&
         (rawSender == 'tú' ||
             rawSender == 'tu' ||
             rawSender == 'you' ||
@@ -146,6 +154,9 @@ final class NotificationObject {
           .where((a) => a.isNotEmpty)
           .toList(),
       ongoing: raw['ongoing'] == true,
+      notificationCategory: '${raw['notificationCategory'] ?? ''}',
+      hasMessagingStyle: raw['hasMessagingStyle'] != false,
+      isConversationEvent: raw['isConversationEvent'] != false,
     );
   }
 

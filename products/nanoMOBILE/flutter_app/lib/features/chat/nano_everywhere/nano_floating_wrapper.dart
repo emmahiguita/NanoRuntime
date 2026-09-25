@@ -26,12 +26,14 @@ class NanoFloatingWrapper extends StatefulWidget {
     required this.actions,
     required this.audioLevel,
     this.onVoice,
+    this.enabled = true,
   });
   final Widget child;
   final List<NanoProvider> webProviders;
   final NanoActionPort actions;
   final ValueListenable<double> audioLevel;
   final VoidCallback? onVoice;
+  final bool enabled;
 
   static NanoAiController? activeController;
   static bool expand({String? prompt, NanoMode? mode}) {
@@ -126,18 +128,21 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
   }
 
   @override
-  Widget build(BuildContext context) => Stack(children: [
-        Positioned.fill(child: widget.child),
-        // El Navigator ya aporta Overlay; el asistente gestiona un solo listener.
-        Positioned.fill(
-          child: Material(
-            type: MaterialType.transparency,
-            child: NanoFloatingAssistant(
-              controller: controller,
-              audioLevel: widget.audioLevel,
-              onVoice: widget.onVoice,
-            ),
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+    return Stack(children: [
+      Positioned.fill(child: widget.child),
+      // El Navigator ya aporta Overlay; el asistente gestiona un solo listener.
+      Positioned.fill(
+        child: Material(
+          type: MaterialType.transparency,
+          child: NanoFloatingAssistant(
+            controller: controller,
+            audioLevel: widget.audioLevel,
+            onVoice: widget.onVoice,
           ),
         ),
-      ]);
+      ),
+    ]);
+  }
 }

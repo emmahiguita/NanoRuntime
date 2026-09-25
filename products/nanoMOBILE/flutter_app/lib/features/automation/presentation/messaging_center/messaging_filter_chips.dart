@@ -12,18 +12,28 @@ class MessagingFilterChips extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final activeTab = ref.watch(selectedCategoryTabProvider);
     final totalUnread = ref.watch(pendingRepliesCountProvider);
-    final contactsCount = ref.watch(allWhatsAppContactsProvider).value?.length ?? 0;
+    final archivedCount =
+        ref.watch(categoryCountsProvider)[MessagingCategoryFilter.archived] ??
+        0;
+    final contactsCount =
+        ref.watch(allWhatsAppContactsProvider).value?.length ?? 0;
 
     return SizedBox(
-      height: 36,
+      height: 32,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
         itemCount: MessagingCategoryFilter.values.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
           final tab = MessagingCategoryFilter.values[index];
           final isSelected = activeTab == tab;
+          final badgeCount = switch (tab) {
+            MessagingCategoryFilter.unread => totalUnread,
+            MessagingCategoryFilter.contacts => contactsCount,
+            MessagingCategoryFilter.archived => archivedCount,
+            _ => 0,
+          };
 
           return GestureDetector(
             onTap: () {
@@ -31,7 +41,7 @@ class MessagingFilterChips extends ConsumerWidget {
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 gradient: isSelected
                     ? const LinearGradient(
@@ -47,13 +57,15 @@ class MessagingFilterChips extends ConsumerWidget {
                           const Color(0xFF0F172A).withValues(alpha: 0.20),
                         ],
                       ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(10),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF00FF88).withValues(alpha: 0.25),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
+                          color: const Color(
+                            0xFF00FF88,
+                          ).withValues(alpha: 0.25),
+                          blurRadius: 8,
+                          offset: const Offset(0, 1),
                         ),
                       ]
                     : null,
@@ -73,32 +85,19 @@ class MessagingFilterChips extends ConsumerWidget {
                       color: isSelected
                           ? const Color(0xFF00FF88)
                           : Colors.white.withValues(alpha: 0.75),
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontSize: 10.5,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                     ),
                   ),
-                  if (tab == MessagingCategoryFilter.unread && totalUnread > 0) ...[
+                  if (badgeCount > 0) ...[
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00FF88),
-                        borderRadius: BorderRadius.circular(10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1.5,
                       ),
-                      child: Text(
-                        '$totalUnread',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (tab == MessagingCategoryFilter.contacts && contactsCount > 0) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? const Color(0xFF00FF88)
@@ -106,7 +105,7 @@ class MessagingFilterChips extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        '$contactsCount',
+                        '$badgeCount',
                         style: TextStyle(
                           color: isSelected ? Colors.black : Colors.white,
                           fontSize: 9.5,

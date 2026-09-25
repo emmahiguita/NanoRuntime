@@ -987,7 +987,10 @@ class NanoRuntimeApi {
   /// Reproduce un archivo de audio local (.opus, .m4a, .mp3, .ogg) con el MediaPlayer nativo.
   Future<bool> playAudioFile(String path) async {
     try {
-      return await _speech.invokeMethod<bool>('playAudioFile', {'path': path}) == true;
+      return await _speech.invokeMethod<bool>('playAudioFile', {
+            'path': path,
+          }) ==
+          true;
     } catch (e) {
       debugPrint('[runtime] playAudioFile error: $e');
       return false;
@@ -1007,7 +1010,9 @@ class NanoRuntimeApi {
   /// Obtiene la duración real en milisegundos de un archivo de audio local.
   Future<int> getAudioDuration(String path) async {
     try {
-      final res = await _speech.invokeMethod<int>('getAudioDuration', {'path': path});
+      final res = await _speech.invokeMethod<int>('getAudioDuration', {
+        'path': path,
+      });
       return res ?? 0;
     } catch (e) {
       return 0;

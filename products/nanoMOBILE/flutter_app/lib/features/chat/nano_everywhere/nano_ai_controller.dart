@@ -57,6 +57,9 @@ class NanoAiController extends ChangeNotifier {
       NanoActivity.debating, NanoActivity.acting}.contains(activity)) { return; }
 
     final token = ++_requestId;
+    if (mode == NanoMode.quick && NanoMediaDetector.shouldAutoDetectMedia(prompt)) {
+      mode = NanoMode.media;
+    }
     answers = const [];
     suggestions = const [];
     detectedMedia = const [];
@@ -66,7 +69,7 @@ class NanoAiController extends ChangeNotifier {
       NanoMode.action  => NanoActivity.acting,
       _                => NanoActivity.thinking,
     };
-    status = mode == NanoMode.media ? 'Detectando archivos…' : 'Consultando…';
+    status = mode == NanoMode.media ? 'Extrayendo video/audio del enlace…' : 'Consultando…';
     _emit();
 
     try {
@@ -75,7 +78,9 @@ class NanoAiController extends ChangeNotifier {
         if (!_current(token)) return;
         detectedMedia = items;
         activity = items.isNotEmpty ? NanoActivity.success : NanoActivity.error;
-        status = items.isNotEmpty ? '${items.length} archivos detectados' : 'No se encontraron archivos en este enlace.';
+        status = items.isNotEmpty
+            ? '${items.length} opciones listas para descargar (MP4 / MP3)'
+            : 'No se encontraron archivos descargables en este enlace.';
         _emit();
         return;
       }

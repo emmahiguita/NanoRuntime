@@ -43,7 +43,55 @@ enum ConversationIntent {
   askWeatherSocial,
   askCall,
   askLostOrMissing,
-  askOpinionSocial,
+  askOpinionSocial;
+
+  /// Clasificación de enrutamiento explícita de cada intención (Ciclo 13).
+  FastPathRoutingClass get routingClass {
+    switch (this) {
+      case ConversationIntent.greeting:
+      case ConversationIntent.askWellbeing:
+      case ConversationIntent.userWellbeing:
+      case ConversationIntent.reciprocalQuestion:
+      case ConversationIntent.thanks:
+      case ConversationIntent.farewell:
+      case ConversationIntent.laughter:
+      case ConversationIntent.affirmation:
+      case ConversationIntent.negation:
+      case ConversationIntent.wellbeingClarification:
+      case ConversationIntent.askPresence:
+      case ConversationIntent.askDeviceBattery:
+      case ConversationIntent.askTime:
+      case ConversationIntent.askDate:
+      case ConversationIntent.askLocation:
+      case ConversationIntent.askActivity:
+      case ConversationIntent.askFood:
+      case ConversationIntent.askPhysicalLocation:
+      case ConversationIntent.askSleep:
+      case ConversationIntent.askAvailability:
+      case ConversationIntent.askDay:
+      case ConversationIntent.askTraining:
+      case ConversationIntent.askRap:
+      case ConversationIntent.askFamily:
+      case ConversationIntent.askMusic:
+      case ConversationIntent.askWeatherSocial:
+      case ConversationIntent.askCall:
+      case ConversationIntent.askLostOrMissing:
+      case ConversationIntent.askOpinionSocial:
+      case ConversationIntent.invitation:
+        return FastPathRoutingClass.safeDeterministic;
+      case ConversationIntent.planReminder:
+      case ConversationIntent.askHelpOrQuestion:
+        return FastPathRoutingClass.llmRequired;
+    }
+  }
+}
+
+/// Categorías de enrutamiento de FastPath (Ciclo 13: FastPath = optimización).
+enum FastPathRoutingClass {
+  safeDeterministic,
+  contextRequired,
+  liveStateRequired,
+  llmRequired,
 }
 
 /// Candidato de respuesta generado por el motor pragmático sin LLM.

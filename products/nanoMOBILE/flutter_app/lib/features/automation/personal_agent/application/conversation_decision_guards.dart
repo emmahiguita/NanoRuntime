@@ -15,11 +15,37 @@
 
 library;
 
+import '../../engine/business/fact_selector.dart' show tokenizeText;
 import '../../engine/language/turn_complexity_classifier.dart' show turnComplexityClassifier;
 
 abstract final class ConversationDecisionGuards {
   /// ¿El reply pregunta? Señal determinista para `missingFacts`.
   static bool isAsking(String reply) => reply.contains('?');
+
+  /// Evalúa si la respuesta afirma actividad, desplazamiento, ubicación o estado temporal
+  /// efímero del dueño en primera persona ("Estoy trabajando", "Voy para el centro",
+  /// "Tengo hambre", "Estoy en casa", "Estoy programando", "Ahora estoy ocupado").
+  static bool affirmsOwnerActivity(String reply) {
+    final r = fold(reply);
+    final tokens = tokenizeText(r);
+    if (tokens.isEmpty) return false;
+    const wordMarks = {
+      'estoy', 'estaba', 'ando', 'hago', 'haciendo', 'trabajando', 'programando',
+      'entrenando', 'estudiando', 'almorzando', 'comiendo', 'cenando', 'desayunando',
+      'ocupado', 'ocupada', 'durmiendo', 'descansando', 'llegando', 'saliendo',
+      'grabando', 'cantando', 'jugando', 'camellando', 'manejando', 'conduciendo',
+    };
+    if (tokens.any(wordMarks.contains)) return true;
+
+    const phraseMarks = [
+      'voy a', 'voy pa', 'voy para', 'voy camino', 'en casa', 'en la casa',
+      'en el trabajo', 'en la oficina', 'en el gym', 'en el gimnasio',
+      'en la calle', 'para el centro', 'pa el centro', 'por ahi', 'por ahí',
+      'acabo de', 'tengo hambre', 'tengo sueno', 'ya comi', 'ya almorce',
+      'no he comido', 'ahora mismo', 'en este momento', 'ahorita ando',
+    ];
+    return phraseMarks.any(r.contains);
+  }
 
   /// Minúsculas sin tildes: matching determinista de texto.
   static String fold(String s) => s

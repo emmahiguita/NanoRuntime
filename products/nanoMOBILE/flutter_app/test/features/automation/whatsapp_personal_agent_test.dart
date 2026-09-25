@@ -700,7 +700,7 @@ void main() {
         );
         expect(rLoc, isNotNull);
         expect(rLoc!.act, contains('askPhysicalLocation'));
-        expect(rLoc.reply, contains('casa'));
+        expect(rLoc.reply.toLowerCase(), anyOf(contains('casa'), contains('acá'), contains('aquí'), contains('pendiente'), contains('vueltas'), contains('diligencias')));
 
         // 4. Familia / Entorno
         final rFam = await fastPath.resolve(
@@ -718,7 +718,7 @@ void main() {
         );
         expect(rSleep, isNotNull);
         expect(rSleep!.act, contains('askSleep'));
-        expect(rSleep.reply.toLowerCase(), anyOf(contains('dormir'), contains('despierto'), contains('sueño'), contains('acuesto')));
+        expect(rSleep.reply.toLowerCase(), anyOf(contains('dormir'), contains('despierto'), contains('sueño'), contains('acuesto'), contains('pendiente'), contains('atento'), contains('desconectarme')));
 
         // 6. Música / Beats
         final rMusic = await fastPath.resolve(

@@ -622,51 +622,52 @@ class _SearchRow extends StatelessWidget {
                 if (onAttach != null)
                   Padding(
                     padding: const EdgeInsets.only(right: 2),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.add_rounded,
-                        size: compact ? 16 : 22,
-                        color: muted,
+                      // QUÉ HACE: Botón adjuntar (+) sin Tooltip para evitar el error "No Overlay".
+                      // CÓMO: Emplea IconButton sin tooltip directo, apoyado en accesibilidad.
+                      // POR QUÉ: Tooltip requiere Overlay.of() que falla en barras flotantes desacopladas.
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.add_rounded,
+                          size: compact ? 16 : 22,
+                          color: muted,
+                        ),
+                        onPressed: onAttach,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints.tightFor(
+                          width: compact ? 26 : 34,
+                          height: compact ? 26 : 34,
+                        ),
                       ),
-                      onPressed: onAttach,
-                      tooltip: 'Inyectar IA, MCP o adjuntar (+)',
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints.tightFor(
-                        width: compact ? 26 : 34,
-                        height: compact ? 26 : 34,
-                      ),
-                    ),
                   ),
                 if (hasText)
                   Padding(
                     padding: const EdgeInsets.only(right: 4),
-                    child: IconButton(
-                      icon: Container(
-                        width: compact ? 16 : 20,
-                        height: compact ? 16 : 20,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: dark
-                              ? Colors.white.withValues(alpha: 0.18)
-                              : Colors.black.withValues(alpha: 0.12),
+                      child: IconButton(
+                        icon: Container(
+                          width: compact ? 16 : 20,
+                          height: compact ? 16 : 20,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: dark
+                                ? Colors.white.withValues(alpha: 0.18)
+                                : Colors.black.withValues(alpha: 0.12),
+                          ),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: compact ? 11 : 13,
+                            color: dark ? Colors.white : Colors.black87,
+                          ),
                         ),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: compact ? 11 : 13,
-                          color: dark ? Colors.white : Colors.black87,
+                        onPressed: onClear,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints.tightFor(
+                          width: compact ? 24 : 34,
+                          height: compact ? 24 : 34,
                         ),
                       ),
-                      onPressed: onClear,
-                      tooltip: 'Limpiar texto',
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: BoxConstraints.tightFor(
-                        width: compact ? 24 : 34,
-                        height: compact ? 24 : 34,
-                      ),
-                    ),
                   ),
                 Padding(
                   padding: EdgeInsets.only(right: compact ? 4 : 6),
@@ -747,9 +748,6 @@ class _SearchRow extends StatelessWidget {
                             ),
                           ),
                           onPressed: onVoice,
-                          tooltip: listening
-                              ? 'Detener dictado'
-                              : 'Dictar por voz',
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
                           constraints: BoxConstraints.tightFor(

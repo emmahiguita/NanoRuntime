@@ -99,18 +99,24 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant> {
 
     return LayoutBuilder(
       builder: (_, box) {
+        // QUÉ HACE: Calcula dimensiones adaptativas para retrato y modo horizontal (landscape).
+        // CÓMO FUNCIONA: Si el ancho supera el alto (`isLandscape`), reduce el tamaño del
+        //   orbe (62px) y limita el panel expandido a una ventana compacta lateral (máx 310px alto).
+        // POR QUÉ: Evita que el asistente flotante tape toda la pantalla o se solape con el dock en horizontal.
         final w = box.maxWidth.isFinite ? box.maxWidth : window.width;
         final h = box.maxHeight.isFinite ? box.maxHeight : window.height;
+        final isLandscape = w > h;
+        final orbSize = isLandscape ? 62.0 : 76.0;
         final double width = expanded
-            ? (w - 24).clamp(0.0, 390.0).toDouble()
-            : 76.0;
+            ? (isLandscape ? (w * 0.48).clamp(280.0, 410.0) : (w - 24).clamp(0.0, 390.0)).toDouble()
+            : orbSize;
         final double height = expanded
-            ? (h - 24).clamp(0.0, 560.0).toDouble()
-            : 76.0;
-        final maxX = (w - width).clamp(0.0, w).toDouble();
+            ? (isLandscape ? (h - 20).clamp(190.0, 310.0) : (h - 24).clamp(0.0, 560.0)).toDouble()
+            : orbSize;
+        final maxX = (w - width - 8).clamp(0.0, w).toDouble();
         final maxY = (h - height - 12).clamp(0.0, h).toDouble();
-        final x = position.dx.clamp(0.0, maxX).toDouble();
-        final y = position.dy.clamp(0.0, maxY).toDouble();
+        final x = position.dx.clamp(8.0, maxX > 8.0 ? maxX : 8.0).toDouble();
+        final y = position.dy.clamp(8.0, maxY > 8.0 ? maxY : 8.0).toDouble();
 
         return Stack(
           children: [

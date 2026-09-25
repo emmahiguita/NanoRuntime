@@ -1,15 +1,23 @@
 /// Adaptación de notificaciones Android activas al modelo del centro de mensajes.
+///
+/// - QUÉ HACE: Transforma notificaciones activas del sistema en [ConversationSummaryItem].
+/// - CÓMO FUNCIONA: Consulta [notificationExecutorProvider], filtra difusiones y reacciones a estados
+///   con [WhatsAppStatusClassifier] y unifica la lista con [MessagingDedupMerger].
+/// - POR QUÉ: Evita que me gustas/reacciones a historias de WhatsApp se conviertan en chats (<200 líneas).
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/services/nano_runtime_api.dart';
 import '../../application/automation_coordinator_provider.dart';
 import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/messaging/conversation_group_resolver.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_key.dart';
+import '../../engine/platform/whatsapp_status_classifier.dart';
 import '../../executors/notification_executor_provider.dart';
+import '../../personal_agent/application/conversation_ownership_policy.dart';
 import 'messaging_dedup_merger.dart';
 
 final liveNotificationStreamProvider =
@@ -23,6 +31,7 @@ final liveNotificationsProvider =
       final executor = ref.watch(notificationExecutorProvider);
       final status = await executor.status();
       if (!status.connected) return const [];
+      final settings = ref.watch(settingsProvider);
       final ownershipStore = ref.watch(conversationOwnershipStoreProvider);
       await ownershipStore.load();
 
@@ -35,9 +44,13 @@ final liveNotificationsProvider =
           continue;
         }
 
-        final identity = resolveConversationIdentity(
-          notif.toNotificationObject(),
-        );
+        final notifObj = notif.toNotificationObject();
+        // Filtro de historias, difusiones y reacciones a estados de WhatsApp
+        if (WhatsAppStatusClassifier.shouldIgnoreFromChatHub(notifObj)) {
+          continue;
+        }
+
+        final identity = resolveConversationIdentity(notifObj);
         final rawConvKey = notif.conversationId.isNotEmpty
             ? notif.conversationId
             : (notif.shortcutId.isNotEmpty
@@ -97,7 +110,10 @@ final liveNotificationsProvider =
             lastMessage: messageText,
             lastAtMs: atMs,
             hasPendingReply: false,
-            humanOwns: ownershipStore.ownershipFor(convKey)?.humanOwns ?? false,
+            humanOwns: ConversationOwnershipPolicy.humanOwns(
+              targetContactsMode: settings.waTargetContactsMode,
+              ownership: ownershipStore.ownershipFor(convKey),
+            ),
             agentId: agentId,
             entryCount: 1,
             notificationKey: notif.key,

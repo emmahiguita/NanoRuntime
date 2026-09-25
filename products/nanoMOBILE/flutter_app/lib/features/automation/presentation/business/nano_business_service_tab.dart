@@ -5,7 +5,7 @@
 /// las políticas de envío, cobertura a domicilio y devoluciones.
 ///
 /// CÓMO FUNCIONA:
-/// Sincroniza con [toneProfileNotifierProvider] y [DeliveryEditDialog],
+/// Sincroniza con [businessToneProfileNotifierProvider] y [DeliveryEditDialog],
 /// adaptando las respuestas comerciales de Nano al estilo del negocio.
 ///
 /// POR QUÉ:
@@ -27,12 +27,14 @@ class NanoBusinessServiceTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tone = ref.watch(toneProfileNotifierProvider);
-    final toneNotifier = ref.read(toneProfileNotifierProvider.notifier);
+    final tone = ref.watch(businessToneProfileNotifierProvider);
+    final toneNotifier = ref.read(businessToneProfileNotifierProvider.notifier);
     final facts = ref.watch(businessFactsNotifierProvider);
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      padding: EdgeInsets.fromLTRB(16, 6, 16, isLandscape ? 24 : 90),
       children: [
         const AutomationSectionLabel('Estrategia de Venta'),
         SettingsCard(
@@ -44,7 +46,9 @@ class NanoBusinessServiceTab extends ConsumerWidget {
                   ? 'Persuasivo — Resalta beneficios y busca cerrar la venta'
                   : 'Natural — Responde claro sin presionar la compra',
               trailing: ValueBadge(
-                label: tone.sales == ToneSales.persuasivo ? 'PERSUASIVO' : 'NATURAL',
+                label: tone.sales == ToneSales.persuasivo
+                    ? 'PERSUASIVO'
+                    : 'NATURAL',
               ),
               onTap: () => toneNotifier.update(
                 tone.copyWith(
@@ -73,6 +77,42 @@ class NanoBusinessServiceTab extends ConsumerWidget {
                 ),
               ),
             ),
+            SettingsRow(
+              icon: Icons.format_align_left_rounded,
+              title: 'Extensión de respuesta',
+              subtitle: switch (tone.verbosity) {
+                ToneVerbosity.breve => 'Breve — Respuestas directas',
+                ToneVerbosity.media => 'Media — Contexto equilibrado',
+                ToneVerbosity.extensa => 'Amplia — Más detalle cuando aplica',
+              },
+              trailing: ValueBadge(label: tone.verbosity.name.toUpperCase()),
+              onTap: () => toneNotifier.update(
+                tone.copyWith(
+                  enabled: true,
+                  verbosity: switch (tone.verbosity) {
+                    ToneVerbosity.breve => ToneVerbosity.media,
+                    ToneVerbosity.media => ToneVerbosity.extensa,
+                    ToneVerbosity.extensa => ToneVerbosity.breve,
+                  },
+                ),
+              ),
+            ),
+            SettingsRow(
+              icon: Icons.emoji_emotions_outlined,
+              title: 'Emojis moderados',
+              subtitle: tone.emojis
+                  ? 'Activados en saludos y datos destacados'
+                  : 'Desactivados para un tono sobrio',
+              trailing: Switch.adaptive(
+                value: tone.emojis,
+                onChanged: (value) => toneNotifier.update(
+                  tone.copyWith(enabled: true, emojis: value),
+                ),
+              ),
+              onTap: () => toneNotifier.update(
+                tone.copyWith(enabled: true, emojis: !tone.emojis),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -92,7 +132,9 @@ class NanoBusinessServiceTab extends ConsumerWidget {
                   builder: (_) => DeliveryEditDialog(initial: facts.delivery),
                 );
                 if (text != null) {
-                  ref.read(businessFactsNotifierProvider.notifier).setDelivery(text);
+                  ref
+                      .read(businessFactsNotifierProvider.notifier)
+                      .setDelivery(text);
                 }
               },
             ),

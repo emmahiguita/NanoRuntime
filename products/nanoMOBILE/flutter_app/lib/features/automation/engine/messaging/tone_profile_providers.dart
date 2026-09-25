@@ -11,6 +11,10 @@ final toneProfileStoreProvider = Provider<ToneProfileStore>((ref) {
   return const ToneProfileStore();
 });
 
+final businessToneProfileStoreProvider = Provider<ToneProfileStore>((ref) {
+  return const ToneProfileStore(section: 'business_tone');
+});
+
 final class ToneProfileNotifier extends StateNotifier<ToneProfile> {
   ToneProfileNotifier(this._store) : super(const ToneProfile());
 
@@ -35,8 +39,16 @@ final class ToneProfileNotifier extends StateNotifier<ToneProfile> {
 
 final toneProfileNotifierProvider =
     StateNotifierProvider<ToneProfileNotifier, ToneProfile>((ref) {
+      final notifier = ToneProfileNotifier(ref.watch(toneProfileStoreProvider));
+      notifier.ready;
+      return notifier;
+    });
+
+/// Perfil exclusivo de Negocios; nunca modifica el estilo del agente Personal.
+final businessToneProfileNotifierProvider =
+    StateNotifierProvider<ToneProfileNotifier, ToneProfile>((ref) {
       final notifier = ToneProfileNotifier(
-        ref.watch(toneProfileStoreProvider),
+        ref.watch(businessToneProfileStoreProvider),
       );
       notifier.ready;
       return notifier;

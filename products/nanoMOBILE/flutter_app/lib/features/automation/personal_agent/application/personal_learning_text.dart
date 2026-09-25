@@ -1,47 +1,59 @@
-/// Normalización compartida para comparar preguntas, saludos y enlaces sin
-/// confundir diferencias de mayúsculas, tildes o signos de puntuación.
+/// Normalización compartida para comparar preguntas y saludos sin crear una
+/// intención distinta por cada URL recibida.
 library;
 
 import '../../engine/business/fact_selector.dart' show normalizeText;
 
-const _trackingKeys = {'fbclid', 'gclid', 'mc_cid', 'mc_eid'};
+final _linkPattern = RegExp(r'https?://[^\s]+', caseSensitive: false);
 
+/// Acepta solo una entrada conversacional con contenido humano verificable y señal reusable.
+/// Los enlaces aislados, eventos de estados, códigos numéricos o párrafos únicos extensos
+/// no enseñan una intención reusable.
+bool isLearnablePersonalPrompt(String raw) {
+  final clean = raw.trim();
+  if (clean.isEmpty || clean.length > 280) return false;
+  final withoutLinks = clean.replaceAll(_linkPattern, ' ');
+  final words = normalizePersonalLearningText(withoutLinks);
+  if (words.isEmpty) return false;
+  // Descartar cadenas puramente numéricas, códigos o una sola letra sin valor semántico
+  if (RegExp(r'^[0-9\s]+$').hasMatch(words)) return false;
+  if (words.length < 2) return false;
+
+  final normalized = normalizeText(clean);
+  final spanishStatusReaction =
+      normalized.contains('tu estado') &&
+      (normalized.contains('reacciono') || normalized.contains('gusta'));
+  return !normalized.contains('status@broadcast') &&
+      !spanishStatusReaction &&
+      !normalized.contains('liked your status') &&
+      !normalized.contains('reacted to your status');
+}
+
+/// Normalización canónica que colapsa puntuación, signos, mayúsculas y elongaciones
+/// coloquiales ("hola", "Hola", "hola!", "¡Hola!", "holaa", "holaaa" → "hola").
 String normalizePersonalLearningText(String raw) {
-  final canonicalLinks = raw.replaceAllMapped(
-    RegExp(r'https?://[^\s]+', caseSensitive: false),
-    (match) => _withoutTracking(match.group(0) ?? ''),
-  );
-  return normalizeText(canonicalLinks)
+  final semanticText = raw.replaceAll(_linkPattern, ' enlace ');
+  final base = normalizeText(semanticText)
       .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
+  if (base.isEmpty) return '';
+  return base.split(' ').map(_canonicalizeToken).where((t) => t.isNotEmpty).join(' ');
 }
 
-/// Conserva el recurso y sus parámetros funcionales; sólo elimina rastreo.
-String _withoutTracking(String raw) {
-  final uri = Uri.tryParse(raw);
-  if (uri == null || uri.host.isEmpty) return raw;
-  final kept =
-      uri.queryParameters.entries
-          .where(
-            (entry) =>
-                !entry.key.toLowerCase().startsWith('utm_') &&
-                !_trackingKeys.contains(entry.key.toLowerCase()),
-          )
-          .toList()
-        ..sort((a, b) => a.key.compareTo(b.key));
-  final query = kept
-      .map(
-        (entry) =>
-            '${Uri.encodeQueryComponent(entry.key)}=${Uri.encodeQueryComponent(entry.value)}',
-      )
-      .join('&');
-  return uri
-      .replace(
-        scheme: uri.scheme.toLowerCase(),
-        host: uri.host.toLowerCase(),
-        query: query,
-        fragment: '',
-      )
-      .toString();
+String _canonicalizeToken(String token) {
+  if (token.isEmpty) return '';
+  // Normalizar risas coloquiales ("jajaja", "jajajaja", "jejeje") a una forma canónica
+  if (RegExp(r'^(?:ja){2,}j?$').hasMatch(token)) return 'jaja';
+  if (RegExp(r'^(?:je){2,}j?$').hasMatch(token)) return 'jeje';
+  // Colapsar vocales repetidas ("holaa" → "hola", "buenaaas" → "buenas", "siii" → "si")
+  var out = token.replaceAllMapped(RegExp(r'([aeiou])\1+'), (m) => m.group(1)!);
+  // Colapsar consonantes triplicadas ("okkk" → "ok", "bueeennno" → "bueno")
+  out = out.replaceAllMapped(RegExp(r'([b-df-hj-np-tv-z])\1{2,}'), (m) => m.group(1)!);
+  // Colapsar consonantes dobles al final de palabra ("holisss"/"okisss"/"biennn" → "bien")
+  out = out.replaceAllMapped(RegExp(r'([b-df-hj-np-tv-z])\1+$'), (m) => m.group(1)!);
+  if (out == 'holi' || out == 'holis' || out == 'holas' || out == 'ola') {
+    return 'hola';
+  }
+  return out;
 }

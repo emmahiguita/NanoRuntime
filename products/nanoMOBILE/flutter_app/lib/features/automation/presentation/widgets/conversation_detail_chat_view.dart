@@ -96,11 +96,12 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
 
   Widget _buildChatBubble(String text, bool isInbound, AutomationVisualPalette visual, {String? sender, int? timestampMs}) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final semantic = ConversationSemanticClassifier.classify(text);
     final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(20),
-      topRight: const Radius.circular(20),
-      bottomLeft: Radius.circular(isInbound ? 4 : 20),
-      bottomRight: Radius.circular(isInbound ? 20 : 4),
+      topLeft: const Radius.circular(15),
+      topRight: const Radius.circular(15),
+      bottomLeft: Radius.circular(isInbound ? 4 : 15),
+      bottomRight: Radius.circular(isInbound ? 15 : 4),
     );
 
     return Align(
@@ -108,7 +109,7 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * (isLandscape ? 0.60 : 0.80),
+          maxWidth: MediaQuery.of(context).size.width * (isLandscape ? 0.58 : 0.78),
         ),
         decoration: BoxDecoration(
           borderRadius: borderRadius,
@@ -117,17 +118,17 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
               color: isInbound
                   ? Colors.black.withValues(alpha: visual.isDark ? 0.25 : 0.06)
                   : const Color(0xFF007AFF).withValues(alpha: 0.35),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
+              blurRadius: 7,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: ClipRRect(
           borderRadius: borderRadius,
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: borderRadius,
                 gradient: isInbound
@@ -172,6 +173,10 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
                       ],
                     ),
                     const SizedBox(height: 4),
+                  ],
+                  if (semantic != ConversationSemanticTag.conversation) ...[
+                    ConversationSemanticBadge(tag: semantic, compact: true),
+                    const SizedBox(height: 5),
                   ],
                   ConversationMediaBubble(
                     text: text,

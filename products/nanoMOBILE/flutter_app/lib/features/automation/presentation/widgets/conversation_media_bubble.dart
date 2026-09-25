@@ -52,6 +52,7 @@ class ConversationMediaBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parsed = ParsedMediaMessage.parse(text);
+    final mediaTag = '${timestampMs ?? 0}_${text.hashCode}';
 
     return Column(
       crossAxisAlignment: isInbound ? CrossAxisAlignment.start : CrossAxisAlignment.end,
@@ -64,8 +65,11 @@ class ConversationMediaBubble extends StatelessWidget {
         ],
 
         // 2. Fotos e imágenes explícitas
-        for (final img in parsed.images) ...[
-          ConversationImageCard(pathOrUrl: img),
+        for (final (index, img) in parsed.images.indexed) ...[
+          ConversationImageCard(
+            pathOrUrl: img,
+            heroTag: 'media_photo_${mediaTag}_$index',
+          ),
           const SizedBox(height: 6),
         ],
 

@@ -104,9 +104,12 @@ class CatalogPdfGenerator {
 
     final headers = ['Ref / SKU', 'Artículo / Descripción', 'Stock', 'Precio'];
     final data = products.map((p) {
+      final isAvail = p.isAvailable ? '' : ' [PAUSADO]';
       final stockLabel = p.stock != null ? (p.stock! > 0 ? '${p.stock}' : 'Agotado') : 'Disponible';
+      final cat = p.category != null && p.category!.trim().isNotEmpty ? '[${p.category!.trim()}] ' : '';
       final details = p.details.trim().isNotEmpty ? '\n${p.details.trim()}' : '';
-      return [p.id, '${p.name}$details', stockLabel, p.priceLabel];
+      final ref = (p.sku != null && p.sku!.trim().isNotEmpty) ? p.sku!.trim() : p.id;
+      return [ref, '$cat${p.name}$isAvail$details', stockLabel, p.priceLabel];
     }).toList();
 
     return pw.TableHelper.fromTextArray(

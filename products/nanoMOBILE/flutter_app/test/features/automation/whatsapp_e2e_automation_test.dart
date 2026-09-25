@@ -66,10 +66,12 @@ class _RecordingMediaShare extends WhatsAppMediaShare {
     required String contact,
     String caption = '',
     String? packageName,
+    bool autoSend = true,
   }) async {
     lastSharedPath = path;
     lastSharedContact = contact;
     lastSharedCaption = caption;
+    lastAutoSend = autoSend;
     return true;
   }
 }

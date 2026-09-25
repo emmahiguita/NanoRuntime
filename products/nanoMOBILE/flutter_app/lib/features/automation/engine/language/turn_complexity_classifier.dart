@@ -74,7 +74,8 @@ final class TurnComplexityClassifier {
 
   // Preguntas de actividad cotidiana / planes / día (sociales, no narrativas del usuario).
   static final _socialActivityInquiry = RegExp(
-    r'^(?:(?:hola|hol|ola|buenas|hey|oe|holi)\s*,?\s*)?'
+    r'^(?:(?:hola|hol|ola|buenas|hey|oe|holi|bien|todo bien|super|tranqui)\s*,?\s*)?'
+    r'(?:y\s+)?'
     r'(?:(?:me\s+alegra\s+(?:que\s+est[eé]s\s+bien|mucho)\s*,?\s*|qu[eé]\s+bueno\s*,?\s*)?)'
     r'(?:qu[eé]\s+(?:vas\s+(?:a\s+)?hacer|haces|haciendo|est[aá]s\s+haciendo|har[aá]s|har[eé]s|planes\s+tienes|tienes\s+pensado(?:\s+hacer)?|cuentas|hay\s+de\s+nuevo)|vas\s+(?:a\s+)?(?:salir|entrenar)|en\s+qu[eé]\s+andas|c[oó]mo\s+va\s+tu\s+d[ií]a|qu[eé]\s+tal\s+tu\s+d[ií]a|c[oó]mo\s+va\s+el\s+d[ií]a|est[aá]s\s+ah[ií]|sigues\s+ah[ií])'
     r'(?:\s+(?:hoy|ahora|m[aá]s\s+tarde|parce|bro|amigo|emma))?[\s.,!?]*$',
@@ -146,10 +147,22 @@ final class TurnComplexityClassifier {
     final isSocialClarification = _socialWellbeingClarification.hasMatch(t);
     final isSituationalInquiry = _situationalSocialInquiry.hasMatch(t);
     final isSocialExemption = isSocialClarification || isSituationalInquiry;
+    final isActivityOrSituational =
+        _socialActivityInquiry.hasMatch(t) || isSituationalInquiry;
+    final isCompoundGreetingInquiry =
+        RegExp(r'^\s*(?:hola|hol|ola|buenas|buenos|hey|oe|saludos)\b', caseSensitive: false)
+            .hasMatch(t) &&
+        (isActivityOrSituational ||
+            _socialInvitation.hasMatch(t) ||
+            t.contains('?') &&
+                !_socialGreetingWellbeing.hasMatch(t) &&
+                !_simpleStateConcern.hasMatch(t));
+
     final narrativeDetected =
         _narrative.hasMatch(t) || (!isSocialExemption && signals.isCorrection);
     final contextualDetected =
-        !isSocialExemption && (_anaphora.hasMatch(t) || signals.hasReference);
+        isCompoundGreetingInquiry ||
+        (!isSocialExemption && (_anaphora.hasMatch(t) || signals.hasReference));
     final isSocialRefusal = _socialRefusal.hasMatch(t);
     final complexDetected =
         !isSocialRefusal &&

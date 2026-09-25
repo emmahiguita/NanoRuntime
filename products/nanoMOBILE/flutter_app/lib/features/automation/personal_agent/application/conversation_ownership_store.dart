@@ -7,6 +7,8 @@ library;
 
 import 'dart:convert';
 
+import '../../engine/messaging/conversation_identity_model.dart'
+    show canonicalConversationId;
 import '../../engine/storage/automation_db_store_client.dart';
 import '../domain/conversation_owner.dart';
 
@@ -63,27 +65,22 @@ final class SqliteConversationOwnershipStore
       if (owner == null) {
         throw const FormatException('Unknown conversation owner');
       }
-      loaded[entry.key as String] = ConversationOwnership(
-        conversationId: entry.key as String,
+      final conversationId = canonicalConversationId(entry.key as String);
+      if (conversationId.isEmpty) continue;
+      final item = ConversationOwnership(
+        conversationId: conversationId,
         owner: owner,
         updatedAtMs: value['updatedAtMs'] as int,
       );
+      loaded[conversationId] = item;
     }
     _byConversation.addAll(loaded);
   }
 
   @override
   ConversationOwnership? ownershipFor(String conversationId) {
-    if (conversationId.isEmpty) return null;
-    final direct = _byConversation[conversationId];
-    if (direct != null) return direct;
-    for (final entry in _byConversation.entries) {
-      final key = entry.key.trim();
-      if (key.length >= 4 && (conversationId.contains(key) || key.contains(conversationId))) {
-        return entry.value;
-      }
-    }
-    return null;
+    final id = canonicalConversationId(conversationId);
+    return id.isEmpty ? null : _byConversation[id];
   }
 
   @override
@@ -92,31 +89,31 @@ final class SqliteConversationOwnershipStore
     ConversationOwner owner, {
     int? nowMs,
   }) {
+    final id = canonicalConversationId(conversationId);
     final ownership = ConversationOwnership(
-      conversationId: conversationId,
+      conversationId: id,
       owner: owner,
       updatedAtMs: nowMs ?? DateTime.now().millisecondsSinceEpoch,
     );
-    if (conversationId.isEmpty) {
+    if (id.isEmpty) {
       return Future.error(StateError('Conversation identity is unavailable'));
     }
-    final revision = (_revisions[conversationId] ?? 0) + 1;
-    _revisions[conversationId] = revision;
-    // Stop automation immediately; a pending/failed release keeps human control.
-    _byConversation[conversationId] = ConversationOwnership(
-      conversationId: conversationId,
+    final revision = (_revisions[id] ?? 0) + 1;
+    _revisions[id] = revision;
+
+    // Tomar control humano es inmediato. Liberarlo queda cerrado hasta que
+    // SQLite confirme la escritura, evitando autoenvíos tras un fallo.
+    _byConversation[id] = ConversationOwnership(
+      conversationId: id,
       owner: ConversationOwner.human,
       updatedAtMs: ownership.updatedAtMs,
     );
+
     final write = _writes.then((_) async {
-      // CRASH-CONSISTENCY (OWNER-01): Si una revisión más reciente ya tomó el
-      // control para esta conversación, descartamos esta escritura obsoleta
-      // antes de tocar el disco para que un BOT stale jamás sobreescriba un HUMAN takeover.
-      if (_revisions[conversationId] != revision) {
-        return;
-      }
+      // Una revisión nueva invalida esta escritura antes de tocar el disco.
+      if (_revisions[id] != revision) return;
       final snapshot = Map<String, ConversationOwnership>.of(_byConversation);
-      snapshot[conversationId] = ownership;
+      snapshot[id] = ownership;
       final ok = await AutomationDbStoreClient.instance.putSection(
         'ownership',
         jsonEncode({
@@ -128,12 +125,12 @@ final class SqliteConversationOwnershipStore
         }),
       );
       if (!ok) throw StateError('Ownership persistence rejected');
-      if (_revisions[conversationId] == revision) {
-        _byConversation[conversationId] = ownership;
+      if (_revisions[id] == revision) {
+        _byConversation[id] = ownership;
       }
     });
     _writes = write.catchError((Object _) {});
-    return write.then((_) => _byConversation[conversationId] ?? ownership);
+    return write.then((_) => _byConversation[id] ?? ownership);
   }
 
   @override

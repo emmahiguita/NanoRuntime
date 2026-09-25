@@ -114,5 +114,26 @@ void main() {
       expect(resolved[1].text, equals('Respuesta previa en SQLite'));
       expect(resolved[2].text, equals('Nuevo mensaje en barra de notificaciones'));
     });
+
+    test('El detalle abre el historial anclado al mensaje más reciente', () {
+      final source = File(
+        'lib/features/automation/presentation/widgets/conversation_detail_responsive_body.dart',
+      ).readAsStringSync();
+
+      expect(source, contains('reverse: true'));
+      expect(source, contains('entries.length - 1 - index'));
+    });
+
+    test('El aprendizaje de estilo exige autorización explícita del perfil', () {
+      final contextSource = File(
+        'lib/features/automation/personal_agent/application/persona_context.dart',
+      ).readAsStringSync();
+      final detailSource = File(
+        'lib/features/automation/presentation/widgets/conversation_detail_style_learning.dart',
+      ).readAsStringSync();
+
+      expect(contextSource, contains("facts['learnStyle'] == 'true'"));
+      expect(detailSource, contains('allowsStyleLearningFor'));
+    });
   });
 }

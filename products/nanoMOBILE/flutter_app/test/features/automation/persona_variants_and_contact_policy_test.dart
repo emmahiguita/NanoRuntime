@@ -55,5 +55,44 @@ void main() {
       final selectedState = state.copyWith(waTargetContactsMode: 'selected');
       expect(selectedState.waTargetContactsMode, 'selected');
     });
+
+    test('Modo selectivo vs universal distingue bot vs humano determinista', () {
+      // Simula evaluación de contacto en modo 'selected'
+      bool isBotActive({
+        required String targetMode,
+        required String contactName,
+        String? owner,
+      }) {
+        final isEmm = contactName.toLowerCase().contains('emm') ||
+            contactName.toLowerCase().contains('emma');
+        if (targetMode == 'selected') {
+          return (owner == 'bot') || (owner != 'human' && isEmm);
+        } else {
+          return owner != 'human';
+        }
+      }
+
+      // En modo selectivo:
+      // 1. Emm está activo por defecto (owner == null)
+      expect(isBotActive(targetMode: 'selected', contactName: 'Emm'), isTrue);
+      expect(isBotActive(targetMode: 'selected', contactName: 'Emma'), isTrue);
+
+      // 2. Emm pausado explícitamente (owner == 'human') no debe responder
+      expect(isBotActive(targetMode: 'selected', contactName: 'Emm', owner: 'human'), isFalse);
+
+      // 3. Otro contacto no seleccionado (owner == null) no debe responder
+      expect(isBotActive(targetMode: 'selected', contactName: 'Carlos'), isFalse);
+
+      // 4. Otro contacto seleccionado (owner == 'bot') responde
+      expect(isBotActive(targetMode: 'selected', contactName: 'Carlos', owner: 'bot'), isTrue);
+
+      // En modo universal ('all'):
+      // 1. Todos responden por defecto
+      expect(isBotActive(targetMode: 'all', contactName: 'Carlos'), isTrue);
+      expect(isBotActive(targetMode: 'all', contactName: 'Emm'), isTrue);
+
+      // 2. Solo los pausados manualmente (owner == 'human') se silencian
+      expect(isBotActive(targetMode: 'all', contactName: 'Carlos', owner: 'human'), isFalse);
+    });
   });
 }

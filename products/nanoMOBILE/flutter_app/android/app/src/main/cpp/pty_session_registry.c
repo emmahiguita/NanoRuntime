@@ -24,7 +24,21 @@ static PtySessionRecord* find_session_locked(jlong id) {
     return NULL;
 }
 
+/// Recolecta de forma no bloqueante cualquier proceso hijo PTY que haya
+/// terminado con retraso tras el cierre de su sesión (prevención de procesos zombi).
+/// QUÉ HACE: Invoca `waitpid` con `WNOHANG` sobre procesos pendientes antes de asignar slot.
+/// CÓMO FUNCIONA: Si un hijo en estado D tardó >200ms en morir tras `SIGKILL` en `pty_registry_close`,
+///   este barrido libera su entrada en la tabla de procesos del kernel sin bloquear hilos JNI.
+/// POR QUÉ: Evita agotar PIDs o acumular procesos `<defunct>` en sesiones prolongadas.
+static void _reap_delayed_zombies(void) {
+    int st = 0;
+    while (waitpid(-1, &st, WNOHANG) > 0) {
+        // Reap completado sin bloqueo
+    }
+}
+
 PtySessionRecord* pty_registry_alloc(void) {
+    _reap_delayed_zombies();
     pthread_mutex_lock(&g_lock);
     for (int i = 0; i < MAX_PTY_SESSIONS; i++) {
         if (!g_sessions[i].in_use) {

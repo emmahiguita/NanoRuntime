@@ -22,9 +22,12 @@ class _BrowserScreenState extends ConsumerState<BrowserScreen> {
   @override
   void initState() {
     super.initState();
-    ref.read(browserSurfaceProvider.notifier).showFullscreen();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _surfaceReady = true);
+      if (!mounted) return;
+      // First detach the embedded host. Only then may the fullscreen route
+      // attach the keep-alive WebViews, avoiding two native owners at once.
+      ref.read(browserSurfaceProvider.notifier).showFullscreen();
+      setState(() => _surfaceReady = true);
     });
   }
 

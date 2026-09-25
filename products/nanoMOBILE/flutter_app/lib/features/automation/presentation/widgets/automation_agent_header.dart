@@ -62,15 +62,26 @@ class AgentHeaderWidget extends StatelessWidget {
               spacing: 6,
               runSpacing: 4,
               children: [
-                const Text(
-                  'Automatización',
+                RichText(
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                    ),
+                    children: [
+                      const TextSpan(
+                        text: 'NANO ',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      TextSpan(
+                        text: 'AI',
+                        style: TextStyle(color: visual.accent),
+                      ),
+                    ],
                   ),
                 ),
                 Material(

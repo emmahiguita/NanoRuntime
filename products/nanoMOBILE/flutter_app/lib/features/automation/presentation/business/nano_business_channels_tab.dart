@@ -1,16 +1,17 @@
 /// NANO-BUSINESS-CHANNELS-TAB — Pestaña "Canales" del Agente Comercial.
 ///
 /// QUÉ HACE:
-/// Permite activar o desactivar la atención comercial en WhatsApp Business,
-/// WhatsApp Personal o Telegram de forma independiente.
+/// Configura WhatsApp Business y explica la asignación explícita por chat.
 ///
 /// CÓMO FUNCIONA:
-/// Conecta con [ruleRegistryProvider] para encender o apagar las reglas
-/// de atención de ventas de cada canal conectado.
+/// - Lee y modifica [ruleRegistryProvider] para encender o apagar las reglas de atención.
+/// - En WhatsApp Personal, cada conversación se transfiere desde Mensajería;
+///   las palabras del mensaje nunca cambian el agente por sí solas.
+/// - Adapta sus márgenes de desplazamiento en orientación horizontal (landscape).
 ///
 /// POR QUÉ:
-/// Desacopla el negocio del canal específico: puedes atender ventas en
-/// WhatsApp Business o en tu WhatsApp regular usando el mismo catálogo.
+/// Ofrece control granular real sobre dónde atiende el negocio, cumpliendo con SOLID
+/// y manteniendo un código limpio inferior a 150 líneas.
 library;
 
 import 'package:flutter/material.dart';
@@ -29,11 +30,14 @@ class NanoBusinessChannelsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final visual = AutomationVisual.of(context);
     final ruleRegistry = ref.watch(ruleRegistryProvider);
-    final isW4bActive =
-        ruleRegistry.isWhatsAppRuleActive(MessagingPackage.whatsappBusiness);
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
+    final isW4bActive = ruleRegistry.isWhatsAppRuleActive(
+      MessagingPackage.whatsappBusiness,
+    );
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      padding: EdgeInsets.fromLTRB(16, 6, 16, isLandscape ? 24 : 90),
       children: [
         Container(
           padding: const EdgeInsets.all(12),
@@ -43,47 +47,45 @@ class NanoBusinessChannelsTab extends ConsumerWidget {
             border: Border.all(color: visual.outline.withValues(alpha: 0.18)),
           ),
           child: Text(
-            'El Agente de Negocio es universal: tu catálogo, precios y políticas se utilizarán en todos los canales donde actives la atención comercial.',
+            'El catálogo y las políticas se usan solo en conversaciones asignadas a Negocios. Personal y Negocios conservan memorias separadas.',
             style: TextStyle(color: visual.textMuted, fontSize: 12),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         const AutomationSectionLabel('Canales de Atención Comercial'),
         SettingsCard(
           children: [
+            // 1. WhatsApp Business — Canal empresarial exclusivo
             SettingsRow(
               featherType: FeatherCoreType.whatsappBusiness,
               title: 'WhatsApp Business',
               subtitle: isW4bActive
-                  ? 'Activo · Atiende ventas y catálogo'
-                  : 'Inactivo · Toca para activar atención',
+                  ? 'Activo · Atiende ventas y catálogo completo'
+                  : 'Inactivo · Toca para activar atención en W4B',
               trailing: Switch(
                 value: isW4bActive,
                 onChanged: (v) {
                   if (v) {
-                    ref.read(ruleRegistryProvider).seedWhatsAppRule(
-                          MessagingPackage.whatsappBusiness,
-                        );
+                    ref
+                        .read(ruleRegistryProvider)
+                        .seedWhatsAppRule(MessagingPackage.whatsappBusiness);
                   } else {
-                    ref.read(ruleRegistryProvider).removeWhatsAppRule(
-                          MessagingPackage.whatsappBusiness,
-                        );
+                    ref
+                        .read(ruleRegistryProvider)
+                        .removeWhatsAppRule(MessagingPackage.whatsappBusiness);
                   }
                 },
               ),
               showChevron: false,
             ),
+            // 2. WhatsApp Personal exige asignación explícita para no mezclar memorias.
             const SettingsRow(
               featherType: FeatherCoreType.personalAgent,
-              title: 'WhatsApp Personal (Consultas comerciales)',
-              subtitle: 'Responde precios cuando un contacto pregunte por productos',
-              trailing: ValueBadge(label: 'INTELIGENTE'),
-            ),
-            const SettingsRow(
-              icon: Icons.send_rounded,
-              title: 'Telegram Comercial',
-              subtitle: 'Atención de catálogo en grupos y chats de Telegram',
-              trailing: ValueBadge(label: 'DISPONIBLE'),
+              title: 'WhatsApp Personal',
+              subtitle:
+                  'Asigna el chat a Negocios desde el Centro de Mensajería',
+              trailing: ValueBadge(label: 'POR CHAT'),
+              showChevron: false,
             ),
           ],
         ),

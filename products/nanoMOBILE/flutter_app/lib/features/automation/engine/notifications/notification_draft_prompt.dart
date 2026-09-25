@@ -13,6 +13,7 @@ library;
 
 import '../messaging/conversation_memory.dart'
     show ConversationMemoryEntry, ConversationMemoryEntryKind;
+import '../messaging/social_context_retriever.dart';
 import 'conversation_prompt_templates.dart';
 
 export 'conversation_prompt_templates.dart';
@@ -151,13 +152,35 @@ String? _usableStyle(String? style) {
 
 String formatConversationHistory(
   List<ConversationMemoryEntry> entries, {
-  int maxEntries = 3,
+  int maxEntries = 4,
+  String currentText = '',
+  String currentSender = '',
+  String? activeTopic,
 }) {
-  if (entries.isEmpty) return '(sin historial previo)';
-  final recent = entries.length <= maxEntries
-      ? entries
-      : entries.sublist(entries.length - maxEntries);
-  return recent.map(_formatEntry).join('\n');
+  final factualEntries = entries.where(_isPromptEntry).toList(growable: false);
+  if (factualEntries.isEmpty) return '(sin historial previo)';
+  final relevant = currentText.trim().isEmpty
+      ? (factualEntries.length <= maxEntries
+            ? factualEntries
+            : factualEntries.sublist(factualEntries.length - maxEntries))
+      : SocialContextRetriever.selectWindow(
+          factualEntries,
+          currentText: currentText,
+          currentSender: currentSender,
+          activeTopic: activeTopic,
+          maxEntries: maxEntries,
+        );
+  return relevant.map(_formatEntry).join('\n');
+}
+
+bool _isPromptEntry(ConversationMemoryEntry entry) {
+  return switch (entry.kind) {
+    ConversationMemoryEntryKind.inbound ||
+    ConversationMemoryEntryKind.outboundObservedManual ||
+    ConversationMemoryEntryKind.outboundVerified => true,
+    ConversationMemoryEntryKind.outboundDispatched ||
+    ConversationMemoryEntryKind.effectUnknown => false,
+  };
 }
 
 String _formatEntry(ConversationMemoryEntry e) {
@@ -167,8 +190,9 @@ String _formatEntry(ConversationMemoryEntry e) {
     ConversationMemoryEntryKind.inbound =>
       '${e.sender.isEmpty ? 'Cliente' : e.sender}: $t',
     ConversationMemoryEntryKind.outboundObservedManual => 'Dueño: $t',
-    ConversationMemoryEntryKind.outboundVerified ||
-    ConversationMemoryEntryKind.outboundDispatched ||
-    ConversationMemoryEntryKind.effectUnknown => 'Nano: $t',
+    ConversationMemoryEntryKind.outboundVerified => 'Nano (verificado): $t',
+    ConversationMemoryEntryKind.outboundDispatched =>
+      'Nano (envío no verificado): $t',
+    ConversationMemoryEntryKind.effectUnknown => '',
   };
 }

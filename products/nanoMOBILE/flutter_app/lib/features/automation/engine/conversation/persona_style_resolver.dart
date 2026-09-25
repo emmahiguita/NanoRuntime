@@ -7,8 +7,11 @@ library;
 
 import 'package:flutter/foundation.dart' show debugPrint;
 
+import '../../personal_agent/application/conversation_decision_guards.dart';
 import '../../personal_agent/application/persona_retriever.dart';
 import '../../personal_agent/domain/persona_example.dart';
+import '../../personal_agent/domain/conversation_agent_message_classifier.dart'
+    show isLiveStateQuestion;
 import '../business/fact_selector.dart' show normalizeText, tokenizeText;
 import '../language/language_assist.dart';
 import '../notifications/conversation_understanding.dart';
@@ -57,6 +60,9 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
   }) async {
     final cleanInput = text.trim();
     if (cleanInput.isEmpty) return null;
+    // Una respuesta histórica enseña estilo, pero no prueba ubicación,
+    // actividad, comida, disponibilidad ni otro estado actual del dueño.
+    if (isLiveStateQuestion(cleanInput)) return null;
 
     final normalizedInput = normalizeText(cleanInput);
     final inputTokens = tokenizeText(normalizedInput);
@@ -71,39 +77,31 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
       if (candidates.isEmpty) return null;
 
       PersonaExample? bestExample;
+      List<String> bestReusableVariants = const [];
       var bestScore = 0.0;
 
       for (final cand in candidates) {
-        if (!cand.isPaired || !cand.enabled) continue;
+        if (!cand.canReuseLiterally || !cand.enabled) continue;
+        final safeVariants = cand.reusableVariants(
+          ConversationDecisionGuards.affirmsOwnerActivity,
+        );
+        if (safeVariants.isEmpty) continue;
 
-        // La mejor variante equivalente define la confianza del ejemplo.
-        for (final pattern in cand.incomingVariants) {
-          final normalizedIncoming = normalizeText(pattern);
-          final incomingTokens = tokenizeText(normalizedIncoming);
-          if (incomingTokens.isEmpty) continue;
-          final exact = normalizedInput == normalizedIncoming;
-          final intersection = inputTokens.intersection(incomingTokens).length;
-          final union = inputTokens.union(incomingTokens).length;
-          final score = exact ? 1.0 : (union > 0 ? intersection / union : 0.0);
-          if (score > bestScore) {
-            bestScore = score;
-            bestExample = cand;
-          }
+        final score = PersonaRetriever.scoreExample(cleanInput, cand);
+        if (score > bestScore) {
+          bestScore = score;
+          bestExample = cand;
+          bestReusableVariants = safeVariants;
         }
       }
 
-      if (bestExample == null || bestScore < minConfidence) {
+      if (bestExample == null ||
+          bestReusableVariants.isEmpty ||
+          bestScore < minConfidence) {
         return null;
       }
 
-      final enabledOptions = bestExample.responseOptions
-          .where((option) => option.enabled)
-          .map((option) => option.text.trim())
-          .where((text) => text.isNotEmpty)
-          .toList();
-      final variants = enabledOptions.isNotEmpty
-          ? enabledOptions
-          : [bestExample.body.trim()];
+      final variants = bestReusableVariants;
       final String rawReply;
       final suggestions = <String>[];
 
@@ -142,13 +140,18 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
       );
 
       for (final c in candidates) {
-        if (c.id != bestExample.id && c.body.trim().isNotEmpty) {
-          final s = LanguageAssistService.safeCleanOutput(c.body.trim());
+        if (c.id == bestExample.id || !c.canReuseLiterally) continue;
+        final safeOther = c.reusableVariants(
+          ConversationDecisionGuards.affirmsOwnerActivity,
+        );
+        for (final body in safeOther) {
+          final s = LanguageAssistService.safeCleanOutput(body);
           if (s.isNotEmpty && !suggestions.contains(s)) {
             suggestions.add(s);
           }
           if (suggestions.length >= 5) break;
         }
+        if (suggestions.length >= 5) break;
       }
 
       return PersonaStyleMatch(

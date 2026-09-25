@@ -63,22 +63,27 @@ class NanoAssistantPrimaryAction extends StatelessWidget {
   );
 }
 
-/// Abre el gestor real: la detección no descarga archivos automáticamente.
+/// Muestra directamente la lista de descarga (MP4/MP3) cuando hay elementos detectados.
 class NanoMediaManagerLink extends StatelessWidget {
   const NanoMediaManagerLink({super.key, required this.controller});
   final NanoAiController controller;
 
   @override
-  Widget build(BuildContext context) => TextButton.icon(
-    onPressed: () => showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => NanoMediaSheet(controller: controller),
-    ),
-    icon: const Icon(Icons.folder_open_rounded),
-    label: const Text('Abrir archivos detectados'),
-  );
+  Widget build(BuildContext context) {
+    if (controller.detectedMedia.isNotEmpty) {
+      return NanoMediaSheet(controller: controller);
+    }
+    return TextButton.icon(
+      onPressed: () => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => NanoMediaSheet(controller: controller),
+      ),
+      icon: const Icon(Icons.folder_open_rounded),
+      label: const Text('Abrir archivos detectados'),
+    );
+  }
 }
 
 /// Sugerencias del resultado actual, inactivas mientras existe otra consulta.

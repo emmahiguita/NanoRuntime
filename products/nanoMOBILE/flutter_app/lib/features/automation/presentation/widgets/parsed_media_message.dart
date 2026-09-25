@@ -99,6 +99,9 @@ class ParsedMediaMessage {
   static bool _has(String text, List<String> matches) =>
       matches.any((m) => text.contains(m));
 
+  static String _cleanMatchedUrl(String raw) =>
+      raw.replaceFirst(RegExp(r'[\]\[(){}.,;:!?]+$'), '');
+
   /// Analiza texto crudo y clasifica medios y texto limpio.
   factory ParsedMediaMessage.parse(String raw) {
     final text = raw.trim();
@@ -200,11 +203,10 @@ class ParsedMediaMessage {
 
       final isLocal =
           (t.startsWith('/') ||
-              t.startsWith('file://') ||
-              t.contains(r':\') ||
-              t.contains('/storage/') ||
-              t.contains('/data/')) &&
-          !t.contains(' ');
+          t.startsWith('file://') ||
+          t.contains(r':\') ||
+          t.contains('/storage/') ||
+          t.contains('/data/'));
       if (isLocal) {
         final p = t.toLowerCase();
         if (imageExts.any((e) => p.endsWith(e))) {
@@ -232,7 +234,7 @@ class ParsedMediaMessage {
       final urlMatches = _urlRegex.allMatches(t);
       if (urlMatches.isNotEmpty) {
         for (final m in urlMatches) {
-          final url = m.group(0)!;
+          final url = _cleanMatchedUrl(m.group(0)!);
           final yt = _ytRegex.firstMatch(url);
           if (yt != null) {
             final id = yt.group(1)!;

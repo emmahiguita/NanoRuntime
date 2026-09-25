@@ -37,6 +37,9 @@ class BusinessSourceConfig {
   final String name;
   final BusinessSourceType type;
   final String sourceUri;
+
+  /// Credencial efímera: se usa en la petición y nunca se persiste ni registra.
+  final String? authToken;
   final String? sheetName;
   final DateTime? lastSync;
   final int recordCount;
@@ -48,6 +51,7 @@ class BusinessSourceConfig {
     required this.name,
     required this.type,
     required this.sourceUri,
+    this.authToken,
     this.sheetName,
     this.lastSync,
     this.recordCount = 0,
@@ -58,6 +62,7 @@ class BusinessSourceConfig {
   BusinessSourceConfig copyWith({
     String? name,
     String? sourceUri,
+    String? authToken,
     String? sheetName,
     DateTime? lastSync,
     int? recordCount,
@@ -69,6 +74,7 @@ class BusinessSourceConfig {
       name: name ?? this.name,
       type: type,
       sourceUri: sourceUri ?? this.sourceUri,
+      authToken: authToken ?? this.authToken,
       sheetName: sheetName ?? this.sheetName,
       lastSync: lastSync ?? this.lastSync,
       recordCount: recordCount ?? this.recordCount,
@@ -84,6 +90,7 @@ class BusinessColumnMapping {
   final String? priceColumn;
   final String? stockColumn;
   final String? skuColumn;
+  final String? categoryColumn;
   final String? detailsColumn;
 
   const BusinessColumnMapping({
@@ -91,6 +98,7 @@ class BusinessColumnMapping {
     this.priceColumn,
     this.stockColumn,
     this.skuColumn,
+    this.categoryColumn,
     this.detailsColumn,
   });
 
@@ -101,6 +109,7 @@ class BusinessColumnMapping {
     String? priceColumn,
     String? stockColumn,
     String? skuColumn,
+    String? categoryColumn,
     String? detailsColumn,
   }) {
     return BusinessColumnMapping(
@@ -108,6 +117,7 @@ class BusinessColumnMapping {
       priceColumn: priceColumn ?? this.priceColumn,
       stockColumn: stockColumn ?? this.stockColumn,
       skuColumn: skuColumn ?? this.skuColumn,
+      categoryColumn: categoryColumn ?? this.categoryColumn,
       detailsColumn: detailsColumn ?? this.detailsColumn,
     );
   }

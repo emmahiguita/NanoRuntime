@@ -19,38 +19,15 @@
 library;
 
 import 'business_facts.dart';
+import 'business_fact_signals.dart';
+import 'business_text_matcher.dart';
 
-const List<String> _listAskTokens = [
-  'catalogo', 'modelos', 'opciones', 'disponibles', 'producto', 'productos',
-  'tienes', 'tienen', 'vendes', 'ofrece', 'ofrecen', 'manejas', 'manejan',
-  'dispone', 'hay', 'cual', 'precio', 'precios', 'valor', 'valores',
-  'cuesta', 'cuestan', 'sale', 'salen',
-];
-
-const List<String> _hoursAskTokens = [
-  'horario', 'abren', 'abre', 'abiertos', 'abierto', 'cierran', 'cierra',
-  'atienden', 'atiende', 'atencion', 'jornada', 'horas',
-];
-
-const List<String> _deliveryAskTokens = [
-  'envio', 'envios', 'envian', 'domi', 'domicilio', 'domicilios', 'despacho',
-  'entrega', 'entregas', 'entregan', 'llevan', 'mandan', 'mandar', 'cobertura',
-  'flete', 'ruta', 'traen',
-];
-
-const List<String> _paymentsAskTokens = [
-  'pago', 'pagos', 'pagar', 'cuenta', 'cuentas', 'transferir', 'transferencia',
-  'nequi', 'daviplata', 'bancolombia', 'tarjeta', 'efectivo', 'contraentrega',
-  'metodo', 'metodos', 'medio', 'medios',
-];
-
-const List<String> _locationAskTokens = [
-  'donde', 'ubicados', 'ubicacion', 'direccion', 'tienda', 'local', 'sede',
-  'quedan', 'queda', 'llegar', 'recoger', 'recogida', 'ciudad', 'punto',
-];
+export 'business_text_matcher.dart'
+    show isSpecificBusinessToken, normalizeText, tokenizeText;
 
 /// Contenedor de hechos comerciales autorizados para el turno.
 final class FactSelection {
+  final String businessName;
   final List<BusinessProduct> products;
   final String hours;
   final String delivery;
@@ -58,6 +35,7 @@ final class FactSelection {
   final String location;
 
   const FactSelection({
+    this.businessName = '',
     this.products = const [],
     this.hours = '',
     this.delivery = '',
@@ -66,6 +44,7 @@ final class FactSelection {
   });
 
   bool get isEmpty =>
+      businessName.isEmpty &&
       products.isEmpty &&
       hours.isEmpty &&
       delivery.isEmpty &&
@@ -75,6 +54,7 @@ final class FactSelection {
   bool get isNotEmpty => !isEmpty;
 
   String render() => buildBusinessBlock(
+    businessName: businessName,
     products: products,
     hours: hours,
     delivery: delivery,
@@ -85,14 +65,10 @@ final class FactSelection {
 
 /// Selecciona los hechos precisos que deben entrar al prompt del modelo.
 FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
-  final tokens = tokenizeText(normalizeText(message));
+  final normalized = normalizeText(message);
+  final tokens = tokenizeText(normalized);
   if (tokens.isEmpty || facts.isEmpty) return const FactSelection();
-
-  final wantsHours = tokens.any(_hoursAskTokens.contains);
-  final wantsDelivery = tokens.any(_deliveryAskTokens.contains);
-  final wantsPayments = tokens.any(_paymentsAskTokens.contains);
-  final wantsLocation = tokens.any(_locationAskTokens.contains);
-  final wantsList = tokens.any(_listAskTokens.contains);
+  final signals = detectBusinessFactSignals(normalized, tokens);
 
   // 1. Detección de productos específicos primero
   final specificMatches = [
@@ -104,21 +80,22 @@ FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
   List<BusinessProduct> selectedProducts;
   if (specificMatches.isNotEmpty) {
     selectedProducts = specificMatches;
-  } else if (wantsList) {
+  } else if (signals.wantsList) {
     // Solo cuando no hay producto específico y la intención es ver opciones generales
     selectedProducts = facts.products;
   } else {
     selectedProducts = const [];
   }
 
-  final hours = wantsHours ? facts.hours.trim() : '';
-  final delivery = (wantsDelivery || selectedProducts.isNotEmpty)
+  final hours = signals.wantsHours ? facts.hours.trim() : '';
+  final delivery = (signals.wantsDelivery || selectedProducts.isNotEmpty)
       ? facts.delivery.trim()
       : '';
-  final payments = wantsPayments ? facts.payments.trim() : '';
-  final location = wantsLocation ? facts.location.trim() : '';
+  final payments = signals.wantsPayments ? facts.payments.trim() : '';
+  final location = signals.wantsLocation ? facts.location.trim() : '';
 
   return FactSelection(
+    businessName: facts.businessName.trim(),
     products: selectedProducts,
     hours: hours,
     delivery: delivery,
@@ -127,31 +104,29 @@ FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
   );
 }
 
-/// Verifica si los tokens del mensaje hacen match con el nombre o variante/detalles del producto.
+/// Verifica si los tokens del mensaje hacen match con el nombre, categoría, SKU o variante/detalles del producto.
 bool _productMatches(Set<String> messageTokens, BusinessProduct product) {
   final nameTokens = tokenizeText(normalizeText(product.name));
   final detailTokens = tokenizeText(normalizeText(product.details));
+  final categoryTokens = product.category != null
+      ? tokenizeText(normalizeText(product.category!))
+      : const <String>{};
+  final skuTokens = product.sku != null
+      ? tokenizeText(normalizeText(product.sku!))
+      : const <String>{};
+  final variantTokens = {
+    for (final v in product.variants) ...tokenizeText(normalizeText(v)),
+  };
+
   for (final token in messageTokens) {
-    if (token.length < 3) continue; // Descarta conectores como "el", "de", "en"
-    if (nameTokens.contains(token) || detailTokens.contains(token)) {
+    if (!isSpecificBusinessToken(token)) continue;
+    if (nameTokens.contains(token) ||
+        detailTokens.contains(token) ||
+        categoryTokens.contains(token) ||
+        skuTokens.contains(token) ||
+        variantTokens.contains(token)) {
       return true;
     }
   }
   return false;
 }
-
-/// Normaliza texto removiendo acentos diacríticos para comparación uniforme.
-String normalizeText(String raw) {
-  const withAccents = 'áéíóúñüÁÉÍÓÚÑÜ';
-  const without = 'aeiounuAEIOUNU';
-  final buffer = StringBuffer();
-  for (final ch in raw.split('')) {
-    final i = withAccents.indexOf(ch);
-    buffer.write(i >= 0 ? without[i] : ch);
-  }
-  return buffer.toString().toLowerCase();
-}
-
-/// Extrae tokens alfanuméricos únicos.
-Set<String> tokenizeText(String normalized) =>
-    RegExp(r'[a-z0-9]+').allMatches(normalized).map((m) => m.group(0)!).toSet();

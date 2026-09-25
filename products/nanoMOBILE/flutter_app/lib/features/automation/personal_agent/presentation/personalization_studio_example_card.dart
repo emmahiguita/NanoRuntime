@@ -43,6 +43,10 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
     final isEn = ex.enabled;
     final title = ex.displayTrigger;
     final category = ex.category;
+    final storedTag = ConversationSemanticTag.fromStorageKey(ex.intent);
+    final semanticTag = storedTag == ConversationSemanticTag.conversation
+        ? ConversationSemanticClassifier.classify(ex.incomingText)
+        : storedTag;
     final responses = ex.responseOptions;
     final total = responses.length;
     final visibleCount = _expanded ? total : (total > 3 ? 3 : total);
@@ -80,9 +84,18 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '$category · $total ${total == 1 ? 'respuesta posible' : 'respuestas posibles'}',
-                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF00E676), fontWeight: FontWeight.w500),
+                    Row(
+                      children: [
+                        ConversationSemanticBadge(tag: semanticTag, compact: true),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            '$category · $total ${total == 1 ? 'respuesta' : 'respuestas'}',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 9.5, color: Color(0xFF00E676), fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

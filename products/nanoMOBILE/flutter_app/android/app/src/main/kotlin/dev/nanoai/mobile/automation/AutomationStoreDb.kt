@@ -178,6 +178,18 @@ class AutomationStoreDb(context: Context) {
     fun listConversationMessages(scopeId: String, limit: Int): List<Map<String, Any>> =
         conversations.listMessages(scopeId, limit)
 
+    /** Limpia memoria local normalizada + snapshot; nunca toca datos de WhatsApp. */
+    @Synchronized
+    fun clearConversationData(scopeId: String, memoryJson: String): Boolean =
+        ConversationCleanupSql.clear(
+            helper.writableDatabase,
+            scopeId,
+            memoryJson,
+            TABLE,
+            COL_KEY,
+            COL_DATA,
+        )
+
     // ── PERSONA-PROFILE-05 — perfiles del agente personal ──────────────
     // El SQL SIEMPRE se compone aquí en Kotlin: Dart manda datos tipados
     // (key/name/facts) y jamás texto SQL. Límites iguales a las secciones.
@@ -875,6 +887,8 @@ class AutomationStoreDb(context: Context) {
             // WA-DRAFT-INBOX-01 — borradores pendientes durables
             "pending_replies",
             "automation.pending_replies",
+            // Estado reversible de conversaciones archivadas en el hub de Nano.
+            "conversation_hub_state",
         )
 
         /** Kinds de bitácora aceptados (espejo Dart, whitelist explícita). */

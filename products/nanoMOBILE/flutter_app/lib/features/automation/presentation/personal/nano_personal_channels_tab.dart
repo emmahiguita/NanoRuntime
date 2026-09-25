@@ -7,6 +7,7 @@ import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/widgets/feather_core_icon.dart';
 import '../../application/automation_coordinator_provider.dart'
     show ruleRegistryProvider;
+import '../../domain/automation_policy.dart' show AgentAutomationMode;
 import '../../engine/messaging/messaging_package.dart';
 import '../../personal_agent/domain/conversation_autonomy_mode.dart';
 import '../automation_visual_theme.dart';
@@ -48,20 +49,43 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               SegmentedButton<ConversationAutonomyMode>(
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  ),
+                ),
                 segments: const [
                   ButtonSegment(
                     value: ConversationAutonomyMode.suggestions,
-                    label: Text('Borrador', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      'Borrador',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
                     icon: Icon(Icons.edit_note_rounded, size: 16),
                   ),
                   ButtonSegment(
                     value: ConversationAutonomyMode.safeAuto,
-                    label: Text('Seguro', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      'Seguro',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
                     icon: Icon(Icons.shield_outlined, size: 16),
                   ),
                   ButtonSegment(
                     value: ConversationAutonomyMode.autonomous,
-                    label: Text('Autónomo', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      'Autónomo',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
                     icon: Icon(Icons.bolt_rounded, size: 16),
                   ),
                 ],
@@ -71,7 +95,13 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
                       : autonomyMode
                 },
                 onSelectionChanged: (set) {
-                  settingsNotifier.setWaAutonomyMode(set.first.name);
+                  final mode = set.first;
+                  settingsNotifier.setWaAutonomyMode(mode.name);
+                  settingsNotifier.setAgentAutomationMode(
+                    mode == ConversationAutonomyMode.autonomous
+                        ? AgentAutomationMode.autonomous
+                        : AgentAutomationMode.assisted,
+                  );
                 },
               ),
               const SizedBox(height: 8),
@@ -79,7 +109,7 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
                 autonomyMode.description,
                 style: TextStyle(
                   color: visual.accent,
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w500,
                 ),
               ),

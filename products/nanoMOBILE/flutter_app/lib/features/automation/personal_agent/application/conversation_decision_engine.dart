@@ -92,6 +92,41 @@ final class ConversationDecisionEngine {
       confidence -= 0.1;
     }
 
+    // Evidencia verificada (SQLite PersonalMemory / Readability) vs hecho personal sin confirmar.
+    if (understanding.intent == 'personal_appointment_unverified' ||
+        understanding.intent == 'personal_project_unverified') {
+      reasons.add('hecho personal no verificado en SQLite (${understanding.intent}): requiere confirmación del dueño');
+      return ConversationDecision(
+        disposition: ConversationDisposition.holdForApproval,
+        risk: ConversationRisk.medium,
+        confidence: 0.55,
+        reasons: reasons,
+        action: DialogueDecisionAction.requestOwnerFact,
+      );
+    }
+
+    if (understanding.intent == 'coreference_clarification' ||
+        understanding.intent == 'coreference_disambiguation') {
+      reasons.add('desambiguación referencial honesta (${understanding.intent})');
+      return ConversationDecision(
+        disposition: context.autonomyMode == ConversationAutonomyMode.suggestions
+            ? ConversationDisposition.holdForApproval
+            : ConversationDisposition.autoSend,
+        risk: ConversationRisk.low,
+        confidence: 0.82,
+        reasons: reasons,
+        action: DialogueDecisionAction.askClarification,
+      );
+    }
+
+    if ((understanding.intent == 'personal_memory_verified' ||
+            understanding.intent == 'coreference_resolved' ||
+            understanding.intent == 'external_knowledge_styled') &&
+        understanding.missingFacts.isEmpty) {
+      reasons.add('evidencia verificada por herramienta (${understanding.intent})');
+      confidence = (confidence + 0.05).clamp(0.0, 0.95);
+    }
+
     // Hechos faltantes: pregunta legítima vs afirmación riesgosa.
     if (understanding.missingFacts.isNotEmpty) {
       if (ConversationDecisionGuards.isAsking(understanding.reply)) {
@@ -122,8 +157,18 @@ final class ConversationDecisionEngine {
       confidence -= 0.05;
     }
 
-    // Datos en vivo del dueño (ubicación física actual).
-    if (requiresOwnerLiveFact(messageText: context.userText, detectedIntent: understanding.intent)) {
+    // Datos en vivo del dueño (ubicación física actual / actividad).
+    final admitsUnknownFact = replyFold.contains('no se') ||
+        replyFold.contains('no lo se') ||
+        replyFold.contains('no estoy seguro') ||
+        replyFold.contains('no estoy segura') ||
+        replyFold.contains('todavia no') ||
+        replyFold.contains('aun no');
+    if (!admitsUnknownFact &&
+        requiresOwnerLiveFact(
+          messageText: context.userText,
+          detectedIntent: understanding.intent,
+        )) {
       reasons.add('LIVE OWNER FACT: falta fuente factual del dueño');
       return ConversationDecision(
         disposition: ConversationDisposition.holdForApproval,
