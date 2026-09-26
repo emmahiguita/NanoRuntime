@@ -80,7 +80,13 @@ class ModelItemCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 4),
+                        // Badge tipo de modelo (CHAT, RAZÓN, EDGE, NANO, etc.)
                         IosTag(label: item.typeTag, color: colors.primary),
+                        // Badge recomendado para Nano Personal (dorado)
+                        if (item.isRecommendedForNano) ...[
+                          const SizedBox(width: 3),
+                          const IosTag(label: '⭐ NANO', color: Color(0xFFF59E0B)),
+                        ],
                         if (isActive) ...[
                           const SizedBox(width: 3),
                           const IosTag(label: 'ACTIVO', color: Color(0xFF10B981)),

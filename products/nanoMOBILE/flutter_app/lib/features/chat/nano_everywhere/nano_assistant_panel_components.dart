@@ -18,16 +18,20 @@ class NanoAssistantModeBar extends StatelessWidget {
     scrollDirection: Axis.horizontal,
     child: Row(
       children: [
-        for (final mode in NanoMode.values)
+        // Solo expone acciones reales del panel; comparación y debate ya no son rutas de producto.
+        for (final mode in const [
+          NanoMode.quick,
+          NanoMode.action,
+          NanoMode.media,
+        ])
           Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
               label: Text(switch (mode) {
-                NanoMode.quick => 'Web AI',
-                NanoMode.action => 'Automatizar',
-                NanoMode.compare => 'Comparar',
-                NanoMode.media => 'Media',
-                NanoMode.debate => 'Debate',
+                NanoMode.quick => 'Conversar',
+                NanoMode.action => 'Acciones',
+                NanoMode.media => 'Multimedia',
+                _ => 'Conversar',
               }),
               selected: mode == currentMode,
               onSelected: enabled ? (_) => onSelect(mode) : null,
@@ -38,7 +42,7 @@ class NanoAssistantModeBar extends StatelessWidget {
   );
 }
 
-/// Las respuestas comparten el scroll del panel: sin listas anidadas diminutas.
+/// Presenta el texto sin exponer proveedor, ronda ni debate interno.
 class NanoAssistantAnswersView extends StatelessWidget {
   const NanoAssistantAnswersView({super.key, required this.answers});
   final List<NanoAnswer> answers;
@@ -46,26 +50,20 @@ class NanoAssistantAnswersView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: answers
-        .map(
-          (answer) => Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(answer.provider.name, style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 6),
-                  SelectableText(
-                    answer.error ?? answer.text,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
+    children: [
+      for (final answer in answers)
+        Card(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: SelectableText(
+              answer.ok
+                  ? answer.text
+                  : 'No pude generar una respuesta. Revisa la conexión e inténtalo de nuevo.',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
-        )
-        .toList(),
+        ),
+    ],
   );
 }

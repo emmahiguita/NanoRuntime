@@ -15,6 +15,7 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
     required ConversationDecisionContext context,
     required String conversationId,
     required bool isBusiness,
+    ConversationDialogueState? dialogueState,
   }) async {
     if (isBusiness) return null;
 
@@ -23,6 +24,7 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
       analysis: analysis,
       memory: memory,
       conversationId: conversationId,
+      dialogueState: dialogueState,
     );
     if (resolved == null) return null;
 
@@ -33,6 +35,7 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
       context,
       conversationId,
       resolved.isFast,
+      userText: analysis.targetText,
     );
   }
 
@@ -63,8 +66,6 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
           final understanding = ConversationUnderstanding(
             reply: fallback.text,
             intent: 'business_fallback',
-            // Conserva la falta factual detectada: el fallback no puede
-            // convertir una respuesta incompleta en una respuesta segura.
             requiresAction: fallback.needsHuman,
             missingFacts: fallback.missingFacts,
             options: fallback.suggestions,
@@ -76,6 +77,7 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
             context,
             conversationId,
             true,
+            userText: analysis.targetText,
           );
         }
       }
@@ -96,27 +98,46 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
         context,
         conversationId,
         personalFallback.isFast,
+        userText: analysis.targetText,
       );
     }
 
     return null;
   }
 
-  /// Aplica sanitización y política de autonomía en un único punto.
+  /// Aplica sanitización, validación semántica de salida y política de autonomía en un único punto.
   ConversationDraftResult _packReply(
     String reply,
     ConversationUnderstanding understanding,
     List<String> suggestions,
     ConversationDecisionContext context,
     String conversationId,
-    bool isFast,
-  ) => packConversationDraftResult(
-    reply: reply,
-    understanding: understanding,
-    suggestions: suggestions,
-    context: context,
-    conversationId: conversationId,
-    isFastPath: isFast,
-    decisionEngine: _decisionEngine,
-  );
+    bool isFast, {
+    String userText = '',
+  }) {
+    final act = const DialogueActClassifier().classify(userText).primaryAct;
+    final validation = _outputGate.validate(
+      userText: userText,
+      act: act,
+      candidateReply: reply,
+    );
+    final safeReply = validation.isApproved ? reply : (validation.safeFallbackReply ?? reply);
+    _dialogueStateTracker.recordUserTurn(conversationId, act, userText: userText);
+    _dialogueStateTracker.recordAgentTurn(
+      conversationId: conversationId,
+      act: isFast ? DialogueAct.acknowledgement : DialogueAct.statement,
+      statement: safeReply,
+      isQuestion: safeReply.contains('?'),
+    );
+
+    return packConversationDraftResult(
+      reply: safeReply,
+      understanding: understanding,
+      suggestions: suggestions,
+      context: context,
+      conversationId: conversationId,
+      isFastPath: isFast,
+      decisionEngine: _decisionEngine,
+    );
+  }
 }

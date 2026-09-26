@@ -90,8 +90,23 @@ class NotificationAutomationService : NotificationListenerService() {
             android.util.Log.e("NanoNotifications", "Inbox persistence failed; delivery deferred", error)
             return
         }
+        // QUÉ HACE: Despacha el evento al engine Flutter en el hilo principal de Android.
+        // CÓMO FUNCIONA: Usa Handler(Looper.getMainLooper()) para cumplir la invariante de @UiThread de EventChannel.
+        // POR QUÉ: Evita caídas silenciosas o IllegalStateException cuando NLS recibe en binder thread.
         if (sink != null) {
-            sink.success(toMap(sbn))
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    val currentSink = NotificationAutomationBridge.notificationEventsSink
+                    if (currentSink != null) {
+                        currentSink.success(toMap(sbn))
+                    } else {
+                        AutomationRuntimeService.request(this@NotificationAutomationService)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("NanoNotifications", "Event delivery via sink failed; requesting background runtime", e)
+                    AutomationRuntimeService.request(this@NotificationAutomationService)
+                }
+            }
         } else {
             AutomationRuntimeService.request(this)
         }
@@ -221,107 +236,19 @@ class NotificationAutomationService : NotificationListenerService() {
         return ReplyResult(dispatch.ok, dispatch.code)
     }
 
-    private fun extractAndSaveImage(extras: android.os.Bundle?, messages: List<MessagingStyle.Message>?, postTime: Long): String? {
-        if (extras == null) return null
-        return try {
-            // MessagingStyle.dataUri es el adjunto real. EXTRA_LARGE_ICON no
-            // se usa: normalmente es el avatar del contacto y no una foto.
-            val imgMsg = messages?.lastOrNull {
-                it.dataMimeType?.startsWith("image/") == true && it.dataUri != null
-            }
-            if (imgMsg?.dataUri != null) {
-                val dir = File(cacheDir, "nano_notif_media")
-                if (!dir.exists()) dir.mkdirs()
-                val extension = when (imgMsg.dataMimeType?.lowercase(Locale.ROOT)) {
-                    "image/png" -> "png"
-                    "image/webp" -> "webp"
-                    else -> "jpg"
-                }
-                val file = File(dir, "img_${postTime}.$extension")
-                contentResolver.openInputStream(imgMsg.dataUri!!)?.use { input ->
-                    FileOutputStream(file).use { out -> input.copyTo(out) }
-                } ?: return null
-                file.absolutePath
-            } else {
-                val bitmap = extras.get(Notification.EXTRA_PICTURE) as? Bitmap
-                    ?: (extras.getParcelable("android.picture") as? Bitmap)
-                if (bitmap == null) return null
-                val dir = File(cacheDir, "nano_notif_media")
-                if (!dir.exists()) dir.mkdirs()
-                val file = File(dir, "img_${postTime}.jpg")
-                FileOutputStream(file).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                }
-                file.absolutePath
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
+    // Extracción y guardado de media delegados a NotificationMediaCache con purga acotada (MEM-001)
+    private fun extractAndSaveImage(extras: android.os.Bundle?, messages: List<MessagingStyle.Message>?, postTime: Long): String? =
+        NotificationMediaCache.saveImage(cacheDir, contentResolver, extras, messages, postTime)
 
-    private fun extractAndSaveVideo(messages: List<MessagingStyle.Message>?, postTime: Long): String? {
-        if (messages == null || messages.isEmpty()) return null
-        return try {
-            val vidMsg = messages.lastOrNull { 
-                it.dataMimeType?.startsWith("video/") == true && it.dataUri != null 
-            }
-            if (vidMsg?.dataUri != null) {
-                val dir = File(cacheDir, "nano_notif_media")
-                if (!dir.exists()) dir.mkdirs()
-                val file = File(dir, "vid_${postTime}.mp4")
-                contentResolver.openInputStream(vidMsg.dataUri!!)?.use { input ->
-                    FileOutputStream(file).use { out ->
-                        input.copyTo(out)
-                    }
-                }
-                file.absolutePath
-            } else null
-        } catch (e: Exception) {
-            null
-        }
-    }
+    private fun extractAndSaveVideo(messages: List<MessagingStyle.Message>?, postTime: Long): String? =
+        NotificationMediaCache.saveVideo(cacheDir, contentResolver, messages, postTime)
 
-    private fun extractAndSaveAudio(messages: List<MessagingStyle.Message>?, postTime: Long): String? {
-        if (messages == null || messages.isEmpty()) return null
-        return try {
-            val audioMsg = messages.lastOrNull { 
-                it.dataMimeType?.startsWith("audio/") == true && it.dataUri != null 
-            }
-            if (audioMsg?.dataUri != null) {
-                val dir = File(cacheDir, "nano_notif_media")
-                if (!dir.exists()) dir.mkdirs()
-                val file = File(dir, "voice_${postTime}.opus")
-                contentResolver.openInputStream(audioMsg.dataUri!!)?.use { input ->
-                    FileOutputStream(file).use { out ->
-                        input.copyTo(out)
-                    }
-                }
-                file.absolutePath
-            } else null
-        } catch (e: Exception) {
-            null
-        }
-    }
+    private fun extractAndSaveAudio(messages: List<MessagingStyle.Message>?, postTime: Long): String? =
+        NotificationMediaCache.saveAudio(cacheDir, contentResolver, messages, postTime)
 
-    private fun extractAndSavePdf(messages: List<MessagingStyle.Message>?, postTime: Long): String? {
-        if (messages == null || messages.isEmpty()) return null
-        return try {
-            val pdfMsg = messages.lastOrNull {
-                it.dataMimeType.equals("application/pdf", ignoreCase = true) &&
-                    it.dataUri != null
-            }
-            if (pdfMsg?.dataUri == null) return null
-            val dir = File(cacheDir, "nano_notif_media")
-            if (!dir.exists()) dir.mkdirs()
-            val file = File(dir, "document_${postTime}.pdf")
-            contentResolver.openInputStream(pdfMsg.dataUri!!)?.use { input ->
-                FileOutputStream(file).use { out -> input.copyTo(out) }
-            } ?: return null
-            file.absolutePath
-        } catch (e: Exception) {
-            null
-        }
-    }
+    private fun extractAndSavePdf(messages: List<MessagingStyle.Message>?, postTime: Long): String? =
+        NotificationMediaCache.savePdf(cacheDir, contentResolver, messages, postTime)
+
 
     private fun toMap(source: StatusBarNotification): Map<String, Any?> {
         val notification = source.notification
@@ -558,9 +485,9 @@ class NotificationAutomationService : NotificationListenerService() {
                     "text" to mText.take(MAX_FIELD_CHARS),
                     "messageTimestamp" to message.timestamp,
                     "isTruncated" to (mText.length > MAX_FIELD_CHARS),
-                    "sender" to message.sender?.toString().orEmpty().take(200),
-                    "senderKey" to person?.key.orEmpty().take(200),
-                    "senderUri" to person?.uri.orEmpty().take(500),
+                    "sender" to (message.sender?.toString()?.takeIf { it.isNotBlank() } ?: finalSender).take(200),
+                    "senderKey" to (person?.key?.takeIf { it.isNotBlank() } ?: senderKey).take(200),
+                    "senderUri" to (person?.uri?.takeIf { it.isNotBlank() } ?: senderUri).take(500),
                     "isSelf" to isSelfSender(message.sender, person, userPerson),
                     "imagePath" to (savedImagePath ?: ""),
                     "videoPath" to (savedVideoPath ?: ""),

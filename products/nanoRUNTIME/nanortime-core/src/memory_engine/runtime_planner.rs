@@ -1019,11 +1019,15 @@ impl RuntimePlanner {
             (ThermalCondition::Hot, _) => 2,
             (_, BatteryMode::Survival) => 1,
             (_, BatteryMode::Eco) => 2,
+            // QUÉ HACE: Selecciona el número óptimo de hilos de CPU según térmicas, batería y tier.
+            // CÓMO FUNCIONA: En desktop usa todos los núcleos; en dispositivos móviles (incluyendo Flagship)
+            //   limita la inferencia a núcleos de rendimiento (big cores, 2 a 4) para evitar que los
+            //   núcleos lentos ralenticen las barreras SIMD de llama.cpp y disparen el calentamiento.
+            // POR QUÉ: Previene thermal throttling (>45°C) y asegura la máxima velocidad por token sin lag.
             _ => match device.tier {
-                // Desktop/Flagship: todos los cores (homogÃ©neos o suficientes).
-                DeviceTier::Desktop | DeviceTier::Flagship => device.cpu_cores.max(1) as usize,
-                // Mobile: solo big cores (evitar thrashing LITTLE).
-                _ => big.max(1) as usize,
+                DeviceTier::Desktop => device.cpu_cores.max(1) as usize,
+                DeviceTier::Flagship => big.clamp(2, 4) as usize,
+                _ => big.clamp(1, 4) as usize,
             },
         };
 

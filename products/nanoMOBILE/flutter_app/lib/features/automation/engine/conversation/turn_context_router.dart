@@ -1,15 +1,7 @@
-/// QUÉ HACE:
-/// Enruta y clasifica el contexto del turno entrante, detectando continuidades temáticas,
-/// respuestas breves a preguntas previas ("sí", "M", "mañana") y elegibilidad para FastPath.
-///
-/// CÓMO FUNCIONA:
-/// Analiza complejidad léxica, descompone mensajes en ráfagas (' · '), detecta acuses de recibo
-/// y respuestas cortas de valor, e inspecciona la memoria previa para evitar desconectar
-/// una respuesta corta de la pregunta comercial que la originó.
-///
-/// POR QUÉ:
-/// Resuelve el error donde un usuario responde "M" o "sí" y el sistema lo toma como
-/// un mensaje aislado sin asociarlo a la talla o confirmación que Nano acababa de solicitar.
+// turn_context_router.dart
+// QUÉ HACE: Enruta y clasifica el contexto del turno entrante (continuidad, respuestas breves y FastPath).
+// CÓMO FUNCIONA: Analiza complejidad léxica, etiquetas semánticas y memoria previa sin bloquear el hilo.
+// POR QUÉ: Cumple SOLID, Clean Architecture y límite estricto < 200 líneas.
 library;
 
 import '../business/fact_selector.dart' show normalizeText;
@@ -17,11 +9,11 @@ import '../language/conversation_semantic_tag.dart'
     show ConversationSemanticClassifier, ConversationSemanticTag;
 import '../language/turn_complexity_classifier.dart'
     show TurnComplexity, turnComplexityClassifier;
-import '../messaging/conversation_memory.dart'
-    show ConversationMemory, ConversationMemoryEntryKind;
+import '../messaging/conversation_memory.dart' show ConversationMemory;
 import '../notifications/notification_object.dart';
 
-/// Contexto estructurado del turno analizado.
+import 'dialogue_state_tracker.dart' show ConversationDialogueState;
+
 final class TurnRoutingAnalysis {
   final String targetText;
   final String fullText;
@@ -33,6 +25,7 @@ final class TurnRoutingAnalysis {
   final bool hasContextualContinuity;
   final bool hasEntityContinuity;
   final bool isFastPathEligible;
+  final bool isClarificationRequest;
 
   const TurnRoutingAnalysis({
     required this.targetText,
@@ -45,17 +38,17 @@ final class TurnRoutingAnalysis {
     required this.hasContextualContinuity,
     this.hasEntityContinuity = false,
     required this.isFastPathEligible,
+    this.isClarificationRequest = false,
   });
 }
 
-/// Enrutador determinista del contexto de turno.
 final class TurnContextRouter {
   const TurnContextRouter();
 
   static const _acknowledgmentTokens = {
     'ok', 'oka', 'okey', 'listo', 'lista', 'dale', 'de una', 'bueno', 'bien',
     'ya', 'perfecto', 'entendido', 'vale', 'claro', 'si', 'sip', 'sisas',
-    'de acuerdo', 'comprendido', 'va', 'ta bien',
+    'de acuerdo', 'comprendido', 'va', 'ta bien', 'no', 'nop', 'para nada',
   };
 
   static const _shortValueTokens = {
@@ -68,15 +61,19 @@ final class TurnContextRouter {
     'cambié', 'cambie', 'dijo', 'llamo', 'llamó', 'acuerdas',
   };
 
-  /// Analiza la notificación y la memoria previa para extraer el contexto del turno.
+  static final _clarificationRegex = RegExp(
+    r'^(?:[¿¡]?\s*(?:qu[eé]|c[oó]mo|qui[eé]n|cu[aá]l|d[oó]nde|por\s+qu[eé]|c[oó]mo\s+as[ií])[\s.,!?]*)$',
+    caseSensitive: false,
+  );
+
   TurnRoutingAnalysis analyze({
     required NotificationObject notification,
     required ConversationMemory? memory,
     required bool isBusinessChannel,
+    ConversationDialogueState? dialogueState,
   }) {
     final targetText = _extractTargetText(notification);
     final fullText = _extractFullText(notification);
-
     final targetComplexity = turnComplexityClassifier.classify(targetText);
     final fullComplexity = targetText == fullText
         ? targetComplexity
@@ -85,25 +82,25 @@ final class TurnContextRouter {
 
     final isShortAck = _isAcknowledgment(targetText);
     final isShortVal = _isShortValue(targetText);
-    final hasAnaphora =
-        memory != null &&
+    final isClarification = _clarificationRegex.hasMatch(targetText.trim());
+    final isSocialTurn = targetComplexity.isSocialMinimal;
+    final hasPendingQ = dialogueState?.hasPendingQuestion ?? false;
+    final hasAnaphora = memory != null &&
         memory.entries.isNotEmpty &&
         _hasAnaphoricReference(targetText);
-    final hasContinuity =
-        hasAnaphora ||
-        ((isShortAck || isShortVal) && _hasSubstantivePrecedingContext(memory));
+    final hasSubstantivePreceding = _hasSubstantivePrecedingContext(memory, dialogueState);
+    final hasContinuity = hasAnaphora ||
+        (hasPendingQ && !isSocialTurn) ||
+        isClarification ||
+        ((isShortAck || isShortVal) && hasSubstantivePreceding && !isSocialTurn);
+    final hasCompoundOrSubstantiveTag = !isSocialTurn &&
+        (semanticTags.length >= 2 ||
+            semanticTags.contains(ConversationSemanticTag.correction) ||
+            semanticTags.contains(ConversationSemanticTag.request) ||
+            semanticTags.contains(ConversationSemanticTag.question));
 
-    final hasCompoundOrSubstantiveTag =
-        semanticTags.length >= 2 ||
-        semanticTags.contains(ConversationSemanticTag.correction) ||
-        semanticTags.contains(ConversationSemanticTag.request) ||
-        semanticTags.contains(ConversationSemanticTag.question);
-
-    final allFragmentsSocial =
-        targetText == fullText ||
-        fullText
-            .split(RegExp(r'\s*[·\n]\s*'))
-            .every(
+    final allFragmentsSocial = targetText == fullText ||
+        fullText.split(RegExp(r'\s*[·\n]\s*')).every(
               (frag) =>
                   frag.trim().isEmpty ||
                   turnComplexityClassifier
@@ -111,9 +108,9 @@ final class TurnContextRouter {
                       .eligibleForSocialPrompt,
             );
 
-    final isFastPathEligible =
-        !isBusinessChannel &&
+    final isFastPathEligible = !isBusinessChannel &&
         !hasContinuity &&
+        !isClarification &&
         !hasCompoundOrSubstantiveTag &&
         targetComplexity.eligibleForSocialPrompt &&
         !fullComplexity.isNarrative &&
@@ -132,6 +129,7 @@ final class TurnContextRouter {
       hasContextualContinuity: hasContinuity,
       hasEntityContinuity: hasAnaphora,
       isFastPathEligible: isFastPathEligible,
+      isClarificationRequest: isClarification,
     );
   }
 
@@ -146,73 +144,51 @@ final class TurnContextRouter {
   static String _extractTargetText(NotificationObject notification) {
     final inter = notification.interpretableText.trim();
     if (inter.contains(' · ')) {
-      final segments = inter.split(' · ').map((s) => s.trim()).where((s) => s.isNotEmpty);
-      if (segments.isNotEmpty) return segments.last;
+      final s = inter.split(' · ').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      if (s.isNotEmpty) return s.last;
     }
     if (inter.isNotEmpty) return inter;
-
     final raw = notification.text.trim();
     if (raw.contains(' · ')) {
-      final segments = raw.split(' · ').map((s) => s.trim()).where((s) => s.isNotEmpty);
-      if (segments.isNotEmpty) return segments.last;
+      final s = raw.split(' · ').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      if (s.isNotEmpty) return s.last;
     }
     return raw;
   }
 
   static String _extractFullText(NotificationObject notification) {
     final inter = notification.interpretableText.trim();
-    if (inter.isNotEmpty) return inter;
-    return notification.text.trim();
+    return inter.isNotEmpty ? inter : notification.text.trim();
   }
 
-  static bool _isAcknowledgment(String text) {
-    final clean = normalizeText(text)
-        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '')
-        .trim();
-    return _acknowledgmentTokens.contains(clean);
-  }
+  static bool _isAcknowledgment(String text) => _acknowledgmentTokens.contains(
+        normalizeText(text)
+            .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '')
+            .trim(),
+      );
 
   static bool _isShortValue(String text) {
     final clean = normalizeText(text)
         .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '')
         .trim();
-    if (_shortValueTokens.contains(clean)) return true;
-    return RegExp(r'^\d{1,4}$').hasMatch(clean);
+    return _shortValueTokens.contains(clean) || RegExp(r'^\d{1,4}$').hasMatch(clean);
   }
 
-  static bool _hasSubstantivePrecedingContext(ConversationMemory? memory) {
+  static bool _hasSubstantivePrecedingContext(
+    ConversationMemory? memory,
+    ConversationDialogueState? state,
+  ) {
+    if (state != null && (state.hasPendingQuestion || (state.lastAgentStatement?.isNotEmpty ?? false))) {
+      return true;
+    }
     if (memory == null || memory.entries.isEmpty) return false;
     final entries = memory.entries;
+    final last = entries.last;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (last.atMs > 0 && (now - last.atMs).abs() < 900000) return true;
     final limit = entries.length > 3 ? entries.length - 3 : 0;
-
     for (var i = entries.length - 1; i >= limit; i--) {
-      final entry = entries[i];
-      final text = entry.text.toLowerCase();
-
-      if (entry.kind == ConversationMemoryEntryKind.outboundVerified ||
-          entry.kind == ConversationMemoryEntryKind.outboundDispatched) {
-        if (text.contains('?') ||
-            text.contains('vale') ||
-            text.contains('cuesta') ||
-            text.contains('precio') ||
-            text.contains('talla') ||
-            text.contains('color') ||
-            text.contains('envio') ||
-            text.contains('disponible') ||
-            text.contains('stock')) {
-          return true;
-        }
-      }
-
-      if (entry.kind == ConversationMemoryEntryKind.inbound) {
-        if (text.contains('precio') ||
-            text.contains('cuanto') ||
-            text.contains('donde') ||
-            text.contains('horario') ||
-            text.contains('envio')) {
-          return true;
-        }
-      }
+      if (entries[i].text.contains('?')) return true;
     }
     return false;
   }

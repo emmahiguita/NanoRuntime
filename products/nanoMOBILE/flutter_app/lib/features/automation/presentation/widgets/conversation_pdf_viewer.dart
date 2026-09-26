@@ -129,10 +129,13 @@ class _PdfViewerHeader extends StatelessWidget {
               style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
-          IconButton(
-            tooltip: 'Cerrar',
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close_rounded, color: Colors.white70),
+          Semantics(
+            label: 'Cerrar',
+            button: true,
+            child: IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close_rounded, color: Colors.white70),
+            ),
           ),
         ],
       ),

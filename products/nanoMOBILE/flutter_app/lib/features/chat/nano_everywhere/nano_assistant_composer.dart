@@ -1,25 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'nano_ai_models.dart';
-import 'nano_owl_alive.dart';
-import 'nano_owl_orbital_ring.dart';
 import 'nano_voice_wave.dart';
 import '../../../../core/widgets/effects/nano_voice_beam.dart';
 
-/// Cabecera compacta Material 3 Expressive del asistente flotante.
-/// QUÉ HACE: Muestra el avatar orbital del Búho AI, título y botón de cierre.
-/// CÓMO FUNCIONA: Adapta su altura e íconos según `compact` (modo horizontal)
-///   y usa `Semantics` en vez de `Tooltip` para no requerir un `Overlay` externo.
-/// POR QUÉ: Previene el error "No Overlay widget found" y evita solapamientos en landscape.
+/// Identifica al asistente con una cabecera Material 3 compacta, sin overlays decorativos.
 class NanoAssistantHeader extends StatelessWidget {
   const NanoAssistantHeader({
     super.key,
-    required this.activity,
     required this.isMedia,
     required this.onClose,
     this.compact = false,
   });
-  final NanoActivity activity;
   final bool isMedia;
   final VoidCallback onClose;
   final bool compact;
@@ -27,10 +18,14 @@ class NanoAssistantHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      NanoOwlOrbitalRing(
-        size: compact ? 34 : 46,
-        activity: activity,
-        child: NanoOwlAlive(size: compact ? 28 : 38, activity: activity),
+      CircleAvatar(
+        radius: compact ? 17 : 22,
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        child: Icon(
+          Icons.auto_awesome_rounded,
+          size: compact ? 18 : 22,
+          color: Theme.of(context).colorScheme.onPrimaryContainer,
+        ),
       ),
       SizedBox(width: compact ? 8 : 10),
       Expanded(
@@ -39,23 +34,25 @@ class NanoAssistantHeader extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Búho AI',
+              'Nano',
               style: compact
                   ? Theme.of(context).textTheme.labelLarge
                   : Theme.of(context).textTheme.titleMedium,
             ),
             Text(
-              isMedia ? 'Archivos multimedia' : 'Asistente Nano M3',
+              isMedia ? 'Archivos multimedia' : 'Asistente personal',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
       ),
       Semantics(
-        label: 'Cerrar Búho AI',
+        label: 'Cerrar asistente Nano',
         button: true,
         child: IconButton(
-          visualDensity: compact ? VisualDensity.compact : VisualDensity.standard,
+          visualDensity: compact
+              ? VisualDensity.compact
+              : VisualDensity.standard,
           onPressed: onClose,
           icon: Icon(Icons.close_rounded, size: compact ? 18 : 22),
         ),
@@ -64,7 +61,7 @@ class NanoAssistantHeader extends StatelessWidget {
   );
 }
 
-/// Campo de entrada multimodal (texto corto, párrafos largos y voz) con Material 3 Expressive.
+/// Captura mensajes cortos, párrafos largos y voz en una entrada adaptable.
 /// QUÉ HACE: Captura desde un saludo corto ("Hola") hasta párrafos extensos o dictado por voz.
 /// CÓMO FUNCIONA: Ajusta su densidad vertical en modo horizontal (`compact`) y elimina `Tooltip`
 ///   en el botón de micrófono, reemplazándolo por `Semantics` seguro.
@@ -125,7 +122,9 @@ class NanoAssistantComposer extends StatelessWidget {
                           : VisualDensity.standard,
                       onPressed: onVoice,
                       icon: Icon(
-                        isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                        isListening
+                            ? Icons.mic_rounded
+                            : Icons.mic_none_rounded,
                         size: compact ? 18 : 22,
                         color: isListening ? const Color(0xFF22D3EE) : null,
                       ),

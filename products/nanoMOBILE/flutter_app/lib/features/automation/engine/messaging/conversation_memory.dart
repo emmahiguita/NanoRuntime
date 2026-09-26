@@ -20,7 +20,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../storage/automation_db_store_client.dart';
@@ -29,6 +29,7 @@ import 'conversation_agent.dart';
 import 'conversation_assignment_store.dart';
 import 'conversation_memory_models.dart';
 import 'conversation_memory_store.dart';
+import 'conversation_persistence_queue.dart';
 import 'incoming_message.dart';
 
 export 'conversation_memory_models.dart';

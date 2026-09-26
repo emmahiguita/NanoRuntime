@@ -522,52 +522,62 @@ impl ModelManager {
         // el fd fue abierto por el worker vía ACTION_OPEN_DOCUMENT_TREE con
         // permisos del usuario, y el engine lo hereda como magic symlink.
         // `canonicalize` del fd resuelve fuera del directorio de modelos (o
-        // falla si el archivo fue unlinked), así que el check de traversal no
-        // aplica aquí. Para filesystem paths normales, mantener la protección:
-        // canonicalizar y verificar que el target no escape del directorio de
-        // modelos configurado vía `..` o symlinks.
+        // QUÉ HACE: Valida la existencia, accesibilidad e integridad mágica GGUF del archivo de modelo.
+        // CÓMO FUNCIONA: Si es descriptor SAF (`/proc/self/fd/N`), valida que el fd siga abierto.
+        //   Para rutas del sistema de archivos, canonicaliza para resolver symlinks o `..`, bloquea
+        //   acceso a directorios de sistema protegidos (/sys, /dev, /system/bin), y valida los primeros
+        //   4 bytes mágicos GGUF (`0x47, 0x47, 0x55, 0x46`).
+        // POR QUÉ: Permite cargar modelos libremente desde cualquier carpeta (SD card, Descargas, USB OTG)
+        //   sin el falso bloqueo de "Path traversal blocked" y sin riesgo de crashes por archivos no-GGUF.
         let is_saf_fd = path.starts_with("/proc/self/fd/");
         if is_saf_fd {
-            // metadata() sigue el magic symlink y stats el archivo abierto,
-            // funciona incluso si el archivo original fue unlinked.
             if std::fs::metadata(path).is_err() {
                 return Err(NanoError::ModelNotFound {
                     path: path.to_string(),
                 });
             }
         } else {
-            if !Path::new(path).exists() {
+            let p = Path::new(path);
+            if !p.exists() {
                 return Err(NanoError::ModelNotFound {
                     path: path.to_string(),
                 });
             }
 
-            let models_dir_raw = Path::new(&self.config.local_model.path)
-                .parent()
-                .filter(|p| !p.as_os_str().is_empty())
-                .unwrap_or(Path::new("."));
-            let models_dir =
-                models_dir_raw
-                    .canonicalize()
-                    .map_err(|e| NanoError::ModelLoadFailed {
-                        path: self.config.local_model.path.clone(),
-                        reason: format!("Failed to resolve configured models directory: {}", e),
-                    })?;
-            let canonical =
-                Path::new(path)
-                    .canonicalize()
-                    .map_err(|e| NanoError::ModelLoadFailed {
-                        path: path.to_string(),
-                        reason: format!("Failed to resolve model path: {}", e),
-                    })?;
-            if !canonical.starts_with(&models_dir) {
+            let canonical = p.canonicalize().map_err(|e| NanoError::ModelLoadFailed {
+                path: path.to_string(),
+                reason: format!("Failed to resolve model path: {}", e),
+            })?;
+
+            if !canonical.is_file() {
                 return Err(NanoError::ModelLoadFailed {
                     path: path.to_string(),
-                    reason: format!(
-                        "Path traversal blocked: model must be within '{}'",
-                        models_dir.display()
-                    ),
+                    reason: "La ruta especificada no es un archivo regular".to_string(),
                 });
+            }
+
+            // Proteger directorios del sistema de ataques de traversal hacia ejecutables o dispositivos
+            let canonical_str = canonical.to_string_lossy();
+            let forbidden = ["/sys", "/dev", "/system/bin", "/etc"];
+            for f in &forbidden {
+                if canonical_str.starts_with(f) {
+                    return Err(NanoError::ModelLoadFailed {
+                        path: path.to_string(),
+                        reason: format!("Acceso denegado a directorio de sistema protegido: {}", f),
+                    });
+                }
+            }
+
+            // Validar cabecera GGUF mágica (0x47, 0x47, 0x55, 0x46 = "GGUF")
+            use std::io::Read;
+            if let Ok(mut f) = std::fs::File::open(&canonical) {
+                let mut magic = [0u8; 4];
+                if f.read_exact(&mut magic).is_ok() && &magic != b"GGUF" {
+                    return Err(NanoError::ModelLoadFailed {
+                        path: path.to_string(),
+                        reason: "El archivo no contiene la cabecera mágica GGUF (0x47475546). Formato incompatible.".to_string(),
+                    });
+                }
             }
         }
 

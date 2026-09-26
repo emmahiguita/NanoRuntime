@@ -108,30 +108,33 @@ final class NotificationObject {
       return [NotificationObject.fromMap(raw)];
     }
     return [
-      for (final message in messages)
-        if (message is Map) NotificationObject.fromMap({...raw, ...message}),
+      for (final m in messages)
+        if (m is Map)
+          NotificationObject.fromMap({
+            ...raw,
+            ...m,
+            if ((m['sender'] == null || '${m['sender']}'.trim().isEmpty) &&
+                raw['sender'] != null && '${raw['sender']}'.trim().isNotEmpty)
+              'sender': raw['sender'],
+          }),
     ];
   }
 
   factory NotificationObject.fromMap(Map<dynamic, dynamic> raw) {
-    final rawSender = '${raw['sender'] ?? ''}'.trim().toLowerCase();
-    final isExplicitSelfSender =
-        rawSender.isNotEmpty &&
-        (rawSender == 'tú' ||
-            rawSender == 'tu' ||
-            rawSender == 'you' ||
-            rawSender == 'yo' ||
-            rawSender == 'me');
+    final rawSender = '${raw['sender'] ?? ''}'.trim();
+    final rawTitle = '${raw['title'] ?? ''}'.trim();
+    final effectiveSender = rawSender.isNotEmpty ? rawSender : (raw['isGroup'] == true ? '' : rawTitle);
+    final lowerSender = effectiveSender.toLowerCase();
+    final isExplicitSelf = lowerSender.isNotEmpty &&
+        const {'tú', 'tu', 'you', 'yo', 'me'}.contains(lowerSender);
     return NotificationObject(
       key: '${raw['key'] ?? ''}',
       packageName: '${raw['package'] ?? ''}',
-      title: '${raw['title'] ?? ''}',
+      title: rawTitle,
       text: '${raw['text'] ?? ''}',
       messageText: '${raw['messageText'] ?? ''}',
-      messageTimestamp: raw['messageTimestamp'] is num
-          ? (raw['messageTimestamp'] as num).toInt()
-          : 0,
-      sender: '${raw['sender'] ?? ''}',
+      messageTimestamp: raw['messageTimestamp'] is num ? (raw['messageTimestamp'] as num).toInt() : 0,
+      sender: effectiveSender,
       senderKey: '${raw['senderKey'] ?? ''}',
       senderUri: '${raw['senderUri'] ?? ''}',
       conversationTitle: '${raw['conversationTitle'] ?? ''}',
@@ -142,7 +145,7 @@ final class NotificationObject {
       isGroup: raw['isGroup'] == true,
       isSummary: raw['isSummary'] == true,
       isTruncated: raw['isTruncated'] == true,
-      isSelf: raw['isSelf'] == true || isExplicitSelfSender,
+      isSelf: raw['isSelf'] == true || isExplicitSelf,
       postTime: raw['postTime'] is num ? (raw['postTime'] as num).toInt() : 0,
       canReply: raw['canReply'] == true,
       remoteInputKey: '${raw['remoteInputKey'] ?? ''}',

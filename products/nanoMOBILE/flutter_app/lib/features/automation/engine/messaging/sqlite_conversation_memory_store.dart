@@ -34,6 +34,9 @@ class MemoryConversationMemoryStore extends _MemoryCore {
 class SqliteConversationMemoryStore extends _MemoryCore {
   static const _section = 'memory';
   static const _legacyKey = 'automation.conversation_memory.v1';
+  late final _persistenceQueue = ConversationPersistenceQueue(
+    lastStoreError: () => AutomationDbStoreClient.instance.lastError,
+  );
 
   SqliteConversationMemoryStore({
     super.maxEntriesPerConversation,
@@ -45,39 +48,49 @@ class SqliteConversationMemoryStore extends _MemoryCore {
   Future<void> load() async {
     var repaired = false;
     try {
-      var raw = await AutomationDbStoreClient.instance.section(_section);
+      // La lectura estricta evita confundir un error SQLite con memoria vacía.
+      var raw = await AutomationDbStoreClient.instance.requiredSection(
+        _section,
+      );
       if (raw == null || raw.isEmpty) raw = await _migrateLegacyPrefs();
       if (raw != null && raw.isNotEmpty) {
         repaired = _hydrate((jsonDecode(raw) as Map).cast<String, dynamic>());
       }
-    } catch (e) {
-      debugPrint('[convmem] load SQLite fallo: $e');
+    } catch (e, stackTrace) {
+      debugPrint('[conversation-memory][load.hydrate] ${e.runtimeType}: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
     }
     _loaded = true;
     if (repaired) {
-      try {
-        await _write();
-      } catch (_) {}
+      await _persistenceQueue.run('memory.load.repair', _write);
     }
   }
 
   Future<String?> _migrateLegacyPrefs() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString(_legacyKey);
-      if (raw == null || raw.isEmpty) return null;
-      final ok = await AutomationDbStoreClient.instance.putSection(
-        _section,
-        raw,
+    // Solo migra si la escritura durable confirmó; así no se borra la única copia legacy.
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_legacyKey);
+    if (raw == null || raw.isEmpty) return null;
+    final ok = await AutomationDbStoreClient.instance.putSection(_section, raw);
+    if (!ok) {
+      throw StateError(
+        'SQLite rechazó la migración legacy: '
+        '${AutomationDbStoreClient.instance.lastError ?? 'causa desconocida'}',
       );
-      if (ok) await prefs.remove(_legacyKey);
-      return ok ? raw : null;
-    } catch (_) {
-      return null;
     }
+    try {
+      await prefs.remove(_legacyKey);
+    } catch (error, stackTrace) {
+      // SQLite ya conserva la copia; el aviso permite limpiar el duplicado en otra sesión.
+      debugPrint(
+        '[conversation-memory][legacy.cleanup] ${error.runtimeType}: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    return raw;
   }
 
-  Future<void> _persistenceQueue = Future<void>.value();
   bool _dirty = false;
 
   @override
@@ -93,38 +106,19 @@ class SqliteConversationMemoryStore extends _MemoryCore {
   );
 
   void _scheduleWrite() {
-    _persistenceQueue = _persistenceQueue
-        .then((_) async {
-          if (!_dirty) return;
-          int attempts = 0;
-          while (_dirty && attempts < 3) {
-            attempts++;
-            if (await _write()) {
-              _dirty = false;
-              break;
-            }
-            await Future.delayed(Duration(milliseconds: 100 * attempts));
-          }
-        })
-        .catchError((Object e) {
-          debugPrint('[conversation-memory] cola persistencia: $e');
-        });
+    // El snapshot usa la misma cola que mensajes normalizados para conservar orden causal.
+    unawaited(
+      _persistenceQueue.run('memory.snapshot', () async {
+        if (!_dirty) return true;
+        final saved = await _write();
+        if (saved) _dirty = false;
+        return saved;
+      }),
+    );
   }
 
-  void _scheduleQueueTask(Future<bool> Function() task) {
-    _persistenceQueue = _persistenceQueue
-        .then((_) async {
-          int attempts = 0;
-          while (attempts < 3) {
-            attempts++;
-            if (await task()) break;
-            await Future.delayed(Duration(milliseconds: 100 * attempts));
-          }
-        })
-        .catchError((Object e) {
-          debugPrint('[conversation-memory] cola tarea: $e');
-        });
-  }
+  void _scheduleQueueTask(String phase, Future<bool> Function() task) =>
+      unawaited(_persistenceQueue.run(phase, task));
 
   @override
   void _persistNormalizedEntry(String scopeId, ConversationMemoryEntry entry) {
@@ -142,6 +136,7 @@ class SqliteConversationMemoryStore extends _MemoryCore {
         ? entry.eventId
         : _outboundEventId(scopeId, entry.text, entry.atMs, entry.ruleId);
     _scheduleQueueTask(
+      'memory.message.append',
       () => AutomationDbStoreClient.instance.appendConversationMessage(
         scopeId: scopeId,
         eventId: eventId,
@@ -158,6 +153,7 @@ class SqliteConversationMemoryStore extends _MemoryCore {
   @override
   void _persistNormalizedState(String scopeId, ConversationMemory memory) {
     _scheduleQueueTask(
+      'memory.dialogue_state.persist',
       () => AutomationDbStoreClient.instance.putConversationDialogueState(
         scopeId: scopeId,
         stateJson: jsonEncode(memory.toJson()),
@@ -171,17 +167,14 @@ class SqliteConversationMemoryStore extends _MemoryCore {
     String scopeId,
     String snapshotJson,
   ) {
-    final operation = _persistenceQueue.then(
-      (_) => ConversationCleanupClient.instance.clear(
+    // El borrado es idempotente y espera a que terminen las escrituras pendientes.
+    return _persistenceQueue.run(
+      'memory.conversation.cleanup',
+      () => ConversationCleanupClient.instance.clear(
         scopeId: scopeId,
         memoryJson: snapshotJson,
       ),
+      rethrowAfterRetries: true,
     );
-    // La cola continúa aunque esta operación falle; el Future original se
-    // conserva para que la interfaz informe el error de forma honesta.
-    _persistenceQueue = operation.then<void>((_) {}).catchError((Object e) {
-      debugPrint('[conversation-memory] borrado persistente: $e');
-    });
-    return operation;
   }
 }

@@ -25,11 +25,35 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
         notification.packageName == MessagingPackage.whatsappBusiness ||
         context.agentId == ConversationAgentId.business ||
         context.agentRole == ConversationAgentRole.sales;
+    final dialogueState = _dialogueStateTracker.getState(conversationId);
     final analysis = _turnRouter.analyze(
       notification: notification,
       memory: memory,
       isBusinessChannel: isBusiness,
+      dialogueState: dialogueState,
     );
+
+    // 0. Deduplicación determinista: descarta ráfagas redundantes de WhatsApp.
+    // En chats grupales discrimina por remitente para evitar descartar mensajes válidos entre usuarios.
+    final incomingEvent = IncomingMessage.fromNotification(notification);
+    final groupSender = notification.isGroup
+        ? (notification.senderKey.isNotEmpty
+            ? notification.senderKey
+            : notification.sender)
+        : null;
+    if (_deduplicator.isDuplicate(
+      conversationId,
+      analysis.fullText,
+      senderKey: groupSender,
+      eventId: incomingEvent.eventId,
+    )) {
+      final eventTag = incomingEvent.eventId.substring(0, 8);
+      debugPrint(
+        '[conv:dedup] duplicate event=$eventTag '
+        'textChars=${analysis.fullText.length}',
+      );
+      return null;
+    }
 
     // 1. Canal Comercial: BusinessConversationResolver atiende de forma directa e inmediata (<5ms, 0 tokens)
     // estrictamente cuando hay intención comercial real (producto, servicio, hechos del negocio).
@@ -66,12 +90,13 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
             context,
             conversationId,
             true,
+            userText: analysis.targetText,
           );
         }
       }
     }
 
-    // 2. Canal Personal: atajos deterministas FTS4 y PragmaticFastPath
+    // 2. Canal Personal: hechos de memoria y estilo aprendido, sin frases prefabricadas.
     final early = await _personalEarlyReply(
       notification: notification,
       analysis: analysis,
@@ -79,6 +104,7 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       context: context,
       conversationId: conversationId,
       isBusiness: isBusiness,
+      dialogueState: dialogueState,
     );
     if (early != null) return early;
 
@@ -99,11 +125,12 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
         context,
         conversationId,
         false,
+        userText: analysis.targetText,
       );
     }
 
-    // 5. Fallback factual y cortés final
-    return _fallbackReply(
+    // 5. Recuperación secundaria con evidencia; si no alcanza, el turno queda sin enviar.
+    final fallback = await _fallbackReply(
       analysis: analysis,
       memory: memory,
       context: context,
@@ -111,5 +138,13 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       isBusiness: isBusiness,
       businessFacts: businessFacts,
     );
+    if (fallback == null || !fallback.hasReply) {
+      // Explica por qué terminó el turno sin filtrar el mensaje ni la identidad.
+      debugPrint(
+        '[conversation-compose] no reply agent=${isBusiness ? 'business' : 'personal'} '
+        'draft=${draft == null ? 'unavailable' : 'empty'} fallback=no_candidate',
+      );
+    }
+    return fallback;
   }
 }

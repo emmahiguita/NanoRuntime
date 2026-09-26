@@ -526,21 +526,27 @@ class _AppTile extends StatelessWidget {
             ),
           ),
           if (!installed)
-            IconButton(
-              tooltip: 'Instalar paquete ${app.packageName}',
-              onPressed: busy ? null : () => onInstall(app.packageName),
-              icon: const Icon(Icons.download_rounded, size: 20),
-              color: colors.accentSky,
+            Semantics(
+              label: 'Instalar paquete ${app.packageName}',
+              button: true,
+              child: IconButton(
+                onPressed: busy ? null : () => onInstall(app.packageName),
+                icon: const Icon(Icons.download_rounded, size: 20),
+                color: colors.accentSky,
+              ),
             ),
-          IconButton(
-            tooltip: graphicalReady
+          Semantics(
+            label: graphicalReady
                 ? 'Abrir ${app.label}'
                 : 'Instala el escritorio primero',
-            onPressed: busy || !desktopReady || !graphicalReady
-                ? null
-                : () => onLaunch(app.appId),
-            icon: const Icon(Icons.open_in_new_rounded, size: 20),
-            color: colors.textPrimary,
+            button: true,
+            child: IconButton(
+              onPressed: busy || !desktopReady || !graphicalReady
+                  ? null
+                  : () => onLaunch(app.appId),
+              icon: const Icon(Icons.open_in_new_rounded, size: 20),
+              color: colors.textPrimary,
+            ),
           ),
         ],
       ),

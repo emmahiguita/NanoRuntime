@@ -97,10 +97,13 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
               Expanded(
                 child: Text('Zoom de página', style: Theme.of(context).textTheme.titleLarge),
               ),
-              IconButton(
-                tooltip: 'Cerrar',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
+              Semantics(
+                label: 'Cerrar',
+                button: true,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
               ),
             ],
           ),
@@ -113,10 +116,13 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
           const SizedBox(height: 12),
           Row(
             children: [
-              IconButton(
-                tooltip: 'Reducir',
-                onPressed: _zoom > 0.1 ? () => _applyZoom(_zoom - 0.1) : null,
-                icon: const Icon(Icons.remove_rounded),
+              Semantics(
+                label: 'Reducir zoom',
+                button: true,
+                child: IconButton(
+                  onPressed: _zoom > 0.1 ? () => _applyZoom(_zoom - 0.1) : null,
+                  icon: const Icon(Icons.remove_rounded),
+                ),
               ),
               Expanded(
                 child: Text(
@@ -125,10 +131,13 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
-              IconButton(
-                tooltip: 'Ampliar',
-                onPressed: _zoom < 3 ? () => _applyZoom(_zoom + 0.1) : null,
-                icon: const Icon(Icons.add_rounded),
+              Semantics(
+                label: 'Ampliar zoom',
+                button: true,
+                child: IconButton(
+                  onPressed: _zoom < 3 ? () => _applyZoom(_zoom + 0.1) : null,
+                  icon: const Icon(Icons.add_rounded),
+                ),
               ),
             ],
           ),

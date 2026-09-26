@@ -123,13 +123,14 @@ extension _PersonalizationStudioActions on _PersonalizationStudioScreenState {
     await _run(() async {
       final tone = {
         ...?example?.tone,
-        'enabled': '',
+        'enabled': '${res.enabled}',
         'sourceContact': example?.tone['sourceContact'] ?? res.scope,
         'observedAt': example?.tone['observedAt'] ?? '',
-        'ownerVerified': '',
+        'ownerVerified': '${res.verified}',
         'kind': res.isTemplate ? 'template' : res.input.isEmpty ? 'style' : 'paired',
         if (res.title.isNotEmpty) 'title': res.title,
         if (res.category.isNotEmpty) 'category': res.category,
+        if (res.intent.isNotEmpty) 'intent': res.intent,
         if (res.incomingVariants.isNotEmpty) 'incomingVariants': jsonEncode(res.incomingVariants),
         if (res.variants.isNotEmpty) 'variants': jsonEncode(res.variants),
         if (res.responses.isNotEmpty) 'responses': jsonEncode(res.responses.map((r) => r.toMap()).toList()),
@@ -187,8 +188,8 @@ extension _PersonalizationStudioActions on _PersonalizationStudioScreenState {
         'source': memory?.metadata['source'] ?? 'manual',
         'ownerVerified': 'true',
         'sourceContact': memory?.metadata['sourceContact'] ?? res.scope,
-        'enabled': '',
-        'expiresAt': res.expiresAt == null ? '' : '',
+        'enabled': '${res.enabled}',
+        'expiresAt': res.expiresAt?.toIso8601String() ?? '',
       },
     )));
   }

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
-import 'package:nanoai/core/services/device_metrics.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
 import 'package:nanoai/core/tools/application/tool_policy_gate.dart';
@@ -16,7 +15,6 @@ import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
 import 'package:nanoai/features/automation/engine/business/business_conversation_resolver.dart';
 import 'package:nanoai/features/automation/engine/language/language_assist.dart';
-import 'package:nanoai/features/automation/engine/language/pragmatic_fast_path.dart';
 import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
@@ -506,19 +504,10 @@ final turnKnowledgeRouterProvider = Provider<TurnKnowledgeRouter>((ref) {
   return router;
 });
 
-/// Proveedor especializado del Agente Personal (SOLID: SRP, ISP).
-/// Resuelve de forma determinista atajos de estilo real (Emma FTS4), fast-path y hechos personales.
+/// Proveedor del Agente Personal: estilo aprendido y conocimiento factual recuperable.
 final personalConversationResolverProvider =
     Provider<PersonalConversationResolver>((ref) {
       return PersonalConversationResolver(
-        fastPath: PragmaticFastPath(
-          memoryFor: (id) =>
-              ref.read(conversationMemoryStoreProvider).memoryFor(id),
-          contextEntryFor: (id) =>
-              ref.read(conversationStateNotifierProvider)[id],
-          ownerName: () => ref.read(personaContextProvider).ownerName,
-          metricsSource: DeviceMetrics.fetch,
-        ),
         styleResolver: ref.watch(personaStyleResolverProvider),
         knowledgeRouter: ref.watch(turnKnowledgeRouterProvider),
         styleFormatter: const RuntimePersonalStyleFormatter(),

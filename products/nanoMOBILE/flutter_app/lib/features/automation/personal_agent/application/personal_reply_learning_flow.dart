@@ -13,8 +13,6 @@ extension PersonalReplyLearningFlow on PersonalReplyLearningService {
     required String source,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
-    final memCount = (_passiveSignalCountByKey[patternFingerprint] ?? 0) + 1;
-    _passiveSignalCountByKey[patternFingerprint] = memCount;
     try {
       final observations = await _repository.listPersonalMemories(
         scopeKey: PersonalReplyLearningService._observationScope,
@@ -23,15 +21,31 @@ extension PersonalReplyLearningFlow on PersonalReplyLearningService {
       for (final obs in observations.where((o) => o.expired && o.id >= 0)) {
         await _repository.deletePersonalMemory(obs.id);
       }
-      final existing = observations
-          .where((o) => !o.expired && o.key == patternFingerprint)
-          .firstOrNull;
-      final prevCount =
-          int.tryParse(existing?.metadata['count'] ?? '') ?? (memCount - 1);
+      final pendingForPrompt = observations
+          .where(
+            (item) =>
+                !item.expired &&
+                item.metadata['patternFingerprint'] == patternFingerprint,
+          )
+          .toList();
+      final existing = pendingForPrompt
+          .where(
+            (item) =>
+                item.metadata['responseFingerprint'] == responseFingerprint,
+          )
+          .firstOrNull ??
+          pendingForPrompt.firstOrNull;
+      final sameResponse =
+          existing?.metadata['responseFingerprint'] == responseFingerprint;
+      final prevCount = sameResponse
+          ? int.tryParse(existing?.metadata['count'] ?? '') ?? 0
+          : 0;
       final nextCount = prevCount + 1;
-      final firstSeen =
-          int.tryParse(existing?.metadata['firstSeenAt'] ?? '') ?? now;
-      if (existing != null && existing.id >= 0) {
+      final firstSeen = sameResponse
+          ? int.tryParse(existing?.metadata['firstSeenAt'] ?? '') ?? now
+          : now;
+      // Conserva evidencia pendiente hasta confirmar el ejemplo permanente.
+      if (existing != null && existing.id >= 0 && nextCount < 2) {
         await _repository.deletePersonalMemory(existing.id);
       }
       if (nextCount < 2) {
@@ -56,10 +70,36 @@ extension PersonalReplyLearningFlow on PersonalReplyLearningService {
           ),
         );
       }
-      _passiveSignalCountByKey[patternFingerprint] = nextCount;
       return nextCount;
-    } catch (_) {
-      return memCount;
+    } catch (error, stackTrace) {
+      // SQLite es la fuente del conteo; una falla no se transforma en aprendizaje volátil.
+      debugPrint(
+        '[personal-learning][observation] persistence failed cause=${error.runtimeType}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      return 0;
+    }
+  }
+
+  Future<void> _clearPersistentObservation(String patternFingerprint) async {
+    try {
+      final observations = await _repository.listPersonalMemories(
+        scopeKey: PersonalReplyLearningService._observationScope,
+        limit: 120,
+      );
+      for (final observation in observations.where(
+        (item) =>
+            item.metadata['patternFingerprint'] == patternFingerprint &&
+            item.id >= 0,
+      )) {
+        await _repository.deletePersonalMemory(observation.id);
+      }
+    } catch (error, stackTrace) {
+      // La observación vence por TTL; informar el fallo sin borrar evidencia.
+      debugPrint(
+        '[personal-learning][observation.cleanup] cause=${error.runtimeType}',
+      );
+      debugPrintStack(stackTrace: stackTrace);
     }
   }
 

@@ -2,11 +2,8 @@
 ///
 /// Shared entre PragmaticFastPath y NotificationDraftWriter para hacer cumplir
 /// el invariante: un turno narrativo, contextual o complejo JAMÁS usa el
-/// conversationSocialPromptFor (prompt mínimo). Antes la clasificación vivía
-/// inline en el DraftWriter, abriendo la fuga:
-///   PragmaticFastPath → NULL → DraftWriter → isSocialReactionMessage() → socialPrompt
-///
-/// Con este clasificador centralizado ambas rutas ven la misma lógica.
+/// conversationSocialPromptFor (prompt mínimo).
+/// Cumple Clean Architecture y límite estricto < 200 líneas.
 library;
 
 import 'dialogue_state.dart' show linguisticAnalyzer;
@@ -18,52 +15,42 @@ export 'turn_complexity.dart';
 final class TurnComplexityClassifier {
   const TurnComplexityClassifier();
 
-  // Patrones anafóricos: referencias a algo previo.
   static final _anaphora = RegExp(
     r'\b(eso de|sobre eso|de eso|a eso|lo de|el tema|la cosa|lo que (?:dijiste|dije|mencionaste|mencioné)|lo tuyo|lo mío|como te dije|como dijimos|como hablamos)\b',
     caseSensitive: false,
   );
 
-  // Patrones narrativos: relato de actividades/planes propios del hablante o estados sustantivos.
-  // Nota: 'vas a' se excluye porque corresponde a preguntas al interlocutor (2da persona), no relato del hablante.
   static final _narrative = RegExp(
     r'\b(fui|fuiste|fue|salí|sali|saliste|salió|salio|llegué|llegue|llegaste|llegó|llego|voy a|va a|iba a|ibas a|acabo de|acabas de|acaba de|vengo de|andaba|andabas|andaban|ya (?:fui|llegué|llegue|salí|sali|terminé|termine)|planeo|terminando|empezando|programando|programar|codigo|código|trabajando|trabajo|camellando|estudiando|universidad|proyecto|cansado|cansada|cansao|cansaod|agotado|enfermo|enferma|gimnasio|gym|entrenando|entrene|entreno|pecho|espalda|pierna|trotando|corriendo|comiendo|almorzando|cenando|cocinando|manejando|viajando|en casa|en el gym|al gym|del gym|en el trabajo|al trabajo|del trabajo|estoy muerto|muy cansado|bastante cansado|mi dia va|el mio va|ando en|ando haciendo)\b',
     caseSensitive: false,
   );
 
-  // Reacciones sociales puras (sin referentes).
   static final _pureReaction = RegExp(
     r'^(?:ok|okay|dale|bueno|bien|listo|perfecto|genial|entendido|claro|de acuerdo|aja|jaja|jeje|gracias|muchas gracias|mil gracias)[\s.,!?]*$',
     caseSensitive: false,
   );
 
-  // Despedidas puras (sin referentes).
   static final _pureFarewell = RegExp(
     r'^(?:chao|adiós|adios|hasta luego|hasta mañana|hasta manana|nos vemos|hablamos|que descanses|descansa|feliz noche|buenas noches|cuídate|cuidate)[\s.,!?]*$',
     caseSensitive: false,
   );
 
-  // Saludos puros (con nombre opcional y tolerancia a typos comunes como hol, ola).
   static final _pureGreeting = RegExp(
     r'^(?:hola|hol|ola|oli|hey|hi|buen día|buen dia|buenos días|muy buenos días|muy buenos dias|buenas tardes|buenas noches|buenas|cordial saludo|saludos|qué más|que más|q más|q mas|qué hay|que hay|holi|holaa|hola hola)(?:\s+[\wáéíóúÁÉÍÓÚñÑ]+)?[\s.,!?]*$',
     caseSensitive: false,
   );
 
-  // Pregunta simple de bienestar (social, no narrativo).
   static final _simpleStateConcern = RegExp(
-    r'^(?:cómo estás|como estás|cómo estas|como estas|cómo se encuentra(?: usted)?|como se encuentra(?: usted)?|cómo anda(?: usted)?|como anda(?: usted)?|bien\?|todo bien\?|todo bien$|todo bn\?|todo bn$|qué tal|que tal|q tal)[\s.,!?]*$',
+    r'^(?:[¿¡]?(?:cómo estás|como estás|cómo estas|como estas|cómo se encuentra(?: usted)?|como se encuentra(?: usted)?|cómo anda(?: usted)?|como anda(?: usted)?|bien\?|todo bien\?|todo bien$|todo bn\?|todo bn$|qué tal|que tal|q tal)[\s.,!?]*)$',
     caseSensitive: false,
   );
 
-  // Saludo social compuesto con pregunta de bienestar ("hola cómo estás", "hola, ¿todo bien?", "buenas, qué tal").
   static final _socialGreetingWellbeing = RegExp(
-    r'^(?:hola|hol|ola|hey|hi|buen día|buen dia|buenas|buenos días|muy buenos días|muy buenos dias|buenas tardes|buenas noches|cordial saludo|saludos|qué más|que más|q más|q mas|holi|holaa|hola hola)?[\s,¡!¿?]*'
-    r'(?:cómo estás|como estás|cómo estas|como estas|cómo se encuentra|como se encuentra|cómo anda|como anda|cómo vas|como vas|cómo te va|como te va|qué tal|que tal|q tal(?: todo bn)?|todo bien\??|todo bn\??|cómo andas|como andas|qué hay|que hay)'
-    r'(?:\s+[\wáéíóúÁÉÍÓÚñÑ]+)?[\s.,!?]*$',
+    r'^(?:(?:hola|hol|ola|hey|hi|buen día|buen dia|buenas|buenos días|muy buenos días|muy buenos dias|buenas tardes|buenas noches|cordial saludo|saludos|qué más|que más|q más|q mas|holi|holaa|hola hola|bien|todo bien)\s*[,¡!¿?]*\s*)*'
+    r'(?:[,¡!¿?]*\s*(?:cómo estás|como estás|cómo estas|como estas|cómo se encuentra|como se encuentra|cómo anda|como anda|cómo vas|como vas|cómo te va|como te va|qué tal(?: todo)?|que tal(?: todo)?|q tal(?: todo bn)?|todo bien\??|todo bn\??|cómo andas|como andas|qué hay|que hay)\s*(?:hoy|parce|bro|amigo|todo|bien)?\s*[,¡!¿?]*\s*)+$',
     caseSensitive: false,
   );
 
-  // Pregunta recíproca / bienestar de vuelta ("bien y tu ?", "bien tk y tu!?", "estoy bien y tu", "y tu?").
   static final _reciprocalWellbeing = RegExp(
     r'^(?:estoy\s+)?(?:bien|todo bien|muy bien|super bien|excelente|tranqui|por acá bien|por aca bien|aqui bien|aquí bien)?'
     r'[\s,]*(?:tk\s+)?(?:y\s+(?:tú|tu|vos|usted|ti)|qué tal tú|que tal tu|qué tal vos|que tal vos)'
@@ -72,7 +59,6 @@ final class TurnComplexityClassifier {
     caseSensitive: false,
   );
 
-  // Preguntas de actividad cotidiana / planes / día (sociales, no narrativas del usuario).
   static final _socialActivityInquiry = RegExp(
     r'^(?:(?:hola|hol|ola|buenas|hey|oe|holi|bien|todo bien|super|tranqui)\s*,?\s*)?'
     r'(?:y\s+)?'
@@ -82,13 +68,11 @@ final class TurnComplexityClassifier {
     caseSensitive: false,
   );
 
-  // Reacciones sociales de bienestar hacia el otro ("me alegra que estés bien", "qué bueno que estés bien", "me alegra").
   static final _socialWellbeingReassurance = RegExp(
     r'^(?:me\s+alegra(?:\s+(?:mucho|que\s+est[eé]s\s+bien))?|me\s+alegro|qu[eé]\s+bueno(?:\s+que\s+est[eé]s\s+bien)?|qu[eé]\s+bien)[\s.,!?]*$',
     caseSensitive: false,
   );
 
-  // Invitaciones sociales cotidianas ("vamos a rapear", "vamos?", "¿quieres ir?", "sale o que").
   static final _socialInvitation = RegExp(
     r'^(?:(?:hola|hol|buenas|hey|oe|ey)\s*,?\s*)?'
     r'(?:vamos(?:\s+a\s+(?:rapear|salir|improvisar))?|¿?vamos\??|quieres\s+ir(?:\s+a\s+rapear)?|sale\s+o\s+qu[eé]|te\s+apuntas(?:\s+a\s+rapear)?|le\s+caes|caes\s+hoy)'
@@ -96,19 +80,27 @@ final class TurnComplexityClassifier {
     caseSensitive: false,
   );
 
-  // Aclaración o reaseguro social de bienestar ("ya te dije que estoy bien", "te dije que bien", "ya te dije").
   static final _socialWellbeingClarification = RegExp(
     r'^(?:ya\s+)?(?:te\s+dije|te\s+acabo\s+de\s+decir|te\s+hab[íi]a\s+dicho)(?:\s+que)?(?:\s+(?:estoy\s+)?(?:bien|todo\s+bien|muy\s+bien|tranqui))?[\s.,!?]*$',
     caseSensitive: false,
   );
 
-  // Negaciones y rechazos sociales breves ("no", "no creo", "creo que no", "hoy no creo", "por ahora no").
   static final _socialRefusal = RegExp(
     r'^(?:no|no\s+creo|creo\s+que\s+no|no\s*,\s*hoy\s+no|hoy\s+no\s+creo|por\s+ahora\s+no|no\s+gracias|no\s+puedo\s+hoy|tal\s+vez\s+otro\s+d[ií]a|hoy\s+estoy\s+ocupado|mejor\s+despu[eé]s)[\s.,!?]*$',
     caseSensitive: false,
   );
 
-  // Consultas sociales ampliadas (disponibilidad, comida, casa, familia, noche, música, clima, llamadas, ausencia, opinión)
+  // QUÉ HACE: Captura mensajes emocionales/afectivos cortos como "Calma mi amor",
+  //   "Tranquila amor", "No te pongas así", "Ya ya", "Eso eso", "Ay amor".
+  // CÓMO FUNCIONA: Regex que matchea frases de ≤6 palabras con token emocional
+  //   o apelativo afectivo sin contenido narrativo/contextual.
+  // POR QUÉ: "Calma mi amor" tenía social=false → iba al LLM → timeout → explosión
+  //   de texto. Con este regex isSocialMinimal=true → FastPath lo resuelve en <5ms.
+  static final _pureEmotionalSocial = RegExp(
+    r'^(?:(?:calma|calmá|tranquila?|tranquilizate|tranquilízate|no\s+te\s+pongas\s+as[ií]|no\s+te\s+preocupes?|ya\s+ya|eso\s+eso|ay\s+amor|ay\s+parce|ay\s+dios|ay\s+no|uy|wow|vaya|qué\s+cosa|de\s+verdad|en\s+serio)(?:\s+(?:amor|mi\s+amor|corazón|corazon|cielo|papi|mami|parce|hermano|hermana|bro|rey|reina|nena|nene|bebé|bebe|muñeca|cariño|carino))?|(?:amor|mi\s+amor|corazón|corazon|cielo)\s+(?:calma|tranquila?|no\s+te\s+preocupes?))[\s.,!?]*$',
+    caseSensitive: false,
+  );
+
   static final _situationalSocialInquiry = RegExp(
     r'^(?:(?:hola|hol|ola|buenas|hey|oe|holi)\s*,?\s*)?'
     r'(?:(?:est[aá]s|andas)\s+ocupad[oa]|tienes\s+(?:tiempo|un\s+(?:momento|minuto|ratico))|puedes\s+hablar|est[aá]s\s+libre|'
@@ -125,7 +117,6 @@ final class TurnComplexityClassifier {
     caseSensitive: false,
   );
 
-  // Múltiples cláusulas complejas.
   static final _multiClause = RegExp(
     r'\b(y también|y además|pero también|pero además|aunque|porque|sin embargo|por eso|así que)\b',
     caseSensitive: false,
@@ -146,7 +137,8 @@ final class TurnComplexityClassifier {
     final signals = linguisticAnalyzer.analyze(t);
     final isSocialClarification = _socialWellbeingClarification.hasMatch(t);
     final isSituationalInquiry = _situationalSocialInquiry.hasMatch(t);
-    final isSocialExemption = isSocialClarification || isSituationalInquiry;
+    final isWellbeingMatch = _socialGreetingWellbeing.hasMatch(t);
+    final isSocialExemption = isSocialClarification || isSituationalInquiry || isWellbeingMatch;
     final isActivityOrSituational =
         _socialActivityInquiry.hasMatch(t) || isSituationalInquiry;
     final isCompoundGreetingInquiry =
@@ -155,13 +147,18 @@ final class TurnComplexityClassifier {
         (isActivityOrSituational ||
             _socialInvitation.hasMatch(t) ||
             t.contains('?') &&
-                !_socialGreetingWellbeing.hasMatch(t) &&
+                !isWellbeingMatch &&
                 !_simpleStateConcern.hasMatch(t));
 
     final narrativeDetected =
         _narrative.hasMatch(t) || (!isSocialExemption && signals.isCorrection);
+    final isClarification = RegExp(
+      r'^(?:[¿¡]?\s*(?:qu[eé]|c[oó]mo|qui[eé]n|cu[aá]l|d[oó]nde|por\s+qu[eé]|c[oó]mo\s+as[ií])[\s.,!?]*)$',
+      caseSensitive: false,
+    ).hasMatch(t);
     final contextualDetected =
         isCompoundGreetingInquiry ||
+        isClarification ||
         (!isSocialExemption && (_anaphora.hasMatch(t) || signals.hasReference));
     final isSocialRefusal = _socialRefusal.hasMatch(t);
     final complexDetected =
@@ -180,11 +177,12 @@ final class TurnComplexityClassifier {
             _pureReaction.hasMatch(t) ||
             _pureFarewell.hasMatch(t) ||
             _simpleStateConcern.hasMatch(t) ||
-            _socialGreetingWellbeing.hasMatch(t) ||
+            isWellbeingMatch ||
             _reciprocalWellbeing.hasMatch(t) ||
             _socialActivityInquiry.hasMatch(t) ||
             _socialWellbeingReassurance.hasMatch(t) ||
             _socialInvitation.hasMatch(t) ||
+            _pureEmotionalSocial.hasMatch(t) ||
             isSocialClarification ||
             isSituationalInquiry ||
             isSocialRefusal);

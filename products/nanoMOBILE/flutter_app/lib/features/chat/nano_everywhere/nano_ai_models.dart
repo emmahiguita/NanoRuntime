@@ -38,7 +38,18 @@ class NanoMediaResource {
 }
 
 /// Estado visible del búho animado — dirige sprites y efectos.
-enum NanoActivity { idle, listening, thinking, comparing, debating, acting, success, error, sleep, fly }
+enum NanoActivity {
+  idle,
+  listening,
+  thinking,
+  comparing,
+  debating,
+  acting,
+  success,
+  error,
+  sleep,
+  fly,
+}
 
 /// Categoría de proveedor para controlar qué flujo de consulta se usa.
 enum NanoProviderKind { local, approvedWeb, nativeApp }
@@ -92,6 +103,17 @@ class NanoAnswer {
   final int round;
 
   bool get ok => error == null && text.trim().isNotEmpty;
+}
+
+/// Informa al diálogo que se necesita una acción humana, como iniciar sesión.
+@immutable
+class NanoUserActionRequiredException implements Exception {
+  const NanoUserActionRequiredException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 /// Puerto para compartir prompts con apps nativas de IA (ChatGPT, Gemini app…).

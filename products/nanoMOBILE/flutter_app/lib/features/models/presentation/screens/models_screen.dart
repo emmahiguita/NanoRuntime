@@ -78,6 +78,14 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 21),
+            tooltip: 'Actualizar catálogo y escanear',
+            onPressed: () => notifier.refreshCatalogAndStorage(),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: isLandscape
           ? ModelsLandscapeView(
@@ -92,7 +100,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
               onFilterChanged: (f) => setState(() => _filter = f),
               onSearchChanged: (_) => setState(() {}),
               onPickDownloadDir: _pickDownloadDir,
-              onShowDetails: _showDetails,
+              onShowDetails: (it) => _showDetails(context, it),
             )
           : ModelsPortraitView(
               state: state,
@@ -106,7 +114,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
               onFilterChanged: (f) => setState(() => _filter = f),
               onSearchChanged: (_) => setState(() {}),
               onPickDownloadDir: _pickDownloadDir,
-              onShowDetails: _showDetails,
+              onShowDetails: (it) => _showDetails(context, it),
             ),
     );
   }
@@ -117,7 +125,10 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     await ref.read(modelsProvider.notifier).setDownloadDir(path);
   }
 
-  void _showDetails(UnifiedModelItem item) {
+  // QUÉ HACE: Abre la hoja modal de detalle técnico de un modelo.
+  // CÓMO FUNCIONA: Usa ModelDetailSheet.show con el BuildContext activo.
+  // POR QUÉ: Permite abrir el bottom sheet fluido sobre el navigator raíz.
+  void _showDetails(BuildContext targetContext, UnifiedModelItem item) {
     final chatModel = ref.read(chatProvider).activeModel;
     final isVoice = item.catalog?.isVoiceStt ?? false;
     final isActive = isVoice
@@ -126,7 +137,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     final notifier = ref.read(modelsProvider.notifier);
 
     ModelDetailSheet.show(
-      context,
+      targetContext,
       item: item,
       isActive: isActive,
       onUse: () => item.isCatalog
@@ -142,7 +153,9 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
           : null,
       onDelete: item.isCatalog
           ? () => notifier.deleteModel(item.catalog!.id)
-          : null,
+          : (item.detected != null
+              ? () => notifier.deleteDetectedModel(item.detected!)
+              : null),
     );
   }
 }

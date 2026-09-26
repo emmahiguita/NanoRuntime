@@ -29,41 +29,15 @@ class NanoAssistantPanel extends StatefulWidget {
 }
 
 class _NanoAssistantPanelState extends State<NanoAssistantPanel> {
-  final _selectedProviderIds = <String>{};
-
-  List<NanoProvider> get _providers => widget.controller.providers
-      .where((provider) => provider.supportsProgrammaticQuery)
-      .toList();
-
   bool get _busy => const {
     NanoActivity.thinking,
-    NanoActivity.comparing,
-    NanoActivity.debating,
     NanoActivity.acting,
   }.contains(widget.controller.activity);
 
-  @override
-  void initState() {
-    super.initState();
-    _selectedProviderIds.addAll(_providers.map((provider) => provider.id));
-  }
-
-  @override
-  void didUpdateWidget(covariant NanoAssistantPanel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controller != widget.controller) {
-      _selectedProviderIds
-        ..clear()
-        ..addAll(_providers.map((provider) => provider.id));
-    }
-  }
-
   void _send() {
     if (_busy) return;
-    widget.controller.submit(
-      widget.input.text,
-      selectedIds: _selectedProviderIds,
-    );
+    // Una consulta conversacional produce una sola respuesta; la ruta queda interna.
+    widget.controller.submit(widget.input.text);
   }
 
   @override
@@ -74,118 +48,81 @@ class _NanoAssistantPanelState extends State<NanoAssistantPanel> {
     // QUÉ HACE: Detecta modo horizontal o altura reducida para compactar componentes.
     // CÓMO FUNCIONA: Activa `isCompactLandscape` cuando el ancho supera el alto o alto < 460px.
     // POR QUÉ: Garantiza que todos los controles quepan organizados y usables sin solaparse.
-    final isCompactLandscape = screen.width > screen.height || screen.height < 460;
+    final isCompactLandscape =
+        screen.width > screen.height || screen.height < 460;
     final gap = isCompactLandscape ? 6.0 : 10.0;
 
     return Material(
       type: MaterialType.transparency,
       child: NanoGlass(
         radius: isCompactLandscape ? 20 : 28,
-        child: Stack(
-          children: [
-            const _PanelFeather(),
-            // Un solo scroll evita overflow con teclado, zoom de texto o landscape.
-            SingleChildScrollView(
-              padding: isCompactLandscape
-                  ? const EdgeInsets.fromLTRB(10, 6, 10, 10)
-                  : const EdgeInsets.fromLTRB(14, 8, 14, 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  NanoAssistantHeader(
-                    activity: controller.activity,
-                    isMedia: isMedia,
-                    onClose: widget.onCollapse,
-                    compact: isCompactLandscape,
-                  ),
-                  SizedBox(height: gap),
-                  NanoAssistantComposer(
-                    input: widget.input,
-                    isMedia: isMedia,
-                    isListening: controller.activity == NanoActivity.listening,
-                    audioLevel: widget.audioLevel,
-                    onVoice: _busy ? null : widget.onVoice,
-                    onSend: _send,
-                    compact: isCompactLandscape,
-                  ),
-                  SizedBox(height: gap),
-                  NanoAssistantModeBar(
-                    currentMode: controller.mode,
-                    enabled: !_busy,
-                    onSelect: controller.selectMode,
-                  ),
-                  if (!isMedia && _providers.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    NanoProviderSelector(
-                      providers: _providers,
-                      enabled: !_busy,
-                      selectedIds: _selectedProviderIds,
-                      onChanged: (id, selected) => setState(() {
-                        if (selected) {
-                          _selectedProviderIds.add(id);
-                        } else if (_selectedProviderIds.length > 1) {
-                          _selectedProviderIds.remove(id);
-                        }
-                      }),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  NanoAssistantPrimaryAction(
-                    busy: _busy,
-                    isMedia: isMedia,
-                    onPressed: _send,
-                    onCancel: controller.cancel,
-                  ),
-                  if (controller.status.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Semantics(liveRegion: true, child: Text(controller.status,
-                      style: Theme.of(context).textTheme.bodySmall)),
-                  ],
-                  if (isMedia) NanoMediaManagerLink(controller: controller),
-                  if (controller.answers.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    NanoAssistantAnswersView(answers: controller.answers),
-                  ],
-                  if (controller.suggestions.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    NanoAssistantSuggestionChips(
-                      suggestions: controller.suggestions,
-                      enabled: !_busy,
-                      onSelected: (suggestion) {
-                        widget.input.text = suggestion;
-                        _send();
-                      },
-                    ),
-                  ],
-                ],
+        // El scroll interno evita overflow con teclado, texto grande o modo horizontal.
+        child: SingleChildScrollView(
+          padding: isCompactLandscape
+              ? const EdgeInsets.fromLTRB(10, 6, 10, 10)
+              : const EdgeInsets.fromLTRB(14, 8, 14, 14),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              NanoAssistantHeader(
+                isMedia: isMedia,
+                onClose: widget.onCollapse,
+                compact: isCompactLandscape,
               ),
-            ),
-          ],
+              SizedBox(height: gap),
+              NanoAssistantComposer(
+                input: widget.input,
+                isMedia: isMedia,
+                isListening: controller.activity == NanoActivity.listening,
+                audioLevel: widget.audioLevel,
+                onVoice: _busy ? null : widget.onVoice,
+                onSend: _send,
+                compact: isCompactLandscape,
+              ),
+              SizedBox(height: gap),
+              NanoAssistantModeBar(
+                currentMode: controller.mode,
+                enabled: !_busy,
+                onSelect: controller.selectMode,
+              ),
+              const SizedBox(height: 12),
+              NanoAssistantPrimaryAction(
+                busy: _busy,
+                isMedia: isMedia,
+                onPressed: _send,
+                onCancel: controller.cancel,
+              ),
+              if (controller.status.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    controller.status,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ],
+              if (isMedia) NanoMediaManagerLink(controller: controller),
+              if (controller.answers.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                NanoAssistantAnswersView(answers: controller.answers),
+              ],
+              if (controller.suggestions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                NanoAssistantSuggestionChips(
+                  suggestions: controller.suggestions,
+                  enabled: !_busy,
+                  onSelected: (suggestion) {
+                    widget.input.text = suggestion;
+                    _send();
+                  },
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
-
-class _PanelFeather extends StatelessWidget {
-  const _PanelFeather();
-
-  @override
-  Widget build(BuildContext context) => Positioned(
-    right: 8,
-    top: 4,
-    width: 120,
-    height: 80,
-    child: IgnorePointer(
-      child: Opacity(
-        opacity: 0.28,
-        child: Image.asset(
-          'assets/nano/nano_feather.png',
-          fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-        ),
-      ),
-    ),
-  );
 }

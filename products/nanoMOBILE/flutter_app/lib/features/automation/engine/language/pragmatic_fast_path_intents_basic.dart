@@ -36,66 +36,71 @@ extension _PragmaticBasicIntents on PragmaticFastPath {
       'hubo',
     };
     if (tokens.any(greetingWords.contains) ||
-        normalized.contains('buen dia') ||
-        normalized.contains('buenos dias') ||
-        normalized.contains('buenas tardes') ||
-        normalized.contains('buenas noches') ||
-        normalized.contains('cordial saludo') ||
-        normalized.contains('muy buenos dias') ||
-        normalized.contains('que mas') ||
-        normalized.contains('q mas') ||
-        normalized.contains('que hubo') ||
-        normalized.contains('q hubo')) {
+        const [
+          'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches',
+          'cordial saludo', 'muy buenos dias', 'que mas', 'q mas', 'que hubo', 'q hubo'
+        ].any(normalized.contains)) {
       intents.add(ConversationIntent.greeting);
     }
 
-    if (normalized.contains('como estas') ||
-        normalized.contains('como te va') ||
-        normalized.contains('como vas') ||
-        normalized.contains('que tal') ||
-        normalized.contains('como va todo') ||
-        normalized.contains('como andas') ||
-        normalized.contains('como te encuentras') ||
-        normalized.contains('como te ha ido') ||
-        normalized.contains('como se encuentra') ||
-        normalized.contains('como anda usted') ||
-        normalized.contains('q tal') ||
-        normalized.contains('todo bn') ||
-        normalized.contains('que cuentas') ||
-        normalized.contains('que me cuentas') ||
-        normalized.contains('todo bien?') ||
-        normalized.contains('todo bien ?')) {
+    if (const [
+      'como estas', 'como te va', 'como vas', 'que tal', 'como va todo',
+      'como andas', 'como te encuentras', 'como te ha ido', 'como se encuentra',
+      'como anda usted', 'q tal', 'todo bn', 'que cuentas', 'que me cuentas',
+      'todo bien?', 'todo bien ?'
+    ].any(normalized.contains)) {
       intents.add(ConversationIntent.askWellbeing);
     }
 
-    if (normalized.contains('todo bien') ||
-        normalized.contains('muy bien') ||
-        normalized.contains('super bien') ||
-        normalized.contains('excelente') ||
-        normalized.contains('tranqui') ||
-        normalized.contains('por aca bien') ||
-        normalized.contains('aqui bien') ||
+    if (const [
+      'todo bien', 'muy bien', 'super bien', 'excelente', 'tranqui',
+      'por aca bien', 'aqui bien'
+    ].any(normalized.contains) ||
         (tokens.contains('bien') &&
             !normalized.contains('como') &&
             !normalized.contains('que tal'))) {
       intents.add(ConversationIntent.userWellbeing);
     }
 
-    if (normalized.contains('ya te dije') ||
-        normalized.contains('te dije que bien') ||
-        normalized.contains('te dije que estoy bien') ||
-        normalized.contains('te acabo de decir')) {
+    final isReassurance = normalized == 'me alegra' ||
+        normalized == 'me alegro' ||
+        normalized.contains('me alegra mucho') ||
+        normalized.contains('me alegro mucho') ||
+        normalized.contains('que bueno') ||
+        normalized.contains('que bien') ||
+        normalized.startsWith('me alegra') ||
+        normalized.startsWith('me alegro') ||
+        // QUÉ HACE: Captura mensajes de calma/apoyo emocional ("Calma mi amor",
+        //   "Tranquila amor", "No te pongas así", "Ya ya", "Ay amor").
+        // POR QUÉ: Sin esto el classifier devolvía intents=[] → FastPath fallaba
+        //   → iba al LLM → timeout → texto repetido >2000 chars.
+        normalized.startsWith('calma') ||
+        normalized.startsWith('calmate') ||
+        normalized.startsWith('tranquil') ||
+        normalized.startsWith('no te pongas') ||
+        normalized.startsWith('no te preocupes') ||
+        normalized == 'ya ya' ||
+        normalized == 'eso eso' ||
+        normalized.startsWith('ay amor') ||
+        normalized.startsWith('ay parce') ||
+        (normalized.startsWith('amor') && (
+          normalized.contains('calma') ||
+          normalized.contains('tranquil') ||
+          normalized.contains('preocupes')
+        ));
+    if (isReassurance) {
+      intents.add(ConversationIntent.socialReassurance);
+    }
+
+    if (const [
+      'ya te dije', 'te dije que bien', 'te dije que estoy bien', 'te acabo de decir'
+    ].any(normalized.contains)) {
       intents.add(ConversationIntent.wellbeingClarification);
     }
 
-    if (normalized.contains('y tu') ||
-        normalized.contains('y vos') ||
-        normalized.contains('y usted') ||
-        normalized.contains('que tal tu') ||
-        normalized.contains('y ti') ||
-        normalized.contains('y tu que') ||
-        normalized.contains('y vos que') ||
-        normalized.contains('que tal vos')) {
+    if (const [
+      'y tu', 'y vos', 'y usted', 'que tal tu', 'y ti', 'y tu que', 'y vos que', 'que tal vos'
+    ].any(normalized.contains)) {
       intents.add(ConversationIntent.reciprocalQuestion);
     }
 
@@ -147,18 +152,19 @@ extension _PragmaticBasicIntents on PragmaticFastPath {
       intents.add(ConversationIntent.laughter);
     }
 
+    const correctionPhrases = {
+      'eso no lo pregunte yo', 'yo no pregunte eso', 'eso no lo pregunte',
+      'no pregunte eso', 'no me refiero', 'no me referia', 'no era eso',
+      'eso no fue lo que pregunte', 'te equivocaste', 'al reves',
+      'eso que tiene que ver', 'de que hablas', 'a que viene eso',
+    };
+    if (correctionPhrases.any(normalized.contains)) {
+      intents.add(ConversationIntent.userCorrection);
+    }
+
     const siPhrases = {
-      'si',
-      'si claro',
-      'si de una',
-      'si hagamosle',
-      'si vamos',
-      'si creo que si',
-      'si esta bien',
-      'si porfa',
-      'si gracias',
-      'si quiero ir',
-      'si puede ser',
+      'si', 'si claro', 'si de una', 'si hagamosle', 'si vamos', 'si creo que si',
+      'si esta bien', 'si porfa', 'si gracias', 'si quiero ir', 'si puede ser',
     };
     if (siPhrases.contains(normalized) ||
         tokens.contains('dale') ||
@@ -192,6 +198,7 @@ extension _PragmaticBasicIntents on PragmaticFastPath {
         normalized.contains('mejor despues');
 
     if (isNegation &&
+        !intents.contains(ConversationIntent.userCorrection) &&
         !normalized.contains('no te preocupes') &&
         !normalized.contains('no hay problema') &&
         !normalized.contains('no pasa nada')) {

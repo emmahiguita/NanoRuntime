@@ -20,6 +20,8 @@ Future<String> generateWithColdRetry(
   required double temperature,
   required int maxTokens,
   String? sessionId,
+  String? context,
+  List<Map<String, String>>? history,
   Duration threshold = const Duration(seconds: 3),
 }) async {
   final stopwatch = Stopwatch()..start();
@@ -28,6 +30,8 @@ Future<String> generateWithColdRetry(
     temperature: temperature,
     maxTokens: maxTokens,
     sessionId: sessionId,
+    context: context,
+    history: history,
   );
   final firstText = first.text.trim();
   if (firstText.isNotEmpty || stopwatch.elapsed >= threshold) {
@@ -39,6 +43,8 @@ Future<String> generateWithColdRetry(
     temperature: temperature,
     maxTokens: maxTokens,
     sessionId: sessionId,
+    context: context,
+    history: history,
   );
   return second.text.trim();
 }

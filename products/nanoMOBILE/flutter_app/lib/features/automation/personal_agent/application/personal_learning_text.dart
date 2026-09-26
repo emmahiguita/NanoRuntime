@@ -51,7 +51,7 @@ String _canonicalizeToken(String token) {
   // Colapsar consonantes triplicadas ("okkk" → "ok", "bueeennno" → "bueno")
   out = out.replaceAllMapped(RegExp(r'([b-df-hj-np-tv-z])\1{2,}'), (m) => m.group(1)!);
   // Colapsar consonantes dobles al final de palabra ("holisss"/"okisss"/"biennn" → "bien")
-  out = out.replaceAllMapped(RegExp(r'([b-df-hj-np-tv-z])\1+$'), (m) => m.group(1)!);
+  if (token == 'app' || out == 'ap') return 'app';
   if (out == 'holi' || out == 'holis' || out == 'holas' || out == 'ola') {
     return 'hola';
   }

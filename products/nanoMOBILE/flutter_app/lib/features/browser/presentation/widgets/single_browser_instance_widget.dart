@@ -126,12 +126,14 @@ class _SingleBrowserInstanceWidgetState
         widget.tab.url != _handler.reportedUrl) {
       ctrl?.loadUrl(urlRequest: URLRequest(url: WebUri(widget.tab.url)));
     }
-    if (widget.tab.zoomLevel != old.tab.zoomLevel)
+    if (widget.tab.zoomLevel != old.tab.zoomLevel) {
       ctrl?.evaluateJavascript(
         source: BrowserScripts.setZoomLevelScript(widget.tab.zoomLevel),
       );
-    if (widget.isDarkModeWeb != old.isDarkModeWeb)
+    }
+    if (widget.isDarkModeWeb != old.isDarkModeWeb) {
       ctrl?.evaluateJavascript(source: BrowserScripts.toggleDarkModeWebScript);
+    }
     if (widget.isDesktopMode != old.isDesktopMode && ctrl != null) {
       _appearance.apply(
         ctrl,
@@ -194,13 +196,14 @@ class _SingleBrowserInstanceWidgetState
             username: _pendingUser ?? '',
             password: _pendingPass!,
           );
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Contraseña guardada'),
             duration: Duration(seconds: 2),
           ),
         );
+      }
     }
     setState(() {
       _showSaveBanner = false;
@@ -263,7 +266,7 @@ class _SingleBrowserInstanceWidgetState
             onLoadStart: _handler.onLoadStart,
             onLoadStop: _handler.onLoadStop,
             onProgressChanged: (ctrl, p) {
-              if (mounted)
+              if (mounted) {
                 ref
                     .read(browserTabProvider.notifier)
                     .updateTabById(
@@ -271,12 +274,14 @@ class _SingleBrowserInstanceWidgetState
                       progress: p / 100.0,
                       isLoading: p < 100,
                     );
+              }
             },
             onTitleChanged: (ctrl, t) {
-              if (t?.isNotEmpty == true && mounted)
+              if (t?.isNotEmpty == true && mounted) {
                 ref
                     .read(browserTabProvider.notifier)
                     .updateTabById(widget.tab.id, title: t);
+              }
             },
             shouldOverrideUrlLoading: _handler.shouldOverrideUrlLoading,
             onReceivedServerTrustAuthRequest:

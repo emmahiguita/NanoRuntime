@@ -265,16 +265,19 @@ class _S extends State<TerminalTabScreen> with WidgetsBindingObserver {
                         child: Row(
                           children: [
                             // Retroceso: /terminal/shell es ruta empujada
-                            IconButton(
-                              tooltip: 'Atrás',
-                              visualDensity: VisualDensity.compact,
-                              constraints: const BoxConstraints(
-                                minWidth: 34,
-                                minHeight: 34,
+                            Semantics(
+                              label: 'Atrás',
+                              button: true,
+                              child: IconButton(
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints(
+                                  minWidth: 34,
+                                  minHeight: 34,
+                                ),
+                                padding: const EdgeInsets.all(4),
+                                onPressed: () => Navigator.of(context).maybePop(),
+                                icon: Icon(Icons.arrow_back_rounded, size: 18, color: fg),
                               ),
-                              padding: const EdgeInsets.all(4),
-                              onPressed: () => Navigator.of(context).maybePop(),
-                              icon: Icon(Icons.arrow_back_rounded, size: 18, color: fg),
                             ),
                             const SizedBox(width: 2),
                             const NanoOwlAvatar(

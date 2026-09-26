@@ -1,10 +1,15 @@
+// chat_send_use_case.dart — Caso de uso principal de envío y enrutamiento del chat.
+// QUÉ HACE: Orquesta turnos de usuario evaluando herramientas locales, comandos o inferencia LLM.
+// CÓMO FUNCIONA: Enruta turnos deterministas; si no hay modelo delega a ChatWebAiFallback; si hay modelo invoca al motor.
+// POR QUÉ: Aplica Clean Architecture (SRP) desacoplando la inferencia de la UI (< 200 líneas).
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
-import 'package:nanoai/features/browser_ai/domain/browser_ai_query.dart';
 
 import '../../../core/models/chat_models.dart';
 import '../../../core/providers/settings_provider.dart';
@@ -16,11 +21,8 @@ import 'chat_stream_session.dart';
 import 'chat_tool_approval_use_case.dart';
 import 'chat_tool_coordinator.dart';
 import 'chat_turn_router.dart';
+import 'chat_web_ai_fallback.dart';
 
-/// Caso de uso que orquesta el envío de un turno de usuario.
-/// - ¿Qué hace?: Enruta turnos deterministas, verifica motor local o delega a Web AI en vivo.
-/// - ¿Cómo funciona?: Resuelve turnos deterministas o consulta a BrowserAiGateway y llama al motor.
-/// - ¿Por qué?: Aplica Clean Architecture (SRP) desacoplando la inferencia de la capa UI.
 class ChatSendUseCase {
   final ChatTurnRouter turnRouter;
   final ChatInferenceCoordinator inferenceCoordinator;
@@ -28,6 +30,7 @@ class ChatSendUseCase {
   final ChatStreamSession streamSession;
   final Ref ref;
   final AutomationCoordinator coordinator;
+  final ChatWebAiFallback _webAiFallback = const ChatWebAiFallback();
   late final ChatToolApprovalUseCase _approvalUseCase;
 
   ChatSendUseCase({
@@ -66,6 +69,7 @@ class ChatSendUseCase {
     );
   }
 
+  // QUÉ HACE: Ejecuta un turno completo de usuario analizando rutas deterministas y motor de inferencia.
   Future<void> execute({
     required String text, required List<ChatAttachment> attachments,
     required int generationId, required String? activeModelPath,
@@ -98,47 +102,11 @@ class ChatSendUseCase {
       }
 
       if (activeModelPath?.trim().isNotEmpty != true) {
-        // Sin modelo local: intentar via Web AI (DeepSeek en navegador)
-        final gateway = ref.read(browserAiGatewayProvider);
-        final aiResp = await gateway.query(
-          BrowserAiQuery(
-            providerId: 'deepseek',
-            prompt: text,
-            timeout: const Duration(seconds: 45),
-          ),
+        await _webAiFallback.handleFallback(
+          gateway: ref.read(browserAiGatewayProvider),
+          text: text,
+          listener: listener,
         );
-        if (aiResp.isCompleted) {
-          listener.onMessageAppended(ChatMessage(
-            id: DateTime.now().microsecondsSinceEpoch.toString(),
-            sender: MessageSender.ai,
-            text: '🧠 **DeepSeek vía Nano Browser:**\n\n${aiResp.content}',
-            timestamp: DateTime.now(),
-            status: MessageStatus.sent,
-          ));
-          return;
-        }
-        if (aiResp.needsUserAction) {
-          // La pestaña ya fue enfocada en el gateway → indicar al usuario
-          listener.onMessageAppended(ChatMessage(
-            id: DateTime.now().microsecondsSinceEpoch.toString(),
-            sender: MessageSender.ai,
-            text: '🔐 **Acción requerida:**\n\n${aiResp.error}\n\n'
-                'Después de iniciar sesión, **vuelve aquí y envía tu mensaje de nuevo**.',
-            timestamp: DateTime.now(),
-            suggestions: const ['🌐 Ver pestaña DeepSeek', '🤖 Ir a Modelos'],
-            status: MessageStatus.sent,
-          ));
-          return;
-        }
-        // Fallback genérico (timeout / error)
-        listener.onMessageAppended(ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: 'Sin modelo local ni sesión web activa. Selecciona un modelo o inicia sesión en el navegador.',
-          timestamp: DateTime.now(),
-          suggestions: const ['🤖 Ir a Modelos', '🌐 Abrir Navegador'],
-          status: MessageStatus.sent,
-        ));
         return;
       }
 
@@ -169,6 +137,7 @@ class ChatSendUseCase {
     }
   }
 
+  // QUÉ HACE: Continúa el proceso de generación recurrente hacia el motor local.
   Future<void> resumeInference({
     required String text, required List<String> trace,
     required List<ChatAttachment> attachments, required int generationId,

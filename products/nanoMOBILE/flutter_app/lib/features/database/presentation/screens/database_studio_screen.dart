@@ -99,15 +99,21 @@ class _DatabaseStudioScreenState extends ConsumerState<DatabaseStudioScreen> {
                 ],
               ),
               actions: [
-                IconButton(
-                  tooltip: 'Conectar Hoja Shell',
-                  icon: Icon(Icons.add_link_rounded, color: colors.primary, size: 22),
-                  onPressed: () => _openConnectShellDialog(overlayContext, controller, colors),
+                Semantics(
+                  label: 'Conectar Hoja Shell',
+                  button: true,
+                  child: IconButton(
+                    icon: Icon(Icons.add_link_rounded, color: colors.primary, size: 22),
+                    onPressed: () => _openConnectShellDialog(overlayContext, controller, colors),
+                  ),
                 ),
-                IconButton(
-                  tooltip: 'Exportar a Shell',
-                  icon: Icon(Icons.terminal_rounded, color: colors.accent, size: 22),
-                  onPressed: () => _exportToShell(overlayContext, controller),
+                Semantics(
+                  label: 'Exportar a Shell',
+                  button: true,
+                  child: IconButton(
+                    icon: Icon(Icons.terminal_rounded, color: colors.accent, size: 22),
+                    onPressed: () => _exportToShell(overlayContext, controller),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(right: 8),

@@ -60,6 +60,12 @@ abstract final class PersonalMemoryFactHelpers {
     }
   }
 
+  // QUÉ HACE: Extrae hasta 3 palabras-clave temáticas de los últimos turnos de conversación.
+  // CÓMO FUNCIONA: Itera la memoria en reverso, omite entradas muy cortas o iguales al texto actual,
+  //   extrae la primera palabra significativa (≤25 chars) de cada entrada como keyword.
+  // POR QUÉ: La versión anterior devolvía oraciones completas (50-100 chars c/u); su join
+  //   producía un $focus de 300+ chars → buildDynamicOptions generaba replies >2000 chars
+  //   → 'reply_notification excede 2000 caracteres' → fallo sistemático en "Calma mi amor".
   static List<String> extractConversationTopics(
     ConversationMemory? memory, {
     required String currentText,
@@ -70,14 +76,26 @@ abstract final class PersonalMemoryFactHelpers {
     for (final entry in memory.entries.reversed) {
       final norm = normalizeText(entry.text);
       if (norm.isEmpty || norm == normCurrent) continue;
-      if (tokenizeText(norm).length < 4) continue;
-      if (!results.contains(entry.text.trim())) {
-        results.add(entry.text.trim());
-      }
+      final words = tokenizeText(norm).where((w) => w.length >= 3).toList();
+      if (words.length < 2) continue;
+      // Tomar la primera palabra clave significativa (≤25 chars) como topic.
+      final keyword = words.firstWhere(
+        (w) => w.length >= 4 && !_stopWords.contains(w),
+        orElse: () => words.first,
+      );
+      final topic = keyword.length <= 25 ? keyword : keyword.substring(0, 25);
+      if (!results.contains(topic)) results.add(topic);
       if (results.length >= 3) break;
     }
     return results;
   }
+
+  // Palabras vacías que no aportan valor como tópico.
+  static const _stopWords = {
+    'que', 'con', 'para', 'por', 'los', 'las', 'del', 'una', 'uno',
+    'como', 'esta', 'este', 'esto', 'ese', 'esa', 'hay', 'ser', 'son',
+    'tiene', 'puede', 'bien', 'mal', 'mas', 'muy', 'todo', 'cada',
+  };
 
   static String? findEvidenceInConversation(
     ConversationMemory? memory,
@@ -105,7 +123,11 @@ abstract final class PersonalMemoryFactHelpers {
     required String userText,
     required List<String> topics,
     String? memorySummary,
+    List<String> topicFollowups = const [],
   }) {
+    if (topicFollowups.isNotEmpty) {
+      return topicFollowups.take(3).toList();
+    }
     if (memorySummary != null && memorySummary.isNotEmpty) {
       return [
         'Sí parce, confirmado: $memorySummary.',
@@ -121,10 +143,46 @@ abstract final class PersonalMemoryFactHelpers {
         'Ya vi lo que me comentas de $focus; déjame verificar los detalles y te confirmo.',
       ];
     }
+    final normUser = normalizeText(userText);
+    if (normUser.contains('haces') || normUser.contains('haciendo') || normUser.contains('hacer')) {
+      return const [
+        'Por acá relajado, ¿y vos qué tal todo?',
+        'Acá trabajando un rato en el cel, ¿y tú qué haces?',
+        'En las mismas parce, descansando un rato. ¿Qué me cuentas?',
+      ];
+    }
+    if (normUser.contains('alegra') || normUser.contains('que bueno') || normUser.contains('genial')) {
+      return const [
+        'Total parce, me alegra mucho también.',
+        'De una, un abrazo. Todo marchando bien por acá.',
+        'Sisas, gracias a Dios todo en orden. ¿Y tú cómo vas?',
+      ];
+    }
+    if (normUser.contains('gracias') || normUser.contains('agradezco')) {
+      return const [
+        'Con todo gusto parce, para lo que necesites.',
+        'De una, con mucho gusto. Me avisas cualquier cosa.',
+        'Un placer hermano, todo bien por acá.',
+      ];
+    }
+    if (normUser.contains('bien') || normUser.contains('bueno') || normUser.contains('listo') || normUser.contains('dale')) {
+      return const [
+        'Listo pues parce, todo claro por acá.',
+        'De una, un abrazo. Cualquier cosa me avisás.',
+        'Dale hermano, hablamos más tarde.',
+      ];
+    }
+    if (normUser.contains('no pregunte') || normUser.contains('no lo pregunte') || normUser.contains('equivocaste')) {
+      return const [
+        'Qué pena, me enredé ahí. Cuéntame, ¿qué era lo que me decías?',
+        'Qué pena contigo parce, me crucé de tema. Dime qué necesitas y lo miramos.',
+        'Ah, disculpa. Me confundí de mensaje. Decime qué era lo que necesitabas.',
+      ];
+    }
     return const [
-      '¡Hola! ¿Qué tal todo? Contame cómo vas.',
-      '¡Buenas! Todo bien por acá, ¿en qué te puedo colaborar hoy?',
-      '¡Qué más parce! Decime qué tenés en mente.',
+      'Hola, todo bien por acá. ¿Qué tal tu día?',
+      'Hola parce, por acá todo tranquilo. ¿Cómo estás?',
+      'Qué más, todo bien por este lado. ¿Qué cuentas?',
     ];
   }
 }

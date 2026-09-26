@@ -49,14 +49,16 @@ class NanoBusinessLandscapeBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // 1. Botón atrás accesible
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_rounded, size: 20),
-            tooltip: 'Volver',
+          Semantics(
+            label: 'Volver',
+            button: true,
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              onPressed: onBack ?? () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back_rounded, size: 20),
+            ),
           ),
           const SizedBox(width: 4),
           // 2. Icono representativo de negocio

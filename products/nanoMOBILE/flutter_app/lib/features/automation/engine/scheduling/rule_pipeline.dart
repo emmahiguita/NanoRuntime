@@ -18,7 +18,7 @@ library;
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 
 import '../messaging/conversation_key.dart';
 import '../messaging/conversation_memory.dart';
@@ -210,7 +210,8 @@ class RulePipeline {
                 atMs: atMs,
               );
               debugPrint(
-                '[memory] owner outbound reconciliado: "${message.text}"',
+                '[memory] owner outbound reconciliado '
+                'textChars=${message.text.length}',
               );
 
               // WA-LEARN-01: Autoaprendizaje EXCLUSIVO de respuesta manual humana.
@@ -255,10 +256,12 @@ class RulePipeline {
                         source: 'whatsapp_manual_learned',
                       );
                   debugPrint('[learning] owner outbound: ${learned.name}');
-                } catch (e) {
+                } catch (e, stackTrace) {
                   debugPrint(
-                    '[learning] Error aprendiendo en PersonaRepository: $e',
+                    '[learning] manual reply persistence failed '
+                    'cause=${e.runtimeType}',
                   );
+                  debugPrintStack(stackTrace: stackTrace);
                 }
               }
             }

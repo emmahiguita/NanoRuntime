@@ -165,6 +165,17 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
         languageHandler = language
         MethodChannel(messenger, dev.nanoai.mobile.channels.LanguageAssistChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(language)
+        MethodChannel(messenger, dev.nanoai.mobile.channels.ExecBinChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getFilesDir" -> {
+                        val base = java.io.File(filesDir, "nano")
+                        if (!base.exists()) base.mkdirs()
+                        result.success(base.absolutePath)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(messenger, HEADLESS_CHANNEL).setMethodCallHandler(this)
     }
 

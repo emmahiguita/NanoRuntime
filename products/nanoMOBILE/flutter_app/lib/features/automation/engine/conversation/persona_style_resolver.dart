@@ -39,6 +39,7 @@ abstract interface class PersonaStyleResolver {
     required String text,
     required String conversationId,
     String scopeKey = 'owner',
+    List<String>? candidateScopes,
     double minConfidence = 0.65,
   });
 }
@@ -56,6 +57,7 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
     required String text,
     required String conversationId,
     String scopeKey = 'owner',
+    List<String>? candidateScopes,
     double minConfidence = 0.65,
   }) async {
     final cleanInput = text.trim();
@@ -73,6 +75,7 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
         cleanInput,
         limit: 4,
         scopeKey: scopeKey,
+        candidateScopes: candidateScopes,
       );
       if (candidates.isEmpty) return null;
 

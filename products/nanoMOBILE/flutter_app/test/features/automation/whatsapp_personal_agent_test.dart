@@ -559,6 +559,36 @@ void main() {
         );
         expect(res, isNotNull);
         expect(res!.reply.isNotEmpty, isTrue);
+
+        final resUser = await fastPath.resolve(
+          text: '¿Qué tal todo? ¿Cómo vas hoy?',
+          conversationId: 'conv_user_phrase',
+        );
+        expect(resUser, isNotNull);
+        expect(resUser!.reply.isNotEmpty, isTrue);
+      },
+    );
+
+    test(
+      'Resuelve reaseguro social ("me alegra", "qué bueno") con reciprocidad cálida y sin preguntas ni consultas',
+      () async {
+        final resAlegra = await fastPath.resolve(
+          text: 'me alegra',
+          conversationId: 'conv_alegra',
+        );
+        expect(resAlegra, isNotNull);
+        expect(resAlegra!.reply.isNotEmpty, isTrue);
+        expect(resAlegra.act, contains('socialReassurance'));
+        expect(resAlegra.reply.contains('?'), isFalse);
+        expect(resAlegra.reply.toLowerCase().contains('colaborar'), isFalse);
+        expect(resAlegra.reply.toLowerCase().contains('porto alegre'), isFalse);
+
+        final resQueBueno = await fastPath.resolve(
+          text: 'qué bueno saberlo',
+          conversationId: 'conv_bueno',
+        );
+        expect(resQueBueno, isNotNull);
+        expect(resQueBueno!.reply.contains('?'), isFalse);
       },
     );
 

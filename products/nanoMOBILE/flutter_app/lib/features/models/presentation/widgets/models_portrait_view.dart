@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../application/models_notifier.dart';
 import '../../application/models_state.dart';
+import 'model_new_badge_banner.dart';
 import 'model_screen_helpers.dart';
 import 'model_storage_summary_card.dart';
 import 'models_list_section.dart';
@@ -67,6 +68,9 @@ class ModelsPortraitView extends StatelessWidget {
           onImportFromSd: () => notifier.pickCustomModelFile(),
         ),
         const SizedBox(height: 4),
+        // Banner de nuevos modelos: aparece cuando el catálogo tiene entradas no vistas.
+        ModelNewBadgeBanner(models: state.models),
+        const SizedBox(height: 2),
         ModelsSearchAndFilter(
           controller: searchController,
           activeFilter: activeFilter,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/widgets/error/nano_error_widget_builder.dart';
 import 'core/linux/linux_init.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
@@ -26,6 +27,7 @@ void Function(String prompt)? _onExternalPromptReceived;
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
+  ErrorWidget.builder = buildNanoErrorWidget;
 
   // WA-PROD-01: el MISMO entrypoint sirve a los dos engines. El engine
   // headless del AutomationRuntimeService no tiene Activity: en vez de
@@ -166,21 +168,23 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
       themeAnimationCurve: NanoMotionCurves.standardDecel,
       routerConfig: AppRouter.router,
       builder: (context, child) {
-        // QUÉ HACE: Envuelve la raíz visual con Overlay.wrap + Material transparente.
-        // CÓMO FUNCIONA: Crea un ancestro Overlay y un ancestro Material para todos
-        //   los widgets hermanos del Navigator (como BrowserPipOverlay y diálogos).
-        // POR QUÉ: Erradica definitivamente el error visual "No Overlay" / "No Material"
-        //   (cajas rojas con texto amarillo subrayado) al mostrar controles flotantes.
-        return Overlay.wrap(
-          child: Material(
-            type: MaterialType.transparency,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                child ?? const SizedBox.shrink(),
-                const BrowserPipOverlay(),
-              ],
-            ),
+        // QUÉ HACE: Envuelve la raíz visual con un Overlay maestro y Material transparente.
+        // CÓMO FUNCIONA: Garantiza un ancestro OverlayState activo para diálogos y floating views.
+        // POR QUÉ: Erradica definitivamente el error 'No Overlay widget found' en todo el árbol.
+        return Material(
+          type: MaterialType.transparency,
+          child: Overlay(
+            initialEntries: [
+              OverlayEntry(
+                builder: (overlayContext) => Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    child ?? const SizedBox.shrink(),
+                    const BrowserPipOverlay(),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
       },

@@ -28,13 +28,14 @@ void _appendInboundMemory(
   if (duplicateEvent) return;
   final cleanText = _boundConversationText(message.text.trim());
   final duplicateText =
-      store._byConversation[scopeId]?.any(
+      eventId.isEmpty &&
+      (store._byConversation[scopeId]?.any(
         (e) =>
             e.kind == ConversationMemoryEntryKind.inbound &&
             e.text == cleanText &&
             (atMs - e.atMs).abs() <= 1000,
       ) ??
-      false;
+      false);
   if (duplicateText) return;
 
   final entry = ConversationMemoryEntry(
@@ -42,7 +43,7 @@ void _appendInboundMemory(
     text: _boundConversationText(message.text),
     sender: _boundConversationText(message.sender),
     atMs: atMs,
-    eventId: message.eventId,
+    eventId: eventId,
   );
   store._listFor(convId).add(entry);
   store._persistNormalizedEntry(scopeId, entry);

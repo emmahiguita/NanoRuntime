@@ -35,6 +35,8 @@ class NotificationEventRouter {
   bool _hasDeferredBatches = false;
   bool _isDrainingBacklog = false;
 
+  Timer? _periodicDrainTimer;
+
   void start() {
     if (_sub != null) return;
     final generation = ++_generation;
@@ -43,6 +45,14 @@ class NotificationEventRouter {
       unawaited(_routeBatch(m, generation));
     }, onError: (Object e) => debugPrint('[notifications] error en flujo: $e'));
     unawaited(_coldStartReplay(generation));
+    // Drenado periódico de resiliencia: si un evento quedó en DurableInbox mientras
+    // la app estaba suspendida o en background, lo recupera y procesa sin demora.
+    _periodicDrainTimer?.cancel();
+    _periodicDrainTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (_sub != null && generation == _generation && _pendingBatches == 0) {
+        unawaited(_drainBacklog(generation));
+      }
+    });
   }
 
   Future<void> _routeBatch(Map<dynamic, dynamic> map, int generation) async {
@@ -102,6 +112,8 @@ class NotificationEventRouter {
         if (_sub == null || generation != _generation) break;
         await _routeBatch(m, generation);
       }
+      // Revisa también notificaciones activas porque el inbox conserva solo su identidad;
+      // el contenido real se rehidrata desde Android antes de procesar el evento.
       final active = await NanoRuntimeApi.instance.listNotifications();
       if (_sub == null || generation != _generation) return;
       for (final m in active) {
@@ -144,6 +156,8 @@ class NotificationEventRouter {
   /// inválida y terminan sin despachar ni reactivar el drenado del backlog.
   Future<void> stop() async {
     _generation++;
+    _periodicDrainTimer?.cancel();
+    _periodicDrainTimer = null;
     final subscription = _sub;
     _sub = null;
     _hasDeferredBatches = false;

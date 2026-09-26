@@ -42,11 +42,13 @@ class NanoFloatingWrapper extends StatefulWidget {
     activeController!.expand(prompt);
     return true;
   }
+
   static bool toggle() {
     if (activeController == null) return false;
     activeController!.toggle();
     return true;
   }
+
   static bool hide() {
     if (activeController == null) return false;
     activeController!.hide();
@@ -63,10 +65,10 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
   late NanoOverlayRuntime overlay;
 
   NanoAiController _makeController() => NanoAiController(
-        providers: widget.webProviders,
-        nativeApps: const NanoAndroidNativeAiPort(),
-        actions: widget.actions,
-      );
+    providers: widget.webProviders,
+    nativeApps: const NanoAndroidNativeAiPort(),
+    actions: widget.actions,
+  );
 
   @override
   void initState() {
@@ -99,10 +101,8 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
       final entry = await const NanoFloatingSystem().takePendingEntry();
       if (!mounted || entry == null) return;
       controller.selectMode(switch (entry['mode']) {
-        'compare' => NanoMode.compare,
-        'debate'  => NanoMode.debate,
-        'action'  => NanoMode.action,
-        _         => NanoMode.quick,
+        'action' => NanoMode.action,
+        _ => NanoMode.quick,
       });
       controller.queuePrompt(entry['prompt']?.toString() ?? '');
     } on MissingPluginException {
@@ -121,7 +121,9 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    if (NanoFloatingWrapper.activeController == controller) NanoFloatingWrapper.activeController = null;
+    if (NanoFloatingWrapper.activeController == controller) {
+      NanoFloatingWrapper.activeController = null;
+    }
     overlay.detach();
     controller.dispose();
     super.dispose();
@@ -130,19 +132,21 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
   @override
   Widget build(BuildContext context) {
     if (!widget.enabled) return widget.child;
-    return Stack(children: [
-      Positioned.fill(child: widget.child),
-      // El Navigator ya aporta Overlay; el asistente gestiona un solo listener.
-      Positioned.fill(
-        child: Material(
-          type: MaterialType.transparency,
-          child: NanoFloatingAssistant(
-            controller: controller,
-            audioLevel: widget.audioLevel,
-            onVoice: widget.onVoice,
+    return Stack(
+      children: [
+        Positioned.fill(child: widget.child),
+        // El Navigator ya aporta Overlay; el asistente gestiona un solo listener.
+        Positioned.fill(
+          child: Material(
+            type: MaterialType.transparency,
+            child: NanoFloatingAssistant(
+              controller: controller,
+              audioLevel: widget.audioLevel,
+              onVoice: widget.onVoice,
+            ),
           ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 }

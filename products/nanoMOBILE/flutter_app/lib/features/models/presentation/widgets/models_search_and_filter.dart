@@ -24,15 +24,18 @@ class ModelsSearchAndFilter extends StatelessWidget {
     this.isCompact = false,
   });
 
+  // QUÉ HACE: Opciones de filtrado por familia o estado del modelo.
+  // POR QUÉ: Liquid AI (LFM2.5) ya está en el catálogo — debe ser filtrable.
   static const filterOptions = [
     'Todos',
+    'Instalados',
     'Qwen',
     'DeepSeek',
     'Llama',
     'Gemma',
     'Phi',
+    'Liquid AI',
     'SD / Local',
-    'Instalados',
   ];
 
   @override

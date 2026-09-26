@@ -29,11 +29,9 @@ class NanoOverlayRuntime {
       return {'ok': false, 'text': 'La consulta está vacía.'};
     }
     final mode = switch (args['mode']) {
-      'compare' => NanoMode.compare,
-      'debate'  => NanoMode.debate,
-      'action'  => NanoMode.action,
-      'media'   => NanoMode.media,
-      _         => NanoMode.quick,
+      'action' => NanoMode.action,
+      'media' => NanoMode.media,
+      _ => NanoMode.quick,
     };
     controller.selectMode(mode);
 
@@ -54,16 +52,12 @@ class NanoOverlayRuntime {
 
     await controller.submit(effectivePrompt);
     final answers = controller.answers;
+    // El overlay recibe la misma respuesta única que la interfaz, sin revelar rutas internas.
     final text = answers.isEmpty
         ? controller.status
-        : [
-            controller.status,
-            ...answers.map((a) =>
-                '${a.provider.name} · Ronda ${a.round}\n${a.error ?? a.text}'),
-          ].join('\n\n');
-    return {
-      'ok': controller.activity == NanoActivity.success,
-      'text': text,
-    };
+        : answers.first.ok
+        ? answers.first.text
+        : controller.status;
+    return {'ok': controller.activity == NanoActivity.success, 'text': text};
   }
 }

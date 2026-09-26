@@ -20,8 +20,10 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
 import '../browser/reverse_agent_client.dart';
 import '../browser/web_knowledge_service.dart';
+import '../language/dialogue_act_classifier.dart';
 import '../language/hybrid_intent_classifier.dart';
 import '../mcp/mcp_connection_registry.dart';
+import 'knowledge_need_gate.dart';
 import 'turn_knowledge_fetcher.dart';
 
 /// Hechos externos recuperados para un turno.
@@ -39,19 +41,14 @@ final class ExternalKnowledgeResult {
   });
 
   static const empty = ExternalKnowledgeResult(
-    query: '',
-    rawKnowledge: '',
-    source: 'none',
-    hasFacts: false,
+    query: '', rawKnowledge: '', source: 'none', hasFacts: false,
   );
 }
 
 /// Contrato para enrutamiento y búsqueda de conocimiento externo.
 abstract class TurnKnowledgeRouter {
   bool needsExternalKnowledge(String text);
-
   Future<ExternalKnowledgeResult> fetchKnowledge(String text);
-
   Future<void> dispose() async {}
 }
 
@@ -72,54 +69,34 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
        );
 
   static const _externalKeywords = {
-    'que paso con',
-    'que paso hoy',
-    'viste que paso',
-    'supiste que paso',
-    'sabes algo de',
-    'noticias de',
-    'precio del dolar',
-    'cuanto esta el dolar',
-    'precio de bitcoin',
-    'como quedo el partido',
-    'quien gano',
-    'a que hora juega',
-    'clima en',
-    'va a llover',
-    'cuando sale',
-    'cuando se estrena',
-    'android 16',
-    'android 17',
-    'chatgpt',
-    'deepseek',
-    'gemini',
-    'openai',
-    'inteligencia artificial',
-    'servidor mcp',
+    'que paso con', 'que paso hoy', 'viste que paso', 'supiste que paso',
+    'sabes algo de', 'noticias de', 'precio del dolar', 'cuanto esta el dolar',
+    'precio de bitcoin', 'como quedo el partido', 'quien gano', 'a que hora juega',
+    'clima en', 'va a llover', 'cuando sale', 'cuando se estrena', 'android 16',
+    'android 17', 'chatgpt', 'deepseek', 'gemini', 'openai', 'inteligencia artificial',
   };
 
   static const _intentClassifier = HybridIntentClassifier();
 
   @override
   bool needsExternalKnowledge(String text) {
-    final normalized = text
-        .toLowerCase()
-        .replaceAll('á', 'a')
-        .replaceAll('é', 'e')
-        .replaceAll('í', 'i')
-        .replaceAll('ó', 'o')
-        .replaceAll('ú', 'u')
-        .replaceAll('¿', '')
-        .replaceAll('?', '')
-        .trim();
+    final act = const DialogueActClassifier().classify(text).primaryAct;
+    final gate = const KnowledgeNeedGate().evaluate(text: text, act: act);
+    if (!gate.needsExternalKnowledge) return false;
+
+    final normalized = text.toLowerCase()
+        .replaceAll('á', 'a').replaceAll('é', 'e').replaceAll('í', 'i')
+        .replaceAll('ó', 'o').replaceAll('ú', 'u').replaceAll('¿', '')
+        .replaceAll('?', '').trim();
     if (normalized.isEmpty) return false;
 
     final prediction = _intentClassifier.classify(text);
     // Regla crítica: jamás buscar en Internet citas personales, estado de
-    // proyectos del dueño ni correferencias conversacionales ("lo de la otra vez").
+    // proyectos del dueño, correferencias ni interacciones sociales cotidianas.
     if (prediction.primaryIntent == HybridIntentCategory.personalAppointmentOrPlan ||
         prediction.primaryIntent == HybridIntentCategory.personalProjectOrFact ||
-        prediction.primaryIntent == HybridIntentCategory.contextualCoreference) {
+        prediction.primaryIntent == HybridIntentCategory.contextualCoreference ||
+        prediction.primaryIntent == HybridIntentCategory.socialEveryday) {
       return false;
     }
 

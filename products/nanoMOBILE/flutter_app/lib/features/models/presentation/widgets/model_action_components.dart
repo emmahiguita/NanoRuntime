@@ -127,8 +127,7 @@ class IosTag extends StatelessWidget {
 }
 
 class IosSpecText extends StatelessWidget {
-  final String label;
-  final String value;
+  final String label, value;
   final Color? color;
 
   const IosSpecText({super.key, required this.label, required this.value, this.color});
@@ -170,32 +169,27 @@ class IosSectionHeader extends StatelessWidget {
     final colors = NanoThemeExtension.of(context).colors;
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 12, bottom: 6),
-      child: Row(
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: colors.onSurfaceVariant.withValues(alpha: 0.85),
-            ),
+      child: Row(children: [
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.8,
+            color: colors.onSurfaceVariant.withValues(alpha: 0.85),
           ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: colors.surfaceVariant.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.w700, color: colors.onSurfaceVariant),
-            ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+            color: colors.surfaceVariant.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(10),
           ),
-        ],
-      ),
+          child: Text(
+            '$count',
+            style: TextStyle(fontFamily: 'Inter', fontSize: 10, fontWeight: FontWeight.w700, color: colors.onSurfaceVariant),
+          ),
+        ),
+      ]),
     );
   }
 }

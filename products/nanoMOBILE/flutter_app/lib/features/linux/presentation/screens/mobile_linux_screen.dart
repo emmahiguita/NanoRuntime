@@ -70,15 +70,17 @@ class _MobileLinuxScreenState extends ConsumerState<MobileLinuxScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Row(
         children: [
-          // Retroceso: /linux es ruta empujada — botón visible para volver.
-          IconButton(
-            tooltip: 'Atrás',
-            visualDensity: VisualDensity.compact,
-            onPressed: () => Navigator.of(context).maybePop(),
-            icon: Icon(
-              Icons.arrow_back_rounded,
-              size: 20,
-              color: colors.textPrimary,
+          Semantics(
+            label: 'Atrás',
+            button: true,
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: Icon(
+                Icons.arrow_back_rounded,
+                size: 20,
+                color: colors.textPrimary,
+              ),
             ),
           ),
           const SizedBox(width: 4),

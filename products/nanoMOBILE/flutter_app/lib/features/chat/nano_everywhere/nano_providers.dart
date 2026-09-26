@@ -20,27 +20,30 @@ final nanoAudioLevelProvider = Provider<ValueNotifier<double>>(
   (ref) => ValueNotifier(0.0),
 );
 
-/// Lista de NanoProviders que apuntan a BrowserAiGateway (ChatGPT, Gemini,
-/// Claude, DeepSeek, Mistral). El asistente flotante los usa en modo Quick/Compare.
+/// Inyecta las rutas web existentes; el asistente prueba solo una por turno y oculta su origen.
 final nanoWebProvidersProvider = Provider<List<NanoProvider>>((ref) {
   final gateway = ref.watch(browserAiGatewayProvider);
 
   NanoProvider buildProvider(String id, String name) => NanoProvider(
-        id: id,
-        name: name,
-        kind: NanoProviderKind.approvedWeb,
-        ask: (prompt) async {
-          final res = await gateway.query(BrowserAiQuery(
-            providerId: id,
-            prompt: prompt,
-          ));
-          // BrowserAiResponse.isCompleted + .content (no .ok/.text)
-          if (res.isCompleted && res.content.trim().isNotEmpty) {
-            return res.content;
-          }
-          throw Exception(res.error ?? 'Sin respuesta de $name.');
-        },
+    id: id,
+    name: name,
+    kind: NanoProviderKind.approvedWeb,
+    ask: (prompt) async {
+      final res = await gateway.query(
+        BrowserAiQuery(providerId: id, prompt: prompt),
       );
+      // BrowserAiResponse.isCompleted + .content (no .ok/.text)
+      if (res.needsUserAction) {
+        throw const NanoUserActionRequiredException(
+          'La sesión necesita atención. Inicia sesión en la pestaña del navegador y vuelve a enviar tu mensaje.',
+        );
+      }
+      if (res.isCompleted && res.content.trim().isNotEmpty) {
+        return res.content;
+      }
+      throw Exception(res.error ?? 'La ruta web devolvió una respuesta vacía.');
+    },
+  );
 
   return [
     buildProvider('deepseek', 'DeepSeek'),

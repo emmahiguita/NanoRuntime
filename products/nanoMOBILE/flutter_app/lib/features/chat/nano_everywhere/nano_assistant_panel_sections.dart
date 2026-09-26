@@ -1,41 +1,6 @@
 import 'package:flutter/material.dart';
 import 'nano_ai_controller.dart';
-import 'nano_ai_models.dart';
 import 'nano_media_sheet.dart';
-
-/// Selección múltiple explícita; el panel mantiene al menos un proveedor.
-class NanoProviderSelector extends StatelessWidget {
-  const NanoProviderSelector({
-    super.key,
-    required this.providers,
-    required this.selectedIds,
-    required this.onChanged,
-    this.enabled = true,
-  });
-  final List<NanoProvider> providers;
-  final Set<String> selectedIds;
-  final void Function(String id, bool selected) onChanged;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: providers
-          .map(
-            (provider) => Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: FilterChip(
-                label: Text(provider.name),
-                selected: selectedIds.contains(provider.id),
-                onSelected: enabled ? (value) => onChanged(provider.id, value) : null,
-              ),
-            ),
-          )
-          .toList(),
-    ),
-  );
-}
 
 /// Un único botón inicia o descarta la consulta; no duplica el spinner del búho.
 class NanoAssistantPrimaryAction extends StatelessWidget {

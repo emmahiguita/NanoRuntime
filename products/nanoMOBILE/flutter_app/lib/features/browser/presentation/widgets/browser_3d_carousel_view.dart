@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
+import 'package:nanoai/features/browser/presentation/widgets/browser_3d_carousel_page.dart';
 import 'package:nanoai/features/browser/presentation/widgets/single_browser_instance_widget.dart';
 
 /// Visor 3D y Carrusel con Perspectiva Espacial de Navegadores Web Reales.
@@ -50,9 +51,8 @@ class Browser3DCarouselView extends StatefulWidget {
 }
 
 class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
-  late PageController _pageController;
+  late final PageController _pageController;
   int _currentPage = 0;
-  bool? _wasLandscape;
 
   @override
   void initState() {
@@ -61,24 +61,9 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
     _currentPage = idx >= 0 ? idx : 0;
     _pageController = PageController(
       initialPage: _currentPage,
-      viewportFraction: 0.84,
+      // El controlador único conserva el desplazamiento y evita desmontar WebViews al rotar.
+      viewportFraction: 0.82,
     );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
-    final frac = isLand ? 0.48 : 0.82;
-    if (_wasLandscape == null || _wasLandscape != isLand) {
-      final old = _pageController;
-      _pageController = PageController(
-        initialPage: _currentPage,
-        viewportFraction: frac,
-      );
-      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
-    }
-    _wasLandscape = isLand;
   }
 
   @override
@@ -106,13 +91,14 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
   @override
   Widget build(BuildContext context) {
     final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
-    if (widget.tabs.isEmpty)
+    if (widget.tabs.isEmpty) {
       return const Center(
         child: Text(
           'No hay ventanas activas',
           style: TextStyle(color: Color(0xFF94A3B8)),
         ),
       );
+    }
 
     return Column(
       children: [
@@ -131,54 +117,15 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
             itemBuilder: (context, index) {
               final tab = widget.tabs[index];
               final isMax = widget.maximizedWindowId == tab.id;
-              return AnimatedBuilder(
-                animation: _pageController,
-                builder: (ctx, child) {
-                  double val = _pageController.position.haveDimensions
-                      ? (_pageController.page ??
-                                _pageController.initialPage.toDouble()) -
-                            index
-                      : (_currentPage - index).toDouble();
-                  final scale = (1.0 - (val.abs() * 0.12)).clamp(0.86, 1.0);
-                  final translateY = (val.abs() * 16.0).clamp(0.0, 26.0);
-                  final dim = (val.abs() * 0.35).clamp(0.0, 0.45);
-                  final isCurrent = index == _currentPage;
-
-                  Widget card = Stack(
-                    children: [
-                      IgnorePointer(ignoring: !isCurrent, child: child!),
-                      if (dim > 0.02)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: dim),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  );
-                  if (!isCurrent) {
-                    card = GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _pageController.animateToPage(
-                        index,
-                        duration: const Duration(milliseconds: 320),
-                        curve: Curves.easeOutCubic,
-                      ),
-                      child: card,
-                    );
-                  }
-                  return Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()
-                      ..translateByDouble(0.0, translateY, 0.0, 1.0)
-                      ..scaleByDouble(scale, scale, 1.0, 1.0),
-                    child: card,
-                  );
-                },
+              return Browser3DCarouselPage(
+                controller: _pageController,
+                index: index,
+                currentPage: _currentPage,
+                onActivate: () => _pageController.animateToPage(
+                  index,
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOutCubic,
+                ),
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: isLand ? 4 : 6,

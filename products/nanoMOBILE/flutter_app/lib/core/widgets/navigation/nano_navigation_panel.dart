@@ -1196,7 +1196,6 @@ class _NanoFloatingNavigationFrameState extends ConsumerState<NanoFloatingNaviga
                                         IconButton(
                                           icon: const Icon(Icons.close_rounded, size: 20),
                                           color: NanoNavTokens.textMuted(brightness),
-                                          tooltip: 'Cerrar panel',
                                           onPressed: () {
                                             HapticFeedback.lightImpact();
                                             setState(() {

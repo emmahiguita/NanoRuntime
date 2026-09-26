@@ -7,24 +7,15 @@
 // CÓMO FUNCIONA:
 // - Consulta los últimos mensajes salientes en `ConversationMemory` para esa conversación
 //   y descarta del pool de candidatos las frases emitidas recientemente.
-// - Combina el ID de conversación, la intención y el conteo de turnos. La misma entrada
-//   produce el mismo resultado mientras el historial no cambie; cada turno real rota.
+// - Combina el ID de conversación, la intención y el conteo de turnos (seed determinista).
 // - Provee hasta 3 sugerencias alternativas distintas para selección rápida.
 //
 // POR QUÉ:
-// Resuelve el hallazgo AUT-P2-11 (repetición semántica y lenguaje estático entre turnos),
-// evitando que el bot parezca un contestador automático repetitivo (< 200 líneas).
+// Resuelve AUT-P2-11 (repetición semántica) manteniendo el archivo estrictamente < 200 líneas (SOLID-SRP).
 
 part of 'pragmatic_fast_path.dart';
 
 /// Selector determinista multicriterio de respuestas para el Agente Personal (Ciclo 8).
-///
-/// Evalúa candidatos combinando:
-/// 1. Intención actual y especificidad (no reducir mensajes compuestos a monosílabos).
-/// 2. Factualidad (penaliza afirmar actividades/estados presentes no verificados).
-/// 3. No-eco (prohíbe repetir el mensaje entrante).
-/// 4. No-repetición (descarta frases idénticas o semánticamente redundantes con salidas recientes).
-/// 5. Estilo y naturalidad (premia registro personal y penaliza muletillas de call-center).
 abstract final class PersonalResponseSelector {
   static List<String> extractRecentOutbound(
     ConversationMemory? memory, {
@@ -66,8 +57,7 @@ abstract final class PersonalResponseSelector {
     var score = 0.70;
 
     // 1. Factualidad: nunca afirmar actividad temporal del dueño sin evidencia viva
-    if (!allowLiveActivity &&
-        ConversationDecisionGuards.affirmsOwnerActivity(candidate)) {
+    if (!allowLiveActivity && ConversationDecisionGuards.affirmsOwnerActivity(candidate)) {
       score -= 0.85;
     }
 
@@ -80,8 +70,7 @@ abstract final class PersonalResponseSelector {
     if (normUser.isNotEmpty) {
       if (normCand == normUser) return -1.0;
       if (userTokens.length >= 2 && candTokens.isNotEmpty) {
-        final overlap =
-            candTokens.intersection(userTokens).length / candTokens.length;
+        final overlap = candTokens.intersection(userTokens).length / candTokens.length;
         if (overlap >= 0.85) score -= 0.75;
       }
     }
@@ -105,19 +94,8 @@ abstract final class PersonalResponseSelector {
     }
 
     // 5. Intención actual y especificidad: evitar monosílabos ante turnos compuestos/preguntas
-    final hasQuestion = userText.contains('?') ||
-        userText.contains('¿') ||
-        userTokens.any(const {
-          'que',
-          'como',
-          'cuando',
-          'donde',
-          'cual',
-          'quien',
-          'vas',
-          'tienes',
-          'puedes',
-        }.contains);
+    final hasQuestion = userText.contains('?') || userText.contains('¿') ||
+        userTokens.any(const {'que', 'como', 'cuando', 'donde', 'cual', 'quien', 'vas', 'tienes', 'puedes'}.contains);
     if ((hasQuestion || userTokens.length >= 3) && candTokens.length <= 2) {
       score -= 0.28;
     } else if (candTokens.length >= 4 && candTokens.length <= 20) {
@@ -141,10 +119,7 @@ abstract final class PersonalResponseSelector {
     bool allowLiveActivity = false,
   }) {
     if (pool.isEmpty) {
-      return (
-        reply: 'Todo bien por acá.',
-        suggestions: const ['Todo bien por acá.'],
-      );
+      return (reply: 'Todo bien por acá.', suggestions: const ['Todo bien por acá.']);
     }
 
     final recentOutbound = extractRecentOutbound(
@@ -163,17 +138,15 @@ abstract final class PersonalResponseSelector {
     }
 
     final scored = uniquePool
-        .map(
-          (c) => (
-            candidate: c,
-            score: scoreCandidate(
+        .map((c) => (
               candidate: c,
-              userText: userText,
-              recentOutbound: recentOutbound,
-              allowLiveActivity: allowLiveActivity,
-            ),
-          ),
-        )
+              score: scoreCandidate(
+                candidate: c,
+                userText: userText,
+                recentOutbound: recentOutbound,
+                allowLiveActivity: allowLiveActivity,
+              ),
+            ))
         .toList()
       ..sort((a, b) => b.score.compareTo(a.score));
 
@@ -184,8 +157,7 @@ abstract final class PersonalResponseSelector {
         .toList();
 
     final turnOffset = memory?.entries.length ?? 0;
-    final seed =
-        (conversationId.hashCode ^ uniquePool.first.hashCode ^ turnOffset).abs();
+    final seed = (conversationId.hashCode ^ uniquePool.first.hashCode ^ turnOffset).abs();
     final selected = topBand[seed % topBand.length];
 
     final suggestions = <String>[selected];
@@ -199,13 +171,7 @@ abstract final class PersonalResponseSelector {
   }
 
   static const List<String> _personalRegisterMarkers = [
-    'todo bien',
-    'gracias a dios',
-    'por aca',
-    'cuentame',
-    'dime',
-    'tranquilo',
-    'en orden',
+    'todo bien', 'gracias a dios', 'por aca', 'cuentame', 'dime', 'tranquilo', 'en orden',
   ];
 }
 
@@ -215,8 +181,7 @@ extension _CandidateSelector on PragmaticFastPath {
     String conversationId,
     String? lastOutboundText,
   ) {
-    final mem =
-        conversationId.isNotEmpty ? memoryFor?.call(conversationId) : null;
+    final mem = conversationId.isNotEmpty ? memoryFor?.call(conversationId) : null;
     return PersonalResponseSelector.selectFromPool(
       pool: pool,
       conversationId: conversationId,

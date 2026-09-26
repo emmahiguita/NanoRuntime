@@ -40,6 +40,31 @@ const List<String> userWellbeingActivityCandidates = [
   'Me alegra. Nada raro por acá, en casa.',
 ];
 
+/// Respuestas deterministas para reaseguros sociales o empatía del interlocutor ("me alegra", "qué bueno",
+/// "calma mi amor", "tranquila", "no te pongas así"). Evita contra-preguntas o frases de call center;
+/// cierra con calidez y reciprocidad natural (> 15 opciones mezcladas para variedad).
+const List<String> socialReassuranceCandidates = [
+  '¡Sisas parce!',
+  '¡De una!',
+  '¡Total!',
+  '¡A mí también!',
+  '¡Qué bien!',
+  '¡Así es!',
+  '¡Un abrazo!',
+  '¡Cualquier cosa me avisás!',
+  '¡Dale pues!',
+  '¡Listo pues!',
+  '¡Hablamos!',
+  '¡Claro que sí!',
+  // Respuestas afectivas para "Calma mi amor", "Tranquila", "No te pongas así":
+  'Tranquilo amor, acá estoy.',
+  'Calma, todo bien. ¿Qué pasó?',
+  'Todo bien, no te preocupes.',
+  'Aquí estoy, sin drama.',
+  'Calma parce, todo en orden.',
+  'Ya, ya. Todo bien por acá.',
+];
+
 const List<String> rapCandidates = [
   'Sí, quiero ir a rapear.',
   'Quiero ir a rapear un rato.',

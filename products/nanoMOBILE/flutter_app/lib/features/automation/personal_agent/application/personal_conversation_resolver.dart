@@ -1,8 +1,13 @@
 // personal_conversation_resolver.dart
-// QUÉ HACE: Orquesta turnos conversacionales del Agente Personal desde un "Hola" hasta párrafos extensos.
-// CÓMO FUNCIONA: 1. Memoria y correferencias -> 2. Clasificador híbrido + Estilo/FastPath -> 3. Conocimiento -> 4. Opciones dinámicas.
-// POR QUÉ: Cumple SOLID (SRP, OCP, DIP), Clean Architecture y el límite estricto de < 200 líneas sin frases robóticas.
+// QUÉ HACE: Orquesta turnos conversacionales del Agente Personal desde "Hola" hasta párrafos extensos.
+// CÓMO FUNCIONA: 1. Memoria/correferencias -> 2. Clasificador híbrido + Estilo -> 3. Conocimiento -> 4. Opciones.
+// POR QUÉ: Cumple SOLID (SRP, OCP, DIP), Clean Architecture y límite estricto < 200 líneas.
 
+library;
+
+export 'personal_turn_reply.dart';
+
+import '../../engine/conversation/dialogue_state_tracker.dart' show ConversationDialogueState;
 import '../../engine/conversation/personal_style_formatter.dart';
 import '../../engine/conversation/persona_style_resolver.dart';
 import '../../engine/conversation/turn_context_router.dart';
@@ -12,185 +17,175 @@ import '../../engine/language/pragmatic_fast_path.dart';
 import '../../engine/messaging/conversation_memory.dart';
 import '../../engine/notifications/conversation_understanding.dart';
 import '../../engine/notifications/notification_object.dart';
-import '../domain/conversation_agent_message_classifier.dart'
-    show isLiveStateQuestion;
-import 'personal_memory_fact_helpers.dart' show PersonalMemoryFactHelpers;
+import '../../engine/conversation/knowledge_need_gate.dart';
+import '../../engine/language/dialogue_act_classifier.dart';
+import '../domain/conversation_agent_message_classifier.dart' show isLiveStateQuestion;
 import 'personal_memory_fact_resolver.dart';
+import 'personal_turn_reply.dart';
 import 'personal_turn_selector.dart';
+import 'personalization_scope_resolver.dart';
 
-/// QUÉ HACE: Encapsula la respuesta del Agente Personal junto con sus opciones seleccionables.
-/// CÓMO FUNCIONA: Almacena el texto principal, la estructura `ConversationUnderstanding` y la lista `suggestions`.
-/// POR QUÉ: Garantiza que la UI reciba tanto la respuesta sugerida como múltiples alternativas humanas.
-final class PersonalTurnReply {
-  final String text;
-  final ConversationUnderstanding understanding;
-  final List<String> suggestions;
-  final bool isFast;
-
-  const PersonalTurnReply({
-    required this.text,
-    required this.understanding,
-    this.suggestions = const [],
-    this.isFast = true,
-  });
-}
-
-/// QUÉ HACE: Orquestador con responsabilidad única sobre la resolución conversacional del Agente Personal.
-/// CÓMO FUNCIONA: Coordina memoria personal/conversacional, clasificación de cláusulas y generación de opciones.
-/// POR QUÉ: Evita respuestas estáticas o fuera de contexto ante saludos breves o párrafos largos.
 class PersonalConversationResolver {
-  final PragmaticFastPath? fastPath;
   final PersonaStyleResolver? styleResolver;
   final TurnKnowledgeRouter? knowledgeRouter;
+  final PragmaticFastPath fastPath;
   final PersonalStyleFormatter styleFormatter;
-  final PersonalMemoryFactResolver _memoryFactResolver;
-  final HybridIntentClassifier _intentClassifier;
-  final PersonalTurnSelector _turnSelector;
+  final PersonalMemoryFactResolver memoryFactResolver;
+  final HybridIntentClassifier intentClassifier;
+  final PersonalTurnSelector turnSelector;
+  final PersonalizationScopeResolver scopeResolver;
 
   const PersonalConversationResolver({
-    this.fastPath,
-    this.styleResolver,
-    this.knowledgeRouter,
+    this.fastPath = const PragmaticFastPath(),
+    this.styleResolver, this.knowledgeRouter,
     this.styleFormatter = const RuntimePersonalStyleFormatter(),
-    PersonalMemoryFactResolver memoryFactResolver =
-        const PersonalMemoryFactResolver(),
-    HybridIntentClassifier intentClassifier = const HybridIntentClassifier(),
-    PersonalTurnSelector turnSelector = const PersonalTurnSelector(),
-  }) : _memoryFactResolver = memoryFactResolver,
-       _intentClassifier = intentClassifier,
-       _turnSelector = turnSelector;
+    this.memoryFactResolver = const PersonalMemoryFactResolver(),
+    this.intentClassifier = const HybridIntentClassifier(),
+    this.turnSelector = const PersonalTurnSelector(),
+    this.scopeResolver = const CanonicalPersonalizationScopeResolver(),
+  });
 
   /// QUÉ HACE: Resuelve turnos tempranos deterministas con prioridad en memoria, estilo y búsqueda externa.
-  /// CÓMO FUNCIONA: Consulta `_memoryFactResolver` (que maneja desde "Hola" hasta párrafos multi-cláusula) y luego FastPath.
+  /// CÓMO FUNCIONA: Consulta memoria factual y luego resuelve estilo jerárquico según el scope.
   /// POR QUÉ: Responde al instante con contexto real y 3 opciones naturales sin bloquear el hilo UI.
   Future<PersonalTurnReply?> resolveEarlyTurn({
     required NotificationObject notification,
     required TurnRoutingAnalysis analysis,
     required ConversationMemory? memory,
     required String conversationId,
+    ConversationDialogueState? dialogueState,
   }) async {
-    if (isLiveStateQuestion(analysis.targetText)) return null;
+    if (isLiveStateQuestion(analysis.targetText)) {
+      final n = analysis.targetText.toLowerCase();
+      if (!n.contains('haces') && !n.contains('haciendo') && !n.contains('como vas')) return null;
+    }
 
-    final memoryResolved = await _memoryFactResolver.resolve(
-      userText: analysis.targetText,
-      conversationId: conversationId,
-      memory: memory,
-    );
-    if (memoryResolved != null) return memoryResolved;
+    if (analysis.isClarificationRequest &&
+        dialogueState?.lastAgentStatement != null &&
+        dialogueState!.lastAgentStatement!.trim().isNotEmpty) {
+      final prev = dialogueState.lastAgentStatement!.trim();
+      final reply = 'Jajaja, te preguntaba: $prev';
+      final opts = ['Te preguntaba: $prev', 'Que $prev', 'Decía que $prev'];
+      return PersonalTurnReply(
+        text: reply,
+        understanding: ConversationUnderstanding(reply: reply, intent: 'clarification_repair', options: opts),
+        suggestions: opts,
+        isFast: true,
+      );
+    }
 
-    final hybrid = _intentClassifier.classify(analysis.targetText);
+    final mem = await memoryFactResolver.resolve(
+      userText: analysis.targetText, conversationId: conversationId, memory: memory);
+    if (mem != null) return mem;
+
+    final hybrid = intentClassifier.classify(analysis.targetText);
+    final hasPendingQ = dialogueState?.hasPendingQuestion ?? false;
     final allowLiteral = !hybrid.blocksLiteralStyleReuse &&
+        !hasPendingQ &&
+        !analysis.isClarificationRequest &&
         !analysis.hasContextualContinuity &&
         !analysis.targetComplexity.isNarrative &&
         !analysis.targetComplexity.isContextual &&
         !analysis.targetComplexity.isComplex;
 
-    final styleMatch = (allowLiteral && styleResolver != null)
-        ? await _resolveStyle(analysis.targetText, notification.text, conversationId, 0.60)
-        : null;
-    final fastMatch = (allowLiteral && analysis.isFastPathEligible && fastPath != null)
-        ? await _resolveFast(analysis.targetText, notification.text, conversationId, memory)
-        : null;
+    final scopes = await scopeResolver.resolveScopes(
+      conversationId: conversationId, senderId: notification.sender);
 
-    final bestEarly = _turnSelector.selectBestCandidate(
+    final styleMatch = (allowLiteral && styleResolver != null)
+        ? await _resolveStyle(analysis.targetText, notification.text, conversationId, scopes, 0.60)
+        : null;
+    // QUÉ HACE: permite respuestas locales sólo para actos sociales sin hechos personales.
+    // CÓMO: exige turno social breve y limita las intenciones a saludo/cortesía/despedida/risa.
+    // POR QUÉ: un saludo no debe esperar al LLM ni afirmar actividad del dueño sin evidencia.
+    final candidate = analysis.targetComplexity.isSocialMinimal
+        ? await fastPath.resolve(
+            text: analysis.targetText,
+            conversationId: conversationId,
+            memoryOverride: memory,
+          )
+        : null;
+    final fastMatch = candidate != null && _isSafeSocialFastPath(candidate.act)
+        ? candidate
+        : null;
+    final best = turnSelector.selectBestCandidate(
       userText: analysis.targetText,
       conversationId: conversationId,
       memory: memory,
       styleMatch: styleMatch,
       fastMatch: fastMatch,
     );
-    if (bestEarly != null) return bestEarly;
+    if (best != null) return best;
 
-    if (knowledgeRouter != null &&
-        knowledgeRouter!.needsExternalKnowledge(analysis.targetText)) {
+    final act = const DialogueActClassifier().classify(analysis.targetText).primaryAct;
+    final gate = const KnowledgeNeedGate().evaluate(text: analysis.targetText, act: act);
+    if (gate.needsExternalKnowledge && knowledgeRouter != null && knowledgeRouter!.needsExternalKnowledge(analysis.targetText)) {
       return _resolveExternalKnowledge(analysis.targetText, isFast: true);
     }
     return null;
   }
 
-  /// QUÉ HACE: Resuelve el fallback conversacional cuando el motor generativo local no está activo.
-  /// CÓMO FUNCIONA: Intenta coincidencia flexible, luego conocimiento externo y finalmente opciones dinámicas contextuales.
-  /// POR QUÉ: Garantiza que el usuario siempre tenga 3 opciones naturales adaptadas al mensaje recibido.
+  // QUÉ HACE: admite únicamente respuestas fáticas que no afirman datos del dueño.
+  // CÓMO: comprueba todas las intenciones detectadas, no sólo la primera.
+  // POR QUÉ: preguntas ambiguas y estados personales deben pasar por memoria o modelo.
+  bool _isSafeSocialFastPath(String act) {
+    const allowed = {'greeting', 'thanks', 'farewell', 'laughter'};
+    final intents = act.split('+');
+    return intents.isNotEmpty && intents.every(allowed.contains);
+  }
+
+  /// QUÉ HACE: Busca una respuesta aprendida o hechos externos si falla el borrador del modelo.
+  /// CÓMO FUNCIONA: Solo devuelve estilo guardado o conocimiento recuperado y validable.
+  /// POR QUÉ: Sin evidencia suficiente, no genera ni envía una frase prefabricada.
   Future<PersonalTurnReply?> resolveFallbackTurn({
     required TurnRoutingAnalysis analysis,
     required ConversationMemory? memory,
     required String conversationId,
   }) async {
-    if (isLiveStateQuestion(analysis.targetText)) return null;
-
+    final scopes = await scopeResolver.resolveScopes(conversationId: conversationId, senderId: '');
     final related = styleResolver != null
         ? await styleResolver!.resolve(
             text: analysis.targetText,
             conversationId: conversationId,
+            scopeKey: scopes.first,
+            candidateScopes: scopes,
             minConfidence: 0.50,
           )
         : null;
-    final fast = fastPath != null
-        ? await fastPath!.resolve(
-            text: analysis.targetText,
-            conversationId: conversationId,
-            memoryOverride: memory,
-          )
-        : null;
-
-    final candidate = _turnSelector.selectBestCandidate(
+    final candidate = turnSelector.selectBestCandidate(
       userText: analysis.targetText,
       conversationId: conversationId,
       memory: memory,
       styleMatch: related,
-      fastMatch: fast,
+      fastMatch: null,
     );
     if (candidate != null) return candidate;
 
-    if (knowledgeRouter != null) {
+    final act = const DialogueActClassifier().classify(analysis.targetText).primaryAct;
+    final gate = const KnowledgeNeedGate().evaluate(text: analysis.targetText, act: act);
+    if (gate.needsExternalKnowledge && knowledgeRouter != null && knowledgeRouter!.needsExternalKnowledge(analysis.targetText)) {
       final ext = await _resolveExternalKnowledge(analysis.targetText, isFast: false);
       if (ext != null) return ext;
     }
 
-    final dynamicOpts = PersonalMemoryFactHelpers.buildDynamicOptions(
-      userText: analysis.targetText,
-      topics: PersonalMemoryFactHelpers.extractConversationTopics(
-        memory,
-        currentText: analysis.targetText,
-      ),
-    );
-    return PersonalTurnReply(
-      text: dynamicOpts.first,
-      understanding: ConversationUnderstanding(
-        intent: 'personal_dialogue_fallback',
-        reply: dynamicOpts.first,
-        options: dynamicOpts,
-      ),
-      suggestions: dynamicOpts,
-      isFast: true,
-    );
+    // QUÉ HACE: cierra sin candidato si la recuperación no encontró respaldo.
+    // CÓMO: null impide que el dispatcher convierta una frase genérica en envío automático.
+    // POR QUÉ: sin modelo, memoria ni hechos verificados, cualquier respuesta sería inventada.
+    return null;
   }
 
   Future<PersonaStyleMatch?> _resolveStyle(
-      String target, String raw, String convId, double minConf) async =>
-      await styleResolver!.resolve(text: target, conversationId: convId, minConfidence: minConf) ??
-      (target != raw
-          ? await styleResolver!.resolve(text: raw, conversationId: convId, minConfidence: minConf)
-          : null);
+      String target, String raw, String convId, List<String> scopes, double minConf) async {
+    final primary = await styleResolver!.resolve(
+      text: target, conversationId: convId, scopeKey: scopes.first, candidateScopes: scopes, minConfidence: minConf);
+    return primary ?? (target == raw ? null : styleResolver!.resolve(
+      text: raw, conversationId: convId, scopeKey: scopes.first, candidateScopes: scopes, minConfidence: minConf));
+  }
 
-  Future<FastPathCandidate?> _resolveFast(
-      String target, String raw, String convId, ConversationMemory? mem) async =>
-      await fastPath!.resolve(text: target, conversationId: convId, memoryOverride: mem) ??
-      (target != raw
-          ? await fastPath!.resolve(text: raw, conversationId: convId, memoryOverride: mem)
-          : null);
-
-  Future<PersonalTurnReply?> _resolveExternalKnowledge(
-      String query, {required bool isFast}) async {
-    final external = await knowledgeRouter!.fetchKnowledge(query);
-    if (!external.hasFacts || external.rawKnowledge.trim().isEmpty) return null;
-    final styled = styleFormatter.formatKnowledge(rawFacts: external.rawKnowledge, query: query);
+  Future<PersonalTurnReply?> _resolveExternalKnowledge(String query, {required bool isFast}) async {
+    final ext = await knowledgeRouter!.fetchKnowledge(query);
+    if (!ext.hasFacts || ext.rawKnowledge.trim().isEmpty) return null;
+    final styled = styleFormatter.formatKnowledge(rawFacts: ext.rawKnowledge, query: query);
     return PersonalTurnReply(
-      text: styled.text,
-      understanding: styled.understanding,
-      suggestions: styled.suggestions,
-      isFast: isFast,
-    );
+      text: styled.text, understanding: styled.understanding, suggestions: styled.suggestions, isFast: isFast);
   }
 }
-

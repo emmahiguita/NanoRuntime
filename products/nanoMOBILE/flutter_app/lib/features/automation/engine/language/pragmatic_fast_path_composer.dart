@@ -1,4 +1,4 @@
-﻿part of 'pragmatic_fast_path.dart';
+part of 'pragmatic_fast_path.dart';
 
 /// Compositor principal de respuestas para intenciones de diálogo (< 130 LOC).
 ///
@@ -55,6 +55,16 @@ extension _PragmaticFastPathComposer on PragmaticFastPath {
     // Caso 1F: Declaración pura de bienestar ("bien", "todo bien")
     if (intents.contains(ConversationIntent.userWellbeing)) {
       return _selectCandidate(userWellbeingPureCandidates, conversationId, lastOutboundText);
+    }
+
+    // Caso 1G: Reaseguro social o empatía del interlocutor ("me alegra", "qué bueno")
+    if (intents.contains(ConversationIntent.socialReassurance)) {
+      return _selectCandidate(socialReassuranceCandidates, conversationId, lastOutboundText);
+    }
+
+    // Caso 1H: Corrección del usuario ("eso no lo pregunté yo", "te equivocaste")
+    if (intents.contains(ConversationIntent.userCorrection)) {
+      return _selectCandidate(safeRepairCorrectionOptions, conversationId, lastOutboundText);
     }
 
     // Caso 2: Pregunta compuesta con entrenamiento

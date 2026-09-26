@@ -13,18 +13,18 @@ part of 'pragmatic_fast_path.dart';
 /// Asegura una variabilidad conversacional fluida que evita respuestas repetitivas
 /// y mantiene los archivos de lógica por debajo del umbral de 200 líneas (SOLID - SRP).
 const List<String> activityPlansCandidates = [
-  'No sé, estaré en casa.',
-  'Estaré en casa, tengo cosas que hacer.',
-  'No sé, estaré en casa, tengo cosas que hacer.',
-  'Por ahora nada especial, aquí en la casa.',
-  'Nada, por ahora aquí tranquilo en la casa.',
-  'Aún no sé qué voy a hacer hoy, estaré en casa.',
-  'Aquí haciendo unas cosas en la casa.',
-  'No sé todavía, por acá trabajando en unas cosas.',
-  'Aún no sé, tengo unas cosas que hacer en casa.',
-  'No estoy seguro todavía, por ahora en casa tranquilo.',
-  'Voy a ver qué hago más tarde, por ahora en la casa.',
-  'No sé la verdad, por ahora aquí tranquilo.',
+  'Todavía no tengo planes definidos para hoy; luego te cuento.',
+  'Aún no sé, no lo he definido; más tarde te confirmo.',
+  'No sé todavía qué plan tendré hoy, más tarde miramos.',
+  'Por ahora sin planes fijos para hoy, ¿qué cuentas?',
+  'Aún no tengo nada planeado para hoy, ¿tú qué tal?',
+  'Todavía no he cuadrado nada para hoy; luego te digo.',
+  'Por ahora nada fijo hoy, cuéntame qué tal tu día.',
+  'Aún no tengo un plan claro para hoy; más tarde te aviso.',
+  'No sé todavía, no tengo nada cuadrado por ahora.',
+  'Por ahora sin planes concretos para hoy, ¿qué hay de nuevo?',
+  'Todavía no sé qué resulte para hoy, luego charlamos.',
+  'Aún no he definido planes para hoy, ¿y tú?',
 ];
 
 const List<String> activityGoingCandidates = [
@@ -32,8 +32,8 @@ const List<String> activityGoingCandidates = [
   'Creo que sí voy.',
   'Si puedo voy.',
   'Puede que vaya más tarde.',
-  'Voy a ver qué hago.',
-  'Hoy estoy algo ocupado, más tarde te aviso.',
+  'Más tarde miro y te confirmo.',
+  'Hoy tengo el día apretado, más tarde te aviso.',
   'Aún no sé seguro, más tarde te confirmo.',
   'Todavía no sé si salgo hoy.',
   'Más tarde miro si voy y te digo.',

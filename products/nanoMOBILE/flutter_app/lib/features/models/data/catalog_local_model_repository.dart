@@ -14,35 +14,50 @@ class CatalogLocalModelRepository implements LocalModelRepository {
   /// runtime; null si el canal no está disponible (sin runtime → nada
   /// aparece instalado, honesto).
   static Future<String?> modelsDir() async {
-    final base = await NanoRuntimeApi.instance.getFilesDir();
-    if (base == null || base.isEmpty) return null;
-    return '$base/nano/models';
+    try {
+      final base = await NanoRuntimeApi.instance.getFilesDir();
+      if (base == null || base.isEmpty) return null;
+      final cleanBase = base.endsWith('/nano') || base.endsWith(r'\nano')
+          ? base
+          : (base.endsWith('/') || base.endsWith(r'\') ? '${base}nano' : '$base/nano');
+      return '$cleanBase/models';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // QUÉ HACE: Devuelve la lista inicial síncrona de modelos del catálogo.
+  // CÓMO FUNCIONA: Mapea NeuralCatalog.models a LocalModel sin esperar I/O de disco.
+  // POR QUÉ: Garantiza que la pantalla nunca arranque vacía ni parpadee.
+  static List<LocalModel> initialCatalog() {
+    return NeuralCatalog.models.map((e) => _entryToModel(e, null, false)).toList();
   }
 
   @override
   Future<List<LocalModel>> listModels() async {
-    final dirPath = await modelsDir();
-    final models = <LocalModel>[];
-    // Los manifests son baratos; instalaciones heredadas requieren SHA-256.
-    // Se procesan en serie para no hashear varios GGUF a la vez en el móvil.
-    for (final entry in NeuralCatalog.models) {
-      models.add(await _toModel(entry, dirPath));
+    try {
+      final dirPath = await modelsDir();
+      final models = <LocalModel>[];
+      for (final entry in NeuralCatalog.models) {
+        models.add(await _toModel(entry, dirPath));
+      }
+      return models;
+    } catch (_) {
+      return initialCatalog();
     }
-    return models;
   }
 
   Future<LocalModel> _toModel(LmCatalogEntry entry, String? dirPath) async {
     final dest = dirPath == null
         ? null
         : File('$dirPath${Platform.pathSeparator}${entry.file}');
-    // Un nombre y un tamaño no prueban integridad. Instalaciones antiguas se
-    // verifican una vez; después el manifiesto evita hashear varios GB al abrir.
     final installed =
         dest != null && await ModelIntegrity.verify(dest, entry.sha256);
-    final destPath = installed ? dest.path : null;
+    return _entryToModel(entry, dest?.path, installed);
+  }
+
+  static LocalModel _entryToModel(LmCatalogEntry entry, String? destPath, bool installed) {
     return LocalModel(
-      // Id estable: el nombre de archivo no cambia al reordenar el catálogo
-      // (los ids `m$index` cambiaban y un activo podía apuntar a otro modelo).
       id: entry.file,
       name: entry.name,
       params: entry.params,
@@ -60,7 +75,7 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       progress: installed ? 1.0 : 0.0,
       url: entry.url,
       sha256: entry.sha256,
-      localPath: destPath,
+      localPath: installed ? destPath : null,
       active: false,
       loading: false,
       mmprojFile: entry.mmprojFile,
@@ -99,6 +114,15 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       'Reconocimiento de voz de alta precisión para dictado y comandos locales.',
     'Moondream2-1.8B-Vision' =>
       'Modelo multimodal compacto: comprensión visual y preguntas sobre imágenes locales.',
+    // MODELS-CAT-04: ultraligeros 2026
+    'LFM2.5-350M-Q4_K_M' =>
+      'Motor ultraligero LiquidAI (350M, conv+atención). Comprensión multilingüe en <500 MB RAM.',
+    'LFM2.5-350M-QAD' =>
+      'LFM2.5-350M con cuantización calibrada QAD: máxima calidad para 220 MB de archivo.',
+    'Qwen3-0.6B-Q8_0' =>
+      'Qwen3-0.6B en máxima precisión (Q8_0). 640 MB · 0.9 GB RAM · Apache 2.0.',
+    'Qwen3.5-0.8B-Q4_K_M' =>
+      'Qwen 3.5 generación 2026 (0.8B). Conversación en español, comprensión e instrucciones. 580 MB · <900 MB RAM.',
     _ => 'Cuantización y tamaño reales de HuggingFace.',
   };
 }

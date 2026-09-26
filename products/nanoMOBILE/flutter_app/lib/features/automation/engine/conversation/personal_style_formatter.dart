@@ -35,7 +35,7 @@ final class RuntimePersonalStyleFormatter implements PersonalStyleFormatter {
   static const _intros = [
     'Pillá que',
     'Por lo que vi,',
-    'Por ahí estuve mirando y',
+    'Estuve mirando y',
     'Según estuve viendo,',
     'Pillá, según vi:',
   ];

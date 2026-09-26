@@ -236,10 +236,15 @@ class EngineSupervisor(
                     onState(EngineState.Ready(h.pid, h.port))
                     return
                 }
-                // El worker posee el daemon y mata el anterior antes del nuevo
-                // fork. Limpiar el handle impide anunciar Ready para otro modelo.
-                Log.i(TAG, "reemplazando pid=${h.pid}: modelo/puerto solicitado cambió")
+                // QUÉ HACE: Mata el proceso daemon anterior si el modelo o puerto cambió.
+                // CÓMO FUNCIONA: Envía SIGKILL inmediato al PID viejo y limpia el handle.
+                // POR QUÉ: Previene procesos zombi y colisiones por "puerto 8080 en uso".
+                Log.i(TAG, "reemplazando pid=${h.pid}: modelo/puerto solicitado cambió — matando viejo")
+                val oldPid = h.pid
                 handle = null
+                if (isPidAlive(oldPid)) {
+                    sendSignal(oldPid, SIGKILL)
+                }
             }
         }
 
@@ -263,6 +268,7 @@ class EngineSupervisor(
                     add("--port"); add(port.toString())
                     // Local-only SIEMPRE: el engine no debe escuchar en la red.
                     add("--bind"); add("127.0.0.1")
+                    add("--threads"); add(determineOptimalThreads().toString())
                     if (modelPath.isNullOrEmpty()) {
                         add("--no-model")
                     } else {
@@ -341,7 +347,11 @@ class EngineSupervisor(
                 }
 
                 synchronized(lock) {
-                    if (generation != gen) return@launch // stop() ocurrió mientras tanto
+                    if (generation != gen) {
+                        Log.w(TAG, "spawn para gen=$gen obsoleto (gen actual=$generation) — matando pid=$pid huérfano")
+                        if (isPidAlive(pid)) sendSignal(pid, SIGKILL)
+                        return@launch
+                    }
                     // Guarda la identidad: un PID vivo no prueba que sea el modelo pedido.
                     handle = EngineHandle(pid, port, modelPath)
                 }
@@ -652,6 +662,20 @@ class EngineSupervisor(
             if (signal == SIGTERM) {
                 try { android.os.Process.killProcess(pid) } catch (_: Exception) {}
             }
+        }
+    }
+
+    // QUÉ HACE: Calcula el número ideal de hilos de inferencia según la topología de la CPU.
+    // CÓMO FUNCIONA: En arquitecturas ARM big.LITTLE (6 a 8 núcleos), utiliza los núcleos
+    //   de rendimiento (limitado a 2-4) para evitar la contención con núcleos lentos.
+    // POR QUÉ: Previene la saturación al 100% de la CPU, evita thermal throttling (>45°C)
+    //   y proporciona la máxima velocidad por token sin sobrecalentar el dispositivo.
+    private fun determineOptimalThreads(): Int {
+        val totalCores = Runtime.getRuntime().availableProcessors()
+        return if (totalCores >= 6) {
+            (totalCores / 2).coerceIn(2, 4)
+        } else {
+            totalCores.coerceIn(1, 4)
         }
     }
 

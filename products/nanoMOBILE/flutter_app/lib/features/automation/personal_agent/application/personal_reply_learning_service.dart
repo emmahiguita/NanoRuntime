@@ -6,6 +6,8 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
+
 import '../domain/persona_example.dart';
 import '../domain/personal_memory.dart';
 import 'conversation_decision_guards.dart';
@@ -36,7 +38,6 @@ final class PersonalReplyLearningService {
   };
 
   final PersonaRepository _repository;
-  final Map<String, int> _passiveSignalCountByKey = {};
 
   /// Guarda sólo evidencia humana real verificada; separa Observation != ConsolidatedMemory.
   Future<PersonalReplyLearningResult> learnVerifiedReply({
@@ -82,6 +83,7 @@ final class PersonalReplyLearningService {
         .toList();
 
     if (matches.isEmpty) {
+      var frequencyIncrement = 1;
       // Ciclo 11: Una observación pasiva única (Observation) no entra directo a
       // Persona permanente (ConsolidatedMemory); se persiste con TTL de 14 días.
       if (provenance == ReplyProvenance.humanPassiveObservation) {
@@ -95,6 +97,7 @@ final class PersonalReplyLearningService {
         if (count < 2) {
           return PersonalReplyLearningResult.unchanged;
         }
+        frequencyIncrement = count;
       }
 
       final created = await _repository.addExample(
@@ -109,7 +112,7 @@ final class PersonalReplyLearningService {
           replies: [reply],
           provenance: provenance,
           correctedFrom: correctedFrom,
-          frequencyIncrement: (_passiveSignalCountByKey.remove(key) ?? 1),
+          frequencyIncrement: frequencyIncrement,
         ),
       );
       if (created && correctedFrom != null) {
@@ -118,6 +121,9 @@ final class PersonalReplyLearningService {
           reply: reply,
           correctedFrom: correctedFrom,
         );
+      }
+      if (created && provenance == ReplyProvenance.humanPassiveObservation) {
+        await _clearPersistentObservation(key);
       }
       return created
           ? PersonalReplyLearningResult.created
@@ -131,6 +137,9 @@ final class PersonalReplyLearningService {
       provenance: provenance,
       correctedFrom: correctedFrom,
     );
+    if (provenance == ReplyProvenance.humanPassiveObservation) {
+      await _clearPersistentObservation(key);
+    }
     if (correctedFrom != null) {
       await PersonalReplyCorrectionMemory(_repository).remember(
         incoming: incoming,

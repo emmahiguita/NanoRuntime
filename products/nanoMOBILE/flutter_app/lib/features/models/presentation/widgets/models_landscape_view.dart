@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../application/models_notifier.dart';
 import '../../application/models_state.dart';
+import 'model_new_badge_banner.dart';
 import 'model_screen_helpers.dart';
 import 'model_storage_summary_card.dart';
 import 'models_list_section.dart';
@@ -71,7 +72,9 @@ class ModelsLandscapeView extends StatelessWidget {
                   onPickDownloadDir: onPickDownloadDir,
                   onImportFromSd: () => notifier.pickCustomModelFile(),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
+                ModelNewBadgeBanner(models: state.models),
+                const SizedBox(height: 4),
                 ModelsSearchAndFilter(
                   controller: searchController,
                   activeFilter: activeFilter,

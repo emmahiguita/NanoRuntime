@@ -109,10 +109,11 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
             : BrowserDisplayMode.carousel3D,
       ),
       onZoomChanged: (z) {
-        if (mounted)
+        if (mounted) {
           ref
               .read(browserTabProvider.notifier)
               .updateTabById(tab.id, zoomLevel: z);
+        }
       },
       onToggleDesktopMode: () =>
           setState(() => _isDesktopMode = !_isDesktopMode),
@@ -263,8 +264,9 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
                 onSelectTab: (id) {
                   reg.resumeTab(id);
                   notifier.selectTab(id);
-                  if (_displayMode != BrowserDisplayMode.focused)
+                  if (_displayMode != BrowserDisplayMode.focused) {
                     setState(() => _displayMode = BrowserDisplayMode.focused);
+                  }
                 },
               ),
             if (_showFindInPage)

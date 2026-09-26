@@ -139,8 +139,10 @@ final class PersonaExample {
         final decoded = jsonDecode(toneRaw);
         if (decoded is Map) {
           for (final entry in decoded.entries) {
-            if (entry.key is String && entry.value is String) {
-              tone[entry.key as String] = entry.value as String;
+            final k = entry.key?.toString();
+            final v = entry.value?.toString();
+            if (k != null && v != null) {
+              tone[k] = v;
             }
           }
         }

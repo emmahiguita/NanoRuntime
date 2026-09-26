@@ -6,12 +6,12 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/widgets/nano_optical_surface.dart';
 
 class ModelDetailActions extends StatelessWidget {
   final bool isActive;
   final bool isInstalled;
   final bool isVoice;
+  final bool isCatalog;
   final VoidCallback? onUse;
   final VoidCallback? onDownload;
   final VoidCallback? onCancel;
@@ -23,6 +23,7 @@ class ModelDetailActions extends StatelessWidget {
     required this.isActive,
     required this.isInstalled,
     required this.isVoice,
+    this.isCatalog = true,
     this.onUse,
     this.onDownload,
     this.onCancel,
@@ -125,30 +126,34 @@ class ModelDetailActions extends StatelessWidget {
               onUse?.call();
             },
           ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFFEF4444),
-              side: const BorderSide(color: Color(0xFFEF4444)),
-              minimumSize: const Size.fromHeight(40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(NanoRadius.medium),
+          if (onDelete != null) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFEF4444),
+                side: const BorderSide(color: Color(0xFFEF4444)),
+                minimumSize: const Size.fromHeight(40),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(NanoRadius.medium),
+                ),
               ),
-            ),
-            icon: const Icon(Icons.delete_outline_rounded, size: 18),
-            label: const Text(
-              'Eliminar archivo descargado',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.bold,
-                fontSize: 12.5,
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: Text(
+                isCatalog
+                    ? 'Eliminar archivo descargado'
+                    : 'Eliminar de almacenamiento',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12.5,
+                ),
               ),
+              onPressed: () {
+                Navigator.pop(context);
+                onDelete?.call();
+              },
             ),
-            onPressed: () {
-              Navigator.pop(context);
-              onDelete?.call();
-            },
-          ),
+          ],
         ],
       );
     }
@@ -179,50 +184,3 @@ class ModelDetailActions extends StatelessWidget {
   }
 }
 
-class ModelSpecTile extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-
-  const ModelSpecTile({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-
-    return NanoOpticalSurface(
-      borderRadius: NanoRadius.small,
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 14, color: colors.primary),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 9.5,
-              color: colors.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 1),
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: colors.onSurface,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

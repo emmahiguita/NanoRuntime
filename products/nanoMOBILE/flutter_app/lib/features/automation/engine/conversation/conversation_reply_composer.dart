@@ -5,9 +5,9 @@
 //
 // CÓMO FUNCIONA:
 // 1. Aísla negocio y persona usando paquete, agente y memoria de conversación.
-// 2. Usa FastPath/estilo aprendido únicamente en el canal personal.
+// 2. Usa solo estilo aprendido y conocimiento recuperado en el canal personal.
 // 3. Redacta WhatsApp Business con el modelo contextual y hechos reales.
-// 4. Usa un fallback determinista solo si el modelo no produjo respuesta.
+// 4. Si no hay evidencia ni respuesta real del modelo, no genera un envío.
 //
 // POR QUÉ:
 // Aplica Clean Architecture y SOLID (< 180 líneas) garantizando atención comercial completa y fluida.
@@ -22,6 +22,7 @@ import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_memory.dart';
 import '../messaging/conversation_context_resolver.dart';
 import '../messaging/conversation_agent.dart';
+import '../messaging/incoming_message.dart';
 import '../messaging/messaging_package.dart';
 import '../messaging/tone_profile.dart';
 import '../../personal_agent/application/personal_conversation_resolver.dart';
@@ -32,6 +33,10 @@ import '../notifications/notification_object.dart';
 import '../../personal_agent/application/conversation_decision_engine.dart';
 import '../../personal_agent/domain/conversation_decision.dart';
 import 'conversation_reply_composer_models.dart';
+import '../language/dialogue_act_classifier.dart';
+import '../messaging/inbound_deduplicator.dart';
+import 'dialogue_state_tracker.dart';
+import 'semantic_output_gate.dart';
 import 'personal_style_formatter.dart';
 import 'persona_style_resolver.dart';
 import 'turn_context_router.dart';
@@ -64,9 +69,9 @@ final class RuntimeConversationReplyComposer
   }) : _draftSource = draftSource,
        _personalResolver =
            personalResolver ??
-           PersonalConversationResolver(
-             fastPath: fastPath,
-             styleResolver: styleResolver,
+            PersonalConversationResolver(
+              fastPath: fastPath ?? const PragmaticFastPath(),
+              styleResolver: styleResolver,
              knowledgeRouter: knowledgeRouter,
              styleFormatter: styleFormatter,
            ),
@@ -90,6 +95,9 @@ final class RuntimeConversationReplyComposer
   final Future<int> Function()? _thermalStatus;
   final ConversationDecisionContext Function(NotificationObject)?
   _decisionContext;
+  final InboundDeduplicator _deduplicator = InboundDeduplicator();
+  final SemanticOutputGate _outputGate = const SemanticOutputGate();
+  final DialogueStateTracker _dialogueStateTracker = DialogueStateTracker();
 
   @override
   Future<ConversationDraftResult?> compose(

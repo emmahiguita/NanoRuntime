@@ -16,18 +16,18 @@ library;
 /// Opciones para preguntas sobre planes, actividades o qué hará el dueño.
 /// Todas admiten honestamente el estado sin inventar compromisos ni alucinar planes.
 const List<String> safeRepairActivityOptions = [
-  'Todavía no sé qué voy a hacer hoy; luego te cuento.',
-  'Aún no lo he definido, más tarde te confirmo.',
+  'Todavía no sé qué hacer hoy; luego te cuento.',
+  'Aún no sé, no lo he definido; más tarde te confirmo.',
   'No sé todavía qué plan tendré hoy.',
-  'Todavía no tengo claro qué haré hoy.',
-  'Aún no estoy seguro; cuando lo sepa te aviso.',
+  'Todavía no sé, no tengo claro qué haré hoy.',
+  'Aún no tengo certeza; cuando lo sepa te aviso.',
   'Por ahora no lo sé con certeza.',
-  'No lo he decidido todavía, te cuento después.',
-  'Todavía estoy mirando qué hacer hoy.',
-  'Aún no tengo un plan confirmado.',
+  'No lo he decidido todavía, no sé qué haré.',
+  'Todavía no sé qué hacer hoy; te aviso más tarde.',
+  'Aún no sé, no tengo un plan confirmado.',
   'No sé qué haré todavía; luego lo reviso.',
-  'Todavía no puedo confirmarte un plan.',
-  'Aún no lo tengo claro, te aviso cuando sepa.',
+  'Todavía no sé, no puedo confirmarte un plan.',
+  'Aún no sé, no lo tengo claro; te aviso cuando sepa.',
 ];
 
 /// Opciones para preguntas de desplazamiento físico, salidas o asistencia ("vas a ir").
@@ -92,4 +92,20 @@ const List<String> safeRepairCallCenterGreetingOptions = [
   '¡Hola! ¿Cómo andas?',
   'Buenas, ¿qué cuentas?',
   'Hola, ¿cómo va el día?',
+];
+
+/// Opciones de reparación cuando el usuario corrige ("eso no lo pregunté yo", "no pregunté eso").
+const List<String> safeRepairCorrectionOptions = [
+  '¡Uy, qué pena! Me enredé ahí. Cuéntame, ¿qué era lo que me decías?',
+  'Qué pena contigo parce, me crucé de tema. Dime qué necesitas y lo miramos.',
+  '¡Ah, disculpa! Me confundí de mensaje. Decime qué era lo que necesitabas.',
+  '¡Uy, qué pena! Respondí lo que no era. ¿En qué íbamos?',
+  'Qué pena, me embolaté con el mensaje. Cuéntame qué pasó.',
+  '¡Ah qué pena! Me crucé ahí. Dime y te pongo atención.',
+  'Disculpa la confusión, me enredé. ¿Qué era lo que me comentabas?',
+  '¡Uy qué pena contigo! Se me cruzaron los cables. Cuéntame bien.',
+  'Qué pena, leí mal el mensaje. Decime qué necesitas con calma.',
+  'Disculpa, respondí otra cosa. Dime qué era lo que me decías.',
+  '¡Uy, me equivoqué ahí! Cuéntame qué era.',
+  'Qué pena la confusión. Dime de nuevo y lo revisamos.',
 ];

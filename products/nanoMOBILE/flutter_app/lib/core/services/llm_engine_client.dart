@@ -149,6 +149,8 @@ class LLMEngineClient {
     double temperature = 0.7,
     int maxTokens = 256,
     String? sessionId,
+    String? context,
+    List<Map<String, String>>? history,
   }) async {
     // WA-LIVE-02 — request_id SIEMPRE presente (antes solo en streaming):
     // tras un timeout el cliente corta el socket y llama /cancel con este id.
@@ -170,11 +172,9 @@ class LLMEngineClient {
       ],
       'stream': false,
       'request_id': requestId,
-      // Sesión estable por conversación: el motor reutiliza el KV del turno
-      // anterior (gate R5) y el prefill solo procesa los tokens nuevos en
-      // vez del prompt completo cada vez. Sin sesión, cada turno paga el
-      // prefill entero (~125s en Oppo).
       if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
+      if (context != null && context.isNotEmpty) 'context': context,
+      if (history != null && history.isNotEmpty) 'history': history,
     });
     try {
       final response = await _client

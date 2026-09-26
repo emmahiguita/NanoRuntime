@@ -11,6 +11,7 @@ import 'model_action_components.dart';
 import 'model_brand_logo.dart';
 import 'model_catalog_types.dart';
 import 'model_detail_actions.dart';
+import 'model_spec_tile.dart';
 
 class ModelDetailSheet extends StatelessWidget {
   final UnifiedModelItem item;
@@ -38,11 +39,10 @@ class ModelDetailSheet extends StatelessWidget {
     VoidCallback? onUnload,
     VoidCallback? onDelete,
   }) {
-    final colors = NanoThemeExtension.of(context).colors;
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
-      backgroundColor: colors.surface,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(NanoRadius.large)),
@@ -60,8 +60,11 @@ class ModelDetailSheet extends StatelessWidget {
     final cat = item.catalog;
     final isVoice = cat?.isVoiceStt ?? false;
 
-    return SafeArea(
-      child: SingleChildScrollView(
+    return Material(
+      color: colors.surface,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(NanoRadius.large)),
+      child: SafeArea(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -166,6 +169,7 @@ class ModelDetailSheet extends StatelessWidget {
               isActive: isActive,
               isInstalled: item.installed,
               isVoice: isVoice,
+              isCatalog: item.isCatalog,
               onUse: onUse,
               onDownload: onDownload,
               onCancel: onCancel,
@@ -175,6 +179,7 @@ class ModelDetailSheet extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

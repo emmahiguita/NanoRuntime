@@ -34,6 +34,7 @@ enum ConversationIntent {
   affirmation,
   negation,
   wellbeingClarification,
+  socialReassurance,
   askAvailability,
   askFood,
   askPhysicalLocation,
@@ -43,7 +44,8 @@ enum ConversationIntent {
   askWeatherSocial,
   askCall,
   askLostOrMissing,
-  askOpinionSocial;
+  askOpinionSocial,
+  userCorrection;
 
   /// Clasificación de enrutamiento explícita de cada intención (Ciclo 13).
   FastPathRoutingClass get routingClass {
@@ -58,6 +60,8 @@ enum ConversationIntent {
       case ConversationIntent.affirmation:
       case ConversationIntent.negation:
       case ConversationIntent.wellbeingClarification:
+      case ConversationIntent.socialReassurance:
+      case ConversationIntent.userCorrection:
       case ConversationIntent.askPresence:
       case ConversationIntent.askDeviceBattery:
       case ConversationIntent.askTime:
