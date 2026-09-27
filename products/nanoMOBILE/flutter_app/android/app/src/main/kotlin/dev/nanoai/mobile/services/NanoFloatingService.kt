@@ -75,20 +75,12 @@ class NanoFloatingService : Service() {
             addView(owlView, FrameLayout.LayoutParams(dp(68), dp(68), Gravity.CENTER))
         }
         bubbleLayout = WindowManager.LayoutParams(
-            dp(70), dp(70),
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            dp(70), dp(70), WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.TOP or Gravity.START
-            x = dp(8); y = dp(180)
-        }
-        touchHelper = NanoBubbleTouchHelper(
-            context = this, layout = bubbleLayout,
-            onUpdate = { tryUpdateBubble() },
-            onClick = { if (isHiddenToEdge) restoreFromEdge() else expandPanel() },
-            onDoubleTap = { toggleEdgeDock() }
-        )
+        ).apply { gravity = Gravity.TOP or Gravity.START; x = dp(8); y = dp(180) }
+        touchHelper = NanoBubbleTouchHelper(this, bubbleLayout, { tryUpdateBubble() },
+            { if (isHiddenToEdge) setEdgeDock(false) else expandPanel() }, { setEdgeDock(!isHiddenToEdge) })
         bubble.setOnTouchListener(touchHelper)
     }
 
@@ -96,59 +88,48 @@ class NanoFloatingService : Service() {
         if (isExpanded) return
         isExpanded = true
         bubble.visibility = View.GONE
-
         val dm = resources.displayMetrics
         val panelW = (dm.widthPixels * 0.94f).toInt().coerceAtMost(dp(420))
         val panelLayout = WindowManager.LayoutParams(
-            panelW, dp(400),
-            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
-            PixelFormat.TRANSLUCENT,
-        ).apply {
-            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
-            y = dp(24)
-        }
+            panelW, dp(400), WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL, PixelFormat.TRANSLUCENT,
+        ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; y = dp(24) }
 
-        panelView = NanoGeminiOverlayView(
-            context = this,
-            onClose = { collapsePanel() },
-            onOpenFullApp = { openFullApp() },
-            onAction = { tool, provider, prompt -> handlePanelAction(tool, provider, prompt) },
-            onDownloadRequest = { url, audioOnly -> handleDownload(url, audioOnly) }
-        )
+        panelView = NanoGeminiOverlayView(this, { collapsePanel() }, { openFullApp() },
+            { tool, provider, prompt -> handlePanelAction(tool, provider, prompt) },
+            { url, audioOnly -> handleDownload(url, audioOnly) })
         manager.addView(panelView, panelLayout)
     }
 
     private fun collapsePanel() {
         if (!isExpanded) return
         isExpanded = false
-        panelView?.let {
-            try { manager.removeView(it) } catch (_: IllegalArgumentException) {}
-            panelView = null
-        }
+        panelView?.let { try { manager.removeView(it) } catch (_: IllegalArgumentException) {}; panelView = null }
         bubble.visibility = View.VISIBLE
     }
 
-    private fun toggleEdgeDock() {
-        isHiddenToEdge = !isHiddenToEdge
-        bubbleLayout.width = if (isHiddenToEdge) dp(32) else dp(70)
-        owlView.visibility = if (isHiddenToEdge) View.INVISIBLE else View.VISIBLE
+    private fun setEdgeDock(dock: Boolean) {
+        isHiddenToEdge = dock
+        bubbleLayout.width = if (dock) dp(32) else dp(70)
+        owlView.visibility = if (dock) View.INVISIBLE else View.VISIBLE
         tryUpdateBubble()
     }
 
-    private fun restoreFromEdge() {
-        isHiddenToEdge = false
-        bubbleLayout.width = dp(70)
-        owlView.visibility = View.VISIBLE
-        tryUpdateBubble()
-    }
-
+    // QUÉ: Procesa la acción del panel flotante sin bloquear ni volcar logcat/pantalla innecesariamente.
+    // CÓMO: Solo invoca NanoScreenReader si la acción es "Resumir", "Media" o consulta la pantalla activa.
+    //       Para conversación general o preguntas directas, envía el prompt limpio sin adjuntos masivos.
+    // POR QUÉ: Evita inyectar miles de caracteres de volcados de pantalla/logcat en consultas conversacionales,
+    //          permitiendo que el modelo responda de forma fluida, completa y sin truncamiento a 300 caracteres.
     private fun handlePanelAction(tool: String, provider: String, prompt: String) {
         val view = panelView ?: return
         val detectedUrl = NanoMediaResolver.extractUrlFromText(prompt)
-        val screen = NanoScreenReader.readCurrentScreen()
+        val isScreenQuery = tool == "Resumir" ||
+            prompt.contains("pantalla", ignoreCase = true) ||
+            prompt.contains("screen", ignoreCase = true)
+        val screen = if (isScreenQuery || tool == "Media" || detectedUrl != null) {
+            NanoScreenReader.readCurrentScreen()
+        } else null
 
-        // Si el usuario pasó un link directo o eligió Media, activa descarga de una
         if (detectedUrl != null || tool == "Media") {
             val target = detectedUrl ?: screen?.links?.firstOrNull() ?: ""
             if (target.isNotEmpty()) {
@@ -157,16 +138,21 @@ class NanoFloatingService : Service() {
             }
         }
 
-        view.setLoading("Analizando con $provider ($tool)")
-        val screenCtx = screen?.let { mapOf("package" to it.packageName, "text" to it.visibleText, "links" to it.links) }
-        val queryPrompt = when (tool) {
-            "Resumir" -> if (prompt.isEmpty()) "Resume concisamente la pantalla activa." else prompt
-            else -> prompt.ifEmpty { "Explica el contenido de la pantalla." }
+        view.setLoading("Consultando a $provider…")
+        val screenCtx = if (isScreenQuery) {
+            screen?.let { mapOf("package" to it.packageName, "text" to it.visibleText, "links" to it.links) }
+        } else null
+
+        val queryPrompt = when {
+            tool == "Resumir" -> prompt.ifEmpty { "Resume concisamente la pantalla activa." }
+            prompt.isNotEmpty() -> prompt
+            else -> "Hola, ¿en qué te puedo ayudar?"
         }
+
         val sent = NanoOverlayBridge.query(queryPrompt, "quick", screenCtx) { text, ok ->
-            view.showResult(text ?: (screen?.visibleText?.take(300) ?: "Listo."), screen?.links.orEmpty())
+            view.showResult(text ?: "Respuesta completada.", screen?.links.orEmpty())
         }
-        if (!sent) view.showResult(screen?.visibleText?.take(300) ?: "Listo.", screen?.links.orEmpty())
+        if (!sent) view.showResult("Conectando con el asistente de Nano…", screen?.links.orEmpty())
     }
 
     private fun handleDownload(url: String, audioOnly: Boolean) {
@@ -197,6 +183,7 @@ class NanoFloatingService : Service() {
         }
     }
 
+    // onDestroy: orden crítico (animaciones → panel → burbuja → shutdown snapshotter).
     override fun onDestroy() {
         if (::touchHelper.isInitialized) touchHelper.cancel()
         if (::owlMotion.isInitialized) owlMotion.stop()
@@ -206,6 +193,7 @@ class NanoFloatingService : Service() {
         if (::manager.isInitialized && ::bubble.isInitialized) {
             try { manager.removeView(bubble) } catch (_: IllegalArgumentException) {}
         }
+        NanoAtomicSnapshotter.shutdown()
         super.onDestroy()
     }
 }

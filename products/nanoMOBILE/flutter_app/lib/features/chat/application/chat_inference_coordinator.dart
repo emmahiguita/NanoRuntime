@@ -10,6 +10,7 @@ import '../../../core/services/device_info.dart';
 import '../../../core/services/llm_engine_client.dart';
 import '../../../core/services/runtime_engine.dart';
 import '../domain/chat_context_builder.dart';
+import '../domain/chat_memory_index.dart';
 import '../domain/chat_suggestion_engine.dart';
 import '../domain/stream_sanitizer.dart';
 import 'chat_stream_session.dart';
@@ -60,6 +61,7 @@ class ChatInferenceCoordinator {
     final messages = getMessages();
     final history = contextBuilder.historyBeforeCurrentUser(messages, text);
     final prompt = contextBuilder.buildPrompt(text: text, attachments: attachments, isFirstRound: toolTrace.isEmpty);
+    final memoryContext = const ChatMemoryIndex().contextFor(history, text);
 
     try {
       if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
@@ -75,6 +77,7 @@ class ChatInferenceCoordinator {
           modelName: activeModel,
           now: DateTime.now(),
           device: DeviceInfo.read(),
+          memoryContext: memoryContext,
         ),
         history: contextBuilder.buildHistory(history, toolTrace),
         generationId: generationId,
@@ -102,7 +105,9 @@ class ChatInferenceCoordinator {
 
         final worldBefore = await tools.worldFingerprint();
         final execRes = await coordinator.execute(AutomationGoal(text: text), plan: toolCalls);
-        if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
+        if (!streamSession.isGenerationCurrent(generationId, isMounted())) {
+          return;
+        }
 
         if (execRes.isPaused && execRes.confirmation != null) {
           toolCoordinator.pausePlan(

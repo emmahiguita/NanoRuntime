@@ -38,7 +38,7 @@ class WhatsAppShareMediaBackend(private val context: Context) {
         targetContact: String?,
         caption: String = "",
         requestedPackage: String = "com.whatsapp",
-        autoSend: Boolean = true
+        autoSend: Boolean = false
     ): Boolean {
         val resolved = try { File(filePath).canonicalFile } catch (_: Exception) { File(filePath) }
         val file = if (resolved.isFile) resolved else File(filePath)

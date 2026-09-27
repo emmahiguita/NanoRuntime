@@ -238,7 +238,7 @@ final class _IntentStat {
 }
 
 List<_CorpusItem> _build120Corpus() => const [
-  // 1. greeting (12)
+  // 1. greeting (11)
   _CorpusItem('hola', 'greeting'),
   _CorpusItem('hola bro', 'greeting'),
   _CorpusItem('buenas', 'greeting'),
@@ -250,7 +250,7 @@ List<_CorpusItem> _build120Corpus() => const [
   _CorpusItem('oe', 'greeting'),
   _CorpusItem('holaaa buenas', 'greeting'),
   _CorpusItem('q mas', 'greeting'),
-  _CorpusItem('hola que tal', 'greeting'),
+  _CorpusItem('hola que tal', 'wellbeing_question'),
 
   // 2. farewell (10)
   _CorpusItem('chao', 'farewell'),
@@ -276,7 +276,7 @@ List<_CorpusItem> _build120Corpus() => const [
   _CorpusItem('muy amable gracias', 'gratitude'),
   _CorpusItem('gracias bro', 'gratitude'),
 
-  // 4. wellbeing_question (15)
+  // 4. wellbeing_question (16)
   _CorpusItem('cómo estás', 'wellbeing_question'),
   _CorpusItem('como estas', 'wellbeing_question'),
   _CorpusItem('cómo vas', 'wellbeing_question'),

@@ -9,6 +9,7 @@ import '../widgets/navigation/nano_navigation_panel.dart';
 import '../../features/home/buho_wallpaper.dart';
 import '../../features/chat/nano_everywhere/nano_floating_wrapper.dart';
 import '../../features/chat/nano_everywhere/nano_providers.dart';
+import '../services/nano_runtime_api.dart';
 
 /// Shell principal: conserva los stacks de cada pestaña y entrega la
 /// navegación visual al único FAB glass compartido por toda la aplicación.
@@ -109,6 +110,19 @@ class ScaffoldShell extends ConsumerWidget {
                 webProviders: webProviders,
                 actions: actionPort,
                 audioLevel: audioLevel,
+                onVoice: () async {
+                  final controller = NanoFloatingWrapper.activeController;
+                  if (controller == null) return;
+                  controller.setListening(true);
+                  try {
+                    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
+                    if (text != null && text.trim().isNotEmpty) {
+                      controller.queuePrompt(text.trim());
+                    }
+                  } finally {
+                    controller.setListening(false);
+                  }
+                },
                 child: boundedContent,
               ),
             ),

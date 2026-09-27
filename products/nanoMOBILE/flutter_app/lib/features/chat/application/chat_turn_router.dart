@@ -24,6 +24,9 @@ import 'package:nanoai/features/automation/engine/universal/universal_instructio
 import '../../browser_ai/application/browser_ai_gateway.dart';
 import 'chat_control_intent.dart';
 import 'web_ai_turn_router.dart';
+import '../domain/chat_context_builder.dart';
+import '../domain/chat_memory_tools.dart';
+import '../domain/chat_social_reply_resolver.dart';
 
 import '../../../core/models/chat_models.dart';
 import '../../../core/services/native_conversational_router.dart';
@@ -38,6 +41,7 @@ class ChatTurnRouter {
     required bool engineOnline,
     required String? activeModelPath,
     required String? lastLinuxFilePath,
+    List<ChatMessage> chatHistory = const [],
     BrowserAiGateway? browserAiGateway,
   }) async {
     // 0. Consultas directas a Web AI (ChatGPT, DeepSeek, etc.)
@@ -58,6 +62,21 @@ class ChatTurnRouter {
         text: ChatControlIntent.cancellationReply(text),
         timestamp: DateTime.now(),
       ));
+    }
+
+    const chatMemory = ChatMemoryTools();
+    if (chatMemory.isMemoryCommand(text)) {
+      final previousTurns = const ChatContextBuilder().historyBeforeCurrentUser(
+        chatHistory,
+        text,
+      );
+      final memoryReply = chatMemory.resolveCommand(
+        input: text,
+        history: previousTurns,
+      );
+      if (memoryReply != null) {
+        return ChatTurnRouteResult.completed(memoryReply);
+      }
     }
 
     // 2. Comandos `@` directos
@@ -166,6 +185,13 @@ class ChatTurnRouter {
 
     // 7. Enrutador conversacional reactivo nativo
     final hasActiveModel = engineOnline && activeModelPath != null;
+    final socialReply = const ChatSocialReplyResolver().resolve(
+      text,
+      chatHistory,
+    );
+    if (socialReply != null) {
+      return ChatTurnRouteResult.completed(socialReply);
+    }
     final nativeRes = const NativeConversationalRouter().tryResolve(
       text,
       hasModel: hasActiveModel,

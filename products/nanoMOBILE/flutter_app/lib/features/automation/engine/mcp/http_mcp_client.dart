@@ -1,11 +1,4 @@
-/// HttpMcpClient — cliente real para servidores MCP remotos o locales (HTTP/SSE).
-///
-/// Implementa la especificación Model Context Protocol (MCP) mediante JSON-RPC 2.0:
-/// - Handshake inicial `initialize`
-/// - Descubrimiento de herramientas `tools/list`
-/// - Ejecución segura de herramientas `tools/call`
-///
-/// Diseñado bajo principios SOLID (Single Responsibility, Liskov Substitution).
+/// Cliente JSON-RPC MCP por HTTP Streamable; los fallos se diagnostican sin secretos.
 library;
 
 import 'dart:async';
@@ -14,73 +7,133 @@ import 'package:http/http.dart' as http;
 
 import 'mcp_client_port.dart';
 import 'http_mcp_parser.dart';
+import 'mcp_http_diagnostics.dart';
+import 'http_mcp_tool_caller.dart';
 
 class HttpMcpClient implements McpClientPort {
   HttpMcpClient({
     required this.descriptor,
+    this.credentialToken,
     http.Client? httpClient,
     this.requestTimeout = const Duration(seconds: 12),
-  }) : _httpClient = httpClient ?? http.Client();
+  }) : _httpClient = httpClient ?? http.Client() {
+    _toolCaller = HttpMcpToolCaller(
+      descriptor: descriptor,
+      credentialToken: credentialToken,
+      sessionId: () => _sessionId,
+      protocolVersion: () => _protocolVersion,
+      httpClient: _httpClient,
+      requestTimeout: requestTimeout,
+      nextRequestId: () => _nextRequestId++,
+      onConnectionFailure: () => _state = McpConnectionState.failed,
+    );
+  }
 
   @override
   final McpServerDescriptor descriptor;
+  final String? credentialToken;
   final http.Client _httpClient;
   final Duration requestTimeout;
 
   McpConnectionState _state = McpConnectionState.disconnected;
   int _nextRequestId = 1;
+  String? _sessionId;
+  String? _protocolVersion;
+  late final HttpMcpToolCaller _toolCaller;
 
   @override
   McpConnectionState get state => _state;
 
-  Uri get _endpointUri {
-    final ep = descriptor.endpoint?.trim() ?? '';
-    if (ep.isEmpty) {
-      throw StateError('El descriptor no tiene un endpoint configurado.');
-    }
-    return Uri.parse(ep);
-  }
-
-  Map<String, String> get _headers {
-    final h = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json, text/event-stream',
-    };
-    if (descriptor.credentialRef != null && descriptor.credentialRef!.isNotEmpty) {
-      h['Authorization'] = 'Bearer ${descriptor.credentialRef}';
-    }
-    return h;
-  }
-
+  // Inicializa MCP; valida transporte/endpoint y conserva el id para diagnosticar errores HTTP.
   @override
   Future<McpConnectionResult> connect() async {
+    if (_state == McpConnectionState.connected) {
+      return McpConnectionResult(
+        status: McpOperationStatus.success,
+        protocolVersion: _protocolVersion,
+        message: 'Conectado a ${descriptor.displayName} exitosamente.',
+      );
+    }
     _state = McpConnectionState.connecting;
+    _sessionId = null;
+    _protocolVersion = null;
+    Uri? endpoint;
+    int? rpcId;
     try {
+      endpoint = resolveMcpHttpEndpoint(descriptor);
+      rpcId = _nextRequestId++;
       final reqBody = {
         'jsonrpc': '2.0',
-        'id': _nextRequestId++,
+        'id': rpcId,
         'method': 'initialize',
         'params': {
-          'protocolVersion': '2024-11-05',
+          'protocolVersion': '2025-11-25',
           'capabilities': {
             'tools': {'listChanged': true},
           },
-          'clientInfo': {
-            'name': 'NanoAI-Mobile',
-            'version': '1.0.0',
-          },
+          'clientInfo': {'name': 'NanoAI-Mobile', 'version': '1.0.0'},
         },
       };
 
       final response = await _httpClient
-          .post(_endpointUri, headers: _headers, body: jsonEncode(reqBody))
+          .post(
+            endpoint,
+            headers: mcpHttpHeaders(
+              descriptor,
+              credentialToken: credentialToken,
+            ),
+            body: jsonEncode(reqBody),
+          )
           .timeout(requestTimeout);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        _state = McpConnectionState.connected;
-        final data = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = decodeMcpJsonRpcResponse(response);
         final res = data?['result'] as Map<String, dynamic>?;
-        final protoVer = res?['protocolVersion'] as String? ?? '2024-11-05';
+        final protoVer = res?['protocolVersion'] as String?;
+        const supportedVersions = {
+          '2024-11-05',
+          '2025-03-26',
+          '2025-06-18',
+          '2025-11-25',
+        };
+        if (protoVer == null || !supportedVersions.contains(protoVer)) {
+          _state = McpConnectionState.failed;
+          return const McpConnectionResult(
+            status: McpOperationStatus.unsupported,
+            message: 'El servidor MCP negoció una versión no compatible.',
+          );
+        }
+        _protocolVersion = protoVer;
+        _sessionId = response.headers['mcp-session-id'];
+        final initialized = await _httpClient
+            .post(
+              endpoint,
+              headers: mcpHttpHeaders(
+                descriptor,
+                credentialToken: credentialToken,
+                sessionId: _sessionId,
+                protocolVersion: _protocolVersion,
+              ),
+              body: jsonEncode({
+                'jsonrpc': '2.0',
+                'method': 'notifications/initialized',
+              }),
+            )
+            .timeout(requestTimeout);
+        if (initialized.statusCode < 200 || initialized.statusCode >= 300) {
+          _state = McpConnectionState.failed;
+          return McpConnectionResult(
+            status: McpOperationStatus.failed,
+            message: reportMcpHttpFailure(
+              serverId: descriptor.id,
+              operation: 'notifications/initialized',
+              rpcId: rpcId,
+              statusCode: initialized.statusCode,
+              endpoint: endpoint,
+            ),
+          );
+        }
+        _state = McpConnectionState.connected;
         return McpConnectionResult(
           status: McpOperationStatus.success,
           protocolVersion: protoVer,
@@ -91,60 +144,133 @@ class HttpMcpClient implements McpClientPort {
         _state = McpConnectionState.failed;
         return McpConnectionResult(
           status: McpOperationStatus.failed,
-          message: 'HTTP ${response.statusCode}: ${response.body}',
+          message: reportMcpHttpFailure(
+            serverId: descriptor.id,
+            operation: 'initialize',
+            rpcId: rpcId,
+            statusCode: response.statusCode,
+            endpoint: endpoint,
+          ),
         );
       }
-    } on TimeoutException {
+    } on TimeoutException catch (error) {
       _state = McpConnectionState.failed;
+      reportMcpTransportFailure(
+        serverId: descriptor.id,
+        operation: 'initialize',
+        error: error,
+        endpoint: endpoint,
+        rpcId: rpcId,
+      );
       return const McpConnectionResult(
         status: McpOperationStatus.timeout,
         message: 'Timeout al conectar con el servidor MCP.',
       );
-    } catch (e) {
+    } catch (error) {
       _state = McpConnectionState.failed;
+      reportMcpTransportFailure(
+        serverId: descriptor.id,
+        operation: 'initialize',
+        error: error,
+        endpoint: endpoint,
+        rpcId: rpcId,
+      );
       return McpConnectionResult(
         status: McpOperationStatus.failed,
-        message: 'Error de conexión: $e',
+        message: 'Error de conexión MCP (${error.runtimeType}).',
       );
     }
   }
 
+  // Cierra la sesión remota cuando el servidor la admite y libera el socket.
   @override
   Future<void> disconnect() async {
+    final sessionId = _sessionId;
+    if (sessionId != null) {
+      try {
+        final endpoint = resolveMcpHttpEndpoint(descriptor);
+        await _httpClient
+            .delete(
+              endpoint,
+              headers: mcpHttpHeaders(
+                descriptor,
+                credentialToken: credentialToken,
+                sessionId: sessionId,
+                protocolVersion: _protocolVersion,
+              ),
+            )
+            .timeout(const Duration(seconds: 2));
+      } catch (_) {
+        // Some servers do not implement explicit session termination.
+      }
+    }
+    _sessionId = null;
+    _protocolVersion = null;
     _state = McpConnectionState.disconnected;
     _httpClient.close();
   }
 
+  // Descubre herramientas y registra fallos HTTP en vez de ocultar un 404 como lista vacía.
   @override
   Future<List<McpRemoteTool>> listTools() async {
     if (_state != McpConnectionState.connected) {
       final conn = await connect();
       if (!conn.success) return const [];
     }
-
+    Uri? endpoint;
+    int? rpcId;
     try {
+      endpoint = resolveMcpHttpEndpoint(descriptor);
+      rpcId = _nextRequestId++;
       final reqBody = {
         'jsonrpc': '2.0',
-        'id': _nextRequestId++,
+        'id': rpcId,
         'method': 'tools/list',
         'params': const {},
       };
 
       final response = await _httpClient
-          .post(_endpointUri, headers: _headers, body: jsonEncode(reqBody))
+          .post(
+            endpoint,
+            headers: mcpHttpHeaders(
+              descriptor,
+              credentialToken: credentialToken,
+              sessionId: _sessionId,
+              protocolVersion: _protocolVersion,
+            ),
+            body: jsonEncode(reqBody),
+          )
           .timeout(requestTimeout);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>?;
+        final data = decodeMcpJsonRpcResponse(response);
         final res = data?['result'] as Map<String, dynamic>?;
         return HttpMcpParser.parseTools(res, descriptor.id);
       }
+      _state = McpConnectionState.failed;
+      reportMcpHttpFailure(
+        serverId: descriptor.id,
+        operation: 'tools/list',
+        rpcId: rpcId,
+        statusCode: response.statusCode,
+        endpoint: endpoint,
+      );
       return const [];
-    } catch (_) {
+    } catch (error) {
+      _state = McpConnectionState.failed;
+      reportMcpTransportFailure(
+        serverId: descriptor.id,
+        operation: 'tools/list',
+        error: error,
+        endpoint: endpoint,
+        rpcId: rpcId,
+      );
       return const [];
     }
   }
 
+  // QUÉ HACE: invoca una herramienta descubierta usando su nombre y argumentos JSON.
+  // CÓMO/POR QUÉ: conserva JSON-RPC id y clasifica fallo HTTP, timeout y error MCP por separado.
   @override
   Future<McpToolCallResult> callTool(McpToolCall call) async {
     if (_state != McpConnectionState.connected) {
@@ -156,51 +282,6 @@ class HttpMcpClient implements McpClientPort {
         );
       }
     }
-
-    try {
-      final reqBody = {
-        'jsonrpc': '2.0',
-        'id': _nextRequestId++,
-        'method': 'tools/call',
-        'params': {
-          'name': call.toolName,
-          'arguments': call.arguments,
-        },
-      };
-
-      final response = await _httpClient
-          .post(_endpointUri, headers: _headers, body: jsonEncode(reqBody))
-          .timeout(requestTimeout);
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>?;
-        if (data?['error'] != null) {
-          final err = data!['error'] as Map<String, dynamic>;
-          return McpToolCallResult(
-            status: McpOperationStatus.failed,
-            errorCode: err['code']?.toString(),
-            message: err['message'] as String? ?? 'Error remoto en tool',
-          );
-        }
-
-        final res = data?['result'] as Map<String, dynamic>?;
-        return HttpMcpParser.parseCallResult(res);
-      }
-
-      return McpToolCallResult(
-        status: McpOperationStatus.failed,
-        message: 'HTTP ${response.statusCode}: ${response.body}',
-      );
-    } on TimeoutException {
-      return const McpToolCallResult(
-        status: McpOperationStatus.timeout,
-        message: 'La llamada a la herramienta excedió el tiempo límite.',
-      );
-    } catch (e) {
-      return McpToolCallResult(
-        status: McpOperationStatus.failed,
-        message: 'Excepción durante ejecución MCP: $e',
-      );
-    }
+    return _toolCaller.callTool(call);
   }
 }

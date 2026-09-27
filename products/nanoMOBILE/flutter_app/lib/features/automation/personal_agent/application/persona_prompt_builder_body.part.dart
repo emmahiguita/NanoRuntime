@@ -98,6 +98,8 @@ abstract final class PersonaPromptBuilder {
     }
 
     final signals = linguisticAnalyzer.analyze(messageText);
+    final languageHint = signals.promptHint;
+    if (languageHint != null) parts.add(languageHint);
     if (signals.detectedIntents.length >= 2) {
       parts.add(
         'Intenciones compuestas detectadas (${signals.detectedIntents.join(' + ')}): '

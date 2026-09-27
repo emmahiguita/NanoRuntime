@@ -58,7 +58,9 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   Future<EngineStatus> start({String? modelPath}) async {
     if (state.phase == EnginePhase.ready || state.phase == EnginePhase.degraded) {
       if (modelPath == null || state.modelPath == modelPath) return state;
-      await stop();
+      // QUÉ HACE: deja que Kotlin compare la ruta solicitada con el proceso real.
+      // CÓMO FUNCIONA: engineStart es idempotente y el supervisor nativo conoce su ruta.
+      // POR QUÉ: un snapshot Ready puede no traer modelPath; detener por caché nula aborta la carga.
     }
     debugPrint('[engine] start() fase=${state.phase.name} model=$modelPath');
     state = state.copyWith(phase: EnginePhase.starting, modelPath: modelPath ?? state.modelPath, clearReason: true);
@@ -112,7 +114,12 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
     }
     final hasModel = await _client.hasModel();
     if (state != s) return state;
-    state = s.copyWith(phase: hasModel ? EnginePhase.ready : EnginePhase.degraded, clearReason: true);
+    state = hasModel
+        ? s.copyWith(phase: EnginePhase.ready, clearReason: true)
+        : s.copyWith(
+            phase: EnginePhase.degraded,
+            reason: 'servidor vivo, pero el modelo no está cargado',
+          );
     return state;
   }
 
@@ -131,8 +138,10 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
     var s = state;
     debugPrint('[engine] ensureReady fase=${s.phase.name} model=$modelPath');
     if (s.isLive && modelPath != null && s.modelPath != modelPath) {
-      await stop();
-      s = state;
+      // QUÉ HACE: reconcilia el modelo usando el supervisor nativo como fuente de verdad.
+      // CÓMO FUNCIONA: start consulta engineStart; Kotlin conserva o reemplaza el proceso según su ruta real.
+      // POR QUÉ: Flutter no debe enviar SIGTERM por una ruta local desconocida o desactualizada.
+      s = await start(modelPath: modelPath);
     }
     if (s.phase == EnginePhase.idle || s.phase == EnginePhase.failed) {
       s = await start(modelPath: modelPath);
@@ -141,6 +150,8 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
       await start(modelPath: modelPath);
       s = state;
     }
+    // /health marca vida del servidor; refrescar /api/status valida el modelo real.
+    if (s.isLive) s = await refresh();
     return s.phase == EnginePhase.ready;
   }
 

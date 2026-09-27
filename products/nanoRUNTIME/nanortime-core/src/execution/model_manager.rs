@@ -1495,12 +1495,18 @@ impl ModelManager {
         session_id: Option<&str>,
         temperature: Option<f32>,
         prefix: Option<&str>,
+        cancel_flag: Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<(
         tokio::sync::oneshot::Receiver<Result<(String, Vec<f32>, crate::GenerationStats)>>,
         TokenReceiver,
     )> {
         #[cfg(feature = "simulated")]
-        let _ = (session_id, temperature, prefix);
+        let _ = (session_id, temperature, prefix, &cancel_flag);
+        if cancel_flag.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(NanoError::InferenceError {
+                reason: "generation cancelled before model dispatch".to_string(),
+            });
+        }
         let (tokio_tx, tokio_rx) = tokio::sync::mpsc::channel(max_tokens.max(4096));
         let (res_tx, res_rx) = tokio::sync::oneshot::channel();
 
@@ -1620,6 +1626,10 @@ impl ModelManager {
                         }
                     },
                 };
+                // QUÉ HACE: vincula el mismo cancel_flag HTTP con el contexto llama.cpp.
+                // CÓMO FUNCIONA: prefill y decodificación consultan el flag entre lotes.
+                // POR QUÉ: permite devolver el modelo al pool tras un timeout real.
+                ctx.set_cancel_flag(Arc::clone(&cancel_flag));
 
                 // V1.1 — prefix cache: HIT restaura el KV del prefix desde el
                 // snapshot (sin re-prefillear), MISS prefillea + guarda el

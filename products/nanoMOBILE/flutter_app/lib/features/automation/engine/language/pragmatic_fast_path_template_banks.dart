@@ -45,6 +45,7 @@ const List<String> greetingRecentlyGreetedCandidates = [
   'Por acá sigo, cuéntame.',
   'Hola otra vez, cuéntame.',
   '¿Qué pasó? Dime.',
+  '¿Qué haces? Cuéntame.',
   '¿Qué cuentas?',
   'Dime, ¿qué hubo?',
   'Dime, te leo.',

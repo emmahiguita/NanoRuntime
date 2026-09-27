@@ -1251,6 +1251,29 @@ impl Orchestrator {
         tokio::sync::oneshot::Receiver<Response>,
         tokio::sync::mpsc::Receiver<(String, f32)>,
     )> {
+        self.process_request_streaming_cancellable(
+            request,
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .await
+    }
+
+    /// QUÉ HACE: Ejecuta el flujo conversacional con una cancelación compartida.
+    /// CÓMO FUNCIONA: Comprueba el flag antes y después de RAG y lo pasa al modelo.
+    /// POR QUÉ: Una cancelación durante preparación no debe iniciar inferencia tardía.
+    pub async fn process_request_streaming_cancellable(
+        &self,
+        request: UserRequest,
+        cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<(
+        tokio::sync::oneshot::Receiver<Response>,
+        tokio::sync::mpsc::Receiver<(String, f32)>,
+    )> {
+        if cancel_flag.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(NanoError::InferenceError {
+                reason: "generation cancelled before prompt preparation".to_string(),
+            });
+        }
         let prompt = &request.prompt;
 
         // Privacy check
@@ -1277,6 +1300,11 @@ impl Orchestrator {
         let (augmented_prompt, prefix) = self
             .build_augmented_prompt_with_prefix(prompt, &rag_docs, &request)
             .await;
+        if cancel_flag.load(std::sync::atomic::Ordering::Acquire) {
+            return Err(NanoError::InferenceError {
+                reason: "generation cancelled after context retrieval".to_string(),
+            });
+        }
 
         // Generate with streaming — returns the token receiver immediately;
         // the final result (text + per-token probabilities) resolves in the
@@ -1291,6 +1319,7 @@ impl Orchestrator {
                 request.session_id.as_deref(),
                 request.temperature,
                 prefix.as_deref(),
+                cancel_flag,
             )
             .await?;
 

@@ -7,6 +7,9 @@ import android.os.SystemClock
 import android.view.Surface
 import android.view.WindowManager
 import java.io.ByteArrayOutputStream
+import java.util.concurrent.Callable
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -15,19 +18,33 @@ import java.util.concurrent.Executors
 import kotlin.math.abs
 
 /**
- * Captura una observacion coherente del dispositivo sin bloquear el main
- * thread. La solicitud de screenshot se inicia primero y, mientras Android la
- * resuelve, se congela el arbol de accesibilidad. El resultado se publica solo
- * cuando ambas mitades han terminado.
- * Motor on-device de captura atómica de jerarquía y visual de Nano.
- * Devuelve el PNG como ByteArray por MethodChannel con sincronización
- * temporal estricta y sin abrir ningún puerto local inseguro.
+ * NanoAtomicSnapshotter — Captura atómica de jerarquía UI + screenshot.
+ *
+ * QUÉ: Produce un snapshot coherente del dispositivo sin bloquear el main thread.
+ *      Screenshot se inicia primero; árbol de a11y se congela mientras Android lo resuelve.
+ * CÓMO: AtomicInteger(remaining) como barrera de dos fases. PNG en executor daemon con
+ *       timeout de 100ms para evitar bloquear el binder thread en pantallas 1080p.
+ * POR QUÉ: PNG sin timeout puede costar 80-150ms en pantallas densas → bloqueo del
+ *          AccessibilityService binder thread → ANR del sistema.
+ * FIX BUG-02: pngExecutor tiene shutdown() explícito; PNG usa Future.get(timeout).
  */
 object NanoAtomicSnapshotter {
     const val PROTOCOL_VERSION = 1
+
+    // Código de error cuando la compresión PNG supera el timeout de 100ms.
+    // Se reporta igual que un fallo de encoding para que el caller decida reintentar.
     private const val ERROR_PNG_ENCODING = -2
+    private const val ERROR_PNG_TIMEOUT  = -3
+
+    // Executor daemon: el thread no impide que la JVM muera, pero necesita
+    // shutdown() explícito para liberar recursos al destruirse el servicio.
     private val pngExecutor = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "nano-atomic-png").apply { isDaemon = true }
+    }
+
+    // Llamado desde AgentAccessibilityService.onDestroy() para evitar thread huérfano.
+    fun shutdown() {
+        pngExecutor.shutdown()
     }
 
     fun capture(
@@ -90,15 +107,20 @@ object NanoAtomicSnapshotter {
                     deliverPart()
                     return@takeScreenshotDetailed
                 }
-                // PNG puede costar decenas de ms en 1080p. Nunca se comprime
-                // en el main thread del AccessibilityService.
+                // PNG puede costar 80-150ms en 1080p. Se comprime en el executor
+                // con timeout de 100ms. Si excede, reporta ERROR_PNG_TIMEOUT y entrega
+                // el snapshot sin imagen — el caller puede reintentar sin bloquear.
+                val future = pngExecutor.submit(Callable { bitmap.toPngBytes() })
                 pngExecutor.execute {
                     try {
-                        screenshotRef.set(bitmap.toPngBytes())
+                        screenshotRef.set(future.get(100, TimeUnit.MILLISECONDS))
+                    } catch (_: TimeoutException) {
+                        future.cancel(true)
+                        screenshotErrorCode.set(ERROR_PNG_TIMEOUT)
                     } catch (_: Throwable) {
                         screenshotErrorCode.set(ERROR_PNG_ENCODING)
                     } finally {
-                        bitmap.recycle()
+                        bitmap.recycle()   // siempre liberar bitmap, pase lo que pase
                         deliverPart()
                     }
                 }

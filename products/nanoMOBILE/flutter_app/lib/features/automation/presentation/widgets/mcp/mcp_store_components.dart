@@ -5,6 +5,7 @@ import '../../../engine/mcp/local_device_mcp_client.dart';
 import '../../../engine/mcp/mcp_client_port.dart';
 import '../../../engine/mcp/mcp_connection_registry.dart';
 import '../../../engine/mcp/mcp_store_catalog.dart';
+import '../../../engine/mcp/mcp_server_persistence.dart';
 import '../../../engine/system/installed_app_catalog.dart';
 import '../../automation_visual_theme.dart';
 
@@ -195,6 +196,7 @@ Future<void> showMcpStoreConnectDialog({
   required BuildContext context,
   required McpStoreItem item,
   required McpConnectionRegistry registry,
+  required McpServerPersistence persistence,
   required InstalledAppCatalog? appCatalog,
   required AutomationVisualPalette visual,
   required void Function(String message) onConnected,
@@ -210,7 +212,7 @@ Future<void> showMcpStoreConnectDialog({
   final endpointController = TextEditingController(text: item.defaultEndpoint);
   final tokenController = TextEditingController();
 
-  return showDialog<void>(
+  await showDialog<void>(
     context: context,
     builder: (ctx) {
       bool connecting = false;
@@ -289,15 +291,22 @@ Future<void> showMcpStoreConnectDialog({
                           errorMsg = null;
                         });
 
+                        HttpMcpClient? client;
                         try {
                           final descriptor = item.toDescriptor(
                             customEndpoint: endpointController.text.trim(),
-                            token: tokenController.text.trim().isNotEmpty ? tokenController.text.trim() : null,
+                            credentialRef: persistence.credentialRefFor(item.id),
                           );
-                          final client = HttpMcpClient(descriptor: descriptor);
+                          persistence.validateDescriptor(descriptor);
+                          final token = tokenController.text.trim();
+                          client = HttpMcpClient(
+                            descriptor: descriptor,
+                            credentialToken: token.isEmpty ? null : token,
+                          );
                           final connResult = await client.connect();
 
                           if (!connResult.success) {
+                            await client.disconnect();
                             setDlgState(() {
                               connecting = false;
                               errorMsg = connResult.message ?? 'No se pudo conectar con el endpoint';
@@ -305,14 +314,19 @@ Future<void> showMcpStoreConnectDialog({
                             return;
                           }
 
+                          await persistence.save(
+                            descriptor,
+                            credentialToken: token.isEmpty ? null : token,
+                          );
                           await registry.register(client, replaceExisting: true);
                           final snap = await registry.refreshTools();
                           if (ctx.mounted) Navigator.of(ctx).pop();
                           onConnected('${item.name} conectado. ${snap.tools.length} herramientas disponibles.');
-                        } catch (e) {
+                        } catch (_) {
+                          await client?.disconnect();
                           setDlgState(() {
                             connecting = false;
-                            errorMsg = 'Excepción de red: $e';
+                            errorMsg = 'No se pudo guardar o completar la conexión MCP.';
                           });
                         }
                       },
@@ -329,5 +343,38 @@ Future<void> showMcpStoreConnectDialog({
         },
       );
     },
-  );
+  ).whenComplete(() {
+    tokenController.clear();
+    tokenController.dispose();
+    endpointController.dispose();
+  });
+}
+
+Future<void> disconnectMcpStoreServer({
+  required BuildContext context,
+  required String serverId,
+  required String serverName,
+  required McpConnectionRegistry registry,
+  required McpServerPersistence persistence,
+}) async {
+  try {
+    await persistence.remove(serverId);
+    await registry.unregister(serverId);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Servidor $serverName desconectado.')),
+      );
+    }
+  } catch (_) {
+    await registry.unregister(serverId);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Servidor desconectado de esta sesión; no se pudo guardar la eliminación.',
+          ),
+        ),
+      );
+    }
+  }
 }

@@ -35,16 +35,21 @@ class NanoOverlayRuntime {
     };
     controller.selectMode(mode);
 
-    // Si viene contexto de pantalla activa (estilo Gemini), se inyecta al prompt.
+    // Si viene contexto de pantalla activa (resumen/inspección explícita),
+    // se acota de forma segura para no saturar el presupuesto de tokens con logs.
     final screenCtx = args['screenContext'] as Map?;
     String effectivePrompt = prompt;
     if (screenCtx != null && screenCtx.isNotEmpty) {
       final pkg = screenCtx['package']?.toString() ?? '';
-      final visibleText = screenCtx['text']?.toString() ?? '';
-      final links = (screenCtx['links'] as List?)?.join(', ') ?? '';
+      var visibleText = screenCtx['text']?.toString() ?? '';
+      // Acotar texto visual a 600 caracteres para evitar saturar el prompt con logs o volcados.
+      if (visibleText.length > 600) {
+        visibleText = '${visibleText.substring(0, 600)}…';
+      }
+      final links = (screenCtx['links'] as List?)?.take(5).join(', ') ?? '';
       final b = StringBuffer('[Contexto de Pantalla en Android]\n');
       if (pkg.isNotEmpty) b.writeln('App activa: $pkg');
-      if (links.isNotEmpty) b.writeln('Enlaces en pantalla: $links');
+      if (links.isNotEmpty) b.writeln('Enlaces: $links');
       if (visibleText.isNotEmpty) b.writeln('Texto visible:\n$visibleText');
       b.writeln('\nConsulta: $prompt');
       effectivePrompt = b.toString();

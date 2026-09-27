@@ -67,7 +67,11 @@ void main() {
     test('resuelve saludo y agradecimiento sin enviar al LLM', () {
       const router = NativeConversationalRouter();
 
-      expect(router.tryResolve('hola', hasModel: false), isNotNull);
+      final greeting = router.tryResolve('hola', hasModel: false);
+      expect(greeting, isNotNull);
+      expect(greeting!.text, contains('¿Cómo'));
+      expect(greeting.suggestions, contains('Estoy bien, gracias'));
+      expect(greeting.suggestions, contains('Quiero conversar un rato'));
       expect(router.tryResolve('gracias', hasModel: false), isNotNull);
     });
   });

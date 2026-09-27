@@ -60,6 +60,20 @@ final class HybridRetrievalScorer {
     final normStored = normalizePersonalLearningText(example.incomingText);
     if (normInput.isEmpty) return 0.0;
 
+    // A stored WhatsApp turn often adds a greeting and the recipient's name
+    // before the actual question. Treat that preamble as optional when the
+    // remaining trigger matches exactly.
+    final inputWithoutGreeting = normalizePersonalLearningText(
+      _withoutLeadingGreeting(rawInput),
+    );
+    final storedWithoutGreeting = normalizePersonalLearningText(
+      _withoutLeadingGreeting(example.incomingText),
+    );
+    final greetingMatch =
+        (inputWithoutGreeting != normInput || storedWithoutGreeting != normStored) &&
+        inputWithoutGreeting.isNotEmpty &&
+        inputWithoutGreeting == storedWithoutGreeting;
+
     // 1. Coincidencia exacta con el disparador principal
     final exactMatch = (normStored.isNotEmpty && normInput == normStored) ? 1.0 : 0.0;
 
@@ -91,8 +105,12 @@ final class HybridRetrievalScorer {
 
     // Suma ponderada de señales normalizadas con bifurcación de match aprendido vs paráfrasis
     var totalScore = 0.0;
-    if (exactMatch == 1.0 || variantMatch == 1.0) {
-      final base = exactMatch == 1.0 ? 0.92 : 0.88;
+    if (exactMatch == 1.0 || variantMatch == 1.0 || greetingMatch) {
+      final base = exactMatch == 1.0
+          ? 0.92
+          : variantMatch == 1.0
+              ? 0.88
+              : 0.90;
       totalScore = (base + (0.05 * intentScore) + (0.03 * semanticScore)).clamp(0.0, 1.0);
     } else {
       totalScore = (
@@ -119,6 +137,14 @@ final class HybridRetrievalScorer {
 
     return totalScore.clamp(0.0, 1.0);
   }
+
+  static String _withoutLeadingGreeting(String text) => text.trim().replaceFirst(
+        RegExp(
+          r'^(?:hola|hol|ola|holi|holaa|hey|hi|buenas\s+(?:tardes|noches)|buen(?:os)?\s+d[ií]as|buenas|qu[eé]\s+m[aá]s|quiubo)\b(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+,)?[\s,¡!¿?]*',
+          caseSensitive: false,
+        ),
+        '',
+      );
 
   static double _computeLexicalOverlap(String a, String b) {
     if (a.isEmpty || b.isEmpty) return 0.0;

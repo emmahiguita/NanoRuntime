@@ -160,10 +160,11 @@ void main() {
         ),
       );
 
-      expect(result, contains('Mensaje enviado a "Emm" (+573203527283)'));
+      expect(result, contains('Chat abierto para "Emm" (+573203527283)'));
+      expect(result, contains('el clic y la entrega no están verificados'));
       expect(
         PlanExecutionCoordinator.executionStatusFor(result),
-        ToolExecutionStatus.completed,
+        ToolExecutionStatus.completedUnverified,
       );
       expect(mediaShare.lastOpenedContact, '+573203527283');
       expect(mediaShare.lastSentText, 'Hola Emm, prueba automatizada completada');
@@ -194,10 +195,11 @@ void main() {
         ),
       );
 
-      expect(result, contains('Archivo listo para "Emm" (+573203527283)'));
+      expect(result, contains('Flujo de archivo abierto para "Emm" (+573203527283)'));
+      expect(result, contains('el clic y la entrega no están verificados'));
       expect(
         PlanExecutionCoordinator.executionStatusFor(result),
-        ToolExecutionStatus.completed,
+        ToolExecutionStatus.completedUnverified,
       );
       expect(mediaShare.lastSharedContact, '+573203527283');
       expect(mediaShare.lastSharedPath, '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf');
@@ -227,10 +229,11 @@ void main() {
         ),
       );
 
-      expect(result, contains('Archivo listo para "Emm" (+573203527283)'));
+      expect(result, contains('Flujo de archivo abierto para "Emm" (+573203527283)'));
+      expect(result, contains('el clic y la entrega no están verificados'));
       expect(
         PlanExecutionCoordinator.executionStatusFor(result),
-        ToolExecutionStatus.completed,
+        ToolExecutionStatus.completedUnverified,
       );
       expect(mediaShare.lastSharedContact, '+573203527283');
       expect(mediaShare.lastSharedPath, '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png');
@@ -241,7 +244,7 @@ void main() {
       final tool = registry.lookup('whatsapp.share_file');
       expect(tool, isNotNull, reason: 'whatsapp.share_file debe estar en ToolRegistry');
       expect(tool!.name, 'whatsapp.share_file');
-      expect(tool.requiresConfirmation, isFalse);
+      expect(tool.requiresConfirmation, isTrue);
 
       final alias = registry.lookup('compartir');
       expect(alias, isNotNull);
@@ -249,8 +252,15 @@ void main() {
 
       final policy = PolicyEngine(registry: registry);
       final decision = policy.decide('whatsapp.share_file', stepsUsed: 0);
-      expect(decision.allowed, isTrue, reason: 'La política debe permitir la herramienta');
+      expect(decision.needsConfirmation, isTrue);
       expect(decision.denied, isFalse);
+
+      final confirmed = policy.decide(
+        'whatsapp.share_file',
+        stepsUsed: 0,
+        confirmed: true,
+      );
+      expect(confirmed.allowed, isTrue);
     });
 
     test('Prueba 6: Desde llamadas busca a (Emm) en whatsapp y envíale un mensaje', () async {
@@ -273,7 +283,8 @@ void main() {
         ),
       );
 
-      expect(result, contains('Mensaje enviado a "Emm" (+573203527283)'));
+      expect(result, contains('Chat abierto para "Emm" (+573203527283)'));
+      expect(result, contains('el clic y la entrega no están verificados'));
       expect(mediaShare.lastOpenedContact, '+573203527283');
       expect(mediaShare.lastSentText, 'Hola Emm, mensaje desde llamadas');
       expect(mediaShare.lastAutoSend, isTrue);
@@ -323,13 +334,14 @@ void main() {
         ),
       );
 
-      expect(result, contains('Mensaje enviado a "Emm" (+573203527283)'));
+      expect(result, contains('Chat abierto para "Emm" (+573203527283)'));
+      expect(result, contains('el clic y la entrega no están verificados'));
       expect(mediaShare.lastOpenedContact, '+573203527283');
       expect(mediaShare.lastSentText, 'Hola Emm, prueba automatizada buscando por numero');
       expect(mediaShare.lastAutoSend, isTrue);
       expect(
         PlanExecutionCoordinator.executionStatusFor(result),
-        ToolExecutionStatus.completed,
+        ToolExecutionStatus.completedUnverified,
       );
     });
   });

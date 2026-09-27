@@ -48,6 +48,16 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
       conversationId,
       context,
     );
+    // QUÉ HACE: deja trazas de tamaño y ruta sin escribir el mensaje ni el prompt.
+    // CÓMO FUNCIONA: compara historial, persona, prompt y proveedor antes de inferir.
+    // POR QUÉ: separa prefill lento, contexto excesivo y proveedor sin configurar.
+    debugPrint(
+      '[draft:prepared] conv=${_shortId(conversationId)} '
+      'promptChars=${prepared.prompt.length} historyEntries=${context.historyEntries.length} '
+      'historyChars=${context.history.length} personaChars=${prepared.persona.length} '
+      'social=${prepared.isSocial} localReady=$localReady cloudConfigured=$hasCloudPort '
+      'provider=${writer._cloudInferencePort?.providerId ?? 'local'}',
+    );
     final raw = await _generateDraftReply(writer, prepared, localReady);
     if (raw == null) return null;
     prepared.stopwatch.stop();

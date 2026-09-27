@@ -607,7 +607,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
 
   Widget _buildStoreTab(AutomationVisualPalette visual) {
     final mcpRegistry = ref.watch(mcpConnectionRegistryProvider);
-    final connectedServerIds = mcpRegistry.servers.map((s) => s.id).toSet();
+    final connectedServerIds = mcpRegistry.connectedServerIds;
     final items = _catalog.query(
       searchQuery: _storeSearchQuery,
       category: _selectedStoreCategory,
@@ -717,7 +717,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Conecta servidores MCP locales/remotos SSE o endpoints JSON-RPC.',
+                      'Conecta herramientas locales y servidores MCP remotos Streamable HTTP.',
                       style: TextStyle(color: visual.textMuted, fontSize: 12),
                     ),
                   ],
@@ -732,6 +732,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                 onPressed: () => showMcpHotInjectionDialog(
                   context: context,
                   registry: mcpRegistry,
+                  persistence: ref.read(mcpServerPersistenceProvider),
                   visual: visual,
                   onInjected: (msg) {
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -783,22 +784,22 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               isConnected: connectedServerIds.contains(item.id),
               onConnect: () => showMcpStoreConnectDialog(
                 context: context,
-                item: item,
-                registry: mcpRegistry,
-                appCatalog: ref.read(installedAppCatalogProvider),
+                  item: item,
+                  registry: mcpRegistry,
+                  persistence: ref.read(mcpServerPersistenceProvider),
+                  appCatalog: ref.read(installedAppCatalogProvider),
                 visual: visual,
                 onConnected: (msg) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
                 },
               ),
-              onDisconnect: () async {
-                await mcpRegistry.unregister(item.id);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Servidor ${item.name} desconectado.')),
-                  );
-                }
-              },
+                onDisconnect: () => disconnectMcpStoreServer(
+                  context: context,
+                  serverId: item.id,
+                  serverName: item.name,
+                  registry: mcpRegistry,
+                  persistence: ref.read(mcpServerPersistenceProvider),
+                ),
             ),
       ],
     );

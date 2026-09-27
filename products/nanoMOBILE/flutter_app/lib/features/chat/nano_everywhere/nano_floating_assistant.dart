@@ -38,6 +38,12 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant> {
   bool _dragging = false;
   Offset position = const Offset(12, 300);
 
+  // BUG-07 FIX: Detecta rotaciones para reanclar el orbe.
+  // position = Offset(12, 300) en portrait queda fuera de pantalla en landscape
+  // (height < 300). didChangeDependencies se llama en cada cambio de MediaQuery,
+  // incluyendo rotaciones, sin necesitar listener externo.
+  Orientation? _lastOrientation;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +51,23 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant> {
     isVisible = widget.controller.isVisible;
     input = TextEditingController();
     widget.controller.addListener(_sync);
+  }
+
+  // QUÉ: Reancla el orbe a una posición segura al cambiar orientación.
+  // CÓMO: Compara la orientación actual con la última conocida; si cambió,
+  //       reposiciona a (12, altura*0.35) que es seguro en portrait y landscape.
+  // POR QUÉ: Sin esto, el orbe "salta" o queda invisible al rotar el dispositivo.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ori = MediaQuery.orientationOf(context);
+    if (_lastOrientation != null && _lastOrientation != ori) {
+      final size = MediaQuery.sizeOf(context);
+      setState(() {
+        position = Offset(12, size.height * 0.35);
+      });
+    }
+    _lastOrientation = ori;
   }
 
   @override

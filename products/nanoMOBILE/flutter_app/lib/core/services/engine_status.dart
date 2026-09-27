@@ -10,8 +10,8 @@ library;
 /// - [EnginePhase.starting]: spawn aceptado por el supervisor Kotlin,
 ///   health poll en curso.
 /// - [EnginePhase.ready]: /health OK y /api/status 200 (modelo cargado).
-/// - [EnginePhase.degraded]: /health OK pero /api/status 503
-///   runtime_unavailable — motor vivo sin GGUF instalado.
+/// - [EnginePhase.degraded]: /health OK pero el modelo no está cargado
+///   (HTTP 503 o model_loaded=false) — proceso vivo, sin capacidad de inferencia.
 /// - [EnginePhase.failed]: el supervisor reportó fallo (spawn, health
 ///   timeout, proceso muerto).
 enum EnginePhase { idle, starting, ready, degraded, failed }

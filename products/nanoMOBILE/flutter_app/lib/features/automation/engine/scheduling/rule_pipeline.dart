@@ -691,7 +691,7 @@ class RulePipeline {
         '${event.now.hour.toString().padLeft(2, '0')}:'
         '${event.now.minute.toString().padLeft(2, '0')}';
     debugPrint(
-      '[rules] tick $hhmm cargadas=${_registry.rules.length} '
+      '[scheduler] time_tick $hhmm cargadas=${_registry.rules.length} '
       'matcheadas=${matched.length}',
     );
     final results = <RuleDispatchResult>[];

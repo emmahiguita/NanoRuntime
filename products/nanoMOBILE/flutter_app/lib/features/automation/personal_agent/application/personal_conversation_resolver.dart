@@ -94,9 +94,10 @@ class PersonalConversationResolver {
     final styleMatch = (allowLiteral && styleResolver != null)
         ? await _resolveStyle(analysis.targetText, notification.text, conversationId, scopes, 0.60)
         : null;
-    // QUÉ HACE: permite respuestas locales sólo para actos sociales sin hechos personales.
-    // CÓMO: exige turno social breve y limita las intenciones a saludo/cortesía/despedida/risa.
-    // POR QUÉ: un saludo no debe esperar al LLM ni afirmar actividad del dueño sin evidencia.
+    // QUÉ HACE: permite respuestas locales para intercambios sociales breves.
+    // CÓMO: limita la vía rápida a saludo, bienestar, reciprocidad, cortesía,
+    // despedida, risa y apoyo; actividad, ubicación y datos siguen requiriendo contexto.
+    // POR QUÉ: un saludo o "¿cómo estás?" debe responderse sin bloquearse en el LLM.
     final candidate = analysis.targetComplexity.isSocialMinimal
         ? await fastPath.resolve(
             text: analysis.targetText,
@@ -124,11 +125,15 @@ class PersonalConversationResolver {
     return null;
   }
 
-  // QUÉ HACE: admite únicamente respuestas fáticas que no afirman datos del dueño.
+  // QUÉ HACE: admite turnos sociales breves con respuestas convencionales.
   // CÓMO: comprueba todas las intenciones detectadas, no sólo la primera.
-  // POR QUÉ: preguntas ambiguas y estados personales deben pasar por memoria o modelo.
+  // POR QUÉ: actividad, ubicación y preguntas abiertas deben pasar por memoria o modelo.
   bool _isSafeSocialFastPath(String act) {
-    const allowed = {'greeting', 'thanks', 'farewell', 'laughter'};
+    const allowed = {
+      'greeting', 'askWellbeing', 'userWellbeing', 'reciprocalQuestion',
+      'thanks', 'farewell', 'laughter', 'wellbeingClarification',
+      'socialReassurance',
+    };
     final intents = act.split('+');
     return intents.isNotEmpty && intents.every(allowed.contains);
   }

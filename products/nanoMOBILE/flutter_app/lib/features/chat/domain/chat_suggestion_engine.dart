@@ -65,7 +65,7 @@ class ChatSuggestionEngine {
         lower.contains('buenos días') ||
         lower.contains('buenas tardes') ||
         lower.contains('bienvenido')) {
-      return const ['⚡ Diagnóstico del Sistema', '💻 Abrir Linux', '🤖 Catálogo de Modelos'];
+      return const ['Estoy bien, gracias', 'Quiero conversar un rato', 'Tengo una pregunta'];
     }
 
     // 7. Pregunta o alternativas sugeridas por la IA

@@ -13,6 +13,15 @@ extension NanoAiControllerSubmission on NanoAiController {
       mode = NanoMode.quick;
     }
     final token = ++_requestId;
+
+    // BUG-08 FIX: Resetear _lastQuery al inicio de cada submit().
+    // Sin este reset, _lastQuery acumula una cadena de Futures encadenados
+    // que crecen con cada mensaje. En sesiones largas (50+ mensajes) esto
+    // genera presión de memoria y retrasos porque cada nuevo _serialAsk
+    // debe esperar a que terminen todos los anteriores en la cadena.
+    // Resetear aquí es seguro porque el token ya fue incrementado: cualquier
+    // respuesta del Future anterior será descartada por _current(token).
+    _lastQuery = Future<void>.value();
     if (mode == NanoMode.quick &&
         NanoMediaDetector.shouldAutoDetectMedia(prompt)) {
       mode = NanoMode.media;

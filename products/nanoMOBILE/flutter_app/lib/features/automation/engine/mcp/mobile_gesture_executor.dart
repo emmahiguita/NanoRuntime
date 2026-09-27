@@ -164,9 +164,19 @@ class MobileGestureExecutor {
       final postEditables = postSnap.visibleEditables();
       if (postEditables.isNotEmpty) {
         final currentText = postEditables.first.text;
-        verificationOk = isSensitive
-            ? (currentText.isNotEmpty || postEditables.first.focused)
-            : currentText.contains(text) || currentText.isNotEmpty;
+        if (isSensitive) {
+          // Para campos sensibles (contraseña, OTP): verificar solo que hay
+          // contenido o foco — no comparamos texto para no exponer datos.
+          verificationOk = currentText.isNotEmpty || postEditables.first.focused;
+        } else {
+          // BUG-11 FIX: currentText.isNotEmpty es falso positivo si el campo
+          // ya tenía texto previo al type(). Verificar que el campo CONTIENE
+          // el texto escrito Y tiene al menos esa longitud.
+          // Esto descarta: campo vacío que se llenó con otra cosa, campo con
+          // texto previo que no cambió, y campos donde el input falló silencioso.
+          verificationOk = currentText.contains(text) &&
+              currentText.length >= text.length;
+        }
       }
     }
 

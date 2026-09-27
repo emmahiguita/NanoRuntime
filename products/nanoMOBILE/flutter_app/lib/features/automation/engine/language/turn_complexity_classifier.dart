@@ -47,7 +47,7 @@ final class TurnComplexityClassifier {
 
   static final _socialGreetingWellbeing = RegExp(
     r'^(?:(?:hola|hol|ola|hey|hi|buen día|buen dia|buenas|buenos días|muy buenos días|muy buenos dias|buenas tardes|buenas noches|cordial saludo|saludos|qué más|que más|q más|q mas|holi|holaa|hola hola|bien|todo bien)\s*[,¡!¿?]*\s*)*'
-    r'(?:[,¡!¿?]*\s*(?:cómo estás|como estás|cómo estas|como estas|cómo se encuentra|como se encuentra|cómo anda|como anda|cómo vas|como vas|cómo te va|como te va|qué tal(?: todo)?|que tal(?: todo)?|q tal(?: todo bn)?|todo bien\??|todo bn\??|cómo andas|como andas|qué hay|que hay)\s*(?:hoy|parce|bro|amigo|todo|bien)?\s*[,¡!¿?]*\s*)+$',
+    r'(?:[,¡!¿?]*\s*(?:cómo estás|como estás|cómo estas|como estas|cómo se encuentra|como se encuentra|cómo anda|como anda|cómo vas|como vas|cómo te va|como te va|qué tal(?: todo)?|que tal(?: todo)?|q tal(?: todo bn)?|todo bien\??|todo bn\??|cómo andas|como andas|qué hay|que hay)\s*(?:usted|hoy|parce|bro|amigo|todo|bien)?\s*[,¡!¿?]*\s*)+$',
     caseSensitive: false,
   );
 

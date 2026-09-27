@@ -65,7 +65,7 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         val contact = args?.get("contact") as? String
         val text = args?.get("text") as? String ?: ""
         val requestedPkg = ((args?.get("package") ?: args?.get("packageName")) as? String)?.takeIf { it.isNotBlank() } ?: "com.whatsapp"
-        val autoSend = (args?.get("autoSend") as? Boolean) ?: true
+        val autoSend = WhatsAppAutoSendPolicy.isRequested(args)
 
         if (contact.isNullOrBlank()) {
             val pm = activity.packageManager
@@ -237,7 +237,7 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         val contact = args?.get("contact") as? String
         val caption = args?.get("caption") as? String ?: ""
         val requestedPkg = ((args?.get("package") ?: args?.get("packageName")) as? String)?.takeIf { it.isNotBlank() } ?: "com.whatsapp"
-        val autoSend = (args?.get("autoSend") as? Boolean) ?: true
+        val autoSend = WhatsAppAutoSendPolicy.isRequested(args)
 
         if (path.isNullOrBlank()) {
             result.error("empty_path", "Sin archivo para compartir", null)

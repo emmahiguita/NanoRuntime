@@ -87,7 +87,14 @@ class EngineSupervisor(
             throw IllegalStateException("asset nanortime no encontrado en el APK (¿assets/bin/ en pubspec?)")
         }
 
-        if (dest.exists() && dest.length() == assetSize) return dest
+        // QUÉ HACE: Reutiliza el binario solo si coincide el contenido real del APK.
+        // CÓMO FUNCIONA: Compara SHA-256 además del tamaño para detectar builds distintos iguales en bytes.
+        // POR QUÉ: El tamaño por sí solo conservaba en el teléfono un runtime nativo obsoleto.
+        val assetHash = context.assets.open(assetPath).use(EngineAssetFingerprint::sha256)
+        if (dest.exists() && dest.length() == assetSize) {
+            val installedHash = dest.inputStream().use(EngineAssetFingerprint::sha256)
+            if (installedHash == assetHash) return dest
+        }
 
         context.assets.open(assetPath).use { input ->
             val tmp = File(dest.parentFile, "nanortime.tmp")
@@ -105,6 +112,12 @@ class EngineSupervisor(
                         "extracción incompleta: $total de $assetSize bytes (¿asset corrupto?)",
                     )
                 }
+            }
+            // Impide instalar una extracción truncada o distinta del asset compilado.
+            val extractedHash = tmp.inputStream().use(EngineAssetFingerprint::sha256)
+            if (extractedHash != assetHash) {
+                tmp.delete()
+                throw IllegalStateException("SHA-256 del runtime extraído no coincide con el asset")
             }
             // Rename atómico: Dart/Kotlin nunca ven un binario a medio escribir.
             if (!tmp.renameTo(dest)) {

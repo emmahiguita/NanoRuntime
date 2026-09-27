@@ -29,16 +29,24 @@ class NotificationAutomationService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         NotificationAutomationBridge.service = this
-        if (NanoApplication.from(this).durableInbox.pendingCount() > 0 &&
-            AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) {
+        val pending = NanoApplication.from(this).durableInbox.pendingCount()
+        NotificationEventTrace.lifecycle("connected", pending)
+        if (pending > 0 && AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) {
             AutomationRuntimeService.request(this, "nls_reconnect")
         }
     }
 
+    // QUÉ: Limpia el bridge y solicita reconexión al sistema.
+    // CÓMO: super.onListenerDisconnected() PRIMERO para completar el lifecycle del sistema.
+    //       Luego nulificar el bridge y pedir rebind.
+    // POR QUÉ (BUG-06): requestRebind antes de super puede fallar porque el
+    //       NotificationListenerService no ha completado su desconexión interna.
+    //       Android puede ignorar el rebind o lanzar IllegalStateException.
     override fun onListenerDisconnected() {
-        NotificationAutomationBridge.service = null
-        requestRebind(ComponentName(this, NotificationAutomationService::class.java))
         super.onListenerDisconnected()
+        NotificationAutomationBridge.service = null
+        NotificationEventTrace.lifecycle("disconnected")
+        requestRebind(ComponentName(this, NotificationAutomationService::class.java))
     }
 
     override fun onDestroy() {
@@ -61,12 +69,32 @@ class NotificationAutomationService : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
         if (sbn.packageName == packageName) return
-        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+        val whatsappPackage = sbn.packageName == "com.whatsapp" ||
+            sbn.packageName == "com.whatsapp.w4b"
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
+            if (whatsappPackage) {
+                NotificationEventTrace.event(
+                    "admission", sbn.packageName, sbn.postTime, "rejected", "group_summary",
+                )
+            }
+            return
+        }
 
         // WA-ADMISSION-01: estados, reacciones y avisos de servicio mueren
         // antes del inbox durable; así nunca despiertan ni crean un chat.
         val conversationEvidence = WhatsAppConversationNotificationClassifier.inspect(sbn)
+        val traceEvent = whatsappPackage || conversationEvidence.applies
+        if (traceEvent) {
+            NotificationEventTrace.event(
+                "callback", sbn.packageName, sbn.postTime, "received",
+                "conversation=${conversationEvidence.isConversationEvent}",
+            )
+        }
         if (conversationEvidence.applies && !conversationEvidence.isConversationEvent) {
+            NotificationEventTrace.event(
+                "admission", sbn.packageName, sbn.postTime, "rejected",
+                conversationEvidence.reason,
+            )
             android.util.Log.d(
                 "NanoNotifications",
                 "WhatsApp event rejected: ${conversationEvidence.reason}",
@@ -75,18 +103,43 @@ class NotificationAutomationService : NotificationListenerService() {
         }
 
         val sink = NotificationAutomationBridge.notificationEventsSink
-        if (sink == null && !AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) return
+        val backgroundEnabled = AutomationBackgroundChannelHandler.isBackgroundEnabled(this)
+        if (sink == null && !backgroundEnabled) {
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "admission", sbn.packageName, sbn.postTime, "rejected", "background_disabled",
+                )
+            }
+            return
+        }
 
         // NATIVE-ADMISSION-01: Si no hay sink UI vivo, verificar que el paquete tenga reglas
         // activas antes de persistir en DurableInbox o despertar el runtime headless.
         if (sink == null && !isPackageEligible(sbn.packageName)) {
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "admission", sbn.packageName, sbn.postTime, "rejected", "package_not_eligible",
+                )
+            }
             android.util.Log.d("NanoNotifications", "Skipping background wake for non-automated package: ${sbn.packageName}")
             return
         }
 
         try {
             NanoApplication.from(this).durableInbox.insert(sbn.packageName, sbn.key, sbn.postTime)
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "durable_inbox", sbn.packageName, sbn.postTime, "stored",
+                    if (sink == null) "route=background" else "route=ui",
+                )
+            }
         } catch (error: Exception) {
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "durable_inbox", sbn.packageName, sbn.postTime, "failed",
+                    error.javaClass.simpleName,
+                )
+            }
             android.util.Log.e("NanoNotifications", "Inbox persistence failed; delivery deferred", error)
             return
         }
@@ -99,15 +152,36 @@ class NotificationAutomationService : NotificationListenerService() {
                     val currentSink = NotificationAutomationBridge.notificationEventsSink
                     if (currentSink != null) {
                         currentSink.success(toMap(sbn))
+                        if (traceEvent) {
+                            NotificationEventTrace.event(
+                                "event_channel", sbn.packageName, sbn.postTime, "submitted",
+                            )
+                        }
                     } else {
+                        if (traceEvent) {
+                            NotificationEventTrace.event(
+                                "event_channel", sbn.packageName, sbn.postTime, "sink_missing",
+                            )
+                        }
                         AutomationRuntimeService.request(this@NotificationAutomationService)
                     }
                 } catch (e: Exception) {
+                    if (traceEvent) {
+                        NotificationEventTrace.event(
+                            "event_channel", sbn.packageName, sbn.postTime, "failed",
+                            e.javaClass.simpleName,
+                        )
+                    }
                     android.util.Log.e("NanoNotifications", "Event delivery via sink failed; requesting background runtime", e)
                     AutomationRuntimeService.request(this@NotificationAutomationService)
                 }
             }
         } else {
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "background_runtime", sbn.packageName, sbn.postTime, "requested",
+                )
+            }
             AutomationRuntimeService.request(this)
         }
     }

@@ -19,11 +19,10 @@
 //!   a cancellation with the generation it targets. If omitted, the server
 //!   assigns one (`req-<n>`).
 //!
-//! Cancellation semantics (honest): `/cancel` cuts the SSE stream and drops
-//! the client-side token loop immediately — including during model prefill
-//! (the stream-start future is raced against the cancel watch). The backing
-//! inference task is not preempted mid-token by the engine (no abort hook
-//! yet) — its output is discarded. The stream ends with `"cancelled":true`.
+//! Cancellation semantics: `/cancel` cuts the HTTP wait and sets a shared
+//! atomic flag. llama.cpp checks it between prefill batches and decode tokens;
+//! the current native batch finishes before the model/context are restored.
+//! The stream ends with `"cancelled":true` without retaining a worker loop.
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -35,11 +34,17 @@ use std::time::{Duration, Instant};
 use nanortime_core::NanoRuntime;
 use tokio::sync::watch;
 
+/// Agrupa la señal HTTP y el flag que puede consultar el hilo nativo de inferencia.
+struct InFlightRequest {
+    cancel_tx: watch::Sender<bool>,
+    cancel_flag: Arc<AtomicBool>,
+}
+
 /// Shared server state. Single source of truth for in-flight generations.
 pub struct ServerState {
     /// `request_id` → cancel switch. The generation loop watches this; a
     /// `true` send cuts the SSE stream. Entry removed when generation ends.
-    cancel_registry: Mutex<HashMap<String, watch::Sender<bool>>>,
+    cancel_registry: Mutex<HashMap<String, InFlightRequest>>,
     /// `request_id` → `session_id`. Permite marcar el KV de la sesión
     /// correcta tras una cancelación (Gate R6). Entry eliminada al consumirse.
     session_registry: Mutex<HashMap<String, String>>,
@@ -76,17 +81,22 @@ impl ServerState {
             .unwrap_or_else(|poisoned| poisoned.into_inner().len())
     }
 
-    fn register(&self, request_id: &str) -> watch::Receiver<bool> {
+    fn register(&self, request_id: &str) -> (watch::Receiver<bool>, Arc<AtomicBool>) {
         let (tx, rx) = watch::channel(false);
+        let cancel_flag = Arc::new(AtomicBool::new(false));
+        let entry = InFlightRequest {
+            cancel_tx: tx,
+            cancel_flag: Arc::clone(&cancel_flag),
+        };
         match self.cancel_registry.lock() {
             Ok(mut m) => {
-                m.insert(request_id.to_string(), tx);
+                m.insert(request_id.to_string(), entry);
             }
             Err(poisoned) => {
-                poisoned.into_inner().insert(request_id.to_string(), tx);
+                poisoned.into_inner().insert(request_id.to_string(), entry);
             }
         }
-        rx
+        (rx, cancel_flag)
     }
 
     fn unregister(&self, request_id: &str) {
@@ -103,9 +113,11 @@ impl ServerState {
             .map(|mut m| m.remove(request_id))
             .unwrap_or_else(|poisoned| poisoned.into_inner().remove(request_id));
         match entry {
-            Some(tx) => {
+            Some(entry) => {
+                // El hilo llama.cpp consulta esta marca entre bloques de prefill.
+                entry.cancel_flag.store(true, Ordering::Release);
                 // Best-effort: receiver may have already finished and dropped.
-                let _ = tx.send(true);
+                let _ = entry.cancel_tx.send(true);
                 true
             }
             None => false,
@@ -356,6 +368,24 @@ fn handle_readiness(
         }
         RuntimeSlot::Ready(rt) => {
             let st = rt.status();
+            // QUÉ HACE: Impide responder listo cuando el proceso vive pero no tiene modelo inferible.
+            // CÓMO FUNCIONA: Revisa el estado del ModelManager antes de construir la respuesta exitosa.
+            // POR QUÉ: /readiness representa disponibilidad de inferencia, no solo salud del servidor HTTP.
+            if !st.model_loaded {
+                let json = serde_json::json!({
+                    "status": "not_ready",
+                    "state": "MODEL_UNAVAILABLE",
+                    "version": env!("CARGO_PKG_VERSION"),
+                    "uptime_seconds": uptime,
+                    "model_loaded": false,
+                    "model_size_mb": st.model_size_mb,
+                    "context_size": st.context_size,
+                    "reason": "runtime activo, pero ModelManager informa model_loaded=false",
+                })
+                .to_string();
+                send_json(stream, "503 Service Unavailable", &json);
+                return;
+            }
             let json = serde_json::json!({
                 "status": "ok",
                 "state": "MODEL_READY",
@@ -576,10 +606,16 @@ fn handle_completion_sse(
 
     // ── Non-streaming: single JSON response ──────────────────────────
     if !req.stream {
+        // QUÉ HACE: habilita la misma cancelación por request_id usada por SSE.
+        // CÓMO FUNCIONA: registra el watch antes de esperar runtime o tokens.
+        // POR QUÉ: el cliente puede agotar su plazo durante cualquiera de esas fases.
+        let (mut cancel_rx, cancel_flag) = state.register(&request_id);
         // Espera al modelo si aún está cargando (tiempo de espera honesto).
         let runtime = match wait_runtime(runtime_slot, model_ready_timeout()) {
             Ok(rt) => rt,
             Err(msg) => {
+                state.unregister(&request_id);
+                state.take_session(&request_id);
                 send_json(
                     stream,
                     "503 Service Unavailable",
@@ -592,17 +628,50 @@ fn handle_completion_sse(
             }
         };
         let result = run_async(async {
-            let (_, mut rx) = runtime.process_request_streaming(request).await?;
+            // Permite interrumpir también la espera hasta obtener el canal de tokens.
+            let start =
+                runtime.process_request_streaming_cancellable(request, Arc::clone(&cancel_flag));
+            tokio::pin!(start);
+            let (_, mut rx) = tokio::select! {
+                result = &mut start => result?,
+                changed = cancel_rx.changed() => {
+                    if changed.is_ok() && *cancel_rx.borrow() {
+                        return Err(anyhow::anyhow!("generation cancelled"));
+                    }
+                    start.await?
+                }
+            };
             let mut text = String::new();
-            while let Some((token, _prob)) = rx.recv().await {
-                text.push_str(&token);
+            loop {
+                tokio::select! {
+                    changed = cancel_rx.changed() => {
+                        if changed.is_ok() && *cancel_rx.borrow() {
+                            return Err(anyhow::anyhow!("generation cancelled"));
+                        }
+                    }
+                    token = rx.recv() => match token {
+                        Some((token, _prob)) => text.push_str(&token),
+                        None => return Ok::<String, anyhow::Error>(text),
+                    }
+                }
             }
-            Ok::<String, anyhow::Error>(text)
         });
+        // QUÉ HACE: libera ambos índices aunque la generación termine o se cancele.
+        // CÓMO FUNCIONA: unregister retira el watch y take_session limpia la correlación.
+        // POR QUÉ: evita IDs obsoletos y permite que el próximo turno use el modelo.
+        state.unregister(&request_id);
+        state.take_session(&request_id);
         let json_body = match result {
             Ok(text) => serde_json::json!({
                 "content": text,
                 "stop": true,
+                "request_id": request_id,
+            })
+            .to_string(),
+            Err(e) if e.to_string() == "generation cancelled" => serde_json::json!({
+                "content": "",
+                "stop": true,
+                "cancelled": true,
                 "request_id": request_id,
             })
             .to_string(),
@@ -617,7 +686,7 @@ fn handle_completion_sse(
     }
 
     // ── Streaming: SSE frames with cancellation watch ─────────────────
-    let mut cancel_rx = state.register(&request_id);
+    let (mut cancel_rx, cancel_flag) = state.register(&request_id);
 
     // SSE headers — abort if client already disconnected
     if !write_all_or_log(
@@ -696,7 +765,10 @@ fn handle_completion_sse(
         // cancel watch — a cancel during prefill must cut the stream too,
         // not only after the first token arrives.
         tokio::pin! {
-            let start = runtime.process_request_streaming(request);
+            let start = runtime.process_request_streaming_cancellable(
+                request,
+                Arc::clone(&cancel_flag),
+            );
         }
         let (result_rx, mut rx) = tokio::select! {
             res = &mut start => match res {
@@ -727,10 +799,14 @@ fn handle_completion_sse(
                         Ok(Some((token, _prob))) => {
                             let json = serde_json::json!({"content": token, "stop": false});
                             if !write_all_or_log(stream, format!("data: {}\n\n", json).as_bytes()) {
+                                cancelled = true;
+                                cancel_flag.store(true, Ordering::Release);
                                 break;
                             }
                             if let Err(e) = stream.flush() {
                                 tracing::warn!("SSE token flush failed (client disconnected): {}", e);
+                                cancelled = true;
+                                cancel_flag.store(true, Ordering::Release);
                                 break;
                             }
                             last_frame = Instant::now();
@@ -742,6 +818,8 @@ fn handle_completion_sse(
                             // silencio largo). Cortar el stream para liberar el
                             // runtime y evitar que el server quede mudo.
                             tracing::warn!("SSE token timeout 60s — generación colgada, cortando stream");
+                            cancelled = true;
+                            cancel_flag.store(true, Ordering::Release);
                             break;
                         }
                     }
@@ -751,10 +829,14 @@ fn handle_completion_sse(
                     // modelo lento o contexto grande): el stream sigue vivo.
                     if last_frame.elapsed() >= heartbeat_interval {
                         if !write_all_or_log(stream, b"data: {\"heartbeat\":true,\"phase\":\"generating\"}\n\n") {
+                            cancelled = true;
+                            cancel_flag.store(true, Ordering::Release);
                             break;
                         }
                         if let Err(e) = stream.flush() {
                             tracing::warn!("SSE heartbeat flush failed: {}", e);
+                            cancelled = true;
+                            cancel_flag.store(true, Ordering::Release);
                         }
                     }
                 }
@@ -769,8 +851,8 @@ fn handle_completion_sse(
             }
         }
         // Gate R10 — timings reales del turno (TTFT, prefill, cache hit/miss,
-        // tok/s). En cancel NO se espera el oneshot (el backend sigue
-        // generando sin abort hook): los timings se omiten honestamente.
+        // tok/s). En cancel NO se espera el oneshot; el flag detiene el worker
+        // al terminar el lote nativo actual y evita mantener CPU ocupada.
         let stats = if cancelled {
             None
         } else {

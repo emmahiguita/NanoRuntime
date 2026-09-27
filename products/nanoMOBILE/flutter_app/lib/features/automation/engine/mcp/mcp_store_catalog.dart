@@ -1,22 +1,13 @@
-/// McpStoreCatalog — catálogo y repositorio de búsqueda de Servidores MCP y Skills.
+/// Catálogo local de opciones MCP que sí se pueden configurar desde Nano.
 ///
-/// Proporciona acceso a servidores MCP reales de la comunidad y del ecosistema
-/// oficial (Smithery, Glama, GitHub Model Context Protocol):
-/// - Búsqueda en tiempo real por palabra clave, categoría o autor.
-/// - Metadatos verificados (repositorios git, esquemas de transporte, herramientas expuestas).
-/// - Adaptación instantánea a [McpServerDescriptor] para conexión inmediata.
+/// La búsqueda solo filtra estas opciones instaladas; no consulta tiendas remotas.
+/// Los servidores externos requieren una URL real y sus herramientas se descubren
+/// durante la conexión, nunca se inventan desde ejemplos del catálogo.
 library;
 
 import 'mcp_client_port.dart';
 
-enum McpStoreCategory {
-  all,
-  system,
-  developer,
-  search,
-  cloudAi,
-  productivity,
-}
+enum McpStoreCategory { all, system, developer, search, cloudAi, productivity }
 
 class McpStoreItem {
   const McpStoreItem({
@@ -28,7 +19,7 @@ class McpStoreItem {
     required this.repositoryUrl,
     required this.defaultEndpoint,
     this.transport = McpTransportKind.sse,
-    this.isVerified = true,
+    this.isVerified = false,
     this.tags = const [],
     this.sampleTools = const [],
   });
@@ -45,18 +36,17 @@ class McpStoreItem {
   final List<String> tags;
   final List<String> sampleTools;
 
-  McpServerDescriptor toDescriptor({String? customEndpoint, String? token}) {
+  McpServerDescriptor toDescriptor({
+    String? customEndpoint,
+    String? credentialRef,
+  }) {
     return McpServerDescriptor(
       id: id,
       displayName: name,
       transport: transport,
       endpoint: customEndpoint ?? defaultEndpoint,
-      credentialRef: token,
-      metadata: {
-        'author': author,
-        'repository': repositoryUrl,
-        'tags': tags,
-      },
+      credentialRef: credentialRef,
+      metadata: {'author': author, 'repository': repositoryUrl, 'tags': tags},
     );
   }
 }
@@ -64,110 +54,36 @@ class McpStoreItem {
 class McpStoreCatalog {
   const McpStoreCatalog();
 
+  // QUÉ HACE: ofrece solo el conector Android implementado y una plantilla remota.
+  // CÓMO FUNCIONA: el cliente local enumera sus herramientas reales; la plantilla
+  // requiere que la persona ingrese un endpoint MCP Streamable HTTP válido.
+  // POR QUÉ: los endpoints localhost y Gemini /v1beta/mcp anteriores no eran
+  // servidores MCP garantizados y podían responder 404 aunque la UI dijera "verificado".
   static const List<McpStoreItem> defaultItems = [
     McpStoreItem(
       id: 'mcp.device.local',
       name: 'Local Device Inspector',
-      author: 'Nano AI Core Team',
+      author: 'NanoAI',
       category: McpStoreCategory.system,
       description:
-          'Inspecciona telemetría de hardware, batería, memoria /proc/meminfo y catálogo de aplicaciones instaladas en Android.',
-      repositoryUrl: 'https://github.com/modelcontextprotocol/servers',
+          'Herramientas MCP locales implementadas por Nano para Android.',
+      repositoryUrl: '',
       defaultEndpoint: 'local://android.device',
       transport: McpTransportKind.androidBinder,
-      tags: ['android', 'hardware', 'bateria', 'procfs'],
-      sampleTools: ['diagnostics', 'app_summary', 'system_features'],
+      isVerified: true,
+      tags: ['android', 'local'],
     ),
     McpStoreItem(
-      id: 'mcp.gemini.bridge',
-      name: 'Google Gemini AI & Voice Bridge',
-      author: 'Google Cloud & AI Ecosystem',
-      category: McpStoreCategory.cloudAi,
-      description:
-          'Conecta modelos multimodales Gemini 2.5/1.5 y síntesis de voz natural para asistencia auditiva y razonamiento complejo.',
-      repositoryUrl: 'https://github.com/google-gemini/cookbook',
-      defaultEndpoint: 'https://generativelanguage.googleapis.com/v1beta/mcp',
-      transport: McpTransportKind.streamableHttp,
-      tags: ['gemini', 'voz', 'multimodal', 'cloud'],
-      sampleTools: ['gemini_reason', 'multimodal_vision', 'voice_synthesize'],
-    ),
-    McpStoreItem(
-      id: 'mcp.filesystem',
-      name: 'Secure Filesystem MCP',
-      author: 'Model Context Protocol Official',
+      id: 'mcp.remote.streamable_http',
+      name: 'Servidor MCP remoto propio',
+      author: 'Endpoint configurable',
       category: McpStoreCategory.developer,
       description:
-          'Lectura y escritura segura de archivos, directorios y proyectos con control estricto de rutas permitidas.',
-      repositoryUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem',
-      defaultEndpoint: 'http://127.0.0.1:3001/mcp',
-      transport: McpTransportKind.sse,
-      tags: ['fs', 'archivos', 'linux', 'storage'],
-      sampleTools: ['read_file', 'write_file', 'list_directory', 'get_file_info'],
-    ),
-    McpStoreItem(
-      id: 'mcp.brave.search',
-      name: 'Brave Search Web Index',
-      author: 'Brave Software',
-      category: McpStoreCategory.search,
-      description:
-          'Búsqueda web en tiempo real sin rastreo, recuperación de fuentes actuales, noticias y snippets de documentación.',
-      repositoryUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search',
-      defaultEndpoint: 'https://api.search.brave.com/mcp',
+          'Conecta un servidor real compatible con Streamable HTTP. Nano no aloja ese servidor ni lo usa como modelo conversacional.',
+      repositoryUrl: '',
+      defaultEndpoint: '',
       transport: McpTransportKind.streamableHttp,
-      tags: ['web', 'busqueda', 'noticias', 'docs'],
-      sampleTools: ['brave_web_search', 'brave_local_search'],
-    ),
-    McpStoreItem(
-      id: 'mcp.github.tools',
-      name: 'GitHub Repository Manager',
-      author: 'GitHub Community',
-      category: McpStoreCategory.developer,
-      description:
-          'Operaciones sobre repositorios de GitHub: explorar ramas, commits, issues, pull requests y leer código fuente.',
-      repositoryUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/github',
-      defaultEndpoint: 'http://127.0.0.1:3002/mcp',
-      transport: McpTransportKind.sse,
-      tags: ['git', 'github', 'prs', 'issues', 'codigo'],
-      sampleTools: ['get_file_contents', 'search_repositories', 'list_issues'],
-    ),
-    McpStoreItem(
-      id: 'mcp.linux.proot',
-      name: 'Linux PRoot & Terminal Runner',
-      author: 'Nano Embedded Linux Team',
-      category: McpStoreCategory.system,
-      description:
-          'Ejecución enjaulada de binarios ELF, shells Alpine/Debian y utilidades POSIX en Android sin permisos root.',
-      repositoryUrl: 'https://github.com/proot-me/proot',
-      defaultEndpoint: 'local://proot.terminal',
-      transport: McpTransportKind.stdio,
-      tags: ['linux', 'proot', 'shell', 'arm64', 'posix'],
-      sampleTools: ['proot_exec', 'proot_stat', 'proot_list_packages'],
-    ),
-    McpStoreItem(
-      id: 'mcp.sqlite.database',
-      name: 'SQLite Local Database MCP',
-      author: 'Model Context Protocol Official',
-      category: McpStoreCategory.productivity,
-      description:
-          'Consulta y manipulación de bases de datos relacionales SQLite locales con esquemas autodescubiertos.',
-      repositoryUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite',
-      defaultEndpoint: 'http://127.0.0.1:3003/mcp',
-      transport: McpTransportKind.sse,
-      tags: ['sql', 'sqlite', 'datos', 'consultas'],
-      sampleTools: ['read_query', 'write_query', 'describe_table', 'list_tables'],
-    ),
-    McpStoreItem(
-      id: 'mcp.fetch.web',
-      name: 'Web Content Fetcher & Markdown',
-      author: 'Model Context Protocol Official',
-      category: McpStoreCategory.search,
-      description:
-          'Extrae contenido HTML limpio de URLs públicas y lo convierte a Markdown optimizado para contexto LLM.',
-      repositoryUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/fetch',
-      defaultEndpoint: 'http://127.0.0.1:3004/mcp',
-      transport: McpTransportKind.sse,
-      tags: ['scraping', 'html', 'markdown', 'extract'],
-      sampleTools: ['fetch_url'],
+      tags: ['mcp', 'streamable-http', 'remote'],
     ),
   ];
 
@@ -186,7 +102,9 @@ class McpStoreCatalog {
       final matchDesc = item.description.toLowerCase().contains(q);
       final matchAuthor = item.author.toLowerCase().contains(q);
       final matchTag = item.tags.any((t) => t.toLowerCase().contains(q));
-      final matchTool = item.sampleTools.any((t) => t.toLowerCase().contains(q));
+      final matchTool = item.sampleTools.any(
+        (t) => t.toLowerCase().contains(q),
+      );
 
       return matchName || matchDesc || matchAuthor || matchTag || matchTool;
     }).toList();
@@ -195,6 +113,5 @@ class McpStoreCatalog {
   List<McpStoreItem> query({
     String searchQuery = '',
     McpStoreCategory category = McpStoreCategory.all,
-  }) =>
-      search(query: searchQuery, category: category);
+  }) => search(query: searchQuery, category: category);
 }

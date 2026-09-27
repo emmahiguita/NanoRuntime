@@ -46,6 +46,12 @@ class McpConnectionRegistry extends ChangeNotifier {
   Iterable<McpServerDescriptor> get servers =>
       List.unmodifiable(_clients.values.map((client) => client.descriptor));
 
+  Set<String> get connectedServerIds => Set.unmodifiable(
+    _clients.entries
+        .where((entry) => entry.value.state == McpConnectionState.connected)
+        .map((entry) => entry.key),
+  );
+
   Map<String, McpRemoteTool> get lastTools => Map.unmodifiable(_lastTools);
 
   McpClientPort? client(String serverId) => _clients[serverId];
@@ -56,7 +62,11 @@ class McpConnectionRegistry extends ChangeNotifier {
   }) async {
     final id = client.descriptor.id.trim();
     if (id.isEmpty) {
-      throw ArgumentError.value(id, 'client.descriptor.id', 'No puede estar vacío.');
+      throw ArgumentError.value(
+        id,
+        'client.descriptor.id',
+        'No puede estar vacío.',
+      );
     }
 
     final exists = _clients.containsKey(id);
@@ -78,7 +88,9 @@ class McpConnectionRegistry extends ChangeNotifier {
     }
     notifyListeners();
     return McpRegistrationResult(
-      exists ? McpRegistrationStatus.replaced : McpRegistrationStatus.registered,
+      exists
+          ? McpRegistrationStatus.replaced
+          : McpRegistrationStatus.registered,
     );
   }
 
@@ -105,9 +117,9 @@ class McpConnectionRegistry extends ChangeNotifier {
       final client = entry.value;
       try {
         if (client.state != McpConnectionState.connected) {
-          final connection = await client
-              .connect()
-              .timeout(const Duration(seconds: 10));
+          final connection = await client.connect().timeout(
+            const Duration(seconds: 10),
+          );
           if (!connection.success) {
             failures.add(
               McpDiscoveryFailure(
@@ -119,9 +131,9 @@ class McpConnectionRegistry extends ChangeNotifier {
           }
         }
 
-        final discovered = await client
-            .listTools()
-            .timeout(const Duration(seconds: 10));
+        final discovered = await client.listTools().timeout(
+          const Duration(seconds: 10),
+        );
         for (final tool in discovered) {
           if (tool.serverId != serverId) {
             failures.add(

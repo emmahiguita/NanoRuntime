@@ -58,7 +58,7 @@ const List<String> socialReassuranceCandidates = [
   '¡Claro que sí!',
   // Respuestas afectivas para "Calma mi amor", "Tranquila", "No te pongas así":
   'Tranquilo amor, acá estoy.',
-  'Calma, todo bien. ¿Qué pasó?',
+  'Calma, todo bien. Aquí estoy contigo.',
   'Todo bien, no te preocupes.',
   'Aquí estoy, sin drama.',
   'Calma parce, todo en orden.',

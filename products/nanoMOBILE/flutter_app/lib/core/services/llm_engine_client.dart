@@ -98,8 +98,24 @@ class LLMEngineClient {
       final r = await _client
           .get(Uri.parse('$baseUrl/api/status'))
           .timeout(const Duration(seconds: 3));
-      return r.statusCode == 200;
-    } catch (_) {
+      // QUÉ HACE: Distingue fallo HTTP, carga pendiente y modelo realmente listo.
+      // CÓMO FUNCIONA: Lee model_loaded y conserva state/error sin registrar prompts.
+      // POR QUÉ: El diagnóstico anterior ocultaba el motivo y confundía salud con capacidad de inferencia.
+      final decoded = jsonDecode(r.body);
+      final status = decoded is Map ? decoded : const <String, dynamic>{};
+      final loaded = r.statusCode == 200 && status['model_loaded'] == true;
+      if (!loaded) {
+        final state = status['state'] ?? status['status'] ?? 'unknown';
+        final cause = status['reason'] ?? status['error'] ?? 'model_loaded=false';
+        final detail = cause.toString().replaceAll(RegExp(r'[\r\n]+'), ' ');
+        debugPrint(
+          '[llm] readiness=false http=${r.statusCode} state=$state '
+          'cause=${detail.length <= 240 ? detail : detail.substring(0, 240)}',
+        );
+      }
+      return loaded;
+    } catch (error) {
+      debugPrint('[llm] readiness request failed: ${error.runtimeType}');
       return false;
     }
   }

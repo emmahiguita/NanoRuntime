@@ -15,19 +15,19 @@ class ConversationalSystemResolvers {
         : (hour < 19 ? '¡Buenas tardes!' : '¡Buenas noches!');
 
     final variants = [
-      '$timeGreeting Qué gusto saludarte. Soy Nano AI, tu copiloto en el dispositivo. ¿En qué proyecto o tarea trabajamos hoy?',
-      '$timeGreeting Hola. Todo el entorno del dispositivo está listo para operar. ¿Qué deseas consultar o ejecutar?',
-      '$timeGreeting Bienvenido de vuelta a Nano AI. Tienes a tu disposición la terminal Linux, automatizaciones y análisis de modelos. ¿Por dónde empezamos?',
+      '$timeGreeting Qué gusto leerte. Estoy aquí para conversar o ayudarte con lo que necesites. ¿Cómo estás?',
+      '$timeGreeting ¡Hola! ¿Cómo te va? Cuéntame qué tienes en mente, sin prisa.',
+      '$timeGreeting Me alegra saludarte. ¿Cómo va tu día? Podemos hablar de cualquier tema.',
     ];
     final selectedGreeting = variants[(DateTime.now().second) % variants.length];
 
     return NativeConversationalResponse(
       text: selectedGreeting,
       suggestions: const [
-        '⚡ Diagnóstico de Hardware',
-        '💻 Abrir Linux',
-        '🤖 Catálogo de Modelos',
-        '🛠️ ¿Qué puedes hacer?',
+        'Estoy bien, gracias',
+        'Quiero conversar un rato',
+        'Tengo una pregunta',
+        'Ayúdame con algo',
       ],
     );
   }

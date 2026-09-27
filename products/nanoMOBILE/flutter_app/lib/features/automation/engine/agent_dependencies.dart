@@ -114,6 +114,9 @@ import 'mcp/linux_automation_mcp_client.dart';
 import '../executors/linux/linux_automation_executor_provider.dart';
 import 'mcp/mcp_candidate_provider.dart';
 import 'mcp/mcp_connection_registry.dart';
+import 'mcp/http_mcp_client.dart';
+import 'mcp/mcp_server_persistence.dart';
+import 'mcp/mcp_server_restorer.dart';
 import 'mcp/mcp_tool_adapter.dart';
 import 'mcp/mcp_tool_projection.dart';
 import 'mcp/mcp_tool_registry.dart';
@@ -206,10 +209,18 @@ final currentSituationSourceProvider = Provider<CurrentSituationSource>((ref) {
   };
 });
 
+/// Persistencia de conexiones MCP remotas de Automatización.
+final mcpServerPersistenceProvider = Provider<McpServerPersistence>((ref) {
+  return McpServerPersistence(credentials: FlutterSecureMcpCredentialStore());
+});
+
 /// Registro runtime de conexiones MCP.
 final mcpConnectionRegistryProvider =
     ChangeNotifierProvider<McpConnectionRegistry>((ref) {
       final registry = McpConnectionRegistry();
+      final persistence = ref.watch(mcpServerPersistenceProvider);
+      var active = true;
+      ref.onDispose(() => active = false);
       final appCatalog = ref.watch(installedAppCatalogProvider);
       final client = LocalDeviceMcpClient(
         appCatalog: appCatalog,
@@ -225,7 +236,17 @@ final mcpConnectionRegistryProvider =
       registry.register(client);
       registry.register(mobileClient);
       registry.register(linuxClient);
-      unawaited(registry.refreshTools());
+      unawaited(
+        restorePersistedMcpConnections(
+          registry: registry,
+          persistence: persistence,
+          isActive: () => active,
+          createClient: (saved) => HttpMcpClient(
+            descriptor: saved.descriptor,
+            credentialToken: saved.credentialToken,
+          ),
+        ),
+      );
       return registry;
     });
 

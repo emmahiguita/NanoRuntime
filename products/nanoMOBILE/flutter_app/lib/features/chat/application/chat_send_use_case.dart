@@ -84,12 +84,15 @@ class ChatSendUseCase {
         text: text, coordinator: coordinator,
         engineOnline: engineOnline, activeModelPath: activeModelPath,
         lastLinuxFilePath: lastLinuxFilePath,
+        chatHistory: getMessages(),
         browserAiGateway: ref.read(browserAiGatewayProvider),
       );
       if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
 
       if (routeRes.isHandled) {
-        if (routeRes.updatedLastLinuxFilePath != null) onUpdateLastLinuxFilePath(routeRes.updatedLastLinuxFilePath);
+        if (routeRes.updatedLastLinuxFilePath != null) {
+          onUpdateLastLinuxFilePath(routeRes.updatedLastLinuxFilePath);
+        }
         if (routeRes.isPaused) {
           toolCoordinator.pauseFromRoute(routeRes, text);
           listener.onToolPaused(routeRes.pauseTool, routeRes.pauseDescription);

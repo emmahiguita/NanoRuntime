@@ -708,7 +708,9 @@ class AgentAccessibilityService : AccessibilityService() {
                 node.getChild(i)?.let { stack.add(it) }
             }
         }
-        root.recycle()
+        // BUG-03 FIX: Si found == root (nodo raíz es clickable), no reciclarlo.
+        // AccessibilityNodeInfo reciclado causa crash nativo en el caller.
+        if (found !== root) root.recycle()
         return found
     }
 
@@ -726,11 +728,15 @@ class AgentAccessibilityService : AccessibilityService() {
             node.getBoundsInScreen(bounds)
             val idMatches = targetResourceId.isBlank() ||
                 node.viewIdResourceName == targetResourceId
+            // BUG-09 FIX: Usar tolerancia ±8px igual que TargetMatchPolicy.
+            // La comparación exacta (==) nunca coincide en dispositivos con DPI
+            // fraccionario donde los bounds difieren ±1px entre frames.
+            val tol = 8
             val boundsMatch = targetBounds.size == 4 &&
-                bounds.left == targetBounds[0] &&
-                bounds.top == targetBounds[1] &&
-                bounds.right == targetBounds[2] &&
-                bounds.bottom == targetBounds[3]
+                Math.abs(bounds.left   - targetBounds[0]) <= tol &&
+                Math.abs(bounds.top    - targetBounds[1]) <= tol &&
+                Math.abs(bounds.right  - targetBounds[2]) <= tol &&
+                Math.abs(bounds.bottom - targetBounds[3]) <= tol
             if (node.isEditable && node.isFocused && idMatches && boundsMatch) {
                 found = node
                 break
@@ -739,7 +745,8 @@ class AgentAccessibilityService : AccessibilityService() {
                 node.getChild(i)?.let { stack.add(it) }
             }
         }
-        root.recycle()
+        // Mismo guard que findFirstClickableByText: no reciclar el nodo devuelto.
+        if (found !== root) root.recycle()
         return found
     }
 
@@ -849,7 +856,15 @@ object AgentAccessibilityBridge {
     }
 
     fun onDisconnected() {
-        disarmAutoSend()
+        // BUG-01 FIX: Cancelar el runnable ANTES de nulificar service.
+        // El Handler pertenece al main looper y vive después del Service.
+        // Sin removeCallbacks aquí, autoSendRunnable sigue disparándose cada 120ms
+        // con service=null → loop zombi en main looper → degradación de ANR.
+        val s = service
+        if (s != null) {
+            s.mainThreadHandler.removeCallbacks(autoSendRunnable)
+        }
+        isAutoSendArmed = false
         service = null
         lastEvent = null
         listeners.clear()

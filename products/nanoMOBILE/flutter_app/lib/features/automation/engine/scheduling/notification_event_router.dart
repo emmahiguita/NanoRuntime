@@ -22,6 +22,7 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import '../notifications/notification_object.dart';
 import '../platform/whatsapp_status_classifier.dart';
 import 'burst_turn_gate.dart';
+import 'notification_event_trace.dart';
 import 'rule_pipeline.dart';
 
 class NotificationEventRouter {
@@ -40,10 +41,13 @@ class NotificationEventRouter {
   void start() {
     if (_sub != null) return;
     final generation = ++_generation;
+    NotificationEventTrace.stage('stream', source: 'event_channel', outcome: 'subscribing', detail: 'generation=$generation');
     _sub = NanoRuntimeApi.instance.notificationEvents.listen((m) {
       if (_sub == null || generation != _generation) return;
-      unawaited(_routeBatch(m, generation));
-    }, onError: (Object e) => debugPrint('[notifications] error en flujo: $e'));
+      unawaited(_routeBatch(m, generation, source: 'event_channel'));
+    }, onError: (Object e, StackTrace stack) =>
+        NotificationEventTrace.failure('stream', 'event_channel', e, stack));
+    NotificationEventTrace.stage('stream', source: 'event_channel', outcome: 'subscribed', detail: 'generation=$generation');
     unawaited(_coldStartReplay(generation));
     // Drenado periódico de resiliencia: si un evento quedó en DurableInbox mientras
     // la app estaba suspendida o en background, lo recupera y procesa sin demora.
@@ -55,7 +59,11 @@ class NotificationEventRouter {
     });
   }
 
-  Future<void> _routeBatch(Map<dynamic, dynamic> map, int generation) async {
+  Future<void> _routeBatch(
+    Map<dynamic, dynamic> map,
+    int generation, {
+    required String source,
+  }) async {
     if (_sub == null || generation != _generation) return;
 
     if (_pendingBatches >= 64) {
@@ -73,22 +81,36 @@ class NotificationEventRouter {
       final validEvents = events
           .where((e) => !WhatsAppStatusClassifier.shouldIgnoreFromChatHub(e))
           .toList();
+      NotificationEventTrace.batch(source, events.length, validEvents.length);
+      if (source != 'active_snapshot') {
+        for (final event in validEvents) {
+          if (NotificationEventTrace.isWhatsApp(event)) NotificationEventTrace.event(event, source, 'admitted');
+        }
+      }
+      if (validEvents.isEmpty && events.isNotEmpty) {
+        NotificationEventTrace.stage('rule_pipeline', source: source, outcome: 'not_called', detail: 'reason=all_filtered');
+      }
 
       final g = gate;
       if (g == null) {
         for (final event in validEvents) {
           if (_sub == null || generation != _generation) return;
+          if (NotificationEventTrace.isWhatsApp(event)) NotificationEventTrace.event(event, source, 'pipeline_started');
           await pipeline.onNotification(event);
+          if (NotificationEventTrace.isWhatsApp(event)) NotificationEventTrace.event(event, source, 'pipeline_returned');
         }
       } else if (validEvents.isNotEmpty) {
+        NotificationEventTrace.stage('burst_gate', source: source, outcome: 'submitting', detail: 'events=${validEvents.length}');
         await pipeline.submitNotifications(validEvents, g);
         await g.drain();
+        NotificationEventTrace.stage('burst_gate', source: source, outcome: 'drained');
       }
       if (_sub != null && generation == _generation) {
         await NanoRuntimeApi.instance.completeNotificationEvent(map);
+        NotificationEventTrace.stage('durable_inbox', source: source, outcome: 'acknowledged');
       }
-    } catch (error) {
-      debugPrint('[notifications] ingreso de notificación diferido: $error');
+    } catch (error, stack) {
+      NotificationEventTrace.failure('route_deferred', source, error, stack);
     } finally {
       _pendingBatches--;
       if (_pendingBatches <= 16 &&
@@ -110,7 +132,7 @@ class NotificationEventRouter {
       if (_sub == null || generation != _generation) return;
       for (final m in inboxEvents) {
         if (_sub == null || generation != _generation) break;
-        await _routeBatch(m, generation);
+        await _routeBatch(m, generation, source: 'durable_inbox');
       }
       // Revisa también notificaciones activas porque el inbox conserva solo su identidad;
       // el contenido real se rehidrata desde Android antes de procesar el evento.
@@ -118,10 +140,10 @@ class NotificationEventRouter {
       if (_sub == null || generation != _generation) return;
       for (final m in active) {
         if (_sub == null || generation != _generation) break;
-        await _routeBatch(m, generation);
+        await _routeBatch(m, generation, source: 'active_snapshot');
       }
-    } catch (e) {
-      debugPrint('[notifications] error drenando backlog: $e');
+    } catch (e, stack) {
+      NotificationEventTrace.failure('backlog', 'durable_inbox', e, stack);
     } finally {
       _isDrainingBacklog = false;
     }
@@ -137,7 +159,7 @@ class NotificationEventRouter {
 
       for (final m in inboxEvents) {
         if (_sub == null || generation != _generation) return;
-        await _routeBatch(m, generation);
+        await _routeBatch(m, generation, source: 'cold_start_inbox');
       }
 
       final active = await NanoRuntimeApi.instance.listNotifications();
@@ -146,7 +168,7 @@ class NotificationEventRouter {
 
       for (final m in active) {
         if (_sub == null || generation != _generation) return;
-        await _routeBatch(m, generation);
+        await _routeBatch(m, generation, source: 'cold_start_snapshot');
       }
       return;
     }
@@ -163,8 +185,8 @@ class NotificationEventRouter {
     _hasDeferredBatches = false;
     try {
       await subscription?.cancel();
-    } catch (error) {
-      debugPrint('[notifications] error cancelando flujo: $error');
+    } catch (error, stack) {
+      NotificationEventTrace.failure('stream_cancel', 'event_channel', error, stack);
     }
 
     // No se falsea el contador: cada lote conserva su `finally`. La espera

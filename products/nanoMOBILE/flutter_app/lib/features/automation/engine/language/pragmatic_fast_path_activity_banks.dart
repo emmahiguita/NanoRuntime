@@ -19,10 +19,10 @@ const List<String> activityPlansCandidates = [
   'Por ahora sin planes fijos para hoy, ¿qué cuentas?',
   'Aún no tengo nada planeado para hoy, ¿tú qué tal?',
   'Todavía no he cuadrado nada para hoy; luego te digo.',
-  'Por ahora nada fijo hoy, cuéntame qué tal tu día.',
+  'No sé todavía; por ahora no tengo planes fijos para hoy. ¿Y tú?',
   'Aún no tengo un plan claro para hoy; más tarde te aviso.',
   'No sé todavía, no tengo nada cuadrado por ahora.',
-  'Por ahora sin planes concretos para hoy, ¿qué hay de nuevo?',
+  'Por ahora no tengo nada definido para hoy. ¿Qué hay de nuevo?',
   'Todavía no sé qué resulte para hoy, luego charlamos.',
   'Aún no he definido planes para hoy, ¿y tú?',
 ];
