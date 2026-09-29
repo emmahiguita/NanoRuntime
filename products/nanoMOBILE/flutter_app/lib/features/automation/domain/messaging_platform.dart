@@ -101,10 +101,14 @@ enum MessagingPlatform {
     }
     if (lower.contains('slack')) return MessagingPlatform.slack;
     if (lower.contains('instagram')) return MessagingPlatform.instagram;
-    if (lower.contains('facebook') || lower.contains('katana') || lower.contains('orca')) {
+    if (lower.contains('facebook') ||
+        lower.contains('katana') ||
+        lower.contains('orca')) {
       return MessagingPlatform.facebook;
     }
-    if (lower.contains('twitter') || lower.contains('.x.') || lower.endsWith('.x')) {
+    if (lower.contains('twitter') ||
+        lower.contains('.x.') ||
+        lower.endsWith('.x')) {
       return MessagingPlatform.x;
     }
     if (lower.contains('linkedin')) return MessagingPlatform.linkedin;

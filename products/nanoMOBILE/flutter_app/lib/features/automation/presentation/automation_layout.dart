@@ -20,4 +20,3 @@ abstract final class AutomationLayout {
     return double.infinity;
   }
 }
-

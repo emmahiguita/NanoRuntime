@@ -78,7 +78,8 @@ final class RuntimePersonalStyleFormatter implements PersonalStyleFormatter {
     // Formatear texto conciso y completo (1 a 3 oraciones)
     final sentences = cleanFacts.split(RegExp(r'(?<=[.!?])\s+'));
     final textBody = sentences.take(3).join(' ').trim();
-    final isAlreadyConversational = cleanFacts.toLowerCase().startsWith('hola') ||
+    final isAlreadyConversational =
+        cleanFacts.toLowerCase().startsWith('hola') ||
         cleanFacts.toLowerCase().startsWith('claro') ||
         cleanFacts.toLowerCase().startsWith('mira') ||
         cleanFacts.toLowerCase().startsWith('pillá') ||
@@ -123,13 +124,22 @@ final class RuntimePersonalStyleFormatter implements PersonalStyleFormatter {
 
     // Remover encabezados markdown de búsqueda
     text = text.replaceAll(RegExp(r'### 🌐.*?\n\n'), '');
-    text = text.replaceAll(RegExp(r'\*\*Puntos destacados:\*\*.*', dotAll: true), '');
+    text = text.replaceAll(
+      RegExp(r'\*\*Puntos destacados:\*\*.*', dotAll: true),
+      '',
+    );
     text = text.replaceAll(RegExp(r'🔍 \*Fuente.*', dotAll: true), '');
     text = text.replaceAll(RegExp(r'https?:\/\/\S+'), '');
     text = text.replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1');
 
     // Remover jerga formal de Wikipedia o bot
-    text = text.replaceAll(RegExp(r'^(Según Wikipedia,|Wikipedia informa que|En resumen:)\s*', caseSensitive: false), '');
+    text = text.replaceAll(
+      RegExp(
+        r'^(Según Wikipedia,|Wikipedia informa que|En resumen:)\s*',
+        caseSensitive: false,
+      ),
+      '',
+    );
 
     text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
     return text;

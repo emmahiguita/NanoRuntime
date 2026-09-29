@@ -34,7 +34,9 @@ extension ConversationDetailDialogs on _ConversationDetailSheetState {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
             decoration: BoxDecoration(
               color: const Color(0xEB0F172A),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.18),
                 width: 1,
@@ -99,7 +101,9 @@ extension ConversationDetailDialogs on _ConversationDetailSheetState {
                   label: const Text('Abrir chat en WhatsApp'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
+                    side: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.25),
+                    ),
                     minimumSize: const Size.fromHeight(44),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -107,7 +111,11 @@ extension ConversationDetailDialogs on _ConversationDetailSheetState {
                   ),
                   onPressed: () async {
                     Navigator.of(ctx).pop('sent_whatsapp');
-                    await share.openChat(contact: contact, text: text, autoSend: false);
+                    await share.openChat(
+                      contact: contact,
+                      text: text,
+                      autoSend: false,
+                    );
                   },
                 ),
               ],
@@ -120,9 +128,24 @@ extension ConversationDetailDialogs on _ConversationDetailSheetState {
 
   void _showFormPicker() {
     final forms = [
-      {'title': 'Formulario de Contacto', 'desc': 'Nombre, correo, teléfono y consulta', 'text': 'Por favor completa tus datos:\n- Nombre:\n- Correo:\n- Consulta:'},
-      {'title': 'Encuesta de Satisfacción', 'desc': 'Calificación 1-5 y comentarios', 'text': '¿Cómo calificarías nuestra atención del 1 al 5?\nTu opinión nos ayuda a mejorar.'},
-      {'title': 'Confirmación de Pedido', 'desc': 'Detalles de entrega y método de pago', 'text': 'Confirma los detalles de tu pedido:\n- Dirección:\n- Forma de pago:\n- Horario de entrega:'},
+      {
+        'title': 'Formulario de Contacto',
+        'desc': 'Nombre, correo, teléfono y consulta',
+        'text':
+            'Por favor completa tus datos:\n- Nombre:\n- Correo:\n- Consulta:',
+      },
+      {
+        'title': 'Encuesta de Satisfacción',
+        'desc': 'Calificación 1-5 y comentarios',
+        'text':
+            '¿Cómo calificarías nuestra atención del 1 al 5?\nTu opinión nos ayuda a mejorar.',
+      },
+      {
+        'title': 'Confirmación de Pedido',
+        'desc': 'Detalles de entrega y método de pago',
+        'text':
+            'Confirma los detalles de tu pedido:\n- Dirección:\n- Forma de pago:\n- Horario de entrega:',
+      },
     ];
 
     showModalBottomSheet(
@@ -143,8 +166,20 @@ extension ConversationDetailDialogs on _ConversationDetailSheetState {
                     backgroundColor: Color(0xFF00FF88),
                     child: Icon(Icons.description_rounded, color: Colors.black),
                   ),
-                  title: Text(f['title']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                  subtitle: Text(f['desc']!, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                  title: Text(
+                    f['title']!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  subtitle: Text(
+                    f['desc']!,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 12,
+                    ),
+                  ),
                   onTap: () {
                     Navigator.of(ctx).pop();
                     _safeSetState(() {
@@ -160,7 +195,10 @@ extension ConversationDetailDialogs on _ConversationDetailSheetState {
     );
   }
 
-  Future<void> _showMissingPhoneDialog(BuildContext context, String contactName) async {
+  Future<void> _showMissingPhoneDialog(
+    BuildContext context,
+    String contactName,
+  ) async {
     return showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -170,18 +208,32 @@ extension ConversationDetailDialogs on _ConversationDetailSheetState {
           children: [
             Icon(Icons.shield_outlined, color: Color(0xFFFF9500), size: 24),
             SizedBox(width: 8),
-            Text('Destino no verificable', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'Destino no verificable',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
         content: Text(
           'No hay una notificación activa en barra ni un número registrado para $contactName.\n\n'
           'Por seguridad, Nano no enviará a ciegas para evitar enviar a otro chat.',
-          style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 13,
+            height: 1.4,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Entendido', style: TextStyle(color: Color(0xFF007AFF))),
+            child: const Text(
+              'Entendido',
+              style: TextStyle(color: Color(0xFF007AFF)),
+            ),
           ),
         ],
       ),

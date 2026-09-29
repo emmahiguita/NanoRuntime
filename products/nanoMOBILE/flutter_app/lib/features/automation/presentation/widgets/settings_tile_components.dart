@@ -50,7 +50,12 @@ class SettingsRow extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.showChevron = true,
-  }) : assert(icon != null || imageAsset != null || featherType != null || customIcon != null);
+  }) : assert(
+         icon != null ||
+             imageAsset != null ||
+             featherType != null ||
+             customIcon != null,
+       );
 
   final IconData? icon;
   final String? imageAsset;
@@ -65,7 +70,11 @@ class SettingsRow extends StatelessWidget {
   Widget _buildLeading(AutomationVisualPalette visual) {
     if (customIcon != null) return customIcon!;
     if (featherType != null) {
-      return FeatherCoreIcon(type: featherType!, size: 42, accentColor: visual.accent);
+      return FeatherCoreIcon(
+        type: featherType!,
+        size: 42,
+        accentColor: visual.accent,
+      );
     }
     if (imageAsset != null) {
       if (imageAsset!.contains('whatsapp_business')) {
@@ -83,9 +92,7 @@ class SettingsRow extends StatelessWidget {
           color: visual.accentSoft,
           borderRadius: BorderRadius.circular(13),
           border: Border.all(
-            color: visual.accent.withValues(
-              alpha: visual.isDark ? 0.28 : 0.20,
-            ),
+            color: visual.accent.withValues(alpha: visual.isDark ? 0.28 : 0.20),
             width: 1,
           ),
           boxShadow: [

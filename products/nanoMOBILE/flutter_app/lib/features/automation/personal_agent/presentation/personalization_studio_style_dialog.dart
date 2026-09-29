@@ -29,8 +29,12 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
   void initState() {
     super.initState();
     final e = widget.existing;
-    register = _registers.contains(e['styleRegister']) ? e['styleRegister']! : 'casual';
-    relationship = _relationships.contains(e['relationship']) ? e['relationship']! : 'known';
+    register = _registers.contains(e['styleRegister'])
+        ? e['styleRegister']!
+        : 'casual';
+    relationship = _relationships.contains(e['relationship'])
+        ? e['relationship']!
+        : 'known';
     learn = widget.scope.id == 'owner'
         ? e['learnStyle'] != 'false'
         : e['learnStyle'] == 'true';
@@ -53,7 +57,10 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
   }
 
   InputDecoration _inputDeco(String label, {String? hint}) {
-    final b = OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0x1FFFFFFF), width: 0.8));
+    final b = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: const BorderSide(color: Color(0x1FFFFFFF), width: 0.8),
+    );
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(fontSize: 10.5, color: Colors.white70),
@@ -62,56 +69,94 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
       filled: true,
       fillColor: const Color(0x0DFFFFFF),
       isDense: true,
-      border: b, enabledBorder: b,
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0x8000E676))),
+      border: b,
+      enabledBorder: b,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Color(0x8000E676)),
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final isOwner = widget.scope.id == 'owner';
 
     final size = MediaQuery.of(context).size;
     return AlertDialog(
       backgroundColor: const Color(0xFA101828),
-      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 8 : 18),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: const BorderSide(color: Color(0x28FFFFFF), width: 0.8)),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: isLandscape ? 8 : 18,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0x28FFFFFF), width: 0.8),
+      ),
       titlePadding: EdgeInsets.fromLTRB(16, isLandscape ? 8 : 14, 16, 4),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14),
       title: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(color: const Color(0x1A00E676), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.tune_rounded, color: Color(0xFF00E676), size: 16),
+            decoration: BoxDecoration(
+              color: const Color(0x1A00E676),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.tune_rounded,
+              color: Color(0xFF00E676),
+              size: 16,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              isOwner ? 'PERFIL DE ESTILO · EMMA' : 'ESTILO: ${widget.scope.label.toUpperCase()}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.4),
+              isOwner
+                  ? 'PERFIL DE ESTILO · EMMA'
+                  : 'ESTILO: ${widget.scope.label.toUpperCase()}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                letterSpacing: 0.4,
+              ),
             ),
           ),
         ],
       ),
       content: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: isLandscape ? 500 : 380, maxHeight: size.height * (isLandscape ? 0.74 : 0.58)),
+        constraints: BoxConstraints(
+          maxWidth: isLandscape ? 500 : 380,
+          maxHeight: size.height * (isLandscape ? 0.74 : 0.58),
+        ),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (!isOwner) ...[
-                SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, title: const Text('Aplicar perfil', style: TextStyle(fontSize: 11)), value: enabled, onChanged: (v) => setState(() => enabled = v)),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text(
+                    'Aplicar perfil',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                  value: enabled,
+                  onChanged: (v) => setState(() => enabled = v),
+                ),
                 const SizedBox(height: 4),
               ],
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 title: Text(
-                  isOwner ? 'Aprendizaje automático de estilo' : 'Aprender de este contacto',
+                  isOwner
+                      ? 'Aprendizaje automático de estilo'
+                      : 'Aprender de este contacto',
                   style: const TextStyle(fontSize: 11),
                 ),
                 subtitle: const Text(
@@ -129,10 +174,34 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
                 dropdownColor: const Color(0xFF162036),
                 style: const TextStyle(fontSize: 11, color: Colors.white),
                 items: const [
-                  DropdownMenuItem(value: 'casual', child: Text('Casual auténtico (Natural)', style: TextStyle(fontSize: 11))),
-                  DropdownMenuItem(value: 'close', child: Text('Cercano / Confianza', style: TextStyle(fontSize: 11))),
-                  DropdownMenuItem(value: 'formal', child: Text('Formal y corporativo', style: TextStyle(fontSize: 11))),
-                  DropdownMenuItem(value: 'custom', child: Text('Personalizado por reglas', style: TextStyle(fontSize: 11))),
+                  DropdownMenuItem(
+                    value: 'casual',
+                    child: Text(
+                      'Casual auténtico (Natural)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'close',
+                    child: Text(
+                      'Cercano / Confianza',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'formal',
+                    child: Text(
+                      'Formal y corporativo',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'custom',
+                    child: Text(
+                      'Personalizado por reglas',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
                 ],
                 onChanged: (v) => setState(() => register = v!),
               ),
@@ -145,10 +214,31 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
                   dropdownColor: const Color(0xFF162036),
                   style: const TextStyle(fontSize: 11, color: Colors.white),
                   items: const [
-                    DropdownMenuItem(value: 'known', child: Text('Contacto / Conocido', style: TextStyle(fontSize: 11))),
-                    DropdownMenuItem(value: 'close', child: Text('Amigo cercano', style: TextStyle(fontSize: 11))),
-                    DropdownMenuItem(value: 'family', child: Text('Familiar', style: TextStyle(fontSize: 11))),
-                    DropdownMenuItem(value: 'professional', child: Text('Laboral / Negocios', style: TextStyle(fontSize: 11))),
+                    DropdownMenuItem(
+                      value: 'known',
+                      child: Text(
+                        'Contacto / Conocido',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'close',
+                      child: Text(
+                        'Amigo cercano',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
+                    DropdownMenuItem(
+                      value: 'family',
+                      child: Text('Familiar', style: TextStyle(fontSize: 11)),
+                    ),
+                    DropdownMenuItem(
+                      value: 'professional',
+                      child: Text(
+                        'Laboral / Negocios',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
                   ],
                   onChanged: (v) => setState(() => relationship = v!),
                 ),
@@ -160,12 +250,45 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
                 isExpanded: true,
                 dropdownColor: const Color(0xFF162036),
                 style: const TextStyle(fontSize: 11, color: Colors.white),
-                items: [for (final v in ToneVerbosity.values) DropdownMenuItem(value: v, child: Text(v.name.toUpperCase(), style: const TextStyle(fontSize: 11)))],
-                onChanged: (v) => setState(() => tone = tone.copyWith(verbosity: v)),
+                items: [
+                  for (final v in ToneVerbosity.values)
+                    DropdownMenuItem(
+                      value: v,
+                      child: Text(
+                        v.name.toUpperCase(),
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                ],
+                onChanged: (v) =>
+                    setState(() => tone = tone.copyWith(verbosity: v)),
               ),
               const SizedBox(height: 5),
-              SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, title: const Text('Emojis moderados y naturales', style: TextStyle(fontSize: 11)), value: tone.emojis, onChanged: (v) => setState(() => tone = tone.copyWith(emojis: v))),
-              SwitchListTile(contentPadding: EdgeInsets.zero, dense: true, title: const Text('Vocabulario coloquial propio (jerga)', style: TextStyle(fontSize: 11)), subtitle: const Text('Solo cuando encaje naturalmente.', style: TextStyle(fontSize: 9.5, color: Colors.white54)), value: slang, onChanged: (v) => setState(() => slang = v)),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text(
+                  'Emojis moderados y naturales',
+                  style: TextStyle(fontSize: 11),
+                ),
+                value: tone.emojis,
+                onChanged: (v) =>
+                    setState(() => tone = tone.copyWith(emojis: v)),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: const Text(
+                  'Vocabulario coloquial propio (jerga)',
+                  style: TextStyle(fontSize: 11),
+                ),
+                subtitle: const Text(
+                  'Solo cuando encaje naturalmente.',
+                  style: TextStyle(fontSize: 9.5, color: Colors.white54),
+                ),
+                value: slang,
+                onChanged: (v) => setState(() => slang = v),
+              ),
               const SizedBox(height: 5),
               DropdownButtonFormField<String>(
                 initialValue: usesName,
@@ -174,23 +297,66 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
                 dropdownColor: const Color(0xFF162036),
                 style: const TextStyle(fontSize: 11, color: Colors.white),
                 items: const [
-                  DropdownMenuItem(value: 'natural', child: Text('Solo cuando sea natural', style: TextStyle(fontSize: 11))),
-                  DropdownMenuItem(value: 'never', child: Text('Omitir nombre en saludos', style: TextStyle(fontSize: 11))),
+                  DropdownMenuItem(
+                    value: 'natural',
+                    child: Text(
+                      'Solo cuando sea natural',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
+                  DropdownMenuItem(
+                    value: 'never',
+                    child: Text(
+                      'Omitir nombre en saludos',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                  ),
                 ],
                 onChanged: (v) => setState(() => usesName = v!),
               ),
               const SizedBox(height: 6),
-              TextField(controller: _custom, maxLength: 240, maxLines: 2, style: const TextStyle(fontSize: 11), decoration: _inputDeco('Instrucciones adicionales de estilo', hint: 'Breve, dinámico, sin frases de operador…')),
+              TextField(
+                controller: _custom,
+                maxLength: 240,
+                maxLines: 2,
+                style: const TextStyle(fontSize: 11),
+                decoration: _inputDeco(
+                  'Instrucciones adicionales de estilo',
+                  hint: 'Breve, dinámico, sin frases de operador…',
+                ),
+              ),
             ],
           ),
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(fontSize: 10.5))),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar', style: TextStyle(fontSize: 10.5)),
+        ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00E676), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6)),
-          onPressed: () => Navigator.pop(context, _StyleResult(register: register, relationship: relationship, learn: learn, enabled: enabled, slang: slang, usesName: usesName, custom: _custom.text.trim(), tone: tone)),
-          child: const Text('Guardar', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00E676),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          ),
+          onPressed: () => Navigator.pop(
+            context,
+            _StyleResult(
+              register: register,
+              relationship: relationship,
+              learn: learn,
+              enabled: enabled,
+              slang: slang,
+              usesName: usesName,
+              custom: _custom.text.trim(),
+              tone: tone,
+            ),
+          ),
+          child: const Text(
+            'Guardar',
+            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );

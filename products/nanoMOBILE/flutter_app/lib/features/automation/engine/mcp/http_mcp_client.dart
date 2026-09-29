@@ -215,7 +215,11 @@ class HttpMcpClient implements McpClientPort {
   Future<List<McpRemoteTool>> listTools() async {
     if (_state != McpConnectionState.connected) {
       final conn = await connect();
-      if (!conn.success) return const [];
+      if (!conn.success) {
+        throw McpDiscoveryException(
+          'MCP tools/list no pudo conectar (${conn.status.name}).',
+        );
+      }
     }
     Uri? endpoint;
     int? rpcId;
@@ -244,7 +248,14 @@ class HttpMcpClient implements McpClientPort {
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = decodeMcpJsonRpcResponse(response);
-        final res = data?['result'] as Map<String, dynamic>?;
+        if (data == null || data.containsKey('error')) {
+          throw const FormatException('mcp_tools_list_jsonrpc_error');
+        }
+        final rawResult = data['result'];
+        if (rawResult is! Map<String, dynamic>) {
+          throw const FormatException('mcp_tools_list_missing_result');
+        }
+        final res = rawResult;
         return HttpMcpParser.parseTools(res, descriptor.id);
       }
       _state = McpConnectionState.failed;
@@ -255,8 +266,10 @@ class HttpMcpClient implements McpClientPort {
         statusCode: response.statusCode,
         endpoint: endpoint,
       );
-      return const [];
-    } catch (error) {
+      throw McpDiscoveryException(
+        'MCP tools/list falló (HTTP ${response.statusCode}).',
+      );
+    } on TimeoutException catch (error) {
       _state = McpConnectionState.failed;
       reportMcpTransportFailure(
         serverId: descriptor.id,
@@ -265,7 +278,32 @@ class HttpMcpClient implements McpClientPort {
         endpoint: endpoint,
         rpcId: rpcId,
       );
-      return const [];
+      throw const McpDiscoveryException('MCP tools/list agotó el tiempo.');
+    } on FormatException catch (error) {
+      _state = McpConnectionState.failed;
+      reportMcpTransportFailure(
+        serverId: descriptor.id,
+        operation: 'tools/list',
+        error: error,
+        endpoint: endpoint,
+        rpcId: rpcId,
+      );
+      throw const McpDiscoveryException(
+        'MCP tools/list devolvió una respuesta inválida.',
+      );
+    } catch (error) {
+      if (error is McpDiscoveryException) rethrow;
+      _state = McpConnectionState.failed;
+      reportMcpTransportFailure(
+        serverId: descriptor.id,
+        operation: 'tools/list',
+        error: error,
+        endpoint: endpoint,
+        rpcId: rpcId,
+      );
+      throw McpDiscoveryException(
+        'MCP tools/list falló (${error.runtimeType}).',
+      );
     }
   }
 

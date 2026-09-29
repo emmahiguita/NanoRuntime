@@ -82,30 +82,30 @@ class _BotStudioScreenState extends ConsumerState<BotStudioScreen> {
               if (filtered.isEmpty)
                 _buildEmptyState(theme)
               else
-                ...filtered.map((bot) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: BotCard(
-                        bot: bot,
-                        onEdit: () => _onEditBot(bot),
-                        onToggleEnabled: (val) {
-                          final updated = bot.copyWith(
-                            enabled: val,
-                            updatedAt: DateTime.now(),
-                          );
-                          ref.read(botsListProvider.notifier).saveBot(updated);
-                        },
-                        onDelete: () {
-                          ref.read(botsListProvider.notifier).deleteBot(bot.id);
-                        },
-                      ),
-                    )),
+                ...filtered.map(
+                  (bot) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: BotCard(
+                      bot: bot,
+                      onEdit: () => _onEditBot(bot),
+                      onToggleEnabled: (val) {
+                        final updated = bot.copyWith(
+                          enabled: val,
+                          updatedAt: DateTime.now(),
+                        );
+                        ref.read(botsListProvider.notifier).saveBot(updated);
+                      },
+                      onDelete: () {
+                        ref.read(botsListProvider.notifier).deleteBot(bot.id);
+                      },
+                    ),
+                  ),
+                ),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(
-          child: Text('Error al cargar bots: $err'),
-        ),
+        error: (err, _) => Center(child: Text('Error al cargar bots: $err')),
       ),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add_rounded),
@@ -148,7 +148,11 @@ class _BotStudioScreenState extends ConsumerState<BotStudioScreen> {
         padding: const EdgeInsets.all(32),
         child: Column(
           children: [
-            Icon(Icons.smart_toy_outlined, size: 48, color: theme.colorScheme.outline),
+            Icon(
+              Icons.smart_toy_outlined,
+              size: 48,
+              color: theme.colorScheme.outline,
+            ),
             const SizedBox(height: 12),
             Text(
               'No hay bots para este filtro',

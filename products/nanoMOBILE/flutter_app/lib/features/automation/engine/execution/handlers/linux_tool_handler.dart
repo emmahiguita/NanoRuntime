@@ -1,4 +1,4 @@
-﻿import '../../platform/linux_tool_adapter.dart';
+import '../../platform/linux_tool_adapter.dart';
 import '../platform_verification.dart';
 import '../tool_call.dart';
 import '../tool_registry.dart';
@@ -12,8 +12,8 @@ class LinuxToolHandler {
   const LinuxToolHandler({
     LinuxToolAdapter? adapter,
     PlatformStateReader? platformStateReader,
-  })  : _adapter = adapter,
-        _platformStateReader = platformStateReader;
+  }) : _adapter = adapter,
+       _platformStateReader = platformStateReader;
 
   /// TER-AUT-02: true si [command] contiene operadores que solo bash puede
   /// interpretar (pipe, semicolon, AND/OR, subshell, redirect, heredoc).
@@ -41,8 +41,8 @@ class LinuxToolHandler {
     final arg = (pathArg != null && pathArg.isNotEmpty)
         ? pathArg
         : (commandArg != null && commandArg.isNotEmpty)
-            ? commandArg
-            : (call.textArg ?? call.selectorArg ?? '').trim();
+        ? commandArg
+        : (call.textArg ?? call.selectorArg ?? '').trim();
     if (arg.isEmpty) {
       return '[tool] ${call.tool} requiere "path", "command", "text" o "selector" con el '
           'argumento.';
@@ -56,7 +56,9 @@ class LinuxToolHandler {
     if (call.tool.toLowerCase() == 'linux.run' &&
         rawTimeout != null &&
         rawTimeout > 0) {
-      final seconds = rawTimeout > 1000 ? (rawTimeout / 1000).round() : rawTimeout;
+      final seconds = rawTimeout > 1000
+          ? (rawTimeout / 1000).round()
+          : rawTimeout;
       timeout = Duration(seconds: seconds.clamp(1, 600));
     } else {
       timeout = def?.timeout;

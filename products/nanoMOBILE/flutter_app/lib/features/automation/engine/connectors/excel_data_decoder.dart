@@ -29,7 +29,8 @@ class ExcelDataDecoder {
 
     ArchiveFile? sheetFile;
     for (final file in archive) {
-      if (file.name.startsWith('xl/worksheets/sheet') && file.name.endsWith('.xml')) {
+      if (file.name.startsWith('xl/worksheets/sheet') &&
+          file.name.endsWith('.xml')) {
         sheetFile = file;
         break;
       }
@@ -83,7 +84,10 @@ class ExcelDataDecoder {
     }
 
     // Normalizar longitud de columnas
-    final columns = rawGrid.first.map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
+    final columns = rawGrid.first
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
     final colCount = columns.length;
     final rows = <List<dynamic>>[];
 
@@ -96,11 +100,7 @@ class ExcelDataDecoder {
       rows.add(row);
     }
 
-    return DataTable(
-      name: tableName,
-      columns: columns,
-      rows: rows,
-    );
+    return DataTable(name: tableName, columns: columns, rows: rows);
   }
 
   /// Extrae el diccionario de cadenas compartidas de OpenXML.

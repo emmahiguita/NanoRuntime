@@ -5,13 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/automation_coordinator_provider.dart';
-import '../../engine/agent_dependencies.dart' show conversationAssignmentStoreProvider, conversationMemoryStoreProvider;
+import '../../engine/agent_dependencies.dart'
+    show conversationAssignmentStoreProvider, conversationMemoryStoreProvider;
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_memory.dart';
 import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/language/conversation_semantic_tag.dart';
-import '../../engine/messaging/conversation_key.dart' show canonicalConversationId, resolveConversationIdentity;
-import '../../personal_agent/application/persona_context.dart' show personaContextProvider;
+import '../../engine/messaging/conversation_key.dart'
+    show canonicalConversationId, resolveConversationIdentity;
+import '../../personal_agent/application/persona_context.dart'
+    show personaContextProvider;
 import '../../engine/notifications/notification_object.dart';
 import '../../engine/platform/whatsapp_media_share.dart';
 import '../../executors/notification_executor.dart' show DeviceNotification;
@@ -21,7 +24,8 @@ import '../../personal_agent/application/personal_reply_learning_service.dart';
 import '../../engine/business/business_facts_providers.dart';
 import '../../engine/language/dynamic_reply_generator.dart';
 import '../../engine/messaging/whatsapp_capability_resolver.dart';
-import '../../application/whatsapp_contacts_provider.dart' show allWhatsAppContactsProvider;
+import '../../application/whatsapp_contacts_provider.dart'
+    show allWhatsAppContactsProvider;
 import '../messaging_center/messaging_center_providers.dart'
     show allHubConversationsProvider, liveNotificationStreamProvider;
 import '../automation_visual_theme.dart';
@@ -53,7 +57,10 @@ class ConversationDetailSheet extends ConsumerStatefulWidget {
 
   const ConversationDetailSheet({super.key, required this.item});
 
-  static Future<void> show(BuildContext context, ConversationSummaryItem item) => showModalBottomSheet(
+  static Future<void> show(
+    BuildContext context,
+    ConversationSummaryItem item,
+  ) => showModalBottomSheet(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
@@ -64,16 +71,20 @@ class ConversationDetailSheet extends ConsumerStatefulWidget {
       curve: Curves.easeOutCubic,
       // La hoja completa sube con el teclado; el compositor no infla su
       // altura interna y por eso no aparece el RenderFlex rojo/amarillo.
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
       child: ConversationDetailSheet(item: item),
     ),
   );
 
   @override
-  ConsumerState<ConversationDetailSheet> createState() => _ConversationDetailSheetState();
+  ConsumerState<ConversationDetailSheet> createState() =>
+      _ConversationDetailSheetState();
 }
 
-class _ConversationDetailSheetState extends ConsumerState<ConversationDetailSheet> {
+class _ConversationDetailSheetState
+    extends ConsumerState<ConversationDetailSheet> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   bool _isHumanOwned = false;
@@ -114,8 +125,14 @@ class _ConversationDetailSheetState extends ConsumerState<ConversationDetailShee
   @override
   Widget build(BuildContext context) {
     ref.watch(conversationHubVersionProvider);
-    ref.listen(liveNotificationStreamProvider, (_, __) => _loadLiveHistoryAndCapabilities());
-    ref.listen(conversationHubVersionProvider, (_, __) => _loadLiveHistoryAndCapabilities());
+    ref.listen(
+      liveNotificationStreamProvider,
+      (_, __) => _loadLiveHistoryAndCapabilities(),
+    );
+    ref.listen(
+      conversationHubVersionProvider,
+      (_, __) => _loadLiveHistoryAndCapabilities(),
+    );
 
     final visual = AutomationVisual.of(context);
     final memoryStore = ref.watch(conversationMemoryStoreProvider);
@@ -131,16 +148,22 @@ class _ConversationDetailSheetState extends ConsumerState<ConversationDetailShee
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       child: Container(
-        height: (media.size.height - media.viewInsets.bottom) * (isLandscape ? 0.98 : 0.90),
+        height:
+            (media.size.height - media.viewInsets.bottom) *
+            (isLandscape ? 0.98 : 0.90),
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           border: Border.all(
-            color: visual.isDark ? Colors.white.withValues(alpha: 0.22) : Colors.white.withValues(alpha: 0.70),
+            color: visual.isDark
+                ? Colors.white.withValues(alpha: 0.22)
+                : Colors.white.withValues(alpha: 0.70),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: visual.isDark ? 0.55 : 0.20),
+              color: Colors.black.withValues(
+                alpha: visual.isDark ? 0.55 : 0.20,
+              ),
               blurRadius: 35,
               spreadRadius: -5,
               offset: const Offset(0, -10),
@@ -161,7 +184,10 @@ class _ConversationDetailSheetState extends ConsumerState<ConversationDetailShee
                       end: Alignment.bottomCenter,
                       colors: visual.isDark
                           ? [const Color(0xD90A0F1D), const Color(0xEB060A14)]
-                          : [Colors.white.withValues(alpha: 0.88), Colors.white.withValues(alpha: 0.94)],
+                          : [
+                              Colors.white.withValues(alpha: 0.88),
+                              Colors.white.withValues(alpha: 0.94),
+                            ],
                     ),
                   ),
                 ),

@@ -15,7 +15,9 @@ class PersonalAgentMcpCard extends ConsumerWidget {
     final registry = ref.watch(mcpConnectionRegistryProvider);
     final servers = registry.servers.toList();
     final connected = servers
-        .where((server) => registry.client(server.id)?.state.name == 'connected')
+        .where(
+          (server) => registry.client(server.id)?.state.name == 'connected',
+        )
         .length;
     final tools = registry.lastTools.length;
 
@@ -27,9 +29,7 @@ class PersonalAgentMcpCard extends ConsumerWidget {
           subtitle: servers.isEmpty
               ? 'Sin servidores configurados'
               : '$connected de ${servers.length} servidores · $tools herramientas disponibles',
-          trailing: ValueBadge(
-            label: connected > 0 ? 'CONECTADO' : 'REVISAR',
-          ),
+          trailing: ValueBadge(label: connected > 0 ? 'CONECTADO' : 'REVISAR'),
           onTap: () => Navigator.of(context).push(
             nanoGlassPageRoute<void>(
               builder: (_) => const McpSkillsHubScreen(),

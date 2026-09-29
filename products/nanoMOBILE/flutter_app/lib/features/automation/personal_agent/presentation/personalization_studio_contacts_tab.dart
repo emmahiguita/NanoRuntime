@@ -55,13 +55,26 @@ class _PersonalizationStudioContactsTab extends StatelessWidget {
         const SizedBox(height: 4),
         OutlinedButton.icon(
           onPressed: !canEdit ? null : onNewContact,
-          icon: const Icon(Icons.person_search_rounded, size: 14, color: Color(0xFF25D366)),
-          label: const Text('Reconocer contacto con WhatsApp', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white)),
+          icon: const Icon(
+            Icons.person_search_rounded,
+            size: 14,
+            color: Color(0xFF25D366),
+          ),
+          label: const Text(
+            'Reconocer contacto con WhatsApp',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
           style: OutlinedButton.styleFrom(
             side: const BorderSide(color: Color(0x3025D366)),
             backgroundColor: const Color(0x1025D366),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         ),
         for (final contact in contacts)
@@ -74,7 +87,13 @@ class _PersonalizationStudioContactsTab extends StatelessWidget {
             color: const Color(0x10FFFFFF),
             child: ListTile(
               dense: true,
-              title: Text(contact.label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+              title: Text(
+                contact.label,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               subtitle: Text(
                 '${contact.id.startsWith('contact:') ? 'Vinculado' : 'Sin vincular'} · ${contact.profile?.facts['styleRegister'] ?? 'neutral'} · ${contact.profile?.facts['learnStyle'] == 'false' ? 'No usar para estilo' : 'Importación permitida'}',
                 style: const TextStyle(fontSize: 9.5, color: Colors.white60),
@@ -82,39 +101,49 @@ class _PersonalizationStudioContactsTab extends StatelessWidget {
               onTap: !canEdit ? null : () => onSelectAndEdit(contact),
               trailing: IconButton(
                 icon: const Icon(Icons.more_vert_rounded, size: 18),
-                onPressed: !canEdit ? null : () {
-                  showModalBottomSheet<void>(
-                    context: context,
-                    useRootNavigator: true,
-                    builder: (ctx) => SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!contact.id.startsWith('contact:'))
-                            ListTile(
-                              dense: true,
-                              leading: const Icon(Icons.link_rounded),
-                              title: const Text('Vincular a conversación'),
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                onBind(contact);
-                              },
+                onPressed: !canEdit
+                    ? null
+                    : () {
+                        showModalBottomSheet<void>(
+                          context: context,
+                          useRootNavigator: true,
+                          builder: (ctx) => SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (!contact.id.startsWith('contact:'))
+                                  ListTile(
+                                    dense: true,
+                                    leading: const Icon(Icons.link_rounded),
+                                    title: const Text(
+                                      'Vincular a conversación',
+                                    ),
+                                    onTap: () {
+                                      Navigator.pop(ctx);
+                                      onBind(contact);
+                                    },
+                                  ),
+                                if (contact.profile != null)
+                                  ListTile(
+                                    dense: true,
+                                    leading: const Icon(
+                                      Icons.delete_outline,
+                                      color: Colors.redAccent,
+                                    ),
+                                    title: const Text(
+                                      'Eliminar perfil',
+                                      style: TextStyle(color: Colors.redAccent),
+                                    ),
+                                    onTap: () {
+                                      Navigator.pop(ctx);
+                                      onDelete(contact);
+                                    },
+                                  ),
+                              ],
                             ),
-                          if (contact.profile != null)
-                            ListTile(
-                              dense: true,
-                              leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                              title: const Text('Eliminar perfil', style: TextStyle(color: Colors.redAccent)),
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                onDelete(contact);
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                          ),
+                        );
+                      },
               ),
             ),
           ),

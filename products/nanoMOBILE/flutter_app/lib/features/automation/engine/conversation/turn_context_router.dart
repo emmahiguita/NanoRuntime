@@ -46,19 +46,72 @@ final class TurnContextRouter {
   const TurnContextRouter();
 
   static const _acknowledgmentTokens = {
-    'ok', 'oka', 'okey', 'listo', 'lista', 'dale', 'de una', 'bueno', 'bien',
-    'ya', 'perfecto', 'entendido', 'vale', 'claro', 'si', 'sip', 'sisas',
-    'de acuerdo', 'comprendido', 'va', 'ta bien', 'no', 'nop', 'para nada',
+    'ok',
+    'oka',
+    'okey',
+    'listo',
+    'lista',
+    'dale',
+    'de una',
+    'bueno',
+    'bien',
+    'ya',
+    'perfecto',
+    'entendido',
+    'vale',
+    'claro',
+    'si',
+    'sip',
+    'sisas',
+    'de acuerdo',
+    'comprendido',
+    'va',
+    'ta bien',
+    'no',
+    'nop',
+    'para nada',
   };
 
   static const _shortValueTokens = {
-    'xs', 's', 'm', 'l', 'xl', 'xxl', 'negro', 'blanca', 'blanco', 'azul',
-    'rojo', 'roja', 'verde', 'hoy', 'manana', 'tarde', 'uno', 'dos', 'tres',
+    'xs',
+    's',
+    'm',
+    'l',
+    'xl',
+    'xxl',
+    'negro',
+    'blanca',
+    'blanco',
+    'azul',
+    'rojo',
+    'roja',
+    'verde',
+    'hoy',
+    'manana',
+    'tarde',
+    'uno',
+    'dos',
+    'tres',
   };
 
   static const _anaphoricTokens = {
-    'ella', 'el', 'eso', 'esa', 'ese', 'ahi', 'alli', 'le', 'les', 'lo', 'la',
-    'cambié', 'cambie', 'dijo', 'llamo', 'llamó', 'acuerdas',
+    'ella',
+    'el',
+    'eso',
+    'esa',
+    'ese',
+    'ahi',
+    'alli',
+    'le',
+    'les',
+    'lo',
+    'la',
+    'cambié',
+    'cambie',
+    'dijo',
+    'llamo',
+    'llamó',
+    'acuerdas',
   };
 
   static final _clarificationRegex = RegExp(
@@ -85,22 +138,33 @@ final class TurnContextRouter {
     final isClarification = _clarificationRegex.hasMatch(targetText.trim());
     final isSocialTurn = targetComplexity.isSocialMinimal;
     final hasPendingQ = dialogueState?.hasPendingQuestion ?? false;
-    final hasAnaphora = memory != null &&
+    final hasAnaphora =
+        memory != null &&
         memory.entries.isNotEmpty &&
         _hasAnaphoricReference(targetText);
-    final hasSubstantivePreceding = _hasSubstantivePrecedingContext(memory, dialogueState);
-    final hasContinuity = hasAnaphora ||
+    final hasSubstantivePreceding = _hasSubstantivePrecedingContext(
+      memory,
+      dialogueState,
+    );
+    final hasContinuity =
+        hasAnaphora ||
         (hasPendingQ && !isSocialTurn) ||
         isClarification ||
-        ((isShortAck || isShortVal) && hasSubstantivePreceding && !isSocialTurn);
-    final hasCompoundOrSubstantiveTag = !isSocialTurn &&
+        ((isShortAck || isShortVal) &&
+            hasSubstantivePreceding &&
+            !isSocialTurn);
+    final hasCompoundOrSubstantiveTag =
+        !isSocialTurn &&
         (semanticTags.length >= 2 ||
             semanticTags.contains(ConversationSemanticTag.correction) ||
             semanticTags.contains(ConversationSemanticTag.request) ||
             semanticTags.contains(ConversationSemanticTag.question));
 
-    final allFragmentsSocial = targetText == fullText ||
-        fullText.split(RegExp(r'\s*[·\n]\s*')).every(
+    final allFragmentsSocial =
+        targetText == fullText ||
+        fullText
+            .split(RegExp(r'\s*[·\n]\s*'))
+            .every(
               (frag) =>
                   frag.trim().isEmpty ||
                   turnComplexityClassifier
@@ -108,7 +172,8 @@ final class TurnContextRouter {
                       .eligibleForSocialPrompt,
             );
 
-    final isFastPathEligible = !isBusinessChannel &&
+    final isFastPathEligible =
+        !isBusinessChannel &&
         !hasContinuity &&
         !isClarification &&
         !hasCompoundOrSubstantiveTag &&
@@ -134,23 +199,28 @@ final class TurnContextRouter {
   }
 
   static bool _hasAnaphoricReference(String text) {
-    final words = normalizeText(text)
-        .split(RegExp(r'\s+'))
-        .where((w) => w.isNotEmpty)
-        .toSet();
+    final words = normalizeText(
+      text,
+    ).split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toSet();
     return words.any(_anaphoricTokens.contains);
   }
 
   static String _extractTargetText(NotificationObject notification) {
     final inter = notification.interpretableText.trim();
     if (inter.contains(' · ')) {
-      final s = inter.split(' · ').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      final s = inter
+          .split(' · ')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty);
       if (s.isNotEmpty) return s.last;
     }
     if (inter.isNotEmpty) return inter;
     final raw = notification.text.trim();
     if (raw.contains(' · ')) {
-      final s = raw.split(' · ').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      final s = raw
+          .split(' · ')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty);
       if (s.isNotEmpty) return s.last;
     }
     return raw;
@@ -162,23 +232,26 @@ final class TurnContextRouter {
   }
 
   static bool _isAcknowledgment(String text) => _acknowledgmentTokens.contains(
-        normalizeText(text)
-            .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '')
-            .trim(),
-      );
+    normalizeText(
+      text,
+    ).replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '').trim(),
+  );
 
   static bool _isShortValue(String text) {
-    final clean = normalizeText(text)
-        .replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '')
-        .trim();
-    return _shortValueTokens.contains(clean) || RegExp(r'^\d{1,4}$').hasMatch(clean);
+    final clean = normalizeText(
+      text,
+    ).replaceAll(RegExp(r'[^\p{L}\p{N}\s]+', unicode: true), '').trim();
+    return _shortValueTokens.contains(clean) ||
+        RegExp(r'^\d{1,4}$').hasMatch(clean);
   }
 
   static bool _hasSubstantivePrecedingContext(
     ConversationMemory? memory,
     ConversationDialogueState? state,
   ) {
-    if (state != null && (state.hasPendingQuestion || (state.lastAgentStatement?.isNotEmpty ?? false))) {
+    if (state != null &&
+        (state.hasPendingQuestion ||
+            (state.lastAgentStatement?.isNotEmpty ?? false))) {
       return true;
     }
     if (memory == null || memory.entries.isEmpty) return false;

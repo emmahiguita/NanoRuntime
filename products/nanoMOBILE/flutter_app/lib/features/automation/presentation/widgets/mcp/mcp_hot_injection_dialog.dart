@@ -30,8 +30,12 @@ Future<void> showMcpHotInjectionDialog({
       return StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
-            backgroundColor: visual.isDark ? const Color(0xFF0E1726) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            backgroundColor: visual.isDark
+                ? const Color(0xFF0E1726)
+                : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
             title: Text(
               'Inyectar Servidor MCP en Caliente',
               style: TextStyle(
@@ -47,19 +51,31 @@ Future<void> showMcpHotInjectionDialog({
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Identificador único:', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                    Text(
+                      'Identificador único:',
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: idController,
-                      style: TextStyle(color: visual.text, fontSize: 13, fontFamily: 'monospace'),
+                      style: TextStyle(
+                        color: visual.text,
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                      ),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: visual.inputFill,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text('Nombre descriptivo:', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                    Text(
+                      'Nombre descriptivo:',
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: nameController,
@@ -67,23 +83,37 @@ Future<void> showMcpHotInjectionDialog({
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: visual.inputFill,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text('Endpoint URL (Streamable HTTP):', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                    Text(
+                      'Endpoint URL (Streamable HTTP):',
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: urlController,
-                      style: TextStyle(color: visual.text, fontSize: 13, fontFamily: 'monospace'),
+                      style: TextStyle(
+                        color: visual.text,
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                      ),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: visual.inputFill,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text('Token Bearer / Clave API (opcional):', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                    Text(
+                      'Token Bearer / Clave API (opcional):',
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                    ),
                     const SizedBox(height: 4),
                     TextField(
                       controller: tokenController,
@@ -92,7 +122,9 @@ Future<void> showMcpHotInjectionDialog({
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: visual.inputFill,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -107,10 +139,18 @@ Future<void> showMcpHotInjectionDialog({
                               ? const SizedBox(
                                   width: 14,
                                   height: 14,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
-                              : const Icon(Icons.network_check_rounded, size: 16),
-                          label: const Text('Probar Conexión', style: TextStyle(fontSize: 12)),
+                              : const Icon(
+                                  Icons.network_check_rounded,
+                                  size: 16,
+                                ),
+                          label: const Text(
+                            'Probar Conexión',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           onPressed: testing
                               ? null
                               : () async {
@@ -125,22 +165,28 @@ Future<void> showMcpHotInjectionDialog({
                                     displayName: nameController.text.trim(),
                                     transport: selectedTransport,
                                     endpoint: urlController.text.trim(),
-                                    credentialRef: persistence.credentialRefFor(serverId),
+                                    credentialRef: persistence.credentialRefFor(
+                                      serverId,
+                                    ),
                                   );
                                   HttpMcpClient? testClient;
                                   try {
                                     persistence.validateDescriptor(desc);
                                     testClient = HttpMcpClient(
                                       descriptor: desc,
-                                      credentialToken: token.isEmpty ? null : token,
+                                      credentialToken: token.isEmpty
+                                          ? null
+                                          : token,
                                     );
                                     final res = await testClient.connect();
                                     if (res.success) {
-                                      final tools = await testClient.listTools();
+                                      final tools = await testClient
+                                          .listTools();
                                       setDlgState(() {
                                         testing = false;
                                         testPassed = true;
-                                        testFeedback = 'Conectado (v${res.protocolVersion}). ${tools.length} herramientas descubiertas.';
+                                        testFeedback =
+                                            'Conectado (v${res.protocolVersion}). ${tools.length} herramientas descubiertas.';
                                       });
                                     } else {
                                       setDlgState(() {
@@ -153,7 +199,8 @@ Future<void> showMcpHotInjectionDialog({
                                     setDlgState(() {
                                       testing = false;
                                       testPassed = false;
-                                      testFeedback = 'No se pudo probar la conexión MCP.';
+                                      testFeedback =
+                                          'No se pudo probar la conexión MCP.';
                                     });
                                   } finally {
                                     await testClient?.disconnect();
@@ -167,17 +214,24 @@ Future<void> showMcpHotInjectionDialog({
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: (testPassed == true ? const Color(0xFF10B981) : Colors.red)
-                              .withValues(alpha: 0.12),
+                          color:
+                              (testPassed == true
+                                      ? const Color(0xFF10B981)
+                                      : Colors.red)
+                                  .withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: testPassed == true ? const Color(0xFF10B981) : Colors.red,
+                            color: testPassed == true
+                                ? const Color(0xFF10B981)
+                                : Colors.red,
                           ),
                         ),
                         child: Text(
                           testFeedback!,
                           style: TextStyle(
-                            color: testPassed == true ? const Color(0xFF10B981) : Colors.red,
+                            color: testPassed == true
+                                ? const Color(0xFF10B981)
+                                : Colors.red,
                             fontSize: 11,
                           ),
                         ),
@@ -223,7 +277,9 @@ Future<void> showMcpHotInjectionDialog({
                             setDlgState(() {
                               testing = false;
                               testPassed = false;
-                              testFeedback = result.message ?? 'No se pudo conectar al servidor MCP.';
+                              testFeedback =
+                                  result.message ??
+                                  'No se pudo conectar al servidor MCP.';
                             });
                             return;
                           }
@@ -231,17 +287,23 @@ Future<void> showMcpHotInjectionDialog({
                             desc,
                             credentialToken: token.isEmpty ? null : token,
                           );
-                          await registry.register(client, replaceExisting: true);
+                          await registry.register(
+                            client,
+                            replaceExisting: true,
+                          );
                           final snap = await registry.refreshTools();
                           if (ctx.mounted) Navigator.of(ctx).pop();
-                          onInjected('Servidor conectado y guardado. ${snap.tools.length} herramientas activas.');
+                          onInjected(
+                            'Servidor conectado y guardado. ${snap.tools.length} herramientas activas.',
+                          );
                         } catch (_) {
                           await client?.disconnect();
                           if (ctx.mounted) {
                             setDlgState(() {
                               testing = false;
                               testPassed = false;
-                              testFeedback = 'No se pudo guardar o completar la conexión MCP.';
+                              testFeedback =
+                                  'No se pudo guardar o completar la conexión MCP.';
                             });
                           }
                         }

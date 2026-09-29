@@ -28,7 +28,9 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       _statusText = 'Enviando mensaje...';
     });
     try {
-      final conversationId = canonicalConversationId(widget.item.conversationId);
+      final conversationId = canonicalConversationId(
+        widget.item.conversationId,
+      );
       final pendingId = widget.item.hasPendingReply
           ? widget.item.pendingReplyId
           : null;
@@ -151,11 +153,7 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       );
       ref
           .read(eventDedupeStoreProvider)
-          .recordVerifiedOutbound(
-            conversationId,
-            text,
-            atMs: nowMs,
-          );
+          .recordVerifiedOutbound(conversationId, text, atMs: nowMs);
 
       // Autoaprendizaje de estilo en SQLite FTS4
       await _recordStyleLearning(text);
@@ -179,5 +177,4 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       if (mounted) setState(() => _busy = false);
     }
   }
-
 }

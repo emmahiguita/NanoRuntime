@@ -20,7 +20,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/widgets/feather_core_icon.dart';
-import '../../application/automation_coordinator_provider.dart' show ruleRegistryProvider;
+import '../../application/automation_coordinator_provider.dart'
+    show ruleRegistryProvider;
 import '../../engine/business/business_facts_providers.dart';
 import '../../engine/messaging/messaging_package.dart';
 import '../automation_layout.dart';
@@ -62,7 +63,9 @@ class AutomationHomeView extends ConsumerWidget {
 
     return Center(
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: AutomationLayout.contentMaxWidth(context)),
+        constraints: BoxConstraints(
+          maxWidth: AutomationLayout.contentMaxWidth(context),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -140,10 +143,20 @@ class AutomationHomeView extends ConsumerWidget {
           children: [
             RichText(
               text: TextSpan(
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
                 children: [
-                  TextSpan(text: 'NANO ', style: TextStyle(color: visual.text)),
-                  TextSpan(text: 'AI', style: TextStyle(color: visual.accent)),
+                  TextSpan(
+                    text: 'NANO ',
+                    style: TextStyle(color: visual.text),
+                  ),
+                  TextSpan(
+                    text: 'AI',
+                    style: TextStyle(color: visual.accent),
+                  ),
                 ],
               ),
             ),

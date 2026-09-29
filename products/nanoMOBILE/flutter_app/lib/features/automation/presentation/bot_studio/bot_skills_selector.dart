@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../application/bot/bot_skills_catalog.dart';
 
 /// QUÉ HACE:
@@ -60,7 +60,9 @@ class BotSkillsSelector extends StatelessWidget {
           avatar: Icon(
             _iconForCategory(skill.category),
             size: 16,
-            color: isSelected ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+            color: isSelected
+                ? colorScheme.onPrimary
+                : colorScheme.onSurfaceVariant,
           ),
           label: Text(
             skill.name,
@@ -71,12 +73,16 @@ class BotSkillsSelector extends StatelessWidget {
             ),
           ),
           selectedColor: colorScheme.primary,
-          backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+          backgroundColor: colorScheme.surfaceContainerHighest.withValues(
+            alpha: 0.5,
+          ),
           checkmarkColor: colorScheme.onPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
             side: BorderSide(
-              color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant,
               width: 1,
             ),
           ),

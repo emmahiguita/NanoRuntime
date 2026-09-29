@@ -30,9 +30,9 @@ final class PersonaRetriever {
     PersonaRepository? repository,
     ConversationalIntentClassifier? classifier,
     HybridRetrievalScorer? scorer,
-  })  : _repository = repository ?? PersonaRepository.instance,
-        _classifier = classifier ?? const ConversationalIntentClassifier(),
-        _scorer = scorer ?? const HybridRetrievalScorer();
+  }) : _repository = repository ?? PersonaRepository.instance,
+       _classifier = classifier ?? const ConversationalIntentClassifier(),
+       _scorer = scorer ?? const HybridRetrievalScorer();
 
   final PersonaRepository _repository;
   final ConversationalIntentClassifier _classifier;
@@ -43,13 +43,35 @@ final class PersonaRetriever {
       PersonaRetrieverScorer.scorePatternMatch(rawInput, rawPattern);
 
   /// Puntuación híbrida multi-señal [0.0..1.0] de un [example] frente al [context] actual.
-  static double scoreExample(String context, PersonaExample example, [IntentPrediction? pred]) {
-    final prediction = pred ?? const ConversationalIntentClassifier().classify(context).primaryIntent;
+  static double scoreExample(
+    String context,
+    PersonaExample example, [
+    IntentPrediction? pred,
+  ]) {
+    final prediction =
+        pred ??
+        const ConversationalIntentClassifier().classify(context).primaryIntent;
     return const HybridRetrievalScorer().score(
       rawInput: context,
       example: example,
       inputPrediction: prediction,
     );
+  }
+
+  /// QUÉ: Puntúa una respuesta candidata con el motor que usa este recuperador.
+  /// CÓMO: Reutiliza la interfaz por lotes, incluso para un único ejemplo.
+  /// POR QUÉ: Mantiene el umbral de estilo coherente con el ranking semántico.
+  Future<double> scoreExampleWithEngine(
+    String context,
+    PersonaExample example, [
+    IntentPrediction? pred,
+  ]) async {
+    final prediction = pred ?? _classifier.classify(context).primaryIntent;
+    return (await _scorer.scoreMany(
+      rawInput: context,
+      examples: [example],
+      inputPrediction: prediction,
+    )).first;
   }
 
   /// Recupera ejemplos parecidos respetando la lista de ámbitos ordenada por precedencia.
@@ -71,7 +93,8 @@ final class PersonaRetriever {
       return const [];
     }
 
-    final effectiveScopes = candidateScopes ?? [scopeKey, roleKey, 'owner', 'global'];
+    final effectiveScopes =
+        candidateScopes ?? [scopeKey, roleKey, 'owner', 'global'];
     final primaryScope = effectiveScopes.first;
 
     final indexed = await _repository.searchExamples(
@@ -84,11 +107,14 @@ final class PersonaRetriever {
     final normalizedContext = normalizePersonalLearningText(context);
     final terms = PersonaRetrieverScorer.meaningfulTerms(normalizedContext);
 
-    var indexedBest = 0.0;
-    for (final example in indexed) {
-      final current = _scorer.score(rawInput: context, example: example, inputPrediction: inputPrediction);
-      if (current > indexedBest) indexedBest = current;
-    }
+    final indexedScores = await _scorer.scoreMany(
+      rawInput: context,
+      examples: indexed,
+      inputPrediction: inputPrediction,
+    );
+    final indexedBest = indexedScores.isEmpty
+        ? 0.0
+        : indexedScores.reduce((a, b) => a > b ? a : b);
 
     final needsVariantFallback =
         terms.length <= 8 && (indexed.isEmpty || indexedBest < 0.70);
@@ -104,13 +130,19 @@ final class PersonaRetriever {
 
     const minPairedRelevance = 0.40;
     final scoresById = <int, double>{
-      for (final c in candidates)
-        c.id: _scorer.score(
-          rawInput: context,
-          example: c,
-          inputPrediction: inputPrediction,
-        ),
+      for (var i = 0; i < indexed.length; i++) indexed[i].id: indexedScores[i],
     };
+    final remaining = candidates
+        .where((e) => !scoresById.containsKey(e.id))
+        .toList();
+    final remainingScores = await _scorer.scoreMany(
+      rawInput: context,
+      examples: remaining,
+      inputPrediction: inputPrediction,
+    );
+    for (var i = 0; i < remaining.length; i++) {
+      scoresById[remaining[i].id] = remainingScores[i];
+    }
 
     final eligible = candidates.where((e) {
       if (!e.enabled) return false;
@@ -146,7 +178,9 @@ final class PersonaRetriever {
     });
 
     sw.stop();
-    debugPrint('[personal-retriever] latency=${sw.elapsedMicroseconds / 1000.0}ms candidates=${candidates.length} eligible=${eligible.length}');
+    debugPrint(
+      '[personal-retriever] latency=${sw.elapsedMicroseconds / 1000.0}ms candidates=${candidates.length} eligible=${eligible.length}',
+    );
 
     return eligible.take(limit.clamp(1, 4)).toList();
   }

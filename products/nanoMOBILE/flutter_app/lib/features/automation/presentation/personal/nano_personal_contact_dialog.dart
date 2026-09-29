@@ -34,8 +34,9 @@ class NanoPersonalContactDialog {
     BuildContext context, [
     PersonaProfile? existing,
   ]) async {
-    final nameController =
-        TextEditingController(text: existing?.displayName ?? '');
+    final nameController = TextEditingController(
+      text: existing?.displayName ?? '',
+    );
     String relation = existing?.facts['relationship'] ?? 'Amigos';
     String style = existing?.facts['styleRegister'] ?? 'Cercano';
     bool autoReply = existing?.facts['autoReply'] != 'false';
@@ -76,9 +77,13 @@ class NanoPersonalContactDialog {
                       value: relation,
                       isExpanded: true,
                       dropdownColor: visual.surface,
-                      items: {'Familia', 'Amigos', 'Trabajo', 'Cliente', relation}
-                          .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                          .toList(),
+                      items:
+                          {'Familia', 'Amigos', 'Trabajo', 'Cliente', relation}
+                              .map(
+                                (r) =>
+                                    DropdownMenuItem(value: r, child: Text(r)),
+                              )
+                              .toList(),
                       onChanged: (v) {
                         if (v != null) setDialogState(() => relation = v);
                       },
@@ -94,7 +99,9 @@ class NanoPersonalContactDialog {
                       isExpanded: true,
                       dropdownColor: visual.surface,
                       items: {'Cercano', 'Formal', 'Breve', style}
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                          .map(
+                            (s) => DropdownMenuItem(value: s, child: Text(s)),
+                          )
                           .toList(),
                       onChanged: (v) {
                         if (v != null) setDialogState(() => style = v);
@@ -104,7 +111,9 @@ class NanoPersonalContactDialog {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Responder automáticamente'),
-                      subtitle: const Text('Si está apagado, solo genera borrador'),
+                      subtitle: const Text(
+                        'Si está apagado, solo genera borrador',
+                      ),
                       value: autoReply,
                       onChanged: (v) => setDialogState(() => autoReply = v),
                     ),

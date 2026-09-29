@@ -34,8 +34,17 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
                   backgroundColor: Color(0xFF00FF88),
                   child: Icon(Icons.image_rounded, color: Colors.black),
                 ),
-                title: const Text('Enviar Imagen / Foto', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Galería o fotos del dispositivo', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                title: const Text(
+                  'Enviar Imagen / Foto',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Galería o fotos del dispositivo',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _attachImage();
@@ -46,8 +55,17 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
                   backgroundColor: Color(0xFF60A5FA),
                   child: Icon(Icons.videocam_rounded, color: Colors.white),
                 ),
-                title: const Text('Enviar Video', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Videos y clips multimedia', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                title: const Text(
+                  'Enviar Video',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Videos y clips multimedia',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _attachVideo();
@@ -56,10 +74,22 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
               ListTile(
                 leading: const CircleAvatar(
                   backgroundColor: Color(0xFFEF4444),
-                  child: Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+                  child: Icon(
+                    Icons.picture_as_pdf_rounded,
+                    color: Colors.white,
+                  ),
                 ),
-                title: const Text('Enviar Documento PDF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Archivos PDF del dispositivo', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                title: const Text(
+                  'Enviar Documento PDF',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Archivos PDF del dispositivo',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _attachPdf();
@@ -68,10 +98,22 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
               ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  child: const Icon(Icons.assignment_rounded, color: Colors.white),
+                  child: const Icon(
+                    Icons.assignment_rounded,
+                    color: Colors.white,
+                  ),
                 ),
-                title: const Text('Formulario Interactivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Plantilla de registro o encuesta rápida', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                title: const Text(
+                  'Formulario Interactivo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Plantilla de registro o encuesta rápida',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _showFormPicker();
@@ -80,10 +122,22 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
               ListTile(
                 leading: CircleAvatar(
                   backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  child: const Icon(Icons.attach_file_rounded, color: Colors.white),
+                  child: const Icon(
+                    Icons.attach_file_rounded,
+                    color: Colors.white,
+                  ),
                 ),
-                title: const Text('Cualquier archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Archivos y documentos', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                title: const Text(
+                  'Cualquier archivo',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: const Text(
+                  'Archivos y documentos',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
+                ),
                 onTap: () {
                   Navigator.of(ctx).pop();
                   _attachAndShareFile();
@@ -96,17 +150,20 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
     );
   }
 
-  Future<void> _attachImage() => _pickAndShareMedia(type: FileType.image, label: 'imagen');
+  Future<void> _attachImage() =>
+      _pickAndShareMedia(type: FileType.image, label: 'imagen');
 
-  Future<void> _attachVideo() => _pickAndShareMedia(type: FileType.video, label: 'video');
+  Future<void> _attachVideo() =>
+      _pickAndShareMedia(type: FileType.video, label: 'video');
 
   Future<void> _attachPdf() => _pickAndShareMedia(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        label: 'PDF',
-      );
+    type: FileType.custom,
+    allowedExtensions: ['pdf'],
+    label: 'PDF',
+  );
 
-  Future<void> _attachAndShareFile() => _pickAndShareMedia(type: FileType.any, label: 'archivo');
+  Future<void> _attachAndShareFile() =>
+      _pickAndShareMedia(type: FileType.any, label: 'archivo');
 
   Future<void> _pickAndShareMedia({
     required FileType type,

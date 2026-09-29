@@ -23,7 +23,9 @@ class WhatsAppContactsService {
   /// Solicita el permiso READ_CONTACTS al usuario.
   Future<bool> requestPermission() async {
     try {
-      final res = await _channel.invokeMethod<bool>('requestContactsPermission');
+      final res = await _channel.invokeMethod<bool>(
+        'requestContactsPermission',
+      );
       return res == true;
     } on PlatformException {
       return false;
@@ -35,7 +37,9 @@ class WhatsAppContactsService {
   /// Consulta la lista de contactos de WhatsApp sincronizados en el dispositivo.
   Future<List<WhatsAppContact>> getContacts() async {
     try {
-      final res = await _channel.invokeListMethod<dynamic>('getWhatsAppContacts');
+      final res = await _channel.invokeListMethod<dynamic>(
+        'getWhatsAppContacts',
+      );
       if (res == null) return const [];
       return res
           .whereType<Map<dynamic, dynamic>>()
@@ -50,8 +54,9 @@ class WhatsAppContactsService {
 }
 
 /// Provider singleton del servicio de contactos de WhatsApp.
-final whatsappContactsServiceProvider =
-    Provider<WhatsAppContactsService>((ref) => WhatsAppContactsService());
+final whatsappContactsServiceProvider = Provider<WhatsAppContactsService>(
+  (ref) => WhatsAppContactsService(),
+);
 
 /// Estado del permiso de contactos.
 final contactsPermissionProvider = FutureProvider<bool>((ref) async {
@@ -60,8 +65,9 @@ final contactsPermissionProvider = FutureProvider<bool>((ref) async {
 });
 
 /// Lista completa de contactos de WhatsApp en el dispositivo.
-final allWhatsAppContactsProvider =
-    FutureProvider<List<WhatsAppContact>>((ref) async {
+final allWhatsAppContactsProvider = FutureProvider<List<WhatsAppContact>>((
+  ref,
+) async {
   final service = ref.watch(whatsappContactsServiceProvider);
   final hasPerm = await service.hasPermission();
   if (!hasPerm) return const [];
@@ -69,8 +75,7 @@ final allWhatsAppContactsProvider =
 });
 
 /// Contactos de WhatsApp filtrados por la búsqueda activa en el Centro de Mensajería.
-final filteredWhatsAppContactsProvider =
-    Provider<List<WhatsAppContact>>((ref) {
+final filteredWhatsAppContactsProvider = Provider<List<WhatsAppContact>>((ref) {
   final contactsAsync = ref.watch(allWhatsAppContactsProvider);
   final contacts = contactsAsync.value ?? const [];
   final query = ref.watch(messagingSearchQueryProvider).trim().toLowerCase();

@@ -20,63 +20,228 @@ import 'conversation_memory_models.dart';
 abstract final class SocialContextRetriever {
   static const Map<String, Set<String>> _topicClusters = {
     'sport_football': {
-      'futbol', 'partido', 'partidos', 'gol', 'goles', 'cancha', 'equipo',
-      'jugar', 'jugador', 'torneo', 'liga', 'copa', 'campeon', 'seleccion',
-      'nacional', 'medellin', 'millonarios', 'america', 'junior', 'real',
-      'barca', 'barcelona', 'champions', 'mundial', 'arquero', 'penal',
+      'futbol',
+      'partido',
+      'partidos',
+      'gol',
+      'goles',
+      'cancha',
+      'equipo',
+      'jugar',
+      'jugador',
+      'torneo',
+      'liga',
+      'copa',
+      'campeon',
+      'seleccion',
+      'nacional',
+      'medellin',
+      'millonarios',
+      'america',
+      'junior',
+      'real',
+      'barca',
+      'barcelona',
+      'champions',
+      'mundial',
+      'arquero',
+      'penal',
     },
     'software_code': {
-      'codigo', 'programar', 'programando', 'programa', 'app', 'aplicacion',
-      'android', 'studio', 'flutter', 'dart', 'rust', 'python', 'bug',
-      'error', 'compilar', 'deploy', 'servidor', 'repo', 'git', 'sistema',
-      'agente', 'modelo', 'ia', 'base', 'datos', 'sqlite',
+      'codigo',
+      'programar',
+      'programando',
+      'programa',
+      'app',
+      'aplicacion',
+      'android',
+      'studio',
+      'flutter',
+      'dart',
+      'rust',
+      'python',
+      'bug',
+      'error',
+      'compilar',
+      'deploy',
+      'servidor',
+      'repo',
+      'git',
+      'sistema',
+      'agente',
+      'modelo',
+      'ia',
+      'base',
+      'datos',
+      'sqlite',
     },
     'food_meal': {
-      'comida', 'comer', 'comiste', 'almorzar', 'almuerzo', 'almorzaste',
-      'cena', 'cenar', 'cenaste', 'desayuno', 'desayunar', 'hambre',
-      'restaurante', 'pizza', 'hamburguesa', 'cafe', 'cocinar', 'receta',
+      'comida',
+      'comer',
+      'comiste',
+      'almorzar',
+      'almuerzo',
+      'almorzaste',
+      'cena',
+      'cenar',
+      'cenaste',
+      'desayuno',
+      'desayunar',
+      'hambre',
+      'restaurante',
+      'pizza',
+      'hamburguesa',
+      'cafe',
+      'cocinar',
+      'receta',
     },
     'work_career': {
-      'trabajo', 'trabajar', 'trabajando', 'camello', 'camellando', 'oficina',
-      'reunion', 'jefe', 'cliente', 'proyecto', 'entrega', 'informe',
-      'turno', 'horario', 'empresa', 'negocio', 'pago', 'factura',
+      'trabajo',
+      'trabajar',
+      'trabajando',
+      'camello',
+      'camellando',
+      'oficina',
+      'reunion',
+      'jefe',
+      'cliente',
+      'proyecto',
+      'entrega',
+      'informe',
+      'turno',
+      'horario',
+      'empresa',
+      'negocio',
+      'pago',
+      'factura',
     },
     'health_gym': {
-      'gym', 'gimnasio', 'entrenar', 'entrenando', 'entreno', 'ejercicio',
-      'rutina', 'pesas', 'pecho', 'espalda', 'pierna', 'cardio', 'correr',
-      'salud', 'medico', 'cansado', 'cansada', 'dormir', 'sueno',
+      'gym',
+      'gimnasio',
+      'entrenar',
+      'entrenando',
+      'entreno',
+      'ejercicio',
+      'rutina',
+      'pesas',
+      'pecho',
+      'espalda',
+      'pierna',
+      'cardio',
+      'correr',
+      'salud',
+      'medico',
+      'cansado',
+      'cansada',
+      'dormir',
+      'sueno',
     },
     'family_home': {
-      'familia', 'mama', 'papa', 'hermano', 'hermana', 'hijo', 'hija',
-      'abuela', 'abuelo', 'casa', 'hogar', 'perro', 'mascota', 'gato',
+      'familia',
+      'mama',
+      'papa',
+      'hermano',
+      'hermana',
+      'hijo',
+      'hija',
+      'abuela',
+      'abuelo',
+      'casa',
+      'hogar',
+      'perro',
+      'mascota',
+      'gato',
     },
     'social_outing': {
-      'salir', 'salida', 'parche', 'plan', 'planes', 'viaje', 'paseo',
-      'cine', 'fiesta', 'finde', 'semana', 'centro', 'calle', 'vernos',
+      'salir',
+      'salida',
+      'parche',
+      'plan',
+      'planes',
+      'viaje',
+      'paseo',
+      'cine',
+      'fiesta',
+      'finde',
+      'semana',
+      'centro',
+      'calle',
+      'vernos',
     },
   };
 
   static const Set<String> _stopTokens = {
-    'hola', 'buenas', 'buenos', 'dias', 'tardes', 'noches', 'que', 'como',
-    'para', 'por', 'con', 'una', 'uno', 'los', 'las', 'del', 'mas', 'muy',
-    'pero', 'todo', 'bien', 'gracias', 'dale', 'listo', 'bro', 'parce',
+    'hola',
+    'buenas',
+    'buenos',
+    'dias',
+    'tardes',
+    'noches',
+    'que',
+    'como',
+    'para',
+    'por',
+    'con',
+    'una',
+    'uno',
+    'los',
+    'las',
+    'del',
+    'mas',
+    'muy',
+    'pero',
+    'todo',
+    'bien',
+    'gracias',
+    'dale',
+    'listo',
+    'bro',
+    'parce',
   };
 
   static const Set<String> _anaphoricMarkers = {
-    'ella', 'el', 'eso', 'esa', 'ese', 'ahi', 'alli', 'le', 'les', 'lo', 'la',
-    'aquello', 'acuerdas', 'dijo', 'llamo', 'cambie', 'puso', 'quedo',
+    'ella',
+    'el',
+    'eso',
+    'esa',
+    'ese',
+    'ahi',
+    'alli',
+    'le',
+    'les',
+    'lo',
+    'la',
+    'aquello',
+    'acuerdas',
+    'dijo',
+    'llamo',
+    'cambie',
+    'puso',
+    'quedo',
   };
 
   static const Map<String, Set<String>> _paraphraseActs = {
     'outcome_inquiry': {
-      'como te fue', 'que paso al final', 'en que quedo', 'como salio',
-      'que tal salio', 'como resulto', 'pudiste resolver', 'que hubo de',
+      'como te fue',
+      'que paso al final',
+      'en que quedo',
+      'como salio',
+      'que tal salio',
+      'como resulto',
+      'pudiste resolver',
+      'que hubo de',
     },
     'memory_recall': {
-      'te acuerdas', 'recuerdas a', 'sabes algo de', 'que fue de',
+      'te acuerdas',
+      'recuerdas a',
+      'sabes algo de',
+      'que fue de',
     },
     'status_followup': {
-      'como sigues', 'ya mejor', 'todo en orden con', 'como va lo de',
+      'como sigues',
+      'ya mejor',
+      'todo en orden con',
+      'como va lo de',
     },
   };
 
@@ -127,8 +292,9 @@ abstract final class SocialContextRetriever {
     }
 
     // 4. Clústeres temáticos conocidos actúan ÚNICAMENTE como boost adicional (Ciclo 15)
-    final sharedClusters =
-        _clustersFor(queryTokens).intersection(_clustersFor(candTokens)).length;
+    final sharedClusters = _clustersFor(
+      queryTokens,
+    ).intersection(_clustersFor(candTokens)).length;
     score += sharedClusters * 2.0;
 
     return score;
@@ -158,7 +324,8 @@ abstract final class SocialContextRetriever {
     final scoredIndices = <({int index, double score})>[];
     for (var i = 0; i < entries.length; i++) {
       final entry = entries[i];
-      final pairText = (entry.kind == ConversationMemoryEntryKind.inbound &&
+      final pairText =
+          (entry.kind == ConversationMemoryEntryKind.inbound &&
               i + 1 < entries.length &&
               entries[i + 1].kind != ConversationMemoryEntryKind.inbound)
           ? '${entry.text} ${entries[i + 1].text}'
@@ -209,9 +376,9 @@ abstract final class SocialContextRetriever {
     final entities = <String>{};
     for (final entry in entries.reversed.take(6)) {
       entities.addAll(
-        _substantiveTokens(normalizeText(entry.text))
-            .where((t) => t.length >= 4)
-            .take(3),
+        _substantiveTokens(
+          normalizeText(entry.text),
+        ).where((t) => t.length >= 4).take(3),
       );
       if (entities.length >= 4) break;
     }
@@ -221,10 +388,9 @@ abstract final class SocialContextRetriever {
   static bool _hasCapitalizedEntity(String raw) =>
       RegExp(r'(?:^|\s)[A-ZÁÉÍÓÚÑ][a-záéíóúñ]{2,}').hasMatch(raw);
 
-  static Set<String> _substantiveTokens(String normalized) =>
-      tokenizeText(normalized)
-          .where((t) => t.length >= 3 && !_stopTokens.contains(t))
-          .toSet();
+  static Set<String> _substantiveTokens(String normalized) => tokenizeText(
+    normalized,
+  ).where((t) => t.length >= 3 && !_stopTokens.contains(t)).toSet();
 
   static Set<String> _clustersFor(Set<String> tokens) => {
     for (final entry in _topicClusters.entries)

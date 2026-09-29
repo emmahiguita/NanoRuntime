@@ -210,8 +210,8 @@ class RulePipeline {
                 atMs: atMs,
               );
               debugPrint(
-                '[memory] owner outbound reconciliado '
-                'textChars=${message.text.length}',
+                '[memory] salida propia observada localmente '
+                'entrega=sin_confirmar textChars=${message.text.length}',
               );
 
               // WA-LEARN-01: Autoaprendizaje EXCLUSIVO de respuesta manual humana.
@@ -696,6 +696,9 @@ class RulePipeline {
     );
     final results = <RuleDispatchResult>[];
     for (final rule in matched) {
+      // Los mensajes salientes usan AlarmManager nativo para sobrevivir al
+      // cierre de Flutter. El ticker en-app nunca debe duplicar ese envío.
+      if (rule.action == RuleAction.sendMessage) continue;
       if (rule.lastFiredAt != null &&
           rule.lastFiredAt!.year == event.now.year &&
           rule.lastFiredAt!.month == event.now.month &&

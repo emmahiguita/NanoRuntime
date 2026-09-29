@@ -1,4 +1,4 @@
-﻿import '../../domain/bot/bot_definition.dart';
+import '../../domain/bot/bot_definition.dart';
 import '../../domain/bot/bot_event.dart';
 import '../execution/agent_tool_dispatcher.dart';
 import '../execution/tool_registry.dart' show PolicyVerdict;
@@ -44,7 +44,8 @@ class BotAgentDispatcher {
       return BotExecutionResult.error(
         botId: bot.id,
         event: event,
-        errorMessage: "El bot ${bot.name} no tiene habilitado el canal ${event.channel}.",
+        errorMessage:
+            "El bot ${bot.name} no tiene habilitado el canal ${event.channel}.",
         durationMs: context.elapsedMs,
       );
     }
@@ -68,15 +69,13 @@ class BotAgentDispatcher {
     BotExecutionContext context,
     ToolCall call,
   ) async {
-    final router = BotCapabilityRouter(
-      bot: bot,
-      dispatcher: toolDispatcher,
-    );
+    final router = BotCapabilityRouter(bot: bot, dispatcher: toolDispatcher);
 
     final outcome = await router.executeTool(call);
     context.log("Herramienta ejecutada. Veredicto: ${outcome.verdict.name}");
 
-    final isSuccess = outcome.verdict == PolicyVerdict.allow && !outcome.executionFailed;
+    final isSuccess =
+        outcome.verdict == PolicyVerdict.allow && !outcome.executionFailed;
     final message = isSuccess
         ? "Acción completada: ${outcome.feedback}"
         : "No fue posible completar la acción: ${outcome.feedback}";
@@ -100,7 +99,9 @@ class BotAgentDispatcher {
     BotExecutionContext context,
   ) {
     final rawText = event.textContent;
-    context.log("Procesando respuesta conversacional con tono ${bot.tone.warmth.name}");
+    context.log(
+      "Procesando respuesta conversacional con tono ${bot.tone.warmth.name}",
+    );
 
     final reply = rawText.isNotEmpty
         ? "Atendido por ${bot.name} (${bot.role.label}): $rawText"

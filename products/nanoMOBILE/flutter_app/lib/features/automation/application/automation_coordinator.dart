@@ -66,7 +66,6 @@ import 'package:nanoai/features/automation/engine/voice/execution_cancellation.d
 import 'package:nanoai/features/automation/engine/planning/whatsapp_intent_parser.dart'
     show WhatsAppIntentParser, WhatsAppAction;
 
-
 import '../domain/automation_goal.dart' show AutomationGoal, AutomationOptions;
 import '../domain/automation_policy.dart'
     show AgentAutomationMode, AutomationPolicy;
@@ -535,7 +534,8 @@ class AutomationCoordinator {
           // El catálogo emite ToolCalls const sin args dinámicos (contacto, mensaje).
           // El coordinator los inyecta aquí usando WhatsAppIntentParser.
           final enrichedSteps = known.steps.map((step) {
-            final isWaTool = step.tool == 'whatsapp.contacts' ||
+            final isWaTool =
+                step.tool == 'whatsapp.contacts' ||
                 step.tool == 'whatsapp.send_message' ||
                 step.tool == 'whatsapp.open_chat' ||
                 step.tool == 'whatsapp.share_file';
@@ -556,7 +556,9 @@ class AutomationCoordinator {
             // Map<String, Object?> — step.args puede tener valores nullable.
             final Map<String, Object?> extra = Map.of(step.args ?? {});
             if (intent.contact.isNotEmpty) {
-              final key = targetTool == 'whatsapp.contacts' ? 'query' : 'contact';
+              final key = targetTool == 'whatsapp.contacts'
+                  ? 'query'
+                  : 'contact';
               extra[key] = intent.contact;
             }
             if (targetTool == 'whatsapp.share_file') {
@@ -566,10 +568,13 @@ class AutomationCoordinator {
               if (intent.message != null && intent.message!.isNotEmpty) {
                 extra['caption'] = intent.message!;
               }
-            } else if (intent.message != null && intent.message!.isNotEmpty &&
-                (targetTool == 'whatsapp.send_message' || targetTool == 'whatsapp.open_chat')) {
+            } else if (intent.message != null &&
+                intent.message!.isNotEmpty &&
+                (targetTool == 'whatsapp.send_message' ||
+                    targetTool == 'whatsapp.open_chat')) {
               extra['text'] = intent.message!;
-              if (targetTool == 'whatsapp.send_message') extra['autoSend'] = true;
+              if (targetTool == 'whatsapp.send_message')
+                extra['autoSend'] = true;
             }
             return ToolCall(
               tool: targetTool,
@@ -665,115 +670,114 @@ class AutomationCoordinator {
         }
       }
 
+      if (plan == null) {
+        // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
+        // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
+        // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
+        final crossApp = await tryCrossApp(goal.text, run: run);
+        if (crossApp != null) {
+          // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
+          taskStepsCount = crossApp.steps.length;
+          zeroLlmTask = true;
+          final r = crossApp.result;
+          return finish(r);
+        }
 
-        if (plan == null) {
-          // A15.0: seam cross-app multi-paso (0 LLM). Si el TaskPlanner matchea un
-          // template determinista (guarda/abre el enlace), el TaskOrchestrator lo
-          // ejecuta con data flow tipado ANTES del flujo simple (que es single-step).
-          final crossApp = await tryCrossApp(goal.text, run: run);
-          if (crossApp != null) {
-            // A15.3: telemetría cross-app (pasos de la tarea ejecutados).
-            taskStepsCount = crossApp.steps.length;
-            zeroLlmTask = true;
-            final r = crossApp.result;
-            return finish(r);
-          }
+        final deterministic = await tryDeterministic(
+          goal.text,
+          expectation: goal.expectation,
+          run: run,
+        );
+        if (deterministic != null) {
+          cacheHit = true;
+          steps = deterministic.steps.length;
+          final r = resultFromFlow(executionId, deterministic.result);
+          return finish(r);
+        }
+      }
 
-          final deterministic = await tryDeterministic(
+      // A13.5: Candidate-First queda reservado para objetivos que el catálogo
+      // no resolvió. Resuelto → ejecutar; Governed → resultado honesto;
+      // NoCandidate/ambiguo → cae al fallback siguiente.
+      final candidateFirst = _candidateFirst;
+      if (plan == null && candidateFirst != null) {
+        final swCandidate = Stopwatch()..start();
+        final candidatePlan = await candidateFirst.plan(goal.text);
+        swCandidate.stop();
+        candidateLatency = swCandidate.elapsed;
+        if (candidatePlan is CandidatePlanResolved) {
+          plan = [candidatePlan.call];
+          runExpectation = candidatePlan.expectation;
+          selectionMode = candidatePlan.selectionMode.name;
+          koogInvoked = candidatePlan.koogInvoked;
+          candidateCount = candidatePlan.candidateCount;
+        } else if (candidatePlan is CandidatePlanGoverned) {
+          final r = _resultFromGoverned(executionId, candidatePlan.outcome);
+          return finish(r);
+        } else if (candidatePlan is CandidatePlanNoCandidate) {
+          candidateCount = candidatePlan.candidateCount;
+          legacyFallback = true;
+          selectionMode = 'legacyFallback';
+        }
+      }
+
+      if (plan == null) {
+        // A2: resolvedor grounded de "abre <app>" — package REAL del
+        // PackageManager, nunca un package inventado por el modelo. Precede al
+        // catálogo estático para que "abre Chrome" use el catálogo real.
+        final appLaunch = _appLaunch;
+        final launchPlan = appLaunch == null
+            ? null
+            : await appLaunch.resolve(goal.text);
+        if (launchPlan != null) {
+          plan = [launchPlan.call];
+          runExpectation = launchPlan.expectation;
+        } else {
+          // AUT-15: solo después de agotar memoria, catálogo, candidatos e
+          // inventario, permitir descomposición LLM a semántica finita.
+          // El decomposer aplica AutomationModelResolver y nunca emite
+          // tools, paquetes, selectores ni coordenadas arbitrarias.
+          semanticFallbackAttempted = true;
+          final semanticFallback = await tryCrossApp(
             goal.text,
-            expectation: goal.expectation,
             run: run,
+            deterministicOnly: false,
           );
-          if (deterministic != null) {
-            cacheHit = true;
-            steps = deterministic.steps.length;
-            final r = resultFromFlow(executionId, deterministic.result);
-            return finish(r);
+          if (semanticFallback != null) {
+            taskStepsCount = semanticFallback.steps.length;
+            zeroLlmTask = false;
+            return finish(semanticFallback.result);
           }
-        }
 
-        // A13.5: Candidate-First queda reservado para objetivos que el catálogo
-        // no resolvió. Resuelto → ejecutar; Governed → resultado honesto;
-        // NoCandidate/ambiguo → cae al fallback siguiente.
-        final candidateFirst = _candidateFirst;
-        if (plan == null && candidateFirst != null) {
-          final swCandidate = Stopwatch()..start();
-          final candidatePlan = await candidateFirst.plan(goal.text);
-          swCandidate.stop();
-          candidateLatency = swCandidate.elapsed;
-          if (candidatePlan is CandidatePlanResolved) {
-            plan = [candidatePlan.call];
-            runExpectation = candidatePlan.expectation;
-            selectionMode = candidatePlan.selectionMode.name;
-            koogInvoked = candidatePlan.koogInvoked;
-            candidateCount = candidatePlan.candidateCount;
-          } else if (candidatePlan is CandidatePlanGoverned) {
-            final r = _resultFromGoverned(executionId, candidatePlan.outcome);
-            return finish(r);
-          } else if (candidatePlan is CandidatePlanNoCandidate) {
-            candidateCount = candidatePlan.candidateCount;
-            legacyFallback = true;
-            selectionMode = 'legacyFallback';
-          }
-        }
-
-        if (plan == null) {
-          // A2: resolvedor grounded de "abre <app>" — package REAL del
-          // PackageManager, nunca un package inventado por el modelo. Precede al
-          // catálogo estático para que "abre Chrome" use el catálogo real.
-          final appLaunch = _appLaunch;
-          final launchPlan = appLaunch == null
-              ? null
-              : await appLaunch.resolve(goal.text);
-          if (launchPlan != null) {
-            plan = [launchPlan.call];
-            runExpectation = launchPlan.expectation;
-          } else {
-            // AUT-15: solo después de agotar memoria, catálogo, candidatos e
-            // inventario, permitir descomposición LLM a semántica finita.
-            // El decomposer aplica AutomationModelResolver y nunca emite
-            // tools, paquetes, selectores ni coordenadas arbitrarias.
-            semanticFallbackAttempted = true;
-            final semanticFallback = await tryCrossApp(
-              goal.text,
-              run: run,
-              deterministicOnly: false,
+          // Sin flujo en cache ni catálogo: planear con el LLM local.
+          final planner = _planner;
+          if (planner == null) {
+            final r = AutomationResult(
+              executionId: executionId,
+              status: AutomationResultStatus.noPlan,
+              reason: 'Sin flujo verificado en cache ni plan provisto.',
             );
-            if (semanticFallback != null) {
-              taskStepsCount = semanticFallback.steps.length;
-              zeroLlmTask = false;
-              return finish(semanticFallback.result);
-            }
-
-            // Sin flujo en cache ni catálogo: planear con el LLM local.
-            final planner = _planner;
-            if (planner == null) {
-              final r = AutomationResult(
-                executionId: executionId,
-                status: AutomationResultStatus.noPlan,
-                reason: 'Sin flujo verificado en cache ni plan provisto.',
-              );
-              return finish(r);
-            }
-            run.cancellation.throwIfCancelled();
-            final planned = await planner.plan(goal.text);
-            run.cancellation.throwIfCancelled();
-            llmLatency = planned.llmLatency;
-            generatedCount = planned.generated;
-            rejectedCount = planned.rejected;
-            if (planned.calls.isEmpty) {
-              final r = AutomationResult(
-                executionId: executionId,
-                status: AutomationResultStatus.noPlan,
-                reason:
-                    planned.unavailableReason ??
-                    'El planner LLM no produjo acciones verificables para el objetivo.',
-              );
-              return finish(r);
-            }
-            plan = planned.calls;
+            return finish(r);
           }
+          run.cancellation.throwIfCancelled();
+          final planned = await planner.plan(goal.text);
+          run.cancellation.throwIfCancelled();
+          llmLatency = planned.llmLatency;
+          generatedCount = planned.generated;
+          rejectedCount = planned.rejected;
+          if (planned.calls.isEmpty) {
+            final r = AutomationResult(
+              executionId: executionId,
+              status: AutomationResultStatus.noPlan,
+              reason:
+                  planned.unavailableReason ??
+                  'El planner LLM no produjo acciones verificables para el objetivo.',
+            );
+            return finish(r);
+          }
+          plan = planned.calls;
         }
+      }
 
       // Un array de gestos UI generado por un modelo no se ejecuta en cadena.
       // Se reconstruye como TaskPlan y TaskOrchestrator reobserva el mundo tras

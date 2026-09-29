@@ -151,7 +151,9 @@ class McpConnectionRegistry extends ChangeNotifier {
         failures.add(
           McpDiscoveryFailure(
             serverId: serverId,
-            reason: 'discovery_exception:${error.runtimeType}',
+            reason: error is McpDiscoveryException
+                ? error.message
+                : 'discovery_exception:${error.runtimeType}',
           ),
         );
       }

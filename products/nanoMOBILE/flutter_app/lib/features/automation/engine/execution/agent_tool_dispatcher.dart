@@ -152,12 +152,14 @@ class AgentToolDispatcher {
        _browserAiAdapter = browserAiAdapter,
        _whatsAppHandler = whatsAppHandler ?? WhatsAppToolHandler(),
        _alarmHandler = alarmHandler ?? AlarmToolHandler(),
-       _appInspectorHandler = appInspectorHandler ??
+       _appInspectorHandler =
+           appInspectorHandler ??
            AppInspectorToolHandler(
              catalog: installedAppCatalog,
              situationSource: currentSituationSource,
            ),
-       _diagnosticsHandler = diagnosticsHandler ?? SystemDiagnosticsToolHandler(),
+       _diagnosticsHandler =
+           diagnosticsHandler ?? SystemDiagnosticsToolHandler(),
        _adbHandler = adbHandler ?? AdbToolHandler(),
        _benchmarkHandler = benchmarkHandler ?? BenchmarkToolHandler(),
        _shizukuHandler = shizukuHandler ?? ShizukuToolHandler(),

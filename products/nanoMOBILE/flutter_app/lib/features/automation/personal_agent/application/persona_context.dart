@@ -31,8 +31,8 @@ final personaContextProvider = Provider<PersonaContext>((ref) {
 
 final class PersonaContext {
   PersonaContext({PersonaRepository? repository, PersonaRetriever? retriever})
-      : _repository = repository ?? PersonaRepository.instance,
-        _retriever = retriever ?? PersonaRetriever();
+    : _repository = repository ?? PersonaRepository.instance,
+      _retriever = retriever ?? PersonaRetriever();
 
   final PersonaRepository _repository;
   final PersonaRetriever _retriever;
@@ -65,7 +65,10 @@ final class PersonaContext {
   bool hasRelationshipFor(String sender, {String conversationId = ''}) =>
       relationshipFor(sender, conversationId: conversationId) != null;
 
-  RelationshipProfile? relationshipFor(String sender, {String conversationId = ''}) {
+  RelationshipProfile? relationshipFor(
+    String sender, {
+    String conversationId = '',
+  }) {
     final senderKey = sender.trim().toLowerCase();
     final profile = conversationId.isEmpty
         ? _relationships[senderKey]

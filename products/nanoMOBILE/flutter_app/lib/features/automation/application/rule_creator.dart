@@ -22,12 +22,14 @@ class RuleCreator {
     String message = '',
     bool dynamicReply = false,
     String? mediaPath,
+    List<ScheduledMessageRecipient> recipients = const [],
   }) {
     for (final existing in _registry.rules) {
       if (existing.action == action &&
           existing.message == message &&
           existing.dynamicReply == dynamicReply &&
           existing.mediaPath == mediaPath &&
+          _sameRecipients(existing.recipients, recipients) &&
           _sameTrigger(existing.trigger, trigger)) {
         if (!existing.enabled) {
           _registry.setEnabled(existing.id, true);
@@ -43,6 +45,7 @@ class RuleCreator {
       message: message,
       dynamicReply: dynamicReply,
       mediaPath: mediaPath,
+      recipients: List.unmodifiable(recipients),
       createdAt: DateTime.now(),
     );
     _registry.add(rule);
@@ -54,6 +57,8 @@ class RuleCreator {
     if (a is TimeTrigger && b is TimeTrigger) {
       return a.hour == b.hour &&
           a.minute == b.minute &&
+          a.timeZoneId == b.timeZoneId &&
+          a.recurring == b.recurring &&
           a.weekdays.length == b.weekdays.length &&
           a.weekdays.containsAll(b.weekdays);
     }
@@ -63,6 +68,17 @@ class RuleCreator {
           a.textMatch == b.textMatch;
     }
     return false;
+  }
+
+  static bool _sameRecipients(
+    List<ScheduledMessageRecipient> a,
+    List<ScheduledMessageRecipient> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].number != b[i].number || a[i].name != b[i].name) return false;
+    }
+    return true;
   }
 }
 

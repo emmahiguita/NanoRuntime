@@ -26,7 +26,11 @@ class VoiceNotePlayerCard extends StatefulWidget {
   final String audioPathOrUrl;
   final bool isInbound;
 
-  const VoiceNotePlayerCard({super.key, required this.audioPathOrUrl, this.isInbound = true});
+  const VoiceNotePlayerCard({
+    super.key,
+    required this.audioPathOrUrl,
+    this.isInbound = true,
+  });
 
   @override
   State<VoiceNotePlayerCard> createState() => _VoiceNotePlayerCardState();
@@ -50,7 +54,9 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
   }
 
   Future<void> _initRealDuration() async {
-    final ms = await NanoRuntimeApi.instance.getAudioDuration(widget.audioPathOrUrl);
+    final ms = await NanoRuntimeApi.instance.getAudioDuration(
+      widget.audioPathOrUrl,
+    );
     if (mounted && ms > 0) {
       setState(() => _totalSeconds = (ms / 1000).ceil().clamp(1, 3600));
     }
@@ -69,26 +75,31 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
       await NanoRuntimeApi.instance.stopAudioFile();
       if (mounted) setState(() => _isPlaying = false);
     } else {
-      final played = await NanoRuntimeApi.instance.playAudioFile(widget.audioPathOrUrl);
+      final played = await NanoRuntimeApi.instance.playAudioFile(
+        widget.audioPathOrUrl,
+      );
       if (!mounted) return;
       setState(() => _isPlaying = played);
       _ticker?.cancel();
-      _ticker = Timer.periodic(Duration(milliseconds: (1000 / _speed).round()), (t) {
-        if (!mounted) return;
-        if (_currentSeconds >= _totalSeconds) {
-          t.cancel();
-          setState(() {
-            _isPlaying = false;
-            _currentSeconds = 0;
-            _progress = 0.0;
-          });
-        } else {
-          setState(() {
-            _currentSeconds++;
-            _progress = _currentSeconds / _totalSeconds;
-          });
-        }
-      });
+      _ticker = Timer.periodic(
+        Duration(milliseconds: (1000 / _speed).round()),
+        (t) {
+          if (!mounted) return;
+          if (_currentSeconds >= _totalSeconds) {
+            t.cancel();
+            setState(() {
+              _isPlaying = false;
+              _currentSeconds = 0;
+              _progress = 0.0;
+            });
+          } else {
+            setState(() {
+              _currentSeconds++;
+              _progress = _currentSeconds / _totalSeconds;
+            });
+          }
+        },
+      );
     }
   }
 
@@ -116,7 +127,8 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
     }
   }
 
-  String _formatTime(int sec) => '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
+  String _formatTime(int sec) =>
+      '${sec ~/ 60}:${(sec % 60).toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -127,7 +139,10 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A).withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.40), width: 0.9),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withValues(alpha: 0.40),
+          width: 0.9,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,8 +155,15 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                 child: Container(
                   width: 38,
                   height: 38,
-                  decoration: const BoxDecoration(color: Color(0xFFF59E0B), shape: BoxShape.circle),
-                  child: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.black87, size: 24),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF59E0B),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: Colors.black87,
+                    size: 24,
+                  ),
                 ),
               ),
               const SizedBox(width: 10),
@@ -152,7 +174,9 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                     LinearProgressIndicator(
                       value: _progress.clamp(0.0, 1.0),
                       backgroundColor: Colors.white.withValues(alpha: 0.15),
-                      valueColor: const AlwaysStoppedAnimation(Color(0xFFF59E0B)),
+                      valueColor: const AlwaysStoppedAnimation(
+                        Color(0xFFF59E0B),
+                      ),
                       minHeight: 5,
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -160,8 +184,20 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(_formatTime(_currentSeconds), style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                        Text(_formatTime(_totalSeconds), style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                        Text(
+                          _formatTime(_currentSeconds),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                        Text(
+                          _formatTime(_totalSeconds),
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -171,9 +207,22 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
               InkWell(
                 onTap: _cycleSpeed,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
-                  child: Text('${_speed}x', style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.bold)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${_speed}x',
+                    style: const TextStyle(
+                      color: Color(0xFFF59E0B),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -186,16 +235,33 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
               decoration: BoxDecoration(
                 color: const Color(0xFF00FF88).withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFF00FF88).withValues(alpha: 0.35), width: 0.7),
+                border: Border.all(
+                  color: const Color(0xFF00FF88).withValues(alpha: 0.35),
+                  width: 0.7,
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(_isTranscribing ? Icons.autorenew_rounded : Icons.record_voice_over_rounded, color: const Color(0xFF00FF88), size: 14),
+                  Icon(
+                    _isTranscribing
+                        ? Icons.autorenew_rounded
+                        : Icons.record_voice_over_rounded,
+                    color: const Color(0xFF00FF88),
+                    size: 14,
+                  ),
                   const SizedBox(width: 5),
                   Text(
-                    _isTranscribing ? 'Transcribiendo audio...' : (_transcription != null ? 'Re-transcribir nota de voz' : 'Transcribir nota de voz'),
-                    style: const TextStyle(color: Color(0xFF00FF88), fontSize: 11, fontWeight: FontWeight.w600),
+                    _isTranscribing
+                        ? 'Transcribiendo audio...'
+                        : (_transcription != null
+                              ? 'Re-transcribir nota de voz'
+                              : 'Transcribir nota de voz'),
+                    style: const TextStyle(
+                      color: Color(0xFF00FF88),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),

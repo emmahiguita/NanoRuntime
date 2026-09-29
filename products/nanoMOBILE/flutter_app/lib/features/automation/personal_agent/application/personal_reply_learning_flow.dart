@@ -28,12 +28,13 @@ extension PersonalReplyLearningFlow on PersonalReplyLearningService {
                 item.metadata['patternFingerprint'] == patternFingerprint,
           )
           .toList();
-      final existing = pendingForPrompt
-          .where(
-            (item) =>
-                item.metadata['responseFingerprint'] == responseFingerprint,
-          )
-          .firstOrNull ??
+      final existing =
+          pendingForPrompt
+              .where(
+                (item) =>
+                    item.metadata['responseFingerprint'] == responseFingerprint,
+              )
+              .firstOrNull ??
           pendingForPrompt.firstOrNull;
       final sameResponse =
           existing?.metadata['responseFingerprint'] == responseFingerprint;

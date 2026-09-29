@@ -8,13 +8,20 @@ import 'conversation_media_source.dart';
 
 /// Visor PDF integrado con carga local/remota, zoom, impresión y compartir.
 abstract final class ConversationPdfViewer {
-  static Future<void> show(BuildContext context, {required String pathOrUrl, String? title}) {
+  static Future<void> show(
+    BuildContext context, {
+    required String pathOrUrl,
+    String? title,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _ConversationPdfPreview(source: ConversationMediaSource(pathOrUrl), title: title),
+      builder: (_) => _ConversationPdfPreview(
+        source: ConversationMediaSource(pathOrUrl),
+        title: title,
+      ),
     );
   }
 }
@@ -26,7 +33,8 @@ class _ConversationPdfPreview extends StatefulWidget {
   const _ConversationPdfPreview({required this.source, this.title});
 
   @override
-  State<_ConversationPdfPreview> createState() => _ConversationPdfPreviewState();
+  State<_ConversationPdfPreview> createState() =>
+      _ConversationPdfPreviewState();
 }
 
 class _ConversationPdfPreviewState extends State<_ConversationPdfPreview> {
@@ -64,7 +72,9 @@ class _ConversationPdfPreviewState extends State<_ConversationPdfPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final fileName = widget.title?.trim().isNotEmpty == true ? widget.title!.trim() : widget.source.displayName;
+    final fileName = widget.title?.trim().isNotEmpty == true
+        ? widget.title!.trim()
+        : widget.source.displayName;
     return SafeArea(
       child: FractionallySizedBox(
         heightFactor: 0.94,
@@ -80,22 +90,33 @@ class _ConversationPdfPreviewState extends State<_ConversationPdfPreview> {
                   future: _document,
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
-                      return _PdfLoadError(message: '${snapshot.error}', onRetry: _retry);
+                      return _PdfLoadError(
+                        message: '${snapshot.error}',
+                        onRetry: _retry,
+                      );
                     }
                     final bytes = snapshot.data;
                     if (bytes == null) {
-                      return const Center(child: CircularProgressIndicator(color: Color(0xFF60A5FA)));
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF60A5FA),
+                        ),
+                      );
                     }
                     return PdfPreview(
                       build: (_) async => bytes,
-                      pdfFileName: fileName.toLowerCase().endsWith('.pdf') ? fileName : '$fileName.pdf',
+                      pdfFileName: fileName.toLowerCase().endsWith('.pdf')
+                          ? fileName
+                          : '$fileName.pdf',
                       canChangeOrientation: false,
                       canChangePageFormat: false,
                       canDebug: false,
                       allowPrinting: true,
                       allowSharing: true,
                       maxPageWidth: 720,
-                      scrollViewDecoration: const BoxDecoration(color: Color(0xFF111827)),
+                      scrollViewDecoration: const BoxDecoration(
+                        color: Color(0xFF111827),
+                      ),
                     );
                   },
                 ),
@@ -126,7 +147,11 @@ class _PdfViewerHeader extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Semantics(
@@ -157,11 +182,18 @@ class _PdfLoadError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.amber, size: 42),
+            const Icon(
+              Icons.error_outline_rounded,
+              color: Colors.amber,
+              size: 42,
+            ),
             const SizedBox(height: 12),
             const Text(
               'No se pudo visualizar el PDF',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -172,7 +204,11 @@ class _PdfLoadError extends StatelessWidget {
               style: const TextStyle(color: Colors.white60, fontSize: 12),
             ),
             const SizedBox(height: 16),
-            FilledButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded), label: const Text('Reintentar')),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Reintentar'),
+            ),
           ],
         ),
       ),

@@ -126,27 +126,78 @@ final class ConversationStateNotifier
   }
 
   static const Set<String> _courtesyQuestions = {
-    'en que puedo ayudarte', 'como estas', 'como te va', 'no te parece',
-    'que necesitas', 'te ayudo', 'que tal',
+    'en que puedo ayudarte',
+    'como estas',
+    'como te va',
+    'no te parece',
+    'que necesitas',
+    'te ayudo',
+    'que tal',
   };
 
   static const List<String> _expectationTokens = [
-    'quieres', 'cuantos', 'cuantas', 'talla', 'color', 'fecha', 'confirma',
-    'confirmo', 'deseas', 'te gustaria', 'cantidad', 'cuando', 'donde',
-    'cuanto', 'reviso', 'te envio', 'que dia', 'te parece', 'prefieres',
-    'prefieren', 'medida', 'medidas', 'numero', 'numeros', 'direccion',
-    'hora', 'horario', 'entrega',
+    'quieres',
+    'cuantos',
+    'cuantas',
+    'talla',
+    'color',
+    'fecha',
+    'confirma',
+    'confirmo',
+    'deseas',
+    'te gustaria',
+    'cantidad',
+    'cuando',
+    'donde',
+    'cuanto',
+    'reviso',
+    'te envio',
+    'que dia',
+    'te parece',
+    'prefieres',
+    'prefieren',
+    'medida',
+    'medidas',
+    'numero',
+    'numeros',
+    'direccion',
+    'hora',
+    'horario',
+    'entrega',
   ];
 
   static const Set<String> _confirmExpectationTokens = {
-    'quieres', 'deseas', 'confirma', 'confirmo', 'te gustaria', 'reviso',
-    'te envio', 'te parece',
+    'quieres',
+    'deseas',
+    'confirma',
+    'confirmo',
+    'te gustaria',
+    'reviso',
+    'te envio',
+    'te parece',
   };
 
   static const Set<String> _valueExpectationTokens = {
-    'cuantos', 'cuantas', 'talla', 'color', 'fecha', 'cantidad', 'cuando',
-    'donde', 'cuanto', 'que dia', 'prefieres', 'prefieren', 'medida',
-    'medidas', 'numero', 'numeros', 'direccion', 'hora', 'horario', 'entrega',
+    'cuantos',
+    'cuantas',
+    'talla',
+    'color',
+    'fecha',
+    'cantidad',
+    'cuando',
+    'donde',
+    'cuanto',
+    'que dia',
+    'prefieres',
+    'prefieren',
+    'medida',
+    'medidas',
+    'numero',
+    'numeros',
+    'direccion',
+    'hora',
+    'horario',
+    'entrega',
   };
 
   static String _pendingKindFor(String pendingQuestion) {
@@ -174,13 +225,14 @@ final conversationStateStoreProvider = Provider<ConversationStateStore>(
   (ref) => const ConversationStateStore(),
 );
 
-final conversationStateNotifierProvider = StateNotifierProvider<
-  ConversationStateNotifier,
-  Map<String, ClientContextEntry>
->((ref) {
-  final notifier = ConversationStateNotifier(
-    ref.watch(conversationStateStoreProvider),
-  );
-  notifier.ready;
-  return notifier;
-});
+final conversationStateNotifierProvider =
+    StateNotifierProvider<
+      ConversationStateNotifier,
+      Map<String, ClientContextEntry>
+    >((ref) {
+      final notifier = ConversationStateNotifier(
+        ref.watch(conversationStateStoreProvider),
+      );
+      notifier.ready;
+      return notifier;
+    });

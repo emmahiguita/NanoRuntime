@@ -44,11 +44,41 @@ class PaymentMethodsGuidedView extends StatelessWidget {
               onChanged();
             },
             fields: [
-              _field(visual, 'Banco', data.bankName, (v) => data.bankName = v, hint: 'Ej. Bancolombia'),
-              _field(visual, 'Tipo', data.accountType, (v) => data.accountType = v, hint: 'Ahorros / Corriente'),
-              _field(visual, 'Número de cuenta', data.accountNumber, (v) => data.accountNumber = v, hint: 'Ej. 123-456789-01'),
-              _field(visual, 'Titular', data.accountHolder, (v) => data.accountHolder = v, hint: 'Nombre o Razón Social'),
-              _field(visual, 'CC / NIT', data.accountDoc, (v) => data.accountDoc = v, hint: 'Opcional para transferencias'),
+              _field(
+                visual,
+                'Banco',
+                data.bankName,
+                (v) => data.bankName = v,
+                hint: 'Ej. Bancolombia',
+              ),
+              _field(
+                visual,
+                'Tipo',
+                data.accountType,
+                (v) => data.accountType = v,
+                hint: 'Ahorros / Corriente',
+              ),
+              _field(
+                visual,
+                'Número de cuenta',
+                data.accountNumber,
+                (v) => data.accountNumber = v,
+                hint: 'Ej. 123-456789-01',
+              ),
+              _field(
+                visual,
+                'Titular',
+                data.accountHolder,
+                (v) => data.accountHolder = v,
+                hint: 'Nombre o Razón Social',
+              ),
+              _field(
+                visual,
+                'CC / NIT',
+                data.accountDoc,
+                (v) => data.accountDoc = v,
+                hint: 'Opcional para transferencias',
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -62,8 +92,20 @@ class PaymentMethodsGuidedView extends StatelessWidget {
               onChanged();
             },
             fields: [
-              _field(visual, 'Billetera', data.walletName, (v) => data.walletName = v, hint: 'Nequi / Daviplata / Dale'),
-              _field(visual, 'Número de celular', data.walletNumber, (v) => data.walletNumber = v, hint: 'Ej. 300 123 4567'),
+              _field(
+                visual,
+                'Billetera',
+                data.walletName,
+                (v) => data.walletName = v,
+                hint: 'Nequi / Daviplata / Dale',
+              ),
+              _field(
+                visual,
+                'Número de celular',
+                data.walletNumber,
+                (v) => data.walletNumber = v,
+                hint: 'Ej. 300 123 4567',
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -77,8 +119,20 @@ class PaymentMethodsGuidedView extends StatelessWidget {
               onChanged();
             },
             fields: [
-              _field(visual, 'Pasarela', data.linkProvider, (v) => data.linkProvider = v, hint: 'Wompi / PSE / Bold'),
-              _field(visual, 'Enlace URL', data.linkUrl, (v) => data.linkUrl = v, hint: 'https://checkout...'),
+              _field(
+                visual,
+                'Pasarela',
+                data.linkProvider,
+                (v) => data.linkProvider = v,
+                hint: 'Wompi / PSE / Bold',
+              ),
+              _field(
+                visual,
+                'Enlace URL',
+                data.linkUrl,
+                (v) => data.linkUrl = v,
+                hint: 'https://checkout...',
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -93,8 +147,20 @@ class PaymentMethodsGuidedView extends StatelessWidget {
               onChanged();
             },
             fields: [
-              _field(visual, 'Política contra entrega', data.codNotes, (v) => data.codNotes = v, hint: 'Efectivo al recibir'),
-              _field(visual, 'Instrucción QR', data.qrNotes, (v) => data.qrNotes = v, hint: 'Solicita QR por este chat'),
+              _field(
+                visual,
+                'Política contra entrega',
+                data.codNotes,
+                (v) => data.codNotes = v,
+                hint: 'Efectivo al recibir',
+              ),
+              _field(
+                visual,
+                'Instrucción QR',
+                data.qrNotes,
+                (v) => data.qrNotes = v,
+                hint: 'Solicita QR por este chat',
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -103,8 +169,18 @@ class PaymentMethodsGuidedView extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             value: data.requireHumanVerify,
             activeThumbColor: visual.accent,
-            title: Text('Pedir comprobante al cliente', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: visual.text)),
-            subtitle: Text('Instruye enviar comprobante de pago para validar la compra.', style: TextStyle(fontSize: 10.5, color: visual.textMuted)),
+            title: Text(
+              'Pedir comprobante al cliente',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: visual.text,
+              ),
+            ),
+            subtitle: Text(
+              'Instruye enviar comprobante de pago para validar la compra.',
+              style: TextStyle(fontSize: 10.5, color: visual.textMuted),
+            ),
             onChanged: (v) {
               data.requireHumanVerify = v;
               onChanged();
@@ -125,9 +201,17 @@ class PaymentMethodsGuidedView extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: visual.isDark ? Colors.white.withValues(alpha: 0.03) : const Color(0xFFF8FAFC),
+        color: visual.isDark
+            ? Colors.white.withValues(alpha: 0.03)
+            : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: enabled ? visual.accent.withValues(alpha: 0.35) : (visual.isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0))),
+        border: Border.all(
+          color: enabled
+              ? visual.accent.withValues(alpha: 0.35)
+              : (visual.isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFE2E8F0)),
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Column(
@@ -135,10 +219,27 @@ class PaymentMethodsGuidedView extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 18, color: enabled ? visual.accent : visual.textMuted),
+              Icon(
+                icon,
+                size: 18,
+                color: enabled ? visual.accent : visual.textMuted,
+              ),
               const SizedBox(width: 8),
-              Expanded(child: Text(title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: visual.text))),
-              Switch(value: enabled, onChanged: onToggle, activeThumbColor: visual.accent),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: visual.text,
+                  ),
+                ),
+              ),
+              Switch(
+                value: enabled,
+                onChanged: onToggle,
+                activeThumbColor: visual.accent,
+              ),
             ],
           ),
           if (enabled) ...[
@@ -151,7 +252,13 @@ class PaymentMethodsGuidedView extends StatelessWidget {
     );
   }
 
-  Widget _field(AutomationVisualPalette visual, String label, String initialVal, ValueChanged<String> onVal, {String? hint}) {
+  Widget _field(
+    AutomationVisualPalette visual,
+    String label,
+    String initialVal,
+    ValueChanged<String> onVal, {
+    String? hint,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: TextFormField(
@@ -162,12 +269,21 @@ class PaymentMethodsGuidedView extends StatelessWidget {
           labelText: label,
           labelStyle: TextStyle(fontSize: 10.5, color: visual.textMuted),
           hintText: hint,
-          hintStyle: TextStyle(fontSize: 10, color: visual.textMuted.withValues(alpha: 0.5)),
+          hintStyle: TextStyle(
+            fontSize: 10,
+            color: visual.textMuted.withValues(alpha: 0.5),
+          ),
           filled: true,
           fillColor: visual.inputFill,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 8,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );

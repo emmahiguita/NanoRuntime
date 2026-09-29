@@ -9,9 +9,11 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/application/rule_creator.dart';
+import 'package:nanoai/features/automation/application/scheduled_whatsapp_message_service.dart';
 import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart';
 import 'package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart';
+import 'package:nanoai/features/automation/engine/scheduling/scheduled_message_command_parser.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger_parser.dart';
 
@@ -31,7 +33,8 @@ class AutomationRulesScreen extends ConsumerStatefulWidget {
   const AutomationRulesScreen({super.key});
 
   @override
-  ConsumerState<AutomationRulesScreen> createState() => _AutomationRulesScreenState();
+  ConsumerState<AutomationRulesScreen> createState() =>
+      _AutomationRulesScreenState();
 }
 
 class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
@@ -86,7 +89,7 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
               slotId: 'automation_rules',
               child: NanoInputScope(
                 scopeId: 'automation_rules',
-                hint: 'Crea una regla: «a las 8:30 avísame que es hora»...',
+                hint: 'Crea una regla: «a las 6:45 pm mándale a Emm: Hola»...',
                 onSubmit: (query) => _createRuleFromText(query),
                 child: SafeArea(
                   child: Column(
@@ -95,15 +98,33 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                       Expanded(
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            final isDeviceLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
-                            final isLandscape = isDeviceLandscape && constraints.maxWidth >= 600;
+                            final isDeviceLandscape =
+                                MediaQuery.orientationOf(context) ==
+                                Orientation.landscape;
+                            final isLandscape =
+                                isDeviceLandscape &&
+                                constraints.maxWidth >= 600;
 
                             final leftColumn = Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text('Reglas', style: TextStyle(color: visual.text, fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.5)),
+                                Text(
+                                  'Reglas',
+                                  style: TextStyle(
+                                    color: visual.text,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: -0.5,
+                                  ),
+                                ),
                                 const SizedBox(height: 4),
-                                Text('Automatiza acciones cuando ocurran eventos.', style: TextStyle(color: visual.textMuted, fontSize: 13)),
+                                Text(
+                                  'Automatiza acciones cuando ocurran eventos.',
+                                  style: TextStyle(
+                                    color: visual.textMuted,
+                                    fontSize: 13,
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
                                 _RuleCreatorCard(
                                   controller: _createController,
@@ -119,11 +140,21 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 if (isLandscape) ...[
-                                  Text('REGLAS ACTIVAS', style: NanoType.label(visual.textMuted).copyWith(letterSpacing: 0.8)),
+                                  Text(
+                                    'REGLAS ACTIVAS',
+                                    style: NanoType.label(
+                                      visual.textMuted,
+                                    ).copyWith(letterSpacing: 0.8),
+                                  ),
                                   const SizedBox(height: 12),
                                 ],
                                 if (!_loaded)
-                                  const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+                                  const Padding(
+                                    padding: EdgeInsets.all(24),
+                                    child: Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
+                                  )
                                 else if (_rules.isEmpty)
                                   _EmptyState(visual: visual)
                                 else
@@ -133,7 +164,8 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
 
                             final content = isLandscape
                                 ? Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Expanded(flex: 5, child: leftColumn),
                                       const SizedBox(width: 16),
@@ -141,7 +173,8 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                                     ],
                                   )
                                 : Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       leftColumn,
                                       const SizedBox(height: 16),
@@ -150,7 +183,9 @@ class _AutomationRulesScreenState extends ConsumerState<AutomationRulesScreen> {
                                   );
 
                             return SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
                               child: content,
                             );
                           },

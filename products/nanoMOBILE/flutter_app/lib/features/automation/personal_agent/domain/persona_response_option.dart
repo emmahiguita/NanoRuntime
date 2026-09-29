@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 /// PERSONA-RESPONSE-OPTION — Opción de Respuesta con Metadatos Conversacionales.
 ///
@@ -71,13 +71,19 @@ final class PersonaResponseOption {
   static List<PersonaResponseOption> listFromJson(dynamic raw) {
     if (raw == null) return const [];
     if (raw is List) {
-      return raw.map(PersonaResponseOption.fromMap).where((r) => r.text.trim().isNotEmpty).toList();
+      return raw
+          .map(PersonaResponseOption.fromMap)
+          .where((r) => r.text.trim().isNotEmpty)
+          .toList();
     }
     if (raw is String && raw.trim().isNotEmpty) {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
-          return decoded.map(PersonaResponseOption.fromMap).where((r) => r.text.trim().isNotEmpty).toList();
+          return decoded
+              .map(PersonaResponseOption.fromMap)
+              .where((r) => r.text.trim().isNotEmpty)
+              .toList();
         }
       } catch (_) {}
     }

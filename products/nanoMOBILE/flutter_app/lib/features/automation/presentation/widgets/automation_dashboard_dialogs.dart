@@ -54,7 +54,8 @@ class AutomationDashboardDialogs {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(messageController.text.trim()),
+              onPressed: () =>
+                  Navigator.of(ctx).pop(messageController.text.trim()),
               child: const Text('Crear'),
             ),
           ],
@@ -97,7 +98,11 @@ class AutomationDashboardDialogs {
             options: const [
               ChoiceOption('manual', 'Manual', Icons.pan_tool_alt_rounded),
               ChoiceOption('assisted', 'Asistido', Icons.assistant_rounded),
-              ChoiceOption('autonomous', 'Autónomo', Icons.auto_awesome_rounded),
+              ChoiceOption(
+                'autonomous',
+                'Autónomo',
+                Icons.auto_awesome_rounded,
+              ),
             ],
             selectedValue: currentMode.name,
             onSelected: (value) {

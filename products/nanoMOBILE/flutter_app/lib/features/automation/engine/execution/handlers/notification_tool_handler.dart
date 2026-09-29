@@ -1,9 +1,7 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import '../../../../../core/services/nano_runtime_api.dart';
 import '../../governance/rule_execution_authority.dart';
-import '../../messaging/reply_capability.dart' show ReplyCapabilityRef;
-import '../../notifications/notification_object.dart' show NotificationObject;
 import '../tool_call.dart';
 import '../tool_outcome.dart';
 import '../tool_registry.dart';
@@ -13,9 +11,8 @@ import '../tool_registry.dart';
 class NotificationToolHandler {
   final NanoRuntimeApi _runtime;
 
-  NotificationToolHandler({
-    NanoRuntimeApi? runtime,
-  }) : _runtime = runtime ?? NanoRuntimeApi.instance;
+  NotificationToolHandler({NanoRuntimeApi? runtime})
+    : _runtime = runtime ?? NanoRuntimeApi.instance;
 
   /// Revalida inmediatamente antes de ejecutar cualquier herramienta cuya
   /// política exige bloquear el contexto.
@@ -161,7 +158,9 @@ class NotificationToolHandler {
     return raw.length <= 500 ? raw : '${raw.substring(0, 500)}…';
   }
 
-  /// Responde a una notificación vía RemoteInput.
+  /// QUÉ: responde desde RemoteInput y reporta el estado que Android confirmó.
+  /// CÓMO: un `ok` solo acredita que Android aceptó el PendingIntent.
+  /// POR QUÉ: WhatsApp no entrega aquí un acuse que pruebe la entrega final.
   Future<String> replyNotification({
     required String key,
     required String text,
@@ -184,55 +183,12 @@ class NotificationToolHandler {
     );
     if (result['ok'] == true) {
       final code = result['code'] ?? 'REMOTE_INPUT_ACCEPTED';
-      if (code == 'REMOTE_INPUT_ACCEPTED') {
-        final evidence = await reconcileLocalSend(
-          key,
-          text,
-          contextFingerprint: contextFingerprint,
-        );
-        if (evidence != null) {
-          return '[completed] $evidence';
-        }
-        return '[completedUnverified] Android aceptó la respuesta mediante '
-            'RemoteInput ($code); la entrega final del mensaje no está '
-            'verificada.';
-      }
       return '[completedUnverified] Android aceptó la respuesta mediante '
-          'RemoteInput ($code); la entrega final del mensaje no está '
-          'verificada.';
+          'RemoteInput ($code); la entrega final de WhatsApp no está '
+          'confirmada.';
     }
     final code = result['code'] ?? 'UNKNOWN';
     return '[notificationReply:$code] No se pudo enviar la respuesta.';
-  }
-
-  /// WA-VERIFY-06 — reconciliación local de un envío RemoteInput aceptado.
-  Future<String?> reconcileLocalSend(
-    String key,
-    String text, {
-    String? contextFingerprint,
-  }) async {
-    try {
-      await Future<void>.delayed(const Duration(milliseconds: 1200));
-      final rows = await _runtime.listActiveNotifications(limit: 100);
-      final expected = text.trim().toLowerCase();
-      for (final row in rows.whereType<Map>()) {
-        if ('${row['key'] ?? ''}' != key) continue;
-        if (row['canReply'] != true) continue;
-        final shown = '${row['messageText'] ?? ''}'.trim().toLowerCase();
-        if (shown.isEmpty || shown != expected) continue;
-        if (contextFingerprint != null && contextFingerprint.isNotEmpty) {
-          final current = ReplyCapabilityRef.fromNotification(
-            NotificationObject.fromMap(row.cast<dynamic, dynamic>()),
-          )?.contextFingerprint;
-          if (current == null || current != contextFingerprint) continue;
-        }
-        return 'Verificado localmente: la notificación de la conversación '
-            'muestra el mensaje enviado.';
-      }
-      return null;
-    } on Object {
-      return null;
-    }
   }
 
   /// Responde a una notificación desde el comando @ con control humano.

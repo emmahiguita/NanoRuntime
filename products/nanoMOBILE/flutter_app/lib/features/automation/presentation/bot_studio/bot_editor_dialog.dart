@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../domain/bot/bot_definition.dart';
 import '../../domain/bot/bot_role.dart';
 import '../../engine/messaging/tone_profile.dart';
@@ -68,10 +68,7 @@ class _BotEditorDialogState extends State<BotEditorDialog> {
       name: name,
       role: _selectedRole,
       description: _descController.text.trim(),
-      tone: widget.bot.tone.copyWith(
-        warmth: _warmth,
-        verbosity: _verbosity,
-      ),
+      tone: widget.bot.tone.copyWith(warmth: _warmth, verbosity: _verbosity),
       skillIds: _skillIds,
       updatedAt: DateTime.now(),
     );
@@ -99,8 +96,12 @@ class _BotEditorDialogState extends State<BotEditorDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  widget.bot.id.startsWith("bot_") ? 'Editar Bot' : 'Configurar Bot',
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                  widget.bot.id.startsWith("bot_")
+                      ? 'Editar Bot'
+                      : 'Configurar Bot',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded),
@@ -143,14 +144,20 @@ class _BotEditorDialogState extends State<BotEditorDialog> {
             const SizedBox(height: 8),
             SegmentedButton<ToneWarmth>(
               segments: const [
-                ButtonSegment(value: ToneWarmth.cercano, label: Text('Cercano')),
+                ButtonSegment(
+                  value: ToneWarmth.cercano,
+                  label: Text('Cercano'),
+                ),
                 ButtonSegment(value: ToneWarmth.formal, label: Text('Formal')),
               ],
               selected: {_warmth},
               onSelectionChanged: (set) => setState(() => _warmth = set.first),
             ),
             const SizedBox(height: 16),
-            Text('Habilidades Activas (Skills)', style: theme.textTheme.labelLarge),
+            Text(
+              'Habilidades Activas (Skills)',
+              style: theme.textTheme.labelLarge,
+            ),
             const SizedBox(height: 8),
             BotSkillsSelector(
               selectedSkillIds: _skillIds,

@@ -32,23 +32,25 @@ class NanoPersonalTimingTab extends ConsumerWidget {
             SettingsRow(
               icon: Icons.chat_bubble_outline_rounded,
               title: 'Longitud y detalle del mensaje',
-              subtitle: 'Afecta la cadencia y tiempo que toma redactar la respuesta.',
-              trailing: ValueBadge(
-                label: tone.verbosity.name.toUpperCase(),
-              ),
+              subtitle:
+                  'Afecta la cadencia y tiempo que toma redactar la respuesta.',
+              trailing: ValueBadge(label: tone.verbosity.name.toUpperCase()),
               onTap: () {
                 final next = switch (tone.verbosity) {
                   ToneVerbosity.breve => ToneVerbosity.media,
                   ToneVerbosity.media => ToneVerbosity.extensa,
                   ToneVerbosity.extensa => ToneVerbosity.breve,
                 };
-                toneNotifier.update(tone.copyWith(enabled: true, verbosity: next));
+                toneNotifier.update(
+                  tone.copyWith(enabled: true, verbosity: next),
+                );
               },
             ),
             const SettingsRow(
               icon: Icons.hourglass_bottom_rounded,
               title: 'Pausa de lectura previa',
-              subtitle: 'Espera entre 3 y 8 segundos para simular que lees el chat.',
+              subtitle:
+                  'Espera entre 3 y 8 segundos para simular que lees el chat.',
               trailing: ValueBadge(label: 'ACTIVA'),
             ),
           ],
@@ -62,13 +64,15 @@ class NanoPersonalTimingTab extends ConsumerWidget {
             const SettingsRow(
               icon: Icons.access_time_rounded,
               title: 'Atención 24/7',
-              subtitle: 'El agente responde en cualquier momento del día o noche.',
+              subtitle:
+                  'El agente responde en cualquier momento del día o noche.',
               trailing: ValueBadge(label: '24 HORAS'),
             ),
             SettingsRow(
               icon: Icons.nightlight_round,
               title: 'Respetar horario nocturno',
-              subtitle: 'Pausa respuestas automáticas entre las 11:00 PM y 6:00 AM.',
+              subtitle:
+                  'Pausa respuestas automáticas entre las 11:00 PM y 6:00 AM.',
               trailing: const ValueBadge(label: 'CONFIGURAR'),
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(

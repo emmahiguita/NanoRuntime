@@ -36,26 +36,50 @@ extension _PragmaticFastPathTemplates on PragmaticFastPath {
     }
 
     if (intents.contains(ConversationIntent.thanks)) {
-      return _selectCandidate(thanksCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        thanksCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.farewell)) {
       if (normalized.contains('descans') ||
           normalized.contains('feliz noche') ||
           normalized.contains('buenas noches')) {
-        return _selectCandidate(farewellNightCandidates, conversationId, lastOutboundText);
+        return _selectCandidate(
+          farewellNightCandidates,
+          conversationId,
+          lastOutboundText,
+        );
       }
       if (normalized.contains('manana')) {
-        return _selectCandidate(farewellTomorrowCandidates, conversationId, lastOutboundText);
+        return _selectCandidate(
+          farewellTomorrowCandidates,
+          conversationId,
+          lastOutboundText,
+        );
       }
       if (normalized.contains('tarde')) {
-        return _selectCandidate(farewellAfternoonCandidates, conversationId, lastOutboundText);
+        return _selectCandidate(
+          farewellAfternoonCandidates,
+          conversationId,
+          lastOutboundText,
+        );
       }
-      return _selectCandidate(farewellGeneralCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        farewellGeneralCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.laughter)) {
-      return _selectCandidate(laughterCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        laughterCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.affirmation) ||
@@ -63,18 +87,36 @@ extension _PragmaticFastPathTemplates on PragmaticFastPath {
         normalized == 'tal cual' ||
         normalized == 'literal') {
       const candidates = [
-        'Sí.', 'Sí, claro.', 'Sí, puede ser.', 'Sí, de una.', 'Sí, hagámosle.',
-        'Sí, vamos.', 'Sí, creo que sí.', 'Dale.', 'Listo.', 'Hagámosle.',
-        'Me parece bien.', 'Sí, me sirve.',
+        'Sí.',
+        'Sí, claro.',
+        'Sí, puede ser.',
+        'Sí, de una.',
+        'Sí, hagámosle.',
+        'Sí, vamos.',
+        'Sí, creo que sí.',
+        'Dale.',
+        'Listo.',
+        'Hagámosle.',
+        'Me parece bien.',
+        'Sí, me sirve.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }
 
     if (intents.contains(ConversationIntent.negation)) {
       const candidates = [
-        'No.', 'No creo.', 'Creo que no.', 'No, hoy no.', 'No puedo hoy.',
-        'No sé si pueda.', 'Por ahora no.', 'Hoy no creo.', 'Tal vez otro día.',
-        'Hoy estoy ocupado.', 'No creo que pueda.', 'Mejor después.',
+        'No.',
+        'No creo.',
+        'Creo que no.',
+        'No, hoy no.',
+        'No puedo hoy.',
+        'No sé si pueda.',
+        'Por ahora no.',
+        'Hoy no creo.',
+        'Tal vez otro día.',
+        'Hoy estoy ocupado.',
+        'No creo que pueda.',
+        'Mejor después.',
       ];
       return _selectCandidate(candidates, conversationId, lastOutboundText);
     }

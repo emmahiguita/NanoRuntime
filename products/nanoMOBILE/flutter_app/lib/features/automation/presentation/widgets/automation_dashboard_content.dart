@@ -84,7 +84,9 @@ class AutomationDashboardContent extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, kNanoBarScrollReserve),
       child: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: AutomationLayout.contentMaxWidth(context)),
+          constraints: BoxConstraints(
+            maxWidth: AutomationLayout.contentMaxWidth(context),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

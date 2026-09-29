@@ -41,13 +41,26 @@ class NotificationEventRouter {
   void start() {
     if (_sub != null) return;
     final generation = ++_generation;
-    NotificationEventTrace.stage('stream', source: 'event_channel', outcome: 'subscribing', detail: 'generation=$generation');
-    _sub = NanoRuntimeApi.instance.notificationEvents.listen((m) {
-      if (_sub == null || generation != _generation) return;
-      unawaited(_routeBatch(m, generation, source: 'event_channel'));
-    }, onError: (Object e, StackTrace stack) =>
-        NotificationEventTrace.failure('stream', 'event_channel', e, stack));
-    NotificationEventTrace.stage('stream', source: 'event_channel', outcome: 'subscribed', detail: 'generation=$generation');
+    NotificationEventTrace.stage(
+      'stream',
+      source: 'event_channel',
+      outcome: 'subscribing',
+      detail: 'generation=$generation',
+    );
+    _sub = NanoRuntimeApi.instance.notificationEvents.listen(
+      (m) {
+        if (_sub == null || generation != _generation) return;
+        unawaited(_routeBatch(m, generation, source: 'event_channel'));
+      },
+      onError: (Object e, StackTrace stack) =>
+          NotificationEventTrace.failure('stream', 'event_channel', e, stack),
+    );
+    NotificationEventTrace.stage(
+      'stream',
+      source: 'event_channel',
+      outcome: 'subscribed',
+      detail: 'generation=$generation',
+    );
     unawaited(_coldStartReplay(generation));
     // Drenado periódico de resiliencia: si un evento quedó en DurableInbox mientras
     // la app estaba suspendida o en background, lo recupera y procesa sin demora.
@@ -84,30 +97,51 @@ class NotificationEventRouter {
       NotificationEventTrace.batch(source, events.length, validEvents.length);
       if (source != 'active_snapshot') {
         for (final event in validEvents) {
-          if (NotificationEventTrace.isWhatsApp(event)) NotificationEventTrace.event(event, source, 'admitted');
+          if (NotificationEventTrace.isWhatsApp(event))
+            NotificationEventTrace.event(event, source, 'admitted');
         }
       }
       if (validEvents.isEmpty && events.isNotEmpty) {
-        NotificationEventTrace.stage('rule_pipeline', source: source, outcome: 'not_called', detail: 'reason=all_filtered');
+        NotificationEventTrace.stage(
+          'rule_pipeline',
+          source: source,
+          outcome: 'not_called',
+          detail: 'reason=all_filtered',
+        );
       }
 
       final g = gate;
       if (g == null) {
         for (final event in validEvents) {
           if (_sub == null || generation != _generation) return;
-          if (NotificationEventTrace.isWhatsApp(event)) NotificationEventTrace.event(event, source, 'pipeline_started');
+          if (NotificationEventTrace.isWhatsApp(event))
+            NotificationEventTrace.event(event, source, 'pipeline_started');
           await pipeline.onNotification(event);
-          if (NotificationEventTrace.isWhatsApp(event)) NotificationEventTrace.event(event, source, 'pipeline_returned');
+          if (NotificationEventTrace.isWhatsApp(event))
+            NotificationEventTrace.event(event, source, 'pipeline_returned');
         }
       } else if (validEvents.isNotEmpty) {
-        NotificationEventTrace.stage('burst_gate', source: source, outcome: 'submitting', detail: 'events=${validEvents.length}');
+        NotificationEventTrace.stage(
+          'burst_gate',
+          source: source,
+          outcome: 'submitting',
+          detail: 'events=${validEvents.length}',
+        );
         await pipeline.submitNotifications(validEvents, g);
         await g.drain();
-        NotificationEventTrace.stage('burst_gate', source: source, outcome: 'drained');
+        NotificationEventTrace.stage(
+          'burst_gate',
+          source: source,
+          outcome: 'drained',
+        );
       }
       if (_sub != null && generation == _generation) {
         await NanoRuntimeApi.instance.completeNotificationEvent(map);
-        NotificationEventTrace.stage('durable_inbox', source: source, outcome: 'acknowledged');
+        NotificationEventTrace.stage(
+          'durable_inbox',
+          source: source,
+          outcome: 'acknowledged',
+        );
       }
     } catch (error, stack) {
       NotificationEventTrace.failure('route_deferred', source, error, stack);
@@ -186,7 +220,12 @@ class NotificationEventRouter {
     try {
       await subscription?.cancel();
     } catch (error, stack) {
-      NotificationEventTrace.failure('stream_cancel', 'event_channel', error, stack);
+      NotificationEventTrace.failure(
+        'stream_cancel',
+        'event_channel',
+        error,
+        stack,
+      );
     }
 
     // No se falsea el contador: cada lote conserva su `finally`. La espera

@@ -27,7 +27,11 @@ class _DetailRow extends StatelessWidget {
             width: 68,
             child: Text(
               label,
-              style: TextStyle(color: visual.textMuted, fontSize: 11, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: visual.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Expanded(
@@ -46,7 +50,7 @@ class _DetailRow extends StatelessWidget {
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title, this.icon, this.imageAsset})
-      : assert(icon != null || imageAsset != null);
+    : assert(icon != null || imageAsset != null);
 
   final String title;
   final IconData? icon;
@@ -66,7 +70,11 @@ class _SectionHeader extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             title,
-            style: TextStyle(color: visual.text, fontSize: 13, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: visual.text,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -85,7 +93,11 @@ class _ContactLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
       child: Text(
         contact,
-        style: TextStyle(color: visual.textMuted, fontSize: 12, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: visual.textMuted,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -104,8 +116,14 @@ class _EmptyState extends StatelessWidget {
           children: [
             Icon(Icons.rule_rounded, color: visual.textMuted, size: 32),
             const SizedBox(height: 10),
-            Text('Sin reglas todavía',
-                style: TextStyle(color: visual.text, fontSize: 14, fontWeight: FontWeight.w600)),
+            Text(
+              'Sin reglas todavía',
+              style: TextStyle(
+                color: visual.text,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 4),
             Text(
               'Pídele a Nano en el chat: "responde X a Y" y la regla aparecerá aquí.',
@@ -143,8 +161,10 @@ class _RuleExpandedDetails extends StatelessWidget {
     final mediaText = rule.action == RuleAction.sendMedia
         ? (rule.mediaPath ?? 'sin archivo (regla incompleta)')
         : rule.message.isNotEmpty
-            ? rule.message
-            : rule.dynamicReply ? 'dinámico (LLM local por conversación)' : null;
+        ? rule.message
+        : rule.dynamicReply
+        ? 'dinámico (LLM local por conversación)'
+        : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -152,13 +172,27 @@ class _RuleExpandedDetails extends StatelessWidget {
         const SizedBox(height: 10),
         Divider(color: visual.inputFill, height: 1),
         const SizedBox(height: 10),
-        _DetailRow(label: 'Disparo', value: _RuleCard._triggerLabel(rule.trigger)),
+        _DetailRow(
+          label: 'Disparo',
+          value: _RuleCard._triggerLabel(rule.trigger),
+        ),
         _DetailRow(label: 'Acción', value: rule.action.label),
+        if (rule.action == RuleAction.sendMessage)
+          _DetailRow(
+            label: 'Contactos',
+            value: rule.recipients
+                .map((recipient) => recipient.name)
+                .join(', '),
+          ),
         if (mediaText != null)
-          _DetailRow(label: rule.action == RuleAction.sendMedia ? 'Archivo' : 'Texto', value: mediaText),
+          _DetailRow(
+            label: rule.action == RuleAction.sendMedia ? 'Archivo' : 'Texto',
+            value: mediaText,
+          ),
         _DetailRow(
           label: 'Estado',
-          value: '$outcomeLabel · ${lastFired == null ? "nunca disparó" : _RuleCard._ddmmy(lastFired!)}',
+          value:
+              '$outcomeLabel · ${lastFired == null ? "nunca disparó" : _RuleCard._ddmmy(lastFired!)}',
         ),
         _DetailRow(label: 'Creada', value: _RuleCard._ddmmy(rule.createdAt)),
         _DetailRow(label: 'ID', value: rule.id),

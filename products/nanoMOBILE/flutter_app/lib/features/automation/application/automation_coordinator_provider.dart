@@ -61,12 +61,16 @@ import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.
 import 'package:nanoai/features/automation/engine/storage/automation_db_store_client.dart';
 import 'package:nanoai/features/automation/engine/conversation/conversation_reply_composer.dart';
 import 'package:nanoai/features/automation/engine/conversation/persona_style_resolver.dart';
+import 'package:nanoai/features/automation/engine/language/semantic_similarity_engine.dart';
 import 'package:nanoai/features/automation/engine/conversation/personal_style_formatter.dart';
 import 'package:nanoai/features/automation/engine/conversation/turn_knowledge_router.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_retriever.dart';
+import 'package:nanoai/features/automation/personal_agent/application/hybrid_retrieval_scorer.dart';
 import 'package:nanoai/features/automation/personal_agent/application/personal_conversation_resolver.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_hub_providers.dart'
     show conversationHubVersionProvider;
+import 'package:nanoai/features/automation/engine/mcp/mcp_tool.dart';
+import 'package:nanoai/features/automation/engine/mcp/mcp_tool_projection.dart';
 import 'package:nanoai/features/automation/engine/messaging/reply_transport.dart';
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
 import 'package:nanoai/features/skills/personal_agent/respond_personal_whatsapp_skill.dart';
@@ -489,9 +493,23 @@ ConversationDecisionContext _buildConversationDecisionContext(
   NotificationObject notif,
 ) => buildConversationDecisionContext(ref, notif);
 
+/// Motor semántico enchufable del ranking de memoria personal.
+/// QUÉ: Expone un punto único de inyección para el motor local de embeddings.
+/// CÓMO: Conserva la heurística ligera hasta disponer de pesos/runtime autorizados.
+/// POR QUÉ: El módulo sigue operativo sin bloquearse ni fingir que Gemma está instalado.
+final semanticSimilarityEngineProvider = Provider<SemanticSimilarityEngine>(
+  (ref) => const LightweightSemanticSimilarityEngine(),
+);
+
 /// Proveedor de resolución de estilo personal sin LLM.
 final personaStyleResolverProvider = Provider<PersonaStyleResolver>((ref) {
-  return RuntimePersonaStyleResolver(retriever: PersonaRetriever());
+  return RuntimePersonaStyleResolver(
+    retriever: PersonaRetriever(
+      scorer: HybridRetrievalScorer(
+        similarityEngine: ref.watch(semanticSimilarityEngineProvider),
+      ),
+    ),
+  );
 });
 
 /// Proveedor de enrutador de conocimiento fáctico externo (Web/Bridge/BrowserAi).
@@ -499,6 +517,32 @@ final turnKnowledgeRouterProvider = Provider<TurnKnowledgeRouter>((ref) {
   final router = RuntimeTurnKnowledgeRouter(
     browserAiGateway: ref.watch(browserAiGatewayProvider),
     mcpConnectionRegistry: ref.watch(mcpConnectionRegistryProvider),
+    mcpKnowledgeToolCaller: (tool, arguments) async {
+      if (const McpToolProjection().toNanoTool(tool).category !=
+          McpToolCategory.read) {
+        return null;
+      }
+      final outcome = await ref
+          .read(agentDispatcherProvider)
+          .runToolGuarded(
+            ToolCall(
+              tool: 'mcp.read',
+              args: {'mcpTool': tool.qualifiedName, ...arguments},
+            ),
+            humanInitiated: false,
+          );
+      if (outcome.executionStatus != ToolExecutionStatus.completed &&
+          outcome.executionStatus != ToolExecutionStatus.completedUnverified) {
+        return null;
+      }
+      final response = outcome.feedback.trim();
+      if (response.isEmpty ||
+          response.startsWith('[mcpError]') ||
+          response.startsWith('[tool]')) {
+        return null;
+      }
+      return response;
+    },
   );
   ref.onDispose(router.dispose);
   return router;

@@ -322,8 +322,9 @@ class _SystemReadyMarkState extends State<_SystemReadyMark>
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     );
-    final isTest =
-        WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains(
+      'Test',
+    );
     if (!isTest && widget.ready) {
       _pulse.repeat(reverse: true);
     }
@@ -332,8 +333,9 @@ class _SystemReadyMarkState extends State<_SystemReadyMark>
   @override
   void didUpdateWidget(covariant _SystemReadyMark oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final isTest =
-        WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains(
+      'Test',
+    );
     if (!isTest) {
       if (widget.ready && !oldWidget.ready) {
         _pulse.repeat(reverse: true);

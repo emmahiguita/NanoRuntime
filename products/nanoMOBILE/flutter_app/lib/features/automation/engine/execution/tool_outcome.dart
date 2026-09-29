@@ -1,4 +1,4 @@
-﻿import '../governance/action_confirmation.dart' show ActionConfirmation;
+import '../governance/action_confirmation.dart' show ActionConfirmation;
 import 'action_path_router.dart' show ExecutionPath;
 import 'tool_call.dart';
 import 'tool_registry.dart' show PolicyVerdict;

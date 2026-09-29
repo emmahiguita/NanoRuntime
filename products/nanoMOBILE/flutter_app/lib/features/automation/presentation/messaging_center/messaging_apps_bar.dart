@@ -56,7 +56,8 @@ class MessagingAppsBar extends ConsumerWidget {
                 // Deseleccionar para volver a ver todas
                 ref.read(selectedPlatformFilterProvider.notifier).state = null;
               } else {
-                ref.read(selectedPlatformFilterProvider.notifier).state = platform;
+                ref.read(selectedPlatformFilterProvider.notifier).state =
+                    platform;
               }
             },
           );
@@ -116,7 +117,11 @@ class _AppTile extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  MessagingPlatformIcon(platform: platform, size: 26, borderRadius: 8),
+                  MessagingPlatformIcon(
+                    platform: platform,
+                    size: 26,
+                    borderRadius: 8,
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     label,
@@ -125,7 +130,9 @@ class _AppTile extends StatelessWidget {
                           ? const Color(0xFF00FF88)
                           : Colors.white.withValues(alpha: 0.85),
                       fontSize: 10,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isSelected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                       letterSpacing: -0.2,
                     ),
                     maxLines: 1,
@@ -139,8 +146,14 @@ class _AppTile extends StatelessWidget {
                 top: 2,
                 right: 2,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF00FF88),
                     borderRadius: BorderRadius.circular(8),

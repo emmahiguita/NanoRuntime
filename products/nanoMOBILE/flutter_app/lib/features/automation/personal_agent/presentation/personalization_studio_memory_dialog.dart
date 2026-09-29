@@ -45,11 +45,15 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
     _expiry = TextEditingController(
       text: m?.expiresAt == null
           ? ''
-          : DateTime.fromMillisecondsSinceEpoch(m!.expiresAt!).toIso8601String(),
+          : DateTime.fromMillisecondsSinceEpoch(
+              m!.expiresAt!,
+            ).toIso8601String(),
     );
     kind = personalMemoryKinds.containsKey(m?.kind)
         ? m!.kind
-        : m == null ? 'stablePreference' : 'episodicMemory';
+        : m == null
+        ? 'stablePreference'
+        : 'episodicMemory';
     scope = widget.initialScope;
     enabled = m?.enabled ?? true;
   }
@@ -66,20 +70,34 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
   InputDecoration _deco(String label) => InputDecoration(
     labelText: label,
     filled: true,
-    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+    fillColor: Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
   );
 
   void _submit() {
     final k = _key.text.trim(), v = _value.text.trim();
     final at = DateTime.tryParse(_observed.text);
-    final until = _expiry.text.trim().isEmpty ? null : DateTime.tryParse(_expiry.text);
-    if (k.isEmpty || v.isEmpty || at == null ||
-        (_expiry.text.trim().isNotEmpty && (until == null || !until.isAfter(at))) ||
+    final until = _expiry.text.trim().isEmpty
+        ? null
+        : DateTime.tryParse(_expiry.text);
+    if (k.isEmpty ||
+        v.isEmpty ||
+        at == null ||
+        (_expiry.text.trim().isNotEmpty &&
+            (until == null || !until.isAfter(at))) ||
         (kind == 'temporaryFact' && (until == null || !until.isAfter(at)))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verifica las fechas. Los datos temporales deben caducar después de observarse.')),
+        const SnackBar(
+          content: Text(
+            'Verifica las fechas. Los datos temporales deben caducar después de observarse.',
+          ),
+        ),
       );
       return;
     }
@@ -103,12 +121,26 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
     final isLandscape = size.width > size.height;
 
     return AlertDialog(
-      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 8 : 20),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: isLandscape ? 8 : 20,
+      ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      titlePadding: EdgeInsets.fromLTRB(20, isLandscape ? 10 : 18, 20, isLandscape ? 4 : 10),
+      titlePadding: EdgeInsets.fromLTRB(
+        20,
+        isLandscape ? 10 : 18,
+        20,
+        isLandscape ? 4 : 10,
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      actionsPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 4 : 10),
-      title: const Text('Memoria personal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+      actionsPadding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: isLandscape ? 4 : 10,
+      ),
+      title: const Text(
+        'Memoria personal',
+        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+      ),
       content: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: isLandscape ? 500 : 380,
@@ -121,14 +153,21 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
             children: [
               DropdownButtonFormField<String>(
                 key: ValueKey(scope),
-                initialValue: widget.scopes.containsKey(scope) ? scope : 'owner',
+                initialValue: widget.scopes.containsKey(scope)
+                    ? scope
+                    : 'owner',
                 isExpanded: true,
                 decoration: _deco('Aplicar solamente a'),
                 items: [
                   for (final s in widget.scopes.values)
-                    DropdownMenuItem(value: s.id, child: Text(s.label, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(
+                      value: s.id,
+                      child: Text(s.label, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
-                onChanged: widget.busy ? null : (v) => v != null ? setState(() => scope = v) : null,
+                onChanged: widget.busy
+                    ? null
+                    : (v) => v != null ? setState(() => scope = v) : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -137,7 +176,10 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
                 decoration: _deco('Clasificación'),
                 items: [
                   for (final entry in personalMemoryKinds.entries)
-                    DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                    DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
                 ],
                 onChanged: (v) => setState(() => kind = v!),
               ),
@@ -155,12 +197,25 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
                 decoration: _deco('Dato declarado'),
               ),
               const SizedBox(height: 8),
-              TextField(controller: _observed, decoration: _deco('Fecha de registro (ISO)')),
+              TextField(
+                controller: _observed,
+                decoration: _deco('Fecha de registro (ISO)'),
+              ),
               const SizedBox(height: 10),
-              TextField(controller: _expiry, decoration: _deco(kind == 'temporaryFact' ? 'Caduca (obligatorio ISO)' : 'Caduca (opcional ISO)')),
+              TextField(
+                controller: _expiry,
+                decoration: _deco(
+                  kind == 'temporaryFact'
+                      ? 'Caduca (obligatorio ISO)'
+                      : 'Caduca (opcional ISO)',
+                ),
+              ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Memoria activa', style: TextStyle(fontSize: 12)),
+                title: const Text(
+                  'Memoria activa',
+                  style: TextStyle(fontSize: 12),
+                ),
                 value: enabled,
                 onChanged: (v) => setState(() => enabled = v),
               ),
@@ -169,7 +224,10 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
         FilledButton(onPressed: _submit, child: const Text('Guardar')),
       ],
     );

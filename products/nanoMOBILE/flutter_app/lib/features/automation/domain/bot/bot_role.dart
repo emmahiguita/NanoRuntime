@@ -1,4 +1,4 @@
-﻿/// BOT-ROLE-01 — Roles canónicos y propósitos de agentes en Nano Bot Runtime.
+/// BOT-ROLE-01 — Roles canónicos y propósitos de agentes en Nano Bot Runtime.
 ///
 /// **QUÉ HACE:**
 /// Define la clasificación funcional de cada bot configurado en el sistema,

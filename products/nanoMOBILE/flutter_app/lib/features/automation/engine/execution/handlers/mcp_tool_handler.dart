@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../mcp/mcp_client_port.dart';
 import '../../mcp/mcp_connection_registry.dart';
+import '../../mcp/mcp_tool.dart';
 import '../../mcp/mcp_tool_projection.dart';
 import '../../mcp/mcp_tool_resolver.dart';
 import '../../voice/execution_cancellation.dart';
@@ -150,47 +151,37 @@ class McpToolHandler {
       return '[tool] MCP no disponible: registry no configurado.';
     }
 
-    String serverId;
-    String toolName;
-    if (mcpTool.contains('/')) {
-      final split = mcpTool.split('/');
-      serverId = split[0];
-      toolName = split.sublist(1).join('/');
-    } else if (mcpTool.contains('.')) {
-      final serverIds =
-          mcpReg.servers
-              .map((server) => server.id)
-              .where((id) => mcpTool.startsWith('$id.'))
-              .toList(growable: false)
-            ..sort((a, b) => b.length.compareTo(a.length));
-      if (serverIds.isNotEmpty) {
-        serverId = serverIds.first;
-        toolName = mcpTool.substring(serverId.length + 1);
-      } else {
-        final split = mcpTool.split('.');
-        serverId = split[0];
-        toolName = split.sublist(1).join('.');
-      }
-    } else {
-      serverId = 'device';
-      toolName = mcpTool;
+    final remoteTool = await resolveRemoteTool(mcpReg, mcpTool);
+    if (remoteTool == null) {
+      return '[mcpError] No se encontró la herramienta MCP "$mcpTool".';
     }
 
-    var client = mcpReg.client(serverId);
-    if (client == null && mcpReg.servers.isNotEmpty) {
-      client = mcpReg.client(mcpReg.servers.first.id);
-      serverId = mcpReg.servers.first.id;
+    final projection = const McpToolProjection().toNanoTool(remoteTool);
+    final governedTool = switch (projection.category) {
+      McpToolCategory.read => 'mcp.read',
+      McpToolCategory.device => 'mcp.device',
+      McpToolCategory.externalWrite => 'mcp.externalWrite',
+      McpToolCategory.privileged => 'mcp.privileged',
+    };
+    if (call.tool != governedTool) {
+      return '[mcpError] La clasificación MCP de "${remoteTool.name}" no '
+          'coincide con la autorización recibida.';
     }
 
+    final client = mcpReg.client(remoteTool.serverId);
     if (client == null) {
-      return '[mcpError] No se encontró servidor MCP para "$serverId".';
+      return '[mcpError] No se encontró servidor MCP para "${remoteTool.serverId}".';
     }
 
     final toolArgs = Map<String, Object?>.from(call.args ?? {})
       ..remove('mcpTool');
 
     final result = await client.callTool(
-      McpToolCall(serverId: serverId, toolName: toolName, arguments: toolArgs),
+      McpToolCall(
+        serverId: remoteTool.serverId,
+        toolName: remoteTool.name,
+        arguments: toolArgs,
+      ),
     );
 
     if (!result.success) {

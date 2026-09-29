@@ -11,14 +11,14 @@ class BenchmarkToolHandler implements IToolHandler {
   final AutomationBenchmarkRunner _runner;
 
   BenchmarkToolHandler({AutomationBenchmarkRunner? runner})
-      : _runner = runner ?? AutomationBenchmarkRunner();
+    : _runner = runner ?? AutomationBenchmarkRunner();
 
   @override
   List<String> get supportedTools => const [
-        'dev.run_benchmark',
-        'benchmark',
-        'run_benchmark',
-      ];
+    'dev.run_benchmark',
+    'benchmark',
+    'run_benchmark',
+  ];
 
   @override
   bool supports(String toolName) {
@@ -40,12 +40,24 @@ class BenchmarkToolHandler implements IToolHandler {
         ..writeln('🏆 **Clasificación**: ${report.tierLevel}')
         ..writeln('⚙️ **Modo Operativo**: ${report.tier.name.toUpperCase()}')
         ..writeln('─' * 40)
-        ..writeln('✅ **Pruebas Superadas**: ${report.passedTests}/${report.totalTests} (${report.successRate.toStringAsFixed(1)}%)')
-        ..writeln('⚡ **Latencia Promedio por Paso**: ${report.averageStepLatencyMs.toStringAsFixed(2)} ms')
-        ..writeln('🛡️ **Tasa de Auto-Reparación (Self-Healing)**: ${report.selfHealingSuccessRate.toStringAsFixed(1)}%')
-        ..writeln('💾 **Consumo de RAM**: ${report.ramUsedMb.toStringAsFixed(1)} MB')
-        ..writeln('🔋 **Nivel de Batería**: ${report.batteryPct.toStringAsFixed(0)}%')
-        ..writeln('🌡️ **Temperatura CPU**: ${report.cpuTempC != null ? "${report.cpuTempC!.toStringAsFixed(1)}°C" : "N/A"}')
+        ..writeln(
+          '✅ **Pruebas Superadas**: ${report.passedTests}/${report.totalTests} (${report.successRate.toStringAsFixed(1)}%)',
+        )
+        ..writeln(
+          '⚡ **Latencia Promedio por Paso**: ${report.averageStepLatencyMs.toStringAsFixed(2)} ms',
+        )
+        ..writeln(
+          '🛡️ **Tasa de Auto-Reparación (Self-Healing)**: ${report.selfHealingSuccessRate.toStringAsFixed(1)}%',
+        )
+        ..writeln(
+          '💾 **Consumo de RAM**: ${report.ramUsedMb.toStringAsFixed(1)} MB',
+        )
+        ..writeln(
+          '🔋 **Nivel de Batería**: ${report.batteryPct.toStringAsFixed(0)}%',
+        )
+        ..writeln(
+          '🌡️ **Temperatura CPU**: ${report.cpuTempC != null ? "${report.cpuTempC!.toStringAsFixed(1)}°C" : "N/A"}',
+        )
         ..writeln('─' * 40)
         ..writeln('📋 **Desglose de Evidencia**:');
 
@@ -53,7 +65,9 @@ class BenchmarkToolHandler implements IToolHandler {
         buffer.writeln('  • $detail');
       }
 
-      buffer.writeln('\n💡 *Comparativa*: Nano AI Nivel 6 supera a Google ARTEMIS y AndroidWorld al operar autónomamente en el dispositivo físico con auto-reparación perceptual sin requerir un cluster externo.');
+      buffer.writeln(
+        '\n💡 *Comparativa*: Nano AI Nivel 6 supera a Google ARTEMIS y AndroidWorld al operar autónomamente en el dispositivo físico con auto-reparación perceptual sin requerir un cluster externo.',
+      );
 
       return buffer.toString().trim();
     } catch (e) {

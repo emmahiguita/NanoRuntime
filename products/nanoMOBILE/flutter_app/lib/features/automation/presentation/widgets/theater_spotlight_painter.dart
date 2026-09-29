@@ -27,31 +27,33 @@ class TheaterSpotlightPainter extends CustomPainter {
     // Resplandor cenital difuso estilo iOS Softbox (sin bordes duros)
     final softboxCenter = Offset(width * 0.50, -height * 0.15);
     final softboxPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF44FFCE).withValues(alpha: 0.16),
-          const Color(0xFF10B981).withValues(alpha: 0.07),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.55, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: softboxCenter, radius: width * 0.65),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFF44FFCE).withValues(alpha: 0.16),
+              const Color(0xFF10B981).withValues(alpha: 0.07),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.55, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: softboxCenter, radius: width * 0.65),
+          );
 
     canvas.drawCircle(softboxCenter, width * 0.65, softboxPaint);
 
     // Resplandor inferior de contacto ambiental (Ambient Occlusion suelo)
     final floorGlowCenter = Offset(width * 0.50, height * 1.05);
     final floorPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF00E5A0).withValues(alpha: 0.10),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: floorGlowCenter, radius: width * 0.50),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFF00E5A0).withValues(alpha: 0.10),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: floorGlowCenter, radius: width * 0.50),
+          );
 
     canvas.drawCircle(floorGlowCenter, width * 0.50, floorPaint);
   }

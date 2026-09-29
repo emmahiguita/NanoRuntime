@@ -36,7 +36,7 @@ final class TurnComplexityClassifier {
   );
 
   static final _pureGreeting = RegExp(
-    r'^(?:hola|hol|ola|oli|hey|hi|buen día|buen dia|buenos días|muy buenos días|muy buenos dias|buenas tardes|buenas noches|buenas|cordial saludo|saludos|qué más|que más|q más|q mas|qué hay|que hay|holi|holaa|hola hola)(?:\s+[\wáéíóúÁÉÍÓÚñÑ]+)?[\s.,!?]*$',
+    r'^(?:hola|hol|ola|oli|hey|hi|buen día|buen dia|buenos días|muy buenos días|muy buenos dias|buenas tardes|buenas noches|buenas|cordial saludo|saludos|qué más|que más|q más|q mas|qué hay|que hay|holi|holaa|hola hola)(?:\s+[\wáéíóúÁÉÍÓÚñÑ]+(?:[.-][\wáéíóúÁÉÍÓÚñÑ]+)*)?[\s.,!?]*$',
     caseSensitive: false,
   );
 
@@ -138,12 +138,15 @@ final class TurnComplexityClassifier {
     final isSocialClarification = _socialWellbeingClarification.hasMatch(t);
     final isSituationalInquiry = _situationalSocialInquiry.hasMatch(t);
     final isWellbeingMatch = _socialGreetingWellbeing.hasMatch(t);
-    final isSocialExemption = isSocialClarification || isSituationalInquiry || isWellbeingMatch;
+    final isSocialExemption =
+        isSocialClarification || isSituationalInquiry || isWellbeingMatch;
     final isActivityOrSituational =
         _socialActivityInquiry.hasMatch(t) || isSituationalInquiry;
     final isCompoundGreetingInquiry =
-        RegExp(r'^\s*(?:hola|hol|ola|buenas|buenos|hey|oe|saludos)\b', caseSensitive: false)
-            .hasMatch(t) &&
+        RegExp(
+          r'^\s*(?:hola|hol|ola|buenas|buenos|hey|oe|saludos)\b',
+          caseSensitive: false,
+        ).hasMatch(t) &&
         (isActivityOrSituational ||
             _socialInvitation.hasMatch(t) ||
             t.contains('?') &&

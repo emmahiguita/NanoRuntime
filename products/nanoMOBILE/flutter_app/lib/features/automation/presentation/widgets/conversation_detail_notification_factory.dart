@@ -3,7 +3,9 @@ part of 'conversation_detail_sheet.dart';
 /// Reconstruye evidencia de identidad para un chat guardado cuando Android ya
 /// no conserva su notificación activa. No inventa otro ID ni duplica el ID
 /// canónico completo dentro de `conversationId`.
-NotificationObject notificationFromConversationSummary(ConversationSummaryItem item) {
+NotificationObject notificationFromConversationSummary(
+  ConversationSummaryItem item,
+) {
   final canonical = canonicalConversationId(item.conversationId);
   final parts = canonical.split('/');
   var fingerprint = parts.length >= 4 ? parts.skip(3).join('/') : canonical;

@@ -45,7 +45,10 @@ class ConversationImageCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.25), width: 0.9),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.25),
+              width: 0.9,
+            ),
           ),
           child: Stack(
             children: [
@@ -53,37 +56,74 @@ class ConversationImageCard extends StatelessWidget {
                 tag: tag,
                 child: source.isLocal
                     ? file != null && file.existsSync()
-                        ? Image.file(
-                            file,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const ConversationFallbackTile(icon: Icons.broken_image_rounded, label: 'Foto no disponible'),
-                          )
-                        : const ConversationFallbackTile(icon: Icons.broken_image_rounded, label: 'Foto no disponible')
+                          ? Image.file(
+                              file,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  const ConversationFallbackTile(
+                                    icon: Icons.broken_image_rounded,
+                                    label: 'Foto no disponible',
+                                  ),
+                            )
+                          : const ConversationFallbackTile(
+                              icon: Icons.broken_image_rounded,
+                              label: 'Foto no disponible',
+                            )
                     : Image.network(
                         source.value,
                         fit: BoxFit.cover,
-                        loadingBuilder: (ctx, child, progress) => progress == null
+                        loadingBuilder: (ctx, child, progress) =>
+                            progress == null
                             ? child
-                            : const SizedBox(height: 120, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00FF88)))),
-                        errorBuilder: (_, __, ___) => const ConversationFallbackTile(icon: Icons.broken_image_rounded, label: 'Foto no disponible'),
+                            : const SizedBox(
+                                height: 120,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFF00FF88),
+                                  ),
+                                ),
+                              ),
+                        errorBuilder: (_, __, ___) =>
+                            const ConversationFallbackTile(
+                              icon: Icons.broken_image_rounded,
+                              label: 'Foto no disponible',
+                            ),
                       ),
               ),
               Positioned(
                 bottom: 8,
                 right: 8,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.70),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.2), width: 0.6),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      width: 0.6,
+                    ),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.zoom_in_rounded, color: Colors.white, size: 12),
+                      Icon(
+                        Icons.zoom_in_rounded,
+                        color: Colors.white,
+                        size: 12,
+                      ),
                       SizedBox(width: 3),
-                      Text('Ver foto', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                      Text(
+                        'Ver foto',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -105,16 +145,27 @@ class ConversationVideoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final fileName = ConversationMediaSource(urlOrPath).displayName;
     return GestureDetector(
-      onTap: () => ConversationMediaViewer.openVideo(context, urlOrPath, title: fileName),
+      onTap: () => ConversationMediaViewer.openVideo(
+        context,
+        urlOrPath,
+        title: fileName,
+      ),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 280),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF1E293B).withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF60A5FA).withValues(alpha: 0.40), width: 0.9),
+          border: Border.all(
+            color: const Color(0xFF60A5FA).withValues(alpha: 0.40),
+            width: 0.9,
+          ),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 2)),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
           ],
         ),
         child: Row(
@@ -127,7 +178,11 @@ class ConversationVideoCard extends StatelessWidget {
                 color: const Color(0xFF2563EB).withValues(alpha: 0.90),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 24),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 10),
             Flexible(
@@ -137,7 +192,11 @@ class ConversationVideoCard extends StatelessWidget {
                 children: [
                   Text(
                     fileName.isNotEmpty ? fileName : 'Video multimedia',
-                    style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -145,9 +204,20 @@ class ConversationVideoCard extends StatelessWidget {
                   const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.ondemand_video_rounded, color: Color(0xFF60A5FA), size: 12),
+                      Icon(
+                        Icons.ondemand_video_rounded,
+                        color: Color(0xFF60A5FA),
+                        size: 12,
+                      ),
                       SizedBox(width: 4),
-                      Text('Toca para reproducir', style: TextStyle(color: Color(0xFF93C5FD), fontSize: 10.5, fontWeight: FontWeight.w500)),
+                      Text(
+                        'Toca para reproducir',
+                        style: TextStyle(
+                          color: Color(0xFF93C5FD),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -164,7 +234,11 @@ class ConversationVideoCard extends StatelessWidget {
 class ConversationFallbackTile extends StatelessWidget {
   final IconData icon;
   final String label;
-  const ConversationFallbackTile({super.key, required this.icon, required this.label});
+  const ConversationFallbackTile({
+    super.key,
+    required this.icon,
+    required this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +250,10 @@ class ConversationFallbackTile extends StatelessWidget {
         children: [
           Icon(icon, color: Colors.white54, size: 20),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
         ],
       ),
     );

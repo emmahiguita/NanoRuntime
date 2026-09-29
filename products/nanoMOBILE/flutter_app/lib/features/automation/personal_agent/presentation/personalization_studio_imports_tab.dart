@@ -74,7 +74,10 @@ class _PersonalizationStudioImportsTab extends StatelessWidget {
                   dense: true,
                   title: Text(
                     '${metadata['fileName'] ?? 'Importación'}',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   subtitle: Text(
                     '${dateFormatter(batch['atMs'])} · ${metadata['accepted'] ?? 'Cantidad desconocida'} aceptados',
@@ -82,37 +85,49 @@ class _PersonalizationStudioImportsTab extends StatelessWidget {
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.more_vert_rounded, size: 18),
-                    onPressed: !canEdit ? null : () {
-                      showModalBottomSheet<void>(
-                        context: context,
-                        useRootNavigator: true,
-                        builder: (ctx) => SafeArea(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              ListTile(
-                                dense: true,
-                                leading: const Icon(Icons.visibility_outlined),
-                                title: const Text('Ver origen'),
-                                onTap: () {
-                                  Navigator.pop(ctx);
-                                  onViewOrigin(batch);
-                                },
+                    onPressed: !canEdit
+                        ? null
+                        : () {
+                            showModalBottomSheet<void>(
+                              context: context,
+                              useRootNavigator: true,
+                              builder: (ctx) => SafeArea(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListTile(
+                                      dense: true,
+                                      leading: const Icon(
+                                        Icons.visibility_outlined,
+                                      ),
+                                      title: const Text('Ver origen'),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        onViewOrigin(batch);
+                                      },
+                                    ),
+                                    ListTile(
+                                      dense: true,
+                                      leading: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.redAccent,
+                                      ),
+                                      title: const Text(
+                                        'Retirar este lote',
+                                        style: TextStyle(
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                      onTap: () {
+                                        Navigator.pop(ctx);
+                                        onDeleteBatch(batch);
+                                      },
+                                    ),
+                                  ],
+                                ),
                               ),
-                              ListTile(
-                                dense: true,
-                                leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                                title: const Text('Retirar este lote', style: TextStyle(color: Colors.redAccent)),
-                                onTap: () {
-                                  Navigator.pop(ctx);
-                                  onDeleteBatch(batch);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                            );
+                          },
                   ),
                 ),
               );

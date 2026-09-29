@@ -63,7 +63,10 @@ class CatalogPdfGenerator {
       whatsappNumber: whatsappNumber,
     );
     final tempDir = await getTemporaryDirectory();
-    final sanitized = businessName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    final sanitized = businessName.toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9]'),
+      '_',
+    );
     final file = File('${tempDir.path}/${sanitized}_catalogo.pdf');
     await file.writeAsBytes(bytes, flush: true);
     return file;
@@ -73,7 +76,9 @@ class CatalogPdfGenerator {
     return pw.Container(
       padding: const pw.EdgeInsets.only(bottom: 12),
       decoration: const pw.BoxDecoration(
-        border: pw.Border(bottom: pw.BorderSide(color: PdfColors.teal, width: 2)),
+        border: pw.Border(
+          bottom: pw.BorderSide(color: PdfColors.teal, width: 2),
+        ),
       ),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -81,14 +86,40 @@ class CatalogPdfGenerator {
           pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text(title, style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+              pw.Text(
+                title,
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.teal900,
+                ),
+              ),
               if (facts.location.isNotEmpty)
-                pw.Text('Ubicación: ${facts.location}', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                pw.Text(
+                  'Ubicación: ${facts.location}',
+                  style: const pw.TextStyle(
+                    fontSize: 10,
+                    color: PdfColors.grey700,
+                  ),
+                ),
               if (facts.hours.isNotEmpty)
-                pw.Text('Horario: ${facts.hours}', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                pw.Text(
+                  'Horario: ${facts.hours}',
+                  style: const pw.TextStyle(
+                    fontSize: 10,
+                    color: PdfColors.grey700,
+                  ),
+                ),
             ],
           ),
-          pw.Text('Nano Business', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.teal)),
+          pw.Text(
+            'Nano Business',
+            style: pw.TextStyle(
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.teal,
+            ),
+          ),
         ],
       ),
     );
@@ -98,24 +129,38 @@ class CatalogPdfGenerator {
     if (products.isEmpty) {
       return pw.Padding(
         padding: const pw.EdgeInsets.symmetric(vertical: 30),
-        child: pw.Center(child: pw.Text('No hay productos registrados en el catálogo.')),
+        child: pw.Center(
+          child: pw.Text('No hay productos registrados en el catálogo.'),
+        ),
       );
     }
 
     final headers = ['Ref / SKU', 'Artículo / Descripción', 'Stock', 'Precio'];
     final data = products.map((p) {
       final isAvail = p.isAvailable ? '' : ' [PAUSADO]';
-      final stockLabel = p.stock != null ? (p.stock! > 0 ? '${p.stock}' : 'Agotado') : 'Disponible';
-      final cat = p.category != null && p.category!.trim().isNotEmpty ? '[${p.category!.trim()}] ' : '';
-      final details = p.details.trim().isNotEmpty ? '\n${p.details.trim()}' : '';
-      final ref = (p.sku != null && p.sku!.trim().isNotEmpty) ? p.sku!.trim() : p.id;
+      final stockLabel = p.stock != null
+          ? (p.stock! > 0 ? '${p.stock}' : 'Agotado')
+          : 'Disponible';
+      final cat = p.category != null && p.category!.trim().isNotEmpty
+          ? '[${p.category!.trim()}] '
+          : '';
+      final details = p.details.trim().isNotEmpty
+          ? '\n${p.details.trim()}'
+          : '';
+      final ref = (p.sku != null && p.sku!.trim().isNotEmpty)
+          ? p.sku!.trim()
+          : p.id;
       return [ref, '$cat${p.name}$isAvail$details', stockLabel, p.priceLabel];
     }).toList();
 
     return pw.TableHelper.fromTextArray(
       headers: headers,
       data: data,
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 10),
+      headerStyle: pw.TextStyle(
+        fontWeight: pw.FontWeight.bold,
+        color: PdfColors.white,
+        fontSize: 10,
+      ),
       headerDecoration: const pw.BoxDecoration(color: PdfColors.teal),
       cellStyle: const pw.TextStyle(fontSize: 9),
       cellPadding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -141,14 +186,33 @@ class CatalogPdfGenerator {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('¿Cómo comprar?', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, color: PdfColors.teal900)),
+                pw.Text(
+                  '¿Cómo comprar?',
+                  style: pw.TextStyle(
+                    fontWeight: pw.FontWeight.bold,
+                    fontSize: 11,
+                    color: PdfColors.teal900,
+                  ),
+                ),
                 pw.SizedBox(height: 4),
                 if (facts.payments.isNotEmpty)
-                  pw.Text('• Métodos de pago: ${facts.payments}', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text(
+                    '• Métodos de pago: ${facts.payments}',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
                 if (facts.delivery.isNotEmpty)
-                  pw.Text('• Envíos: ${facts.delivery}', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text(
+                    '• Envíos: ${facts.delivery}',
+                    style: const pw.TextStyle(fontSize: 8),
+                  ),
                 pw.SizedBox(height: 4),
-                pw.Text('Escanea el código QR o escribe a nuestro WhatsApp para hacer tu pedido.', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+                pw.Text(
+                  'Escanea el código QR o escribe a nuestro WhatsApp para hacer tu pedido.',
+                  style: const pw.TextStyle(
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+                ),
               ],
             ),
           ),

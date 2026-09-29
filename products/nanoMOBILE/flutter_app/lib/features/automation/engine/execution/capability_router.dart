@@ -22,13 +22,13 @@ enum AutomationSurface {
   coordinates;
 
   String get displayName => switch (this) {
-        AutomationSurface.apiMcp => 'API / MCP Directo',
-        AutomationSurface.linux => 'Linux / Nanoshell',
-        AutomationSurface.browserDom => 'Browser DOM (GeckoView)',
-        AutomationSurface.androidAccessibility => 'Android Accessibility',
-        AutomationSurface.ocrVision => 'OCR / Visión',
-        AutomationSurface.coordinates => 'Coordenadas Físicas (Fallback)',
-      };
+    AutomationSurface.apiMcp => 'API / MCP Directo',
+    AutomationSurface.linux => 'Linux / Nanoshell',
+    AutomationSurface.browserDom => 'Browser DOM (GeckoView)',
+    AutomationSurface.androidAccessibility => 'Android Accessibility',
+    AutomationSurface.ocrVision => 'OCR / Visión',
+    AutomationSurface.coordinates => 'Coordenadas Físicas (Fallback)',
+  };
 }
 
 /// Decisión calculada por el router con causalidad y superficies de respaldo.
@@ -47,11 +47,11 @@ class CapabilityRoutingDecision {
   });
 
   Map<String, dynamic> toJson() => {
-        'primarySurface': primarySurface.name,
-        'rationale': rationale,
-        'confidence': confidence,
-        'fallbackSurfaces': fallbackSurfaces.map((s) => s.name).toList(),
-      };
+    'primarySurface': primarySurface.name,
+    'rationale': rationale,
+    'confidence': confidence,
+    'fallbackSurfaces': fallbackSurfaces.map((s) => s.name).toList(),
+  };
 }
 
 /// Router de capacidades multisuperficie (CapabilityRouter).
@@ -74,10 +74,10 @@ class CapabilityRouter {
     bool Function()? isLinuxAvailable,
     bool Function()? isBrowserAvailable,
     bool Function()? isAccessibilityAvailable,
-  })  : _isApiAvailable = isApiAvailable ?? _defaultTrue,
-        _isLinuxAvailable = isLinuxAvailable ?? _defaultTrue,
-        _isBrowserAvailable = isBrowserAvailable ?? _defaultTrue,
-        _isAccessibilityAvailable = isAccessibilityAvailable ?? _defaultTrue;
+  }) : _isApiAvailable = isApiAvailable ?? _defaultTrue,
+       _isLinuxAvailable = isLinuxAvailable ?? _defaultTrue,
+       _isBrowserAvailable = isBrowserAvailable ?? _defaultTrue,
+       _isAccessibilityAvailable = isAccessibilityAvailable ?? _defaultTrue;
 
   static bool _defaultTrue() => true;
 
@@ -103,7 +103,8 @@ class CapabilityRouter {
       if (_isLinuxAvailable()) {
         return const CapabilityRoutingDecision(
           primarySurface: AutomationSurface.linux,
-          rationale: 'Operación determinista de filesystem, proceso o CLI en Linux.',
+          rationale:
+              'Operación determinista de filesystem, proceso o CLI en Linux.',
           confidence: 0.95,
           fallbackSurfaces: [AutomationSurface.androidAccessibility],
         );
@@ -111,7 +112,9 @@ class CapabilityRouter {
     }
 
     // 3. Detección de navegación Browser Web (GeckoView)
-    if (tool.startsWith('web.') || tool.startsWith('browser.') || _isBrowserIntended(userGoal)) {
+    if (tool.startsWith('web.') ||
+        tool.startsWith('browser.') ||
+        _isBrowserIntended(userGoal)) {
       if (_isBrowserAvailable()) {
         return const CapabilityRoutingDecision(
           primarySurface: AutomationSurface.browserDom,
@@ -126,9 +129,13 @@ class CapabilityRouter {
     if (_isAccessibilityAvailable()) {
       return const CapabilityRoutingDecision(
         primarySurface: AutomationSurface.androidAccessibility,
-        rationale: 'Interacción semántica en app Android mediante Accessibility Tree.',
+        rationale:
+            'Interacción semántica en app Android mediante Accessibility Tree.',
         confidence: 0.85,
-        fallbackSurfaces: [AutomationSurface.ocrVision, AutomationSurface.coordinates],
+        fallbackSurfaces: [
+          AutomationSurface.ocrVision,
+          AutomationSurface.coordinates,
+        ],
       );
     }
 

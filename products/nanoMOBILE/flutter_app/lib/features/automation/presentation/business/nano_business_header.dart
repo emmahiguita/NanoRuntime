@@ -43,9 +43,7 @@ class NanoBusinessHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: visual.surface.withValues(alpha: 0.70),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: visual.outline.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: visual.outline.withValues(alpha: 0.20)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,10 +83,7 @@ class NanoBusinessHeader extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Atiende clientes, catálogo y ventas con IA.',
-                      style: TextStyle(
-                        color: visual.textMuted,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
                     ),
                   ],
                 ),
@@ -123,11 +118,7 @@ class NanoBusinessHeader extends StatelessWidget {
                 )
               else
                 for (final c in activeChannels)
-                  _buildChannelChip(
-                    label: c,
-                    visual: visual,
-                    isMuted: false,
-                  ),
+                  _buildChannelChip(label: c, visual: visual, isMuted: false),
             ],
           ),
         ],
@@ -141,10 +132,7 @@ class NanoBusinessHeader extends StatelessWidget {
     required bool isMuted,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 7,
-        vertical: 2,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
         color: visual.surface.withValues(alpha: 0.70),
         borderRadius: BorderRadius.circular(8),

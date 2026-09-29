@@ -41,7 +41,10 @@ final class ExternalKnowledgeResult {
   });
 
   static const empty = ExternalKnowledgeResult(
-    query: '', rawKnowledge: '', source: 'none', hasFacts: false,
+    query: '',
+    rawKnowledge: '',
+    source: 'none',
+    hasFacts: false,
   );
 }
 
@@ -59,21 +62,52 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
   RuntimeTurnKnowledgeRouter({
     BrowserAiGateway? browserAiGateway,
     McpConnectionRegistry? mcpConnectionRegistry,
+    McpKnowledgeToolCaller? mcpKnowledgeToolCaller,
     WebKnowledgeService webKnowledgeService = const WebKnowledgeService(),
     ReverseAgentClient reverseAgentClient = const ReverseAgentClient(),
   }) : _fetcher = TurnKnowledgeFetcher(
          browserAiGateway: browserAiGateway,
          mcpConnectionRegistry: mcpConnectionRegistry,
+         mcpKnowledgeToolCaller: mcpKnowledgeToolCaller,
          webKnowledgeService: webKnowledgeService,
          reverseAgentClient: reverseAgentClient,
        );
 
   static const _externalKeywords = {
-    'que paso con', 'que paso hoy', 'viste que paso', 'supiste que paso',
-    'sabes algo de', 'noticias de', 'precio del dolar', 'cuanto esta el dolar',
-    'precio de bitcoin', 'como quedo el partido', 'quien gano', 'a que hora juega',
-    'clima en', 'va a llover', 'cuando sale', 'cuando se estrena', 'android 16',
-    'android 17', 'chatgpt', 'deepseek', 'gemini', 'openai', 'inteligencia artificial',
+    'que paso con',
+    'que paso hoy',
+    'viste que paso',
+    'supiste que paso',
+    'sabes algo de',
+    'noticias de',
+    'precio del dolar',
+    'cuanto esta el dolar',
+    'precio de bitcoin',
+    'como quedo el partido',
+    'quien gano',
+    'a que hora juega',
+    'clima en',
+    'va a llover',
+    'cuando sale',
+    'cuando se estrena',
+    'android 16',
+    'android 17',
+    'chatgpt',
+    'deepseek',
+    'gemini',
+    'openai',
+    'inteligencia artificial',
+    'que sabes sobre',
+    'que sabes de',
+    'sabes sobre',
+    'sabes de',
+    'quien fue',
+    'cuentame sobre',
+    'cuentame de',
+    'hablame de',
+    'explicame',
+    'que ocurrio',
+    'que significa',
   };
 
   static const _intentClassifier = HybridIntentClassifier();
@@ -84,24 +118,36 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
     final gate = const KnowledgeNeedGate().evaluate(text: text, act: act);
     if (!gate.needsExternalKnowledge) return false;
 
-    final normalized = text.toLowerCase()
-        .replaceAll('á', 'a').replaceAll('é', 'e').replaceAll('í', 'i')
-        .replaceAll('ó', 'o').replaceAll('ú', 'u').replaceAll('¿', '')
-        .replaceAll('?', '').trim();
+    final normalized = text
+        .toLowerCase()
+        .replaceAll('á', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('¿', '')
+        .replaceAll('?', '')
+        .trim();
     if (normalized.isEmpty) return false;
 
     final prediction = _intentClassifier.classify(text);
     // Regla crítica: jamás buscar en Internet citas personales, estado de
     // proyectos del dueño, correferencias ni interacciones sociales cotidianas.
-    if (prediction.primaryIntent == HybridIntentCategory.personalAppointmentOrPlan ||
-        prediction.primaryIntent == HybridIntentCategory.personalProjectOrFact ||
-        prediction.primaryIntent == HybridIntentCategory.contextualCoreference ||
+    if (prediction.primaryIntent ==
+            HybridIntentCategory.personalAppointmentOrPlan ||
+        prediction.primaryIntent ==
+            HybridIntentCategory.personalProjectOrFact ||
+        prediction.primaryIntent ==
+            HybridIntentCategory.contextualCoreference ||
         prediction.primaryIntent == HybridIntentCategory.socialEveryday) {
       return false;
     }
 
-    if (prediction.primaryIntent == HybridIntentCategory.externalCurrentKnowledge ||
-        prediction.activeIntents.contains(HybridIntentCategory.externalCurrentKnowledge)) {
+    if (prediction.primaryIntent ==
+            HybridIntentCategory.externalCurrentKnowledge ||
+        prediction.activeIntents.contains(
+          HybridIntentCategory.externalCurrentKnowledge,
+        )) {
       return true;
     }
 
@@ -122,6 +168,13 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
         (normalized.contains('que') ||
             normalized.contains('quien') ||
             normalized.contains('cuando'))) {
+      return true;
+    }
+
+    if (normalized.startsWith('que sabes ') ||
+        normalized.startsWith('quien fue ') ||
+        normalized.startsWith('cuentame ') ||
+        normalized.startsWith('explicame ')) {
       return true;
     }
 
@@ -161,7 +214,7 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
     final sanitized = sanitizeExternalQuery(clean);
     if (sanitized.isEmpty) return ExternalKnowledgeResult.empty;
 
-    debugPrint('[knowledge-router] buscando info externa: "$sanitized"');
+    debugPrint('[knowledge-router] consulta externa chars=${sanitized.length}');
     return _fetcher.executeCascade(sanitized);
   }
 

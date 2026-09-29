@@ -33,48 +33,140 @@ extension _AutomationRulesActions on _AutomationRulesScreenState {
     if (text.isEmpty) return;
     final parsed = const TriggerParser().parse(text);
     if (parsed == null) {
-      setState(() => _createError =
-          'No entendí el disparo. Prueba «a las 8:30 avísame que es hora», '
-          '«cuando Juan me escriba, respóndele...» o «si dice noche, respóndele...».');
+      setState(
+        () => _createError =
+            'No entendí el disparo. Prueba «a las 8:30 avísame que es hora», '
+            '«cuando Juan me escriba, respóndele...» o «si dice noche, respóndele...».',
+      );
       return;
     }
     final goal = parsed.goal.trim();
+
+    // Mensaje saliente por hora: resolución de TODOS los contactos antes de
+    // persistir y alarma nativa durable (Flutter puede estar cerrado).
+    final scheduledMessage = parsed.trigger is TimeTrigger
+        ? ScheduledMessageCommandParser.parse(goal)
+        : null;
+    if (scheduledMessage != null) {
+      final service = ScheduledWhatsAppMessageService();
+      final recipients = await service.resolveRecipients(
+        scheduledMessage.recipients,
+      );
+      if (!mounted) return;
+      if (recipients == null ||
+          recipients.length != scheduledMessage.recipients.length) {
+        setState(
+          () => _createError =
+              'No pude resolver todos los contactos. Usa nombres completos, '
+              'números con indicativo o encierra cada nombre entre paréntesis.',
+        );
+        return;
+      }
+
+      final registry = ref.read(ruleRegistryProvider);
+      final previousIds = registry.rules.map((rule) => rule.id).toSet();
+      final rule = ref
+          .read(ruleCreatorProvider)
+          .create(
+            trigger: parsed.trigger,
+            action: RuleAction.sendMessage,
+            message: scheduledMessage.message,
+            recipients: recipients,
+          );
+      final scheduled = await service.schedule(rule);
+      if (!mounted) return;
+      if (!scheduled.scheduled) {
+        if (!previousIds.contains(rule.id)) registry.remove(rule.id);
+        setState(() => _createError = scheduled.reason);
+        return;
+      }
+      setState(() {
+        _rules = registry.rules;
+        _createError = null;
+      });
+      _createController.clear();
+      final precision = scheduled.exact ? 'exacta' : 'aproximada por Android';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Mensaje programado para ${recipients.length} contacto(s) '
+            '($precision).',
+          ),
+          action: scheduled.exact
+              ? null
+              : SnackBarAction(
+                  label: 'Permitir exactas',
+                  onPressed: service.openExactAlarmSettings,
+                ),
+        ),
+      );
+      return;
+    }
+
+    if (parsed.trigger is TimeTrigger &&
+        _AutomationRulesScreenState._sendVerbs.hasMatch(goal)) {
+      setState(
+        () => _createError =
+            'Indica destinatario y texto. Ejemplo: '
+            '«a las 6:45 pm mándale un mensaje a Emm: Hola».',
+      );
+      return;
+    }
+
     final String message;
     final RuleAction action;
     var dynamicReply = false;
     if (_AutomationRulesScreenState._replyVerbs.hasMatch(goal)) {
       action = RuleAction.reply;
-      message = goal.replaceFirst(_AutomationRulesScreenState._replyVerbs, '').trim();
+      message = goal
+          .replaceFirst(_AutomationRulesScreenState._replyVerbs, '')
+          .trim();
       dynamicReply = message.isEmpty;
     } else if (_AutomationRulesScreenState._sendVerbs.hasMatch(goal)) {
       action = RuleAction.sendMedia;
-      message = goal.replaceFirst(_AutomationRulesScreenState._sendVerbs, '').trim();
+      message = goal
+          .replaceFirst(_AutomationRulesScreenState._sendVerbs, '')
+          .trim();
     } else {
       action = RuleAction.notify;
-      message = goal.replaceFirst(_AutomationRulesScreenState._notifyVerbs, '').trim();
+      message = goal
+          .replaceFirst(_AutomationRulesScreenState._notifyVerbs, '')
+          .trim();
     }
-    final needsSender = action == RuleAction.reply || action == RuleAction.sendMedia;
+    final needsSender =
+        action == RuleAction.reply || action == RuleAction.sendMedia;
     if (parsed.trigger is TimeTrigger && needsSender) {
-      setState(() => _createError =
-          'Responder y enviar archivos necesitan un remitente: usa un trigger de notificación. Con hora solo puedo avisarte.');
+      setState(
+        () => _createError =
+            'Responder y enviar archivos necesitan un remitente: usa un trigger de notificación. Con hora solo puedo avisarte.',
+      );
       return;
     }
     if (action == RuleAction.sendMedia && _pendingMediaPath == null) {
-      setState(() => _createError = 'Elige un archivo antes de crear la regla de envío.');
+      setState(
+        () =>
+            _createError = 'Elige un archivo antes de crear la regla de envío.',
+      );
       return;
     }
 
     String? mediaPath;
     if (action == RuleAction.sendMedia) {
-      mediaPath = await const WhatsAppMediaShare().copyToCatalog(_pendingMediaPath!);
+      mediaPath = await const WhatsAppMediaShare().copyToCatalog(
+        _pendingMediaPath!,
+      );
       if (mediaPath == null) {
         if (!mounted) return;
-        setState(() => _createError = 'No se pudo copiar el archivo al catálogo.');
+        setState(
+          () => _createError = 'No se pudo copiar el archivo al catálogo.',
+        );
         return;
       }
     }
 
-    final rule = ref.read(ruleCreatorProvider).create(
+    final rule = ref
+        .read(ruleCreatorProvider)
+        .create(
           trigger: parsed.trigger,
           action: action,
           message: message,
@@ -89,7 +181,9 @@ extension _AutomationRulesActions on _AutomationRulesScreenState {
       _pendingMediaName = null;
     });
     _createController.clear();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Regla creada: ${rule.id}')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Regla creada: ${rule.id}')));
   }
 
   Future<void> _pickMedia() async {
@@ -103,19 +197,43 @@ extension _AutomationRulesActions on _AutomationRulesScreenState {
     });
   }
 
-  void _toggle(ScheduledRule rule, bool enabled) {
+  Future<void> _toggle(ScheduledRule rule, bool enabled) async {
+    final scheduledService = ScheduledWhatsAppMessageService();
+    if (rule.action == RuleAction.sendMessage) {
+      if (enabled) {
+        final scheduled = await scheduledService.schedule(
+          rule.copyWith(enabled: true),
+        );
+        if (!mounted) return;
+        if (!scheduled.scheduled) {
+          setState(() => _createError = scheduled.reason);
+          return;
+        }
+      } else {
+        await scheduledService.cancel(rule.id);
+      }
+    }
     ref.read(ruleRegistryProvider).setEnabled(rule.id, enabled);
     setState(() => _rules = ref.read(ruleRegistryProvider).rules);
   }
 
   List<Widget> _buildSections(AutomationVisualPalette visual) {
     final whatsapp = _rules.where(_isMessagingRule).toList();
-    final timed = _rules.where((r) => r.trigger is TimeTrigger && !_isMessagingRule(r)).toList();
-    final others = _rules.where((r) => !_isMessagingRule(r) && r.trigger is! TimeTrigger).toList();
+    final timed = _rules
+        .where((r) => r.trigger is TimeTrigger && !_isMessagingRule(r))
+        .toList();
+    final others = _rules
+        .where((r) => !_isMessagingRule(r) && r.trigger is! TimeTrigger)
+        .toList();
 
     final sections = <Widget>[];
     if (whatsapp.isNotEmpty) {
-      sections.add(const _SectionHeader(title: 'WhatsApp', imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png'));
+      sections.add(
+        const _SectionHeader(
+          title: 'WhatsApp',
+          imageAsset: 'assets/automation/icons/icon_respuestas_wpp.png',
+        ),
+      );
       final byContact = <String, List<ScheduledRule>>{};
       for (final rule in whatsapp) {
         final trigger = rule.trigger as NotificationTrigger;
@@ -129,25 +247,35 @@ extension _AutomationRulesActions on _AutomationRulesScreenState {
       }
     }
     if (timed.isNotEmpty) {
-      sections.add(const _SectionHeader(title: 'Horarios', imageAsset: 'assets/automation/icons/icon_horarios.png'));
+      sections.add(
+        const _SectionHeader(
+          title: 'Horarios',
+          imageAsset: 'assets/automation/icons/icon_horarios.png',
+        ),
+      );
       sections.addAll(timed.map((rule) => _ruleCard(rule)));
     }
     if (others.isNotEmpty) {
-      sections.add(const _SectionHeader(title: 'Otras automatizaciones', imageAsset: 'assets/automation/icons/icon_reglas.png'));
+      sections.add(
+        const _SectionHeader(
+          title: 'Otras automatizaciones',
+          imageAsset: 'assets/automation/icons/icon_reglas.png',
+        ),
+      );
       sections.addAll(others.map((rule) => _ruleCard(rule)));
     }
     return sections;
   }
 
   Widget _ruleCard(ScheduledRule rule) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: _RuleCard(
-          rule: rule,
-          onToggle: (v) => _toggle(rule, v),
-          onDelete: () => _confirmDelete(rule),
-          onEdit: () => _editRule(rule),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 12),
+    child: _RuleCard(
+      rule: rule,
+      onToggle: (v) => _toggle(rule, v),
+      onDelete: () => _confirmDelete(rule),
+      onEdit: () => _editRule(rule),
+    ),
+  );
 
   Future<void> _confirmDelete(ScheduledRule rule) async {
     final visual = AutomationVisual.of(context);
@@ -157,9 +285,14 @@ extension _AutomationRulesActions on _AutomationRulesScreenState {
       builder: (context) => AlertDialog(
         backgroundColor: visual.surface,
         title: const Text('Borrar regla'),
-        content: Text('Se eliminará la regla "${rule.id}". Esta acción no se puede deshacer.'),
+        content: Text(
+          'Se eliminará la regla "${rule.id}". Esta acción no se puede deshacer.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(backgroundColor: danger),
@@ -169,6 +302,10 @@ extension _AutomationRulesActions on _AutomationRulesScreenState {
       ),
     );
     if (confirm == true && mounted) {
+      if (rule.action == RuleAction.sendMessage) {
+        await ScheduledWhatsAppMessageService().cancel(rule.id);
+        if (!mounted) return;
+      }
       ref.read(ruleRegistryProvider).remove(rule.id);
       setState(() => _rules = ref.read(ruleRegistryProvider).rules);
     }
@@ -182,15 +319,34 @@ extension _AutomationRulesActions on _AutomationRulesScreenState {
       builder: (context) => RuleEditSheet(rule: rule),
     );
     if (updated == null || !mounted) return;
+    if (rule.action == RuleAction.sendMessage ||
+        updated.action == RuleAction.sendMessage) {
+      final scheduler = ScheduledWhatsAppMessageService();
+      if (updated.action == RuleAction.sendMessage && updated.enabled) {
+        final scheduled = await scheduler.schedule(updated);
+        if (!mounted) return;
+        if (!scheduled.scheduled) {
+          setState(() => _createError = scheduled.reason);
+          return;
+        }
+      } else if (rule.action == RuleAction.sendMessage) {
+        await scheduler.cancel(rule.id);
+      }
+    }
+    if (!mounted) return;
     ref.read(ruleRegistryProvider).update(rule.id, updated);
     setState(() => _rules = ref.read(ruleRegistryProvider).rules);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Regla actualizada: ${rule.id}')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Regla actualizada: ${rule.id}')));
   }
 
   bool _isMessagingRule(ScheduledRule rule) {
     final trigger = rule.trigger;
     if (trigger is! NotificationTrigger) return false;
     final package = trigger.packageName?.toLowerCase() ?? '';
-    return trigger.senderMatch != null || trigger.textMatch != null || package.contains('whatsapp');
+    return trigger.senderMatch != null ||
+        trigger.textMatch != null ||
+        package.contains('whatsapp');
   }
 }

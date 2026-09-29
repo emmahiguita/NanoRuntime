@@ -42,7 +42,9 @@ final class ConversationMediaSource {
 
   String get displayName {
     final uri = isRemote ? Uri.tryParse(value) : Uri.file(localPath);
-    final segment = uri?.pathSegments.where((part) => part.isNotEmpty).lastOrNull;
+    final segment = uri?.pathSegments
+        .where((part) => part.isNotEmpty)
+        .lastOrNull;
     if (segment == null || segment.isEmpty) return 'Archivo multimedia';
     try {
       return Uri.decodeComponent(segment);

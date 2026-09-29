@@ -11,7 +11,7 @@ class LinuxActionVerifier {
   final IBinExecutor _binExecutor;
 
   const LinuxActionVerifier({required IBinExecutor binExecutor})
-      : _binExecutor = binExecutor;
+    : _binExecutor = binExecutor;
 
   /// Verifica que un archivo existe en el sistema de archivos.
   Future<LinuxVerificationDetail> verifyExists(String path) async {
@@ -47,7 +47,9 @@ class LinuxActionVerifier {
     if (minBytes != null && minBytes > 0) {
       final statRes = await _binExecutor.toybox(['wc', '-c', path]);
       if (statRes.exitCode == 0) {
-        final size = int.tryParse(statRes.stdout.trim().split(RegExp(r'\s+')).first) ?? 0;
+        final size =
+            int.tryParse(statRes.stdout.trim().split(RegExp(r'\s+')).first) ??
+            0;
         if (size < minBytes) {
           return LinuxVerificationDetail.failed(
             'min_size',
@@ -100,7 +102,11 @@ class LinuxActionVerifier {
     final flag = gzip ? '-tzf' : '-tf';
     final res = await _binExecutor.toybox(['tar', flag, archivePath]);
     if (res.exitCode == 0) {
-      final entries = res.stdout.trim().split('\n').where((s) => s.isNotEmpty).length;
+      final entries = res.stdout
+          .trim()
+          .split('\n')
+          .where((s) => s.isNotEmpty)
+          .length;
       return LinuxVerificationDetail.satisfied(
         'archive_valid',
         'Archivo comprimido "$archivePath" válido con $entries entradas verificadas.',

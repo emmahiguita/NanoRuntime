@@ -6,7 +6,12 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.ContactsContract
 import android.provider.Settings
+import android.os.Build
 import androidx.core.content.FileProvider
+import dev.nanoai.mobile.BuildConfig
+import dev.nanoai.mobile.automation.ScheduledWhatsAppAlarmScheduler
+import dev.nanoai.mobile.automation.ScheduledWhatsAppBatch
+import dev.nanoai.mobile.automation.ScheduledWhatsAppRecipient
 import dev.nanoai.mobile.services.AgentAccessibilityBridge
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -19,9 +24,99 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
             "openChat" -> openChat(call, result)
             "copyToCatalog" -> copyToCatalog(call, result)
             "shareFile" -> shareFile(call, result)
+            "scheduleWhatsAppMessage" -> scheduleWhatsAppMessage(call, result)
+            "cancelScheduledWhatsAppMessage" -> cancelScheduledWhatsAppMessage(call, result)
+            "openExactAlarmSettings" -> openExactAlarmSettings(result)
             "isAccessibilityEnabled" -> isAccessibilityEnabled(result)
             "openAccessibilitySettings" -> openAccessibilitySettings(result)
             else -> result.notImplemented()
+        }
+    }
+
+    private fun scheduleWhatsAppMessage(call: MethodCall, result: MethodChannel.Result) {
+        if (BuildConfig.PLAY_STORE_BUILD) {
+            result.error(
+                "unsupported_distribution",
+                "El autoenvío programado solo está disponible en la edición completa.",
+                null,
+            )
+            return
+        }
+        if (AgentAccessibilityBridge.service == null) {
+            result.error(
+                "accessibility_disabled",
+                "Activa el servicio de Accesibilidad de Nano antes de programar envíos.",
+                null,
+            )
+            return
+        }
+        val args = call.arguments as? Map<*, *>
+        val ruleId = args?.get("ruleId")?.toString().orEmpty()
+        val recipients = (args?.get("recipients") as? List<*>)
+            .orEmpty()
+            .mapNotNull { raw ->
+                val map = raw as? Map<*, *> ?: return@mapNotNull null
+                val name = map["name"]?.toString().orEmpty().trim()
+                val number = map["number"]?.toString().orEmpty().filter(Char::isDigit)
+                if (name.isBlank() || number.length < 7) null
+                else ScheduledWhatsAppRecipient(name, number)
+            }
+        val batch = ScheduledWhatsAppBatch(
+            ruleId = ruleId,
+            hour = (args?.get("hour") as? Number)?.toInt() ?: -1,
+            minute = (args?.get("minute") as? Number)?.toInt() ?: -1,
+            weekdays = (args?.get("weekdays") as? List<*>)
+                .orEmpty().mapNotNull { (it as? Number)?.toInt() }.toSet(),
+            timeZoneId = args?.get("timeZoneId")?.toString().orEmpty(),
+            recurring = args?.get("recurring") == true,
+            message = args?.get("message")?.toString().orEmpty().trim(),
+            packageName = args?.get("packageName")?.toString()
+                ?.takeIf(String::isNotBlank) ?: "com.whatsapp",
+            recipients = recipients,
+        )
+        val scheduled = ScheduledWhatsAppAlarmScheduler.schedule(
+            activity.applicationContext,
+            batch,
+        )
+        result.success(
+            mapOf(
+                "ok" to scheduled.ok,
+                "exact" to scheduled.exact,
+                "scheduledAtMs" to scheduled.scheduledAtMs,
+                "reason" to scheduled.reason,
+            ),
+        )
+    }
+
+    private fun cancelScheduledWhatsAppMessage(
+        call: MethodCall,
+        result: MethodChannel.Result,
+    ) {
+        val ruleId = (call.arguments as? Map<*, *>)?.get("ruleId")?.toString().orEmpty()
+        if (ruleId.isNotBlank()) {
+            ScheduledWhatsAppAlarmScheduler.cancel(activity.applicationContext, ruleId)
+        }
+        result.success(null)
+    }
+
+    private fun openExactAlarmSettings(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            result.success(null)
+            return
+        }
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = Uri.parse("package:${activity.packageName}")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(intent)
+            result.success(null)
+        } catch (error: Exception) {
+            result.error(
+                "exact_alarm_settings_failed",
+                "No se pudo abrir el permiso de alarmas exactas: ${error.message}",
+                null,
+            )
         }
     }
 

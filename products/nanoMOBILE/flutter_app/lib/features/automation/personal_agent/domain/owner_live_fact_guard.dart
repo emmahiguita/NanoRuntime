@@ -35,7 +35,8 @@ enum FactualEvidenceLevel {
       this == FactualEvidenceLevel.explicitCurrentState;
 
   /// Los niveles 1, 2 y 3 autorizan afirmar gustos/preferencias o hechos permanentes.
-  bool get canAssertStableFact => rank <= FactualEvidenceLevel.knownStableFact.rank;
+  bool get canAssertStableFact =>
+      rank <= FactualEvidenceLevel.knownStableFact.rank;
 
   /// Clasifica un tipo de memoria persistida según su nivel de evidencia,
   /// degradando conservadoramente cuando el timestamp no es confiable o el TTL expiró.
@@ -88,7 +89,8 @@ bool intentNeedsOwnerLiveFact(Iterable<String> intentNames) =>
 bool requiresOwnerLiveFact({
   required String messageText,
   String detectedIntent = '',
-  FactualEvidenceLevel availableEvidence = FactualEvidenceLevel.contextualHistoricalMemory,
+  FactualEvidenceLevel availableEvidence =
+      FactualEvidenceLevel.contextualHistoricalMemory,
 }) {
   if (availableEvidence.canAssertCurrentOwnerState) return false;
   if (isLiveStateQuestion(messageText)) return true;

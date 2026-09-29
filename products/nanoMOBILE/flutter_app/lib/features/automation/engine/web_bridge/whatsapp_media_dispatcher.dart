@@ -21,9 +21,8 @@ import 'whatsapp_web_bridge_controller.dart';
 final class WhatsAppMediaDispatcher {
   final WhatsAppWebBridgeController _bridge;
 
-  WhatsAppMediaDispatcher({
-    WhatsAppWebBridgeController? bridge,
-  }) : _bridge = bridge ?? whatsAppWebBridgeController;
+  WhatsAppMediaDispatcher({WhatsAppWebBridgeController? bridge})
+    : _bridge = bridge ?? whatsAppWebBridgeController;
 
   /// Estado de disponibilidad del canal multimedia.
   bool get canSendMedia => _bridge.currentSession.isConnected;

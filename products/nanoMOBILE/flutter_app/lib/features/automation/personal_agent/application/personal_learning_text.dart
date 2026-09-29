@@ -38,7 +38,11 @@ String normalizePersonalLearningText(String raw) {
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
   if (base.isEmpty) return '';
-  return base.split(' ').map(_canonicalizeToken).where((t) => t.isNotEmpty).join(' ');
+  return base
+      .split(' ')
+      .map(_canonicalizeToken)
+      .where((t) => t.isNotEmpty)
+      .join(' ');
 }
 
 String _canonicalizeToken(String token) {
@@ -49,7 +53,10 @@ String _canonicalizeToken(String token) {
   // Colapsar vocales repetidas ("holaa" → "hola", "buenaaas" → "buenas", "siii" → "si")
   var out = token.replaceAllMapped(RegExp(r'([aeiou])\1+'), (m) => m.group(1)!);
   // Colapsar consonantes triplicadas ("okkk" → "ok", "bueeennno" → "bueno")
-  out = out.replaceAllMapped(RegExp(r'([b-df-hj-np-tv-z])\1{2,}'), (m) => m.group(1)!);
+  out = out.replaceAllMapped(
+    RegExp(r'([b-df-hj-np-tv-z])\1{2,}'),
+    (m) => m.group(1)!,
+  );
   // Colapsar consonantes dobles al final de palabra ("holisss"/"okisss"/"biennn" → "bien")
   if (token == 'app' || out == 'ap') return 'app';
   if (out == 'holi' || out == 'holis' || out == 'holas' || out == 'ola') {

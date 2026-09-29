@@ -28,7 +28,8 @@ class WhatsAppContactCard extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<WhatsAppContactCard> createState() => _WhatsAppContactCardState();
+  ConsumerState<WhatsAppContactCard> createState() =>
+      _WhatsAppContactCardState();
 }
 
 class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
@@ -44,21 +45,23 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
   @override
   Widget build(BuildContext context) {
     final contact = widget.contact;
-    final initial = contact.name.trim().isNotEmpty ? contact.name.trim()[0].toUpperCase() : '?';
-    final gradient = _gradients[contact.name.hashCode.abs() % _gradients.length];
+    final initial = contact.name.trim().isNotEmpty
+        ? contact.name.trim()[0].toUpperCase()
+        : '?';
+    final gradient =
+        _gradients[contact.name.hashCode.abs() % _gradients.length];
 
     final targetMode = ref.watch(settingsProvider).waTargetContactsMode;
     final ownershipStore = ref.watch(conversationOwnershipStoreProvider);
     final keyId = contact.jid.isNotEmpty ? contact.jid : contact.number;
-    final ownership = ownershipStore.ownershipFor(keyId) ??
-        (contact.number.isNotEmpty ? ownershipStore.ownershipFor(contact.number) : null) ??
-        (contact.name.isNotEmpty ? ownershipStore.ownershipFor(contact.name) : null);
+    final ownership =
+        ownershipStore.ownershipFor(keyId) ??
+        (contact.number.isNotEmpty
+            ? ownershipStore.ownershipFor(contact.number)
+            : null);
 
-    final isEmm = contact.name.toLowerCase().contains('emm') ||
-        contact.name.toLowerCase().contains('emma');
     final bool isBotActive = targetMode == 'selected'
-        ? (ownership?.owner == ConversationOwner.bot ||
-            (ownership?.owner != ConversationOwner.human && isEmm))
+        ? ownership?.owner == ConversationOwner.bot
         : !(ownership?.humanOwns ?? false);
 
     return GestureDetector(
@@ -91,7 +94,14 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: gradient[0],
-                child: Text(initial, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -103,7 +113,11 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
                         Flexible(
                           child: Text(
                             contact.name,
-                            style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -111,20 +125,40 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
                         const SizedBox(width: 6),
                         if (contact.isBusiness)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF00A884).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFF00A884).withValues(alpha: 0.5), width: 0.6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
                             ),
-                            child: const Text('Business', style: TextStyle(color: Color(0xFF00A884), fontSize: 8.5, fontWeight: FontWeight.w700)),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF00A884,
+                              ).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: const Color(
+                                  0xFF00A884,
+                                ).withValues(alpha: 0.5),
+                                width: 0.6,
+                              ),
+                            ),
+                            child: const Text(
+                              'Business',
+                              style: TextStyle(
+                                color: Color(0xFF00A884),
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 2),
                     Text(
                       contact.number.isNotEmpty ? contact.number : contact.jid,
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11.5),
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 11.5,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -135,40 +169,53 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
               InkWell(
                 borderRadius: BorderRadius.circular(10),
                 onTap: () async {
-                  final newOwner = isBotActive ? ConversationOwner.human : ConversationOwner.bot;
+                  final newOwner = isBotActive
+                      ? ConversationOwner.human
+                      : ConversationOwner.bot;
                   if (contact.jid.isNotEmpty) {
                     await ownershipStore.setOwner(contact.jid, newOwner);
                   }
-                  if (contact.number.isNotEmpty && contact.number != contact.jid) {
+                  if (contact.number.isNotEmpty &&
+                      contact.number != contact.jid) {
                     await ownershipStore.setOwner(contact.number, newOwner);
-                  }
-                  if (contact.name.isNotEmpty) {
-                    await ownershipStore.setOwner(contact.name, newOwner);
                   }
                   if (mounted) setState(() {});
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
-                    color: isBotActive ? const Color(0xFF25D366).withValues(alpha: 0.16) : Colors.white.withValues(alpha: 0.06),
+                    color: isBotActive
+                        ? const Color(0xFF25D366).withValues(alpha: 0.16)
+                        : Colors.white.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isBotActive ? const Color(0xFF25D366).withValues(alpha: 0.45) : Colors.white.withValues(alpha: 0.18),
+                      color: isBotActive
+                          ? const Color(0xFF25D366).withValues(alpha: 0.45)
+                          : Colors.white.withValues(alpha: 0.18),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isBotActive ? Icons.smart_toy_rounded : Icons.pause_circle_outline_rounded,
+                        isBotActive
+                            ? Icons.smart_toy_rounded
+                            : Icons.pause_circle_outline_rounded,
                         size: 14,
-                        color: isBotActive ? const Color(0xFF25D366) : Colors.white54,
+                        color: isBotActive
+                            ? const Color(0xFF25D366)
+                            : Colors.white54,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         isBotActive ? 'Activo' : 'Pausado',
                         style: TextStyle(
-                          color: isBotActive ? const Color(0xFF25D366) : Colors.white60,
+                          color: isBotActive
+                              ? const Color(0xFF25D366)
+                              : Colors.white60,
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
                         ),

@@ -18,20 +18,21 @@ class LinuxAutomationMcpClient implements McpClientPort {
   LinuxAutomationMcpClient({
     required ILinuxAutomationExecutor executor,
     SemanticLinuxToolHandler? toolHandler,
-  })  : _executor = executor,
-        _toolHandler = toolHandler ?? SemanticLinuxToolHandler(executor: executor);
+  }) : _executor = executor,
+       _toolHandler =
+           toolHandler ?? SemanticLinuxToolHandler(executor: executor);
 
   @override
   McpServerDescriptor get descriptor => const McpServerDescriptor(
-        id: serverId,
-        displayName: 'Nano Linux Automation Engine',
-        transport: McpTransportKind.stdio,
-        metadata: {
-          'version': '1.0.0',
-          'engine': 'Nanoshell',
-          'runtime': 'Rootfs Linux',
-        },
-      );
+    id: serverId,
+    displayName: 'Nano Linux Automation Engine',
+    transport: McpTransportKind.stdio,
+    metadata: {
+      'version': '1.0.0',
+      'engine': 'Nanoshell',
+      'runtime': 'Rootfs Linux',
+    },
+  );
 
   @override
   McpConnectionState get state => _state;
@@ -80,7 +81,10 @@ class LinuxAutomationMcpClient implements McpClientPort {
           },
           'required': ['path'],
         },
-        annotations: McpToolAnnotations(readOnlyHint: true, idempotentHint: true),
+        annotations: McpToolAnnotations(
+          readOnlyHint: true,
+          idempotentHint: true,
+        ),
       ),
       McpRemoteTool(
         serverId: serverId,
@@ -94,17 +98,24 @@ class LinuxAutomationMcpClient implements McpClientPort {
           },
           'required': ['path'],
         },
-        annotations: McpToolAnnotations(readOnlyHint: true, idempotentHint: true),
+        annotations: McpToolAnnotations(
+          readOnlyHint: true,
+          idempotentHint: true,
+        ),
       ),
       McpRemoteTool(
         serverId: serverId,
         name: 'nano.linux.fs.write',
-        description: 'Escribe contenido en un archivo verificando su persistencia en disco.',
+        description:
+            'Escribe contenido en un archivo verificando su persistencia en disco.',
         inputSchema: {
           'type': 'object',
           'properties': {
             'path': {'type': 'string', 'description': 'Ruta del archivo'},
-            'content': {'type': 'string', 'description': 'Contenido a escribir'},
+            'content': {
+              'type': 'string',
+              'description': 'Contenido a escribir',
+            },
           },
           'required': ['path', 'content'],
         },
@@ -118,7 +129,10 @@ class LinuxAutomationMcpClient implements McpClientPort {
           'type': 'object',
           'properties': {
             'sourcePath': {'type': 'string', 'description': 'Ruta de origen'},
-            'tarPath': {'type': 'string', 'description': 'Ruta de destino tar.gz'},
+            'tarPath': {
+              'type': 'string',
+              'description': 'Ruta de destino tar.gz',
+            },
             'gzip': {'type': 'boolean', 'default': true},
           },
           'required': ['sourcePath', 'tarPath'],
@@ -135,14 +149,20 @@ class LinuxAutomationMcpClient implements McpClientPort {
             'repoPath': {'type': 'string', 'default': '.'},
           },
         },
-        annotations: McpToolAnnotations(readOnlyHint: true, idempotentHint: true),
+        annotations: McpToolAnnotations(
+          readOnlyHint: true,
+          idempotentHint: true,
+        ),
       ),
       McpRemoteTool(
         serverId: serverId,
         name: 'nano.linux.process.list',
         description: 'Lista los procesos actualmente en ejecución en Linux.',
         inputSchema: {'type': 'object'},
-        annotations: McpToolAnnotations(readOnlyHint: true, idempotentHint: true),
+        annotations: McpToolAnnotations(
+          readOnlyHint: true,
+          idempotentHint: true,
+        ),
       ),
     ];
   }
@@ -162,7 +182,9 @@ class LinuxAutomationMcpClient implements McpClientPort {
       final isSuccess = resultText.startsWith('SUCCESS');
 
       return McpToolCallResult(
-        status: isSuccess ? McpOperationStatus.success : McpOperationStatus.failed,
+        status: isSuccess
+            ? McpOperationStatus.success
+            : McpOperationStatus.failed,
         message: resultText,
         structuredContent: {'result': resultText},
         content: [McpContentItem(type: 'text', text: resultText)],

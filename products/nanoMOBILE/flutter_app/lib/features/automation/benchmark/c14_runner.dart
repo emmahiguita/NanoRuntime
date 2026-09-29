@@ -110,12 +110,13 @@ Future<C14RunResult> runC14Benchmark(
   var modelLoaded = await engineNotifier.client.hasModel();
 
   if (!runtimeAlive && requiresLlm) {
-    final candidateModel = engine.modelPath ??
+    final candidateModel =
+        engine.modelPath ??
         (settings.automationModelPath.isNotEmpty
             ? settings.automationModelPath
             : (settings.chatModelPath.isNotEmpty
-                ? settings.chatModelPath
-                : '/storage/emulated/0/NanoAI/qwen2.5-1.5b-instruct-q8_0-v2.gguf'));
+                  ? settings.chatModelPath
+                  : '/storage/emulated/0/NanoAI/qwen2.5-1.5b-instruct-q8_0-v2.gguf'));
     try {
       await engineNotifier.start(modelPath: candidateModel);
     } catch (_) {}

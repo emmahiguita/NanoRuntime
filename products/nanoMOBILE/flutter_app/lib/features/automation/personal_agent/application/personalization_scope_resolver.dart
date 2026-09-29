@@ -30,9 +30,8 @@ final class CanonicalPersonalizationScopeResolver
     implements PersonalizationScopeResolver {
   final PersonaRepository? _repository;
 
-  const CanonicalPersonalizationScopeResolver({
-    PersonaRepository? repository,
-  }) : _repository = repository;
+  const CanonicalPersonalizationScopeResolver({PersonaRepository? repository})
+    : _repository = repository;
 
   PersonaRepository get _repo => _repository ?? PersonaRepository.instance;
 
@@ -62,7 +61,8 @@ final class CanonicalPersonalizationScopeResolver
           final facts = r.facts;
           final matchWa = facts['whatsapp']?.trim() == cleanSender;
           final matchJid = facts['jid']?.trim().toLowerCase() == senderLower;
-          final matchKey = r.relationshipKey.toLowerCase() == senderLower ||
+          final matchKey =
+              r.relationshipKey.toLowerCase() == senderLower ||
               r.relationshipKey == 'unbound:wa_$cleanSender';
           final matchConv = facts['conversationId']?.trim() == cleanConv;
 

@@ -66,14 +66,18 @@ class C14Preflight {
         ok: effectiveRuntime,
         detail: runtimeAlive
             ? 'engine /health OK'
-            : (requiresLlm ? 'engine muerto o no respondió' : 'catálogo determinista OK'),
+            : (requiresLlm
+                  ? 'engine muerto o no respondió'
+                  : 'catálogo determinista OK'),
       ),
       PreflightCheck(
         name: 'Modelo cargado',
         ok: effectiveModel,
         detail: modelLoaded
             ? 'GGUF cargado'
-            : (requiresLlm ? 'sin modelo (degraded / no GGUF)' : 'suite determinista nativa'),
+            : (requiresLlm
+                  ? 'sin modelo (degraded / no GGUF)'
+                  : 'suite determinista nativa'),
       ),
       PreflightCheck(
         name: 'Accesibilidad activa',

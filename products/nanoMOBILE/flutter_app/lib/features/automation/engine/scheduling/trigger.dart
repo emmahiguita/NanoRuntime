@@ -22,10 +22,20 @@ class TimeTrigger extends Trigger {
   /// 1=lun .. 7=dom. Vacío = todos los días.
   final Set<int> weekdays;
 
+  /// Zona IANA usada por el scheduler nativo. Vacía = zona del dispositivo.
+  final String timeZoneId;
+
+  /// `true` para reglas recurrentes. `false` representa la próxima ocurrencia
+  /// de la hora indicada (una sola vez). Las reglas antiguas siguen siendo
+  /// recurrentes al deserializarse para preservar compatibilidad.
+  final bool recurring;
+
   const TimeTrigger({
     required this.hour,
     required this.minute,
     this.weekdays = const {},
+    this.timeZoneId = '',
+    this.recurring = true,
   });
 }
 
@@ -167,6 +177,8 @@ Map<String, dynamic> triggerToJson(Trigger t) => switch (t) {
     'hour': t.hour,
     'minute': t.minute,
     'weekdays': t.weekdays.toList(),
+    'timeZoneId': t.timeZoneId,
+    'recurring': t.recurring,
   },
   NotificationTrigger() => {
     'type': 'notification',
@@ -188,6 +200,9 @@ Trigger triggerFromJson(Map<String, dynamic> m) {
         hour: (m['hour'] as num).toInt(),
         minute: (m['minute'] as num).toInt(),
         weekdays: Set<int>.from((m['weekdays'] as List?) ?? const []),
+        timeZoneId: (m['timeZoneId'] as String?) ?? '',
+        // Las reglas v1 eran diarias aunque no guardaran este campo.
+        recurring: m['recurring'] != false,
       );
     case 'notification':
       return NotificationTrigger(

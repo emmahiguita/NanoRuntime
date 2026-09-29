@@ -41,8 +41,17 @@ final class SemanticOutputGate {
   const SemanticOutputGate();
 
   static const _externalFactKeywords = {
-    'segun vi', 'censo', 'habitantes', 'capital de', 'ciudad brasilena', 'brasilena',
-    'poblacion', 'wikipedia', 'noticia oficial', 'dolar cotiza', 'bitcoin cotiza',
+    'segun vi',
+    'censo',
+    'habitantes',
+    'capital de',
+    'ciudad brasilena',
+    'brasilena',
+    'poblacion',
+    'wikipedia',
+    'noticia oficial',
+    'dolar cotiza',
+    'bitcoin cotiza',
   };
 
   /// Valida la relevancia semántica del [candidateReply] frente al [userText] y [act].
@@ -56,18 +65,21 @@ final class SemanticOutputGate {
 
     // 1. Barrera para reacciones positivas/afectivas ("me alegra", "qué bueno")
     if (act == DialogueAct.positiveReaction) {
-      final hasExternalLeak = _externalFactKeywords.any(normReply.contains) ||
+      final hasExternalLeak =
+          _externalFactKeywords.any(normReply.contains) ||
           normReply.contains('segun vi') ||
           normReply.contains('porto alegre');
       if (hasExternalLeak) {
         return const SemanticValidationResult(
           isApproved: false,
           relevanceScore: 0.0,
-          rejectionReason: 'Fuga de conocimiento externo en turno de reacción positiva',
+          rejectionReason:
+              'Fuga de conocimiento externo en turno de reacción positiva',
           safeFallbackReply: '¡Total parce! Todo bien por acá.',
         );
       }
-      if (normReply.contains('en que puedo') || normReply.contains('puedo colaborar')) {
+      if (normReply.contains('en que puedo') ||
+          normReply.contains('puedo colaborar')) {
         return const SemanticValidationResult(
           isApproved: false,
           relevanceScore: 0.1,
@@ -78,7 +90,8 @@ final class SemanticOutputGate {
     }
 
     // 2. Barrera para agradecimientos o despedidas
-    if (act == DialogueAct.gratitude && _externalFactKeywords.any(normReply.contains)) {
+    if (act == DialogueAct.gratitude &&
+        _externalFactKeywords.any(normReply.contains)) {
       return const SemanticValidationResult(
         isApproved: false,
         relevanceScore: 0.0,
@@ -98,12 +111,14 @@ final class SemanticOutputGate {
 
     // 3. Barrera para correcciones del usuario ("eso no lo pregunté yo")
     if (act == DialogueAct.correction) {
-      if (candidateReply.contains('?') && (normReply.contains('y tu') || normReply.contains('como vas'))) {
+      if (candidateReply.contains('?') &&
+          (normReply.contains('y tu') || normReply.contains('como vas'))) {
         return const SemanticValidationResult(
           isApproved: false,
           relevanceScore: 0.1,
           rejectionReason: 'Rebote genérico en turno de corrección',
-          safeFallbackReply: '¡Uy, qué pena! Me enredé ahí. Cuéntame, ¿qué era lo que me decías?',
+          safeFallbackReply:
+              '¡Uy, qué pena! Me enredé ahí. Cuéntame, ¿qué era lo que me decías?',
         );
       }
     }

@@ -35,9 +35,10 @@ class ReverseAgentClient {
   const ReverseAgentClient({
     this.baseUrl = 'http://127.0.0.1:8800',
     HttpClient Function()? clientFactory,
-    MobileBridgeProcessSupervisor supervisor = const MobileBridgeProcessSupervisor(),
-  })  : _clientFactory = clientFactory,
-        _supervisor = supervisor;
+    MobileBridgeProcessSupervisor supervisor =
+        const MobileBridgeProcessSupervisor(),
+  }) : _clientFactory = clientFactory,
+       _supervisor = supervisor;
 
   HttpClient _createClient() {
     final factory = _clientFactory;
@@ -82,7 +83,9 @@ class ReverseAgentClient {
     final client = _createClient();
     try {
       final uri = Uri.parse('$baseUrl/api/prompt');
-      final req = await client.postUrl(uri).timeout(const Duration(seconds: 10));
+      final req = await client
+          .postUrl(uri)
+          .timeout(const Duration(seconds: 10));
       req.headers.contentType = ContentType.json;
 
       final payload = jsonEncode({
@@ -102,7 +105,8 @@ class ReverseAgentClient {
       }
 
       final errorJson = jsonDecode(body) as Map<String, dynamic>?;
-      final errorMsg = errorJson?['error'] as String? ?? 'HTTP ${res.statusCode}';
+      final errorMsg =
+          errorJson?['error'] as String? ?? 'HTTP ${res.statusCode}';
       return ReverseAgentResponse.failure(provider, errorMsg);
     } on TimeoutException {
       return ReverseAgentResponse.failure(

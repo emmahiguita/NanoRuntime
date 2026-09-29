@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import '../../../../browser_ai/application/browser_ai_gateway.dart';
 import '../../../../browser_ai/domain/browser_ai_query.dart';
 import '../tool_call.dart';
@@ -61,12 +61,15 @@ class BrowserAiToolAdapter {
       feedback: opened
           ? 'Pestaña de $provider abierta en el navegador para inicio de sesión o inspección.'
           : 'No se pudo abrir la pestaña para el proveedor "$provider".',
-      executionStatus: opened ? ToolExecutionStatus.completed : ToolExecutionStatus.failed,
+      executionStatus: opened
+          ? ToolExecutionStatus.completed
+          : ToolExecutionStatus.failed,
     );
   }
 
   Future<ToolOutcome> _handleAsk(ToolCall call) async {
-    final prompt = call.args?['prompt']?.toString() ??
+    final prompt =
+        call.args?['prompt']?.toString() ??
         call.textArg ??
         call.args?['query']?.toString() ??
         '';
@@ -74,7 +77,8 @@ class BrowserAiToolAdapter {
     if (prompt.trim().isEmpty) {
       return const ToolOutcome(
         verdict: PolicyVerdict.denied,
-        feedback: '[browser.ai.ask] El argumento "prompt" no puede estar vacío.',
+        feedback:
+            '[browser.ai.ask] El argumento "prompt" no puede estar vacío.',
         executionStatus: ToolExecutionStatus.failed,
       );
     }
@@ -131,7 +135,8 @@ class BrowserAiToolAdapter {
 
     return ToolOutcome(
       verdict: PolicyVerdict.allow,
-      feedback: 'Estado de sesión para $provider: ${item['hasTab'] == true ? "Activa" : "Inactiva"} (Login: ${item['isLoggedIn']}).',
+      feedback:
+          'Estado de sesión para $provider: ${item['hasTab'] == true ? "Activa" : "Inactiva"} (Login: ${item['isLoggedIn']}).',
       executionStatus: ToolExecutionStatus.completed,
     );
   }

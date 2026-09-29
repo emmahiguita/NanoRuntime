@@ -50,7 +50,10 @@ final class PersonalStyleConstraints {
   /// Líneas concisas para inyectar en el bloque de contexto del prompt
   String toPromptInstruction() {
     final avoidJoined = avoidExpressions.take(6).map((e) => '"$e"').join(', ');
-    final prefJoined = preferredExpressions.take(8).map((e) => '"$e"').join(', ');
+    final prefJoined = preferredExpressions
+        .take(8)
+        .map((e) => '"$e"')
+        .join(', ');
     return 'Restricciones de estilo del dueño:\n'
         '- Máximo $maxTypicalSentences frases cortas y directas, sin rodeos.\n'
         '- Respuestas cortas ($preferredAnswerLength) y naturales.\n'

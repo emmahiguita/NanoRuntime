@@ -99,18 +99,22 @@ class NanoBusinessCatalogTab extends ConsumerWidget {
               final stockLabel = p.stock != null
                   ? (p.stock! > 0 ? '${p.stock} en stock' : 'Agotado')
                   : 'Stock flexible';
-              final detailLabel =
-                  p.details.trim().isNotEmpty ? ' · ${p.details.trim()}' : '';
+              final detailLabel = p.details.trim().isNotEmpty
+                  ? ' · ${p.details.trim()}'
+                  : '';
               final categoryLabel =
                   p.category != null && p.category!.trim().isNotEmpty
-                      ? ' [${p.category!.trim()}]'
-                      : '';
-              final skuLabel =
-                  p.sku != null && p.sku!.trim().isNotEmpty ? ' · SKU: ${p.sku!.trim()}' : '';
+                  ? ' [${p.category!.trim()}]'
+                  : '';
+              final skuLabel = p.sku != null && p.sku!.trim().isNotEmpty
+                  ? ' · SKU: ${p.sku!.trim()}'
+                  : '';
               final statusPrefix = !p.isAvailable ? '⛔ (Pausado) ' : '';
 
               return SettingsRow(
-                icon: p.isAvailable ? Icons.sell_outlined : Icons.pause_circle_outline_rounded,
+                icon: p.isAvailable
+                    ? Icons.sell_outlined
+                    : Icons.pause_circle_outline_rounded,
                 title: '$statusPrefix${p.name}$categoryLabel',
                 subtitle: '${p.priceLabel} · $stockLabel$skuLabel$detailLabel',
                 trailing: IconButton(
@@ -169,7 +173,10 @@ class NanoBusinessCatalogTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildConnectButton(BuildContext context, AutomationVisualPalette visual) {
+  Widget _buildConnectButton(
+    BuildContext context,
+    AutomationVisualPalette visual,
+  ) {
     return OutlinedButton.icon(
       onPressed: () => BusinessConnectorsSheet.show(context),
       icon: const Icon(Icons.hub_rounded, size: 16),

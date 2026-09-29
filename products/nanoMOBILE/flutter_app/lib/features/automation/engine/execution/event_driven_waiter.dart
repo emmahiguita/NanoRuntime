@@ -50,10 +50,8 @@ class EventWaitResult {
   });
 
   /// Constructor para timeout o ausencia de evento.
-  factory EventWaitResult.timedOut() => const EventWaitResult(
-        detected: false,
-        timeout: true,
-      );
+  factory EventWaitResult.timedOut() =>
+      const EventWaitResult(detected: false, timeout: true);
 
   /// Constructor a partir del mapa nativo devuelto por MethodChannel.
   factory EventWaitResult.fromMap(Map<dynamic, dynamic>? map) {
@@ -72,7 +70,7 @@ class EventWaitResult {
 /// Mecanismo de espera reactivo ante transiciones de ventana y UI.
 class EventDrivenWaiter {
   EventDrivenWaiter({MethodChannel? channel})
-      : _channel = channel ?? const MethodChannel('com.nanoai/agent');
+    : _channel = channel ?? const MethodChannel('com.nanoai/agent');
 
   final MethodChannel _channel;
 
@@ -87,16 +85,14 @@ class EventDrivenWaiter {
     Duration timeout = const Duration(milliseconds: 2000),
   }) async {
     try {
-      final res = await _channel.invokeMapMethod<dynamic, dynamic>(
-        'waitForWindowEvent',
-        {
-          if (expectedPackage != null && expectedPackage.isNotEmpty)
-            'expectedPackage': expectedPackage,
-          if (eventTypes != null && eventTypes.isNotEmpty)
-            'eventTypes': eventTypes,
-          'timeoutMs': timeout.inMilliseconds,
-        },
-      );
+      final res = await _channel
+          .invokeMapMethod<dynamic, dynamic>('waitForWindowEvent', {
+            if (expectedPackage != null && expectedPackage.isNotEmpty)
+              'expectedPackage': expectedPackage,
+            if (eventTypes != null && eventTypes.isNotEmpty)
+              'eventTypes': eventTypes,
+            'timeoutMs': timeout.inMilliseconds,
+          });
       return EventWaitResult.fromMap(res);
     } on PlatformException {
       return EventWaitResult.timedOut();

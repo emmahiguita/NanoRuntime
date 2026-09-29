@@ -82,23 +82,97 @@ void main() {
       expect(result.text.contains('Pillá') || result.text.contains('vi') || result.text.contains('mirando'), isTrue);
       expect(result.decision.disposition, ConversationDisposition.autoSend);
     });
+
+    test('ConversationReplyComposer consulta ChatGPT/MCP si falla el borrador local', () async {
+      final mockKnowledgeRouter = _MockKnowledgeRouter(
+        facts: 'El cielo se ve rojizo porque la luz azul se dispersa más.',
+        source: 'mcp_chatgpt_answer',
+        useExternalKnowledgeGate: false,
+      );
+      final composer = RuntimeConversationReplyComposer(
+        draftSource: (n) async => null,
+        knowledgeRouter: mockKnowledgeRouter,
+        decisionContext: (n) => const ConversationDecisionContext(
+          agentRole: ConversationAgentRole.personal,
+          autonomyMode: ConversationAutonomyMode.safeAuto,
+          identityConfidence: 1.0,
+        ),
+      );
+
+      final result = await composer.compose(_createNotification(
+        text: 'Explícame por qué el cielo cambia de color al atardecer.',
+      ));
+
+      expect(mockKnowledgeRouter.lastQuery, contains('ChatGPT'));
+      expect(mockKnowledgeRouter.lastQuery, contains('Mensaje actual:'));
+      expect(result, isNotNull);
+      expect(result!.text, mockKnowledgeRouter.facts);
+      expect(result.decision.disposition, ConversationDisposition.autoSend);
+    });
+
+    test('un saludo natural como "hola prueba" responde sin esperar IA local', () async {
+      var draftCalls = 0;
+      final composer = RuntimeConversationReplyComposer(
+        draftSource: (n) async {
+          draftCalls++;
+          return null;
+        },
+      );
+
+      final result = await composer.compose(
+        _createNotification(text: 'hola prueba'),
+      );
+
+      expect(result, isNotNull);
+      expect(result!.isFastPath, isTrue);
+      expect(result.text, isNotEmpty);
+      expect(draftCalls, 0);
+    });
+
+    test('el fallback conversacional no envía un resultado web como respuesta de IA', () async {
+      final mockKnowledgeRouter = _MockKnowledgeRouter(
+        facts: 'resultado crudo de buscador',
+        source: 'web_search',
+        useExternalKnowledgeGate: false,
+      );
+      final composer = RuntimeConversationReplyComposer(
+        draftSource: (n) async => null,
+        knowledgeRouter: mockKnowledgeRouter,
+      );
+
+      final result = await composer.compose(
+        _createNotification(text: 'Explícame un tema que no conozco.'),
+      );
+
+      expect(mockKnowledgeRouter.lastQuery, contains('ChatGPT'));
+      expect(result, isNull);
+    });
   });
 }
 
 final class _MockKnowledgeRouter implements TurnKnowledgeRouter {
   final String facts;
-  _MockKnowledgeRouter({required this.facts});
+  final String source;
+  final bool useExternalKnowledgeGate;
+  String? lastQuery;
+
+  _MockKnowledgeRouter({
+    required this.facts,
+    this.source = 'mock_provider',
+    this.useExternalKnowledgeGate = true,
+  });
 
   @override
   bool needsExternalKnowledge(String text) =>
-      text.toLowerCase().contains('android 17');
+      useExternalKnowledgeGate && text.toLowerCase().contains('android 17');
 
   @override
   Future<ExternalKnowledgeResult> fetchKnowledge(String text) async {
+    lastQuery = text;
     return ExternalKnowledgeResult(
       query: text,
       rawKnowledge: facts,
-      source: 'mock_provider',
+      source: source,
     );
   }
 

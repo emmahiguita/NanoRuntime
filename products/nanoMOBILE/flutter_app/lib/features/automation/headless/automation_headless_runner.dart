@@ -94,9 +94,7 @@ Future<void> runAutomationHeadless() async {
       final notifications = [
         for (final row in rows)
           ...NotificationObject.eventsFromMap(
-            (row['notification'] is Map)
-                ? (row['notification'] as Map)
-                : row,
+            (row['notification'] is Map) ? (row['notification'] as Map) : row,
           ),
       ];
       if (notifications.isNotEmpty) {

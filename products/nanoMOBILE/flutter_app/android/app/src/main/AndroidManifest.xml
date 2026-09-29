@@ -12,6 +12,7 @@
          notificaciones de la app (POST_NOTIFICATION=ignore) y el usuario ve
          "no permitir". Necesario para avisos locales del agente (T3 notify). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <!-- Acceso a medios compartidos (Android 13+, runtime grant) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
@@ -156,6 +157,20 @@
             android:name=".channels.AutomationConfirmationActionReceiver"
             android:enabled="true"
             android:exported="false" />
+        <receiver
+            android:name=".automation.ScheduledWhatsAppAlarmReceiver"
+            android:enabled="true"
+            android:exported="false" />
+        <receiver
+            android:name=".automation.ScheduledWhatsAppBootReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

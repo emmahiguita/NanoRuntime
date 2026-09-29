@@ -93,10 +93,7 @@ class _RuleCreatorCard extends StatelessWidget {
           ],
           if (error != null) ...[
             const SizedBox(height: 6),
-            Text(
-              error!,
-              style: TextStyle(color: colors.danger, fontSize: 12),
-            ),
+            Text(error!, style: TextStyle(color: colors.danger, fontSize: 12)),
           ],
           const SizedBox(height: 10),
           Row(
@@ -138,7 +135,10 @@ class _RuleCreatorCard extends StatelessWidget {
                   backgroundColor: visual.accent,
                   foregroundColor: Colors.white,
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),

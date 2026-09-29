@@ -32,7 +32,10 @@ final class DialogueActClassifier {
     final secondary = <DialogueAct>{};
 
     // 1. Solicitud de reparación o duda estricta ("?", "¿cómo?")
-    if (norm == '?' || norm == '¿?' || norm == '??' || _matchesExactOrPrefix(norm, kRepairPhrases)) {
+    if (norm == '?' ||
+        norm == '¿?' ||
+        norm == '??' ||
+        _matchesExactOrPrefix(norm, kRepairPhrases)) {
       return DialogueActClassification(
         primaryAct: DialogueAct.repairRequest,
         confidence: 0.95,
@@ -42,7 +45,9 @@ final class DialogueActClassifier {
 
     // 2. Corrección explícita de contexto ("eso no lo pregunté yo", "no pregunté eso")
     if (_matchesAny(norm, kCorrectionPhrases) ||
-        (tokens.firstOrNull == 'no' && tokens.length > 1 && norm.contains('decia'))) {
+        (tokens.firstOrNull == 'no' &&
+            tokens.length > 1 &&
+            norm.contains('decia'))) {
       return DialogueActClassification(
         primaryAct: DialogueAct.correction,
         confidence: 0.95,
@@ -89,7 +94,10 @@ final class DialogueActClassifier {
     }
 
     // 7. Continuación o reciprocidad ("y tú?", "y vos?")
-    if ((norm.contains('y tu') || norm.contains('y vos') || norm.contains('que tal tu') || norm.contains('y usted')) &&
+    if ((norm.contains('y tu') ||
+            norm.contains('y vos') ||
+            norm.contains('que tal tu') ||
+            norm.contains('y usted')) &&
         norm.length <= 25) {
       return DialogueActClassification(
         primaryAct: DialogueAct.continuation,
@@ -151,7 +159,10 @@ final class DialogueActClassifier {
       phrases.any((p) => norm == p || norm.startsWith('$p '));
 
   static bool _isPositiveReaction(String norm, Set<String> tokens) {
-    if (norm == 'me alegra' || norm == 'me alegro' || norm.startsWith('me alegra') || norm.startsWith('me alegro')) {
+    if (norm == 'me alegra' ||
+        norm == 'me alegro' ||
+        norm.startsWith('me alegra') ||
+        norm.startsWith('me alegro')) {
       return true;
     }
     return kPositiveReactionPhrases.any(norm.contains);
@@ -160,15 +171,36 @@ final class DialogueActClassifier {
   static bool _isGreeting(String norm, Set<String> tokens) {
     if (tokens.isEmpty) return false;
     const explicitGreetingWords = {
-      'hola', 'holas', 'buenas', 'buenos', 'hey', 'oe', 'saludos', 'ola', 'quiubo',
+      'hola',
+      'holas',
+      'buenas',
+      'buenos',
+      'hey',
+      'oe',
+      'saludos',
+      'ola',
+      'quiubo',
     };
-    return tokens.take(2).any(explicitGreetingWords.contains) || kGreetingPhrases.any(norm.startsWith);
+    return tokens.take(2).any(explicitGreetingWords.contains) ||
+        kGreetingPhrases.any(norm.startsWith);
   }
 
   static bool _isInterrogativeSentence(String norm, Set<String> tokens) {
     const questionStarters = {
-      'cuanto', 'cuanta', 'cuantos', 'cuantas', 'como', 'donde', 'cuando', 'quien',
-      'quienes', 'que', 'cual', 'cuales', 'por que', 'porque',
+      'cuanto',
+      'cuanta',
+      'cuantos',
+      'cuantas',
+      'como',
+      'donde',
+      'cuando',
+      'quien',
+      'quienes',
+      'que',
+      'cual',
+      'cuales',
+      'por que',
+      'porque',
     };
     final first = tokens.firstOrNull;
     return first != null && questionStarters.contains(first);
@@ -176,9 +208,26 @@ final class DialogueActClassifier {
 
   static bool _isAcknowledgement(String norm, Set<String> tokens) {
     const ackWords = {
-      'listo', 'dale', 'ok', 'okay', 'bien', 'bueno', 'de una', 'perfecto', 'claro',
-      'entendido', 'vale', 'seguro', 'obvio', 'si', 'sisas', 'hagamosle',
+      'listo',
+      'dale',
+      'ok',
+      'okay',
+      'bien',
+      'bueno',
+      'de una',
+      'perfecto',
+      'claro',
+      'entendido',
+      'vale',
+      'seguro',
+      'obvio',
+      'si',
+      'sisas',
+      'hagamosle',
     };
-    return tokens.any(ackWords.contains) || norm == 'de una' || norm == 'dale pues' || norm == 'listo pues';
+    return tokens.any(ackWords.contains) ||
+        norm == 'de una' ||
+        norm == 'dale pues' ||
+        norm == 'listo pues';
   }
 }

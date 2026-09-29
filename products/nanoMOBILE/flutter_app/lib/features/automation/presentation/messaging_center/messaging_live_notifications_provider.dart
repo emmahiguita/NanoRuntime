@@ -112,7 +112,12 @@ final liveNotificationsProvider =
             hasPendingReply: false,
             humanOwns: ConversationOwnershipPolicy.humanOwns(
               targetContactsMode: settings.waTargetContactsMode,
-              ownership: ownershipStore.ownershipFor(convKey),
+              ownership: ConversationOwnershipPolicy.ownershipForNotification(
+                store: ownershipStore,
+                conversationId: convKey,
+                notification: notifObj,
+                isGroup: isGroup,
+              ),
             ),
             agentId: agentId,
             entryCount: 1,

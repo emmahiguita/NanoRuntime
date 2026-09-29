@@ -151,10 +151,7 @@ class McpGraphNodeWidget extends StatelessWidget {
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: visual.textMuted,
-                fontSize: 10,
-              ),
+              style: TextStyle(color: visual.textMuted, fontSize: 10),
             ),
           ],
         ),
@@ -223,20 +220,22 @@ void showMcpNodeDetailsSheet({
                       ),
                       Text(
                         node.subtitle,
-                        style: TextStyle(
-                          color: visual.textMuted,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: visual.textMuted, fontSize: 13),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: node.statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: node.statusColor.withValues(alpha: 0.4)),
+                    border: Border.all(
+                      color: node.statusColor.withValues(alpha: 0.4),
+                    ),
                   ),
                   child: Text(
                     node.type.name.toUpperCase(),
@@ -263,7 +262,9 @@ void showMcpNodeDetailsSheet({
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: visual.isDark ? const Color(0xFF080D1A) : const Color(0xFFF8FAFC),
+                color: visual.isDark
+                    ? const Color(0xFF080D1A)
+                    : const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: visual.cardBorder),
               ),
@@ -277,14 +278,17 @@ void showMcpNodeDetailsSheet({
               ),
             ),
             const SizedBox(height: 20),
-            if (node.type == McpGraphNodeType.tool || node.type == McpGraphNodeType.mcp)
+            if (node.type == McpGraphNodeType.tool ||
+                node.type == McpGraphNodeType.mcp)
               SizedBox(
                 width: double.infinity,
                 height: 46,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
                     backgroundColor: visual.accent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   icon: const Icon(Icons.play_arrow_rounded, size: 20),
                   label: const Text(

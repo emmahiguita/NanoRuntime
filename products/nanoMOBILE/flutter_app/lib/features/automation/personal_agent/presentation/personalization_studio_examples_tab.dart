@@ -1,4 +1,4 @@
-﻿part of 'personalization_studio_screen.dart';
+part of 'personalization_studio_screen.dart';
 
 /// PERSONALIZATION-STUDIO-EXAMPLES-TAB — Pestaña de Frases Aprendidas e Intenciones.
 ///
@@ -54,12 +54,20 @@ class _PersonalizationStudioExamplesTab extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: !canEdit ? null : onAddPhrase,
                 icon: const Icon(Icons.add_circle_outline, size: 14),
-                label: const Text('+ Agregar frase', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: const Text(
+                  '+ Agregar frase',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF00E676),
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 10,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ),
@@ -71,7 +79,9 @@ class _PersonalizationStudioExamplesTab extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0x33FFFFFF)),
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -106,7 +116,10 @@ class _PersonalizationStudioExamplesTab extends StatelessWidget {
         if (examples.length >= 100 && onLoadMore != null)
           TextButton(
             onPressed: !canEdit ? null : onLoadMore,
-            child: const Text('Cargar más frases', style: TextStyle(fontSize: 11)),
+            child: const Text(
+              'Cargar más frases',
+              style: TextStyle(fontSize: 11),
+            ),
           ),
       ],
     );

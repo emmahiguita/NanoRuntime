@@ -27,6 +27,8 @@ import '../../application/automation_feedback_presenter.dart';
 import '../../application/rule_creator.dart';
 import '../../domain/automation_result.dart';
 import '../../engine/agent_dependencies.dart';
+import '../../engine/execution/agent_tool_dispatcher.dart'
+    show AgentToolDispatcher;
 import '../../engine/business/business_facts_providers.dart';
 import '../../engine/governance/action_confirmation.dart';
 import '../../engine/messaging/messaging_package.dart';
@@ -56,7 +58,8 @@ class AutomationDashboard extends ConsumerStatefulWidget {
   final VoidCallback? onSkillsMcpTap, onDevTap;
 
   @override
-  ConsumerState<AutomationDashboard> createState() => _AutomationDashboardState();
+  ConsumerState<AutomationDashboard> createState() =>
+      _AutomationDashboardState();
 }
 
 class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
@@ -78,12 +81,23 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     _voiceCtrl = AutomationVoiceController(
       voiceSession: vs,
       isRunning: () => _running,
-      isSensing: () => vs.state == VoiceSessionState.listening || vs.state == VoiceSessionState.processing,
-      onFeedback: (fb) { if (mounted) setState(() {}); },
+      isSensing: () =>
+          vs.state == VoiceSessionState.listening ||
+          vs.state == VoiceSessionState.processing,
+      onFeedback: (fb) {
+        if (mounted) setState(() {});
+      },
     );
-    _voiceSub = vs.states.listen((_) { if (mounted) setState(() {}); });
-    _confirmSub = NanoRuntimeApi.instance.automationConfirmationActions.listen((action) {
-      if (action == 'confirm' && mounted && !_running && _lastConfirmation != null) {
+    _voiceSub = vs.states.listen((_) {
+      if (mounted) setState(() {});
+    });
+    _confirmSub = NanoRuntimeApi.instance.automationConfirmationActions.listen((
+      action,
+    ) {
+      if (action == 'confirm' &&
+          mounted &&
+          !_running &&
+          _lastConfirmation != null) {
         unawaited(_runTask(_lastGoal, confirmation: _lastConfirmation));
       }
     });
@@ -91,7 +105,8 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
 
   @override
   void dispose() {
-    _voiceSub?.cancel(); _confirmSub?.cancel();
+    _voiceSub?.cancel();
+    _confirmSub?.cancel();
     super.dispose();
   }
 
@@ -106,7 +121,37 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     final executionId = confirmation?.executionId ?? 'dash-${UniqueKey()}';
     _activeEngine = ref.read(automationEngineProvider);
     _activeExecutionId = executionId;
-    setState(() { _running = true; _lastGoal = goal; _lastStatus = null; _lastReason = ''; });
+    setState(() {
+      _running = true;
+      _lastGoal = goal;
+      _lastStatus = null;
+      _lastReason = '';
+    });
+
+    // Los comandos explícitos deben ir al router de herramientas; como objetivos,
+    // el planner intentaba interpretarlos como tareas normales y no ejecutaba MCP.
+    if (AgentToolDispatcher.isToolCommand(goal)) {
+      try {
+        final feedback = await _activeEngine!.runCommand(goal);
+        if (!mounted) return null;
+        setState(() {
+          _lastStatus = AutomationResultStatus.completed;
+          _lastReason = feedback;
+          _lastConfirmation = null;
+          _running = false;
+        });
+      } on Object catch (error) {
+        if (!mounted) return null;
+        setState(() {
+          _lastStatus = AutomationResultStatus.failed;
+          _lastReason =
+              'No se pudo ejecutar el comando de Automatización (${error.runtimeType}).';
+          _lastConfirmation = null;
+          _running = false;
+        });
+      }
+      return null;
+    }
 
     final result = await AutomationDashboardRunner.execute(
       text: goal,
@@ -123,13 +168,17 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         _lastConfirmation = result.confirmation;
         _running = false;
       });
-      if (result.status == AutomationResultStatus.paused && result.confirmation != null) {
+      if (result.status == AutomationResultStatus.paused &&
+          result.confirmation != null) {
         unawaited(NanoRuntimeApi.instance.showAutomationConfirmation());
       }
-      if (ref.read(settingsProvider).voiceEnabled && speakResult && !isDiagCommand(goal)) {
-        await ref.read(chatProvider.notifier).voiceSession.respond(
-          AutomationDashboardRunner.spokenResult(result),
-        );
+      if (ref.read(settingsProvider).voiceEnabled &&
+          speakResult &&
+          !isDiagCommand(goal)) {
+        await ref
+            .read(chatProvider.notifier)
+            .voiceSession
+            .respond(AutomationDashboardRunner.spokenResult(result));
       }
     }
     return result;
@@ -138,10 +187,12 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
-    final drafts = ref.watch(pendingRepliesProvider).maybeWhen(
-      data: (list) => list.where((d) => d.isActionable).length,
-      orElse: () => 0,
-    );
+    final drafts = ref
+        .watch(pendingRepliesProvider)
+        .maybeWhen(
+          data: (list) => list.where((d) => d.isActionable).length,
+          orElse: () => 0,
+        );
     final rules = ref.watch(ruleRegistryProvider);
     final isW4b = rules.isWhatsAppRuleActive(MessagingPackage.whatsappBusiness);
 
@@ -149,10 +200,16 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
       scopeId: 'automation',
       hint: 'Describe qué quieres automatizar en Nano AI...',
       onSubmit: (t) => _runTask(t),
-      onVoice: () => _voiceCtrl.activateVoice(onGoalRecognized: (g) => _runTask(g, fromVoice: true)),
-      onAttach: () => _voiceCtrl.observeScreen(situationSource: () => ref.read(currentSituationSourceProvider).call()),
+      onVoice: () => _voiceCtrl.activateVoice(
+        onGoalRecognized: (g) => _runTask(g, fromVoice: true),
+      ),
+      onAttach: () => _voiceCtrl.observeScreen(
+        situationSource: () => ref.read(currentSituationSourceProvider).call(),
+      ),
       isGenerating: _running,
-      onStop: _running && _activeExecutionId != null ? () => _activeEngine?.cancelExecution(_activeExecutionId!) : null,
+      onStop: _running && _activeExecutionId != null
+          ? () => _activeEngine?.cancelExecution(_activeExecutionId!)
+          : null,
       child: AutomationDashboardContent(
         settings: settings,
         running: _running,
@@ -162,15 +219,21 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         conversationActive: _voiceCtrl.conversationActive,
         pendingDraftsCount: drafts,
         rulesCount: rules.rules.where((r) => r.enabled).length,
-        businessProductsCount: ref.watch(businessFactsNotifierProvider).products.length,
+        businessProductsCount: ref
+            .watch(businessFactsNotifierProvider)
+            .products
+            .length,
         isW4bActive: isW4b,
         onPickMode: () => AutomationDashboardDialogs.pickMode(
-          context: context, currentMode: settings.agentAutomationMode,
-          onSelected: (m) => ref.read(settingsProvider.notifier).setAgentAutomationMode(m),
+          context: context,
+          currentMode: settings.agentAutomationMode,
+          onSelected: (m) =>
+              ref.read(settingsProvider.notifier).setAgentAutomationMode(m),
         ),
         onToggleVoiceOutput: () => AutomationVoiceHandler.toggleVoiceOutput(
           settingsNotifier: ref.read(settingsProvider.notifier),
-          currentEnabled: settings.voiceEnabled, onFeedback: (_) => setState(() {}),
+          currentEnabled: settings.voiceEnabled,
+          onFeedback: (_) => setState(() {}),
         ),
         onActivateConversation: () => _voiceCtrl.activateConversation(
           onTurn: (t) => _runTask(t, fromVoice: true, speakResult: false),
@@ -188,7 +251,8 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         onBotStudioTap: widget.onBotStudioTap,
         onSkillsMcpTap: widget.onSkillsMcpTap,
         onTimeRuleTap: () => AutomationDashboardDialogs.createTimeRule(
-          context: context, ruleCreator: ref.read(ruleCreatorProvider),
+          context: context,
+          ruleCreator: ref.read(ruleCreatorProvider),
         ),
       ),
     );

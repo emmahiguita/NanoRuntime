@@ -77,7 +77,11 @@ final class DialogueStateTracker {
   }
 
   /// Registra el turno entrante del usuario, su acto clasificado y actualiza el tema.
-  void recordUserTurn(String conversationId, DialogueAct act, {String userText = ''}) {
+  void recordUserTurn(
+    String conversationId,
+    DialogueAct act, {
+    String userText = '',
+  }) {
     if (_states.length > 50) {
       purgeStale();
     }
@@ -118,7 +122,8 @@ final class DialogueStateTracker {
 
   /// Limpia estados y temas expirados tras inactividad.
   void purgeStale({Duration maxAge = const Duration(hours: 2)}) {
-    final threshold = DateTime.now().millisecondsSinceEpoch - maxAge.inMilliseconds;
+    final threshold =
+        DateTime.now().millisecondsSinceEpoch - maxAge.inMilliseconds;
     _states.removeWhere((_, state) => state.lastUpdatedMs < threshold);
     topicTracker.purgeStale();
   }

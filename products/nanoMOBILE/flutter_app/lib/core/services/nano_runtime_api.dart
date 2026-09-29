@@ -1183,10 +1183,16 @@ class NanoRuntimeApi {
   static const EventChannel _notificationEvents = EventChannel(
     'com.nanoai/notification_events',
   );
+  // El bridge nativo admite un único EventSink por engine. El Centro de
+  // mensajes y NotificationEventRouter consumen el mismo canal, así que la
+  // suscripción de plataforma debe compartirse y hacer fan-out en Dart.
+  static final Stream<Map<dynamic, dynamic>> _notificationEventStream =
+      _notificationEvents
+          .receiveBroadcastStream()
+          .map((e) => Map<dynamic, dynamic>.from(e as Map));
 
-  Stream<Map<dynamic, dynamic>> get notificationEvents => _notificationEvents
-      .receiveBroadcastStream()
-      .map((e) => Map<dynamic, dynamic>.from(e as Map));
+  Stream<Map<dynamic, dynamic>> get notificationEvents =>
+      _notificationEventStream;
 
   /// Snapshot de notificaciones ACTIVAS del listener nativo (sin resúmenes de
   /// grupo ni notificaciones propias, ordenadas por postTime desc). Retry en

@@ -16,10 +16,11 @@ import '../surface_profiles.dart';
 /// Fuente de perfiles dinámicos con capacidad de aprendizaje y auto-reparación.
 final class DynamicSurfaceStore implements SurfaceProfileSource {
   DynamicSurfaceStore({SurfaceProfileSource? fallback})
-      : _fallback = fallback ?? const SurfaceProfileRegistry();
+    : _fallback = fallback ?? const SurfaceProfileRegistry();
 
   final SurfaceProfileSource _fallback;
-  final Map<String, Map<SurfaceElementKind, SurfaceElementProfile>> _dynamicCache = {};
+  final Map<String, Map<SurfaceElementKind, SurfaceElementProfile>>
+  _dynamicCache = {};
   final Map<String, String> _packageVersions = {};
 
   /// Registra o actualiza una regla de superficie descubierta por auto-reparación.

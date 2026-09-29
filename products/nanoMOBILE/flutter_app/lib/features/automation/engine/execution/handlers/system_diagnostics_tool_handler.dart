@@ -12,14 +12,14 @@ class SystemDiagnosticsToolHandler implements IToolHandler {
   final UniversalCapabilityDetector _detector;
 
   SystemDiagnosticsToolHandler({UniversalCapabilityDetector? detector})
-      : _detector = detector ?? UniversalCapabilityDetector();
+    : _detector = detector ?? UniversalCapabilityDetector();
 
   @override
   List<String> get supportedTools => const [
-        'dev.diagnostics',
-        'diagnostico',
-        'diagnostics',
-      ];
+    'dev.diagnostics',
+    'diagnostico',
+    'diagnostics',
+  ];
 
   @override
   bool supports(String toolName) {
@@ -41,17 +41,26 @@ class SystemDiagnosticsToolHandler implements IToolHandler {
   Future<String> runDiagnostics() async {
     final snapshot = await _detector.detectCapabilities();
 
-    final ramUsed = (snapshot.ramTotalGb - snapshot.ramAvailableGb).toStringAsFixed(1);
+    final ramUsed = (snapshot.ramTotalGb - snapshot.ramAvailableGb)
+        .toStringAsFixed(1);
     final ramTotal = snapshot.ramTotalGb.toStringAsFixed(1);
-    final ramStr = snapshot.ramTotalGb > 0 ? '$ramUsed / $ramTotal GB' : 'Desconocida';
+    final ramStr = snapshot.ramTotalGb > 0
+        ? '$ramUsed / $ramTotal GB'
+        : 'Desconocida';
 
-    final accStatus = snapshot.accessibilityActive ? 'Conectado y Activo' : 'Inactivo / No Concedido';
-    final shizukuStatus = snapshot.shizukuActive ? 'Activo (UID 2000 Shell)' : 'Inactivo';
+    final accStatus = snapshot.accessibilityActive
+        ? 'Conectado y Activo'
+        : 'Inactivo / No Concedido';
+    final shizukuStatus = snapshot.shizukuActive
+        ? 'Activo (UID 2000 Shell)'
+        : 'Inactivo';
     final adbStatus = snapshot.adbActive ? 'Habilitado' : 'No Conectado';
 
     final captures = snapshot.canCaptureWindow
         ? 'Ventana completa (API 34+)'
-        : (snapshot.canCaptureScreenshot ? 'Pantalla estándar (API 30+)' : 'No soportada (<API 30)');
+        : (snapshot.canCaptureScreenshot
+              ? 'Pantalla estándar (API 30+)'
+              : 'No soportada (<API 30)');
 
     return '═══ [NANO UNIVERSAL DIAGNOSTICS] ═══\n'
         '• Nivel Operativo: ${snapshot.activeTier.displayName}\n'

@@ -53,25 +53,16 @@ class WebSearchResolver {
           ? ToolCall(
               tool: 'search_knowledge',
               text: query,
-              args: {
-                'query': query,
-                'targetUrl': targetUrl,
-                'inApp': true,
-              },
+              args: {'query': query, 'targetUrl': targetUrl, 'inApp': true},
             )
           : ToolCall(
               tool: 'open_url',
               text: targetUrl,
-              args: {
-                'url': targetUrl,
-                'packageName': chromePackage,
-              },
+              args: {'url': targetUrl, 'packageName': chromePackage},
             ),
       expectation: inApp
           ? const GoalExpectation()
-          : const GoalExpectation(
-              expectedPackage: chromePackage,
-            ),
+          : const GoalExpectation(expectedPackage: chromePackage),
     );
   }
 
@@ -113,7 +104,8 @@ class WebSearchResolver {
       final q = _clean(investigateInternet.group(1));
       // Solo si menciona internet/web explícitamente en la frase original
       final sLower = source.toLowerCase();
-      if ((sLower.contains('internet') || sLower.contains('web')) && q.isNotEmpty) {
+      if ((sLower.contains('internet') || sLower.contains('web')) &&
+          q.isNotEmpty) {
         return q;
       }
     }

@@ -31,7 +31,8 @@ class WhatsAppWebLinkView extends StatefulWidget {
       barrierDismissible: true,
       barrierLabel: 'Cerrar WA Web',
       barrierColor: Colors.black.withValues(alpha: 0.35),
-      pageBuilder: (ctx, anim1, anim2) => const SafeArea(child: WhatsAppWebLinkView()),
+      pageBuilder: (ctx, anim1, anim2) =>
+          const SafeArea(child: WhatsAppWebLinkView()),
     );
   }
 
@@ -66,7 +67,13 @@ class _WhatsAppWebLinkViewState extends State<WhatsAppWebLinkView> {
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(isLandscape ? 16 : 22),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 18, spreadRadius: 2)],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 18,
+                spreadRadius: 2,
+              ),
+            ],
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
           clipBehavior: Clip.antiAlias,
@@ -74,10 +81,13 @@ class _WhatsAppWebLinkViewState extends State<WhatsAppWebLinkView> {
             children: [
               _buildTopBar(theme, isLandscape),
               _buildActionChips(theme, isLandscape),
-              if (_progress < 1.0) LinearProgressIndicator(value: _progress, minHeight: 2),
+              if (_progress < 1.0)
+                LinearProgressIndicator(value: _progress, minHeight: 2),
               Expanded(
                 child: InAppWebView(
-                  initialUrlRequest: URLRequest(url: WebUri('https://web.whatsapp.com')),
+                  initialUrlRequest: URLRequest(
+                    url: WebUri('https://web.whatsapp.com'),
+                  ),
                   initialSettings: InAppWebViewSettings(
                     userAgent: WhatsAppWebJsBridge.desktopUserAgent,
                     javaScriptEnabled: true,
@@ -89,9 +99,14 @@ class _WhatsAppWebLinkViewState extends State<WhatsAppWebLinkView> {
                     useWideViewPort: true,
                     loadWithOverviewMode: true,
                   ),
-                  onWebViewCreated: (c) { _webViewController = c; whatsAppWebBridgeController.attachController(c); },
-                  onProgressChanged: (_, p) => setState(() => _progress = p / 100),
-                  onLoadStop: (_, u) => whatsAppWebBridgeController.onPageFinished(u?.toString()),
+                  onWebViewCreated: (c) {
+                    _webViewController = c;
+                    whatsAppWebBridgeController.attachController(c);
+                  },
+                  onProgressChanged: (_, p) =>
+                      setState(() => _progress = p / 100),
+                  onLoadStop: (_, u) =>
+                      whatsAppWebBridgeController.onPageFinished(u?.toString()),
                 ),
               ),
             ],
@@ -103,7 +118,10 @@ class _WhatsAppWebLinkViewState extends State<WhatsAppWebLinkView> {
 
   Widget _buildTopBar(ThemeData theme, bool isLandscape) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: isLandscape ? 8 : 12, vertical: isLandscape ? 4 : 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: isLandscape ? 8 : 12,
+        vertical: isLandscape ? 4 : 8,
+      ),
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.2),
       child: Row(
         children: [
@@ -112,7 +130,10 @@ class _WhatsAppWebLinkViewState extends State<WhatsAppWebLinkView> {
           Expanded(
             child: Text(
               'Vincular WA Web',
-              style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold, fontSize: isLandscape ? 13 : 15),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                fontSize: isLandscape ? 13 : 15,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -120,18 +141,41 @@ class _WhatsAppWebLinkViewState extends State<WhatsAppWebLinkView> {
             stream: whatsAppWebBridgeController.sessionStream,
             initialData: whatsAppWebBridgeController.currentSession,
             builder: (_, snap) {
-              final ok = snap.data?.status == WhatsAppWebSessionStatus.connected;
+              final ok =
+                  snap.data?.status == WhatsAppWebSessionStatus.connected;
               return Chip(
-                avatar: CircleAvatar(radius: 4, backgroundColor: ok ? Colors.green : Colors.amber),
-                label: Text(ok ? 'Conectado' : 'Pendiente', style: const TextStyle(fontSize: 10)),
+                avatar: CircleAvatar(
+                  radius: 4,
+                  backgroundColor: ok ? Colors.green : Colors.amber,
+                ),
+                label: Text(
+                  ok ? 'Conectado' : 'Pendiente',
+                  style: const TextStyle(fontSize: 10),
+                ),
                 visualDensity: VisualDensity.compact,
               );
             },
           ),
-          IconButton(icon: const Icon(Icons.zoom_out, size: 18), onPressed: () => _zoom(0.8), visualDensity: VisualDensity.compact),
-          IconButton(icon: const Icon(Icons.zoom_in, size: 18), onPressed: () => _zoom(1.25), visualDensity: VisualDensity.compact),
-          IconButton(icon: const Icon(Icons.refresh, size: 18), onPressed: () => _webViewController?.reload(), visualDensity: VisualDensity.compact),
-          IconButton(icon: const Icon(Icons.close, size: 20), onPressed: () => Navigator.of(context).pop(), visualDensity: VisualDensity.compact),
+          IconButton(
+            icon: const Icon(Icons.zoom_out, size: 18),
+            onPressed: () => _zoom(0.8),
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            icon: const Icon(Icons.zoom_in, size: 18),
+            onPressed: () => _zoom(1.25),
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh, size: 18),
+            onPressed: () => _webViewController?.reload(),
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20),
+            onPressed: () => Navigator.of(context).pop(),
+            visualDensity: VisualDensity.compact,
+          ),
         ],
       ),
     );
@@ -140,26 +184,48 @@ class _WhatsAppWebLinkViewState extends State<WhatsAppWebLinkView> {
   Widget _buildActionChips(ThemeData theme, bool isLandscape) {
     return Container(
       color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.1),
-      padding: EdgeInsets.symmetric(horizontal: 6, vertical: isLandscape ? 2 : 4),
+      padding: EdgeInsets.symmetric(
+        horizontal: 6,
+        vertical: isLandscape ? 2 : 4,
+      ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
             ActionChip(
-              avatar: const Icon(Icons.phone_android, size: 15, color: Colors.green),
-              label: const Text('Código 8 Dígitos', style: TextStyle(fontSize: 11)),
+              avatar: const Icon(
+                Icons.phone_android,
+                size: 15,
+                color: Colors.green,
+              ),
+              label: const Text(
+                'Código 8 Dígitos',
+                style: TextStyle(fontSize: 11),
+              ),
               visualDensity: VisualDensity.compact,
               onPressed: () async {
-                final ok = await whatsAppWebBridgeController.switchToPhoneLinking();
+                final ok = await whatsAppWebBridgeController
+                    .switchToPhoneLinking();
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok ? 'Ingresa tu teléfono en WA Web.' : 'Pulsa Vincular con teléfono.')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        ok
+                            ? 'Ingresa tu teléfono en WA Web.'
+                            : 'Pulsa Vincular con teléfono.',
+                      ),
+                    ),
+                  );
                 }
               },
             ),
             const SizedBox(width: 6),
             ActionChip(
               avatar: const Icon(Icons.launch, size: 15, color: Colors.blue),
-              label: const Text('Abrir WhatsApp', style: TextStyle(fontSize: 11)),
+              label: const Text(
+                'Abrir WhatsApp',
+                style: TextStyle(fontSize: 11),
+              ),
               visualDensity: VisualDensity.compact,
               onPressed: () async {
                 final u = Uri.parse('whatsapp://');
@@ -168,7 +234,11 @@ class _WhatsAppWebLinkViewState extends State<WhatsAppWebLinkView> {
             ),
             const SizedBox(width: 6),
             ActionChip(
-              avatar: const Icon(Icons.camera_alt, size: 15, color: Colors.orange),
+              avatar: const Icon(
+                Icons.camera_alt,
+                size: 15,
+                color: Colors.orange,
+              ),
               label: const Text('Escanear QR', style: TextStyle(fontSize: 11)),
               visualDensity: VisualDensity.compact,
               onPressed: () => WhatsAppQrScannerDialog.show(context),

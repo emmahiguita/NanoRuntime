@@ -26,6 +26,18 @@ import java.io.FileOutputStream
  */
 class NotificationAutomationService : NotificationListenerService() {
 
+    private val replyAttemptLedger by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        val preferences = getSharedPreferences(REPLY_ATTEMPT_PREFS, Context.MODE_PRIVATE)
+        ReplyAttemptLedger(
+            readEntries = {
+                preferences.getStringSet(REPLY_ATTEMPT_IDS, emptySet()).orEmpty().toSet()
+            },
+            writeEntries = { entries ->
+                preferences.edit().putStringSet(REPLY_ATTEMPT_IDS, entries.toSet()).commit()
+            },
+        )
+    }
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         NotificationAutomationBridge.service = this
@@ -304,7 +316,40 @@ class NotificationAutomationService : NotificationListenerService() {
             return ReplyResult(false, "CONTEXT_CHANGED")
         }
 
+        // The Dart dedupe store protects pipeline admission. This final durable
+        // guard also covers overlapping UI/headless engines and notification
+        // replays: only one RemoteInput dispatch may use a capability revision.
+        val attemptId = replyAttemptId(
+            notificationKey = source.key,
+            notificationRevision = source.postTime,
+            actionIndex = currentActionIndex,
+            remoteInputKey = currentRemoteInputKey,
+            contextFingerprint = currentFingerprint,
+        )
+        when (replyAttemptLedger.reserve(attemptId)) {
+            ReplyAttemptLedger.Reservation.DUPLICATE -> {
+                android.util.Log.i(
+                    "NanoNotifications",
+                    "Duplicate RemoteInput dispatch suppressed",
+                )
+                return ReplyResult(false, "DUPLICATE_SUPPRESSED")
+            }
+            ReplyAttemptLedger.Reservation.PERSISTENCE_FAILED -> {
+                android.util.Log.e(
+                    "NanoNotifications",
+                    "Reply idempotency reservation unavailable; dispatch blocked",
+                )
+                return ReplyResult(false, "REPLY_GUARD_UNAVAILABLE")
+            }
+            ReplyAttemptLedger.Reservation.RESERVED -> Unit
+        }
+
         val dispatch = RemoteInputReplySender.send(this, action, cleanText)
+        if (!dispatch.ok) {
+            // Android explicitly rejected/canceled the PendingIntent; no send
+            // occurred, so a later attempt against this same capability is safe.
+            replyAttemptLedger.release(attemptId)
+        }
         // PendingIntent.send sin excepción prueba que Android entregó la
         // acción a la app origen; no demuestra lectura del destinatario.
         return ReplyResult(dispatch.ok, dispatch.code)
@@ -704,6 +749,8 @@ class NotificationAutomationService : NotificationListenerService() {
     data class ReplyResult(val ok: Boolean, val code: String)
 
     private companion object {
+        const val REPLY_ATTEMPT_PREFS = "automation_reply_attempts_v1"
+        const val REPLY_ATTEMPT_IDS = "attempt_ids"
         const val MAX_NOTIFICATIONS = 100
         const val MAX_FIELD_CHARS = 4_000
         const val MAX_REPLY_CHARS = 2_000

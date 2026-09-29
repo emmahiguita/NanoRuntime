@@ -70,9 +70,11 @@ abstract final class ConversationGroupResolver {
     if (isGroupFlag) return true;
     final id = convId.toLowerCase();
     if (id.contains('@g.us') || id.contains('group:')) return true;
-    if (shortcutId != null && shortcutId.toLowerCase().contains('@g.us')) return true;
+    if (shortcutId != null && shortcutId.toLowerCase().contains('@g.us'))
+      return true;
     if (rawTitle != null && rawTitle.contains(' @ ')) return true;
-    if (conversationTitle != null && conversationTitle.trim().isNotEmpty) return true;
+    if (conversationTitle != null && conversationTitle.trim().isNotEmpty)
+      return true;
     if (getCachedGroupTitle(convId) != null) return true;
     return false;
   }
@@ -80,14 +82,26 @@ abstract final class ConversationGroupResolver {
   /// Limpia sufijos de cantidad de mensajes y marcadores técnicos
   static String cleanTitle(String raw) {
     var s = raw.trim();
-    for (final p in const ['title:', 'group:', 'conv:', 'live:', 'shortcut:', 'person:', 'jid:']) {
+    for (final p in const [
+      'title:',
+      'group:',
+      'conv:',
+      'live:',
+      'shortcut:',
+      'person:',
+      'jid:',
+    ]) {
       if (s.toLowerCase().startsWith(p)) {
         s = s.substring(p.length).trim();
       }
     }
     // Si viene en formato compuesto "Title|Sender", el título real del grupo SIEMPRE es el primero
     if (s.contains('|')) {
-      final parts = s.split('|').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+      final parts = s
+          .split('|')
+          .map((p) => p.trim())
+          .where((p) => p.isNotEmpty)
+          .toList();
       if (parts.isNotEmpty) {
         s = parts.first;
       }
@@ -156,7 +170,8 @@ abstract final class ConversationGroupResolver {
     }
 
     // 4. Si convId contiene un nombre de grupo (ej: group:THE BOYS)
-    if (resolvedGroup.isEmpty && (convId.contains('title:') || convId.contains('group:'))) {
+    if (resolvedGroup.isEmpty &&
+        (convId.contains('title:') || convId.contains('group:'))) {
       final cleanFromKey = cleanTitle(convId);
       if (cleanFromKey != resolvedSender && !isGenericTitle(cleanFromKey)) {
         resolvedGroup = cleanFromKey;

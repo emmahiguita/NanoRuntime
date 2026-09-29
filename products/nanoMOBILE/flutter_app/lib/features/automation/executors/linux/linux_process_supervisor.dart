@@ -20,7 +20,8 @@ class LinuxProcessSupervisor {
   }) : _binExecutor = binExecutor;
 
   /// Lista los handles de procesos actualmente supervisados.
-  List<LinuxProcessHandle> get activeProcesses => _activeHandles.values.toList();
+  List<LinuxProcessHandle> get activeProcesses =>
+      _activeHandles.values.toList();
 
   /// Indica si un tag de proceso específico sigue en ejecución activa.
   bool isRunning(String trackTag) => _runningTags.contains(trackTag);
@@ -64,22 +65,25 @@ class LinuxProcessSupervisor {
     _runningTags.add(trackTag);
 
     // Disparar en streaming asíncrono
-    _binExecutor.stream(
-      command,
-      arguments,
-      workDir: workDir,
-      env: environment,
-      trackTag: trackTag,
-      timeout: timeout,
-      onOut: (line) => _appendLog(trackTag, '[OUT] $line'),
-      onErr: (line) => _appendLog(trackTag, '[ERR] $line'),
-    ).then((exitCode) {
-      _runningTags.remove(trackTag);
-      _appendLog(trackTag, '[SYS] Proceso finalizado con código $exitCode');
-    }).catchError((error) {
-      _runningTags.remove(trackTag);
-      _appendLog(trackTag, '[SYS] Error de ejecución: $error');
-    });
+    _binExecutor
+        .stream(
+          command,
+          arguments,
+          workDir: workDir,
+          env: environment,
+          trackTag: trackTag,
+          timeout: timeout,
+          onOut: (line) => _appendLog(trackTag, '[OUT] $line'),
+          onErr: (line) => _appendLog(trackTag, '[ERR] $line'),
+        )
+        .then((exitCode) {
+          _runningTags.remove(trackTag);
+          _appendLog(trackTag, '[SYS] Proceso finalizado con código $exitCode');
+        })
+        .catchError((error) {
+          _runningTags.remove(trackTag);
+          _appendLog(trackTag, '[SYS] Error de ejecución: $error');
+        });
 
     return LinuxActionResult(
       data: handle,

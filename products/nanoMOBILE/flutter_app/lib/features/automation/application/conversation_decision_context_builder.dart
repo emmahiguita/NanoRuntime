@@ -44,7 +44,11 @@ ConversationDecisionContext buildConversationDecisionContext(
   final store = ref.read(conversationOwnershipStoreProvider);
   // La autorización solo usa la identidad técnica resuelta por Android.
   // Un nombre visible puede repetirse y nunca debe habilitar otro chat.
-  final ownership = store.ownershipFor(identity.key.id);
+  final ownership = ConversationOwnershipPolicy.ownershipForNotification(
+    store: store,
+    conversationId: identity.key.id,
+    notification: notif,
+  );
   final entry = ref.read(conversationStateNotifierProvider)[identity.key.id];
   final hasActiveProduct =
       entry != null && entry.product != null && entry.topicStatus == 'active';

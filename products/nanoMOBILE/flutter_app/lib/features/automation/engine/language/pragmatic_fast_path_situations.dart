@@ -1,4 +1,4 @@
-﻿part of 'pragmatic_fast_path.dart';
+part of 'pragmatic_fast_path.dart';
 
 /// Compositor de respuestas deterministas para situaciones cotidianas ampliadas (< 90 LOC).
 ///
@@ -20,37 +20,73 @@ extension _PragmaticFastPathSituations on PragmaticFastPath {
     required String? lastOutboundText,
   }) {
     if (intents.contains(ConversationIntent.askAvailability)) {
-      return _selectCandidate(availabilityCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        availabilityCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askFood)) {
       if (normalized.contains('almorz')) {
-        return _selectCandidate(lunchCandidates, conversationId, lastOutboundText);
+        return _selectCandidate(
+          lunchCandidates,
+          conversationId,
+          lastOutboundText,
+        );
       }
       if (normalized.contains('cen')) {
-        return _selectCandidate(dinnerCandidates, conversationId, lastOutboundText);
+        return _selectCandidate(
+          dinnerCandidates,
+          conversationId,
+          lastOutboundText,
+        );
       }
-      return _selectCandidate(foodGeneralCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        foodGeneralCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askPhysicalLocation)) {
-      return _selectCandidate(physicalLocationCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        physicalLocationCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askFamily)) {
-      return _selectCandidate(familyCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        familyCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askSleep)) {
-      return _selectCandidate(sleepCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        sleepCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askMusic)) {
-      return _selectCandidate(musicCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        musicCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askWeatherSocial)) {
-      return _selectCandidate(weatherSocialCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        weatherSocialCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askCall)) {
@@ -58,11 +94,19 @@ extension _PragmaticFastPathSituations on PragmaticFastPath {
     }
 
     if (intents.contains(ConversationIntent.askLostOrMissing)) {
-      return _selectCandidate(lostOrMissingCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        lostOrMissingCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askOpinionSocial)) {
-      return _selectCandidate(opinionSocialCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        opinionSocialCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     return null;

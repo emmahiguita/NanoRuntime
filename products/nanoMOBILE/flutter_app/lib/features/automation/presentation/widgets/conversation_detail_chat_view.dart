@@ -10,17 +10,25 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 6),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: isBg ? const Color(0xFF25D366).withValues(alpha: 0.10) : Colors.amber.withValues(alpha: 0.08),
+        color: isBg
+            ? const Color(0xFF25D366).withValues(alpha: 0.10)
+            : Colors.amber.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isBg ? const Color(0xFF25D366).withValues(alpha: 0.30) : Colors.amber.withValues(alpha: 0.25),
+          color: isBg
+              ? const Color(0xFF25D366).withValues(alpha: 0.30)
+              : Colors.amber.withValues(alpha: 0.25),
           width: 0.8,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(isBg ? Icons.bolt_rounded : Icons.info_outline_rounded, size: 13, color: isBg ? const Color(0xFF25D366) : Colors.amber),
+          Icon(
+            isBg ? Icons.bolt_rounded : Icons.info_outline_rounded,
+            size: 13,
+            color: isBg ? const Color(0xFF25D366) : Colors.amber,
+          ),
           const SizedBox(width: 5),
           Expanded(
             child: Text(
@@ -58,9 +66,16 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: visual.isDark ? 0.08 : 0.45),
+              color: Colors.white.withValues(
+                alpha: visual.isDark ? 0.08 : 0.45,
+              ),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: visual.isDark ? 0.15 : 0.60), width: 0.8),
+              border: Border.all(
+                color: Colors.white.withValues(
+                  alpha: visual.isDark ? 0.15 : 0.60,
+                ),
+                width: 0.8,
+              ),
             ),
             child: Text(
               'Historial reciente de mensajes',
@@ -75,9 +90,20 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
           ),
         ),
         const SizedBox(height: 14),
-        _buildChatBubble(widget.item.lastMessage, true, visual, sender: widget.item.lastSender, timestampMs: widget.item.lastAtMs),
+        _buildChatBubble(
+          widget.item.lastMessage,
+          true,
+          visual,
+          sender: widget.item.lastSender,
+          timestampMs: widget.item.lastAtMs,
+        ),
         if (widget.item.hasPendingReply && widget.item.pendingReplyText != null)
-          _buildChatBubble(widget.item.pendingReplyText!, false, visual, timestampMs: widget.item.lastAtMs),
+          _buildChatBubble(
+            widget.item.pendingReplyText!,
+            false,
+            visual,
+            timestampMs: widget.item.lastAtMs,
+          ),
       ],
     );
   }
@@ -94,8 +120,15 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
     return colors[sender.hashCode.abs() % colors.length];
   }
 
-  Widget _buildChatBubble(String text, bool isInbound, AutomationVisualPalette visual, {String? sender, int? timestampMs}) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+  Widget _buildChatBubble(
+    String text,
+    bool isInbound,
+    AutomationVisualPalette visual, {
+    String? sender,
+    int? timestampMs,
+  }) {
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final semantic = ConversationSemanticClassifier.classify(text);
     final borderRadius = BorderRadius.only(
       topLeft: const Radius.circular(15),
@@ -109,7 +142,8 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * (isLandscape ? 0.58 : 0.78),
+          maxWidth:
+              MediaQuery.of(context).size.width * (isLandscape ? 0.58 : 0.78),
         ),
         decoration: BoxDecoration(
           borderRadius: borderRadius,
@@ -136,8 +170,14 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: visual.isDark
-                            ? [Colors.white.withValues(alpha: 0.12), Colors.white.withValues(alpha: 0.05)]
-                            : [Colors.white.withValues(alpha: 0.85), Colors.white.withValues(alpha: 0.65)],
+                            ? [
+                                Colors.white.withValues(alpha: 0.12),
+                                Colors.white.withValues(alpha: 0.05),
+                              ]
+                            : [
+                                Colors.white.withValues(alpha: 0.85),
+                                Colors.white.withValues(alpha: 0.65),
+                              ],
                       )
                     : const LinearGradient(
                         begin: Alignment.topLeft,
@@ -146,20 +186,32 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
                       ),
                 border: Border.all(
                   color: isInbound
-                      ? (visual.isDark ? Colors.white.withValues(alpha: 0.22) : Colors.white.withValues(alpha: 0.70))
+                      ? (visual.isDark
+                            ? Colors.white.withValues(alpha: 0.22)
+                            : Colors.white.withValues(alpha: 0.70))
                       : Colors.white.withValues(alpha: 0.35),
                   width: 1.0,
                 ),
               ),
               child: Column(
-                crossAxisAlignment: isInbound ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+                crossAxisAlignment: isInbound
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.end,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (widget.item.isGroup && isInbound && sender != null && sender.isNotEmpty && sender != widget.item.displayName) ...[
+                  if (widget.item.isGroup &&
+                      isInbound &&
+                      sender != null &&
+                      sender.isNotEmpty &&
+                      sender != widget.item.displayName) ...[
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.person_rounded, size: 12, color: _getSenderColor(sender)),
+                        Icon(
+                          Icons.person_rounded,
+                          size: 12,
+                          color: _getSenderColor(sender),
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           sender,

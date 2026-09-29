@@ -125,7 +125,14 @@ final conversationHubListProvider = FutureProvider.autoDispose
         final ownership = ownershipStore.ownershipFor(convId);
         final humanOwns = ConversationOwnershipPolicy.humanOwns(
           targetContactsMode: settings.waTargetContactsMode,
-          ownership: ownership,
+          ownership:
+              ownership ??
+              ConversationOwnershipPolicy.ownershipForConversation(
+                store: ownershipStore,
+                conversationId: convId,
+                packageName: packageName,
+                isGroup: isGroup,
+              ),
         );
 
         items.add(

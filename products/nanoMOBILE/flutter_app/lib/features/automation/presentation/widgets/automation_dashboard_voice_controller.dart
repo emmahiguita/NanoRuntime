@@ -70,7 +70,9 @@ class AutomationVoiceController {
         if (transcript.isEmpty) break;
         final result = await onTurn(transcript);
         if (!conversationActive || result == null) break;
-        await voiceSession.respondAndListen(AutomationDashboardRunner.spokenResult(result));
+        await voiceSession.respondAndListen(
+          AutomationDashboardRunner.spokenResult(result),
+        );
       }
     } finally {
       conversationActive = false;

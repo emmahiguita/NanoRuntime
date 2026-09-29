@@ -344,10 +344,12 @@ class _Bucket {
     for (var i = ordered.length - 1; i > 0; i--) {
       final currentStamp = stamp(ordered[i].$2.event);
       final prevStamp = stamp(ordered[i - 1].$2.event);
-      final gapExceeded = currentStamp > 0 &&
+      final gapExceeded =
+          currentStamp > 0 &&
           prevStamp > 0 &&
           currentStamp - prevStamp > defaultBurstGapMs;
-      final spanExceeded = latestStamp > 0 &&
+      final spanExceeded =
+          latestStamp > 0 &&
           prevStamp > 0 &&
           latestStamp - prevStamp > maxTurnSpanMs;
 

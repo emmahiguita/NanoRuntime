@@ -43,7 +43,10 @@ class ConversationHistoryResolver {
     }
 
     // 2. ID limpio y directo en SQLite
-    final directIds = <String>{item.conversationId, ...item.conversationAliases};
+    final directIds = <String>{
+      item.conversationId,
+      ...item.conversationAliases,
+    };
     for (final rawId in directIds) {
       var id = rawId.trim();
       if (id.startsWith('live:')) id = id.substring(5).trim();
@@ -56,7 +59,9 @@ class ConversationHistoryResolver {
     }
 
     // 3. Huella digital conversacional (JID, atajo o número directo)
-    final fingerprint = cleanConvId.contains('/-/') ? cleanConvId.split('/-/').last : cleanConvId;
+    final fingerprint = cleanConvId.contains('/-/')
+        ? cleanConvId.split('/-/').last
+        : cleanConvId;
     final cleanFingerprint = fingerprint
         .replaceFirst('shortcut:', '')
         .replaceFirst('person:', '')
@@ -90,7 +95,10 @@ class ConversationHistoryResolver {
     if (!isGeneric) {
       for (final id in store.knownConversationIds()) {
         final mem = store.memoryFor(id);
-        if (mem != null && mem.entries.any((e) => e.sender.trim().toLowerCase() == targetName)) {
+        if (mem != null &&
+            mem.entries.any(
+              (e) => e.sender.trim().toLowerCase() == targetName,
+            )) {
           addEntries(mem.entries);
         }
       }

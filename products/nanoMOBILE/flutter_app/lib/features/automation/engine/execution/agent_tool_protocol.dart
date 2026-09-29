@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'tool_call.dart';
 
@@ -135,7 +135,8 @@ abstract final class AgentToolProtocol {
       }
 
       final selector = (map['selector'] as String?) ?? (map['path'] as String?);
-      final text = (map['text'] as String?) ??
+      final text =
+          (map['text'] as String?) ??
           (map['command'] as String?) ??
           (map['path'] as String?);
 

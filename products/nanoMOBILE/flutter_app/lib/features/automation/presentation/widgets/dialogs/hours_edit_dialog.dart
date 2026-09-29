@@ -23,7 +23,11 @@ class HoursEditDialog extends StatefulWidget {
 }
 
 class _HoursEditDialogState extends State<HoursEditDialog> {
-  late final TextEditingController _weekdays, _saturdays, _sundays, _offHoursPolicy, _rawController;
+  late final TextEditingController _weekdays,
+      _saturdays,
+      _sundays,
+      _offHoursPolicy,
+      _rawController;
   bool _isRawMode = false;
 
   @override
@@ -34,21 +38,27 @@ class _HoursEditDialogState extends State<HoursEditDialog> {
   }
 
   void _initFromText(String text) {
-    String wk = 'Lunes a Viernes de 8:00 AM a 6:00 PM', sat = 'Sábados de 9:00 AM a 2:00 PM';
+    String wk = 'Lunes a Viernes de 8:00 AM a 6:00 PM',
+        sat = 'Sábados de 9:00 AM a 2:00 PM';
     String sun = 'Domingos y festivos: Cerrado';
-    String offH = 'Fuera de horario puedes dejar tu mensaje y te responderemos a primera hora al abrir.';
+    String offH =
+        'Fuera de horario puedes dejar tu mensaje y te responderemos a primera hora al abrir.';
 
     final clean = text.trim();
     if (clean.isNotEmpty) {
       for (final p in clean.split(RegExp(r'\.\s+'))) {
         final lower = p.toLowerCase();
-        if (lower.contains('lunes') || lower.contains('semana') || lower.contains('l-v')) {
+        if (lower.contains('lunes') ||
+            lower.contains('semana') ||
+            lower.contains('l-v')) {
           wk = p.trim();
         } else if (lower.contains('sábado') || lower.contains('sabado')) {
           sat = p.trim();
         } else if (lower.contains('domingo') || lower.contains('festivo')) {
           sun = p.trim();
-        } else if (lower.contains('fuera de horario') || lower.contains('cerrado') || lower.contains('abrir')) {
+        } else if (lower.contains('fuera de horario') ||
+            lower.contains('cerrado') ||
+            lower.contains('abrir')) {
           offH = p.trim();
         }
       }
@@ -70,9 +80,12 @@ class _HoursEditDialogState extends State<HoursEditDialog> {
   }
 
   String _buildConsolidated() {
-    final parts = [_weekdays.text.trim(), _saturdays.text.trim(), _sundays.text.trim(), _offHoursPolicy.text.trim()]
-        .where((s) => s.isNotEmpty)
-        .toList();
+    final parts = [
+      _weekdays.text.trim(),
+      _saturdays.text.trim(),
+      _sundays.text.trim(),
+      _offHoursPolicy.text.trim(),
+    ].where((s) => s.isNotEmpty).toList();
     return parts.isEmpty ? widget.initial.trim() : parts.join('. ');
   }
 
@@ -92,20 +105,41 @@ class _HoursEditDialogState extends State<HoursEditDialog> {
                 Container(
                   width: 34,
                   height: 34,
-                  decoration: BoxDecoration(color: visual.accentSoft, borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.schedule_rounded, color: visual.accent, size: 20),
+                  decoration: BoxDecoration(
+                    color: visual.accentSoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.schedule_rounded,
+                    color: visual.accent,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('Horarios de Atención', style: TextStyle(color: visual.text, fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Horarios de Atención',
+                    style: TextStyle(
+                      color: visual.text,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 Semantics(
                   label: _isRawMode ? 'Modo guiado' : 'Texto libre',
                   button: true,
                   child: IconButton(
-                    icon: Icon(_isRawMode ? Icons.view_list_rounded : Icons.edit_note_rounded, color: visual.accent, size: 22),
+                    icon: Icon(
+                      _isRawMode
+                          ? Icons.view_list_rounded
+                          : Icons.edit_note_rounded,
+                      color: visual.accent,
+                      size: 22,
+                    ),
                     onPressed: () {
-                      if (!_isRawMode) _rawController.text = _buildConsolidated();
+                      if (!_isRawMode)
+                        _rawController.text = _buildConsolidated();
                       setState(() => _isRawMode = !_isRawMode);
                     },
                   ),
@@ -123,22 +157,46 @@ class _HoursEditDialogState extends State<HoursEditDialog> {
                       maxLines: 6,
                       style: TextStyle(color: visual.text, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Ej. Lunes a Sábado de 8:00 AM a 8:00 PM. Domingos cerrado.',
+                        hintText:
+                            'Ej. Lunes a Sábado de 8:00 AM a 8:00 PM. Domingos cerrado.',
                         filled: true,
                         fillColor: visual.inputFill,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     )
                   : Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _field(_weekdays, 'Lunes a Viernes', visual, hint: 'Ej. 8:00 AM a 6:00 PM'),
+                        _field(
+                          _weekdays,
+                          'Lunes a Viernes',
+                          visual,
+                          hint: 'Ej. 8:00 AM a 6:00 PM',
+                        ),
                         const SizedBox(height: 8),
-                        _field(_saturdays, 'Sábados', visual, hint: 'Ej. 9:00 AM a 2:00 PM o Cerrado'),
+                        _field(
+                          _saturdays,
+                          'Sábados',
+                          visual,
+                          hint: 'Ej. 9:00 AM a 2:00 PM o Cerrado',
+                        ),
                         const SizedBox(height: 8),
-                        _field(_sundays, 'Domingos y Festivos', visual, hint: 'Ej. Cerrado o 10:00 AM a 2:00 PM'),
+                        _field(
+                          _sundays,
+                          'Domingos y Festivos',
+                          visual,
+                          hint: 'Ej. Cerrado o 10:00 AM a 2:00 PM',
+                        ),
                         const SizedBox(height: 8),
-                        _field(_offHoursPolicy, 'Fuera de horario', visual, hint: 'Ej. Responderemos a primera hora al abrir'),
+                        _field(
+                          _offHoursPolicy,
+                          'Fuera de horario',
+                          visual,
+                          hint: 'Ej. Responderemos a primera hora al abrir',
+                        ),
                       ],
                     ),
             ),
@@ -151,20 +209,33 @@ class _HoursEditDialogState extends State<HoursEditDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancelar', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(color: visual.textMuted, fontSize: 12),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
                   onPressed: () {
-                    final res = _isRawMode ? _rawController.text.trim() : _buildConsolidated();
+                    final res = _isRawMode
+                        ? _rawController.text.trim()
+                        : _buildConsolidated();
                     Navigator.of(context).pop(res.isNotEmpty ? res : null);
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: visual.accent,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Guardar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Guardar',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
@@ -174,19 +245,30 @@ class _HoursEditDialogState extends State<HoursEditDialog> {
     );
   }
 
-  Widget _field(TextEditingController ctrl, String label, AutomationVisualPalette visual, {String? hint}) => TextField(
-        controller: ctrl,
-        style: TextStyle(color: visual.text, fontSize: 12.5),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(fontSize: 11, color: visual.textMuted),
-          hintText: hint,
-          hintStyle: TextStyle(fontSize: 10, color: visual.textMuted.withValues(alpha: 0.5)),
-          filled: true,
-          fillColor: visual.inputFill,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        ),
-      );
+  Widget _field(
+    TextEditingController ctrl,
+    String label,
+    AutomationVisualPalette visual, {
+    String? hint,
+  }) => TextField(
+    controller: ctrl,
+    style: TextStyle(color: visual.text, fontSize: 12.5),
+    decoration: InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(fontSize: 11, color: visual.textMuted),
+      hintText: hint,
+      hintStyle: TextStyle(
+        fontSize: 10,
+        color: visual.textMuted.withValues(alpha: 0.5),
+      ),
+      filled: true,
+      fillColor: visual.inputFill,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide.none,
+      ),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    ),
+  );
 }

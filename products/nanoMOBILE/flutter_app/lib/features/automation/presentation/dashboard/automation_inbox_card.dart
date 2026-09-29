@@ -21,14 +21,12 @@ import '../widgets/spotlight_flip_ad_card.dart';
 class AutomationInboxCard extends StatelessWidget {
   final VoidCallback onTap;
 
-  const AutomationInboxCard({
-    super.key,
-    required this.onTap,
-  });
+  const AutomationInboxCard({super.key, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return SpotlightFlipAdCard(
       heroTag: 'nano_messaging_hero',

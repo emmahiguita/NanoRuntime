@@ -143,17 +143,19 @@ class RuleRegistry with ChangeNotifier {
     // Auto-seed regla universal de WhatsApp si no existe
     final waId = ruleIdForPackage(MessagingPackage.whatsapp);
     if (!_rules.any((r) => r.id == waId)) {
-      _rules.add(ScheduledRule(
-        id: waId,
-        trigger: const NotificationTrigger(
-          packageName: MessagingPackage.whatsapp,
+      _rules.add(
+        ScheduledRule(
+          id: waId,
+          trigger: const NotificationTrigger(
+            packageName: MessagingPackage.whatsapp,
+          ),
+          action: RuleAction.reply,
+          dynamicReply: true,
+          enabled: true,
+          createdAt: DateTime.now(),
+          createdByUser: true,
         ),
-        action: RuleAction.reply,
-        dynamicReply: true,
-        enabled: true,
-        createdAt: DateTime.now(),
-        createdByUser: true,
-      ));
+      );
     }
 
     _loaded = true;
@@ -164,8 +166,8 @@ class RuleRegistry with ChangeNotifier {
   /// WA-CONSENT-01 — siembra la regla universal de WhatsApp para el paquete.
   static String ruleIdForPackage(String packageName) =>
       packageName == MessagingPackage.whatsappBusiness
-          ? universalWhatsAppBusinessRuleId
-          : universalWhatsAppRuleId;
+      ? universalWhatsAppBusinessRuleId
+      : universalWhatsAppRuleId;
 
   /// WA-CONSENT-01 — siembra o reactiva la regla universal de WhatsApp para el paquete.
   void seedWhatsAppRule(String packageName, {String? senderMatch}) {
@@ -173,13 +175,15 @@ class RuleRegistry with ChangeNotifier {
     final matches = _rules.where((r) => r.id == id).toList();
     if (matches.isNotEmpty) {
       _rules.removeWhere((r) => r.id == id);
-      _rules.add(matches.first.copyWith(
-        enabled: true,
-        trigger: NotificationTrigger(
-          packageName: packageName,
-          senderMatch: senderMatch,
+      _rules.add(
+        matches.first.copyWith(
+          enabled: true,
+          trigger: NotificationTrigger(
+            packageName: packageName,
+            senderMatch: senderMatch,
+          ),
         ),
-      ));
+      );
       _persist();
       return;
     }
@@ -196,9 +200,7 @@ class RuleRegistry with ChangeNotifier {
       createdByUser: true,
     );
     _rules.add(rule);
-    debugPrint(
-      '[rules] seed WhatsApp rule id=$id pkg=$packageName',
-    );
+    debugPrint('[rules] seed WhatsApp rule id=$id pkg=$packageName');
     _persist();
   }
 

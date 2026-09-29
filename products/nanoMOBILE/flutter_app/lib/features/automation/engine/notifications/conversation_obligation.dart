@@ -93,8 +93,9 @@ final class TurnObligation {
     final rawStatus = (json['status'] as String?)?.toLowerCase().trim() ?? '';
     final status = switch (rawStatus) {
       'answered' || 'respondida' || 'resuelta' => ObligationStatus.answered,
-      'clarifying' || 'aclarando' || 'preguntando' =>
-        ObligationStatus.clarifying,
+      'clarifying' ||
+      'aclarando' ||
+      'preguntando' => ObligationStatus.clarifying,
       _ => ObligationStatus.pending,
     };
 

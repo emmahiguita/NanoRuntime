@@ -46,17 +46,29 @@ abstract final class AutomationVisual {
 
     final darkCardAlphaStart = !glassEnabled
         ? 1.0
-        : ((0.18 + 0.65 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(0.08, 0.98);
+        : ((0.18 + 0.65 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(
+            0.08,
+            0.98,
+          );
     final darkCardAlphaEnd = !glassEnabled
         ? 1.0
-        : ((0.22 + 0.68 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(0.10, 0.98);
+        : ((0.22 + 0.68 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(
+            0.10,
+            0.98,
+          );
 
     final lightCardAlphaStart = !glassEnabled
         ? 1.0
-        : ((0.30 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(0.12, 0.98);
+        : ((0.30 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(
+            0.12,
+            0.98,
+          );
     final lightCardAlphaEnd = !glassEnabled
         ? 1.0
-        : ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(0.10, 0.98);
+        : ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(
+            0.10,
+            0.98,
+          );
 
     return AutomationVisualPalette(
       resolvedColors: colors,
@@ -89,12 +101,8 @@ abstract final class AutomationVisual {
               alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
             )
           : const Color(0xFFE2E8F0),
-      shadow: isDark
-          ? const Color(0x35000000)
-          : const Color(0x0C0F172A),
-      shadowSoft: isDark
-          ? const Color(0x200D1F4A)
-          : const Color(0x060F172A),
+      shadow: isDark ? const Color(0x35000000) : const Color(0x0C0F172A),
+      shadowSoft: isDark ? const Color(0x200D1F4A) : const Color(0x060F172A),
       success: colors.success,
     );
   }
@@ -340,33 +348,38 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
 
     final effectiveBlur = (!glassEnabled || reduceMotion)
         ? 0.0
-        : (glassBlur * (0.6 + 0.4 * (1.0 - glassClarity * 0.35))).clamp(0.0, 40.0);
+        : (glassBlur * (0.6 + 0.4 * (1.0 - glassClarity * 0.35))).clamp(
+            0.0,
+            40.0,
+          );
 
     // Color de tarjeta y sustrato adaptativo con transparencia y opacidad iOS
     final cardColor = !glassEnabled
         ? (isDark ? const Color(0xFF0F172A) : Colors.white)
         : isDark
-            ? Color.fromRGBO(
-                14,
-                24,
-                45,
-                ((0.15 + 0.70 * glassOpacity) * (1.15 - glassClarity * 0.45))
-                    .clamp(0.04, 0.98),
-              )
-            : Colors.white.withValues(
-                alpha: ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35))
-                    .clamp(0.08, 0.98),
-              );
+        ? Color.fromRGBO(
+            14,
+            24,
+            45,
+            ((0.15 + 0.70 * glassOpacity) * (1.15 - glassClarity * 0.45)).clamp(
+              0.04,
+              0.98,
+            ),
+          )
+        : Colors.white.withValues(
+            alpha: ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35))
+                .clamp(0.08, 0.98),
+          );
 
     final borderColor = !glassEnabled
         ? (isDark ? Colors.white12 : Colors.black12)
         : isDark
-            ? Colors.white.withValues(
-                alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
-              )
-            : Colors.black.withValues(
-                alpha: (0.03 + 0.08 * (1.0 - glassClarity)).clamp(0.02, 0.15),
-              );
+        ? Colors.white.withValues(
+            alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
+          )
+        : Colors.black.withValues(
+            alpha: (0.03 + 0.08 * (1.0 - glassClarity)).clamp(0.02, 0.15),
+          );
 
     final card = Container(
       decoration: BoxDecoration(
@@ -391,10 +404,7 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: borderRadius,
-              border: Border.all(
-                color: borderColor,
-                width: 0.5,
-              ),
+              border: Border.all(color: borderColor, width: 0.5),
             ),
             child: Stack(
               children: [
@@ -412,10 +422,7 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
                             child: widget.child,
                           ),
                         )
-                      : Padding(
-                          padding: widget.padding,
-                          child: widget.child,
-                        ),
+                      : Padding(padding: widget.padding, child: widget.child),
                 ),
               ],
             ),
@@ -469,7 +476,8 @@ class AutomationSectionLabel extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: visual.text, // Modificado de textMuted a text para mayor legibilidad
+                color: visual
+                    .text, // Modificado de textMuted a text para mayor legibilidad
                 fontSize: 11.5,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 1.2,
@@ -610,9 +618,15 @@ class AutomationBackdrop extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: isDark
                   ? [
-                      Colors.black.withValues(alpha: (scrim * 1.5).clamp(0.0, 1.0)),
-                      Colors.black.withValues(alpha: (scrim * 0.9).clamp(0.0, 1.0)),
-                      Colors.black.withValues(alpha: (scrim * 1.6).clamp(0.0, 1.0)),
+                      Colors.black.withValues(
+                        alpha: (scrim * 1.5).clamp(0.0, 1.0),
+                      ),
+                      Colors.black.withValues(
+                        alpha: (scrim * 0.9).clamp(0.0, 1.0),
+                      ),
+                      Colors.black.withValues(
+                        alpha: (scrim * 1.6).clamp(0.0, 1.0),
+                      ),
                     ]
                   : [
                       const Color(0xFFE2E8F0).withValues(alpha: 0.85),

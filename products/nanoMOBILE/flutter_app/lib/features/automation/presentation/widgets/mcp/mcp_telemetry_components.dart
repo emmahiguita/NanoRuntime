@@ -16,15 +16,17 @@ class McpTelemetryLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isSuccess = entry.status == ExecutionJournalStatus.verified ||
+    final isSuccess =
+        entry.status == ExecutionJournalStatus.verified ||
         entry.status == ExecutionJournalStatus.executed;
-    final isPending = entry.status == ExecutionJournalStatus.executing ||
+    final isPending =
+        entry.status == ExecutionJournalStatus.executing ||
         entry.status == ExecutionJournalStatus.waitingConfirmation;
     final statusColor = isSuccess
         ? const Color(0xFF10B981)
         : isPending
-            ? const Color(0xFF38BDF8)
-            : const Color(0xFFEF4444);
+        ? const Color(0xFF38BDF8)
+        : const Color(0xFFEF4444);
 
     final timeStr =
         '${entry.timestamp.hour.toString().padLeft(2, '0')}:${entry.timestamp.minute.toString().padLeft(2, '0')}:${entry.timestamp.second.toString().padLeft(2, '0')}';
@@ -81,7 +83,9 @@ class McpTelemetryLogCard extends StatelessWidget {
           Text(
             entry.actionSignature.isNotEmpty
                 ? entry.actionSignature
-                : (entry.semanticAction.isNotEmpty ? entry.semanticAction : entry.stepId),
+                : (entry.semanticAction.isNotEmpty
+                      ? entry.semanticAction
+                      : entry.stepId),
             style: TextStyle(
               color: visual.text,
               fontSize: 13,
@@ -93,10 +97,7 @@ class McpTelemetryLogCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               entry.verificationState,
-              style: TextStyle(
-                color: visual.textMuted,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: visual.textMuted, fontSize: 11),
             ),
           ],
         ],

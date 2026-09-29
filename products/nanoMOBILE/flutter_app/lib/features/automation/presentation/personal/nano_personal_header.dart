@@ -37,9 +37,7 @@ class NanoPersonalHeader extends StatelessWidget {
       decoration: BoxDecoration(
         color: visual.surface.withValues(alpha: 0.70),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: visual.outline.withValues(alpha: 0.20),
-        ),
+        border: Border.all(color: visual.outline.withValues(alpha: 0.20)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -77,19 +75,13 @@ class NanoPersonalHeader extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'Habla y responde como tú.',
-                      style: TextStyle(
-                        color: visual.textMuted,
-                        fontSize: 12.5,
-                      ),
+                      style: TextStyle(color: visual.textMuted, fontSize: 12.5),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 9,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
                   color: visual.accent.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(12),

@@ -69,11 +69,7 @@ class DialogContainerShell extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: Overlay(
-            initialEntries: [
-              OverlayEntry(
-                builder: (overlayContext) => child,
-              ),
-            ],
+            initialEntries: [OverlayEntry(builder: (overlayContext) => child)],
           ),
         ),
       ),

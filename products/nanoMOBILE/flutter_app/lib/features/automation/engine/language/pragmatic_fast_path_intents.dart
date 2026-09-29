@@ -16,11 +16,13 @@ part of 'pragmatic_fast_path.dart';
 /// los submódulos especializados en menos de 200 líneas cada uno.
 extension _PragmaticIntentExtraction on PragmaticFastPath {
   bool _hasCommercialOrCommandSignal(String normalized, Set<String> tokens) {
-    final isHardwareInquiry = normalized.contains('bateria') ||
+    final isHardwareInquiry =
+        normalized.contains('bateria') ||
         normalized.contains('cuanta carga') ||
         normalized.contains('nivel de carga');
 
-    if (!isHardwareInquiry && tokens.any(commercialIntentTokens.contains)) return true;
+    if (!isHardwareInquiry && tokens.any(commercialIntentTokens.contains))
+      return true;
     if (supportPhrases.any(normalized.contains)) return true;
     if (correctionPhrases.any(normalized.contains)) return true;
 
@@ -36,7 +38,10 @@ extension _PragmaticIntentExtraction on PragmaticFastPath {
   }
 
   /// Extrae todos los intentos lingüísticos presentes en el mensaje.
-  Set<ConversationIntent> _extractIntents(String normalized, Set<String> tokens) {
+  Set<ConversationIntent> _extractIntents(
+    String normalized,
+    Set<String> tokens,
+  ) {
     final intents = <ConversationIntent>{};
     _extractBasicIntents(intents, normalized, tokens);
     _extractContextualIntents(intents, normalized, tokens);

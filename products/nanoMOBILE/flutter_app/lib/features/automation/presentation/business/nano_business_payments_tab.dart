@@ -59,12 +59,12 @@ class NanoBusinessPaymentsTab extends ConsumerWidget {
                 final text = await showDialog<String>(
                   context: context,
                   useRootNavigator: true,
-                  builder: (_) => PaymentMethodsDialog(
-                    initial: facts.payments,
-                  ),
+                  builder: (_) => PaymentMethodsDialog(initial: facts.payments),
                 );
                 if (text != null) {
-                  ref.read(businessFactsNotifierProvider.notifier).setPayments(text);
+                  ref
+                      .read(businessFactsNotifierProvider.notifier)
+                      .setPayments(text);
                 }
               },
             ),

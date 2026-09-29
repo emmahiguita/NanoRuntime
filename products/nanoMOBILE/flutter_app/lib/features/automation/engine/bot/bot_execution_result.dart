@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/bot/bot_event.dart';
 import '../execution/agent_tool_dispatcher.dart';
 

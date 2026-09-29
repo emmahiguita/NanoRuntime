@@ -90,7 +90,7 @@ final class RuntimePersonaStyleResolver implements PersonaStyleResolver {
         );
         if (safeVariants.isEmpty) continue;
 
-        final score = PersonaRetriever.scoreExample(cleanInput, cand);
+        final score = await _retriever.scoreExampleWithEngine(cleanInput, cand);
         if (score > bestScore) {
           bestScore = score;
           bestExample = cand;

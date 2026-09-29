@@ -129,11 +129,7 @@ class LlmAutomationPlanner implements AutomationPlanner {
     final LLMResult result;
     try {
       result = await _client
-          .generate(
-            prompt: _buildPrompt(goal),
-            temperature: 0.2,
-            maxTokens: 80,
-          )
+          .generate(prompt: _buildPrompt(goal), temperature: 0.2, maxTokens: 80)
           .timeout(const Duration(seconds: 15));
     } catch (_) {
       // Motor no responde: plan vacío → noPlan honesto del coordinator.

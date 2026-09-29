@@ -47,9 +47,18 @@ extension AgentToolCommandRouter on AgentToolDispatcher {
         call = const ToolCall(tool: 'back');
       case 'notificaciones' || 'notifications':
         call = const ToolCall(tool: 'notifications');
-      case 'bateria' || 'battery' || 'dispositivo' || 'device_state' || 'wifi' || 'red':
+      case 'bateria' ||
+          'battery' ||
+          'dispositivo' ||
+          'device_state' ||
+          'wifi' ||
+          'red':
         return _deviceHandler.deviceState();
-      case 'diagnostico' || 'diagnóstico' || 'diagnostics' || 'device.diagnostics' || 'device_diagnostics':
+      case 'diagnostico' ||
+          'diagnóstico' ||
+          'diagnostics' ||
+          'device.diagnostics' ||
+          'device_diagnostics':
         return _diagnosticsHandler.handleCommand(rest);
       case 'git':
         return (await runToolGuarded(
@@ -97,8 +106,11 @@ extension AgentToolCommandRouter on AgentToolDispatcher {
         return _webHandler.fetchWeb(rest);
       case 'url' || 'navegar':
         final u = rest.trim();
-        if (u.isEmpty) return 'Sintaxis: @url <enlace>. Ej: @url https://google.com';
-        final full = u.startsWith('http://') || u.startsWith('https://') ? u : 'https://$u';
+        if (u.isEmpty)
+          return 'Sintaxis: @url <enlace>. Ej: @url https://google.com';
+        final full = u.startsWith('http://') || u.startsWith('https://')
+            ? u
+            : 'https://$u';
         return _webHandler.openUrl(full);
       case 'buscar' || 'google' || 'search':
         return _webHandler.searchKnowledge(rest);
@@ -117,19 +129,31 @@ extension AgentToolCommandRouter on AgentToolDispatcher {
           cancellation: cancellation,
         );
       case 'gemini':
-        return _browserAgentHandler.handleCommand(rest.isNotEmpty ? '@gemini $rest' : '@gemini .');
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@gemini $rest' : '@gemini .',
+        );
       case 'gpt' || 'chatgpt':
-        return _browserAgentHandler.handleCommand(rest.isNotEmpty ? '@chatgpt $rest' : '@chatgpt .');
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@chatgpt $rest' : '@chatgpt .',
+        );
       case 'deepseek':
-        return _browserAgentHandler.handleCommand(rest.isNotEmpty ? '@deepseek $rest' : '@deepseek .');
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@deepseek $rest' : '@deepseek .',
+        );
       case 'claude':
-        return _browserAgentHandler.handleCommand(rest.isNotEmpty ? '@claude $rest' : '@claude .');
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@claude $rest' : '@claude .',
+        );
       case 'browser_ai':
-        return _browserAgentHandler.handleCommand(rest.isNotEmpty ? '@browser_ai $rest' : '@browser_ai .');
+        return _browserAgentHandler.handleCommand(
+          rest.isNotEmpty ? '@browser_ai $rest' : '@browser_ai .',
+        );
       case 'whatsapp' || 'wpp':
         return _whatsAppHandler.handleCommand(rest);
       case 'contactos' || 'contacts':
-        return _whatsAppHandler.listContacts(ToolCall(tool: 'whatsapp.contacts', args: {'query': rest}));
+        return _whatsAppHandler.listContacts(
+          ToolCall(tool: 'whatsapp.contacts', args: {'query': rest}),
+        );
       case 'alarma' || 'alarm' || 'despertador':
         return _alarmHandler.handleCommand(rest);
       case 'inspeccionar' || 'inspect' || 'inspect_app':

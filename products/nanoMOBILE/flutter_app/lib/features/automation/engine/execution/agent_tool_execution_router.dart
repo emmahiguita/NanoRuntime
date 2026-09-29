@@ -56,7 +56,11 @@ extension AgentToolExecutionRouter on AgentToolDispatcher {
       case 'recents':
         return _uiHandler.navigate(call, 'Recientes', 'recents');
       case 'open_notifications':
-        return _uiHandler.navigate(call, 'Sombra de notificaciones', 'notifications');
+        return _uiHandler.navigate(
+          call,
+          'Sombra de notificaciones',
+          'notifications',
+        );
       case 'open_quick_settings':
         return _uiHandler.navigate(call, 'Ajustes rápidos', 'quick_settings');
       case 'swipe':
@@ -73,19 +77,43 @@ extension AgentToolExecutionRouter on AgentToolDispatcher {
         final pkgArg = (call.args?['packageName'] as String?)?.trim();
         return _webHandler.openUrl(urlArg, packageName: pkgArg);
       case 'fetch_web' || 'web_fetch' || 'http_get':
-        final urlArg = (call.textArg ?? call.selectorArg ?? (call.args?['url'] as String?) ?? '').trim();
+        final urlArg =
+            (call.textArg ??
+                    call.selectorArg ??
+                    (call.args?['url'] as String?) ??
+                    '')
+                .trim();
         if (urlArg.isEmpty) return '[tool] fetch_web requiere <url>.';
         return _webHandler.fetchWeb(urlArg);
       case 'search_knowledge' || 'search_web':
-        final q = (call.textArg ?? call.selectorArg ?? (call.args?['query'] as String?) ?? '').trim();
-        if (q.isEmpty) return '[tool] search_knowledge requiere "query" o texto.';
+        final q =
+            (call.textArg ??
+                    call.selectorArg ??
+                    (call.args?['query'] as String?) ??
+                    '')
+                .trim();
+        if (q.isEmpty)
+          return '[tool] search_knowledge requiere "query" o texto.';
         return _webHandler.searchKnowledge(q);
       case 'browser_ai_query' || 'reverse_agent_query':
-        final provider = (call.args?['provider'] as String?)?.trim() ?? 'gemini';
-        final prompt = (call.args?['prompt'] as String?) ?? call.textArg ?? call.selectorArg ?? '';
+        final provider =
+            (call.args?['provider'] as String?)?.trim() ?? 'gemini';
+        final prompt =
+            (call.args?['prompt'] as String?) ??
+            call.textArg ??
+            call.selectorArg ??
+            '';
         final headless = call.args?['headless'] != false;
-        return _browserAgentHandler.executeQuery(provider: provider, prompt: prompt, headless: headless);
-      case 'browser.ai.ask' || 'browser.ai.providers' || 'browser.ai.open' || 'browser.ai.get_response' || 'browser.ai.list':
+        return _browserAgentHandler.executeQuery(
+          provider: provider,
+          prompt: prompt,
+          headless: headless,
+        );
+      case 'browser.ai.ask' ||
+          'browser.ai.providers' ||
+          'browser.ai.open' ||
+          'browser.ai.get_response' ||
+          'browser.ai.list':
         final adapter = _browserAiAdapter;
         if (adapter != null) {
           final outcome = await adapter.execute(call);
@@ -100,12 +128,17 @@ extension AgentToolExecutionRouter on AgentToolDispatcher {
         return _deviceHandler.deviceState();
       case 'shizuku_query_package':
         final pkgArg = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (pkgArg.isEmpty) return '[tool] shizuku_query_package requiere <packageName>.';
+        if (pkgArg.isEmpty)
+          return '[tool] shizuku_query_package requiere <packageName>.';
         return _shizukuHandler.queryPackage(pkgArg);
       case 'force_stop_package':
         final pkgArg2 = (call.textArg ?? call.selectorArg ?? '').trim();
-        if (pkgArg2.isEmpty) return '[tool] force_stop_package requiere <packageName>.';
-        return _shizukuHandler.forceStop(pkgArg2, platformStateReader: _platformStateReader);
+        if (pkgArg2.isEmpty)
+          return '[tool] force_stop_package requiere <packageName>.';
+        return _shizukuHandler.forceStop(
+          pkgArg2,
+          platformStateReader: _platformStateReader,
+        );
       case 'install_package':
         final apkArg = (call.textArg ?? call.selectorArg ?? '').trim();
         if (apkArg.isEmpty) return '[tool] install_package requiere <apkPath>.';
@@ -137,9 +170,17 @@ extension AgentToolExecutionRouter on AgentToolDispatcher {
         return _adbHandler.execute(call);
       case 'dev.run_benchmark' || 'run_benchmark' || 'benchmark':
         return _benchmarkHandler.execute(call);
-      case 'linux.list' || 'linux.readFile' || 'linux.readfile' || 'linux.writeFile' || 'linux.writefile' || 'linux.run':
+      case 'linux.list' ||
+          'linux.readFile' ||
+          'linux.readfile' ||
+          'linux.writeFile' ||
+          'linux.writefile' ||
+          'linux.run':
         return _linuxHandler.executeLinuxTool(call, registry);
-      case 'mcp.read' || 'mcp.device' || 'mcp.externalWrite' || 'mcp.privileged':
+      case 'mcp.read' ||
+          'mcp.device' ||
+          'mcp.externalWrite' ||
+          'mcp.privileged':
         return _mcpHandler.executeMcpTool(call);
       default:
         if (call.tool.toLowerCase().startsWith('nano.linux.')) {
@@ -159,7 +200,10 @@ extension AgentToolExecutionRouter on AgentToolDispatcher {
       if (match is AppMatchResolved) {
         packageName = match.app.packageName;
       } else if (match is AppMatchAmbiguous) {
-        final candidates = match.candidates.take(3).map((c) => '${c.label} (${c.packageName})').join(', ');
+        final candidates = match.candidates
+            .take(3)
+            .map((c) => '${c.label} (${c.packageName})')
+            .join(', ');
         return '[ambiguousApp] Múltiples aplicaciones coinciden con "$packageName": $candidates.';
       }
     }
@@ -167,8 +211,13 @@ extension AgentToolExecutionRouter on AgentToolDispatcher {
     if (!launched) {
       return '[launchFailed] Android no pudo abrir el paquete "$packageName".';
     }
-    final expectation = _uiHandler.expectationFor(call).copyWith(expectedPackage: packageName);
-    return _uiHandler.verifiedFeedback('Aplicación abierta por Intent: $packageName.', expectation);
+    final expectation = _uiHandler
+        .expectationFor(call)
+        .copyWith(expectedPackage: packageName);
+    return _uiHandler.verifiedFeedback(
+      'Aplicación abierta por Intent: $packageName.',
+      expectation,
+    );
   }
 
   Future<String> _handleReplyNotification(ToolCall call) async {

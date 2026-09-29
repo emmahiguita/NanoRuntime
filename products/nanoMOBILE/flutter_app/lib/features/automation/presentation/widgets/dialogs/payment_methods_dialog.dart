@@ -72,7 +72,9 @@ class _PaymentMethodsDialogState extends State<PaymentMethodsDialog> {
   }
 
   void _onSave() {
-    final result = _isRawMode ? _rawController.text.trim() : _data.toConsolidatedText().trim();
+    final result = _isRawMode
+        ? _rawController.text.trim()
+        : _data.toConsolidatedText().trim();
     Navigator.of(context).pop(result.isNotEmpty ? result : null);
   }
 
@@ -92,18 +94,40 @@ class _PaymentMethodsDialogState extends State<PaymentMethodsDialog> {
                 Container(
                   width: 34,
                   height: 34,
-                  decoration: BoxDecoration(color: visual.accentSoft, borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.account_balance_wallet_rounded, color: visual.accent, size: 20),
+                  decoration: BoxDecoration(
+                    color: visual.accentSoft,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: visual.accent,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('Métodos de Pago', style: TextStyle(color: visual.text, fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Métodos de Pago',
+                    style: TextStyle(
+                      color: visual.text,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 Semantics(
-                  label: _isRawMode ? 'Cambiar a modo guiado' : 'Editar como texto libre',
+                  label: _isRawMode
+                      ? 'Cambiar a modo guiado'
+                      : 'Editar como texto libre',
                   button: true,
                   child: IconButton(
-                    icon: Icon(_isRawMode ? Icons.view_list_rounded : Icons.edit_note_rounded, color: visual.accent, size: 22),
+                    icon: Icon(
+                      _isRawMode
+                          ? Icons.view_list_rounded
+                          : Icons.edit_note_rounded,
+                      color: visual.accent,
+                      size: 22,
+                    ),
                     onPressed: _toggleMode,
                   ),
                 ),
@@ -120,10 +144,14 @@ class _PaymentMethodsDialogState extends State<PaymentMethodsDialog> {
                       maxLines: 8,
                       style: TextStyle(color: visual.text, fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: 'Describe aquí cómo tus clientes pueden pagarte (Nequi, Daviplata, Bancolombia, efectivo)...',
+                        hintText:
+                            'Describe aquí cómo tus clientes pueden pagarte (Nequi, Daviplata, Bancolombia, efectivo)...',
                         filled: true,
                         fillColor: visual.inputFill,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
                   )
@@ -140,17 +168,28 @@ class _PaymentMethodsDialogState extends State<PaymentMethodsDialog> {
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: Text('Cancelar', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(color: visual.textMuted, fontSize: 12),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
                   onPressed: _onSave,
                   style: FilledButton.styleFrom(
                     backgroundColor: visual.accent,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                  child: const Text('Guardar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Guardar',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),

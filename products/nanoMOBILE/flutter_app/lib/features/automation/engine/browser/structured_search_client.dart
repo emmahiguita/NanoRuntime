@@ -34,7 +34,8 @@ final class StructuredSearchClient {
   Future<WebKnowledgeResult?> search(String query) async {
     final clean = query.trim();
     if (clean.isEmpty) return null;
-    final effectiveBraveKey = braveApiKey ??
+    final effectiveBraveKey =
+        braveApiKey ??
         const String.fromEnvironment('BRAVE_SEARCH_API_KEY', defaultValue: '');
 
     if (effectiveBraveKey.trim().isNotEmpty) {
@@ -49,9 +50,14 @@ final class StructuredSearchClient {
   }
 
   Future<WebKnowledgeResult?> _searchBrave(String query, String apiKey) async {
-    final client = _createClient()..connectionTimeout = const Duration(seconds: 4);
+    final client = _createClient()
+      ..connectionTimeout = const Duration(seconds: 4);
     try {
-      final uri = Uri.https('api.search.brave.com', '/res/v1/web/search', {'q': query, 'count': '4', 'search_lang': 'es'});
+      final uri = Uri.https('api.search.brave.com', '/res/v1/web/search', {
+        'q': query,
+        'count': '4',
+        'search_lang': 'es',
+      });
       final req = await client.getUrl(uri).timeout(const Duration(seconds: 4));
       req.headers.set('Accept', 'application/json');
       req.headers.set('X-Subscription-Token', apiKey);
@@ -59,9 +65,16 @@ final class StructuredSearchClient {
       if (res.statusCode != 200) return null;
 
       final decoded = jsonDecode(await res.transform(utf8.decoder).join());
-      final results = (decoded is Map ? (decoded['web'] is Map ? decoded['web']['results'] : null) : null);
+      final results = (decoded is Map
+          ? (decoded['web'] is Map ? decoded['web']['results'] : null)
+          : null);
       if (results is! List || results.isEmpty) return null;
-      return await _buildResultFromItems(query: query, rawItems: results, providerLabel: 'Brave Search', contentKey: 'description');
+      return await _buildResultFromItems(
+        query: query,
+        rawItems: results,
+        providerLabel: 'Brave Search',
+        contentKey: 'description',
+      );
     } catch (_) {
       return null;
     } finally {
@@ -69,8 +82,12 @@ final class StructuredSearchClient {
     }
   }
 
-  Future<WebKnowledgeResult?> _searchSearxng(String query, String baseUrl) async {
-    final client = _createClient()..connectionTimeout = const Duration(seconds: 3);
+  Future<WebKnowledgeResult?> _searchSearxng(
+    String query,
+    String baseUrl,
+  ) async {
+    final client = _createClient()
+      ..connectionTimeout = const Duration(seconds: 3);
     try {
       final base = Uri.parse(baseUrl);
       final uri = base.replace(
@@ -86,7 +103,12 @@ final class StructuredSearchClient {
       final decoded = jsonDecode(await res.transform(utf8.decoder).join());
       final results = decoded is Map ? decoded['results'] : null;
       if (results is! List || results.isEmpty) return null;
-      return await _buildResultFromItems(query: query, rawItems: results, providerLabel: 'SearXNG', contentKey: 'content');
+      return await _buildResultFromItems(
+        query: query,
+        rawItems: results,
+        providerLabel: 'SearXNG',
+        contentKey: 'content',
+      );
     } catch (_) {
       return null;
     } finally {
@@ -113,7 +135,9 @@ final class StructuredSearchClient {
       topTitle ??= title;
       topUrl ??= url;
       if (snippet.isNotEmpty) snippets.add(snippet);
-      citations.add(WebSourceCitation(title: title, url: url, providerName: providerLabel));
+      citations.add(
+        WebSourceCitation(title: title, url: url, providerName: providerLabel),
+      );
     }
     if (citations.isEmpty) return null;
 
@@ -125,16 +149,27 @@ final class StructuredSearchClient {
     if (summary.isEmpty) return null;
 
     return WebKnowledgeResult(
-      query: query, title: topTitle ?? query, summary: summary,
-      snippets: snippets, sourceUrl: topUrl, citations: citations, found: true,
+      query: query,
+      title: topTitle ?? query,
+      summary: summary,
+      snippets: snippets,
+      sourceUrl: topUrl,
+      citations: citations,
+      found: true,
     );
   }
 
   Future<String?> _fetchReadableExcerpt(String url) async {
-    final client = _createClient()..connectionTimeout = const Duration(seconds: 3);
+    final client = _createClient()
+      ..connectionTimeout = const Duration(seconds: 3);
     try {
-      final req = await client.getUrl(Uri.parse(url)).timeout(const Duration(seconds: 3));
-      req.headers.set('User-Agent', 'Mozilla/5.0 (Android; NanoAI Readability)');
+      final req = await client
+          .getUrl(Uri.parse(url))
+          .timeout(const Duration(seconds: 3));
+      req.headers.set(
+        'User-Agent',
+        'Mozilla/5.0 (Android; NanoAI Readability)',
+      );
       final res = await req.close().timeout(const Duration(seconds: 3));
       if (res.statusCode != 200) return null;
       final html = await res.transform(utf8.decoder).take(16).join();
@@ -142,7 +177,10 @@ final class StructuredSearchClient {
       if (!article.hasContent) return null;
       return article.excerpt.length >= 60
           ? article.excerpt
-          : article.textContent.substring(0, article.textContent.length.clamp(0, 320));
+          : article.textContent.substring(
+              0,
+              article.textContent.length.clamp(0, 320),
+            );
     } catch (_) {
       return null;
     } finally {

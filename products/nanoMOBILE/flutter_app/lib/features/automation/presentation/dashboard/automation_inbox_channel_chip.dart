@@ -9,7 +9,11 @@ import 'package:flutter/material.dart';
 class AutomationInboxChannelChip extends StatelessWidget {
   final String label;
   final Color dotColor;
-  const AutomationInboxChannelChip({super.key, required this.label, required this.dotColor});
+  const AutomationInboxChannelChip({
+    super.key,
+    required this.label,
+    required this.dotColor,
+  });
 
   @override
   Widget build(BuildContext context) {

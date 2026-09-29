@@ -27,12 +27,15 @@ class PersonalAgentAutonomyCard extends ConsumerWidget {
     final settings = ref.watch(settingsProvider);
     final settingsNotifier = ref.read(settingsProvider.notifier);
     final visual = AutomationVisual.of(context);
-    final isWaActive = ref.watch(ruleRegistryProvider).isWhatsAppRuleActive(
-      MessagingPackage.whatsapp,
+    final isWaActive = ref
+        .watch(ruleRegistryProvider)
+        .isWhatsAppRuleActive(MessagingPackage.whatsapp);
+    final waMode = ConversationAutonomyModeName.fromName(
+      settings.waAutonomyMode,
     );
-    final waMode = ConversationAutonomyModeName.fromName(settings.waAutonomyMode);
     final selectedMode = switch (waMode) {
-      ConversationAutonomyMode.autonomous => ConversationAutonomyMode.autonomous,
+      ConversationAutonomyMode.autonomous =>
+        ConversationAutonomyMode.autonomous,
       ConversationAutonomyMode.safeAuto => ConversationAutonomyMode.safeAuto,
       _ => ConversationAutonomyMode.suggestions,
     };
@@ -49,8 +52,9 @@ class PersonalAgentAutonomyCard extends ConsumerWidget {
             value: isWaActive,
             onChanged: (v) {
               final reg = ref.read(ruleRegistryProvider);
-              v ? reg.seedWhatsAppRule(MessagingPackage.whatsapp)
-                : reg.removeWhatsAppRule(MessagingPackage.whatsapp);
+              v
+                  ? reg.seedWhatsAppRule(MessagingPackage.whatsapp)
+                  : reg.removeWhatsAppRule(MessagingPackage.whatsapp);
             },
           ),
           showChevron: false,
@@ -80,7 +84,9 @@ class PersonalAgentAutonomyCard extends ConsumerWidget {
               Text(
                 _getModeDescription(waMode),
                 style: TextStyle(
-                  color: visual.isDark ? const Color(0xFFD6DEE8) : visual.textMuted,
+                  color: visual.isDark
+                      ? const Color(0xFFD6DEE8)
+                      : visual.textMuted,
                   fontSize: 12.5,
                   height: 1.45,
                 ),
@@ -94,7 +100,10 @@ class PersonalAgentAutonomyCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildModeBadge(ConversationAutonomyMode mode, AutomationVisualPalette visual) {
+  Widget _buildModeBadge(
+    ConversationAutonomyMode mode,
+    AutomationVisualPalette visual,
+  ) {
     final label = switch (mode) {
       ConversationAutonomyMode.suggestions => 'BORRADOR',
       ConversationAutonomyMode.safeAuto => 'AUTO SEGURO',
@@ -146,7 +155,9 @@ class PersonalAgentAutonomyCard extends ConsumerWidget {
               showSelectedIcon: false,
               style: ButtonStyle(
                 visualDensity: VisualDensity.compact,
-                side: WidgetStateProperty.all(BorderSide(color: visual.cardBorder)),
+                side: WidgetStateProperty.all(
+                  BorderSide(color: visual.cardBorder),
+                ),
               ),
               segments: const [
                 ButtonSegment(

@@ -37,7 +37,9 @@ class WebContentFormatter {
     }
 
     // 2. Procesar como documento HTML
-    if (trimmed.contains('<html') || trimmed.contains('<body') || trimmed.contains('<!DOCTYPE')) {
+    if (trimmed.contains('<html') ||
+        trimmed.contains('<body') ||
+        trimmed.contains('<!DOCTYPE')) {
       return _formatHtml(trimmed, uri, statusCode);
     }
 
@@ -55,9 +57,11 @@ class WebContentFormatter {
       buffer.writeln('- **Estado:** Conectado a Internet');
       buffer.writeln('- **Servidor consultado:** ${uri.host}');
       if (data.containsKey('city') || data.containsKey('country')) {
-        final loc = [data['city'], data['region'], data['country']]
-            .where((e) => e != null && e.toString().isNotEmpty)
-            .join(', ');
+        final loc = [
+          data['city'],
+          data['region'],
+          data['country'],
+        ].where((e) => e != null && e.toString().isNotEmpty).join(', ');
         if (loc.isNotEmpty) buffer.writeln('- **Ubicación estimada:** $loc');
       }
       return buffer.toString().trim();
@@ -75,7 +79,9 @@ class WebContentFormatter {
       if (val is Map) {
         buffer.writeln('- **$key:**');
         for (final sub in val.entries.take(5)) {
-          buffer.writeln('  • ${_humanizeKey(sub.key.toString())}: `${sub.value}`');
+          buffer.writeln(
+            '  • ${_humanizeKey(sub.key.toString())}: `${sub.value}`',
+          );
         }
       } else if (val is List) {
         buffer.writeln('- **$key:** (${val.length} elementos)');
@@ -95,7 +101,9 @@ class WebContentFormatter {
   /// Formateo específico para JSON de tipo List
   String _formatJsonList(List<dynamic> list, Uri uri, int statusCode) {
     final buffer = StringBuffer('### 🌐 Lista de Elementos [${uri.host}]\n\n');
-    buffer.writeln('Se obtuvieron **${list.length}** registros de la fuente:\n');
+    buffer.writeln(
+      'Se obtuvieron **${list.length}** registros de la fuente:\n',
+    );
 
     for (final item in list.take(8)) {
       if (item is Map) {
@@ -117,29 +125,65 @@ class WebContentFormatter {
   /// Formateo y limpieza de HTML extrayendo contenido útil y descartando ruido SEO
   String _formatHtml(String html, Uri uri, int statusCode) {
     // 1. Extraer título
-    final titleMatch = RegExp(r'<title[^>]*>(.*?)</title>', caseSensitive: false, dotAll: true).firstMatch(html);
-    var title = titleMatch?.group(1)?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
+    final titleMatch = RegExp(
+      r'<title[^>]*>(.*?)</title>',
+      caseSensitive: false,
+      dotAll: true,
+    ).firstMatch(html);
+    var title =
+        titleMatch?.group(1)?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
     title = _decodeHtmlEntities(title);
 
     // 2. Extraer meta descripción si existe
-    final descMatch = RegExp(r'<meta[^>]*name="description"[^>]*content="([^"]*)"', caseSensitive: false).firstMatch(html) ??
-        RegExp(r'<meta[^>]*content="([^"]*)"[^>]*name="description"', caseSensitive: false).firstMatch(html);
+    final descMatch =
+        RegExp(
+          r'<meta[^>]*name="description"[^>]*content="([^"]*)"',
+          caseSensitive: false,
+        ).firstMatch(html) ??
+        RegExp(
+          r'<meta[^>]*content="([^"]*)"[^>]*name="description"',
+          caseSensitive: false,
+        ).firstMatch(html);
     var description = descMatch?.group(1)?.trim() ?? '';
     description = _decodeHtmlEntities(description);
 
     // 3. Remover bloques no deseados (scripts, styles, navs, headers, footers, svg)
     var clean = html;
-    clean = clean.replaceAll(RegExp(r'<script[\s\S]*?</script>', caseSensitive: false), ' ');
-    clean = clean.replaceAll(RegExp(r'<style[\s\S]*?</style>', caseSensitive: false), ' ');
-    clean = clean.replaceAll(RegExp(r'<nav[\s\S]*?</nav>', caseSensitive: false), ' ');
-    clean = clean.replaceAll(RegExp(r'<header[\s\S]*?</header>', caseSensitive: false), ' ');
-    clean = clean.replaceAll(RegExp(r'<footer[\s\S]*?</footer>', caseSensitive: false), ' ');
-    clean = clean.replaceAll(RegExp(r'<aside[\s\S]*?</aside>', caseSensitive: false), ' ');
-    clean = clean.replaceAll(RegExp(r'<svg[\s\S]*?</svg>', caseSensitive: false), ' ');
+    clean = clean.replaceAll(
+      RegExp(r'<script[\s\S]*?</script>', caseSensitive: false),
+      ' ',
+    );
+    clean = clean.replaceAll(
+      RegExp(r'<style[\s\S]*?</style>', caseSensitive: false),
+      ' ',
+    );
+    clean = clean.replaceAll(
+      RegExp(r'<nav[\s\S]*?</nav>', caseSensitive: false),
+      ' ',
+    );
+    clean = clean.replaceAll(
+      RegExp(r'<header[\s\S]*?</header>', caseSensitive: false),
+      ' ',
+    );
+    clean = clean.replaceAll(
+      RegExp(r'<footer[\s\S]*?</footer>', caseSensitive: false),
+      ' ',
+    );
+    clean = clean.replaceAll(
+      RegExp(r'<aside[\s\S]*?</aside>', caseSensitive: false),
+      ' ',
+    );
+    clean = clean.replaceAll(
+      RegExp(r'<svg[\s\S]*?</svg>', caseSensitive: false),
+      ' ',
+    );
     clean = clean.replaceAll(RegExp(r'<!--[\s\S]*?-->'), ' ');
 
     // 4. Convertir saltos y párrafos en saltos legibles
-    clean = clean.replaceAll(RegExp(r'<(?:p|div|br|h[1-6]|li)[^>]*>', caseSensitive: false), '\n');
+    clean = clean.replaceAll(
+      RegExp(r'<(?:p|div|br|h[1-6]|li)[^>]*>', caseSensitive: false),
+      '\n',
+    );
     clean = clean.replaceAll(RegExp(r'<[^>]*>'), ' ');
     clean = _decodeHtmlEntities(clean);
 
@@ -147,7 +191,12 @@ class WebContentFormatter {
     final lines = clean
         .split('\n')
         .map((l) => l.replaceAll(RegExp(r'\s+'), ' ').trim())
-        .where((l) => l.length > 25 && !l.toLowerCase().contains('cookie') && !l.toLowerCase().contains('privacy policy'))
+        .where(
+          (l) =>
+              l.length > 25 &&
+              !l.toLowerCase().contains('cookie') &&
+              !l.toLowerCase().contains('privacy policy'),
+        )
         .toList();
 
     final mainParagraphs = lines.take(5).join('\n\n');
@@ -166,7 +215,9 @@ class WebContentFormatter {
     if (mainParagraphs.isNotEmpty) {
       buffer.writeln(mainParagraphs);
     } else {
-      buffer.writeln('Página cargada exitosamente sin extracto de texto principal.');
+      buffer.writeln(
+        'Página cargada exitosamente sin extracto de texto principal.',
+      );
     }
 
     buffer.writeln('\n---\n🔍 *Fuente original:* $uri');
@@ -176,7 +227,9 @@ class WebContentFormatter {
   /// Formateo de texto plano limpio
   String _formatPlainText(String text, Uri uri, int statusCode) {
     final clean = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    final preview = clean.length > 2000 ? '${clean.substring(0, 2000)}…' : clean;
+    final preview = clean.length > 2000
+        ? '${clean.substring(0, 2000)}…'
+        : clean;
 
     return '### 🌐 ${uri.host}\n\n'
         '$preview\n\n'
@@ -189,7 +242,9 @@ class WebContentFormatter {
         .replaceAll('_', ' ')
         .replaceAll('-', ' ')
         .split(' ')
-        .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+        .map(
+          (w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '',
+        )
         .join(' ');
   }
 

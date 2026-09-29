@@ -56,14 +56,19 @@ class McpStoreItemCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isConnected ? const Color(0xFF10B981) : const Color(0xFF8B5CF6))
-                      .withValues(alpha: 0.15),
+                  color:
+                      (isConnected
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF8B5CF6))
+                          .withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   item.transport.name.toUpperCase(),
                   style: TextStyle(
-                    color: isConnected ? const Color(0xFF10B981) : const Color(0xFF8B5CF6),
+                    color: isConnected
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF8B5CF6),
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                   ),
@@ -81,7 +86,10 @@ class McpStoreItemCard extends StatelessWidget {
               if (item.isVerified) ...[
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.blue.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
@@ -89,7 +97,11 @@ class McpStoreItemCard extends StatelessWidget {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified_rounded, size: 12, color: Colors.blue),
+                      Icon(
+                        Icons.verified_rounded,
+                        size: 12,
+                        color: Colors.blue,
+                      ),
                       SizedBox(width: 3),
                       Text(
                         'OFICIAL',
@@ -131,7 +143,10 @@ class McpStoreItemCard extends StatelessWidget {
               children: [
                 for (final tool in item.sampleTools)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: visual.inputFill,
                       borderRadius: BorderRadius.circular(6),
@@ -156,7 +171,9 @@ class McpStoreItemCard extends StatelessWidget {
               Text(
                 isConnected ? 'CONECTADO Y ACTIVO' : 'NO CONECTADO',
                 style: TextStyle(
-                  color: isConnected ? const Color(0xFF10B981) : visual.textMuted,
+                  color: isConnected
+                      ? const Color(0xFF10B981)
+                      : visual.textMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
@@ -167,21 +184,33 @@ class McpStoreItemCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                     side: const BorderSide(color: Colors.redAccent),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     minimumSize: Size.zero,
                   ),
                   onPressed: onDisconnect,
-                  child: const Text('Desconectar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Desconectar',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 )
               else
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: visual.accent,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
                     minimumSize: Size.zero,
                   ),
                   onPressed: onConnect,
-                  child: const Text('Conectar', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Conectar',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                 ),
             ],
           ),
@@ -205,7 +234,9 @@ Future<void> showMcpStoreConnectDialog({
     final client = LocalDeviceMcpClient(appCatalog: appCatalog);
     await registry.register(client, replaceExisting: true);
     final snap = await registry.refreshTools();
-    onConnected('${item.name} conectado. ${snap.tools.length} herramientas activas.');
+    onConnected(
+      '${item.name} conectado. ${snap.tools.length} herramientas activas.',
+    );
     return;
   }
 
@@ -221,8 +252,12 @@ Future<void> showMcpStoreConnectDialog({
       return StatefulBuilder(
         builder: (context, setDlgState) {
           return AlertDialog(
-            backgroundColor: visual.isDark ? const Color(0xFF0E1726) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            backgroundColor: visual.isDark
+                ? const Color(0xFF0E1726)
+                : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
             title: Text(
               'Conectar ${item.name}',
               style: TextStyle(
@@ -239,21 +274,36 @@ Future<void> showMcpStoreConnectDialog({
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Endpoint URL del servidor MCP:', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                    Text(
+                      'Endpoint URL del servidor MCP:',
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: endpointController,
-                      style: TextStyle(color: visual.text, fontSize: 13, fontFamily: 'monospace'),
+                      style: TextStyle(
+                        color: visual.text,
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                      ),
                       decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         filled: true,
                         fillColor: visual.inputFill,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Text('Token de autorización (opcional):', style: TextStyle(color: visual.textMuted, fontSize: 12)),
+                    Text(
+                      'Token de autorización (opcional):',
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                    ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: tokenController,
@@ -261,16 +311,24 @@ Future<void> showMcpStoreConnectDialog({
                       style: TextStyle(color: visual.text, fontSize: 13),
                       decoration: InputDecoration(
                         isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         filled: true,
                         fillColor: visual.inputFill,
                         hintText: 'Bearer token o API Key',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                     if (errorMsg != null) ...[
                       const SizedBox(height: 10),
-                      Text(errorMsg!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+                      Text(
+                        errorMsg!,
+                        style: const TextStyle(color: Colors.red, fontSize: 11),
+                      ),
                     ],
                   ],
                 ),
@@ -295,7 +353,9 @@ Future<void> showMcpStoreConnectDialog({
                         try {
                           final descriptor = item.toDescriptor(
                             customEndpoint: endpointController.text.trim(),
-                            credentialRef: persistence.credentialRefFor(item.id),
+                            credentialRef: persistence.credentialRefFor(
+                              item.id,
+                            ),
                           );
                           persistence.validateDescriptor(descriptor);
                           final token = tokenController.text.trim();
@@ -309,7 +369,9 @@ Future<void> showMcpStoreConnectDialog({
                             await client.disconnect();
                             setDlgState(() {
                               connecting = false;
-                              errorMsg = connResult.message ?? 'No se pudo conectar con el endpoint';
+                              errorMsg =
+                                  connResult.message ??
+                                  'No se pudo conectar con el endpoint';
                             });
                             return;
                           }
@@ -318,15 +380,21 @@ Future<void> showMcpStoreConnectDialog({
                             descriptor,
                             credentialToken: token.isEmpty ? null : token,
                           );
-                          await registry.register(client, replaceExisting: true);
+                          await registry.register(
+                            client,
+                            replaceExisting: true,
+                          );
                           final snap = await registry.refreshTools();
                           if (ctx.mounted) Navigator.of(ctx).pop();
-                          onConnected('${item.name} conectado. ${snap.tools.length} herramientas disponibles.');
+                          onConnected(
+                            '${item.name} conectado. ${snap.tools.length} herramientas disponibles.',
+                          );
                         } catch (_) {
                           await client?.disconnect();
                           setDlgState(() {
                             connecting = false;
-                            errorMsg = 'No se pudo guardar o completar la conexión MCP.';
+                            errorMsg =
+                                'No se pudo guardar o completar la conexión MCP.';
                           });
                         }
                       },
@@ -334,7 +402,10 @@ Future<void> showMcpStoreConnectDialog({
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('Conectar Ahora'),
               ),

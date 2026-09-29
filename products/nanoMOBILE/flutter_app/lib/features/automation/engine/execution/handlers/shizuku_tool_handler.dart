@@ -1,4 +1,4 @@
-﻿import '../../../../../core/services/nano_runtime_api.dart';
+import '../../../../../core/services/nano_runtime_api.dart';
 import '../platform_verification.dart';
 
 /// Manejador de herramientas con privilegios Shizuku.
@@ -6,9 +6,8 @@ import '../platform_verification.dart';
 class ShizukuToolHandler {
   final NanoRuntimeApi _runtime;
 
-  ShizukuToolHandler({
-    NanoRuntimeApi? runtime,
-  }) : _runtime = runtime ?? NanoRuntimeApi.instance;
+  ShizukuToolHandler({NanoRuntimeApi? runtime})
+    : _runtime = runtime ?? NanoRuntimeApi.instance;
 
   /// Emparejamiento y solicitud de conexión con Shizuku.
   Future<String> grantShizuku() async {
@@ -121,10 +120,7 @@ class ShizukuToolHandler {
       return '[shizukuNotAuthorized] Nano no está autorizado para Shizuku. '
           'Usa @conceder shizuku.';
     }
-    final ok = await _runtime.shizukuGrantPermission(
-      packageName,
-      permission,
-    );
+    final ok = await _runtime.shizukuGrantPermission(packageName, permission);
     return ok
         ? 'Permiso "$permission" solicitado para "$packageName".'
         : '[grant:failed] No se pudo conceder el permiso.';

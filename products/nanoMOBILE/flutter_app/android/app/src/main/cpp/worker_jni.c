@@ -283,10 +283,36 @@ Java_dev_nanoai_mobile_NanoshellBridge_workerKillPid(
 // Daemons detached (Xvnc/openbox) hacen setsid() → group propio → sobreviven
 // (MainActivity.onDestroy se encarga de ellos en el proceso principal).
 JNIEXPORT jint JNICALL
+Java_dev_nanoai_mobile_NanoshellBridge_workerIsolateProcessGroup(
+    JNIEnv* env, jclass cls) {
+    pid_t pid = getpid();
+    if (setpgid(0, 0) != 0) {
+        int saved_errno = errno;
+        __android_log_print(ANDROID_LOG_ERROR, "nanoshell-worker",
+            "worker process-group isolation failed: pid=%d errno=%d", pid, saved_errno);
+        return -saved_errno;
+    }
+
+    pid_t pgid = getpgrp();
+    int rc = pgid == pid ? 0 : -EPERM;
+    __android_log_print(rc == 0 ? ANDROID_LOG_INFO : ANDROID_LOG_ERROR,
+        "nanoshell-worker", "worker process-group isolation: pid=%d pgid=%d rc=%d",
+        pid, pgid, rc);
+    return rc;
+}
+
+JNIEXPORT jint JNICALL
 Java_dev_nanoai_mobile_NanoshellBridge_workerKillGroup(
     JNIEnv* env, jclass cls) {
+    pid_t pid = getpid();
     pid_t pgid = getpgrp();
-    if (pgid <= 0) return -1;
+    // Android app processes can share zygote's inherited process group. Never
+    // repeat the device-observed failure that killed Nano's main process.
+    if (pgid <= 0 || pgid != pid) {
+        __android_log_print(ANDROID_LOG_ERROR, "nanoshell-worker",
+            "refusing shared process-group kill: pid=%d pgid=%d", pid, pgid);
+        return -EPERM;
+    }
     // kill al group completo: hijo colgado + reaper threads + este proceso.
     int rc = kill(-pgid, SIGKILL);
     __android_log_print(ANDROID_LOG_WARN, "nanoshell-worker",

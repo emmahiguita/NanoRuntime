@@ -94,10 +94,11 @@ class MessagingConversationCard extends StatelessWidget {
                             subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.58),
-                              fontSize: 11,
-                            ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.58),
+                                  fontSize: 11,
+                                ),
                           ),
                         ),
                       ],

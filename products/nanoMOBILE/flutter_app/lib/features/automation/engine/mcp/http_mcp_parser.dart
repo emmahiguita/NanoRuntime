@@ -1,4 +1,4 @@
-﻿import 'mcp_client_port.dart';
+import 'mcp_client_port.dart';
 
 /// QUÉ HACE:
 /// Parsea respuestas JSON-RPC del protocolo Model Context Protocol (MCP).
@@ -17,7 +17,10 @@ class HttpMcpParser {
     Map<String, dynamic>? jsonResult,
     String serverId,
   ) {
-    final rawTools = jsonResult?['tools'] as List<dynamic>? ?? const [];
+    final rawTools = jsonResult?['tools'];
+    if (rawTools is! List<dynamic>) {
+      throw const FormatException('mcp_tools_list_missing_tools_array');
+    }
     final result = <McpRemoteTool>[];
 
     for (final t in rawTools) {
@@ -26,6 +29,10 @@ class HttpMcpParser {
       if (name.isEmpty) continue;
       final desc = t['description'] as String? ?? '';
       final schema = t['inputSchema'] as Map<String, dynamic>? ?? const {};
+      final rawAnnotations = t['annotations'];
+      final annotations = rawAnnotations is Map<String, dynamic>
+          ? rawAnnotations
+          : const <String, dynamic>{};
 
       result.add(
         McpRemoteTool(
@@ -33,9 +40,11 @@ class HttpMcpParser {
           name: name,
           description: desc,
           inputSchema: schema,
-          annotations: const McpToolAnnotations(
-            readOnlyHint: true,
-            idempotentHint: true,
+          annotations: McpToolAnnotations(
+            readOnlyHint: annotations['readOnlyHint'] == true,
+            destructiveHint: annotations['destructiveHint'] == true,
+            idempotentHint: annotations['idempotentHint'] == true,
+            openWorldHint: annotations['openWorldHint'] != false,
           ),
         ),
       );

@@ -103,8 +103,7 @@ extension _PersonaImportCandidateBuilder on PersonaImportPipeline {
       warnings.add(
         'Mensaje de más de 2000 caracteres excluido; se separaron sus pares.',
       );
-    } else if (text.trim().isEmpty ||
-        _PersonaImportUtils._excludedBody(text)) {
+    } else if (text.trim().isEmpty || _PersonaImportUtils._excludedBody(text)) {
       messages.add(const _Message('break', '', 0));
       warnings.add(
         'Mensaje vacío, eliminado o multimedia excluido; se separaron sus pares.',

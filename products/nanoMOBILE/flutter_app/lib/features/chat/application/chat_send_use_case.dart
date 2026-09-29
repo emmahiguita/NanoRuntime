@@ -12,7 +12,9 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
 import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
 
 import '../../../core/models/chat_models.dart';
+import '../../../core/providers/api_provider_service_provider.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/api_provider_service.dart';
 import '../../../core/services/runtime_engine.dart';
 import '../domain/chat_context_builder.dart';
 import 'chat_action_listener.dart';
@@ -80,10 +82,15 @@ class ChatSendUseCase {
     required ChatActionListener listener,
   }) async {
     try {
+      final apiSettings = await ref
+          .read(apiProviderSettingsStoreProvider)
+          .load();
+      final apiProviderSelected = apiSettings.provider != ApiProviderKind.local;
       final routeRes = await turnRouter.tryRoute(
         text: text, coordinator: coordinator,
         engineOnline: engineOnline, activeModelPath: activeModelPath,
         lastLinuxFilePath: lastLinuxFilePath,
+        preferConfiguredApi: apiProviderSelected,
         chatHistory: getMessages(),
         browserAiGateway: ref.read(browserAiGatewayProvider),
       );
@@ -102,6 +109,49 @@ class ChatSendUseCase {
           listener.onMessageAppended(routeRes.message!);
           return;
         }
+      }
+
+      if (apiProviderSelected) {
+        if (!apiSettings.hasApiKey) {
+          listener.onTurnError(
+            'Agrega la clave de ${apiSettings.provider.label} en Ajustes > Proveedores de IA.',
+          );
+          return;
+        }
+        final messages = getMessages();
+        final previousMessages = messages.length > 1
+            ? messages.sublist(0, messages.length - 1)
+            : const <ChatMessage>[];
+        final history = previousMessages
+            .where((message) => message.text.trim().isNotEmpty)
+            .toList(growable: false)
+            .reversed
+            .take(24)
+            .toList(growable: false)
+            .reversed
+            .map((message) => {
+              'role': message.sender == MessageSender.user ? 'user' : 'assistant',
+              'content': message.text,
+            })
+            .toList(growable: false);
+        final prompt = _promptWithAttachments(text, attachments);
+        final settings = ref.read(settingsProvider);
+        final response = await ref.read(apiProviderChatServiceProvider).generate(
+          prompt: prompt,
+          history: history,
+          temperature: settings.temperature,
+          maxTokens: settings.maxTokens.clamp(32, 4096),
+        );
+        if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
+        listener.onMessageAppended(ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: response,
+          timestamp: DateTime.now(),
+          status: MessageStatus.sent,
+          source: MessageSource.model,
+        ));
+        return;
       }
 
       if (activeModelPath?.trim().isNotEmpty != true) {
@@ -133,11 +183,23 @@ class ChatSendUseCase {
         generationId: generationId, activeModel: activeModel, sessionId: sessionId,
         isMounted: isMounted, getMessages: getMessages, listener: listener,
       );
+    } on ApiProviderException catch (error) {
+      if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
+      listener.onTurnError(error.message);
     } catch (e, st) {
       if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
       debugPrint('[ChatSendUseCase] Error preparando turno: $e\n$st');
       listener.onTurnError('No se pudo completar la operación solicitada: $e');
     }
+  }
+
+  String _promptWithAttachments(String text, List<ChatAttachment> attachments) {
+    if (attachments.isEmpty) return text;
+    final attachmentContext = attachments.map((attachment) {
+      final content = attachment.content.trim();
+      return '--- ${attachment.name} (${attachment.kind.name}) ---\n$content';
+    }).join('\n\n');
+    return '$text\n\nContenido de adjuntos:\n$attachmentContext';
   }
 
   // QUÉ HACE: Continúa el proceso de generación recurrente hacia el motor local.

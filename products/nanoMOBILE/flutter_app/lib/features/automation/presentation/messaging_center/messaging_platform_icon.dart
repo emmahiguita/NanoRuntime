@@ -97,9 +97,7 @@ class MessagingPlatformIcon extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: Center(
-          child: _buildExactPlatformLogo(),
-        ),
+        child: Center(child: _buildExactPlatformLogo()),
       ),
     );
   }
@@ -135,9 +133,7 @@ class MessagingPlatformIcon extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: CustomPaint(
-                painter: _GmailEnvelopePainter(),
-              ),
+              child: CustomPaint(painter: _GmailEnvelopePainter()),
             ),
           ],
         );
@@ -238,9 +234,7 @@ class _SlackLogo extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: _SlackPainter(),
-      ),
+      child: CustomPaint(painter: _SlackPainter()),
     );
   }
 }

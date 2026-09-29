@@ -167,6 +167,7 @@ class LLMEngineClient {
     String? sessionId,
     String? context,
     List<Map<String, String>>? history,
+    Duration? requestTimeout,
   }) async {
     // WA-LIVE-02 — request_id SIEMPRE presente (antes solo en streaming):
     // tras un timeout el cliente corta el socket y llama /cancel con este id.
@@ -199,7 +200,7 @@ class LLMEngineClient {
             headers: {'Content-Type': 'application/json'},
             body: body,
           )
-          .timeout(timeout);
+          .timeout(requestTimeout ?? timeout);
       if (response.statusCode != 200) {
         throw LLMEngineException(
           'HTTP ${response.statusCode}: ${response.body}',

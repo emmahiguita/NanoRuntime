@@ -217,7 +217,8 @@ class ToolRegistry {
     ToolDefinition(
       name: 'whatsapp.open_chat',
       timeout: Duration(seconds: 15),
-      description: 'Abrir un chat de WhatsApp con un contacto o número telefónico',
+      description:
+          'Abrir un chat de WhatsApp con un contacto o número telefónico',
       promptSyntax:
           '{"tool":"whatsapp.open_chat","contact":"<contacto_o_numero>","text":"<texto_opcional>"}',
     ),
@@ -237,8 +238,7 @@ class ToolRegistry {
     ToolDefinition(
       name: 'whatsapp.share_file',
       timeout: Duration(seconds: 25),
-      description:
-          'Compartir un documento, archivo, foto o video por WhatsApp',
+      description: 'Compartir un documento, archivo, foto o video por WhatsApp',
       promptSyntax:
           '{"tool":"whatsapp.share_file","contact":"<contacto_o_numero>","path":"<ruta_archivo>","caption":"<texto_opcional>"}',
     ),
@@ -357,13 +357,15 @@ class ToolRegistry {
     ToolDefinition(
       name: 'fetch_web',
       timeout: Duration(seconds: 15),
-      description: 'Consultar contenido o texto de una página web o API en internet',
+      description:
+          'Consultar contenido o texto de una página web o API en internet',
       promptSyntax: '{"tool":"fetch_web","url":"<url>"}',
     ),
     ToolDefinition(
       name: 'search_knowledge',
       timeout: Duration(seconds: 15),
-      description: 'Buscar y sintetizar conocimiento de internet directamente dentro de Nano',
+      description:
+          'Buscar y sintetizar conocimiento de internet directamente dentro de Nano',
       promptSyntax: '{"tool":"search_knowledge","query":"<consulta>"}',
     ),
     ToolDefinition(
@@ -371,13 +373,15 @@ class ToolRegistry {
       timeout: Duration(minutes: 3),
       description:
           'Consultar a modelos de IA en navegador web (Gemini, ChatGPT, DeepSeek, Claude) en segundo plano (headless) sin abrir ventanas visibles',
-      promptSyntax: '{"tool":"browser_ai_query","provider":"gemini|chatgpt|deepseek|claude","prompt":"<consulta>"}',
+      promptSyntax:
+          '{"tool":"browser_ai_query","provider":"gemini|chatgpt|deepseek|claude","prompt":"<consulta>"}',
     ),
     ToolDefinition(
       name: 'browser.ai.ask',
       timeout: Duration(minutes: 3),
       description: 'Consultar modelo en navegador (ChatGPT, Gemini, DeepSeek)',
-      promptSyntax: '{"tool":"browser.ai.ask","args":{"prompt":"<texto>","provider":"auto|chatgpt|deepseek|gemini"}}',
+      promptSyntax:
+          '{"tool":"browser.ai.ask","args":{"prompt":"<texto>","provider":"auto|chatgpt|deepseek|gemini"}}',
     ),
     ToolDefinition(
       name: 'browser.ai.providers',
@@ -437,14 +441,17 @@ class ToolRegistry {
     ToolDefinition(
       name: 'mcp.device',
       timeout: Duration(seconds: 20),
-      description: 'Ejecutar una herramienta MCP que interactúa con el dispositivo',
+      description:
+          'Ejecutar una herramienta MCP que interactúa con el dispositivo',
       promptSyntax: '{"tool":"mcp.device","args":{"mcpTool":"<tool_id>"}}',
     ),
     ToolDefinition(
       name: 'mcp.externalWrite',
       timeout: Duration(seconds: 30),
-      description: 'Ejecutar una herramienta MCP con efectos de escritura externa',
-      promptSyntax: '{"tool":"mcp.externalWrite","args":{"mcpTool":"<tool_id>"}}',
+      description:
+          'Ejecutar una herramienta MCP con efectos de escritura externa',
+      promptSyntax:
+          '{"tool":"mcp.externalWrite","args":{"mcpTool":"<tool_id>"}}',
     ),
     ToolDefinition(
       name: 'mcp.privileged',
@@ -455,25 +462,31 @@ class ToolRegistry {
     ToolDefinition(
       name: 'dev.inspect_app',
       timeout: Duration(seconds: 20),
-      description: 'Inspeccionar paquete de aplicación instalada, componentes, SDK y permisos',
-      promptSyntax: '{"tool":"dev.inspect_app","args":{"package":"<package_name>"}}',
+      description:
+          'Inspeccionar paquete de aplicación instalada, componentes, SDK y permisos',
+      promptSyntax:
+          '{"tool":"dev.inspect_app","args":{"package":"<package_name>"}}',
     ),
     ToolDefinition(
       name: 'dev.diagnostics',
       timeout: Duration(seconds: 15),
-      description: 'Obtener diagnóstico completo de hardware, SO, capacidades y estado del agente',
+      description:
+          'Obtener diagnóstico completo de hardware, SO, capacidades y estado del agente',
       promptSyntax: '{"tool":"dev.diagnostics"}',
     ),
     ToolDefinition(
       name: 'dev.adb',
       timeout: Duration(seconds: 25),
-      description: 'Controlar ADB inalámbrico para emparejar, conectar o ejecutar comandos shell',
-      promptSyntax: '{"tool":"dev.adb","args":{"subcommand":"devices|shell|connect|pair"}}',
+      description:
+          'Controlar ADB inalámbrico para emparejar, conectar o ejecutar comandos shell',
+      promptSyntax:
+          '{"tool":"dev.adb","args":{"subcommand":"devices|shell|connect|pair"}}',
     ),
     ToolDefinition(
       name: 'dev.run_benchmark',
       timeout: Duration(seconds: 30),
-      description: 'Ejecutar benchmark factual de automatización, latencia, auto-reparación y consumo',
+      description:
+          'Ejecutar benchmark factual de automatización, latencia, auto-reparación y consumo',
       promptSyntax: '{"tool":"dev.run_benchmark"}',
     ),
   ];

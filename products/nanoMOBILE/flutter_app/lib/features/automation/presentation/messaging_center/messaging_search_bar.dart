@@ -35,10 +35,7 @@ class _MessagingSearchBarState extends ConsumerState<MessagingSearchBar> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0x3D1E293B),
-            Color(0x240F172A),
-          ],
+          colors: [Color(0x3D1E293B), Color(0x240F172A)],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(

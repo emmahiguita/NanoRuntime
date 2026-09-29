@@ -39,9 +39,7 @@ Reglas de razonamiento práctico:
 </CEREBRO UNIVERSAL DE NANO AI MOBILE>''';
 
 /// Combina el prompt conversacional de comprensión con el complemento universal.
-String buildUniversalConversationPrompt({
-  required String baseAgentPrompt,
-}) {
+String buildUniversalConversationPrompt({required String baseAgentPrompt}) {
   if (baseAgentPrompt.contains('<CEREBRO UNIVERSAL DE NANO AI MOBILE>')) {
     return baseAgentPrompt;
   }

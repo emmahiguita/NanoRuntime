@@ -20,13 +20,15 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final visual = AutomationVisual.of(context);
     final ruleRegistry = ref.watch(ruleRegistryProvider);
-    final isWppActive =
-        ruleRegistry.isWhatsAppRuleActive(MessagingPackage.whatsapp);
+    final isWppActive = ruleRegistry.isWhatsAppRuleActive(
+      MessagingPackage.whatsapp,
+    );
 
     final settings = ref.watch(settingsProvider);
     final settingsNotifier = ref.read(settingsProvider.notifier);
-    final autonomyMode =
-        ConversationAutonomyModeName.fromName(settings.waAutonomyMode);
+    final autonomyMode = ConversationAutonomyModeName.fromName(
+      settings.waAutonomyMode,
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
@@ -64,7 +66,10 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
                       'Borrador',
                       maxLines: 1,
                       overflow: TextOverflow.fade,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     icon: Icon(Icons.edit_note_rounded, size: 16),
                   ),
@@ -74,7 +79,10 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
                       'Seguro',
                       maxLines: 1,
                       overflow: TextOverflow.fade,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     icon: Icon(Icons.shield_outlined, size: 16),
                   ),
@@ -84,7 +92,10 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
                       'Autónomo',
                       maxLines: 1,
                       overflow: TextOverflow.fade,
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     icon: Icon(Icons.bolt_rounded, size: 16),
                   ),
@@ -92,7 +103,7 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
                 selected: {
                   autonomyMode == ConversationAutonomyMode.disabled
                       ? ConversationAutonomyMode.suggestions
-                      : autonomyMode
+                      : autonomyMode,
                 },
                 onSelectionChanged: (set) {
                   final mode = set.first;
@@ -132,13 +143,13 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
                 value: isWppActive,
                 onChanged: (v) {
                   if (v) {
-                    ref.read(ruleRegistryProvider).seedWhatsAppRule(
-                          MessagingPackage.whatsapp,
-                        );
+                    ref
+                        .read(ruleRegistryProvider)
+                        .seedWhatsAppRule(MessagingPackage.whatsapp);
                   } else {
-                    ref.read(ruleRegistryProvider).removeWhatsAppRule(
-                          MessagingPackage.whatsapp,
-                        );
+                    ref
+                        .read(ruleRegistryProvider)
+                        .removeWhatsAppRule(MessagingPackage.whatsapp);
                   }
                 },
               ),

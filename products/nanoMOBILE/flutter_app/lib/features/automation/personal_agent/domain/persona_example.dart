@@ -38,15 +38,21 @@ final class PersonaExample {
 
   bool get enabled => tone['enabled'] != 'false';
   bool get isTemplate => tone['kind'] == 'template';
-  bool get isStyleOnly => tone['kind'] == 'style' || tone['reusable'] == 'false';
-  String get memoryRole => tone['memoryRole']?.trim() ?? (isStyleOnly ? 'style_and_historical_fact' : 'reusable_dialogue');
+  bool get isStyleOnly =>
+      tone['kind'] == 'style' || tone['reusable'] == 'false';
+  String get memoryRole =>
+      tone['memoryRole']?.trim() ??
+      (isStyleOnly ? 'style_and_historical_fact' : 'reusable_dialogue');
   String get importBatch => tone['importBatch'] ?? '';
-  bool get ownerVerified => source == 'manual' || tone['ownerVerified'] == 'true';
+  bool get ownerVerified =>
+      source == 'manual' || tone['ownerVerified'] == 'true';
   bool get isPaired => incomingText.trim().isNotEmpty;
   bool get canReuseLiterally => isPaired && !isTemplate && !isStyleOnly;
   String get categoryTitle => tone['title']?.trim() ?? '';
   String get intent => tone['intent']?.trim() ?? '';
-  String get category => tone['category']?.trim() ?? (categoryTitle.isNotEmpty ? categoryTitle : 'Conversación cotidiana');
+  String get category =>
+      tone['category']?.trim() ??
+      (categoryTitle.isNotEmpty ? categoryTitle : 'Conversación cotidiana');
 
   /// Filtra únicamente las opciones de respuesta aptas para reutilización literal en el presente,
   /// excluyendo aquellas que afirman un estado temporal efímero pasado ([isTemporalState]).
@@ -78,7 +84,10 @@ final class PersonaExample {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
-          final list = decoded.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+          final list = decoded
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
           if (list.isNotEmpty) return list;
         }
       } catch (_) {}
@@ -95,7 +104,10 @@ final class PersonaExample {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
-          final list = decoded.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+          final list = decoded
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
           if (list.isNotEmpty) return list;
         }
       } catch (_) {}
@@ -112,7 +124,9 @@ final class PersonaExample {
     // Fallback: si solo tiene tone['variants'] (array de strings) o [body]
     final strVariants = _legacyVariants;
     if (strVariants.isNotEmpty) {
-      return strVariants.map((text) => PersonaResponseOption(text: text)).toList();
+      return strVariants
+          .map((text) => PersonaResponseOption(text: text))
+          .toList();
     }
     return const [];
   }
@@ -123,7 +137,10 @@ final class PersonaExample {
       try {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
-          final list = decoded.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+          final list = decoded
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .toList();
           if (list.isNotEmpty) return list;
         }
       } catch (_) {}

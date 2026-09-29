@@ -53,7 +53,11 @@ class AgentHeaderWidget extends StatelessWidget {
               color: visual.accent.withValues(alpha: 0.12),
               border: Border.all(color: visual.accent.withValues(alpha: 0.3)),
             ),
-            child: Icon(Icons.auto_mode_rounded, size: 20, color: visual.accent),
+            child: Icon(
+              Icons.auto_mode_rounded,
+              size: 20,
+              color: visual.accent,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(

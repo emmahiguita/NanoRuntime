@@ -25,7 +25,7 @@ Future<String?> _generateDraftReply(
   if (!localReady) {
     localReady = await writer
         ._ensureReady(writer._modelPath())
-        .timeout(const Duration(seconds: 60), onTimeout: () => false);
+        .timeout(const Duration(seconds: 25), onTimeout: () => false);
     if (!localReady) return null;
   }
   // QUÉ HACE: Ejecuta la inferencia local con la sesión única de este input.
@@ -40,5 +40,8 @@ Future<String?> _generateDraftReply(
     sessionId: prepared.sessionId,
     context: prepared.persona.isNotEmpty ? prepared.persona : null,
     history: null,
+    // El runtime compartido conserva su timeout amplio para Chat/Terminal;
+    // WhatsApp debe ceder pronto al fallback MCP si la inferencia se atasca.
+    requestTimeout: const Duration(seconds: 30),
   );
 }

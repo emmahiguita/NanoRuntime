@@ -36,8 +36,12 @@ final class ConversationTopicExtractor {
 
     // 1. Verificar si continúa el tema activo por entidad o dominio
     if (activeTopic != null && activeTopic.isFresh()) {
-      if (activeTopic.containsEntityReference(norm) || _matchesDomain(tokens, activeTopic.domain)) {
-        return activeTopic.evolve(newEntities: entities, currentTurn: currentTurn);
+      if (activeTopic.containsEntityReference(norm) ||
+          _matchesDomain(tokens, activeTopic.domain)) {
+        return activeTopic.evolve(
+          newEntities: entities,
+          currentTurn: currentTurn,
+        );
       }
     }
 
@@ -46,7 +50,10 @@ final class ConversationTopicExtractor {
     if (domain == null) {
       // Si no hay dominio claro pero hay tema activo y son frases de avance ("sí", "ya"), mantener
       if (activeTopic != null && activeTopic.isFresh() && tokens.length <= 4) {
-        return activeTopic.evolve(newEntities: entities, currentTurn: currentTurn);
+        return activeTopic.evolve(
+          newEntities: entities,
+          currentTurn: currentTurn,
+        );
       }
       return null;
     }
@@ -65,7 +72,8 @@ final class ConversationTopicExtractor {
     if (tokens.any(_healthWords.contains)) return TopicDomain.healthWellbeing;
     if (tokens.any(_workWords.contains)) return TopicDomain.workProjects;
     if (tokens.any(_planWords.contains)) return TopicDomain.plansOuting;
-    if (tokens.any(_logisticsWords.contains)) return TopicDomain.logisticsErrands;
+    if (tokens.any(_logisticsWords.contains))
+      return TopicDomain.logisticsErrands;
     if (tokens.any(_socialWords.contains)) return TopicDomain.socialPersonal;
     return null;
   }
@@ -110,42 +118,201 @@ final class ConversationTopicExtractor {
   // --- Diccionarios léxicos cotidianos colombianos ---
 
   static const Set<String> _healthWords = {
-    'medico', 'doctor', 'hospital', 'clinica', 'cita', 'enfermo', 'enferma', 'dolor',
-    'pastilla', 'remedio', 'moto', 'caida', 'cai', 'cae', 'raspon', 'golpe', 'fractura',
-    'fiebre', 'gripe', 'examen', 'terapia', 'reposo', 'pastillas', 'urgencias', 'sano',
-    'herida', 'sangre', 'cirugia', 'incapacidad', 'jarabe', 'mareo',
+    'medico',
+    'doctor',
+    'hospital',
+    'clinica',
+    'cita',
+    'enfermo',
+    'enferma',
+    'dolor',
+    'pastilla',
+    'remedio',
+    'moto',
+    'caida',
+    'cai',
+    'cae',
+    'raspon',
+    'golpe',
+    'fractura',
+    'fiebre',
+    'gripe',
+    'examen',
+    'terapia',
+    'reposo',
+    'pastillas',
+    'urgencias',
+    'sano',
+    'herida',
+    'sangre',
+    'cirugia',
+    'incapacidad',
+    'jarabe',
+    'mareo',
   };
 
   static const Set<String> _workWords = {
-    'trabajo', 'trabajar', 'trabajando', 'camello', 'camellar', 'camellando', 'oficina',
-    'jefe', 'reunion', 'cliente', 'clientes', 'proyecto', 'codigo', 'software', 'entrega',
-    'entregas', 'sueldo', 'pago', 'nomina', 'turno', 'empresa', 'reporte', 'labor', 'jornada',
-    'trasnocho', 'trasnochar', 'reuniones', 'sistema', 'computador',
+    'trabajo',
+    'trabajar',
+    'trabajando',
+    'camello',
+    'camellar',
+    'camellando',
+    'oficina',
+    'jefe',
+    'reunion',
+    'cliente',
+    'clientes',
+    'proyecto',
+    'codigo',
+    'software',
+    'entrega',
+    'entregas',
+    'sueldo',
+    'pago',
+    'nomina',
+    'turno',
+    'empresa',
+    'reporte',
+    'labor',
+    'jornada',
+    'trasnocho',
+    'trasnochar',
+    'reuniones',
+    'sistema',
+    'computador',
   };
 
   static const Set<String> _planWords = {
-    'salida', 'salir', 'plan', 'planes', 'parche', 'parchar', 'rumba', 'fiesta', 'cine',
-    'viaje', 'viajar', 'paseo', 'finde', 'semana', 'almuerzo', 'almorzar', 'cena', 'cenar',
-    'asado', 'cerveza', 'pola', 'tomar', 'comer', 'restaurante', 'invito', 'vamos', 'caer',
+    'salida',
+    'salir',
+    'plan',
+    'planes',
+    'parche',
+    'parchar',
+    'rumba',
+    'fiesta',
+    'cine',
+    'viaje',
+    'viajar',
+    'paseo',
+    'finde',
+    'semana',
+    'almuerzo',
+    'almorzar',
+    'cena',
+    'cenar',
+    'asado',
+    'cerveza',
+    'pola',
+    'tomar',
+    'comer',
+    'restaurante',
+    'invito',
+    'vamos',
+    'caer',
   };
 
   static const Set<String> _logisticsWords = {
-    'banco', 'plata', 'cuenta', 'consignar', 'transferencia', 'carro', 'mecanico', 'taller',
-    'repuesto', 'reparar', 'trasteo', 'mudanza', 'arriendo', 'casa', 'comprar', 'compra',
-    'factura', 'tramite', 'papeles', 'notaria', 'mercado', 'tienda', 'envio', 'paquete',
+    'banco',
+    'plata',
+    'cuenta',
+    'consignar',
+    'transferencia',
+    'carro',
+    'mecanico',
+    'taller',
+    'repuesto',
+    'reparar',
+    'trasteo',
+    'mudanza',
+    'arriendo',
+    'casa',
+    'comprar',
+    'compra',
+    'factura',
+    'tramite',
+    'papeles',
+    'notaria',
+    'mercado',
+    'tienda',
+    'envio',
+    'paquete',
   };
 
   static const Set<String> _socialWords = {
-    'familia', 'mama', 'papa', 'hermano', 'hermana', 'hijo', 'hija', 'novia', 'novio',
-    'esposa', 'esposo', 'amigo', 'amiga', 'parce', 'pana', 'cuento', 'chisme', 'imaginate',
-    'paso', 'ocurrio', 'noticia', 'supiste', 'viste',
+    'familia',
+    'mama',
+    'papa',
+    'hermano',
+    'hermana',
+    'hijo',
+    'hija',
+    'novia',
+    'novio',
+    'esposa',
+    'esposo',
+    'amigo',
+    'amiga',
+    'parce',
+    'pana',
+    'cuento',
+    'chisme',
+    'imaginate',
+    'paso',
+    'ocurrio',
+    'noticia',
+    'supiste',
+    'viste',
   };
 
   static const Set<String> _spanishStopWords = {
-    'para', 'como', 'pero', 'esta', 'este', 'esto', 'estos', 'estas', 'tengo', 'tiene',
-    'tenemos', 'hacer', 'hace', 'haciendo', 'todo', 'toda', 'todos', 'todas', 'bien',
-    'bueno', 'buena', 'hola', 'aqui', 'alla', 'solo', 'sola', 'nada', 'algo', 'porque',
-    'cuando', 'donde', 'quien', 'cual', 'mucho', 'poco', 'antes', 'despues', 'sobre',
-    'entre', 'hasta', 'desde', 'estoy', 'estabas', 'estaba', 'somos', 'ellos', 'ellas',
+    'para',
+    'como',
+    'pero',
+    'esta',
+    'este',
+    'esto',
+    'estos',
+    'estas',
+    'tengo',
+    'tiene',
+    'tenemos',
+    'hacer',
+    'hace',
+    'haciendo',
+    'todo',
+    'toda',
+    'todos',
+    'todas',
+    'bien',
+    'bueno',
+    'buena',
+    'hola',
+    'aqui',
+    'alla',
+    'solo',
+    'sola',
+    'nada',
+    'algo',
+    'porque',
+    'cuando',
+    'donde',
+    'quien',
+    'cual',
+    'mucho',
+    'poco',
+    'antes',
+    'despues',
+    'sobre',
+    'entre',
+    'hasta',
+    'desde',
+    'estoy',
+    'estabas',
+    'estaba',
+    'somos',
+    'ellos',
+    'ellas',
   };
 }

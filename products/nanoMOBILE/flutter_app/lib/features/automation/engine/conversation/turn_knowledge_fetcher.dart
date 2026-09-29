@@ -20,6 +20,7 @@ library;
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
 import 'package:nanoai/features/browser_ai/domain/browser_ai_query.dart';
+import 'package:nanoai/features/browser_ai/domain/browser_ai_response.dart';
 import '../browser/reverse_agent_client.dart';
 import '../browser/web_knowledge_service.dart';
 import '../mcp/mcp_client_port.dart';
@@ -27,3 +28,10 @@ import '../mcp/mcp_connection_registry.dart';
 import 'turn_knowledge_router.dart';
 
 part 'turn_knowledge_fetcher_body.part.dart';
+
+/// Callback that routes an MCP knowledge read through Automation governance.
+typedef McpKnowledgeToolCaller =
+    Future<String?> Function(
+      McpRemoteTool tool,
+      Map<String, Object?> arguments,
+    );

@@ -1,4 +1,4 @@
-﻿/// QUÉ HACE:
+/// QUÉ HACE:
 /// Respuesta tipada devuelta por el cliente del agente de navegación.
 ///
 /// CÓMO FUNCIONA:

@@ -165,16 +165,18 @@ class _BackgroundAutomationCardState
       AutomationModelMode.deterministicOnly => '',
     };
     final selectedModelName = switch (settings.automationModelMode) {
-      AutomationModelMode.sameAsChat => settings.chatModelId.isNotEmpty
-          ? settings.chatModelId
-          : (selectedModelPath.isNotEmpty
-              ? selectedModelPath.split(Platform.pathSeparator).last
-              : ''),
-      AutomationModelMode.specificModel => settings.automationModelId.isNotEmpty
-          ? settings.automationModelId
-          : (selectedModelPath.isNotEmpty
-              ? selectedModelPath.split(Platform.pathSeparator).last
-              : ''),
+      AutomationModelMode.sameAsChat =>
+        settings.chatModelId.isNotEmpty
+            ? settings.chatModelId
+            : (selectedModelPath.isNotEmpty
+                  ? selectedModelPath.split(Platform.pathSeparator).last
+                  : ''),
+      AutomationModelMode.specificModel =>
+        settings.automationModelId.isNotEmpty
+            ? settings.automationModelId
+            : (selectedModelPath.isNotEmpty
+                  ? selectedModelPath.split(Platform.pathSeparator).last
+                  : ''),
       AutomationModelMode.deterministicOnly => 'Determinista (0 LLM)',
     };
     final modelSelected =

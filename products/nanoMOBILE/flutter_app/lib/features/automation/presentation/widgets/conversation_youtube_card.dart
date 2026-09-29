@@ -26,12 +26,20 @@ class ConversationYouTubeCard extends StatelessWidget {
     final url = 'https://www.youtube.com/watch?v=$videoId';
 
     return GestureDetector(
-      onTap: () => ConversationMediaViewer.openVideo(context, url, youTubeId: videoId, title: 'YouTube Video'),
+      onTap: () => ConversationMediaViewer.openVideo(
+        context,
+        url,
+        youTubeId: videoId,
+        title: 'YouTube Video',
+      ),
       child: Container(
         constraints: const BoxConstraints(maxHeight: 180, maxWidth: 280),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4), width: 1),
+          border: Border.all(
+            color: Colors.redAccent.withValues(alpha: 0.4),
+            width: 1,
+          ),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(14),
@@ -45,21 +53,37 @@ class ConversationYouTubeCard extends StatelessWidget {
                 errorBuilder: (_, __, ___) => Container(
                   height: 140,
                   color: const Color(0xFF1E293B),
-                  child: const Center(child: Icon(Icons.smart_display_rounded, color: Colors.redAccent, size: 48)),
+                  child: const Center(
+                    child: Icon(
+                      Icons.smart_display_rounded,
+                      color: Colors.redAccent,
+                      size: 48,
+                    ),
+                  ),
                 ),
               ),
               Container(color: Colors.black.withValues(alpha: 0.35)),
               Container(
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.90), shape: BoxShape.circle),
-                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
+                decoration: BoxDecoration(
+                  color: Colors.red.withValues(alpha: 0.90),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
               Positioned(
                 bottom: 8,
                 left: 10,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(6),
@@ -67,9 +91,20 @@ class ConversationYouTubeCard extends StatelessWidget {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.picture_in_picture_alt_rounded, color: Colors.redAccent, size: 12),
+                      Icon(
+                        Icons.picture_in_picture_alt_rounded,
+                        color: Colors.redAccent,
+                        size: 12,
+                      ),
                       SizedBox(width: 4),
-                      Text('Ventana Flotante', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+                      Text(
+                        'Ventana Flotante',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -115,7 +150,14 @@ class ConversationMediaBadge extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 16),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),

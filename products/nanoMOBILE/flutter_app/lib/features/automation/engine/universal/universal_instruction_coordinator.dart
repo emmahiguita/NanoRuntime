@@ -45,39 +45,55 @@ final class UniversalInstructionCoordinator {
       if (obl.phase == ObligationPhase.readQuery) {
         // Fase 1: Inspección de fuente de datos
         if (obl.targetEntity.isNotEmpty) {
-          foundDataSummary = 'Inspeccioné ${obl.targetEntity}: se identificaron los registros solicitados.';
-          updatedObligations.add(obl.copyWith(
-            status: ObligationExecutionStatus.completed,
-            resultSnippet: foundDataSummary,
-          ));
+          foundDataSummary =
+              'Inspeccioné ${obl.targetEntity}: se identificaron los registros solicitados.';
+          updatedObligations.add(
+            obl.copyWith(
+              status: ObligationExecutionStatus.completed,
+              resultSnippet: foundDataSummary,
+            ),
+          );
         } else {
-          updatedObligations.add(obl.copyWith(
-            status: ObligationExecutionStatus.failed,
-            missingRequirement: 'No se encontró la ruta del archivo o tabla referenciada.',
-          ));
+          updatedObligations.add(
+            obl.copyWith(
+              status: ObligationExecutionStatus.failed,
+              missingRequirement:
+                  'No se encontró la ruta del archivo o tabla referenciada.',
+            ),
+          );
         }
       } else if (obl.phase == ObligationPhase.mutation) {
         // Fase 2: Mutación autorizable
         if (obl.requiresAuthorization && !userConfirmed) {
-          updatedObligations.add(obl.copyWith(
-            status: ObligationExecutionStatus.blockedWaitingAuth,
-            missingRequirement: 'Confirmación del usuario para aplicar cambios en el catálogo.',
-          ));
+          updatedObligations.add(
+            obl.copyWith(
+              status: ObligationExecutionStatus.blockedWaitingAuth,
+              missingRequirement:
+                  'Confirmación del usuario para aplicar cambios en el catálogo.',
+            ),
+          );
         } else {
-          updatedObligations.add(obl.copyWith(
-            status: ObligationExecutionStatus.completed,
-            resultSnippet: 'Catálogo comercial actualizado correctamente.',
-          ));
+          updatedObligations.add(
+            obl.copyWith(
+              status: ObligationExecutionStatus.completed,
+              resultSnippet: 'Catálogo comercial actualizado correctamente.',
+            ),
+          );
         }
       } else if (obl.phase == ObligationPhase.anomalyVerification) {
         // Fase 3: Verificación de anomalías
-        anomalySummary = 'No se encontraron anomalías ni inconsistencias en los datos.';
-        updatedObligations.add(obl.copyWith(
-          status: ObligationExecutionStatus.completed,
-          resultSnippet: anomalySummary,
-        ));
+        anomalySummary =
+            'No se encontraron anomalías ni inconsistencias en los datos.';
+        updatedObligations.add(
+          obl.copyWith(
+            status: ObligationExecutionStatus.completed,
+            resultSnippet: anomalySummary,
+          ),
+        );
       } else {
-        updatedObligations.add(obl.copyWith(status: ObligationExecutionStatus.completed));
+        updatedObligations.add(
+          obl.copyWith(status: ObligationExecutionStatus.completed),
+        );
       }
     }
 
@@ -122,7 +138,11 @@ final class UniversalInstructionCoordinator {
 
   static List<String> _generateOptions(UniversalInstructionContract contract) {
     if (contract.requiresUserConfirmation) {
-      return const ['Sí, procede a actualizar', 'No, déjalo como está', 'Muéstrame el detalle primero'];
+      return const [
+        'Sí, procede a actualizar',
+        'No, déjalo como está',
+        'Muéstrame el detalle primero',
+      ];
     }
     return const ['Listo, gracias', '¿Puedes darme más detalles?'];
   }

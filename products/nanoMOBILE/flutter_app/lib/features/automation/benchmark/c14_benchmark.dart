@@ -89,14 +89,38 @@ const C14Suite whatsAppSuite = C14Suite(
   name: 'WhatsApp & Mensajería',
   requiresLlm: false,
   tasks: [
-    C14Task('abrir WhatsApp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
-    C14Task('busca a (Emm) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
-    C14Task('busca a (3203527283) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
-    C14Task('escríbele a (Emm) (Hola Emm, prueba automatizada C14 real) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
-    C14Task('escríbele a (3203527283) (Hola Emm, prueba automatizada buscando por numero) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
-    C14Task('desde llamadas en whatsapp busca a (Emm) y entra a su chat y envíale un mensaje (Hola Emm, mensaje desde llamadas)', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
-    C14Task('envíale un documento a (Emm) (/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
-    C14Task('envíale una foto a (Emm) (/sdcard/Pictures/foto_nanoai.png) en whatsapp', expectation: GoalExpectation(expectedPackage: 'com.whatsapp')),
+    C14Task(
+      'abrir WhatsApp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
+    C14Task(
+      'busca a (Emm) en whatsapp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
+    C14Task(
+      'busca a (3203527283) en whatsapp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
+    C14Task(
+      'escríbele a (Emm) (Hola Emm, prueba automatizada C14 real) en whatsapp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
+    C14Task(
+      'escríbele a (3203527283) (Hola Emm, prueba automatizada buscando por numero) en whatsapp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
+    C14Task(
+      'desde llamadas en whatsapp busca a (Emm) y entra a su chat y envíale un mensaje (Hola Emm, mensaje desde llamadas)',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
+    C14Task(
+      'envíale un documento a (Emm) (/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf) en whatsapp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
+    C14Task(
+      'envíale una foto a (Emm) (/sdcard/Pictures/foto_nanoai.png) en whatsapp',
+      expectation: GoalExpectation(expectedPackage: 'com.whatsapp'),
+    ),
     C14Task('volver atrás'),
   ],
 );
@@ -104,10 +128,7 @@ const C14Suite whatsAppSuite = C14Suite(
 /// Suite completa de certificación C14-A (Sistema + WhatsApp + Herramientas).
 final C14Suite completeSuite = C14Suite(
   name: 'Suite Completa Certificación',
-  tasks: [
-    ...defaultSuite.tasks,
-    ...whatsAppSuite.tasks,
-  ],
+  tasks: [...defaultSuite.tasks, ...whatsAppSuite.tasks],
 );
 
 /// Harness: construye un coordinator con sink de métricas, corre la suite y
@@ -140,7 +161,9 @@ class C14Benchmark {
       for (var i = 0; i < suite.tasks.length; i++) {
         final task = suite.tasks[i];
         // ignore: avoid_print
-        print('[C14] Ejecutando tarea ${i + 1}/${suite.tasks.length}: "${task.goal}"');
+        print(
+          '[C14] Ejecutando tarea ${i + 1}/${suite.tasks.length}: "${task.goal}"',
+        );
         onStart?.call(i, task.goal);
         final before = _executions.length;
         await _coordinator.execute(

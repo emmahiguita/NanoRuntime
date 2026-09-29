@@ -15,7 +15,12 @@
 part of 'conversation_memory.dart';
 
 extension _MemoryCoreHydration on _MemoryCore {
-  String _outboundEventId(String scopeId, String text, int atMs, String ruleId) {
+  String _outboundEventId(
+    String scopeId,
+    String text,
+    int atMs,
+    String ruleId,
+  ) {
     final digest = sha256
         .convert(utf8.encode('$scopeId\u0000$atMs\u0000$ruleId\u0000$text'))
         .toString();
@@ -43,15 +48,21 @@ extension _MemoryCoreHydration on _MemoryCore {
       final m = (e.value as Map).cast<String, dynamic>();
       final memory = ConversationMemory.fromJson(m);
       if (memory.conversationId.isNotEmpty && memory.entries.isNotEmpty) {
-        final scopeId = memory.scopeId.isNotEmpty ? memory.scopeId : _scopeFor(memory.conversationId);
+        final scopeId = memory.scopeId.isNotEmpty
+            ? memory.scopeId
+            : _scopeFor(memory.conversationId);
         _conversationIdByScope[scopeId] = memory.conversationId;
-        final agent = memory.agentId ?? _assignments?.agentForConversationId(memory.conversationId);
+        final agent =
+            memory.agentId ??
+            _assignments?.agentForConversationId(memory.conversationId);
         if (agent != null) _agentByScope[scopeId] = agent;
         final deduplicated = _deduplicateByEventId(memory.entries);
         repairedDuplicates |= deduplicated.length != memory.entries.length;
         _byConversation[scopeId] = deduplicated;
         if (memory.unresolvedObligations.isNotEmpty) {
-          _obligationsByConversation[scopeId] = List.of(memory.unresolvedObligations);
+          _obligationsByConversation[scopeId] = List.of(
+            memory.unresolvedObligations,
+          );
         }
         if (memory.activeTopic != null && memory.activeTopic!.isNotEmpty) {
           _topicByConversation[scopeId] = memory.activeTopic!;
@@ -64,7 +75,9 @@ extension _MemoryCoreHydration on _MemoryCore {
     return repairedDuplicates;
   }
 
-  List<ConversationMemoryEntry> _deduplicateByEventId(List<ConversationMemoryEntry> entries) {
+  List<ConversationMemoryEntry> _deduplicateByEventId(
+    List<ConversationMemoryEntry> entries,
+  ) {
     final seen = <String>{};
     final reversed = <ConversationMemoryEntry>[];
     for (final entry in entries.reversed) {
@@ -77,7 +90,10 @@ extension _MemoryCoreHydration on _MemoryCore {
     }
     final deduplicated = reversed.reversed.toList(growable: true);
     if (deduplicated.length > maxEntriesPerConversation) {
-      deduplicated.removeRange(0, deduplicated.length - maxEntriesPerConversation);
+      deduplicated.removeRange(
+        0,
+        deduplicated.length - maxEntriesPerConversation,
+      );
     }
     return deduplicated;
   }

@@ -84,12 +84,18 @@ abstract final class VoiceNoteTranscriber {
 
       // 2. Fallback cloud opcional: si el usuario configuró API keys externas
       final prefs = await SharedPreferences.getInstance();
-      final geminiKey = prefs.getString('gemini_api_key') ?? prefs.getString('google_api_key');
+      final geminiKey =
+          prefs.getString('gemini_api_key') ??
+          prefs.getString('google_api_key');
       final openAiKey = prefs.getString('openai_api_key');
 
       if (geminiKey != null && geminiKey.trim().isNotEmpty) {
         onPartial?.call('Transcribiendo con Gemini...');
-        final transcript = await _transcribeWithGemini(bytes, geminiKey.trim(), path);
+        final transcript = await _transcribeWithGemini(
+          bytes,
+          geminiKey.trim(),
+          path,
+        );
         if (transcript != null && transcript.isNotEmpty) {
           _cache[path] = transcript;
           _activeSessions.remove(path);
@@ -99,7 +105,10 @@ abstract final class VoiceNoteTranscriber {
 
       if (openAiKey != null && openAiKey.trim().isNotEmpty) {
         onPartial?.call('Transcribiendo con OpenAI Whisper...');
-        final transcript = await _transcribeWithWhisperOpenAi(file, openAiKey.trim());
+        final transcript = await _transcribeWithWhisperOpenAi(
+          file,
+          openAiKey.trim(),
+        );
         if (transcript != null && transcript.isNotEmpty) {
           _cache[path] = transcript;
           _activeSessions.remove(path);
@@ -110,7 +119,8 @@ abstract final class VoiceNoteTranscriber {
       // 3. Diagnóstico factual sin inventar texto
       final sizeKb = (bytes.length / 1024).toStringAsFixed(1);
       final ext = clean.split('.').last.toUpperCase();
-      final report = 'Audio $ext ($sizeKb KB) verificado y listo. '
+      final report =
+          'Audio $ext ($sizeKb KB) verificado y listo. '
           'Para transcripción offline gratuita (MIT), descarga Whisper-Tiny (75MB) en la pestaña Modelos.';
 
       _cache[path] = report;
@@ -125,7 +135,11 @@ abstract final class VoiceNoteTranscriber {
     }
   }
 
-  static Future<String?> _transcribeWithGemini(List<int> bytes, String apiKey, String path) async {
+  static Future<String?> _transcribeWithGemini(
+    List<int> bytes,
+    String apiKey,
+    String path,
+  ) async {
     try {
       final mime = path.toLowerCase().endsWith('.m4a')
           ? 'audio/mp4'
@@ -145,14 +159,15 @@ abstract final class VoiceNoteTranscriber {
               'role': 'user',
               'parts': [
                 {
-                  'inlineData': {'mimeType': mime, 'data': base64Audio}
+                  'inlineData': {'mimeType': mime, 'data': base64Audio},
                 },
                 {
-                  'text': 'Transcribe fielmente en español el contenido hablado en este audio. '
-                      'Devuelve ÚNICAMENTE las palabras dichas sin explicaciones ni notas adicionales.'
-                }
-              ]
-            }
+                  'text':
+                      'Transcribe fielmente en español el contenido hablado en este audio. '
+                      'Devuelve ÚNICAMENTE las palabras dichas sin explicaciones ni notas adicionales.',
+                },
+              ],
+            },
           ],
           'generationConfig': {'temperature': 0.1, 'maxOutputTokens': 500},
         }),
@@ -170,7 +185,10 @@ abstract final class VoiceNoteTranscriber {
     return null;
   }
 
-  static Future<String?> _transcribeWithWhisperOpenAi(File file, String apiKey) async {
+  static Future<String?> _transcribeWithWhisperOpenAi(
+    File file,
+    String apiKey,
+  ) async {
     try {
       final uri = Uri.parse('https://api.openai.com/v1/audio/transcriptions');
       final req = http.MultipartRequest('POST', uri)

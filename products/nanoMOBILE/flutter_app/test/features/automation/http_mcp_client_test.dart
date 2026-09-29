@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:nanoai/features/automation/engine/mcp/http_mcp_client.dart';
 import 'package:nanoai/features/automation/engine/mcp/mcp_client_port.dart';
+import 'package:nanoai/features/automation/engine/mcp/mcp_connection_registry.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,6 +64,18 @@ void main() {
                     'description': 'Genera una propuesta sin aplicarla.',
                     'inputSchema': {'type': 'object'},
                   },
+                  {
+                    'name': 'search_knowledge',
+                    'description': 'Consulta conocimiento con una pregunta.',
+                    'inputSchema': {
+                      'type': 'object',
+                      'properties': {
+                        'query': {'type': 'string'},
+                      },
+                      'required': ['query'],
+                    },
+                    'annotations': {'readOnlyHint': true, 'destructiveHint': false},
+                  },
                 ],
               },
             })}\n\n',
@@ -109,7 +122,12 @@ void main() {
 
       expect(connection.success, isTrue);
       expect(connection.protocolVersion, '2025-11-25');
-      expect(tools.map((tool) => tool.name), ['suggest_dialogue']);
+      expect(tools.map((tool) => tool.name), [
+        'suggest_dialogue',
+        'search_knowledge',
+      ]);
+      expect(tools.first.annotations.readOnlyHint, isFalse);
+      expect(tools.last.annotations.readOnlyHint, isTrue);
       expect(result.success, isTrue);
       expect(result.content.single.text, 'Propuesta pendiente de revisión.');
       expect(receivedMethods, [
@@ -122,6 +140,69 @@ void main() {
         receivedHeaders.every((headers) => headers['authorization'] == token),
         isTrue,
       );
+    },
+  );
+
+  test(
+    'reports HTTP tools/list failures instead of returning an empty catalog',
+    () async {
+      final httpClient = MockClient((request) async {
+        final payload = jsonDecode(request.body) as Map<String, dynamic>;
+        final method = payload['method'] as String;
+        if (method == 'initialize') {
+          return http.Response(
+            jsonEncode({
+              'jsonrpc': '2.0',
+              'id': payload['id'],
+              'result': {
+                'protocolVersion': '2025-11-25',
+                'capabilities': {'tools': {}},
+                'serverInfo': {'name': 'test', 'version': '1'},
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        if (method == 'notifications/initialized') {
+          return http.Response('', 202);
+        }
+        if (method == 'tools/list') {
+          return http.Response('unavailable', 503);
+        }
+        return http.Response('unexpected method', 400);
+      });
+      final client = HttpMcpClient(
+        descriptor: const McpServerDescriptor(
+          id: 'mcp-failing',
+          displayName: 'MCP caído',
+          transport: McpTransportKind.streamableHttp,
+          endpoint: 'https://mcp.example.test/mcp',
+        ),
+        httpClient: httpClient,
+      );
+
+      expect((await client.connect()).success, isTrue);
+      await expectLater(
+        client.listTools(),
+        throwsA(
+          isA<McpDiscoveryException>().having(
+            (error) => error.message,
+            'message',
+            contains('HTTP 503'),
+          ),
+        ),
+      );
+      expect(client.state, McpConnectionState.failed);
+
+      final registry = McpConnectionRegistry();
+      await registry.register(client);
+      final snapshot = await registry.refreshTools();
+      expect(snapshot.tools, isEmpty);
+      expect(snapshot.failures.single.reason, contains('HTTP 503'));
+      expect(client.state, McpConnectionState.failed);
+
+      await client.disconnect();
     },
   );
 }

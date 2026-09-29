@@ -23,7 +23,8 @@ import 'whatsapp_web_js_bridge.dart';
 
 final class WhatsAppWebBridgeController {
   InAppWebViewController? _controller;
-  final _sessionController = StreamController<WhatsAppWebSessionInfo>.broadcast();
+  final _sessionController =
+      StreamController<WhatsAppWebSessionInfo>.broadcast();
   WhatsAppWebSessionInfo _currentSession = const WhatsAppWebSessionInfo(
     status: WhatsAppWebSessionStatus.disconnected,
   );
@@ -54,7 +55,9 @@ final class WhatsAppWebBridgeController {
         if (args.isEmpty || args.first is! Map) return;
         final map = Map<String, dynamic>.from(args.first as Map);
         final event = map['event'] as String?;
-        final data = map['data'] is Map ? Map<String, dynamic>.from(map['data'] as Map) : {};
+        final data = map['data'] is Map
+            ? Map<String, dynamic>.from(map['data'] as Map)
+            : {};
 
         if (event == 'status_changed') {
           final statusStr = data['status'] as String? ?? 'disconnected';
@@ -66,12 +69,14 @@ final class WhatsAppWebBridgeController {
             'connected' => WhatsAppWebSessionStatus.connected,
             _ => WhatsAppWebSessionStatus.disconnected,
           };
-          _updateSession(_currentSession = WhatsAppWebSessionInfo(
-            status: newStatus,
-            lastActive: DateTime.now(),
-            qrDataUrl: qrDataUrl,
-            qrDataRef: qrDataRef,
-          ));
+          _updateSession(
+            _currentSession = WhatsAppWebSessionInfo(
+              status: newStatus,
+              lastActive: DateTime.now(),
+              qrDataUrl: qrDataUrl,
+              qrDataRef: qrDataRef,
+            ),
+          );
         }
       },
     );
@@ -102,7 +107,11 @@ final class WhatsAppWebBridgeController {
     if (ctrl == null || !_currentSession.isConnected) return false;
 
     // Obtener los bytes en Base64
-    final bytes = payload.bytes ?? (payload.filePath != null ? await File(payload.filePath!).readAsBytes() : null);
+    final bytes =
+        payload.bytes ??
+        (payload.filePath != null
+            ? await File(payload.filePath!).readAsBytes()
+            : null);
     if (bytes == null || bytes.isEmpty) return false;
 
     final base64Data = base64Encode(bytes);
@@ -130,7 +139,8 @@ final class WhatsAppWebBridgeController {
     if (ctrl == null || !_currentSession.isConnected) return false;
 
     final cleanText = Uri.encodeComponent(text);
-    final script = '''(function(){var i=document.querySelector('div[contenteditable="true"][data-tab="10"]');if(i){i.focus();document.execCommand('insertText',false,decodeURIComponent('$cleanText'));var b=document.querySelector('button[data-testid="compose-btn-send"]')||document.querySelector('span[data-icon="send"]');if(b){b.click();return true;}}return false;})();''';
+    final script =
+        '''(function(){var i=document.querySelector('div[contenteditable="true"][data-tab="10"]');if(i){i.focus();document.execCommand('insertText',false,decodeURIComponent('$cleanText'));var b=document.querySelector('button[data-testid="compose-btn-send"]')||document.querySelector('span[data-icon="send"]');if(b){b.click();return true;}}return false;})();''';
     final result = await ctrl.evaluateJavascript(source: script);
     return result == true;
   }

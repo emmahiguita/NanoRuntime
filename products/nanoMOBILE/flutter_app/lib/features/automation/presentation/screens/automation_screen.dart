@@ -56,11 +56,9 @@ class AutomationScreen extends ConsumerWidget {
   }
 
   static void _openSettings(BuildContext context) {
-    Navigator.of(context).push(
-      nanoGlassPageRoute<void>(
-        builder: (_) => const NanoSystemScreen(),
-      ),
-    );
+    Navigator.of(
+      context,
+    ).push(nanoGlassPageRoute<void>(builder: (_) => const NanoSystemScreen()));
   }
 
   static void _openDev(BuildContext context) {
@@ -94,8 +92,8 @@ class AutomationScreen extends ConsumerWidget {
   }
 
   static void _openBotStudio(BuildContext context) {
-    Navigator.of(context).push(
-      nanoGlassPageRoute<void>(builder: (_) => const BotStudioScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(nanoGlassPageRoute<void>(builder: (_) => const BotStudioScreen()));
   }
 }

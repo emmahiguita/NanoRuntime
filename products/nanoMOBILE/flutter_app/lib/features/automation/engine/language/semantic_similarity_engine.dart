@@ -18,52 +18,129 @@ import 'package:nanoai/features/automation/personal_agent/application/personal_l
 
 abstract interface class SemanticSimilarityEngine {
   Future<double> similarity(String a, String b);
+
+  /// Permite a un encoder calcular la consulta una vez para varios ejemplos.
+  Future<List<double>> similarities(
+    String query,
+    List<String> candidates,
+  ) async {
+    final scores = <double>[];
+    for (final candidate in candidates) {
+      scores.add(await similarity(query, candidate));
+    }
+    return scores;
+  }
 }
 
-final class LightweightSemanticSimilarityEngine implements SemanticSimilarityEngine {
+final class LightweightSemanticSimilarityEngine
+    implements SemanticSimilarityEngine {
   const LightweightSemanticSimilarityEngine();
 
   static const Map<String, List<String>> _paraphraseClusters = {
     'wellbeing_inquiry': [
-      'como estas', 'como vas', 'todo bien', 'que tal', 'como te ha ido',
-      'como andas', 'que tal vas', 'como sigue todo', 'como te trata el dia',
-      'que mas como vas', 'que hubo como vas', 'todo bien por alla', 'que se cuenta',
+      'como estas',
+      'como vas',
+      'todo bien',
+      'que tal',
+      'como te ha ido',
+      'como andas',
+      'que tal vas',
+      'como sigue todo',
+      'como te trata el dia',
+      'que mas como vas',
+      'que hubo como vas',
+      'todo bien por alla',
+      'que se cuenta',
     ],
     'wellbeing_response': [
-      'bien gracias a dios', 'todo bien', 'excelente', 'bien por aca',
-      'ahi vamos', 'todo tranquilo', 'bien y tu', 'todo en orden',
+      'bien gracias a dios',
+      'todo bien',
+      'excelente',
+      'bien por aca',
+      'ahi vamos',
+      'todo tranquilo',
+      'bien y tu',
+      'todo en orden',
     ],
     'greeting': [
-      'hola', 'buenas', 'buen dia', 'buenos dias', 'buenas tardes',
-      'buenas noches', 'hey', 'que mas', 'quiubo', 'oe',
+      'hola',
+      'buenas',
+      'buen dia',
+      'buenos dias',
+      'buenas tardes',
+      'buenas noches',
+      'hey',
+      'que mas',
+      'quiubo',
+      'oe',
     ],
     'farewell': [
-      'chao', 'adios', 'hasta luego', 'nos vemos', 'hablamos luego',
-      'que descanses', 'descansa', 'hasta manana',
+      'chao',
+      'adios',
+      'hasta luego',
+      'nos vemos',
+      'hablamos luego',
+      'que descanses',
+      'descansa',
+      'hasta manana',
     ],
     'gratitude': [
-      'gracias', 'muchas gracias', 'te agradezco', 'mil gracias', 'se agradece',
+      'gracias',
+      'muchas gracias',
+      'te agradezco',
+      'mil gracias',
+      'se agradece',
     ],
     'meeting_time_q': [
-      'a que hora', 'que hora', 'a que horas', 'tipo que hora', 'a que horas nos vemos',
-      'a que hora quedamos', 'que hora entonces',
+      'a que hora',
+      'que hora',
+      'a que horas',
+      'tipo que hora',
+      'a que horas nos vemos',
+      'a que hora quedamos',
+      'que hora entonces',
     ],
     'activity_q': [
-      'que haces', 'que estas haciendo', 'en que andas', 'que andas haciendo',
+      'que haces',
+      'que estas haciendo',
+      'en que andas',
+      'que andas haciendo',
     ],
     'location_q': [
-      'donde estas', 'en donde andas', 'por donde andas', 'estas en casa',
+      'donde estas',
+      'en donde andas',
+      'por donde andas',
+      'estas en casa',
     ],
     'confirmation': [
-      'si', 'de una', 'dale', 'listo', 'claro', 'seguro', 'haganle', 'total',
+      'si',
+      'de una',
+      'dale',
+      'listo',
+      'claro',
+      'seguro',
+      'haganle',
+      'total',
     ],
     'negation': [
-      'no', 'no voy', 'creo que no', 'para nada', 'tampoco', 'imposible', 'todavia no',
+      'no',
+      'no voy',
+      'creo que no',
+      'para nada',
+      'tampoco',
+      'imposible',
+      'todavia no',
     ],
   };
 
   @override
   Future<double> similarity(String a, String b) async => compute(a, b);
+
+  @override
+  Future<List<double>> similarities(
+    String query,
+    List<String> candidates,
+  ) async => [for (final candidate in candidates) compute(query, candidate)];
 
   static double compute(String rawA, String rawB) {
     final normA = normalizePersonalLearningText(rawA);
@@ -103,7 +180,8 @@ final class LightweightSemanticSimilarityEngine implements SemanticSimilarityEng
   static bool _matchesCluster(String text, List<String> cluster) {
     for (final phrase in cluster) {
       if (text == phrase) return true;
-      if (text.contains(phrase) && (text.length - phrase.length) <= 12) return true;
+      if (text.contains(phrase) && (text.length - phrase.length) <= 12)
+        return true;
     }
     return false;
   }
@@ -117,19 +195,25 @@ final class LightweightSemanticSimilarityEngine implements SemanticSimilarityEng
     if ((aInCasa && bTuCasa) || (aTuCasa && bInCasa)) return true;
 
     // "todo bien?" vs "todo bien con el proyecto?"
-    final aProject = a.contains('proyecto') || a.contains('app') || a.contains('trabajo');
-    final bProject = b.contains('proyecto') || b.contains('app') || b.contains('trabajo');
-    if (aProject != bProject && (a.contains('todo bien') || b.contains('todo bien'))) return true;
+    final aProject =
+        a.contains('proyecto') || a.contains('app') || a.contains('trabajo');
+    final bProject =
+        b.contains('proyecto') || b.contains('app') || b.contains('trabajo');
+    if (aProject != bProject &&
+        (a.contains('todo bien') || b.contains('todo bien')))
+      return true;
 
     // "ya estas?" (preparado) vs "ya esta?" (objeto terminado)
     final aPersona = a == 'ya estas' || a.contains('ya estas');
     final bCosa = b == 'ya esta' || b.endsWith('ya esta');
-    if (aPersona != bCosa && (a.contains('ya esta') && b.contains('ya esta'))) return true;
+    if (aPersona != bCosa && (a.contains('ya esta') && b.contains('ya esta')))
+      return true;
 
     // "que tal nano" (pregunta sobre producto) vs "que tal" (saludo humano)
     final aNano = a.contains('nano');
     final bNano = b.contains('nano');
-    if (aNano != bNano && (a.contains('que tal') || b.contains('que tal'))) return true;
+    if (aNano != bNano && (a.contains('que tal') || b.contains('que tal')))
+      return true;
 
     return false;
   }

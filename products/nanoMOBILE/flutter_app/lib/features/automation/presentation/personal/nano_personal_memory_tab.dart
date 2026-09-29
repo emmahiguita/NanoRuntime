@@ -38,7 +38,9 @@ class _NanoPersonalMemoryTabState extends State<NanoPersonalMemoryTab> {
 
   Future<void> _loadMemories() async {
     try {
-      final list = await PersonaRepository.instance.listPersonalMemories(scopeKey: 'owner');
+      final list = await PersonaRepository.instance.listPersonalMemories(
+        scopeKey: 'owner',
+      );
       if (!mounted) return;
       setState(() {
         _memories = list;

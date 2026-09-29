@@ -64,7 +64,9 @@ final class TemporalLocationContext {
   }
 
   static String formatTime(DateTime now) {
-    final hour12 = now.hour == 0 ? 12 : (now.hour > 12 ? now.hour - 12 : now.hour);
+    final hour12 = now.hour == 0
+        ? 12
+        : (now.hour > 12 ? now.hour - 12 : now.hour);
     final minute = now.minute.toString().padLeft(2, '0');
     final period = now.hour >= 12 ? 'PM' : 'AM';
     return '$hour12:$minute $period';

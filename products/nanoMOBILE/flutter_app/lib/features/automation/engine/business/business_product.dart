@@ -76,19 +76,22 @@ final class BusinessProduct {
     );
   }
 
-  factory BusinessProduct.fromJson(Map<String, dynamic> json) => BusinessProduct(
-    id: (json['id'] as String?) ?? '',
-    name: (json['name'] as String?) ?? '',
-    details: (json['details'] as String?) ?? '',
-    price: (json['price'] as num?)?.toInt() ?? 0,
-    stock: (json['stock'] as num?)?.toInt(),
-    sku: json['sku'] as String?,
-    category: json['category'] as String?,
-    isAvailable: json['isAvailable'] != false,
-    variants: (json['variants'] as List?)?.map((e) => e.toString()).toList() ?? const [],
-    imagePath: json['imagePath'] as String?,
-    isManualEdit: json['isManualEdit'] == true,
-  );
+  factory BusinessProduct.fromJson(Map<String, dynamic> json) =>
+      BusinessProduct(
+        id: (json['id'] as String?) ?? '',
+        name: (json['name'] as String?) ?? '',
+        details: (json['details'] as String?) ?? '',
+        price: (json['price'] as num?)?.toInt() ?? 0,
+        stock: (json['stock'] as num?)?.toInt(),
+        sku: json['sku'] as String?,
+        category: json['category'] as String?,
+        isAvailable: json['isAvailable'] != false,
+        variants:
+            (json['variants'] as List?)?.map((e) => e.toString()).toList() ??
+            const [],
+        imagePath: json['imagePath'] as String?,
+        isManualEdit: json['isManualEdit'] == true,
+      );
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -129,7 +132,9 @@ final class BusinessProduct {
     }
     final stockLabel = stock == null
         ? 'stock no confirmado (verificar disponibilidad)'
-        : (stock == 0 ? 'agotado (sin stock disponible)' : 'stock $stock disponible');
+        : (stock == 0
+              ? 'agotado (sin stock disponible)'
+              : 'stock $stock disponible');
     buffer.write(': $priceLabel ($stockLabel)');
     return buffer.toString();
   }

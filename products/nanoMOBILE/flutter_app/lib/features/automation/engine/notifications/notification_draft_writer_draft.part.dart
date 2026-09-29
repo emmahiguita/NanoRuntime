@@ -17,17 +17,17 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
       localReady = await writer
           ._ensureReady(writer._modelPath())
           .timeout(
-            const Duration(seconds: 60),
+            const Duration(seconds: 25),
             onTimeout: () {
               debugPrint(
-                '[draft] ensureReady agotó 60s; sin borrador (honesto)',
+                '[draft] ensureReady agotó 25s; sin borrador (fallback MCP)',
               );
               return false;
             },
           );
       if (!localReady) {
         debugPrint(
-          '[draft] motor local no quedó listo y sin proveedor cloud; sin borrador',
+          '[draft] motor local no listo; delegando al fallback conversacional',
         );
         return null;
       }

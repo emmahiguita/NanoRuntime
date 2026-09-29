@@ -52,7 +52,11 @@ class WhatsAppReplyDelayCard extends ConsumerWidget {
                     color: Colors.green.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.timer_outlined, color: Colors.green, size: 22),
+                  child: const Icon(
+                    Icons.timer_outlined,
+                    color: Colors.green,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -61,25 +65,38 @@ class WhatsAppReplyDelayCard extends ConsumerWidget {
                     children: [
                       Text(
                         'Pausa de Envío (Delay Humano)',
-                        style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(
                         'Tiempo de espera antes de enviar en WhatsApp',
-                        style: theme.textTheme.bodySmall?.copyWith(color: theme.hintColor),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.hintColor,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.green.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: Colors.green.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Text(
                     _formatDelayLabel(delaySeconds),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                      color: Colors.green,
+                    ),
                   ),
                 ),
               ],
@@ -87,7 +104,10 @@ class WhatsAppReplyDelayCard extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               'Simula el tiempo que tarda una persona en leer y redactar el mensaje antes de enviarlo. Evita respuestas automáticas instantáneas.',
-              style: theme.textTheme.bodySmall?.copyWith(fontSize: 11.5, height: 1.35),
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontSize: 11.5,
+                height: 1.35,
+              ),
             ),
             const SizedBox(height: 10),
             SliderTheme(
@@ -104,7 +124,9 @@ class WhatsAppReplyDelayCard extends ConsumerWidget {
                 label: '$delaySeconds s',
                 onChanged: (val) {
                   final sec = val.round();
-                  ref.read(settingsProvider.notifier).setWaReplyDelaySeconds(sec);
+                  ref
+                      .read(settingsProvider.notifier)
+                      .setWaReplyDelaySeconds(sec);
                 },
               ),
             ),
@@ -112,22 +134,32 @@ class WhatsAppReplyDelayCard extends ConsumerWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  const Text('Preajustes: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'Preajustes: ',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(width: 4),
                   for (final p in _presets)
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: ChoiceChip(
-                        label: Text(p == 0 ? '0s (Off)' : '${p}s', style: const TextStyle(fontSize: 10)),
+                        label: Text(
+                          p == 0 ? '0s (Off)' : '${p}s',
+                          style: const TextStyle(fontSize: 10),
+                        ),
                         selected: delaySeconds == p,
                         visualDensity: VisualDensity.compact,
                         onSelected: (selected) {
                           if (selected) {
-                            ref.read(settingsProvider.notifier).setWaReplyDelaySeconds(p);
+                            ref
+                                .read(settingsProvider.notifier)
+                                .setWaReplyDelaySeconds(p);
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Pausa configurada en ${p == 0 ? '0s (inmediata)' : '$p segundos'}.'),
+                                content: Text(
+                                  'Pausa configurada en ${p == 0 ? '0s (inmediata)' : '$p segundos'}.',
+                                ),
                                 duration: const Duration(seconds: 2),
                               ),
                             );

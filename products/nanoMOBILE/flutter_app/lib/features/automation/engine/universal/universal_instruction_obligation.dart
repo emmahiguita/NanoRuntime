@@ -109,7 +109,8 @@ final class UniversalObligation {
       phase: phase ?? this.phase,
       actionKind: actionKind ?? this.actionKind,
       targetEntity: targetEntity ?? this.targetEntity,
-      requiresAuthorization: requiresAuthorization ?? this.requiresAuthorization,
+      requiresAuthorization:
+          requiresAuthorization ?? this.requiresAuthorization,
       status: status ?? this.status,
       resultSnippet: resultSnippet ?? this.resultSnippet,
       missingRequirement: missingRequirement ?? this.missingRequirement,

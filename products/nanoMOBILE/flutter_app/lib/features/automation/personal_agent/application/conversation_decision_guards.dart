@@ -16,7 +16,8 @@
 library;
 
 import '../../engine/business/fact_selector.dart' show tokenizeText;
-import '../../engine/language/turn_complexity_classifier.dart' show turnComplexityClassifier;
+import '../../engine/language/turn_complexity_classifier.dart'
+    show turnComplexityClassifier;
 
 abstract final class ConversationDecisionGuards {
   /// ¿El reply pregunta? Señal determinista para `missingFacts`.
@@ -30,19 +31,59 @@ abstract final class ConversationDecisionGuards {
     final tokens = tokenizeText(r);
     if (tokens.isEmpty) return false;
     const wordMarks = {
-      'estoy', 'estaba', 'ando', 'hago', 'haciendo', 'trabajando', 'programando',
-      'entrenando', 'estudiando', 'almorzando', 'comiendo', 'cenando', 'desayunando',
-      'ocupado', 'ocupada', 'durmiendo', 'descansando', 'llegando', 'saliendo',
-      'grabando', 'cantando', 'jugando', 'camellando', 'manejando', 'conduciendo',
+      'estoy',
+      'estaba',
+      'ando',
+      'hago',
+      'haciendo',
+      'trabajando',
+      'programando',
+      'entrenando',
+      'estudiando',
+      'almorzando',
+      'comiendo',
+      'cenando',
+      'desayunando',
+      'ocupado',
+      'ocupada',
+      'durmiendo',
+      'descansando',
+      'llegando',
+      'saliendo',
+      'grabando',
+      'cantando',
+      'jugando',
+      'camellando',
+      'manejando',
+      'conduciendo',
     };
     if (tokens.any(wordMarks.contains)) return true;
 
     const phraseMarks = [
-      'voy a', 'voy pa', 'voy para', 'voy camino', 'en casa', 'en la casa',
-      'en el trabajo', 'en la oficina', 'en el gym', 'en el gimnasio',
-      'en la calle', 'para el centro', 'pa el centro', 'por ahi', 'por ahí',
-      'acabo de', 'tengo hambre', 'tengo sueno', 'ya comi', 'ya almorce',
-      'no he comido', 'ahora mismo', 'en este momento', 'ahorita ando',
+      'voy a',
+      'voy pa',
+      'voy para',
+      'voy camino',
+      'en casa',
+      'en la casa',
+      'en el trabajo',
+      'en la oficina',
+      'en el gym',
+      'en el gimnasio',
+      'en la calle',
+      'para el centro',
+      'pa el centro',
+      'por ahi',
+      'por ahí',
+      'acabo de',
+      'tengo hambre',
+      'tengo sueno',
+      'ya comi',
+      'ya almorce',
+      'no he comido',
+      'ahora mismo',
+      'en este momento',
+      'ahorita ando',
     ];
     return phraseMarks.any(r.contains);
   }
@@ -97,7 +138,8 @@ abstract final class ConversationDecisionGuards {
   static bool isRedundantStateQuestion(String? userText, String reply) {
     if (userText == null || userText.trim().isEmpty) return false;
     final u = fold(userText);
-    final userToldState = u.contains('dia') ||
+    final userToldState =
+        u.contains('dia') ||
         u.contains('trabaj') ||
         u.contains('gym') ||
         u.contains('cansad') ||

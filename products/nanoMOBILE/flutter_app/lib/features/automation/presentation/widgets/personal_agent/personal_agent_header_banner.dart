@@ -30,9 +30,7 @@ class PersonalAgentHeaderBanner extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: visual.accent.withValues(alpha: 0.35),
-        ),
+        border: Border.all(color: visual.accent.withValues(alpha: 0.35)),
       ),
       child: Row(
         children: [
@@ -42,9 +40,7 @@ class PersonalAgentHeaderBanner extends StatelessWidget {
             decoration: BoxDecoration(
               color: visual.accent.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: visual.accent.withValues(alpha: 0.4),
-              ),
+              border: Border.all(color: visual.accent.withValues(alpha: 0.4)),
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),

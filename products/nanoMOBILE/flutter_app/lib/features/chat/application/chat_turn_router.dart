@@ -41,6 +41,7 @@ class ChatTurnRouter {
     required bool engineOnline,
     required String? activeModelPath,
     required String? lastLinuxFilePath,
+    bool preferConfiguredApi = false,
     List<ChatMessage> chatHistory = const [],
     BrowserAiGateway? browserAiGateway,
   }) async {
@@ -182,6 +183,10 @@ class ChatTurnRouter {
     if (crossApp != null) {
       return ChatTurnRouteResult.completed(_deviceExecutionMessage(crossApp.result));
     }
+
+    // Los comandos locales deterministas de arriba siguen teniendo prioridad,
+    // pero el chat conversacional debe llegar al proveedor API seleccionado.
+    if (preferConfiguredApi) return const ChatTurnRouteResult.notHandled();
 
     // 7. Enrutador conversacional reactivo nativo
     final hasActiveModel = engineOnline && activeModelPath != null;

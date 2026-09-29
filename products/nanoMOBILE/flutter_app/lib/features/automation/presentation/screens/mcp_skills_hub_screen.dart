@@ -150,10 +150,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                 ),
                 Text(
                   'Grafo vivo de capacidades, telemetría y extensiones',
-                  style: TextStyle(
-                    color: visual.textMuted,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: visual.textMuted, fontSize: 12),
                 ),
               ],
             ),
@@ -165,20 +162,25 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               icon: const Icon(Icons.refresh_rounded, size: 20),
               color: visual.accent,
               onPressed: () async {
-              final reg = ref.read(mcpConnectionRegistryProvider);
-              final snap = await reg.refreshTools();
-              await _loadJournal();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Catálogo sincronizado: ${snap.tools.length} tools activas.'),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }
-            },
+                final reg = ref.read(mcpConnectionRegistryProvider);
+                final snap = await reg.refreshTools();
+                await _loadJournal();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        snap.failures.isEmpty
+                            ? 'Catálogo sincronizado: ${snap.tools.length} tools activas.'
+                            : 'Catálogo parcial: ${snap.tools.length} tools activas; '
+                                  '${snap.failures.length} servidores MCP con error.',
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+            ),
           ),
-        ),
         ],
       ),
     );
@@ -204,11 +206,20 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
         labelColor: visual.accent,
         unselectedLabelColor: visual.textMuted,
         labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+        ),
         tabs: const [
           Tab(icon: Icon(Icons.hub_outlined, size: 18), text: 'Grafo Vivo'),
-          Tab(icon: Icon(Icons.analytics_outlined, size: 18), text: 'Telemetría'),
-          Tab(icon: Icon(Icons.extension_outlined, size: 18), text: 'Tienda & Inyección'),
+          Tab(
+            icon: Icon(Icons.analytics_outlined, size: 18),
+            text: 'Telemetría',
+          ),
+          Tab(
+            icon: Icon(Icons.extension_outlined, size: 18),
+            text: 'Tienda & Inyección',
+          ),
         ],
       ),
     );
@@ -221,10 +232,12 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
   Widget _buildLiveGraphTab(AutomationVisualPalette visual) {
     final mcpRegistry = ref.watch(mcpConnectionRegistryProvider);
     final mcpTools = mcpRegistry.lastTools;
+    final connectedServerIds = mcpRegistry.connectedServerIds;
     final systemGraphAsync = ref.watch(systemGraphProvider);
     final skillStore = ref.watch(skillStoreProvider);
     final approvedSkills = skillStore.approved();
-    final deviceModel = systemGraphAsync.valueOrNull?.device.model ?? 'Samsung / Android';
+    final deviceModel =
+        systemGraphAsync.valueOrNull?.device.model ?? 'Samsung / Android';
     final appsCount = systemGraphAsync.valueOrNull?.apps.length ?? 0;
 
     return LayoutBuilder(
@@ -260,7 +273,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               'mode': 'Candidate-First Local',
               'device': deviceModel,
               'installed_apps': appsCount,
-              'servers_connected': mcpRegistry.servers.length,
+              'servers_connected': connectedServerIds.length,
               'tools_loaded': mcpTools.length + 3 + approvedSkills.length,
             },
           ),
@@ -351,56 +364,86 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
         ];
 
         final edges = <McpGraphEdge>[
-          const McpGraphEdge(from: 'core', to: 'plat.accessibility', color: Color(0xFFF59E0B)),
-          const McpGraphEdge(from: 'core', to: 'plat.linux', color: Color(0xFFEC4899)),
-          const McpGraphEdge(from: 'core', to: 'plat.nls', color: Color(0xFF14B8A6)),
-          const McpGraphEdge(from: 'core', to: 'skill.open_app', color: Color(0xFF8B5CF6)),
-          const McpGraphEdge(from: 'core', to: 'skill.system_nav', color: Color(0xFF8B5CF6)),
-          const McpGraphEdge(from: 'core', to: 'skill.notifications', color: Color(0xFF8B5CF6)),
+          const McpGraphEdge(
+            from: 'core',
+            to: 'plat.accessibility',
+            color: Color(0xFFF59E0B),
+          ),
+          const McpGraphEdge(
+            from: 'core',
+            to: 'plat.linux',
+            color: Color(0xFFEC4899),
+          ),
+          const McpGraphEdge(
+            from: 'core',
+            to: 'plat.nls',
+            color: Color(0xFF14B8A6),
+          ),
+          const McpGraphEdge(
+            from: 'core',
+            to: 'skill.open_app',
+            color: Color(0xFF8B5CF6),
+          ),
+          const McpGraphEdge(
+            from: 'core',
+            to: 'skill.system_nav',
+            color: Color(0xFF8B5CF6),
+          ),
+          const McpGraphEdge(
+            from: 'core',
+            to: 'skill.notifications',
+            color: Color(0xFF8B5CF6),
+          ),
         ];
 
         // 4. Mapeo Dinámico de Servidores MCP y sus Herramientas (Sin hardcoding)
         final serverList = mcpRegistry.servers.toList();
         for (int sIdx = 0; sIdx < serverList.length; sIdx++) {
           final server = serverList[sIdx];
+          final connected = connectedServerIds.contains(server.id);
           final serverNodeId = 'mcp.server.${server.id}';
-          final serverTools = mcpTools.values.where((t) => t.serverId == server.id).toList();
+          final serverTools = mcpTools.values
+              .where((t) => t.serverId == server.id)
+              .toList();
 
-          final serverOffset = centerOffset +
-              Offset(
-                200.0,
-                -180.0 + (sIdx * 130.0),
-              );
+          final serverOffset =
+              centerOffset + Offset(200.0, -180.0 + (sIdx * 130.0));
 
           nodes.add(
             McpGraphNode(
               id: serverNodeId,
               title: server.displayName,
-              subtitle: '${serverTools.length} tools • ${server.transport.name.toUpperCase()}',
+              subtitle:
+                  '${serverTools.length} tools • ${server.transport.name.toUpperCase()}',
               type: McpGraphNodeType.mcp,
               offset: serverOffset,
               icon: Icons.devices_other_rounded,
-              statusColor: const Color(0xFF10B981),
+              statusColor: connected
+                  ? const Color(0xFF10B981)
+                  : visual.textMuted,
               metadata: {
                 'server_id': server.id,
-                'status': 'CONNECTED',
+                'status': connected ? 'CONNECTED' : 'DISCONNECTED',
                 'transport': server.transport.name,
                 'endpoint': server.endpoint ?? 'in-process',
                 'tools_count': serverTools.length,
               },
             ),
           );
-          edges.add(McpGraphEdge(from: 'core', to: serverNodeId, color: const Color(0xFF10B981)));
+          edges.add(
+            McpGraphEdge(
+              from: 'core',
+              to: serverNodeId,
+              color: connected ? const Color(0xFF10B981) : visual.textMuted,
+            ),
+          );
 
           // Nodos hijos de herramientas correspondientes a este servidor
           for (int tIdx = 0; tIdx < serverTools.length; tIdx++) {
             final tool = serverTools[tIdx];
             final toolNodeId = 'mcp.tool.${tool.qualifiedName}';
-            final toolOffset = serverOffset +
-                Offset(
-                  150.0,
-                  -35.0 + (tIdx * 58.0),
-                );
+            final toolOffset =
+                serverOffset + Offset(150.0, -35.0 + (tIdx * 58.0));
 
             nodes.add(
               McpGraphNode(
@@ -419,7 +462,13 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                 },
               ),
             );
-            edges.add(McpGraphEdge(from: serverNodeId, to: toolNodeId, color: const Color(0xFF38BDF8)));
+            edges.add(
+              McpGraphEdge(
+                from: serverNodeId,
+                to: toolNodeId,
+                color: const Color(0xFF38BDF8),
+              ),
+            );
           }
         }
 
@@ -474,7 +523,11 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: visual.cardBorder),
                   boxShadow: [
-                    BoxShadow(color: visual.shadow, blurRadius: 10, offset: const Offset(0, 4)),
+                    BoxShadow(
+                      color: visual.shadow,
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                 ),
                 child: Row(
@@ -501,10 +554,14 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                       },
                     ),
                     IconButton(
-                      icon: const Icon(Icons.center_focus_strong_rounded, size: 18),
+                      icon: const Icon(
+                        Icons.center_focus_strong_rounded,
+                        size: 18,
+                      ),
                       color: visual.accent,
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => _graphTransform.value = Matrix4.identity(),
+                      onPressed: () =>
+                          _graphTransform.value = Matrix4.identity(),
                     ),
                   ],
                 ),
@@ -555,8 +612,10 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
                             selected: _logFilter == f.$1,
-                            label:
-                                Text(f.$2, style: const TextStyle(fontSize: 12)),
+                            label: Text(
+                              f.$2,
+                              style: const TextStyle(fontSize: 12),
+                            ),
                             selectedColor: visual.accent.withValues(alpha: 0.2),
                             checkmarkColor: visual.accent,
                             onSelected: (_) =>
@@ -591,10 +650,15 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                   ),
                 )
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   itemCount: filtered.length,
-                  itemBuilder: (context, index) =>
-                      McpTelemetryLogCard(entry: filtered[index], visual: visual),
+                  itemBuilder: (context, index) => McpTelemetryLogCard(
+                    entry: filtered[index],
+                    visual: visual,
+                  ),
                 ),
         ),
       ],
@@ -628,7 +692,11 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
             decoration: InputDecoration(
               hintText: 'Buscar servidores MCP y Skills...',
               hintStyle: TextStyle(color: visual.textMuted, fontSize: 13),
-              prefixIcon: Icon(Icons.search_rounded, color: visual.textMuted, size: 20),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                color: visual.textMuted,
+                size: 20,
+              ),
               suffixIcon: _storeSearchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.close_rounded, size: 18),
@@ -639,7 +707,10 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                     )
                   : null,
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
             onChanged: (val) => setState(() => _storeSearchQuery = val),
           ),
@@ -665,16 +736,23 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                       },
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: _selectedStoreCategory == cat ? FontWeight.w600 : FontWeight.w500,
-                        color: _selectedStoreCategory == cat ? Colors.white : visual.text,
+                        fontWeight: _selectedStoreCategory == cat
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: _selectedStoreCategory == cat
+                            ? Colors.white
+                            : visual.text,
                       ),
                     ),
                     selectedColor: visual.accent,
                     backgroundColor: visual.cardStart,
                     side: BorderSide(
-                      color: _selectedStoreCategory == cat ? visual.accent : visual.cardBorder,
+                      color: _selectedStoreCategory == cat
+                          ? visual.accent
+                          : visual.cardBorder,
                     ),
-                    onSelected: (_) => setState(() => _selectedStoreCategory = cat),
+                    onSelected: (_) =>
+                        setState(() => _selectedStoreCategory = cat),
                   ),
                 ),
             ],
@@ -704,7 +782,11 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                   color: visual.accent,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.add_to_photos_rounded, color: Colors.white, size: 22),
+                child: const Icon(
+                  Icons.add_to_photos_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -713,7 +795,11 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                   children: [
                     Text(
                       'Inyección en Caliente (Hot Injection)',
-                      style: TextStyle(color: visual.text, fontSize: 15, fontWeight: FontWeight.w700),
+                      style: TextStyle(
+                        color: visual.text,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -726,8 +812,13 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               FilledButton(
                 style: FilledButton.styleFrom(
                   backgroundColor: visual.accent,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
                 onPressed: () => showMcpHotInjectionDialog(
                   context: context,
@@ -735,10 +826,15 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                   persistence: ref.read(mcpServerPersistenceProvider),
                   visual: visual,
                   onInjected: (msg) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(msg)));
                   },
                 ),
-                child: const Text('Inyectar', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                child: const Text(
+                  'Inyectar',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
               ),
             ],
           ),
@@ -784,22 +880,24 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               isConnected: connectedServerIds.contains(item.id),
               onConnect: () => showMcpStoreConnectDialog(
                 context: context,
-                  item: item,
-                  registry: mcpRegistry,
-                  persistence: ref.read(mcpServerPersistenceProvider),
-                  appCatalog: ref.read(installedAppCatalogProvider),
+                item: item,
+                registry: mcpRegistry,
+                persistence: ref.read(mcpServerPersistenceProvider),
+                appCatalog: ref.read(installedAppCatalogProvider),
                 visual: visual,
                 onConnected: (msg) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(msg)));
                 },
               ),
-                onDisconnect: () => disconnectMcpStoreServer(
-                  context: context,
-                  serverId: item.id,
-                  serverName: item.name,
-                  registry: mcpRegistry,
-                  persistence: ref.read(mcpServerPersistenceProvider),
-                ),
+              onDisconnect: () => disconnectMcpStoreServer(
+                context: context,
+                serverId: item.id,
+                serverName: item.name,
+                registry: mcpRegistry,
+                persistence: ref.read(mcpServerPersistenceProvider),
+              ),
             ),
       ],
     );

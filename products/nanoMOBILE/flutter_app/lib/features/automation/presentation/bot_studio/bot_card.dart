@@ -89,10 +89,7 @@ class BotCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                Switch(
-                  value: bot.enabled,
-                  onChanged: onToggleEnabled,
-                ),
+                Switch(value: bot.enabled, onChanged: onToggleEnabled),
               ],
             ),
             if (bot.description.isNotEmpty) ...[
@@ -114,7 +111,10 @@ class BotCard extends StatelessWidget {
                 final skill = BotSkillsCatalog.getSkill(id);
                 final name = skill?.name ?? id;
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),

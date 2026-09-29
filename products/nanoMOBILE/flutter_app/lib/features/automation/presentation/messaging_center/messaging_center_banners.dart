@@ -80,9 +80,14 @@ class MessagingPermissionBanner extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: Text(actionLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+            child: Text(
+              actionLabel,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -165,12 +170,19 @@ class MessagingErrorCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 28),
+          const Icon(
+            Icons.error_outline_rounded,
+            color: Colors.redAccent,
+            size: 28,
+          ),
           const SizedBox(height: 8),
           Text(
             'Error al cargar conversaciones: $error',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 12),
           OutlinedButton.icon(

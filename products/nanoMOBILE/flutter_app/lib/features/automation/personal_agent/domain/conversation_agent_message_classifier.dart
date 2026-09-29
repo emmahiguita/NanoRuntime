@@ -37,24 +37,84 @@ bool isGreetingLikeMessage(String messageText) {
   if (tokens.any(commercialIntentTokens.contains)) return false;
   if (supportPhrases.any(normalized.contains)) return false;
   if (correctionPhrases.any(normalized.contains)) return false;
-  if (normalized.contains('vas a') || normalized.contains('iras a')) return false;
+  if (normalized.contains('vas a') || normalized.contains('iras a'))
+    return false;
 
   const compoundTokens = {
-    'haces', 'haciendo', 'haras', 'hacer', 'salir', 'saldras', 'iras',
-    'tienes', 'tenes', 'todavia', 'aun', 'telefono', 'celular', 'hablaste',
-    'dijiste', 'viste', 'fuiste', 'pudiste', 'sabes', 'puedes', 'quieres',
-    'necesitas', 'vendes', 'compras', 'llevas', 'partido', 'futbol',
-    'programando', 'programa', 'programar', 'codigo', 'app', 'aplicacion',
-    'agente', 'agentes', 'trabajando', 'trabajo', 'camellando', 'cansado',
-    'cansada', 'cansao', 'cansaod', 'agotado', 'muerto', 'gimnasio', 'gym',
-    'entrenando', 'entreno', 'pecho', 'espalda', 'pierna', 'casa', 'calle',
-    'estoy', 'ando', 'sali', 'fui', 'tarea', 'ayuda', 'duda', 'pregunta',
+    'haces',
+    'haciendo',
+    'haras',
+    'hacer',
+    'salir',
+    'saldras',
+    'iras',
+    'tienes',
+    'tenes',
+    'todavia',
+    'aun',
+    'telefono',
+    'celular',
+    'hablaste',
+    'dijiste',
+    'viste',
+    'fuiste',
+    'pudiste',
+    'sabes',
+    'puedes',
+    'quieres',
+    'necesitas',
+    'vendes',
+    'compras',
+    'llevas',
+    'partido',
+    'futbol',
+    'programando',
+    'programa',
+    'programar',
+    'codigo',
+    'app',
+    'aplicacion',
+    'agente',
+    'agentes',
+    'trabajando',
+    'trabajo',
+    'camellando',
+    'cansado',
+    'cansada',
+    'cansao',
+    'cansaod',
+    'agotado',
+    'muerto',
+    'gimnasio',
+    'gym',
+    'entrenando',
+    'entreno',
+    'pecho',
+    'espalda',
+    'pierna',
+    'casa',
+    'calle',
+    'estoy',
+    'ando',
+    'sali',
+    'fui',
+    'tarea',
+    'ayuda',
+    'duda',
+    'pregunta',
   };
   if (tokens.any(compoundTokens.contains)) return false;
   if (isPureGreeting(messageText)) return true;
 
   const explicitGreetingWords = {
-    'hola', 'holas', 'buenas', 'buenos', 'hey', 'oe', 'saludos', 'ola',
+    'hola',
+    'holas',
+    'buenas',
+    'buenos',
+    'hey',
+    'oe',
+    'saludos',
+    'ola',
   };
   final hasGreeting =
       tokens.take(3).any(explicitGreetingWords.contains) ||
@@ -66,7 +126,9 @@ bool isGreetingLikeMessage(String messageText) {
   if (!hasGreeting) return false;
 
   final complexity = turnComplexityClassifier.classify(messageText);
-  if (complexity.isNarrative || complexity.isComplex || complexity.isContextual) {
+  if (complexity.isNarrative ||
+      complexity.isComplex ||
+      complexity.isContextual) {
     return false;
   }
   return tokens.length <= 8;
@@ -83,16 +145,26 @@ bool isLiveStateQuestion(String messageText) {
   if (tokens.isEmpty) return false;
 
   // Bienestar cotidiano no es consulta de telemetría/estado vivo
-  final isWellbeing = normalized.contains('como vas') ||
+  final isWellbeing =
+      normalized.contains('como vas') ||
       normalized.contains('que tal') ||
       normalized.contains('como estas') ||
       normalized.contains('todo bien');
-  if (isWellbeing && !normalized.contains('vas a') && !tokens.contains('donde')) {
+  if (isWellbeing &&
+      !normalized.contains('vas a') &&
+      !tokens.contains('donde')) {
     return false;
   }
 
   const activityVerbs = {
-    'haces', 'haciendo', 'haras', 'hacer', 'iras', 'planeas', 'saldras', 'entrenas',
+    'haces',
+    'haciendo',
+    'haras',
+    'hacer',
+    'iras',
+    'planeas',
+    'saldras',
+    'entrenas',
   };
   final hasActivity = tokens.any(activityVerbs.contains);
   if (tokens.contains('que') && hasActivity) return true;
@@ -109,12 +181,33 @@ bool isLiveStateQuestion(String messageText) {
   }
 
   const contextSensitive = [
-    'como va tu dia', 'que tal tu dia', 'estas ocupado', 'estas ocupada',
-    'tienes tiempo', 'estas libre', 'puedes hablar', 'ya comiste', 'almorzaste',
-    'cenaste', 'desayunaste', 'tienes hambre', 'estas en casa', 'estas en la casa',
-    'como esta tu familia', 'como estan todos', 'vas a dormir', 'sigues despierto',
-    'que musica', 'estas escuchando', 'como esta el clima', 'esta lloviendo',
-    'hace frio', 'hace calor', 'te puedo llamar', 'puedo llamar', 'que opinas',
+    'como va tu dia',
+    'que tal tu dia',
+    'estas ocupado',
+    'estas ocupada',
+    'tienes tiempo',
+    'estas libre',
+    'puedes hablar',
+    'ya comiste',
+    'almorzaste',
+    'cenaste',
+    'desayunaste',
+    'tienes hambre',
+    'estas en casa',
+    'estas en la casa',
+    'como esta tu familia',
+    'como estan todos',
+    'vas a dormir',
+    'sigues despierto',
+    'que musica',
+    'estas escuchando',
+    'como esta el clima',
+    'esta lloviendo',
+    'hace frio',
+    'hace calor',
+    'te puedo llamar',
+    'puedo llamar',
+    'que opinas',
     'como lo ves',
   ];
   return contextSensitive.any(normalized.contains);

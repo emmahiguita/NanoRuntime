@@ -99,9 +99,17 @@ class NanoBusinessStatusBadge extends StatelessWidget {
                     inactiveTrackColor: visual.surface.withValues(alpha: 0.4),
                     thumbIcon: WidgetStateProperty.resolveWith<Icon?>((states) {
                       if (states.contains(WidgetState.selected)) {
-                        return const Icon(Icons.check, size: 12, color: Colors.black);
+                        return const Icon(
+                          Icons.check,
+                          size: 12,
+                          color: Colors.black,
+                        );
                       }
-                      return const Icon(Icons.close, size: 12, color: Colors.white70);
+                      return const Icon(
+                        Icons.close,
+                        size: 12,
+                        color: Colors.white70,
+                      );
                     }),
                   ),
                 ),

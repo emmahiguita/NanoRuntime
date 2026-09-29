@@ -17,7 +17,9 @@ abstract class AutomationSettingsPickers {
     AutomationModelMode.deterministicOnly => 'Solo determinista',
   };
 
-  static String modelModeDescription(AutomationModelMode mode) => switch (mode) {
+  static String modelModeDescription(
+    AutomationModelMode mode,
+  ) => switch (mode) {
     AutomationModelMode.sameAsChat =>
       'Comparte el modelo local actualmente seleccionado en Chat.',
     AutomationModelMode.specificModel =>
@@ -274,7 +276,10 @@ abstract class AutomationSettingsPickers {
                     if (current.enabled) ...[
                       const Divider(),
                       const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
+                        ),
                         child: Text(
                           'Trato',
                           style: TextStyle(

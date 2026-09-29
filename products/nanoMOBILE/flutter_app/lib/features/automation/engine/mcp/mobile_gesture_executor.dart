@@ -22,11 +22,11 @@ class MobileGestureExecutor {
     required AgentVerifier verifier,
     required NanoTranscriptLedger ledger,
     required NanoCompositeLocator locator,
-  })  : _api = api,
-        _executor = executor,
-        _verifier = verifier,
-        _ledger = ledger,
-        _locator = locator;
+  }) : _api = api,
+       _executor = executor,
+       _verifier = verifier,
+       _ledger = ledger,
+       _locator = locator;
 
   final NanoRuntimeApi _api;
   final AgentExecutor _executor;
@@ -50,7 +50,11 @@ class MobileGestureExecutor {
       );
     }
 
-    final selector = NanoSelector(text: text, resourceId: resourceId, packageName: packageName);
+    final selector = NanoSelector(
+      text: text,
+      resourceId: resourceId,
+      packageName: packageName,
+    );
     final resolution = _locator.locate(
       selector: selector,
       snapshot: preSnap,
@@ -71,7 +75,10 @@ class MobileGestureExecutor {
         : await _api.agentTapAt(targetX, targetY);
 
     if (!executionOk) {
-      _recordFailure('tap', 'Fallo al despachar gesto tap en ($targetX, $targetY)');
+      _recordFailure(
+        'tap',
+        'Fallo al despachar gesto tap en ($targetX, $targetY)',
+      );
       return const McpToolCallResult(
         status: McpOperationStatus.failed,
         errorCode: 'GESTURE_DISPATCH_FAILED',
@@ -86,28 +93,40 @@ class MobileGestureExecutor {
 
     final expectation = ActionExpectation(
       expectedPackage: expectedPkgAfter,
-      mustAppear: (mustAppearText != null && mustAppearText.isNotEmpty) ? NanoSelector(text: mustAppearText) : null,
-      mustDisappear: (mustDisappearText != null && mustDisappearText.isNotEmpty) ? NanoSelector(text: mustDisappearText) : null,
+      mustAppear: (mustAppearText != null && mustAppearText.isNotEmpty)
+          ? NanoSelector(text: mustAppearText)
+          : null,
+      mustDisappear: (mustDisappearText != null && mustDisappearText.isNotEmpty)
+          ? NanoSelector(text: mustDisappearText)
+          : null,
       mustChangeSnapshot: true,
       timeout: const Duration(seconds: 2),
     );
 
-    final verifyOutcome = await _verifier.verify(expectation, preSnapshot: preSnap);
+    final verifyOutcome = await _verifier.verify(
+      expectation,
+      preSnapshot: preSnap,
+    );
     final verificationOk = verifyOutcome.isVerified;
     final postSnap = verifyOutcome.snapshot ?? await _executor.snapshot();
 
     _ledger.recordStep(
       actionName: 'tap',
-      actionDescription: 'Tap en ($targetX, $targetY) vía ${resolution.strategy.name}',
+      actionDescription:
+          'Tap en ($targetX, $targetY) vía ${resolution.strategy.name}',
       executionOk: executionOk,
       verificationOk: verificationOk,
       postSnapshot: postSnap,
       targetLabel: resolution.targetNode?.label ?? text ?? resourceId,
-      observedOutcome: verificationOk ? 'Estado de pantalla verificado' : 'Pantalla no reaccionó: ${verifyOutcome.reason}',
+      observedOutcome: verificationOk
+          ? 'Estado de pantalla verificado'
+          : 'Pantalla no reaccionó: ${verifyOutcome.reason}',
     );
 
     return McpToolCallResult(
-      status: verificationOk ? McpOperationStatus.success : McpOperationStatus.failed,
+      status: verificationOk
+          ? McpOperationStatus.success
+          : McpOperationStatus.failed,
       structuredContent: {
         'executionOk': executionOk,
         'verificationOk': verificationOk,
@@ -140,7 +159,9 @@ class MobileGestureExecutor {
     }
 
     final targetResId = args['targetResourceId'] as String? ?? '';
-    final selector = targetResId.isNotEmpty ? NanoSelector(resourceId: targetResId) : const NanoSelector(editable: true);
+    final selector = targetResId.isNotEmpty
+        ? NanoSelector(resourceId: targetResId)
+        : const NanoSelector(editable: true);
     final editables = preSnap.visibleEditables();
     final targetNode = editables.isNotEmpty ? editables.first : null;
 
@@ -156,7 +177,8 @@ class MobileGestureExecutor {
     }
 
     final postSnap = await _executor.snapshot();
-    final isSensitive = NanoSensitiveDataPolicy.isSensitiveNode(targetNode) ||
+    final isSensitive =
+        NanoSensitiveDataPolicy.isSensitiveNode(targetNode) ||
         NanoSensitiveDataPolicy.isSensitiveText(text);
 
     bool verificationOk = false;
@@ -167,20 +189,24 @@ class MobileGestureExecutor {
         if (isSensitive) {
           // Para campos sensibles (contraseña, OTP): verificar solo que hay
           // contenido o foco — no comparamos texto para no exponer datos.
-          verificationOk = currentText.isNotEmpty || postEditables.first.focused;
+          verificationOk =
+              currentText.isNotEmpty || postEditables.first.focused;
         } else {
           // BUG-11 FIX: currentText.isNotEmpty es falso positivo si el campo
           // ya tenía texto previo al type(). Verificar que el campo CONTIENE
           // el texto escrito Y tiene al menos esa longitud.
           // Esto descarta: campo vacío que se llenó con otra cosa, campo con
           // texto previo que no cambió, y campos donde el input falló silencioso.
-          verificationOk = currentText.contains(text) &&
-              currentText.length >= text.length;
+          verificationOk =
+              currentText.contains(text) && currentText.length >= text.length;
         }
       }
     }
 
-    final safeLabel = NanoSensitiveDataPolicy.redact(text, targetNode: targetNode);
+    final safeLabel = NanoSensitiveDataPolicy.redact(
+      text,
+      targetNode: targetNode,
+    );
     _ledger.recordStep(
       actionName: 'type',
       actionDescription: 'Escribir $safeLabel',
@@ -188,17 +214,23 @@ class MobileGestureExecutor {
       verificationOk: verificationOk,
       postSnapshot: postSnap,
       targetLabel: targetResId.isNotEmpty ? targetResId : 'campo_editable',
-      observedOutcome: verificationOk ? 'Texto confirmado' : 'Campo no reflejó el texto',
+      observedOutcome: verificationOk
+          ? 'Texto confirmado'
+          : 'Campo no reflejó el texto',
     );
 
     return McpToolCallResult(
-      status: verificationOk ? McpOperationStatus.success : McpOperationStatus.failed,
+      status: verificationOk
+          ? McpOperationStatus.success
+          : McpOperationStatus.failed,
       structuredContent: {
         'executionOk': executionOk,
         'verificationOk': verificationOk,
         'isSensitive': isSensitive,
       },
-      message: verificationOk ? 'Texto introducido y verificado.' : 'Texto no verificado en pantalla.',
+      message: verificationOk
+          ? 'Texto introducido y verificado.'
+          : 'Texto no verificado en pantalla.',
     );
   }
 
@@ -215,8 +247,17 @@ class MobileGestureExecutor {
       );
     }
 
-    final coords = AdaptiveSwipeCalculator.calculate(direction: direction, snapshot: preSnap);
-    final executionOk = await _api.agentSwipe(coords.startX, coords.startY, coords.endX, coords.endY, durationMs: durationMs);
+    final coords = AdaptiveSwipeCalculator.calculate(
+      direction: direction,
+      snapshot: preSnap,
+    );
+    final executionOk = await _api.agentSwipe(
+      coords.startX,
+      coords.startY,
+      coords.endX,
+      coords.endY,
+      durationMs: durationMs,
+    );
 
     if (!executionOk) {
       _recordFailure('swipe', 'Fallo al despachar desplazamiento gestual');
@@ -228,7 +269,10 @@ class MobileGestureExecutor {
     }
 
     final verifyOutcome = await _verifier.verify(
-      const ActionExpectation(mustChangeSnapshot: true, timeout: Duration(seconds: 2)),
+      const ActionExpectation(
+        mustChangeSnapshot: true,
+        timeout: Duration(seconds: 2),
+      ),
       preSnapshot: preSnap,
     );
     final verificationOk = verifyOutcome.isVerified;
@@ -240,13 +284,22 @@ class MobileGestureExecutor {
       executionOk: executionOk,
       verificationOk: verificationOk,
       postSnapshot: postSnap,
-      observedOutcome: verificationOk ? 'Desplazamiento confirmado' : 'Sin desplazamiento',
+      observedOutcome: verificationOk
+          ? 'Desplazamiento confirmado'
+          : 'Sin desplazamiento',
     );
 
     return McpToolCallResult(
-      status: verificationOk ? McpOperationStatus.success : McpOperationStatus.failed,
-      structuredContent: {'executionOk': executionOk, 'verificationOk': verificationOk},
-      message: verificationOk ? 'Swipe $direction ejecutado y verificado.' : 'Swipe no desplazó la pantalla.',
+      status: verificationOk
+          ? McpOperationStatus.success
+          : McpOperationStatus.failed,
+      structuredContent: {
+        'executionOk': executionOk,
+        'verificationOk': verificationOk,
+      },
+      message: verificationOk
+          ? 'Swipe $direction ejecutado y verificado.'
+          : 'Swipe no desplazó la pantalla.',
     );
   }
 
@@ -257,7 +310,9 @@ class MobileGestureExecutor {
     final preSnap = await _executor.snapshot();
     bool executionOk = false;
     if (key == 'enter') {
-      final res = await _api.agentSubmitFocusedInput(expectedPackageName: expectedPkg);
+      final res = await _api.agentSubmitFocusedInput(
+        expectedPackageName: expectedPkg,
+      );
       executionOk = res?['ok'] == true;
     } else {
       executionOk = await _api.agentGlobalAction(key);
@@ -289,20 +344,29 @@ class MobileGestureExecutor {
       executionOk: executionOk,
       verificationOk: verificationOk,
       postSnapshot: postSnap,
-      observedOutcome: verificationOk ? 'Efecto confirmado' : 'Sin cambios observables',
+      observedOutcome: verificationOk
+          ? 'Efecto confirmado'
+          : 'Sin cambios observables',
     );
 
     return McpToolCallResult(
-      status: verificationOk ? McpOperationStatus.success : McpOperationStatus.failed,
-      structuredContent: {'executionOk': executionOk, 'verificationOk': verificationOk},
-      message: verificationOk ? 'Tecla $key ejecutada y verificada.' : 'Tecla $key sin efecto observable.',
+      status: verificationOk
+          ? McpOperationStatus.success
+          : McpOperationStatus.failed,
+      structuredContent: {
+        'executionOk': executionOk,
+        'verificationOk': verificationOk,
+      },
+      message: verificationOk
+          ? 'Tecla $key ejecutada y verificada.'
+          : 'Tecla $key sin efecto observable.',
     );
   }
 
   void _recordFailure(String action, String reason) => _ledger.recordStep(
-        actionName: action,
-        actionDescription: reason,
-        executionOk: false,
-        verificationOk: false,
-      );
+    actionName: action,
+    actionDescription: reason,
+    executionOk: false,
+    verificationOk: false,
+  );
 }

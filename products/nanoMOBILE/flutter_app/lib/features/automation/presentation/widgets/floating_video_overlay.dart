@@ -72,10 +72,12 @@ class _FloatingVideoOverlayWidget extends StatefulWidget {
   });
 
   @override
-  State<_FloatingVideoOverlayWidget> createState() => _FloatingVideoOverlayWidgetState();
+  State<_FloatingVideoOverlayWidget> createState() =>
+      _FloatingVideoOverlayWidgetState();
 }
 
-class _FloatingVideoOverlayWidgetState extends State<_FloatingVideoOverlayWidget> {
+class _FloatingVideoOverlayWidgetState
+    extends State<_FloatingVideoOverlayWidget> {
   Offset _pos = const Offset(20, 100);
   bool _isMinimized = false;
 
@@ -86,14 +88,21 @@ class _FloatingVideoOverlayWidgetState extends State<_FloatingVideoOverlayWidget
     final height = _isMinimized ? 140.0 : 210.0;
 
     // Clamping para que no se salga de la pantalla
-    final maxLeft = (mediaQuery.size.width - width - 10).clamp(0.0, double.infinity);
-    final maxTop = (mediaQuery.size.height - height - mediaQuery.padding.bottom - 10).clamp(0.0, double.infinity);
+    final maxLeft = (mediaQuery.size.width - width - 10).clamp(
+      0.0,
+      double.infinity,
+    );
+    final maxTop =
+        (mediaQuery.size.height - height - mediaQuery.padding.bottom - 10)
+            .clamp(0.0, double.infinity);
     final left = _pos.dx.clamp(10.0, maxLeft);
     final top = _pos.dy.clamp(mediaQuery.padding.top + 10.0, maxTop);
 
     final isYT = widget.youTubeId != null && widget.youTubeId!.isNotEmpty;
     final initialUrl = isYT
-        ? WebUri('https://www.youtube-nocookie.com/embed/${widget.youTubeId}?autoplay=1&playsinline=1&rel=0')
+        ? WebUri(
+            'https://www.youtube-nocookie.com/embed/${widget.youTubeId}?autoplay=1&playsinline=1&rel=0',
+          )
         : (widget.videoUrl.startsWith('http') ? WebUri(widget.videoUrl) : null);
 
     return Positioned(
@@ -107,9 +116,16 @@ class _FloatingVideoOverlayWidgetState extends State<_FloatingVideoOverlayWidget
           decoration: BoxDecoration(
             color: const Color(0xFF0F172A),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF00FF88).withValues(alpha: 0.5), width: 1.2),
+            border: Border.all(
+              color: const Color(0xFF00FF88).withValues(alpha: 0.5),
+              width: 1.2,
+            ),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.65), blurRadius: 16, offset: const Offset(0, 6)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.65),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
+              ),
             ],
           ),
           child: ClipRRect(
@@ -120,7 +136,10 @@ class _FloatingVideoOverlayWidgetState extends State<_FloatingVideoOverlayWidget
                 GestureDetector(
                   onPanUpdate: (details) {
                     setState(() {
-                      _pos = Offset(_pos.dx + details.delta.dx, _pos.dy + details.delta.dy);
+                      _pos = Offset(
+                        _pos.dx + details.delta.dx,
+                        _pos.dy + details.delta.dy,
+                      );
                     });
                   },
                   child: Container(
@@ -129,22 +148,33 @@ class _FloatingVideoOverlayWidgetState extends State<_FloatingVideoOverlayWidget
                     color: const Color(0xFF1E293B),
                     child: Row(
                       children: [
-                        const Icon(Icons.drag_indicator_rounded, color: Colors.white54, size: 16),
+                        const Icon(
+                          Icons.drag_indicator_rounded,
+                          color: Colors.white54,
+                          size: 16,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             widget.title,
-                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         InkWell(
-                          onTap: () => setState(() => _isMinimized = !_isMinimized),
+                          onTap: () =>
+                              setState(() => _isMinimized = !_isMinimized),
                           child: Padding(
                             padding: const EdgeInsets.all(4),
                             child: Icon(
-                              _isMinimized ? Icons.aspect_ratio_rounded : Icons.minimize_rounded,
+                              _isMinimized
+                                  ? Icons.aspect_ratio_rounded
+                                  : Icons.minimize_rounded,
                               color: Colors.white70,
                               size: 15,
                             ),
@@ -154,7 +184,11 @@ class _FloatingVideoOverlayWidgetState extends State<_FloatingVideoOverlayWidget
                           onTap: widget.onClose,
                           child: const Padding(
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.close_rounded, color: Colors.white70, size: 15),
+                            child: Icon(
+                              Icons.close_rounded,
+                              color: Colors.white70,
+                              size: 15,
+                            ),
                           ),
                         ),
                       ],
@@ -179,7 +213,10 @@ class _FloatingVideoOverlayWidgetState extends State<_FloatingVideoOverlayWidget
                           child: const Center(
                             child: Text(
                               'Archivo local de video',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
                         ),

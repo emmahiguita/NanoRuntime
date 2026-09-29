@@ -19,10 +19,38 @@ import 'conv_turn_state_models.dart';
 /// Tokens de saludo puro: si todos los tokens del mensaje pertenecen a este set,
 /// es un saludo y jamás reactiva contexto comercial.
 const Set<String> greetingTokens = {
-  'hola', 'holas', 'buenas', 'buenos', 'dias', 'tardes', 'noches',
-  'buen', 'dia', 'tarde', 'noche', 'hey', 'saludos', 'que', 'tal',
-  'mas', 'como', 'estas', 'esta', 'todo', 'bien', 'vos', 'tu', 'ola',
-  'oe', 'ahi', 'y', 'ti', 'usted', 'parce', 'emma', 'emm',
+  'hola',
+  'holas',
+  'buenas',
+  'buenos',
+  'dias',
+  'tardes',
+  'noches',
+  'buen',
+  'dia',
+  'tarde',
+  'noche',
+  'hey',
+  'saludos',
+  'que',
+  'tal',
+  'mas',
+  'como',
+  'estas',
+  'esta',
+  'todo',
+  'bien',
+  'vos',
+  'tu',
+  'ola',
+  'oe',
+  'ahi',
+  'y',
+  'ti',
+  'usted',
+  'parce',
+  'emma',
+  'emm',
 };
 
 /// ¿Es un saludo puro? Determinista: cada token pertenece a [greetingTokens].
@@ -34,19 +62,52 @@ bool isPureGreeting(String messageText) {
 
 /// Tokens de respuesta corta dependiente ("sí", "dale", "cuánto").
 const Set<String> dependentReplyTokens = {
-  'si', 'no', 'dale', 'listo', 'ok', 'okay', 'perfecto', 'cuanto',
-  'cuantos', 'cuantas', 'cual', 'cuales', 'cuando', 'manana', 'hoy',
+  'si',
+  'no',
+  'dale',
+  'listo',
+  'ok',
+  'okay',
+  'perfecto',
+  'cuanto',
+  'cuantos',
+  'cuantas',
+  'cual',
+  'cuales',
+  'cuando',
+  'manana',
+  'hoy',
 };
 
 /// Tokens de referencia explícita a lo conversado antes ("ese", "el anterior").
 const Set<String> referenceTokens = {
-  'ese', 'esa', 'esos', 'esas', 'aquel', 'aquella', 'aquellos', 'aquellas',
-  'anterior', 'mismo', 'misma', 'dije', 'pregunte', 'pregunto', 'dicho', 'contaste',
+  'ese',
+  'esa',
+  'esos',
+  'esas',
+  'aquel',
+  'aquella',
+  'aquellos',
+  'aquellas',
+  'anterior',
+  'mismo',
+  'misma',
+  'dije',
+  'pregunte',
+  'pregunto',
+  'dicho',
+  'contaste',
 };
 
 /// Tokens de consulta de precio directa.
 const Set<String> priceQuestionTokens = {
-  'cuanto', 'cuantos', 'cuantas', 'precio', 'precios', 'coste', 'cuesta',
+  'cuanto',
+  'cuantos',
+  'cuantas',
+  'precio',
+  'precios',
+  'coste',
+  'cuesta',
 };
 
 /// Extrae las señales deterministas de gating para el mensaje actual.

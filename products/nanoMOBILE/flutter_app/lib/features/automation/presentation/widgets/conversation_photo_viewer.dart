@@ -55,20 +55,31 @@ abstract final class ConversationPhotoViewer {
                     tag: tag,
                     child: source.isLocal
                         ? file != null && file.existsSync()
-                            ? Image.file(
-                                file,
-                                fit: BoxFit.contain,
-                                errorBuilder: (_, __, ___) => _buildErrorWidget('No se pudo cargar la imagen'),
-                              )
-                            : _buildErrorWidget('La imagen ya no está disponible')
+                              ? Image.file(
+                                  file,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) =>
+                                      _buildErrorWidget(
+                                        'No se pudo cargar la imagen',
+                                      ),
+                                )
+                              : _buildErrorWidget(
+                                  'La imagen ya no está disponible',
+                                )
                         : Image.network(
                             source.value,
                             fit: BoxFit.contain,
                             loadingBuilder: (ctx, child, progress) {
                               if (progress == null) return child;
-                              return const Center(child: CircularProgressIndicator(color: Color(0xFF00FF88)));
+                              return const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF00FF88),
+                                ),
+                              );
                             },
-                            errorBuilder: (_, __, ___) => _buildErrorWidget('No se pudo cargar la imagen'),
+                            errorBuilder: (_, __, ___) => _buildErrorWidget(
+                              'No se pudo cargar la imagen',
+                            ),
                           ),
                   ),
                 ),
@@ -79,13 +90,20 @@ abstract final class ConversationPhotoViewer {
                 right: 0,
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     child: Row(
                       children: [
                         Semantics(
                           label: 'Cerrar',
                           child: IconButton(
-                            icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
                             onPressed: () => Navigator.of(dialogCtx).pop(),
                           ),
                         ),
@@ -93,7 +111,11 @@ abstract final class ConversationPhotoViewer {
                         Expanded(
                           child: Text(
                             caption?.isNotEmpty == true ? caption! : fileName,
-                            style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -101,15 +123,27 @@ abstract final class ConversationPhotoViewer {
                         Semantics(
                           label: 'Compartir imagen',
                           child: IconButton(
-                            icon: const Icon(Icons.share_rounded, color: Colors.white, size: 24),
+                            icon: const Icon(
+                              Icons.share_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
                             onPressed: () async {
-                              if (source.isLocal && file != null && file.existsSync()) {
+                              if (source.isLocal &&
+                                  file != null &&
+                                  file.existsSync()) {
                                 await SharePlus.instance.share(
-                                  ShareParams(files: [XFile(file.path)], subject: caption ?? fileName),
+                                  ShareParams(
+                                    files: [XFile(file.path)],
+                                    subject: caption ?? fileName,
+                                  ),
                                 );
                               } else {
                                 await SharePlus.instance.share(
-                                  ShareParams(text: pathOrUrl, subject: caption ?? fileName),
+                                  ShareParams(
+                                    text: pathOrUrl,
+                                    subject: caption ?? fileName,
+                                  ),
                                 );
                               }
                             },
@@ -130,7 +164,10 @@ abstract final class ConversationPhotoViewer {
   static Widget _buildErrorWidget(String msg) {
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

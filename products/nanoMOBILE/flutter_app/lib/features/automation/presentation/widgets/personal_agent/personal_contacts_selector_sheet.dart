@@ -69,8 +69,10 @@ class _PersonalContactsSelectorSheetState
                 child: CircularProgressIndicator(color: Color(0xFF00E676)),
               ),
               error: (e, _) => Center(
-                child: Text('Error al cargar contactos: $e',
-                    style: const TextStyle(color: Colors.white70)),
+                child: Text(
+                  'Error al cargar contactos: $e',
+                  style: const TextStyle(color: Colors.white70),
+                ),
               ),
             ),
           ),
@@ -97,7 +99,11 @@ class _PersonalContactsSelectorSheetState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          const Icon(Icons.people_alt_rounded, color: Color(0xFF00E676), size: 20),
+          const Icon(
+            Icons.people_alt_rounded,
+            color: Color(0xFF00E676),
+            size: 20,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -114,7 +120,11 @@ class _PersonalContactsSelectorSheetState
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+            icon: const Icon(
+              Icons.close_rounded,
+              color: Colors.white70,
+              size: 20,
+            ),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -131,11 +141,21 @@ class _PersonalContactsSelectorSheetState
         style: const TextStyle(color: Colors.white, fontSize: 13),
         decoration: InputDecoration(
           hintText: 'Buscar por nombre o número...',
-          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35), fontSize: 13),
-          prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54, size: 18),
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.35),
+            fontSize: 13,
+          ),
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: Colors.white54,
+            size: 18,
+          ),
           filled: true,
           fillColor: Colors.white.withValues(alpha: 0.06),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
@@ -164,7 +184,10 @@ class _PersonalContactsSelectorSheetState
           _query.isEmpty
               ? 'No hay contactos de WhatsApp disponibles'
               : 'No se encontraron coincidencias para "$_query"',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.5),
+            fontSize: 13,
+          ),
         ),
       );
     }
@@ -174,10 +197,7 @@ class _PersonalContactsSelectorSheetState
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final contact = filtered[index];
-        return WhatsAppContactCard(
-          contact: contact,
-          onTap: () {},
-        );
+        return WhatsAppContactCard(contact: contact, onTap: () {});
       },
     );
   }

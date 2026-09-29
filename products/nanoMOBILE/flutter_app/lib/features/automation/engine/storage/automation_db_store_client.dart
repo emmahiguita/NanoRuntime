@@ -72,7 +72,8 @@ class AutomationDbStoreClient {
   /// Reemplazo atómico de la sección. false = rechazada (whitelist/tamaño).
   Future<bool> putSection(String key, String json) async {
     try {
-      final ok = await _channel.invokeMethod<bool>('put', {
+      final ok =
+          await _channel.invokeMethod<bool>('put', {
             'key': key,
             'json': json,
           }) ??
@@ -120,7 +121,8 @@ class AutomationDbStoreClient {
     String minimalContext = '',
   }) async {
     try {
-      final ok = await _channel.invokeMethod<bool>('conversationAssign', {
+      final ok =
+          await _channel.invokeMethod<bool>('conversationAssign', {
             'addressKey': addressKey,
             'scopeId': scopeId,
             'ownerId': ownerId,
@@ -159,7 +161,8 @@ class AutomationDbStoreClient {
     String ruleId = '',
   }) async {
     try {
-      final ok = await _channel.invokeMethod<bool>('conversationMessageAppend', {
+      final ok =
+          await _channel.invokeMethod<bool>('conversationMessageAppend', {
             'scopeId': scopeId,
             'eventId': eventId,
             'direction': direction,
@@ -189,7 +192,8 @@ class AutomationDbStoreClient {
     required int updatedAtMs,
   }) async {
     try {
-      final ok = await _channel.invokeMethod<bool>('conversationStatePut', {
+      final ok =
+          await _channel.invokeMethod<bool>('conversationStatePut', {
             'scopeId': scopeId,
             'stateJson': stateJson,
             'updatedAtMs': updatedAtMs,
@@ -215,15 +219,10 @@ class AutomationDbStoreClient {
     try {
       final rows = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
         'conversationMessageList',
-        {
-          'scopeId': scopeId,
-          'limit': limit,
-        },
+        {'scopeId': scopeId, 'limit': limit},
       );
       if (rows == null) return const [];
-      return rows
-          .map((r) => r.cast<String, dynamic>())
-          .toList(growable: false);
+      return rows.map((r) => r.cast<String, dynamic>()).toList(growable: false);
     } on Object catch (error) {
       debugPrint('[automation-store] conversationMessageList falló: $error');
       return const [];

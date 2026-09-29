@@ -1,4 +1,4 @@
-﻿/// BOT-REPOSITORY-01 — Persistencia Durable y Gestión CRUD de Bots en NanoAI.
+/// BOT-REPOSITORY-01 — Persistencia Durable y Gestión CRUD de Bots en NanoAI.
 ///
 /// **QUÉ HACE:**
 /// Administra el ciclo de vida de los bots configurados (lectura, escritura, borrado)
@@ -107,7 +107,8 @@ class BotRepository {
       id: 'bot_personal_default',
       name: 'Nano Personal (EMMA)',
       role: BotRole.personal,
-      description: 'Asistente personal con mi forma natural de escribir, memoria de contactos y acceso a Linux.',
+      description:
+          'Asistente personal con mi forma natural de escribir, memoria de contactos y acceso a Linux.',
       goal: BotRole.personal.defaultGoal,
       enabled: true,
       channels: const ['whatsapp', 'app_ui'],
@@ -125,7 +126,8 @@ class BotRepository {
       id: 'bot_sales_default',
       name: 'Nano Ventas & Negocio',
       role: BotRole.sales,
-      description: 'Asesor comercial para WhatsApp Business con catálogo y validación de inventario en tiempo real.',
+      description:
+          'Asesor comercial para WhatsApp Business con catálogo y validación de inventario en tiempo real.',
       goal: BotRole.sales.defaultGoal,
       enabled: false,
       channels: const ['whatsapp_business'],
@@ -145,7 +147,9 @@ class BotRepository {
   }
 }
 
-final botRepositoryProvider = Provider<BotRepository>((ref) => BotRepository.instance);
+final botRepositoryProvider = Provider<BotRepository>(
+  (ref) => BotRepository.instance,
+);
 
 final botsListProvider = FutureProvider<List<BotDefinition>>((ref) async {
   final repo = ref.watch(botRepositoryProvider);

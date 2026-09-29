@@ -35,10 +35,16 @@ class PersonalAgentContactsCard extends ConsumerWidget {
           ? contacts.length
           : contacts.where((c) {
               final key = c.jid.isNotEmpty ? c.jid : c.number;
-              final ownership = ownershipStore.ownershipFor(key) ??
-                  (c.number.isNotEmpty ? ownershipStore.ownershipFor(c.number) : null) ??
-                  (c.name.isNotEmpty ? ownershipStore.ownershipFor(c.name) : null);
-              final isEmm = c.name.toLowerCase().contains('emm') ||
+              final ownership =
+                  ownershipStore.ownershipFor(key) ??
+                  (c.number.isNotEmpty
+                      ? ownershipStore.ownershipFor(c.number)
+                      : null) ??
+                  (c.name.isNotEmpty
+                      ? ownershipStore.ownershipFor(c.name)
+                      : null);
+              final isEmm =
+                  c.name.toLowerCase().contains('emm') ||
                   c.name.toLowerCase().contains('emma');
               return (ownership?.owner == ConversationOwner.bot) ||
                   (ownership?.owner != ConversationOwner.human && isEmm);
@@ -54,9 +60,7 @@ class PersonalAgentContactsCard extends ConsumerWidget {
           subtitle: isAll
               ? 'Atención global — responde a todos tus chats'
               : 'Atención selectiva — solo contactos autorizados',
-          trailing: ValueBadge(
-            label: isAll ? 'TODOS' : '$activeCount ACTIVOS',
-          ),
+          trailing: ValueBadge(label: isAll ? 'TODOS' : '$activeCount ACTIVOS'),
           showChevron: false,
         ),
         Padding(
@@ -138,7 +142,9 @@ class PersonalAgentContactsCard extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 11.5,
                 height: 1.35,
-                color: visual.isDark ? const Color(0xFFD6DEE8) : visual.textMuted,
+                color: visual.isDark
+                    ? const Color(0xFFD6DEE8)
+                    : visual.textMuted,
               ),
             ),
           ),

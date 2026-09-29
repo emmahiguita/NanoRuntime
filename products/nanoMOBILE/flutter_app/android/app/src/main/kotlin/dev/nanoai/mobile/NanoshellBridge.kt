@@ -98,13 +98,13 @@ object NanoshellBridge {
      */
     @JvmStatic external fun workerIsProcessAlive(pid: Int): Int
 
+    /** Aísla `:nanoshell` del process group heredado de zygote. */
+    @JvmStatic external fun workerIsolateProcessGroup(): Int
+
     /**
-     * Kill switch: manda SIGKILL al group del worker. El worker corre tareas
-     * en threads con fork+waitpid; un binario colgado (apt esperando input)
-     * bloquea el waitpid indefinidamente. Como el hijo vive en el group del
-     * worker, kill(-pgid) lo tumba y desbloquea el waitpid. Solicitudes desde
-     * MSG_KILL (timeout de execRootfsWorker).
-     * Nota: daemons detached hacen setsid() → grupo propio → NO se matan aquí.
+     * Kill switch del grupo aislado del worker. Solo es seguro después de
+     * workerIsolateProcessGroup(): Android puede iniciar todos los procesos de
+     * la app en el mismo grupo heredado de zygote.
      */
     @JvmStatic external fun workerKillGroup(): Int
 

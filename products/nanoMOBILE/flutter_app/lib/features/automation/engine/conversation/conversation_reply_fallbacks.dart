@@ -121,8 +121,14 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
       act: act,
       candidateReply: reply,
     );
-    final safeReply = validation.isApproved ? reply : (validation.safeFallbackReply ?? reply);
-    _dialogueStateTracker.recordUserTurn(conversationId, act, userText: userText);
+    final safeReply = validation.isApproved
+        ? reply
+        : (validation.safeFallbackReply ?? reply);
+    _dialogueStateTracker.recordUserTurn(
+      conversationId,
+      act,
+      userText: userText,
+    );
     _dialogueStateTracker.recordAgentTurn(
       conversationId: conversationId,
       act: isFast ? DialogueAct.acknowledgement : DialogueAct.statement,

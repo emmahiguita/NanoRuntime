@@ -19,7 +19,8 @@ enum IntentPolarity {
   uncertain;
 
   static IntentPolarity fromText(String text) {
-    final lower = text.toLowerCase()
+    final lower = text
+        .toLowerCase()
         .replaceAll(RegExp(r'[áàäâ]'), 'a')
         .replaceAll(RegExp(r'[éèëê]'), 'e')
         .replaceAll(RegExp(r'[íìïî]'), 'i')
@@ -32,7 +33,9 @@ enum IntentPolarity {
         lower.contains('de pronto')) {
       return IntentPolarity.uncertain;
     }
-    if (lower.contains('no ') || lower.startsWith('no') || lower.contains('creo que no')) {
+    if (lower.contains('no ') ||
+        lower.startsWith('no') ||
+        lower.contains('creo que no')) {
       return IntentPolarity.negative;
     }
     return IntentPolarity.positive;
@@ -40,7 +43,8 @@ enum IntentPolarity {
 }
 
 final class IntentEvidence {
-  final String source; // 'exact', 'storedVariant', 'fts', 'lexical', 'semantic', 'pragmatic', 'context'
+  final String
+  source; // 'exact', 'storedVariant', 'fts', 'lexical', 'semantic', 'pragmatic', 'context'
   final double score;
   final String detail;
 

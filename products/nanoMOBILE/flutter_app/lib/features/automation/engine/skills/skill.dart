@@ -49,19 +49,17 @@ final class SemanticSkillStep {
   /// Inputs requeridos por la semántica (nombres, no valores).
   final List<String> inputs;
 
-  const SemanticSkillStep({required this.semanticAction, this.inputs = const []});
+  const SemanticSkillStep({
+    required this.semanticAction,
+    this.inputs = const [],
+  });
 
-  Map<String, Object?> toJson() => {
-    'action': semanticAction,
-    'inputs': inputs,
-  };
+  Map<String, Object?> toJson() => {'action': semanticAction, 'inputs': inputs};
 
   factory SemanticSkillStep.fromJson(Map<String, dynamic> m) =>
       SemanticSkillStep(
         semanticAction: (m['action'] as String?) ?? '',
-        inputs: [
-          for (final i in (m['inputs'] as List?) ?? const []) '$i',
-        ],
+        inputs: [for (final i in (m['inputs'] as List?) ?? const []) '$i'],
       );
 }
 

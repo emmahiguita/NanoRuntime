@@ -13,9 +13,9 @@ class NanoshellLinuxFsOperations {
     required IBinExecutor binExecutor,
     required LinuxSecurityPolicy securityPolicy,
     required LinuxActionVerifier verifier,
-  })  : _binExecutor = binExecutor,
-        _securityPolicy = securityPolicy,
-        _verifier = verifier;
+  }) : _binExecutor = binExecutor,
+       _securityPolicy = securityPolicy,
+       _verifier = verifier;
 
   Future<LinuxActionResult<List<LinuxFileEntry>>> listFiles(
     String path, {
@@ -35,13 +35,15 @@ class NanoshellLinuxFsOperations {
           final isDir = parts[0].startsWith('d');
           final name = parts.sublist(8).join(' ');
           if (name != '.' && name != '..') {
-            entries.add(LinuxFileEntry(
-              path: '$path/$name'.replaceAll('//', '/'),
-              name: name,
-              type: isDir ? LinuxFileType.directory : LinuxFileType.file,
-              sizeBytes: int.tryParse(parts[4]) ?? 0,
-              permissions: parts[0],
-            ));
+            entries.add(
+              LinuxFileEntry(
+                path: '$path/$name'.replaceAll('//', '/'),
+                name: name,
+                type: isDir ? LinuxFileType.directory : LinuxFileType.file,
+                sizeBytes: int.tryParse(parts[4]) ?? 0,
+                permissions: parts[0],
+              ),
+            );
           }
         }
       }
@@ -77,7 +79,10 @@ class NanoshellLinuxFsOperations {
       stderr: res.stderr,
       duration: DateTime.now().difference(started),
       verification: res.exitCode == 0
-          ? LinuxVerificationDetail.satisfied('file_read', 'Lectura completada.')
+          ? LinuxVerificationDetail.satisfied(
+              'file_read',
+              'Lectura completada.',
+            )
           : LinuxVerificationDetail.failed('file_read', res.stderr),
     );
   }
@@ -95,11 +100,17 @@ class NanoshellLinuxFsOperations {
 
     final marker = 'NANOEOF${DateTime.now().microsecondsSinceEpoch}';
     final script = 'cat > ${_quote(path)} << "$marker"\n$content\n$marker';
-    final res = await _binExecutor.bash(script, timeout: timeout ?? const Duration(seconds: 30));
+    final res = await _binExecutor.bash(
+      script,
+      timeout: timeout ?? const Duration(seconds: 30),
+    );
 
     LinuxVerificationDetail verification = LinuxVerificationDetail.skipped();
     if (res.exitCode == 0 && verifyWritten) {
-      verification = await _verifier.verifyFileWritten(path, minBytes: content.isEmpty ? 0 : 1);
+      verification = await _verifier.verifyFileWritten(
+        path,
+        minBytes: content.isEmpty ? 0 : 1,
+      );
     } else if (res.exitCode != 0) {
       verification = LinuxVerificationDetail.failed('file_write', res.stderr);
     }
@@ -122,7 +133,9 @@ class NanoshellLinuxFsOperations {
   }) async {
     final started = DateTime.now();
     if (!_securityPolicy.isPathAllowed(path, isWrite: true)) {
-      return _securityViolation('Eliminación prohibida en ruta protegida: $path');
+      return _securityViolation(
+        'Eliminación prohibida en ruta protegida: $path',
+      );
     }
 
     final args = ['rm', recursive ? '-rf' : '-f', path];
@@ -156,7 +169,12 @@ class NanoshellLinuxFsOperations {
       return _securityViolation('Copia prohibida hacia destino: $destination');
     }
 
-    final res = await _binExecutor.toybox(['cp', '-r', source, destination], timeout: timeout);
+    final res = await _binExecutor.toybox([
+      'cp',
+      '-r',
+      source,
+      destination,
+    ], timeout: timeout);
     LinuxVerificationDetail verification = LinuxVerificationDetail.skipped();
     if (res.exitCode == 0 && verifyTarget) {
       verification = await _verifier.verifyTargetPresent(destination);
@@ -184,7 +202,11 @@ class NanoshellLinuxFsOperations {
       return _securityViolation('Movimiento no permitido en rutas protegidas.');
     }
 
-    final res = await _binExecutor.toybox(['mv', source, destination], timeout: timeout);
+    final res = await _binExecutor.toybox([
+      'mv',
+      source,
+      destination,
+    ], timeout: timeout);
     LinuxVerificationDetail verification = LinuxVerificationDetail.skipped();
     if (res.exitCode == 0 && verifyTarget) {
       verification = await _verifier.verifyTargetPresent(destination);
@@ -205,7 +227,12 @@ class NanoshellLinuxFsOperations {
     Duration? timeout,
   }) async {
     final started = DateTime.now();
-    final res = await _binExecutor.toybox(['stat', '-c', '%s|%a|%F', path], timeout: timeout);
+    final res = await _binExecutor.toybox([
+      'stat',
+      '-c',
+      '%s|%a|%F',
+      path,
+    ], timeout: timeout);
 
     LinuxFileEntry? entry;
     if (res.exitCode == 0) {

@@ -92,10 +92,9 @@ class LinuxVoiceCommandParser {
         text: path,
         args: {'content': content},
       ),
-      expectation: GoalExpectation(statePredicates: [
-        FileExists(path),
-        FileContentContains(path, content),
-      ]),
+      expectation: GoalExpectation(
+        statePredicates: [FileExists(path), FileContentContains(path, content)],
+      ),
     );
   }
 

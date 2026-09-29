@@ -46,17 +46,11 @@ class AutomationSystemFooter extends StatelessWidget {
             decoration: BoxDecoration(
               color: visual.surface.withValues(alpha: 0.50),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: visual.outline.withValues(alpha: 0.15),
-              ),
+              border: Border.all(color: visual.outline.withValues(alpha: 0.15)),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.auto_mode_rounded,
-                  size: 20,
-                  color: visual.accent,
-                ),
+                Icon(Icons.auto_mode_rounded, size: 20, color: visual.accent),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -110,17 +104,11 @@ class AutomationSystemFooter extends StatelessWidget {
             decoration: BoxDecoration(
               color: visual.surface.withValues(alpha: 0.50),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: visual.outline.withValues(alpha: 0.15),
-              ),
+              border: Border.all(color: visual.outline.withValues(alpha: 0.15)),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.tune_rounded,
-                  size: 20,
-                  color: visual.textMuted,
-                ),
+                Icon(Icons.tune_rounded, size: 20, color: visual.textMuted),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

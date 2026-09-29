@@ -19,7 +19,11 @@ extension _PragmaticFastPathComposerMisc on PragmaticFastPath {
     required String? lastOutboundText,
   }) {
     if (intents.contains(ConversationIntent.planReminder)) {
-      return _selectCandidate(planReminderCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        planReminderCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askTime)) {
@@ -45,12 +49,20 @@ extension _PragmaticFastPathComposerMisc on PragmaticFastPath {
     }
 
     if (intents.contains(ConversationIntent.askLocation)) {
-      return _selectCandidate(locationCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        locationCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askPresence) &&
         !intents.contains(ConversationIntent.askPhysicalLocation)) {
-      return _selectCandidate(presenceCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        presenceCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (intents.contains(ConversationIntent.askHelpOrQuestion)) {

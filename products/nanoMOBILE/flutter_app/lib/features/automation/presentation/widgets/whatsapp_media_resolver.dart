@@ -48,17 +48,21 @@ abstract final class WhatsAppMediaResolver {
   ];
 
   /// Busca la imagen más reciente o más cercana al timestamp de WhatsApp en un isolate secundario.
-  static Future<String?> findRecentWhatsAppImage({int? referenceTimestampMs}) async {
+  static Future<String?> findRecentWhatsAppImage({
+    int? referenceTimestampMs,
+  }) async {
     final cacheKey = 'img_${referenceTimestampMs ?? 0}';
     if (_resolvedCache.containsKey(cacheKey)) return _resolvedCache[cacheKey];
 
     try {
-      final path = await Isolate.run(() => _findClosestFilePath(
-        dirs: _possibleImageDirs,
-        validExtensions: const {'.jpg', '.jpeg', '.png', '.webp'},
-        referenceTimestampMs: referenceTimestampMs,
-        recursive: false,
-      ));
+      final path = await Isolate.run(
+        () => _findClosestFilePath(
+          dirs: _possibleImageDirs,
+          validExtensions: const {'.jpg', '.jpeg', '.png', '.webp'},
+          referenceTimestampMs: referenceTimestampMs,
+          recursive: false,
+        ),
+      );
       _resolvedCache[cacheKey] = path;
       return path;
     } catch (_) {
@@ -67,17 +71,21 @@ abstract final class WhatsAppMediaResolver {
   }
 
   /// Busca el video más reciente o más cercano al timestamp de WhatsApp en un isolate secundario.
-  static Future<String?> findRecentWhatsAppVideo({int? referenceTimestampMs}) async {
+  static Future<String?> findRecentWhatsAppVideo({
+    int? referenceTimestampMs,
+  }) async {
     final cacheKey = 'vid_${referenceTimestampMs ?? 0}';
     if (_resolvedCache.containsKey(cacheKey)) return _resolvedCache[cacheKey];
 
     try {
-      final path = await Isolate.run(() => _findClosestFilePath(
-        dirs: _possibleVideoDirs,
-        validExtensions: const {'.mp4', '.mov', '.3gp', '.mkv'},
-        referenceTimestampMs: referenceTimestampMs,
-        recursive: false,
-      ));
+      final path = await Isolate.run(
+        () => _findClosestFilePath(
+          dirs: _possibleVideoDirs,
+          validExtensions: const {'.mp4', '.mov', '.3gp', '.mkv'},
+          referenceTimestampMs: referenceTimestampMs,
+          recursive: false,
+        ),
+      );
       _resolvedCache[cacheKey] = path;
       return path;
     } catch (_) {
@@ -86,17 +94,21 @@ abstract final class WhatsAppMediaResolver {
   }
 
   /// Busca la nota de voz más reciente o más cercana al timestamp en un isolate secundario.
-  static Future<String?> findRecentWhatsAppVoiceNote({int? referenceTimestampMs}) async {
+  static Future<String?> findRecentWhatsAppVoiceNote({
+    int? referenceTimestampMs,
+  }) async {
     final cacheKey = 'voice_${referenceTimestampMs ?? 0}';
     if (_resolvedCache.containsKey(cacheKey)) return _resolvedCache[cacheKey];
 
     try {
-      final path = await Isolate.run(() => _findClosestFilePath(
-        dirs: _possibleVoiceDirs,
-        validExtensions: const {'.opus', '.ogg', '.m4a', '.mp3', '.aac'},
-        referenceTimestampMs: referenceTimestampMs,
-        recursive: true,
-      ));
+      final path = await Isolate.run(
+        () => _findClosestFilePath(
+          dirs: _possibleVoiceDirs,
+          validExtensions: const {'.opus', '.ogg', '.m4a', '.mp3', '.aac'},
+          referenceTimestampMs: referenceTimestampMs,
+          recursive: true,
+        ),
+      );
       _resolvedCache[cacheKey] = path;
       return path;
     } catch (_) {

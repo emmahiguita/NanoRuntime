@@ -40,7 +40,8 @@ final class SafeConversationRepair {
       case RepairCase.liveStateQuestionMirror:
       case RepairCase.liveStateAffirmed:
         final u = userText?.trim().toLowerCase() ?? '';
-        final isActivityOrPlans = u.contains('hacer') ||
+        final isActivityOrPlans =
+            u.contains('hacer') ||
             u.contains('haces') ||
             u.contains('haciendo') ||
             u.contains('haras') ||
@@ -54,7 +55,8 @@ final class SafeConversationRepair {
           return _pick(safeRepairActivityOptions, userText);
         }
 
-        final isGoingOrOut = u.contains('vas a ir') ||
+        final isGoingOrOut =
+            u.contains('vas a ir') ||
             u.contains('vas ir') ||
             u.contains('iras') ||
             u.contains('vas a salir') ||

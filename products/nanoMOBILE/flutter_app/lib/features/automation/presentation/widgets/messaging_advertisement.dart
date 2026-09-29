@@ -16,16 +16,19 @@ library;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../application/automation_coordinator_provider.dart' show pendingRepliesProvider;
+import '../../application/automation_coordinator_provider.dart'
+    show pendingRepliesProvider;
 
 class MessagingAdvertisement extends ConsumerStatefulWidget {
   const MessagingAdvertisement({super.key});
 
   @override
-  ConsumerState<MessagingAdvertisement> createState() => _MessagingAdvertisementState();
+  ConsumerState<MessagingAdvertisement> createState() =>
+      _MessagingAdvertisementState();
 }
 
-class _MessagingAdvertisementState extends ConsumerState<MessagingAdvertisement> {
+class _MessagingAdvertisementState
+    extends ConsumerState<MessagingAdvertisement> {
   late final PageController _pageController;
   Timer? _autoPlayTimer;
   int _currentIndex = 0;
@@ -147,7 +150,11 @@ class _MessagingAdvertisementState extends ConsumerState<MessagingAdvertisement>
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.auto_awesome_rounded, size: 9, color: Color(0xFF00FF88)),
+                Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 9,
+                  color: Color(0xFF00FF88),
+                ),
                 SizedBox(width: 3),
                 Text(
                   'ANVERSO • NANO AI',

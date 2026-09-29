@@ -1,4 +1,4 @@
-﻿/// BOT-PERMISSIONS-02 — Matriz de Control de Acceso Basada en Roles (RBAC).
+/// BOT-PERMISSIONS-02 — Matriz de Control de Acceso Basada en Roles (RBAC).
 ///
 /// **QUÉ HACE:**
 /// Define las facultades de seguridad y permisos de ejecución de herramientas
@@ -36,39 +36,44 @@ final class BotPermissions {
 
   /// Permisos plenos para el bot personal del dueño del dispositivo.
   factory BotPermissions.personalOwner() => const BotPermissions(
-        allowLinuxExec: true,
-        allowAndroidUiAutomation: true,
-        allowBrowserAutomation: true,
-        allowMessagingSend: true,
-        allowPaymentCreation: false,
-        allowFileSystemRead: true,
-        allowFileSystemWrite: true,
-        blockedTools: [],
-      );
+    allowLinuxExec: true,
+    allowAndroidUiAutomation: true,
+    allowBrowserAutomation: true,
+    allowMessagingSend: true,
+    allowPaymentCreation: false,
+    allowFileSystemRead: true,
+    allowFileSystemWrite: true,
+    blockedTools: [],
+  );
 
   /// Permisos restringidos para un bot comercial/ventas.
   factory BotPermissions.salesRestricted() => const BotPermissions(
-        allowLinuxExec: false,
-        allowAndroidUiAutomation: false,
-        allowBrowserAutomation: false,
-        allowMessagingSend: true,
-        allowPaymentCreation: true,
-        allowFileSystemRead: true,
-        allowFileSystemWrite: false,
-        blockedTools: ['linux.raw_exec', 'shizuku.exec', 'android.tap', 'android.shell'],
-      );
+    allowLinuxExec: false,
+    allowAndroidUiAutomation: false,
+    allowBrowserAutomation: false,
+    allowMessagingSend: true,
+    allowPaymentCreation: true,
+    allowFileSystemRead: true,
+    allowFileSystemWrite: false,
+    blockedTools: [
+      'linux.raw_exec',
+      'shizuku.exec',
+      'android.tap',
+      'android.shell',
+    ],
+  );
 
   /// Permisos para bot de soporte técnico y diagnóstico.
   factory BotPermissions.supportAgent() => const BotPermissions(
-        allowLinuxExec: false,
-        allowAndroidUiAutomation: true,
-        allowBrowserAutomation: true,
-        allowMessagingSend: true,
-        allowPaymentCreation: false,
-        allowFileSystemRead: true,
-        allowFileSystemWrite: false,
-        blockedTools: ['linux.raw_exec', 'payment.charge'],
-      );
+    allowLinuxExec: false,
+    allowAndroidUiAutomation: true,
+    allowBrowserAutomation: true,
+    allowMessagingSend: true,
+    allowPaymentCreation: false,
+    allowFileSystemRead: true,
+    allowFileSystemWrite: false,
+    blockedTools: ['linux.raw_exec', 'payment.charge'],
+  );
 
   /// Evalúa si la herramienta solicitada tiene permiso de ejecución.
   bool canExecute(String toolName) {
@@ -79,7 +84,8 @@ final class BotPermissions {
       return false;
     }
 
-    if ((toolName.startsWith('android.') || toolName.startsWith('ui.')) && !allowAndroidUiAutomation) {
+    if ((toolName.startsWith('android.') || toolName.startsWith('ui.')) &&
+        !allowAndroidUiAutomation) {
       return false;
     }
 
@@ -95,15 +101,15 @@ final class BotPermissions {
   }
 
   Map<String, dynamic> toMap() => {
-        'allowLinuxExec': allowLinuxExec,
-        'allowAndroidUiAutomation': allowAndroidUiAutomation,
-        'allowBrowserAutomation': allowBrowserAutomation,
-        'allowMessagingSend': allowMessagingSend,
-        'allowPaymentCreation': allowPaymentCreation,
-        'allowFileSystemRead': allowFileSystemRead,
-        'allowFileSystemWrite': allowFileSystemWrite,
-        'blockedTools': blockedTools,
-      };
+    'allowLinuxExec': allowLinuxExec,
+    'allowAndroidUiAutomation': allowAndroidUiAutomation,
+    'allowBrowserAutomation': allowBrowserAutomation,
+    'allowMessagingSend': allowMessagingSend,
+    'allowPaymentCreation': allowPaymentCreation,
+    'allowFileSystemRead': allowFileSystemRead,
+    'allowFileSystemWrite': allowFileSystemWrite,
+    'blockedTools': blockedTools,
+  };
 
   factory BotPermissions.fromMap(Map<dynamic, dynamic>? map) {
     if (map == null) return const BotPermissions();
@@ -115,7 +121,9 @@ final class BotPermissions {
       allowPaymentCreation: map['allowPaymentCreation'] == true,
       allowFileSystemRead: map['allowFileSystemRead'] != false,
       allowFileSystemWrite: map['allowFileSystemWrite'] == true,
-      blockedTools: (map['blockedTools'] as List? ?? const []).whereType<String>().toList(),
+      blockedTools: (map['blockedTools'] as List? ?? const [])
+          .whereType<String>()
+          .toList(),
     );
   }
 }

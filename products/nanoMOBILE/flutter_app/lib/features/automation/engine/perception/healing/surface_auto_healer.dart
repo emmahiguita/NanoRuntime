@@ -22,18 +22,24 @@ import 'safe_action_suspension.dart';
 /// Motor de auto-reparación y localización geométrica ante cambios de interfaz.
 final class SurfaceAutoHealer implements SurfaceHealerFallback {
   SurfaceAutoHealer({DynamicSurfaceStore? store})
-      : _store = store ?? globalDynamicSurfaceStore;
+    : _store = store ?? globalDynamicSurfaceStore;
 
   final DynamicSurfaceStore _store;
 
   @override
-  ResolvedSurface? tryHealInput(ScreenGraph graph, {required InputSurfaceKind kind}) {
+  ResolvedSurface? tryHealInput(
+    ScreenGraph graph, {
+    required InputSurfaceKind kind,
+  }) {
     final (surface, _) = healInput(graph, kind: kind);
     return surface;
   }
 
   @override
-  ResolvedSurface? tryHealAction(ScreenGraph graph, {required String actionKind}) {
+  ResolvedSurface? tryHealAction(
+    ScreenGraph graph, {
+    required String actionKind,
+  }) {
     final (surface, _) = healAction(graph, actionKind: actionKind);
     return surface;
   }
@@ -48,13 +54,18 @@ final class SurfaceAutoHealer implements SurfaceHealerFallback {
         .toList(growable: false);
 
     if (editables.isEmpty) {
-      return (null, SafeActionSuspension(
-        packageName: graph.package,
-        targetKind: kind == InputSurfaceKind.search ? SurfaceElementKind.searchInput : SurfaceElementKind.messageInput,
-        reason: 'No hay campos editables visibles en la pantalla actual',
-        confidence: 0.0,
-        timestamp: DateTime.now(),
-      ));
+      return (
+        null,
+        SafeActionSuspension(
+          packageName: graph.package,
+          targetKind: kind == InputSurfaceKind.search
+              ? SurfaceElementKind.searchInput
+              : SurfaceElementKind.messageInput,
+          reason: 'No hay campos editables visibles en la pantalla actual',
+          confidence: 0.0,
+          timestamp: DateTime.now(),
+        ),
+      );
     }
 
     NanoUiObject candidate;
@@ -75,21 +86,29 @@ final class SurfaceAutoHealer implements SurfaceHealerFallback {
 
     if (confidence >= 0.75) {
       _learnInput(graph.package, kind, candidate);
-      return (ResolvedSurface(
-        candidate,
-        surfaceSelectorFor(candidate),
-        'auto-healed: posición espacial heurística (confianza ${(confidence * 100).toInt()}%)',
-      ), null);
+      return (
+        ResolvedSurface(
+          candidate,
+          surfaceSelectorFor(candidate),
+          'auto-healed: posición espacial heurística (confianza ${(confidence * 100).toInt()}%)',
+        ),
+        null,
+      );
     }
 
-    return (null, SafeActionSuspension(
-      packageName: graph.package,
-      targetKind: kind == InputSurfaceKind.search ? SurfaceElementKind.searchInput : SurfaceElementKind.messageInput,
-      reason: 'Confianza de localización insuficiente tras cambio de UI',
-      confidence: confidence,
-      candidates: editables,
-      timestamp: DateTime.now(),
-    ));
+    return (
+      null,
+      SafeActionSuspension(
+        packageName: graph.package,
+        targetKind: kind == InputSurfaceKind.search
+            ? SurfaceElementKind.searchInput
+            : SurfaceElementKind.messageInput,
+        reason: 'Confianza de localización insuficiente tras cambio de UI',
+        confidence: confidence,
+        candidates: editables,
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   /// Intenta auto-reparar la localización de un botón de acción adyacente al compositor.
@@ -99,17 +118,27 @@ final class SurfaceAutoHealer implements SurfaceHealerFallback {
     NanoUiObject? anchorInput,
   }) {
     final buttons = graph.objects
-        .where((o) => o.visible && o.enabled && (o.clickable || o.role == SemanticRole.iconButton || o.role == SemanticRole.button))
+        .where(
+          (o) =>
+              o.visible &&
+              o.enabled &&
+              (o.clickable ||
+                  o.role == SemanticRole.iconButton ||
+                  o.role == SemanticRole.button),
+        )
         .toList(growable: false);
 
     if (buttons.isEmpty) {
-      return (null, SafeActionSuspension(
-        packageName: graph.package,
-        targetKind: SurfaceElementKind.sendAction,
-        reason: 'No se encontraron botones o iconos accionables',
-        confidence: 0.0,
-        timestamp: DateTime.now(),
-      ));
+      return (
+        null,
+        SafeActionSuspension(
+          packageName: graph.package,
+          targetKind: SurfaceElementKind.sendAction,
+          reason: 'No se encontraron botones o iconos accionables',
+          confidence: 0.0,
+          timestamp: DateTime.now(),
+        ),
+      );
     }
 
     NanoUiObject? best;
@@ -117,11 +146,15 @@ final class SurfaceAutoHealer implements SurfaceHealerFallback {
 
     for (final btn in buttons) {
       double score = 0.0;
-      if (btn.role == SemanticRole.iconButton || btn.role == SemanticRole.button) score += 0.4;
+      if (btn.role == SemanticRole.iconButton ||
+          btn.role == SemanticRole.button)
+        score += 0.4;
       if (anchorInput != null) {
-        final centerYDiff = (btn.bounds.centerY - anchorInput.bounds.centerY).abs();
+        final centerYDiff = (btn.bounds.centerY - anchorInput.bounds.centerY)
+            .abs();
         if (centerYDiff < 120) score += 0.4; // Misma fila inferior
-        if (btn.bounds.left >= anchorInput.bounds.right - 40) score += 0.15; // A la derecha
+        if (btn.bounds.left >= anchorInput.bounds.right - 40)
+          score += 0.15; // A la derecha
       }
       if (score > bestConfidence) {
         bestConfidence = score;
@@ -131,30 +164,41 @@ final class SurfaceAutoHealer implements SurfaceHealerFallback {
 
     if (bestConfidence >= 0.75 && best != null) {
       _learnAction(graph.package, actionKind, best);
-      return (ResolvedSurface(
-        best,
-        surfaceSelectorFor(best),
-        'auto-healed: adyacencia espacial (confianza ${(bestConfidence * 100).toInt()}%)',
-      ), null);
+      return (
+        ResolvedSurface(
+          best,
+          surfaceSelectorFor(best),
+          'auto-healed: adyacencia espacial (confianza ${(bestConfidence * 100).toInt()}%)',
+        ),
+        null,
+      );
     }
 
-    return (null, SafeActionSuspension(
-      packageName: graph.package,
-      targetKind: SurfaceElementKind.sendAction,
-      reason: 'No se encontró un botón con adyacencia segura al compositor',
-      confidence: bestConfidence,
-      candidates: buttons.take(3).toList(),
-      timestamp: DateTime.now(),
-    ));
+    return (
+      null,
+      SafeActionSuspension(
+        packageName: graph.package,
+        targetKind: SurfaceElementKind.sendAction,
+        reason: 'No se encontró un botón con adyacencia segura al compositor',
+        confidence: bestConfidence,
+        candidates: buttons.take(3).toList(),
+        timestamp: DateTime.now(),
+      ),
+    );
   }
 
   void _learnInput(String pkg, InputSurfaceKind kind, NanoUiObject obj) {
-    final term = obj.description.isNotEmpty ? obj.description : (obj.text.isNotEmpty ? obj.text : obj.resourceId);
+    final term = obj.description.isNotEmpty
+        ? obj.description
+        : (obj.text.isNotEmpty ? obj.text : obj.resourceId);
     if (term.isEmpty) return;
     _store.registerHealedElement(
       packageName: pkg,
-      kind: kind == InputSurfaceKind.search ? SurfaceElementKind.searchInput : SurfaceElementKind.messageInput,
-      roles: {obj.role}, terms: [term.toLowerCase()],
+      kind: kind == InputSurfaceKind.search
+          ? SurfaceElementKind.searchInput
+          : SurfaceElementKind.messageInput,
+      roles: {obj.role},
+      terms: [term.toLowerCase()],
     );
   }
 
@@ -162,8 +206,10 @@ final class SurfaceAutoHealer implements SurfaceHealerFallback {
     final term = obj.description.isNotEmpty ? obj.description : obj.label;
     if (term.isEmpty) return;
     _store.registerHealedElement(
-      packageName: pkg, kind: SurfaceElementKind.sendAction,
-      roles: {obj.role}, terms: [term.toLowerCase()],
+      packageName: pkg,
+      kind: SurfaceElementKind.sendAction,
+      roles: {obj.role},
+      terms: [term.toLowerCase()],
       allowClickableContainer: obj.clickable,
     );
   }

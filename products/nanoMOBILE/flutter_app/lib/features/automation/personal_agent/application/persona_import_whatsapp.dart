@@ -51,8 +51,7 @@ extension _PersonaImportWhatsApp on PersonaImportPipeline {
       if (year < 100) year += 2000;
       final day = int.parse(match[1]!), month = int.parse(match[2]!);
       var hour = int.parse(match[4]!);
-      final minute = int.parse(match[5]!),
-          second = int.parse(match[6] ?? '0');
+      final minute = int.parse(match[5]!), second = int.parse(match[6] ?? '0');
       final meridiem = (match[7] ?? '').toLowerCase();
       if (minute > 59 ||
           second > 59 ||
@@ -76,7 +75,9 @@ extension _PersonaImportWhatsApp on PersonaImportPipeline {
         );
         continue;
       }
-      final author = _PersonaImportUtils._author(payload.substring(0, separator));
+      final author = _PersonaImportUtils._author(
+        payload.substring(0, separator),
+      );
       final isOwner = author == expectedOwner;
       if (isOwner) {
         ownerSeen = true;

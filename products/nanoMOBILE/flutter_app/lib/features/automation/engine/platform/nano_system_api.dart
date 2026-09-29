@@ -73,16 +73,14 @@ class NanoSystemApi {
     bool skipUi = true,
   }) async {
     try {
-      return await _system.invokeMethod<Map<dynamic, dynamic>>(
-        'setSystemAlarm',
-        {
-          'hour': hour,
-          'minutes': minutes,
-          'message': message,
-          'weekdays': weekdays,
-          'skipUi': skipUi,
-        },
-      );
+      return await _system
+          .invokeMethod<Map<dynamic, dynamic>>('setSystemAlarm', {
+            'hour': hour,
+            'minutes': minutes,
+            'message': message,
+            'weekdays': weekdays,
+            'skipUi': skipUi,
+          });
     } catch (e) {
       debugPrint('[system] setSystemAlarm error: $e');
       return null;

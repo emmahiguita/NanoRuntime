@@ -65,52 +65,81 @@ class _PersonalizationStudioMemoriesTab extends StatelessWidget {
             color: const Color(0x10FFFFFF),
             child: ListTile(
               dense: true,
-              title: Text('${memory.key}: ${memory.value}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+              title: Text(
+                '${memory.key}: ${memory.value}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               subtitle: Text(
-                '${personalMemoryKinds[memory.kind] ?? memory.kind} · ${memory.enabled ? memory.expired ? 'Caducada' : 'Activa' : 'Desactivada'} · ${scopes[memory.scopeKey]?.label ?? memory.scopeKey}',
+                '${personalMemoryKinds[memory.kind] ?? memory.kind} · ${memory.enabled
+                    ? memory.expired
+                          ? 'Caducada'
+                          : 'Activa'
+                    : 'Desactivada'} · ${scopes[memory.scopeKey]?.label ?? memory.scopeKey}',
                 style: const TextStyle(fontSize: 9, color: Colors.white60),
               ),
               onTap: !canEdit ? null : () => onEditMemory(memory),
               trailing: IconButton(
                 icon: const Icon(Icons.more_vert_rounded, size: 18),
-                onPressed: !canEdit ? null : () {
-                  showModalBottomSheet<void>(
-                    context: context,
-                    useRootNavigator: true,
-                    builder: (ctx) => SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ListTile(
-                            dense: true,
-                            leading: Icon(memory.enabled ? Icons.pause_circle_outline : Icons.play_circle_outline),
-                            title: Text(memory.enabled ? 'Desactivar memoria' : 'Activar memoria'),
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              onToggleMemory(memory);
-                            },
+                onPressed: !canEdit
+                    ? null
+                    : () {
+                        showModalBottomSheet<void>(
+                          context: context,
+                          useRootNavigator: true,
+                          builder: (ctx) => SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  dense: true,
+                                  leading: Icon(
+                                    memory.enabled
+                                        ? Icons.pause_circle_outline
+                                        : Icons.play_circle_outline,
+                                  ),
+                                  title: Text(
+                                    memory.enabled
+                                        ? 'Desactivar memoria'
+                                        : 'Activar memoria',
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    onToggleMemory(memory);
+                                  },
+                                ),
+                                ListTile(
+                                  dense: true,
+                                  leading: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                  ),
+                                  title: const Text(
+                                    'Eliminar memoria',
+                                    style: TextStyle(color: Colors.redAccent),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    onDeleteMemory(memory);
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                          ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                            title: const Text('Eliminar memoria', style: TextStyle(color: Colors.redAccent)),
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              onDeleteMemory(memory);
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                        );
+                      },
               ),
             ),
           ),
         if (memories.length >= 100 && onLoadMore != null)
           TextButton(
             onPressed: !canEdit ? null : onLoadMore,
-            child: const Text('Cargar más memorias', style: TextStyle(fontSize: 11)),
+            child: const Text(
+              'Cargar más memorias',
+              style: TextStyle(fontSize: 11),
+            ),
           ),
       ],
     );

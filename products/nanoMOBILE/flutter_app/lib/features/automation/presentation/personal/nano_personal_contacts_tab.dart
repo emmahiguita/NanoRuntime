@@ -53,7 +53,8 @@ class _NanoPersonalContactsTabState extends State<NanoPersonalContactsTab> {
   Future<void> _addOrEditContact([PersonaProfile? existing]) async {
     final result = await NanoPersonalContactDialog.show(context, existing);
     if (result != null) {
-      final key = existing?.personaKey ??
+      final key =
+          existing?.personaKey ??
           'contact_${DateTime.now().millisecondsSinceEpoch}';
       await PersonaRepository.instance.upsertPersona(key, result.name, {
         'relationship': result.relationship,
@@ -121,7 +122,10 @@ class _NanoPersonalContactsTabState extends State<NanoPersonalContactsTab> {
             backgroundColor: visual.accent.withValues(alpha: 0.2),
             child: Text(
               c.displayName.isNotEmpty ? c.displayName[0].toUpperCase() : '?',
-              style: TextStyle(color: visual.accent, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: visual.accent,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const SizedBox(width: 12),

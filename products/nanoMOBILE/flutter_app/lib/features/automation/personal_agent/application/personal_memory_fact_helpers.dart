@@ -9,16 +9,15 @@
 
 library;
 
-import '../../engine/business/fact_selector.dart' show normalizeText, tokenizeText;
+import '../../engine/business/fact_selector.dart'
+    show normalizeText, tokenizeText;
 import '../../engine/messaging/conversation_memory.dart';
 import '../../engine/messaging/social_context_retriever.dart';
 import '../domain/personal_memory.dart';
 import 'persona_repository.dart';
 
-typedef PersonalMemorySource = Future<List<PersonalMemory>> Function({
-  String? scopeKey,
-  int limit,
-});
+typedef PersonalMemorySource =
+    Future<List<PersonalMemory>> Function({String? scopeKey, int limit});
 
 abstract final class PersonalMemoryFactHelpers {
   static Future<List<PersonalMemory>> findMatchingMemories({
@@ -29,7 +28,8 @@ abstract final class PersonalMemoryFactHelpers {
     required double minScore,
   }) async {
     try {
-      final fetch = memorySource ?? PersonaRepository.instance.listPersonalMemories;
+      final fetch =
+          memorySource ?? PersonaRepository.instance.listPersonalMemories;
       final scope = personalizationScope(conversationId);
       final raw = <PersonalMemory>[
         if (scope != 'owner') ...await fetch(scopeKey: scope, limit: 50),
@@ -39,13 +39,17 @@ abstract final class PersonalMemoryFactHelpers {
 
       final now = DateTime.now().millisecondsSinceEpoch;
       final active = PersonalMemory.resolveSupersession(raw).where(
-        (m) => m.enabled && m.lifecycleAt(now) != MemoryLifecycleState.superseded,
+        (m) =>
+            m.enabled && m.lifecycleAt(now) != MemoryLifecycleState.superseded,
       );
 
       final scored = <(PersonalMemory, double)>[];
       for (final m in active) {
         final combined = '${m.key} ${m.value}';
-        var score = SocialContextRetriever.scoreThematicRelevance(query, combined);
+        var score = SocialContextRetriever.scoreThematicRelevance(
+          query,
+          combined,
+        );
         final normCombined = normalizeText(combined);
         for (final t in topics) {
           if (normCombined.contains(t)) score += 0.35;
@@ -92,9 +96,32 @@ abstract final class PersonalMemoryFactHelpers {
 
   // Palabras vacías que no aportan valor como tópico.
   static const _stopWords = {
-    'que', 'con', 'para', 'por', 'los', 'las', 'del', 'una', 'uno',
-    'como', 'esta', 'este', 'esto', 'ese', 'esa', 'hay', 'ser', 'son',
-    'tiene', 'puede', 'bien', 'mal', 'mas', 'muy', 'todo', 'cada',
+    'que',
+    'con',
+    'para',
+    'por',
+    'los',
+    'las',
+    'del',
+    'una',
+    'uno',
+    'como',
+    'esta',
+    'este',
+    'esto',
+    'ese',
+    'esa',
+    'hay',
+    'ser',
+    'son',
+    'tiene',
+    'puede',
+    'bien',
+    'mal',
+    'mas',
+    'muy',
+    'todo',
+    'cada',
   };
 
   static String? findEvidenceInConversation(
@@ -144,14 +171,18 @@ abstract final class PersonalMemoryFactHelpers {
       ];
     }
     final normUser = normalizeText(userText);
-    if (normUser.contains('haces') || normUser.contains('haciendo') || normUser.contains('hacer')) {
+    if (normUser.contains('haces') ||
+        normUser.contains('haciendo') ||
+        normUser.contains('hacer')) {
       return const [
         'Por acá relajado, ¿y vos qué tal todo?',
         'Acá trabajando un rato en el cel, ¿y tú qué haces?',
         'En las mismas parce, descansando un rato. ¿Qué me cuentas?',
       ];
     }
-    if (normUser.contains('alegra') || normUser.contains('que bueno') || normUser.contains('genial')) {
+    if (normUser.contains('alegra') ||
+        normUser.contains('que bueno') ||
+        normUser.contains('genial')) {
       return const [
         'Total parce, me alegra mucho también.',
         'De una, un abrazo. Todo marchando bien por acá.',
@@ -165,14 +196,19 @@ abstract final class PersonalMemoryFactHelpers {
         'Un placer hermano, todo bien por acá.',
       ];
     }
-    if (normUser.contains('bien') || normUser.contains('bueno') || normUser.contains('listo') || normUser.contains('dale')) {
+    if (normUser.contains('bien') ||
+        normUser.contains('bueno') ||
+        normUser.contains('listo') ||
+        normUser.contains('dale')) {
       return const [
         'Listo pues parce, todo claro por acá.',
         'De una, un abrazo. Cualquier cosa me avisás.',
         'Dale hermano, hablamos más tarde.',
       ];
     }
-    if (normUser.contains('no pregunte') || normUser.contains('no lo pregunte') || normUser.contains('equivocaste')) {
+    if (normUser.contains('no pregunte') ||
+        normUser.contains('no lo pregunte') ||
+        normUser.contains('equivocaste')) {
       return const [
         'Qué pena, me enredé ahí. Cuéntame, ¿qué era lo que me decías?',
         'Qué pena contigo parce, me crucé de tema. Dime qué necesitas y lo miramos.',

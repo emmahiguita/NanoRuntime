@@ -45,10 +45,7 @@ abstract final class ConversationInAppPlayer {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => _WebBrowserSheet(
-        url: url,
-        title: title,
-      ),
+      builder: (ctx) => _WebBrowserSheet(url: url, title: title),
     );
   }
 }
@@ -78,7 +75,8 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
     final isYouTube = widget.youTubeId != null && widget.youTubeId!.isNotEmpty;
     final source = ConversationMediaSource(widget.urlOrPath);
     final playbackUrl = source.playbackUrl;
-    final displayTitle = widget.title ?? (isYouTube ? 'YouTube Video' : source.displayName);
+    final displayTitle =
+        widget.title ?? (isYouTube ? 'YouTube Video' : source.displayName);
 
     return Container(
       height: size.height * 0.75,
@@ -104,8 +102,12 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
             child: Row(
               children: [
                 Icon(
-                  isYouTube ? Icons.smart_display_rounded : Icons.play_circle_fill_rounded,
-                  color: isYouTube ? const Color(0xFFFF0000) : const Color(0xFF3B82F6),
+                  isYouTube
+                      ? Icons.smart_display_rounded
+                      : Icons.play_circle_fill_rounded,
+                  color: isYouTube
+                      ? const Color(0xFFFF0000)
+                      : const Color(0xFF3B82F6),
                   size: 24,
                 ),
                 const SizedBox(width: 10),
@@ -125,7 +127,11 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                 Semantics(
                   label: 'Copiar enlace',
                   child: IconButton(
-                    icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 20),
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: widget.urlOrPath));
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -142,7 +148,11 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                 Semantics(
                   label: 'Abrir en app externa',
                   child: IconButton(
-                    icon: const Icon(Icons.open_in_new_rounded, color: Colors.white70, size: 20),
+                    icon: const Icon(
+                      Icons.open_in_new_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     onPressed: () {
                       final uri = source.launchUri;
                       if (uri != null) {
@@ -152,7 +162,11 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white70,
+                    size: 22,
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
@@ -162,7 +176,9 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
             LinearProgressIndicator(
               value: _progress > 0 ? _progress : null,
               backgroundColor: Colors.white10,
-              color: isYouTube ? const Color(0xFFFF0000) : const Color(0xFF3B82F6),
+              color: isYouTube
+                  ? const Color(0xFFFF0000)
+                  : const Color(0xFF3B82F6),
               minHeight: 2,
             ),
           // Player area
@@ -181,7 +197,8 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                 ),
                 initialData: isYouTube
                     ? InAppWebViewInitialData(
-                        data: '''
+                        data:
+                            '''
                           <!DOCTYPE html>
                           <html>
                           <head>
@@ -198,10 +215,11 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                         ''',
                       )
                     : (source.isRemote
-                        ? null
-                        : InAppWebViewInitialData(
-                            baseUrl: WebUri('file:///'),
-                            data: '''
+                          ? null
+                          : InAppWebViewInitialData(
+                              baseUrl: WebUri('file:///'),
+                              data:
+                                  '''
                               <!DOCTYPE html>
                               <html>
                               <head>
@@ -216,7 +234,7 @@ class _VideoPlayerSheetState extends State<_VideoPlayerSheet> {
                               </body>
                               </html>
                             ''',
-                          )),
+                            )),
                 initialUrlRequest: !isYouTube && source.isRemote
                     ? URLRequest(url: WebUri(source.value))
                     : null,
@@ -244,10 +262,7 @@ class _WebBrowserSheet extends StatefulWidget {
   final String url;
   final String? title;
 
-  const _WebBrowserSheet({
-    required this.url,
-    this.title,
-  });
+  const _WebBrowserSheet({required this.url, this.title});
 
   @override
   State<_WebBrowserSheet> createState() => _WebBrowserSheetState();
@@ -268,7 +283,8 @@ class _WebBrowserSheetState extends State<_WebBrowserSheet> {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
-    final validUrl = widget.url.startsWith('http://') || widget.url.startsWith('https://')
+    final validUrl =
+        widget.url.startsWith('http://') || widget.url.startsWith('https://')
         ? widget.url
         : 'https://${widget.url}';
 
@@ -295,7 +311,11 @@ class _WebBrowserSheetState extends State<_WebBrowserSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: Row(
               children: [
-                const Icon(Icons.language_rounded, color: Color(0xFF60A5FA), size: 22),
+                const Icon(
+                  Icons.language_rounded,
+                  color: Color(0xFF60A5FA),
+                  size: 22,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -314,7 +334,10 @@ class _WebBrowserSheetState extends State<_WebBrowserSheet> {
                       ),
                       Text(
                         Uri.tryParse(validUrl)?.host ?? validUrl,
-                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -325,7 +348,11 @@ class _WebBrowserSheetState extends State<_WebBrowserSheet> {
                 Semantics(
                   label: 'Recargar',
                   child: IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: Colors.white70, size: 20),
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     onPressed: () => _controller?.reload(),
                   ),
                 ),
@@ -333,7 +360,11 @@ class _WebBrowserSheetState extends State<_WebBrowserSheet> {
                 Semantics(
                   label: 'Copiar enlace',
                   child: IconButton(
-                    icon: const Icon(Icons.copy_rounded, color: Colors.white70, size: 20),
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: validUrl));
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -350,12 +381,23 @@ class _WebBrowserSheetState extends State<_WebBrowserSheet> {
                 Semantics(
                   label: 'Abrir en navegador',
                   child: IconButton(
-                    icon: const Icon(Icons.open_in_new_rounded, color: Colors.white70, size: 20),
-                    onPressed: () => launchUrl(Uri.parse(validUrl), mode: LaunchMode.externalApplication),
+                    icon: const Icon(
+                      Icons.open_in_new_rounded,
+                      color: Colors.white70,
+                      size: 20,
+                    ),
+                    onPressed: () => launchUrl(
+                      Uri.parse(validUrl),
+                      mode: LaunchMode.externalApplication,
+                    ),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 22),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white70,
+                    size: 22,
+                  ),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],

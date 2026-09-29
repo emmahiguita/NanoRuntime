@@ -43,7 +43,9 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                     icon: Icons.public_rounded,
                     selected: isAll,
                     color: const Color(0xFF00E676),
-                    onTap: () => ref.read(settingsProvider.notifier).setWaTargetContactsMode('all'),
+                    onTap: () => ref
+                        .read(settingsProvider.notifier)
+                        .setWaTargetContactsMode('all'),
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -53,7 +55,9 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                     icon: Icons.playlist_add_check_rounded,
                     selected: !isAll,
                     color: const Color(0xFF00D2FF),
-                    onTap: () => ref.read(settingsProvider.notifier).setWaTargetContactsMode('selected'),
+                    onTap: () => ref
+                        .read(settingsProvider.notifier)
+                        .setWaTargetContactsMode('selected'),
                   ),
                 ),
               ],
@@ -66,7 +70,9 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
               color: isAll ? const Color(0x0E00E676) : const Color(0x0E00D2FF),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isAll ? const Color(0x3300E676) : const Color(0x3300D2FF),
+                color: isAll
+                    ? const Color(0x3300E676)
+                    : const Color(0x3300D2FF),
                 width: 0.8,
               ),
             ),
@@ -76,7 +82,9 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                 Icon(
                   isAll ? Icons.info_outline_rounded : Icons.shield_outlined,
                   size: 14,
-                  color: isAll ? const Color(0xFF00E676) : const Color(0xFF00D2FF),
+                  color: isAll
+                      ? const Color(0xFF00E676)
+                      : const Color(0xFF00D2FF),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -84,9 +92,13 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isAll ? 'AGENTE ACTIVO: TODOS LOS CONTACTOS' : 'AGENTE ACTIVO: SOLO CONTACTOS SELECCIONADOS',
+                        isAll
+                            ? 'AGENTE ACTIVO: TODOS LOS CONTACTOS'
+                            : 'AGENTE ACTIVO: SOLO CONTACTOS SELECCIONADOS',
                         style: TextStyle(
-                          color: isAll ? const Color(0xFF00E676) : const Color(0xFF00D2FF),
+                          color: isAll
+                              ? const Color(0xFF00E676)
+                              : const Color(0xFF00D2FF),
                           fontWeight: FontWeight.bold,
                           fontSize: 10,
                           letterSpacing: 0.3,
@@ -97,7 +109,11 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                         isAll
                             ? 'Nano responderá a cualquier contacto entrante. Puedes pausar contactos específicos con su switch.'
                             : 'Nano responderá ÚNICAMENTE a contactos con el switch de agente encendido.',
-                        style: const TextStyle(fontSize: 10, height: 1.25, color: Colors.white70),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          height: 1.25,
+                          color: Colors.white70,
+                        ),
                       ),
                     ],
                   ),

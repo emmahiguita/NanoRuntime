@@ -24,8 +24,9 @@ const String diagPrefix = '@diag';
 bool isDiagCommand(String text) =>
     text.trim().toLowerCase().startsWith('$diagPrefix ');
 
-final automationDiagnosticsProvider =
-    Provider<AutomationDiagnostics>((ref) => AutomationDiagnostics(ref));
+final automationDiagnosticsProvider = Provider<AutomationDiagnostics>(
+  (ref) => AutomationDiagnostics(ref),
+);
 
 class AutomationDiagnostics {
   AutomationDiagnostics(this._ref);
@@ -45,7 +46,8 @@ class AutomationDiagnostics {
       return AutomationResult(
         executionId: executionId,
         status: AutomationResultStatus.failed,
-        reason: 'Comando diag desconocido: "$command". '
+        reason:
+            'Comando diag desconocido: "$command". '
             'Uso: @diag ping o @diag llm',
       );
     } catch (e) {
@@ -122,7 +124,8 @@ class AutomationDiagnostics {
       final diagResult = AutomationResult(
         executionId: executionId,
         status: AutomationResultStatus.completed,
-        reason: 'DIAG LLM PASS — respuesta="$text" '
+        reason:
+            'DIAG LLM PASS — respuesta="$text" '
             't=${sw.elapsedMilliseconds} ms',
       );
       debugPrint('[diag] $executionId → ${diagResult.reason}');

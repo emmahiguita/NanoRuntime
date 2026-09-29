@@ -50,7 +50,14 @@ class VisualGroundingResolver {
     final tokens = adjacentOcrTokens.map((t) => t.toLowerCase()).toList();
 
     // 1. Detección de Búsqueda (Lupa)
-    if (_matchesKeywords(desc, res, tokens, ['search', 'buscar', 'lupa', 'query', 'pesquisar', 'find'])) {
+    if (_matchesKeywords(desc, res, tokens, [
+      'search',
+      'buscar',
+      'lupa',
+      'query',
+      'pesquisar',
+      'find',
+    ])) {
       return VisualElementEvidence(
         role: VisualRole.search,
         boundingBox: bounds,
@@ -59,7 +66,16 @@ class VisualGroundingResolver {
     }
 
     // 2. Detección de Adjuntar (Clip)
-    if (_matchesKeywords(desc, res, tokens, ['attach', 'clip', 'adjuntar', 'archivo', 'media', 'anexo', 'anexar', 'file'])) {
+    if (_matchesKeywords(desc, res, tokens, [
+      'attach',
+      'clip',
+      'adjuntar',
+      'archivo',
+      'media',
+      'anexo',
+      'anexar',
+      'file',
+    ])) {
       return VisualElementEvidence(
         role: VisualRole.attach,
         boundingBox: bounds,
@@ -68,7 +84,16 @@ class VisualGroundingResolver {
     }
 
     // 3. Detección de Micrófono / Voz
-    if (_matchesKeywords(desc, res, tokens, ['voice', 'mic', 'microfono', 'micrófono', 'audio', 'record', 'gravar', 'voz'])) {
+    if (_matchesKeywords(desc, res, tokens, [
+      'voice',
+      'mic',
+      'microfono',
+      'micrófono',
+      'audio',
+      'record',
+      'gravar',
+      'voz',
+    ])) {
       return VisualElementEvidence(
         role: VisualRole.voice,
         boundingBox: bounds,
@@ -77,7 +102,15 @@ class VisualGroundingResolver {
     }
 
     // 4. Detección de Enviar (Flecha / Círculo)
-    if (_matchesKeywords(desc, res, tokens, ['send', 'enviar', 'submit', 'arrow_forward', 'post', 'share', 'encaminhar'])) {
+    if (_matchesKeywords(desc, res, tokens, [
+      'send',
+      'enviar',
+      'submit',
+      'arrow_forward',
+      'post',
+      'share',
+      'encaminhar',
+    ])) {
       return VisualElementEvidence(
         role: VisualRole.send,
         boundingBox: bounds,
@@ -86,7 +119,14 @@ class VisualGroundingResolver {
     }
 
     // 5. Detección de Carga / Spinner
-    if (_matchesKeywords(desc, res, tokens, ['loading', 'progress', 'spinner', 'cargando', 'carregando', 'esperando'])) {
+    if (_matchesKeywords(desc, res, tokens, [
+      'loading',
+      'progress',
+      'spinner',
+      'cargando',
+      'carregando',
+      'esperando',
+    ])) {
       return VisualElementEvidence(
         role: VisualRole.spinner,
         boundingBox: bounds,
@@ -95,7 +135,14 @@ class VisualGroundingResolver {
     }
 
     // 6. Detección de Modal
-    if (_matchesKeywords(desc, res, tokens, ['dialog', 'modal', 'alerta', 'popup', 'aviso', 'confirmar'])) {
+    if (_matchesKeywords(desc, res, tokens, [
+      'dialog',
+      'modal',
+      'alerta',
+      'popup',
+      'aviso',
+      'confirmar',
+    ])) {
       return VisualElementEvidence(
         role: VisualRole.modal,
         boundingBox: bounds,

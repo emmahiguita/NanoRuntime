@@ -15,7 +15,6 @@
 
 import 'package:nanoai/features/automation/domain/whatsapp_contact.dart';
 
-
 /// Resultado clasificado de coincidencia con su puntuación de relevancia.
 class ContactMatchResult {
   final WhatsAppContact contact;
@@ -30,7 +29,10 @@ abstract final class ContactMatcher {
   static const int minAcceptableScore = 45;
 
   /// Encuentra el mejor contacto para [query], o `null` si ninguno supera el umbral.
-  static WhatsAppContact? findBest(String query, List<WhatsAppContact> contacts) {
+  static WhatsAppContact? findBest(
+    String query,
+    List<WhatsAppContact> contacts,
+  ) {
     final results = rank(query, contacts);
     if (results.isEmpty || results.first.score < minAcceptableScore) {
       return null;
@@ -54,12 +56,18 @@ abstract final class ContactMatcher {
   }
 
   /// Calcula el ranking de todos los contactos respecto a [query].
-  static List<ContactMatchResult> rank(String query, List<WhatsAppContact> contacts) {
+  static List<ContactMatchResult> rank(
+    String query,
+    List<WhatsAppContact> contacts,
+  ) {
     final cleanQ = normalize(query);
     if (cleanQ.isEmpty) return const [];
 
     final qDigits = query.replaceAll(RegExp(r'\D'), '');
-    final qTokens = cleanQ.split(RegExp(r'\s+')).where((t) => t.length >= 2).toList();
+    final qTokens = cleanQ
+        .split(RegExp(r'\s+'))
+        .where((t) => t.length >= 2)
+        .toList();
     final qPhonetic = toPhonetic(cleanQ);
 
     final scored = <ContactMatchResult>[];
@@ -93,7 +101,8 @@ abstract final class ContactMatcher {
     if (queryDigits.length >= 7) {
       final cDigits = contact.number.replaceAll(RegExp(r'\D'), '');
       if (cDigits == queryDigits) return 100;
-      if (cDigits.endsWith(queryDigits) || queryDigits.endsWith(cDigits)) return 95;
+      if (cDigits.endsWith(queryDigits) || queryDigits.endsWith(cDigits))
+        return 95;
     }
 
     final rawName = contact.name.trim();
@@ -108,11 +117,16 @@ abstract final class ContactMatcher {
     // 3. Coincidencia fonética / equivalencias (ej: 'vzla' <-> 'zuela'/'suela')
     final namePhonetic = toPhonetic(cleanName);
     if (namePhonetic == queryPhonetic) return 85;
-    if (namePhonetic.contains(queryPhonetic) || queryPhonetic.contains(namePhonetic)) return 75;
+    if (namePhonetic.contains(queryPhonetic) ||
+        queryPhonetic.contains(namePhonetic))
+      return 75;
 
     // 4. Coincidencia por tokens (ej: 'luis higuita' o 'poke suela')
     if (queryTokens.isNotEmpty) {
-      final nameTokens = cleanName.split(RegExp(r'\s+')).where((t) => t.length >= 2).toList();
+      final nameTokens = cleanName
+          .split(RegExp(r'\s+'))
+          .where((t) => t.length >= 2)
+          .toList();
       var matchedTokens = 0;
 
       for (final qt in queryTokens) {
@@ -146,7 +160,10 @@ abstract final class ContactMatcher {
       text = text.replaceAll(withAccents[i], withoutAccents[i]);
     }
     // Reemplaza caracteres no alfanuméricos por espacios limpios
-    return text.replaceAll(RegExp(r'[^a-z0-9\s]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    return text
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   /// Normalización fonética estándar para Hispanoamérica.

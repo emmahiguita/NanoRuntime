@@ -41,10 +41,13 @@ class MessagingContactsView extends ConsumerWidget {
             icon: Icons.contacts_rounded,
             color: const Color(0xFF25D366),
             title: 'Permiso de Contactos requerido',
-            subtitle: 'NanoAI necesita permiso de lectura de contactos para encontrar tus chats de WhatsApp.',
+            subtitle:
+                'NanoAI necesita permiso de lectura de contactos para encontrar tus chats de WhatsApp.',
             actionLabel: 'Permitir acceso',
             onAction: () async {
-              await ref.read(whatsappContactsServiceProvider).requestPermission();
+              await ref
+                  .read(whatsappContactsServiceProvider)
+                  .requestPermission();
               ref.invalidate(contactsPermissionProvider);
               ref.invalidate(allWhatsAppContactsProvider);
             },
@@ -95,8 +98,12 @@ class MessagingContactsView extends ConsumerWidget {
                     final item = ConversationSummaryItem(
                       conversationId: contact.jid,
                       displayName: contact.name,
-                      packageName: contact.isBusiness ? 'com.whatsapp.w4b' : 'com.whatsapp',
-                      lastMessage: contact.number.isNotEmpty ? contact.number : contact.jid,
+                      packageName: contact.isBusiness
+                          ? 'com.whatsapp.w4b'
+                          : 'com.whatsapp',
+                      lastMessage: contact.number.isNotEmpty
+                          ? contact.number
+                          : contact.jid,
                       lastAtMs: DateTime.now().millisecondsSinceEpoch,
                       agentId: ConversationAgentId.personal,
                     );
@@ -170,10 +177,17 @@ class MessagingContactsView extends ConsumerWidget {
             onPressed: () {
               ref.invalidate(allWhatsAppContactsProvider);
             },
-            icon: const Icon(Icons.refresh_rounded, size: 16, color: Color(0xFF25D366)),
+            icon: const Icon(
+              Icons.refresh_rounded,
+              size: 16,
+              color: Color(0xFF25D366),
+            ),
             label: const Text(
               'Actualizar contactos',
-              style: TextStyle(color: Color(0xFF25D366), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Color(0xFF25D366),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

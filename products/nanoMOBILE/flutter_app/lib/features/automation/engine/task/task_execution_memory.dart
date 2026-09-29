@@ -126,7 +126,9 @@ class TaskExecutionMemoryStore {
     );
 
     final updatedCompleted = [...current.completedSteps, step];
-    final updatedPending = current.pendingSteps.where((s) => s != stepName).toList();
+    final updatedPending = current.pendingSteps
+        .where((s) => s != stepName)
+        .toList();
 
     _activeTask = TaskExecutionSnapshot(
       taskId: current.taskId,

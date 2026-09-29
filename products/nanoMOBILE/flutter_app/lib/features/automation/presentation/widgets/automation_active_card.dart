@@ -74,21 +74,53 @@ class _ActiveExecutionCardState extends State<ActiveExecutionCard>
   ) {
     switch (s) {
       case AutomationResultStatus.completed:
-        return (icon: Icons.check_circle_rounded, color: colors.success, label: 'Verificado');
+        return (
+          icon: Icons.check_circle_rounded,
+          color: colors.success,
+          label: 'Completado',
+        );
       case AutomationResultStatus.completedUnverified:
-        return (icon: Icons.report_problem_rounded, color: colors.warning, label: 'Completado sin verificar');
+        return (
+          icon: Icons.report_problem_rounded,
+          color: colors.warning,
+          label: 'Entrega sin confirmar',
+        );
       case AutomationResultStatus.paused:
-        return (icon: Icons.pause_circle_outline_rounded, color: colors.warning, label: 'Esperando confirmación');
+        return (
+          icon: Icons.pause_circle_outline_rounded,
+          color: colors.warning,
+          label: 'Esperando confirmación',
+        );
       case AutomationResultStatus.denied:
-        return (icon: Icons.block_rounded, color: colors.warning, label: 'Denegado por política');
+        return (
+          icon: Icons.block_rounded,
+          color: colors.warning,
+          label: 'Denegado por política',
+        );
       case AutomationResultStatus.noPlan:
-        return (icon: Icons.error_outline_rounded, color: colors.warning, label: 'Sin plan');
+        return (
+          icon: Icons.error_outline_rounded,
+          color: colors.warning,
+          label: 'Sin plan',
+        );
       case AutomationResultStatus.failed:
-        return (icon: Icons.cancel_rounded, color: colors.error, label: 'No completado');
+        return (
+          icon: Icons.cancel_rounded,
+          color: colors.error,
+          label: 'No completado',
+        );
       case AutomationResultStatus.outcomeUnknown:
-        return (icon: Icons.help_outline_rounded, color: colors.warning, label: 'Resultado desconocido');
+        return (
+          icon: Icons.help_outline_rounded,
+          color: colors.warning,
+          label: 'Resultado desconocido',
+        );
       case AutomationResultStatus.cancelled:
-        return (icon: Icons.not_interested_rounded, color: colors.onSurfaceVariant, label: 'Cancelado');
+        return (
+          icon: Icons.not_interested_rounded,
+          color: colors.onSurfaceVariant,
+          label: 'Cancelado',
+        );
     }
   }
 
@@ -107,7 +139,9 @@ class _ActiveExecutionCardState extends State<ActiveExecutionCard>
           boxShadow: widget.running
               ? [
                   BoxShadow(
-                    color: activeColor.withValues(alpha: 0.10 + _pulse.value * 0.18),
+                    color: activeColor.withValues(
+                      alpha: 0.10 + _pulse.value * 0.18,
+                    ),
                     blurRadius: 14 + _pulse.value * 14,
                     spreadRadius: _pulse.value * 1.5,
                   ),
@@ -130,19 +164,32 @@ class _ActiveExecutionCardState extends State<ActiveExecutionCard>
                   decoration: BoxDecoration(
                     color: activeColor.withValues(alpha: 0.16),
                     shape: BoxShape.circle,
-                    border: Border.all(color: activeColor.withValues(alpha: 0.35), width: 1),
+                    border: Border.all(
+                      color: activeColor.withValues(alpha: 0.35),
+                      width: 1,
+                    ),
                     boxShadow: [
-                      BoxShadow(color: activeColor.withValues(alpha: 0.20), blurRadius: 8),
+                      BoxShadow(
+                        color: activeColor.withValues(alpha: 0.20),
+                        blurRadius: 8,
+                      ),
                     ],
                   ),
-                  child: Icon(present?.icon ?? Icons.auto_awesome_rounded, color: activeColor, size: 18),
+                  child: Icon(
+                    present?.icon ?? Icons.auto_awesome_rounded,
+                    color: activeColor,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: NanoSpacing.sm),
                 Expanded(
                   child: Text(
                     widget.goal,
                     maxLines: 4,
-                    style: TextStyle(fontWeight: FontWeight.w600, color: colors.textPrimary),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: colors.textPrimary,
+                    ),
                   ),
                 ),
               ],
@@ -151,9 +198,13 @@ class _ActiveExecutionCardState extends State<ActiveExecutionCard>
             AnimatedSwitcher(
               duration: NanoMotionDurations.quick,
               child: Text(
-                widget.running ? 'Ejecutando en el dispositivo…' : (present?.label ?? ''),
+                widget.running
+                    ? 'Ejecutando en el dispositivo…'
+                    : (present?.label ?? ''),
                 key: ValueKey('${widget.running}-${widget.status}'),
-                style: NanoType.label(present?.color ?? colors.onSurfaceVariant),
+                style: NanoType.label(
+                  present?.color ?? colors.onSurfaceVariant,
+                ),
               ),
             ),
             if (!widget.running && widget.reason.trim().isNotEmpty) ...[

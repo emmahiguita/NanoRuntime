@@ -44,7 +44,9 @@ abstract final class ConversationPhoneResolver {
     if (nameDigits != null) return nameDigits;
 
     // 4. Búsqueda inteligente en la agenda real de WhatsApp del teléfono
-    if (deviceContacts != null && deviceContacts.isNotEmpty && displayName.trim().isNotEmpty) {
+    if (deviceContacts != null &&
+        deviceContacts.isNotEmpty &&
+        displayName.trim().isNotEmpty) {
       final best = ContactMatcher.findBest(displayName, deviceContacts);
       if (best != null && best.number.isNotEmpty) {
         final digits = _extractValidDigits(best.number);
@@ -53,9 +55,12 @@ abstract final class ConversationPhoneResolver {
     }
 
     // 5. Búsqueda en el historial persistido de SQLite
-    final entries = cachedEntries ?? store.memoryFor(conversationId)?.entries ?? const [];
+    final entries =
+        cachedEntries ?? store.memoryFor(conversationId)?.entries ?? const [];
     for (final e in entries) {
-      final match = RegExp(r'\+?(\d{10,15})').firstMatch(e.text.replaceAll(' ', ''));
+      final match = RegExp(
+        r'\+?(\d{10,15})',
+      ).firstMatch(e.text.replaceAll(' ', ''));
       if (match != null) {
         return match.group(1);
       }

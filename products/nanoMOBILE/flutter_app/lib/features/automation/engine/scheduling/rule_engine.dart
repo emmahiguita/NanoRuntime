@@ -19,7 +19,9 @@ class RuleEngine {
         if (r.enabled && evaluateTrigger(r.trigger, event)) r,
     ];
 
-    matched.sort((a, b) => _specificity(b.trigger).compareTo(_specificity(a.trigger)));
+    matched.sort(
+      (a, b) => _specificity(b.trigger).compareTo(_specificity(a.trigger)),
+    );
     return matched;
   }
 

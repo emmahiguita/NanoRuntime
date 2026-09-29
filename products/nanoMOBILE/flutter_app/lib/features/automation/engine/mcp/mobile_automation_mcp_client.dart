@@ -22,18 +22,27 @@ class MobileAutomationMcpClient implements McpClientPort {
     NanoTranscriptLedger? ledger,
     NanoCompositeLocator? locator,
     MobileAutomationExecutor? automationExecutor,
-  })  : _api = api ?? NanoRuntimeApi.instance,
-        _executor = automationExecutor ??
-            MobileAutomationExecutor(
-              api: api ?? NanoRuntimeApi.instance,
-              executor: executor ?? NanoAgentExecutor(api: api ?? NanoRuntimeApi.instance),
-              verifier: verifier ??
-                  ActionVerifier(
-                    snapshotFn: (executor ?? NanoAgentExecutor(api: api ?? NanoRuntimeApi.instance)).snapshot,
-                  ),
-              ledger: ledger ?? NanoTranscriptLedger(),
-              locator: locator ?? NanoCompositeLocator(),
-            );
+  }) : _api = api ?? NanoRuntimeApi.instance,
+       _executor =
+           automationExecutor ??
+           MobileAutomationExecutor(
+             api: api ?? NanoRuntimeApi.instance,
+             executor:
+                 executor ??
+                 NanoAgentExecutor(api: api ?? NanoRuntimeApi.instance),
+             verifier:
+                 verifier ??
+                 ActionVerifier(
+                   snapshotFn:
+                       (executor ??
+                               NanoAgentExecutor(
+                                 api: api ?? NanoRuntimeApi.instance,
+                               ))
+                           .snapshot,
+                 ),
+             ledger: ledger ?? NanoTranscriptLedger(),
+             locator: locator ?? NanoCompositeLocator(),
+           );
 
   final NanoRuntimeApi _api;
   final MobileAutomationExecutor _executor;
@@ -41,15 +50,15 @@ class MobileAutomationMcpClient implements McpClientPort {
 
   @override
   McpServerDescriptor get descriptor => const McpServerDescriptor(
-        id: MobileAutomationToolCatalog.serverId,
-        displayName: 'Nano Mobile Automation Engine',
-        transport: McpTransportKind.androidBinder,
-        metadata: {
-          'version': '2.1.0',
-          'engine': 'NanoMobileEngine',
-          'architecture': 'Nano-Native',
-        },
-      );
+    id: MobileAutomationToolCatalog.serverId,
+    displayName: 'Nano Mobile Automation Engine',
+    transport: McpTransportKind.androidBinder,
+    metadata: {
+      'version': '2.1.0',
+      'engine': 'NanoMobileEngine',
+      'architecture': 'Nano-Native',
+    },
+  );
 
   @override
   McpConnectionState get state => _state;
@@ -66,7 +75,8 @@ class MobileAutomationMcpClient implements McpClientPort {
       _state = McpConnectionState.failed;
       return const McpConnectionResult(
         status: McpOperationStatus.unavailable,
-        message: 'AgentAccessibilityService no conectado. Habilitar en Ajustes -> Accesibilidad.',
+        message:
+            'AgentAccessibilityService no conectado. Habilitar en Ajustes -> Accesibilidad.',
         metadata: {'binderActive': false},
       );
     }
@@ -78,7 +88,8 @@ class MobileAutomationMcpClient implements McpClientPort {
       return const McpConnectionResult(
         status: McpOperationStatus.success,
         protocolVersion: '2024-11-05',
-        message: 'Servicio conectado (ventana activa en espera de settle / rebind).',
+        message:
+            'Servicio conectado (ventana activa en espera de settle / rebind).',
         metadata: {'binderActive': true, 'degraded': true},
       );
     }
@@ -108,7 +119,10 @@ class MobileAutomationMcpClient implements McpClientPort {
 
   @override
   Future<McpToolCallResult> callTool(McpToolCall call) async {
-    final tool = call.toolName.toLowerCase().replaceFirst('nano.mobile.', '').trim();
+    final tool = call.toolName
+        .toLowerCase()
+        .replaceFirst('nano.mobile.', '')
+        .trim();
 
     try {
       return switch (tool) {
@@ -121,9 +135,9 @@ class MobileAutomationMcpClient implements McpClientPort {
         'verify' => await _executor.verify(call.arguments),
         'get_ledger_history' => _executor.getLedgerHistory(),
         _ => McpToolCallResult(
-            status: McpOperationStatus.unsupported,
-            message: 'Herramienta móvil desconocida: ${call.toolName}',
-          ),
+          status: McpOperationStatus.unsupported,
+          message: 'Herramienta móvil desconocida: ${call.toolName}',
+        ),
       };
     } catch (e) {
       return McpToolCallResult(

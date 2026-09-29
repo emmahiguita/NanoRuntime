@@ -29,13 +29,17 @@ class _RuleCard extends ConsumerStatefulWidget {
       final pkg = raw == MessagingPackage.whatsapp ? 'WhatsApp' : raw ?? 'app';
       final sender = trigger.senderMatch;
       final text = trigger.textMatch;
-      final base = (sender == null || sender.isEmpty) ? pkg : '$pkg · "$sender"';
+      final base = (sender == null || sender.isEmpty)
+          ? pkg
+          : '$pkg · "$sender"';
       return (text == null || text.isEmpty) ? base : '$base · "$text"';
     }
     if (trigger is TimeTrigger) {
       final hh = trigger.hour.toString().padLeft(2, '0');
       final mm = trigger.minute.toString().padLeft(2, '0');
-      return trigger.weekdays.isEmpty ? 'a las $hh:$mm' : 'a las $hh:$mm (días ${trigger.weekdays.join(",")})';
+      return trigger.weekdays.isEmpty
+          ? 'a las $hh:$mm'
+          : 'a las $hh:$mm (días ${trigger.weekdays.join(",")})';
     }
     if (trigger is ConnectivityTrigger) return 'wifi (sin soporte)';
     if (trigger is BatteryTrigger) return 'batería < ${trigger.belowPercent}%';
@@ -44,12 +48,20 @@ class _RuleCard extends ConsumerStatefulWidget {
 
   static String _mediaDetail(ScheduledRule rule) {
     final path = rule.mediaPath;
-    final name = (path == null || path.isEmpty) ? 'sin archivo' : path.split('/').last;
+    final name = (path == null || path.isEmpty)
+        ? 'sin archivo'
+        : path.split('/').last;
     final msg = rule.message.trim();
     return msg.isEmpty ? name : '$name · "$msg"';
   }
 
-  static String _hhmm(DateTime t) => '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  static String _messageDetail(ScheduledRule rule) {
+    final names = rule.recipients.map((recipient) => recipient.name).join(', ');
+    return '$names · "${rule.message}"';
+  }
+
+  static String _hhmm(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   static String _ddmmy(DateTime t) => '${t.day}/${t.month} ${_hhmm(t)}';
 
   @override
@@ -63,8 +75,11 @@ class _RuleCardState extends ConsumerState<_RuleCard> {
   (String, Color) _outcomeBadge(AutomationVisualPalette visual) {
     final danger = NanoThemeExtension.of(context).colors.danger;
     return switch (rule.lastOutcome) {
-      'replyVerified' => ('✓ respuesta verificada', visual.accent),
-      'replyDispatchedUnverified' => ('despachada · sin verificar', visual.textMuted),
+      'replyVerified' => ('mensaje observado localmente', visual.accent),
+      'replyDispatchedUnverified' => (
+        'entrega sin confirmar',
+        visual.textMuted,
+      ),
       'outcomeUnknown' => ('sin confirmar', visual.textMuted),
       'mediaLaunched' => ('WhatsApp abierto con archivo', visual.accent),
       'notified' => ('aviso publicado', visual.accent),
@@ -82,14 +97,21 @@ class _RuleCardState extends ConsumerState<_RuleCard> {
     final modeName = settings.automationModelMode.name;
     final modelPath = modeName == 'sameAsChat'
         ? settings.chatModelPath
-        : modeName == 'specificModel' ? settings.automationModelPath : '';
-    final hasValidModel = modelPath.trim().isNotEmpty && File(modelPath).existsSync();
+        : modeName == 'specificModel'
+        ? settings.automationModelPath
+        : '';
+    final hasValidModel =
+        modelPath.trim().isNotEmpty && File(modelPath).existsSync();
 
     final actionDetail = rule.action == RuleAction.reply && !rule.dynamicReply
         ? (rule.message.isEmpty ? 'sin texto' : '"${rule.message}"')
         : rule.dynamicReply
-            ? (hasValidModel ? 'dinámica (LLM local)' : 'dinámica (sin modelo)')
-            : rule.action == RuleAction.sendMedia ? _RuleCard._mediaDetail(rule) : null;
+        ? (hasValidModel ? 'dinámica (LLM local)' : 'dinámica (sin modelo)')
+        : rule.action == RuleAction.sendMedia
+        ? _RuleCard._mediaDetail(rule)
+        : rule.action == RuleAction.sendMessage
+        ? _RuleCard._messageDetail(rule)
+        : null;
 
     final (outcomeLabel, outcomeColor) = _outcomeBadge(visual);
 
@@ -109,11 +131,17 @@ class _RuleCardState extends ConsumerState<_RuleCard> {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: rule.enabled ? visual.accentSoft : visual.inputFill,
+                      color: rule.enabled
+                          ? visual.accentSoft
+                          : visual.inputFill,
                       borderRadius: BorderRadius.circular(13),
                     ),
                     child: Icon(
-                      rule.action == RuleAction.sendMedia ? Icons.attach_file_rounded : Icons.rule_rounded,
+                      rule.action == RuleAction.sendMedia
+                          ? Icons.attach_file_rounded
+                          : rule.action == RuleAction.sendMessage
+                          ? Icons.schedule_send_rounded
+                          : Icons.rule_rounded,
                       color: rule.enabled ? visual.accent : visual.textMuted,
                       size: 22,
                     ),
@@ -127,15 +155,25 @@ class _RuleCardState extends ConsumerState<_RuleCard> {
                           '${rule.action.label} · ${_RuleCard._triggerLabel(rule.trigger)}',
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: visual.text, fontSize: 14, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: visual.text,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         if (actionDetail != null) ...[
                           const SizedBox(height: 4),
                           Text(
                             actionDetail,
                             maxLines: _expanded ? null : 2,
-                            overflow: _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-                            style: TextStyle(color: visual.textMuted, fontSize: 12, height: 1.35),
+                            overflow: _expanded
+                                ? TextOverflow.visible
+                                : TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: visual.textMuted,
+                              fontSize: 12,
+                              height: 1.35,
+                            ),
                           ),
                         ],
                         const SizedBox(height: 4),
@@ -145,8 +183,13 @@ class _RuleCardState extends ConsumerState<_RuleCard> {
                   ),
                   Switch(value: rule.enabled, onChanged: widget.onToggle),
                   const SizedBox(width: 4),
-                  Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                      color: visual.textMuted, size: 20),
+                  Icon(
+                    _expanded
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    color: visual.textMuted,
+                    size: 20,
+                  ),
                 ],
               ),
             ),
@@ -181,16 +224,25 @@ class _RuleCardState extends ConsumerState<_RuleCard> {
               outcomeLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: outcomeColor, fontSize: 10.5, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: outcomeColor,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
         const SizedBox(width: 6),
         Text(
-          rule.lastFiredAt == null ? 'nunca disparó' : 'última ${_RuleCard._hhmm(rule.lastFiredAt!)}',
+          rule.lastFiredAt == null
+              ? 'nunca disparó'
+              : 'última ${_RuleCard._hhmm(rule.lastFiredAt!)}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: AutomationVisual.of(context).textMuted, fontSize: 10.5),
+          style: TextStyle(
+            color: AutomationVisual.of(context).textMuted,
+            fontSize: 10.5,
+          ),
         ),
       ],
     );

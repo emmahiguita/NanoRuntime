@@ -61,7 +61,9 @@ class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
   }
 
   void _startTurntable() {
-    _turntableTicker ??= createTicker((_) { if (mounted) _rotation.value += 0.005; });
+    _turntableTicker ??= createTicker((_) {
+      if (mounted) _rotation.value += 0.005;
+    });
     if (!_turntableTicker!.isActive) _turntableTicker!.start();
   }
 
@@ -72,7 +74,9 @@ class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
 
   void _scheduleTurntableResume() {
     _resumeTurntableTimer?.cancel();
-    _resumeTurntableTimer = Timer(const Duration(seconds: 4), () { if (mounted) _startTurntable(); });
+    _resumeTurntableTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) _startTurntable();
+    });
   }
 
   @override
@@ -106,12 +110,19 @@ class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
   }
 
   void _onDragEnd(DragEndDetails details, double width) {
-    if (_opening || width <= 0 || MediaQuery.of(context).disableAnimations) return;
+    if (_opening || width <= 0 || MediaQuery.of(context).disableAnimations)
+      return;
     final vel = details.primaryVelocity ?? 0;
     final angVel = (vel / width) * math.pi * 2;
-    if (angVel.abs() < 0.05) { _scheduleTurntableResume(); return; }
-    _rotation.animateWith(FrictionSimulation(_friction, _rotation.value, angVel))
-        .whenComplete(() { if (mounted) _scheduleTurntableResume(); });
+    if (angVel.abs() < 0.05) {
+      _scheduleTurntableResume();
+      return;
+    }
+    _rotation
+        .animateWith(FrictionSimulation(_friction, _rotation.value, angVel))
+        .whenComplete(() {
+          if (mounted) _scheduleTurntableResume();
+        });
   }
 
   void _flipCard() {
@@ -119,8 +130,15 @@ class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
     HapticFeedback.selectionClick();
     _stopTurntable();
     _rotation.stop();
-    _rotation.animateTo(_rotation.value + math.pi, duration: const Duration(milliseconds: 650), curve: Curves.easeOutCubic)
-        .whenComplete(() { if (mounted) _scheduleTurntableResume(); });
+    _rotation
+        .animateTo(
+          _rotation.value + math.pi,
+          duration: const Duration(milliseconds: 650),
+          curve: Curves.easeOutCubic,
+        )
+        .whenComplete(() {
+          if (mounted) _scheduleTurntableResume();
+        });
   }
 
   void _openCard() {
@@ -151,14 +169,18 @@ class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
               clipBehavior: Clip.none,
               children: [
                 const Positioned.fill(
-                  child: IgnorePointer(child: CustomPaint(painter: TheaterSpotlightPainter())),
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: TheaterSpotlightPainter()),
+                  ),
                 ),
                 Positioned.fill(
                   child: AnimatedBuilder(
                     animation: _rotation,
                     builder: (context, _) {
                       final angle = _rotation.value;
-                      final matrix = Matrix4.identity()..setEntry(3, 2, _perspective)..rotateY(angle);
+                      final matrix = Matrix4.identity()
+                        ..setEntry(3, 2, _perspective)
+                        ..rotateY(angle);
                       return Transform(
                         alignment: Alignment.center,
                         transform: matrix,
@@ -182,6 +204,9 @@ class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
     );
 
     if (widget.heroTag == null) return stage;
-    return Hero(tag: widget.heroTag!, child: Material(type: MaterialType.transparency, child: stage));
+    return Hero(
+      tag: widget.heroTag!,
+      child: Material(type: MaterialType.transparency, child: stage),
+    );
   }
 }

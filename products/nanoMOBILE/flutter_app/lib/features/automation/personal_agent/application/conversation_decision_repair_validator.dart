@@ -28,7 +28,8 @@ abstract final class ConversationDecisionRepairValidator {
       required ConversationUnderstanding understanding,
       required ConversationDecisionContext context,
       required bool allowRepair,
-    }) decider,
+    })
+    decider,
   }) {
     final candidate = ConversationUnderstanding(
       intent: understanding.intent,
@@ -43,7 +44,8 @@ abstract final class ConversationDecisionRepairValidator {
       context: context,
       allowRepair: false,
     );
-    final isApproved = validated.autoSend ||
+    final isApproved =
+        validated.autoSend ||
         (context.autonomyMode == ConversationAutonomyMode.suggestions &&
             validated.disposition == ConversationDisposition.holdForApproval &&
             validated.confidence >= 0.6);
@@ -51,8 +53,8 @@ abstract final class ConversationDecisionRepairValidator {
     return ConversationDecision(
       disposition: isApproved
           ? (context.autonomyMode == ConversationAutonomyMode.suggestions
-              ? ConversationDisposition.holdForApproval
-              : ConversationDisposition.qualityRepair)
+                ? ConversationDisposition.holdForApproval
+                : ConversationDisposition.qualityRepair)
           : validated.disposition,
       risk: validated.risk,
       confidence: validated.confidence,

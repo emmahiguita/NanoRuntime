@@ -11,8 +11,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 
-import '../../../../core/services/llm_engine_client.dart'
-    show LLMEngineClient;
+import '../../../../core/services/llm_engine_client.dart' show LLMEngineClient;
 
 Future<String> generateWithColdRetry(
   LLMEngineClient client, {
@@ -22,6 +21,7 @@ Future<String> generateWithColdRetry(
   String? sessionId,
   String? context,
   List<Map<String, String>>? history,
+  Duration? requestTimeout,
   Duration threshold = const Duration(seconds: 3),
 }) async {
   final stopwatch = Stopwatch()..start();
@@ -32,6 +32,7 @@ Future<String> generateWithColdRetry(
     sessionId: sessionId,
     context: context,
     history: history,
+    requestTimeout: requestTimeout,
   );
   final firstText = first.text.trim();
   if (firstText.isNotEmpty || stopwatch.elapsed >= threshold) {
@@ -45,6 +46,7 @@ Future<String> generateWithColdRetry(
     sessionId: sessionId,
     context: context,
     history: history,
+    requestTimeout: requestTimeout,
   );
   return second.text.trim();
 }

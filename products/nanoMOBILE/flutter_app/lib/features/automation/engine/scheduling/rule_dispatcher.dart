@@ -123,7 +123,8 @@ class RuleDispatcher {
     Future<int> Function()? thermalStatus,
     // WA-DRAFT-INBOX-01 — almacén de borradores para aprobación humana en UI.
     PendingReplyRepository? pendingReplyStore,
-  }) : _composer = composer ??
+  }) : _composer =
+           composer ??
            (draftSource != null
                ? RuntimeConversationReplyComposer(
                    draftSource: draftSource,
@@ -218,6 +219,14 @@ class RuleDispatcher {
               'para responder usa un trigger de notificación',
         );
 
+      case RuleAction.sendMessage:
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: RuleOutcome.failed,
+          reason:
+              'los mensajes programados se ejecutan por AlarmManager nativo',
+        );
+
       case RuleAction.sendMedia:
         // WA-MEDIA-01 — igual que reply: sin notificación entrante no hay
         // contacto factual. Jamás se envía a un destinatario inventado.
@@ -258,7 +267,9 @@ class RuleDispatcher {
     bool permitsSideEffect() {
       final context = _decisionContext?.call(notif);
       if (context != null && context.humanOwnsConversation) {
-        debugPrint('[rules] sideEffect rechazado: conversación bajo control humano activo');
+        debugPrint(
+          '[rules] sideEffect rechazado: conversación bajo control humano activo',
+        );
         return false;
       }
       if (context != null &&
@@ -509,7 +520,7 @@ class RuleDispatcher {
             '[supersede] conv=${_shortId(conversationId)} '
             'captured=$conversationVersion '
             'current=${supersedeGuard.versionOf(conversationId)} '
-              'stage=preSend',
+            'stage=preSend',
           );
           return RuleDispatchResult(
             ruleId: rule.id,
@@ -576,6 +587,13 @@ class RuleDispatcher {
           MessagingMetrics.emit();
         }
         return outcome;
+
+      case RuleAction.sendMessage:
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: RuleOutcome.failed,
+          reason: 'una notificación entrante no ejecuta mensajes programados',
+        );
 
       case RuleAction.sendMedia:
         // WA-MEDIA-01 — Camino A: abre WhatsApp con el archivo del catálogo,
@@ -646,24 +664,27 @@ class RuleDispatcher {
     final capability = ReplyCapabilityRef.fromNotification(notification);
     final now = DateTime.now();
     try {
-      await store.save(PendingReply(
-        id: 'pending_${now.microsecondsSinceEpoch}_${rule.id}',
-        conversationId: resolveConversationIdentity(notification).key.id,
-        packageName: notification.packageName,
-        sender: notification.sender,
-        originalMessage: notification.text,
-        draftText: text.trim(),
-        suggestions: suggestions.isNotEmpty ? suggestions : [text.trim()],
-        sourceRuleId: rule.id,
-        notificationKey: notification.key,
-        notificationPostTime: notification.postTime,
-        actionIndex: capability?.actionIndex ?? notification.actionIndex,
-        remoteInputKey: capability?.remoteInputResultKey ?? notification.remoteInputKey,
-        contextFingerprint: capability?.contextFingerprint ?? '',
-        status: PendingReplyStatus.pending,
-        createdAt: now,
-        expiresAt: now.add(const Duration(hours: 24)),
-      ));
+      await store.save(
+        PendingReply(
+          id: 'pending_${now.microsecondsSinceEpoch}_${rule.id}',
+          conversationId: resolveConversationIdentity(notification).key.id,
+          packageName: notification.packageName,
+          sender: notification.sender,
+          originalMessage: notification.text,
+          draftText: text.trim(),
+          suggestions: suggestions.isNotEmpty ? suggestions : [text.trim()],
+          sourceRuleId: rule.id,
+          notificationKey: notification.key,
+          notificationPostTime: notification.postTime,
+          actionIndex: capability?.actionIndex ?? notification.actionIndex,
+          remoteInputKey:
+              capability?.remoteInputResultKey ?? notification.remoteInputKey,
+          contextFingerprint: capability?.contextFingerprint ?? '',
+          status: PendingReplyStatus.pending,
+          createdAt: now,
+          expiresAt: now.add(const Duration(hours: 24)),
+        ),
+      );
       return RuleDispatchResult(
         ruleId: rule.id,
         outcome: RuleOutcome.drafted,

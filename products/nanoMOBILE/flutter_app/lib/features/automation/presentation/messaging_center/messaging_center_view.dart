@@ -63,7 +63,8 @@ class MessagingCenterView extends ConsumerWidget {
                     'NanoAI necesita acceso para leer y responder mensajes en segundo plano.',
                 actionLabel: 'Conceder permiso',
                 onAction: () async {
-                  await NanoRuntimeApi.instance.openNotificationAccessSettings();
+                  await NanoRuntimeApi.instance
+                      .openNotificationAccessSettings();
                   ref.invalidate(notificationAccessProvider);
                 },
               );
@@ -73,10 +74,12 @@ class MessagingCenterView extends ConsumerWidget {
                 icon: Icons.link_off_rounded,
                 color: const Color(0xFFFFBB00),
                 title: 'Listener desconectado',
-                subtitle: 'El servicio de captura de notificaciones está inactivo.',
+                subtitle:
+                    'El servicio de captura de notificaciones está inactivo.',
                 actionLabel: 'Reconectar',
                 onAction: () async {
-                  await NanoRuntimeApi.instance.openNotificationAccessSettings();
+                  await NanoRuntimeApi.instance
+                      .openNotificationAccessSettings();
                   ref.invalidate(notificationAccessProvider);
                 },
               );

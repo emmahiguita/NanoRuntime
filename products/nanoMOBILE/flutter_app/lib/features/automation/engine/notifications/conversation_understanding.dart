@@ -63,7 +63,8 @@ final class ConversationUnderstanding {
       obligations.isEmpty || obligations.every((o) => o.isCovered);
 
   /// Cantidad de obligaciones atendidas en la respuesta actual.
-  int get coveredObligationCount => obligations.where((o) => o.isCovered).length;
+  int get coveredObligationCount =>
+      obligations.where((o) => o.isCovered).length;
 
   /// Construye la instancia desde JSON tolerando tipos heterogéneos.
   factory ConversationUnderstanding.fromJson(Map<String, dynamic> json) {
@@ -76,7 +77,8 @@ final class ConversationUnderstanding {
     final parsedObligations = <TurnObligation>[
       if (rawObligations is List)
         for (final item in rawObligations)
-          if (item is Map) TurnObligation.fromJson(item.cast<String, dynamic>()),
+          if (item is Map)
+            TurnObligation.fromJson(item.cast<String, dynamic>()),
     ];
 
     final questions = parseStrings(json['questions']);
@@ -112,30 +114,41 @@ List<TurnObligation> _synthesizeObligations(
   return questions.map((q) {
     final qLower = q.toLowerCase();
     var kind = ObligationKind.information;
-    if (qLower.contains('precio') || qLower.contains('cuanto') || qLower.contains('vale') || qLower.contains('cuesta')) {
+    if (qLower.contains('precio') ||
+        qLower.contains('cuanto') ||
+        qLower.contains('vale') ||
+        qLower.contains('cuesta')) {
       kind = ObligationKind.pricing;
-    } else if (qLower.contains('envio') || qLower.contains('mandar') || qLower.contains('llevar') || qLower.contains('entrega')) {
+    } else if (qLower.contains('envio') ||
+        qLower.contains('mandar') ||
+        qLower.contains('llevar') ||
+        qLower.contains('entrega')) {
       kind = ObligationKind.logistics;
-    } else if (qLower.contains('tienen') || qLower.contains('hay') || qLower.contains('disponible') || qLower.contains('queda')) {
+    } else if (qLower.contains('tienen') ||
+        qLower.contains('hay') ||
+        qLower.contains('disponible') ||
+        qLower.contains('queda')) {
       kind = ObligationKind.availability;
     }
 
     var status = ObligationStatus.pending;
-    if (kind == ObligationKind.pricing && (replyLower.contains('\$') || RegExp(r'\d+').hasMatch(replyLower))) {
+    if (kind == ObligationKind.pricing &&
+        (replyLower.contains('\$') || RegExp(r'\d+').hasMatch(replyLower))) {
       status = ObligationStatus.answered;
-    } else if (kind == ObligationKind.availability && (replyLower.contains('si') || replyLower.contains('disponible') || replyLower.contains('tenemos'))) {
+    } else if (kind == ObligationKind.availability &&
+        (replyLower.contains('si') ||
+            replyLower.contains('disponible') ||
+            replyLower.contains('tenemos'))) {
       status = ObligationStatus.answered;
-    } else if (missingLower.contains('envio') || missingLower.contains('entrega') || replyLower.contains('?')) {
+    } else if (missingLower.contains('envio') ||
+        missingLower.contains('entrega') ||
+        replyLower.contains('?')) {
       status = ObligationStatus.clarifying;
     } else if (reply.isNotEmpty) {
       status = ObligationStatus.answered;
     }
 
-    return TurnObligation(
-      topic: q,
-      kind: kind,
-      status: status,
-    );
+    return TurnObligation(topic: q, kind: kind, status: status);
   }).toList();
 }
 

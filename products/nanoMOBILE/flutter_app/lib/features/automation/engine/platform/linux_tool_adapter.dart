@@ -58,14 +58,26 @@ class LinuxToolAdapter {
     String? cwd,
     Map<String, String>? environment,
     Duration? timeout,
-  }) => _exec('ls', ['-la', path], cwd: cwd, environment: environment, timeout: timeout);
+  }) => _exec(
+    'ls',
+    ['-la', path],
+    cwd: cwd,
+    environment: environment,
+    timeout: timeout,
+  );
 
   Future<LinuxCommandResult> readFile(
     String path, {
     String? cwd,
     Map<String, String>? environment,
     Duration? timeout,
-  }) => _exec('cat', [path], cwd: cwd, environment: environment, timeout: timeout);
+  }) => _exec(
+    'cat',
+    [path],
+    cwd: cwd,
+    environment: environment,
+    timeout: timeout,
+  );
 
   Future<LinuxCommandResult> writeFile(
     String path,

@@ -55,12 +55,17 @@ class ConversationMediaBubble extends StatelessWidget {
     final mediaTag = '${timestampMs ?? 0}_${text.hashCode}';
 
     return Column(
-      crossAxisAlignment: isInbound ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+      crossAxisAlignment: isInbound
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
         // 1. Mensajes para ver una sola vez (View Once)
         if (parsed.isViewOnce) ...[
-          ViewOnceMediaCard(mediaPath: parsed.viewOncePath, isVideo: parsed.isViewOnceVideo),
+          ViewOnceMediaCard(
+            mediaPath: parsed.viewOncePath,
+            isVideo: parsed.isViewOnceVideo,
+          ),
           const SizedBox(height: 6),
         ],
 
@@ -74,11 +79,17 @@ class ConversationMediaBubble extends StatelessWidget {
         ],
 
         // 3. Notificación de Foto (resuelve archivo real en WhatsApp si no vino explícito)
-        if (parsed.isPhotoNotification && parsed.images.isEmpty && !parsed.isViewOnce) ...[
+        if (parsed.isPhotoNotification &&
+            parsed.images.isEmpty &&
+            !parsed.isViewOnce) ...[
           FutureBuilder<String?>(
-            future: WhatsAppMediaResolver.findRecentWhatsAppImage(referenceTimestampMs: timestampMs),
+            future: WhatsAppMediaResolver.findRecentWhatsAppImage(
+              referenceTimestampMs: timestampMs,
+            ),
             builder: (ctx, snapshot) {
-              if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+              if (snapshot.hasData &&
+                  snapshot.data != null &&
+                  snapshot.data!.isNotEmpty) {
                 return ConversationImageCard(pathOrUrl: snapshot.data!);
               }
               return ConversationMediaBadge(
@@ -87,9 +98,15 @@ class ConversationMediaBubble extends StatelessWidget {
                 label: 'Foto de WhatsApp',
                 description: 'Toca para abrir visor',
                 onTap: () async {
-                  final img = await WhatsAppMediaResolver.findRecentWhatsAppImage(referenceTimestampMs: timestampMs);
+                  final img =
+                      await WhatsAppMediaResolver.findRecentWhatsAppImage(
+                        referenceTimestampMs: timestampMs,
+                      );
                   if (img != null && context.mounted) {
-                    ConversationMediaViewer.showPhotoViewer(context, pathOrUrl: img);
+                    ConversationMediaViewer.showPhotoViewer(
+                      context,
+                      pathOrUrl: img,
+                    );
                   }
                 },
               );
@@ -103,17 +120,25 @@ class ConversationMediaBubble extends StatelessWidget {
           ConversationYouTubeCard(videoId: ytId),
           const SizedBox(height: 6),
         ],
-        for (final vid in parsed.videos.where((v) => !parsed.youTubeIds.any((id) => v.contains(id)))) ...[
+        for (final vid in parsed.videos.where(
+          (v) => !parsed.youTubeIds.any((id) => v.contains(id)),
+        )) ...[
           ConversationVideoCard(urlOrPath: vid),
           const SizedBox(height: 6),
         ],
 
         // 5. Notificación de Video (resuelve archivo real en WhatsApp)
-        if (parsed.isVideoNotification && parsed.videos.isEmpty && !parsed.isViewOnce) ...[
+        if (parsed.isVideoNotification &&
+            parsed.videos.isEmpty &&
+            !parsed.isViewOnce) ...[
           FutureBuilder<String?>(
-            future: WhatsAppMediaResolver.findRecentWhatsAppVideo(referenceTimestampMs: timestampMs),
+            future: WhatsAppMediaResolver.findRecentWhatsAppVideo(
+              referenceTimestampMs: timestampMs,
+            ),
             builder: (ctx, snapshot) {
-              if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+              if (snapshot.hasData &&
+                  snapshot.data != null &&
+                  snapshot.data!.isNotEmpty) {
                 return ConversationVideoCard(urlOrPath: snapshot.data!);
               }
               return ConversationMediaBadge(
@@ -122,7 +147,10 @@ class ConversationMediaBubble extends StatelessWidget {
                 label: 'Video de WhatsApp',
                 description: 'Toca para reproducir',
                 onTap: () async {
-                  final vid = await WhatsAppMediaResolver.findRecentWhatsAppVideo(referenceTimestampMs: timestampMs);
+                  final vid =
+                      await WhatsAppMediaResolver.findRecentWhatsAppVideo(
+                        referenceTimestampMs: timestampMs,
+                      );
                   if (vid != null && context.mounted) {
                     ConversationMediaViewer.openVideo(context, vid);
                   }
@@ -146,10 +174,17 @@ class ConversationMediaBubble extends StatelessWidget {
         ],
         if (parsed.isAudioNotification && parsed.audios.isEmpty) ...[
           FutureBuilder<String?>(
-            future: WhatsAppMediaResolver.findRecentWhatsAppVoiceNote(referenceTimestampMs: timestampMs),
+            future: WhatsAppMediaResolver.findRecentWhatsAppVoiceNote(
+              referenceTimestampMs: timestampMs,
+            ),
             builder: (ctx, snapshot) {
-              if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
-                return VoiceNotePlayerCard(audioPathOrUrl: snapshot.data!, isInbound: isInbound);
+              if (snapshot.hasData &&
+                  snapshot.data != null &&
+                  snapshot.data!.isNotEmpty) {
+                return VoiceNotePlayerCard(
+                  audioPathOrUrl: snapshot.data!,
+                  isInbound: isInbound,
+                );
               }
               return const ConversationMediaBadge(
                 icon: Icons.mic_rounded,

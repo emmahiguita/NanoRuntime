@@ -96,8 +96,7 @@ final class PendingReply {
       PendingReplyStatus.superseded ||
       PendingReplyStatus.contextChanged ||
       PendingReplyStatus.sent ||
-      PendingReplyStatus.failed =>
-        false,
+      PendingReplyStatus.failed => false,
     };
   }
 
@@ -191,7 +190,8 @@ final class PendingReply {
           .toList(),
       sourceRuleId: json['sourceRuleId'] as String? ?? '',
       notificationKey: json['notificationKey'] as String? ?? '',
-      notificationPostTime: (json['notificationPostTime'] as num?)?.toInt() ?? 0,
+      notificationPostTime:
+          (json['notificationPostTime'] as num?)?.toInt() ?? 0,
       actionIndex: (json['actionIndex'] as num?)?.toInt() ?? -1,
       remoteInputKey: json['remoteInputKey'] as String? ?? '',
       contextFingerprint: json['contextFingerprint'] as String? ?? '',

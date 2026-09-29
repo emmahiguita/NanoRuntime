@@ -30,7 +30,17 @@ class TriggerParser {
   const TriggerParser();
 
   static final _timeRe = RegExp(
-    r'a\s+las\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?',
+    r'a\s+las\s+(\d{1,2})(?:(?::|\s+y\s+)(\d{1,2}))?\s*(am|pm)?',
+    caseSensitive: false,
+  );
+
+  static final _recurringTime = RegExp(
+    r'\b(todos los d[ií]as|cada d[ií]a|diario|diariamente)\b',
+    caseSensitive: false,
+  );
+
+  static final _colombiaTimeZone = RegExp(
+    r'\b(?:hora\s+(?:de\s+)?colombiana|hora\s+(?:de\s+)?colombia|bogot[aá]|colombia)\b',
     caseSensitive: false,
   );
 
@@ -73,14 +83,8 @@ class TriggerParser {
     r'\bde\s+(?:whatsapp\s+business|business|whatsapp\.w4b)\b',
     caseSensitive: false,
   );
-  static final _waRe = RegExp(
-    r'\bde\s+whatsapp\b',
-    caseSensitive: false,
-  );
-  static final _telegramRe = RegExp(
-    r'\bde\s+telegram\b',
-    caseSensitive: false,
-  );
+  static final _waRe = RegExp(r'\bde\s+whatsapp\b', caseSensitive: false);
+  static final _telegramRe = RegExp(r'\bde\s+telegram\b', caseSensitive: false);
   static final _anyAppRe = RegExp(
     r'\b(?:cualquier\s+app|cualquier\s+aplicaci[oó]n|de\s+cualquier\s+app)\b',
     caseSensitive: false,
@@ -114,11 +118,19 @@ class TriggerParser {
       if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
       final goalRest = g
           .replaceFirst(_timeRe, '')
-          .replaceAll(',', '')
+          .replaceAll(_colombiaTimeZone, '')
           .replaceFirst(_frequencyPrefix, '')
+          // La coma que separa la hora del objetivo no forma parte del goal,
+          // pero las comas internas sí: separan contactos y puntúan el texto.
+          .replaceAll(RegExp(r'^\s*,\s*|\s*,\s*$'), '')
           .trim();
       return ParsedSchedule(
-        TimeTrigger(hour: hour, minute: minute),
+        TimeTrigger(
+          hour: hour,
+          minute: minute,
+          timeZoneId: _colombiaTimeZone.hasMatch(g) ? 'America/Bogota' : '',
+          recurring: _recurringTime.hasMatch(g),
+        ),
         goalRest,
       );
     }
@@ -133,7 +145,9 @@ class TriggerParser {
       if (sender.isEmpty && textMatch == null) return null;
       return ParsedSchedule(
         NotificationTrigger(
-          packageName: _resolvePackage(g), // PACKAGE-SCOPE-01: siempre explícito
+          packageName: _resolvePackage(
+            g,
+          ), // PACKAGE-SCOPE-01: siempre explícito
           senderMatch: sender.isEmpty ? null : sender,
           textMatch: textMatch,
         ),
@@ -149,7 +163,9 @@ class TriggerParser {
       if (sender.isEmpty && textMatch == null) return null;
       return ParsedSchedule(
         NotificationTrigger(
-          packageName: _resolvePackage(g), // PACKAGE-SCOPE-01: siempre explícito
+          packageName: _resolvePackage(
+            g,
+          ), // PACKAGE-SCOPE-01: siempre explícito
           senderMatch: sender.isEmpty ? null : sender,
           textMatch: textMatch,
         ),
@@ -210,13 +226,15 @@ class TriggerParser {
       final inner = quoted.group(1)!.trim();
       return (inner.isEmpty ? null : inner, goalRest);
     }
-    final cleaned = textPart.replaceFirst(
-      RegExp(
-        r'^(?:con\s+(?:la\s+)?)?(?:palabra\s+clave|keyword|dice|diga|contenga|contiene)\s+',
-        caseSensitive: false,
-      ),
-      '',
-    ).trim();
+    final cleaned = textPart
+        .replaceFirst(
+          RegExp(
+            r'^(?:con\s+(?:la\s+)?)?(?:palabra\s+clave|keyword|dice|diga|contenga|contiene)\s+',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
     return (cleaned.isEmpty ? null : cleaned, goalRest);
   }
 }

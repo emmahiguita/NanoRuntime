@@ -45,5 +45,6 @@ final class WhatsAppContact {
   int get hashCode => jid.hashCode;
 
   @override
-  String toString() => 'WhatsAppContact(name: $name, jid: $jid, isBusiness: $isBusiness)';
+  String toString() =>
+      'WhatsAppContact(name: $name, jid: $jid, isBusiness: $isBusiness)';
 }

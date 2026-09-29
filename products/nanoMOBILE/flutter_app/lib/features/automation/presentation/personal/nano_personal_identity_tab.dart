@@ -117,9 +117,12 @@ class _NanoPersonalIdentityTabState
                 style: TextStyle(color: visual.text, fontSize: 13),
                 decoration: InputDecoration(
                   labelText: 'Descripción personal (ocupación, contexto)',
-                  hintText: 'Ej. Ingeniero de software, trabajo en tecnología...',
+                  hintText:
+                      'Ej. Ingeniero de software, trabajo en tecnología...',
                   labelStyle: TextStyle(color: visual.textMuted),
-                  hintStyle: TextStyle(color: visual.textMuted.withValues(alpha: 0.5)),
+                  hintStyle: TextStyle(
+                    color: visual.textMuted.withValues(alpha: 0.5),
+                  ),
                   border: InputBorder.none,
                 ),
                 onSubmitted: (_) => _saveData(),

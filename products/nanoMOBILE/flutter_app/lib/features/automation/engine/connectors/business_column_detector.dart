@@ -17,33 +17,81 @@ import 'business_connector_models.dart';
 
 class BusinessColumnDetector {
   static const _nameSynonyms = [
-    'articulo', 'artículo', 'producto', 'item', 'nombre', 'descripcion',
-    'descripción', 'title', 'name', 'product', 'servicio',
+    'articulo',
+    'artículo',
+    'producto',
+    'item',
+    'nombre',
+    'descripcion',
+    'descripción',
+    'title',
+    'name',
+    'product',
+    'servicio',
   ];
 
   static const _priceSynonyms = [
-    'valor', 'precio', 'costo', 'price', 'rate', 'p.venta', 'p_venta',
-    'unitario', 'valor_unitario', 'precio_venta', 'pvp',
+    'valor',
+    'precio',
+    'costo',
+    'price',
+    'rate',
+    'p.venta',
+    'p_venta',
+    'unitario',
+    'valor_unitario',
+    'precio_venta',
+    'pvp',
   ];
 
   static const _stockSynonyms = [
-    'existencias', 'cantidad', 'stock', 'inventario', 'disponible',
-    'qty', 'cant', 'unidades', 'saldo',
+    'existencias',
+    'cantidad',
+    'stock',
+    'inventario',
+    'disponible',
+    'qty',
+    'cant',
+    'unidades',
+    'saldo',
   ];
 
   static const _skuSynonyms = [
-    'referencia', 'sku', 'codigo', 'código', 'id', 'ref', 'code',
-    'barcode', 'cod_barra', 'item_code',
+    'referencia',
+    'sku',
+    'codigo',
+    'código',
+    'id',
+    'ref',
+    'code',
+    'barcode',
+    'cod_barra',
+    'item_code',
   ];
 
   static const _detailsSynonyms = [
-    'detalles', 'caracteristicas', 'características', 'observaciones',
-    'variante', 'especificaciones', 'presentacion', 'presentación',
+    'detalles',
+    'caracteristicas',
+    'características',
+    'observaciones',
+    'variante',
+    'especificaciones',
+    'presentacion',
+    'presentación',
   ];
 
   static const _categorySynonyms = [
-    'categoria', 'categoría', 'category', 'rubro', 'grupo', 'linea', 'línea',
-    'departamento', 'seccion', 'sección', 'tipo',
+    'categoria',
+    'categoría',
+    'category',
+    'rubro',
+    'grupo',
+    'linea',
+    'línea',
+    'departamento',
+    'seccion',
+    'sección',
+    'tipo',
   ];
 
   /// Detecta automáticamente el mapeo más probable a partir de la lista de columnas.

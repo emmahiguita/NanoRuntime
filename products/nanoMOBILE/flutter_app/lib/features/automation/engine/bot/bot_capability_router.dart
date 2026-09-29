@@ -23,10 +23,8 @@ final class BotCapabilityRouter {
   final BotDefinition bot;
   final AgentToolDispatcher dispatcher;
 
-  BotCapabilityRouter({
-    required this.bot,
-    AgentToolDispatcher? dispatcher,
-  }) : dispatcher = dispatcher ?? AgentToolDispatcher();
+  BotCapabilityRouter({required this.bot, AgentToolDispatcher? dispatcher})
+    : dispatcher = dispatcher ?? AgentToolDispatcher();
 
   /// Conjunto de nombres de herramientas que este bot tiene permitido invocar.
   Set<String> get authorizedTools {
@@ -37,7 +35,9 @@ final class BotCapabilityRouter {
         allowedBySkills.addAll(skill.toolNames);
       }
     }
-    return allowedBySkills.where((tool) => bot.permissions.canExecute(tool)).toSet();
+    return allowedBySkills
+        .where((tool) => bot.permissions.canExecute(tool))
+        .toSet();
   }
 
   /// Verifica si una herramienta específica puede ser ejecutada por este bot.
@@ -55,10 +55,13 @@ final class BotCapabilityRouter {
   /// Ejecuta la herramienta de forma segura con verificación previa de gobernanza.
   Future<ToolOutcome> executeTool(ToolCall call) async {
     if (!isAuthorized(call.tool)) {
-      debugPrint('[BotCapabilityRouter] Bloqueo de seguridad: Bot "${bot.name}" no tiene permiso para "${call.tool}".');
+      debugPrint(
+        '[BotCapabilityRouter] Bloqueo de seguridad: Bot "${bot.name}" no tiene permiso para "${call.tool}".',
+      );
       return ToolOutcome(
         verdict: PolicyVerdict.denied,
-        feedback: 'Herramienta "${call.tool}" no autorizada para el bot "${bot.name}". Requiere permiso específico en su perfil.',
+        feedback:
+            'Herramienta "${call.tool}" no autorizada para el bot "${bot.name}". Requiere permiso específico en su perfil.',
         executionStatus: ToolExecutionStatus.failed,
       );
     }
@@ -81,9 +84,13 @@ final class BotCapabilityRouter {
     for (final skillId in bot.skillIds) {
       final skill = BotSkillsCatalog.getSkill(skillId);
       if (skill == null) continue;
-      final activeTools = skill.toolNames.where((t) => bot.permissions.canExecute(t)).toList();
+      final activeTools = skill.toolNames
+          .where((t) => bot.permissions.canExecute(t))
+          .toList();
       if (activeTools.isNotEmpty) {
-        buffer.writeln('- ${skill.name}: [${activeTools.join(', ')}] — ${skill.description}');
+        buffer.writeln(
+          '- ${skill.name}: [${activeTools.join(', ')}] — ${skill.description}',
+        );
       }
     }
     return buffer.toString();

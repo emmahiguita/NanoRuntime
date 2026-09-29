@@ -177,9 +177,7 @@ class _AutomationSettingsScreenState
             ? const Color(0x330E182D)
             : const Color(0x180E182D),
         borderRadius: BorderRadius.circular(21),
-        border: Border.all(
-          color: visual.cardBorder.withValues(alpha: 0.16),
-        ),
+        border: Border.all(color: visual.cardBorder.withValues(alpha: 0.16)),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -326,8 +324,10 @@ class _AutomationSettingsScreenState
   }
 
   List<Widget> _buildWhatsAppComponent(BuildContext context) {
-    final productsCount =
-        ref.watch(businessFactsNotifierProvider).products.length;
+    final productsCount = ref
+        .watch(businessFactsNotifierProvider)
+        .products
+        .length;
     final tone = ref.watch(toneProfileNotifierProvider);
     final waMode = ConversationAutonomyModeName.fromName(
       ref.watch(settingsProvider).waAutonomyMode,
@@ -341,9 +341,7 @@ class _AutomationSettingsScreenState
             title: 'Agente Personal WPP',
             subtitle:
                 'Modo ${waMode.label.toLowerCase()} · ${tone.enabled ? 'trato ${tone.warmth.name}, respuestas ${tone.verbosity.name}' : 'tono estándar'}',
-            trailing: ValueBadge(
-              label: waMode.label.toUpperCase(),
-            ),
+            trailing: ValueBadge(label: waMode.label.toUpperCase()),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
                 builder: (_) => const PersonalAgentScreen(),
@@ -357,7 +355,9 @@ class _AutomationSettingsScreenState
                 ? 'Sin productos — toca para configurar o cargar plantilla'
                 : '$productsCount producto${productsCount == 1 ? '' : 's'} configurado${productsCount == 1 ? '' : 's'}',
             trailing: ValueBadge(
-              label: productsCount == 0 ? 'CONFIGURAR' : '$productsCount PRODUCTOS',
+              label: productsCount == 0
+                  ? 'CONFIGURAR'
+                  : '$productsCount PRODUCTOS',
             ),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
@@ -389,7 +389,8 @@ class _AutomationSettingsScreenState
             trailing: const ValueBadge(label: 'FRASES'),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
-                builder: (_) => const PersonalizationStudioScreen(initialIndex: 0),
+                builder: (_) =>
+                    const PersonalizationStudioScreen(initialIndex: 0),
               ),
             ),
           ),
@@ -409,7 +410,8 @@ class _AutomationSettingsScreenState
             trailing: const ValueBadge(label: 'MEMORIAS'),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
-                builder: (_) => const PersonalizationStudioScreen(initialIndex: 2),
+                builder: (_) =>
+                    const PersonalizationStudioScreen(initialIndex: 2),
               ),
             ),
           ),
@@ -427,7 +429,8 @@ class _AutomationSettingsScreenState
             trailing: const ValueBadge(label: 'IMPORTAR'),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
-                builder: (_) => const PersonalizationStudioScreen(initialIndex: 3),
+                builder: (_) =>
+                    const PersonalizationStudioScreen(initialIndex: 3),
               ),
             ),
           ),
@@ -439,7 +442,8 @@ class _AutomationSettingsScreenState
             trailing: const ValueBadge(label: 'CONTACTOS'),
             onTap: () => Navigator.of(context).push(
               nanoGlassPageRoute<void>(
-                builder: (_) => const PersonalizationStudioScreen(initialIndex: 1),
+                builder: (_) =>
+                    const PersonalizationStudioScreen(initialIndex: 1),
               ),
             ),
           ),
@@ -448,7 +452,10 @@ class _AutomationSettingsScreenState
     ];
   }
 
-  List<Widget> _buildSystemSection(BuildContext context, VoidCallback? onDevTap) {
+  List<Widget> _buildSystemSection(
+    BuildContext context,
+    VoidCallback? onDevTap,
+  ) {
     final rulesCount = ref.watch(ruleRegistryProvider).rules.length;
     return [
       const AutomationSectionLabel('Reglas de Automatización'),

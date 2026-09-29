@@ -18,22 +18,44 @@ final class DeicticReferenceResolver {
   const DeicticReferenceResolver();
 
   static const _spreadsheetTokens = [
-    'ese excel', 'el excel', 'este excel', 'aquel excel',
-    'la planilla', 'esa planilla', 'el archivo excel', 'la hoja de calculo',
-    'el csv', 'ese csv',
+    'ese excel',
+    'el excel',
+    'este excel',
+    'aquel excel',
+    'la planilla',
+    'esa planilla',
+    'el archivo excel',
+    'la hoja de calculo',
+    'el csv',
+    'ese csv',
   ];
 
   static const _fileTokens = [
-    'ese archivo', 'el archivo', 'este archivo', 'el documento', 'ese doc',
+    'ese archivo',
+    'el archivo',
+    'este archivo',
+    'el documento',
+    'ese doc',
   ];
 
   static const _tableTokens = [
-    'la tabla', 'esa tabla', 'la base de datos', 'el reporte', 'ese reporte',
+    'la tabla',
+    'esa tabla',
+    'la base de datos',
+    'el reporte',
+    'ese reporte',
   ];
 
   static const _productTokens = [
-    'ese producto', 'el producto', 'ese telefono', 'el telefono',
-    'ese articulo', 'la negra', 'el negro', 'el que te dije', 'el anterior',
+    'ese producto',
+    'el producto',
+    'ese telefono',
+    'el telefono',
+    'ese articulo',
+    'la negra',
+    'el negro',
+    'el que te dije',
+    'el anterior',
   ];
 
   /// Extrae y resuelve las referencias deícticas presentes en el texto del usuario.
@@ -53,11 +75,13 @@ final class DeicticReferenceResolver {
           lastLinuxFilePath: lastLinuxFilePath,
           recentTablePath: recentTableOrReportPath,
         );
-        results.add(DeicticReference(
-          phrase: token,
-          category: 'file',
-          resolvedValue: resolved,
-        ));
+        results.add(
+          DeicticReference(
+            phrase: token,
+            category: 'file',
+            resolvedValue: resolved,
+          ),
+        );
         break;
       }
     }
@@ -67,11 +91,13 @@ final class DeicticReferenceResolver {
       for (final token in _fileTokens) {
         if (norm.contains(token)) {
           final resolved = lastLinuxFilePath ?? recentTableOrReportPath;
-          results.add(DeicticReference(
-            phrase: token,
-            category: 'file',
-            resolvedValue: resolved,
-          ));
+          results.add(
+            DeicticReference(
+              phrase: token,
+              category: 'file',
+              resolvedValue: resolved,
+            ),
+          );
           break;
         }
       }
@@ -80,11 +106,13 @@ final class DeicticReferenceResolver {
     // 3. Detección de tablas o reportes de datos
     for (final token in _tableTokens) {
       if (norm.contains(token)) {
-        results.add(DeicticReference(
-          phrase: token,
-          category: 'table',
-          resolvedValue: recentTableOrReportPath,
-        ));
+        results.add(
+          DeicticReference(
+            phrase: token,
+            category: 'table',
+            resolvedValue: recentTableOrReportPath,
+          ),
+        );
         break;
       }
     }
@@ -92,11 +120,13 @@ final class DeicticReferenceResolver {
     // 4. Detección de productos o artículos comerciales
     for (final token in _productTokens) {
       if (norm.contains(token)) {
-        results.add(DeicticReference(
-          phrase: token,
-          category: 'product',
-          resolvedValue: activeProductContext,
-        ));
+        results.add(
+          DeicticReference(
+            phrase: token,
+            category: 'product',
+            resolvedValue: activeProductContext,
+          ),
+        );
         break;
       }
     }

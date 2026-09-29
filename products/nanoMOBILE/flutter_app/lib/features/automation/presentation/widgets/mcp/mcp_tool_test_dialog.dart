@@ -13,13 +13,18 @@ Future<void> showMcpToolTestDialog({
   required AutomationVisualPalette visual,
 }) async {
   final serverId = (node.metadata['server_id'] as String?) ?? 'device';
-  final client = registry.client(serverId) ??
+  final client =
+      registry.client(serverId) ??
       registry.client('device') ??
-      (registry.servers.isNotEmpty ? registry.client(registry.servers.first.id) : null);
+      (registry.servers.isNotEmpty
+          ? registry.client(registry.servers.first.id)
+          : null);
 
   if (client == null) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Servidor MCP "$serverId" no se encuentra conectado.')),
+      SnackBar(
+        content: Text('Servidor MCP "$serverId" no se encuentra conectado.'),
+      ),
     );
     return;
   }
@@ -42,7 +47,8 @@ Future<void> showMcpToolTestDialog({
         ),
         builder: (context, snapshot) {
           final isDone = snapshot.connectionState == ConnectionState.done;
-          final contentText = snapshot.data?.content
+          final contentText =
+              snapshot.data?.content
                   .map((c) => c.text ?? '')
                   .where((t) => t.isNotEmpty)
                   .join('\n') ??
@@ -50,8 +56,12 @@ Future<void> showMcpToolTestDialog({
               'Sin respuesta devuelta por el servidor MCP';
 
           return AlertDialog(
-            backgroundColor: visual.isDark ? const Color(0xFF0E1726) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            backgroundColor: visual.isDark
+                ? const Color(0xFF0E1726)
+                : Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
             title: Row(
               children: [
                 Icon(Icons.bolt_rounded, color: visual.accent),
@@ -73,20 +83,20 @@ Future<void> showMcpToolTestDialog({
               width: 380,
               child: isDone
                   ? snapshot.hasError
-                      ? Text(
-                          'Error: ${snapshot.error}',
-                          style: const TextStyle(color: Colors.red),
-                        )
-                      : SingleChildScrollView(
-                          child: SelectableText(
-                            contentText,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                              height: 1.4,
+                        ? Text(
+                            'Error: ${snapshot.error}',
+                            style: const TextStyle(color: Colors.red),
+                          )
+                        : SingleChildScrollView(
+                            child: SelectableText(
+                              contentText,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontSize: 11,
+                                height: 1.4,
+                              ),
                             ),
-                          ),
-                        )
+                          )
                   : const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [

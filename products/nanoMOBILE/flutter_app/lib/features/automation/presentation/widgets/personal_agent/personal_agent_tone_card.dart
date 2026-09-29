@@ -64,8 +64,9 @@ class PersonalAgentToneCard extends ConsumerWidget {
             },
             trailing: ValueBadge(label: tone.verbosity.name.toUpperCase()),
             onTap: () {
-              final next = ToneVerbosity.values[
-                  (tone.verbosity.index + 1) % ToneVerbosity.values.length];
+              final next =
+                  ToneVerbosity.values[(tone.verbosity.index + 1) %
+                      ToneVerbosity.values.length];
               toneNotifier.update(tone.copyWith(verbosity: next));
             },
           ),

@@ -53,8 +53,7 @@ class _AutomationDevBody extends StatelessWidget {
             // encoge con el teclado; doble encogido aplastaba el contenido.
             resizeToAvoidBottomInset: false,
             body: SingleChildScrollView(
-              keyboardDismissBehavior:
-                  ScrollViewKeyboardDismissBehavior.onDrag,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               // NAV-FLOAT-01 — la barra flota sin reservar layout: el
               // scroll reserva su propio espacio inferior.
               padding: const EdgeInsets.fromLTRB(

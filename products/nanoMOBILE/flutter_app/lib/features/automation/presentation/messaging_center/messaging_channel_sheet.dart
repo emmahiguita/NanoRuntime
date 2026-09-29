@@ -10,7 +10,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../application/automation_coordinator_provider.dart' show ruleRegistryProvider;
+import '../../application/automation_coordinator_provider.dart'
+    show ruleRegistryProvider;
 import '../../engine/messaging/messaging_package.dart';
 import '../../executors/notification_executor_provider.dart';
 import 'messaging_center_providers.dart';
@@ -64,13 +65,18 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
                   _ChannelSwitch(
                     title: 'WhatsApp',
                     subtitle: 'Mensajes personales',
-                    value: registry.isWhatsAppRuleActive(MessagingPackage.whatsapp),
-                    onChanged: (value) => setChannel(MessagingPackage.whatsapp, value),
+                    value: registry.isWhatsAppRuleActive(
+                      MessagingPackage.whatsapp,
+                    ),
+                    onChanged: (value) =>
+                        setChannel(MessagingPackage.whatsapp, value),
                   ),
                   _ChannelSwitch(
                     title: 'WhatsApp Business',
                     subtitle: 'Mensajes de clientes',
-                    value: registry.isWhatsAppRuleActive(MessagingPackage.whatsappBusiness),
+                    value: registry.isWhatsAppRuleActive(
+                      MessagingPackage.whatsappBusiness,
+                    ),
                     onChanged: (value) =>
                         setChannel(MessagingPackage.whatsappBusiness, value),
                   ),
@@ -80,11 +86,15 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
                     child: FilledButton.icon(
                       onPressed: () async {
                         Navigator.pop(sheetContext);
-                        await ref.read(notificationExecutorProvider).requestAccess();
+                        await ref
+                            .read(notificationExecutorProvider)
+                            .requestAccess();
                         ref.invalidate(notificationAccessProvider);
                       },
                       icon: Icon(
-                        hasAccess ? Icons.verified_user_rounded : Icons.security_rounded,
+                        hasAccess
+                            ? Icons.verified_user_rounded
+                            : Icons.security_rounded,
                       ),
                       label: Text(
                         hasAccess
@@ -131,7 +141,10 @@ class _ChannelSwitch extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       dense: true,
       title: Text(title, style: const TextStyle(color: Colors.white)),
-      subtitle: Text(subtitle, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+      subtitle: Text(
+        subtitle,
+        style: const TextStyle(color: Colors.white60, fontSize: 12),
+      ),
       value: value,
       onChanged: onChanged,
     );

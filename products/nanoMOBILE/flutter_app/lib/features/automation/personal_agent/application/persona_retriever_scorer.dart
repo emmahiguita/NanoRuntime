@@ -21,10 +21,37 @@ import 'package:nanoai/features/automation/engine/language/semantic_similarity_e
 
 abstract final class PersonaRetrieverScorer {
   static const Set<String> genericGreetingOrVocativeTokens = {
-    'hola', 'holi', 'holas', 'ola', 'buenas', 'buenos', 'buen', 'dia', 'dias',
-    'tardes', 'noches', 'hey', 'oe', 'quiubo', 'saludos', 'bro', 'brother',
-    'mano', 'manito', 'parcero', 'parce', 'pana', 'amigo', 'amiga', 'amor',
-    'pa', 'ma', 'jefe', 'socio', 'emma', 'emmanuel',
+    'hola',
+    'holi',
+    'holas',
+    'ola',
+    'buenas',
+    'buenos',
+    'buen',
+    'dia',
+    'dias',
+    'tardes',
+    'noches',
+    'hey',
+    'oe',
+    'quiubo',
+    'saludos',
+    'bro',
+    'brother',
+    'mano',
+    'manito',
+    'parcero',
+    'parce',
+    'pana',
+    'amigo',
+    'amiga',
+    'amor',
+    'pa',
+    'ma',
+    'jefe',
+    'socio',
+    'emma',
+    'emmanuel',
   };
 
   static double scorePatternMatch(String rawInput, String rawPattern) {
@@ -34,7 +61,10 @@ abstract final class PersonaRetrieverScorer {
 
     if (normalizedInput == normalizedPattern) return 1.0;
 
-    final semanticSim = LightweightSemanticSimilarityEngine.compute(rawInput, rawPattern);
+    final semanticSim = LightweightSemanticSimilarityEngine.compute(
+      rawInput,
+      rawPattern,
+    );
     if (semanticSim >= 0.85) return semanticSim;
 
     final paraphrase = SocialContextRetriever.scoreParaphraseSimilarity(
@@ -47,8 +77,12 @@ abstract final class PersonaRetrieverScorer {
     final patternTerms = meaningfulTerms(normalizedPattern);
     if (inputTerms.isEmpty || patternTerms.isEmpty) return 0.0;
 
-    final specificInput = inputTerms.difference(genericGreetingOrVocativeTokens);
-    final specificPattern = patternTerms.difference(genericGreetingOrVocativeTokens);
+    final specificInput = inputTerms.difference(
+      genericGreetingOrVocativeTokens,
+    );
+    final specificPattern = patternTerms.difference(
+      genericGreetingOrVocativeTokens,
+    );
     final specificIntersection = specificInput.intersection(specificPattern);
     final genericIntersection = inputTerms
         .intersection(patternTerms)
@@ -57,9 +91,11 @@ abstract final class PersonaRetrieverScorer {
     final inputSemantic = ConversationSemanticClassifier.classify(rawInput);
     final patternSemantic = ConversationSemanticClassifier.classify(rawPattern);
     final inputIsQuestion =
-        rawInput.contains('?') || inputSemantic == ConversationSemanticTag.question;
+        rawInput.contains('?') ||
+        inputSemantic == ConversationSemanticTag.question;
     final patternIsQuestion =
-        rawPattern.contains('?') || patternSemantic == ConversationSemanticTag.question;
+        rawPattern.contains('?') ||
+        patternSemantic == ConversationSemanticTag.question;
 
     final hasIntentLoss =
         (inputIsQuestion && !patternIsQuestion) ||
@@ -69,15 +105,17 @@ abstract final class PersonaRetrieverScorer {
             specificIntersection.isEmpty);
 
     final intersectionWeight =
-        (specificIntersection.length * 2.5) + (genericIntersection.length * 0.5);
+        (specificIntersection.length * 2.5) +
+        (genericIntersection.length * 0.5);
     final unionSpecific = specificInput.union(specificPattern).length;
     final unionGeneric = inputTerms
         .union(patternTerms)
         .intersection(genericGreetingOrVocativeTokens)
         .length;
     final unionWeight = (unionSpecific * 2.5) + (unionGeneric * 0.5);
-    final weightedJaccard =
-        unionWeight > 0 ? intersectionWeight / unionWeight : 0.0;
+    final weightedJaccard = unionWeight > 0
+        ? intersectionWeight / unionWeight
+        : 0.0;
 
     final specificCoverage = specificInput.isEmpty
         ? (specificPattern.isEmpty ? 1.0 : 0.0)

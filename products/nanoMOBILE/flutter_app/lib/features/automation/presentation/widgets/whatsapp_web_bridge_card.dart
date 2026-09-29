@@ -1,4 +1,4 @@
-﻿/// WA-WEB-BRIDGE-CARD-01 — Tarjeta de configuración para el puente multimedia de WhatsApp Web.
+/// WA-WEB-BRIDGE-CARD-01 — Tarjeta de configuración para el puente multimedia de WhatsApp Web.
 ///
 /// **QUÉ HACE:**
 /// Muestra el estado en vivo de la conexión Multi-Device de WhatsApp Web y permite
@@ -31,16 +31,22 @@ class WhatsAppWebBridgeCard extends StatelessWidget {
       stream: whatsAppWebBridgeController.sessionStream,
       initialData: whatsAppWebBridgeController.currentSession,
       builder: (context, snapshot) {
-        final session = snapshot.data ?? whatsAppWebBridgeController.currentSession;
+        final session =
+            snapshot.data ?? whatsAppWebBridgeController.currentSession;
         final isConnected = session.isConnected;
-        final isWaitingQr = session.status == WhatsAppWebSessionStatus.waitingForQr;
+        final isWaitingQr =
+            session.status == WhatsAppWebSessionStatus.waitingForQr;
 
         final statusText = switch (session.status) {
-          WhatsAppWebSessionStatus.connected => 'Conectado — Envío de fotos y videos habilitado',
-          WhatsAppWebSessionStatus.waitingForQr => 'Esperando escaneo de código QR',
+          WhatsAppWebSessionStatus.connected =>
+            'Conectado — Envío de fotos y videos habilitado',
+          WhatsAppWebSessionStatus.waitingForQr =>
+            'Esperando escaneo de código QR',
           WhatsAppWebSessionStatus.syncing => 'Sincronizando chats...',
-          WhatsAppWebSessionStatus.error => 'Error de conexión — Toca para reintentar',
-          WhatsAppWebSessionStatus.disconnected => 'Inactivo — Toca para vincular dispositivo',
+          WhatsAppWebSessionStatus.error =>
+            'Error de conexión — Toca para reintentar',
+          WhatsAppWebSessionStatus.disconnected =>
+            'Inactivo — Toca para vincular dispositivo',
         };
 
         final statusColor = isConnected
@@ -54,10 +60,7 @@ class WhatsAppWebBridgeCard extends StatelessWidget {
               title: 'Canal Multimedia (Fotos y Videos)',
               subtitle: statusText,
               trailing: Chip(
-                avatar: CircleAvatar(
-                  radius: 4,
-                  backgroundColor: statusColor,
-                ),
+                avatar: CircleAvatar(radius: 4, backgroundColor: statusColor),
                 label: Text(
                   isConnected ? 'ACTIVO' : 'VINCULAR',
                   style: TextStyle(

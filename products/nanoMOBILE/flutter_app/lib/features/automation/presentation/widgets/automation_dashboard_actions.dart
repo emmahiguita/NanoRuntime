@@ -64,7 +64,11 @@ class QuickAutomationActions extends StatelessWidget {
     ('Abrir Bluetooth', 'abrir Bluetooth', NanoGlyphType.bluetooth),
     ('Abrir Chrome', 'abrir Chrome', NanoGlyphType.browser),
     ('Abrir Linux', 'abrir la terminal Linux', NanoGlyphType.linux),
-    ('Leer notificaciones', 'leer las notificaciones', NanoGlyphType.notification),
+    (
+      'Leer notificaciones',
+      'leer las notificaciones',
+      NanoGlyphType.notification,
+    ),
     ('Analizar archivos', 'analizar los archivos', NanoGlyphType.files),
   ];
 

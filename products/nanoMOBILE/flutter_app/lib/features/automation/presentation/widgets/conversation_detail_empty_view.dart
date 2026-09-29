@@ -19,11 +19,15 @@ part of 'conversation_detail_sheet.dart';
 extension ConversationDetailEmptyView on _ConversationDetailSheetState {
   Widget _buildNewChatEmptyState(AutomationVisualPalette visual) {
     final title = _cleanName(widget.item.displayName);
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return ListView(
       controller: _scrollController,
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: isLandscape ? 10 : 20),
+      padding: EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: isLandscape ? 10 : 20,
+      ),
       children: [
         Center(
           child: Container(
@@ -31,16 +35,27 @@ extension ConversationDetailEmptyView on _ConversationDetailSheetState {
             decoration: BoxDecoration(
               color: const Color(0xFF25D366).withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.35), width: 1),
+              border: Border.all(
+                color: const Color(0xFF25D366).withValues(alpha: 0.35),
+                width: 1,
+              ),
             ),
             child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.lock_outline_rounded, size: 12, color: Color(0xFF25D366)),
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 12,
+                  color: Color(0xFF25D366),
+                ),
                 SizedBox(width: 6),
                 Text(
                   'Chat directo cifrado vía WhatsApp',
-                  style: TextStyle(color: Color(0xFF25D366), fontSize: 11, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Color(0xFF25D366),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -93,7 +108,9 @@ extension ConversationDetailEmptyView on _ConversationDetailSheetState {
         const SizedBox(height: 2),
         Center(
           child: Text(
-            widget.item.lastMessage.isNotEmpty ? widget.item.lastMessage : widget.item.conversationId,
+            widget.item.lastMessage.isNotEmpty
+                ? widget.item.lastMessage
+                : widget.item.conversationId,
             style: TextStyle(color: visual.textMuted, fontSize: 12),
           ),
         ),
@@ -103,14 +120,23 @@ extension ConversationDetailEmptyView on _ConversationDetailSheetState {
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: visual.isDark ? 0.05 : 0.60),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: visual.isDark ? 0.12 : 0.40), width: 1),
+            border: Border.all(
+              color: Colors.white.withValues(
+                alpha: visual.isDark ? 0.12 : 0.40,
+              ),
+              width: 1,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Iniciar conversación rápida:',
-                style: TextStyle(color: visual.text, fontSize: 12, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: visual.text,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -118,8 +144,15 @@ extension ConversationDetailEmptyView on _ConversationDetailSheetState {
                 runSpacing: 6,
                 children: [
                   _buildQuickStarterChip('👋 ¡Hola! ¿Cómo estás?', visual),
-                  _buildQuickStarterChip('💼 Buenas tardes, ¿en qué podemos ayudarte?', visual),
-                  _buildQuickStarterChip('📋 Enviar formulario interactivo', visual, isForm: true),
+                  _buildQuickStarterChip(
+                    '💼 Buenas tardes, ¿en qué podemos ayudarte?',
+                    visual,
+                  ),
+                  _buildQuickStarterChip(
+                    '📋 Enviar formulario interactivo',
+                    visual,
+                    isForm: true,
+                  ),
                 ],
               ),
             ],
@@ -129,17 +162,32 @@ extension ConversationDetailEmptyView on _ConversationDetailSheetState {
     );
   }
 
-  Widget _buildQuickStarterChip(String label, AutomationVisualPalette visual, {bool isForm = false}) {
+  Widget _buildQuickStarterChip(
+    String label,
+    AutomationVisualPalette visual, {
+    bool isForm = false,
+  }) {
     return ActionChip(
       avatar: Icon(
         isForm ? Icons.assignment_rounded : Icons.chat_bubble_outline_rounded,
         size: 13,
         color: isForm ? const Color(0xFF00FF88) : const Color(0xFF007AFF),
       ),
-      label: Text(label, style: TextStyle(color: visual.text, fontSize: 11, fontWeight: FontWeight.w500)),
-      backgroundColor: Colors.white.withValues(alpha: visual.isDark ? 0.08 : 0.8),
+      label: Text(
+        label,
+        style: TextStyle(
+          color: visual.text,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      backgroundColor: Colors.white.withValues(
+        alpha: visual.isDark ? 0.08 : 0.8,
+      ),
       side: BorderSide(
-        color: isForm ? const Color(0xFF00FF88).withValues(alpha: 0.4) : const Color(0xFF007AFF).withValues(alpha: 0.4),
+        color: isForm
+            ? const Color(0xFF00FF88).withValues(alpha: 0.4)
+            : const Color(0xFF007AFF).withValues(alpha: 0.4),
       ),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       onPressed: () {
@@ -147,7 +195,9 @@ extension ConversationDetailEmptyView on _ConversationDetailSheetState {
           _showFormPicker();
         } else {
           _safeSetState(() {
-            _inputController.text = label.replaceFirst('👋 ', '').replaceFirst('💼 ', '');
+            _inputController.text = label
+                .replaceFirst('👋 ', '')
+                .replaceFirst('💼 ', '');
           });
         }
       },

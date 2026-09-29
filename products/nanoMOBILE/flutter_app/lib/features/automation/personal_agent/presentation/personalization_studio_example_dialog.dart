@@ -50,10 +50,14 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
         : ConversationSemanticTag.fromStorageKey(ex.intent);
     _triggerCtrl = TextEditingController(text: ex?.displayTrigger ?? '');
     final inVars = ex?.incomingVariants ?? [];
-    _inVarCtrls = inVars.isEmpty ? [TextEditingController(text: ex?.incomingText ?? '')] : inVars.map((v) => TextEditingController(text: v)).toList();
+    _inVarCtrls = inVars.isEmpty
+        ? [TextEditingController(text: ex?.incomingText ?? '')]
+        : inVars.map((v) => TextEditingController(text: v)).toList();
     final opts = ex?.responseOptions ?? [];
     if (opts.isNotEmpty) {
-      _respCtrls = opts.map((o) => TextEditingController(text: o.text)).toList();
+      _respCtrls = opts
+          .map((o) => TextEditingController(text: o.text))
+          .toList();
       _respTones = opts.map((o) => o.tone).toList();
       _respActives = opts.map((o) => o.enabled).toList();
     } else {
@@ -68,8 +72,12 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
   @override
   void dispose() {
     _triggerCtrl.dispose();
-    for (final c in _inVarCtrls) { c.dispose(); }
-    for (final c in _respCtrls) { c.dispose(); }
+    for (final c in _inVarCtrls) {
+      c.dispose();
+    }
+    for (final c in _respCtrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -77,29 +85,58 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isLandscape = size.width > size.height;
-    final title = widget.example != null ? widget.example!.displayTrigger : 'Nueva Frase / Intención';
+    final title = widget.example != null
+        ? widget.example!.displayTrigger
+        : 'Nueva Frase / Intención';
 
     return AlertDialog(
-      insetPadding: EdgeInsets.symmetric(horizontal: 14, vertical: isLandscape ? 6 : 16),
-      titlePadding: EdgeInsets.fromLTRB(16, isLandscape ? 8 : 12, 16, isLandscape ? 4 : 6),
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: isLandscape ? 6 : 16,
+      ),
+      titlePadding: EdgeInsets.fromLTRB(
+        16,
+        isLandscape ? 8 : 12,
+        16,
+        isLandscape ? 4 : 6,
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      actionsPadding: EdgeInsets.symmetric(horizontal: 12, vertical: isLandscape ? 4 : 8),
+      actionsPadding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: isLandscape ? 4 : 8,
+      ),
       title: Row(
         children: [
           const Icon(Icons.forum_outlined, size: 15, color: Color(0xFF00E676)),
           const SizedBox(width: 8),
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
       content: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: size.height * (isLandscape ? 0.76 : 0.70), maxWidth: isLandscape ? 520 : 460),
+        constraints: BoxConstraints(
+          maxHeight: size.height * (isLandscape ? 0.76 : 0.70),
+          maxWidth: isLandscape ? 520 : 460,
+        ),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               _label('TEXTO / INTENCIÓN RECIBIDA'),
-              TextField(controller: _triggerCtrl, style: const TextStyle(fontSize: 11), decoration: _dec('Ej: ¿Qué haces?, ¿Cómo estás?')),
+              TextField(
+                controller: _triggerCtrl,
+                style: const TextStyle(fontSize: 11),
+                decoration: _dec('Ej: ¿Qué haces?, ¿Cómo estás?'),
+              ),
               const SizedBox(height: 6),
               DropdownButtonFormField<ConversationSemanticTag>(
                 initialValue: _semanticTag,
@@ -120,7 +157,19 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
                 children: [
                   _label('VARIANTES EQUIVALENTES'),
                   const Spacer(),
-                  InkWell(onTap: () => setState(() => _inVarCtrls.add(TextEditingController())), child: const Text('+ Variante', style: TextStyle(fontSize: 9.5, color: Color(0xFF00D2FF), fontWeight: FontWeight.bold))),
+                  InkWell(
+                    onTap: () => setState(
+                      () => _inVarCtrls.add(TextEditingController()),
+                    ),
+                    child: const Text(
+                      '+ Variante',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: Color(0xFF00D2FF),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               for (int i = 0; i < _inVarCtrls.length; i++)
@@ -128,9 +177,28 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
                   padding: const EdgeInsets.only(bottom: 2.5),
                   child: Row(
                     children: [
-                      Expanded(child: TextField(controller: _inVarCtrls[i], style: const TextStyle(fontSize: 10), decoration: _dec('Variante #${i + 1}'))),
+                      Expanded(
+                        child: TextField(
+                          controller: _inVarCtrls[i],
+                          style: const TextStyle(fontSize: 10),
+                          decoration: _dec('Variante #${i + 1}'),
+                        ),
+                      ),
                       if (_inVarCtrls.length > 1)
-                        IconButton(icon: const Icon(Icons.close, size: 12, color: Colors.white54), onPressed: () => setState(() => _inVarCtrls.removeAt(i).dispose()), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 18, minHeight: 18)),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            size: 12,
+                            color: Colors.white54,
+                          ),
+                          onPressed: () =>
+                              setState(() => _inVarCtrls.removeAt(i).dispose()),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 18,
+                            minHeight: 18,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -139,7 +207,21 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
                 children: [
                   _label('RESPUESTAS POSIBLES'),
                   const Spacer(),
-                  InkWell(onTap: () => setState(() { _respCtrls.add(TextEditingController()); _respTones.add('cotidiana'); _respActives.add(true); }), child: const Text('+ Respuesta', style: TextStyle(fontSize: 9.5, color: Color(0xFF00E676), fontWeight: FontWeight.bold))),
+                  InkWell(
+                    onTap: () => setState(() {
+                      _respCtrls.add(TextEditingController());
+                      _respTones.add('cotidiana');
+                      _respActives.add(true);
+                    }),
+                    child: const Text(
+                      '+ Respuesta',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: Color(0xFF00E676),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ],
               ),
               for (int i = 0; i < _respCtrls.length; i++) _respItem(i),
@@ -148,11 +230,21 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(fontSize: 11))),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar', style: TextStyle(fontSize: 11)),
+        ),
         FilledButton(
           onPressed: widget.busy ? null : _save,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00E676), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
-          child: const Text('Guardar frase', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00E676),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          ),
+          child: const Text(
+            'Guardar frase',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );
@@ -160,11 +252,21 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
 
   void _save() {
     final trigger = _triggerCtrl.text.trim();
-    final inVars = _inVarCtrls.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+    final inVars = _inVarCtrls
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
     final responses = <PersonaResponseOption>[];
     for (int i = 0; i < _respCtrls.length; i++) {
       final t = _respCtrls[i].text.trim();
-      if (t.isNotEmpty) responses.add(PersonaResponseOption(text: t, enabled: _respActives[i], tone: _respTones[i]));
+      if (t.isNotEmpty)
+        responses.add(
+          PersonaResponseOption(
+            text: t,
+            enabled: _respActives[i],
+            tone: _respTones[i],
+          ),
+        );
     }
     if (responses.isEmpty) return;
 
@@ -172,19 +274,24 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
         ? ConversationSemanticClassifier.classify(trigger)
         : _semanticTag;
 
-    Navigator.pop(context, _ExampleResult(
-      scope: _scope,
-      input: trigger.isNotEmpty ? trigger : (inVars.isNotEmpty ? inVars.first : ''),
-      body: responses.first.text,
-      verified: true,
-      enabled: true,
-      isTemplate: widget.isTemplate,
-      title: semantic.label,
-      category: semantic.label,
-      intent: semantic.storageKey,
-      incomingVariants: inVars,
-      variants: responses.map((r) => r.text).toList(),
-      responses: responses,
-    ));
+    Navigator.pop(
+      context,
+      _ExampleResult(
+        scope: _scope,
+        input: trigger.isNotEmpty
+            ? trigger
+            : (inVars.isNotEmpty ? inVars.first : ''),
+        body: responses.first.text,
+        verified: true,
+        enabled: true,
+        isTemplate: widget.isTemplate,
+        title: semantic.label,
+        category: semantic.label,
+        intent: semantic.storageKey,
+        incomingVariants: inVars,
+        variants: responses.map((r) => r.text).toList(),
+        responses: responses,
+      ),
+    );
   }
 }

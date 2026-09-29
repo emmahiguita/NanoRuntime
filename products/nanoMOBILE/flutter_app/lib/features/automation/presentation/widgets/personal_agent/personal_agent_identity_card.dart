@@ -72,7 +72,11 @@ class _PersonalAgentIdentityCardState
         _error = null;
       });
     } catch (_) {
-      if (mounted) setState(() { _loading = false; _error = 'Error al leer perfil.'; });
+      if (mounted)
+        setState(() {
+          _loading = false;
+          _error = 'Error al leer perfil.';
+        });
     }
   }
 
@@ -82,7 +86,9 @@ class _PersonalAgentIdentityCardState
     final notes = _notesController.text.trim();
     if (name.length > 80 || notes.length > 500) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Máximo 80 letras de nombre y 500 de notas.')),
+        const SnackBar(
+          content: Text('Máximo 80 letras de nombre y 500 de notas.'),
+        ),
       );
       return;
     }
@@ -127,7 +133,10 @@ class _PersonalAgentIdentityCardState
               if (_loading) const LinearProgressIndicator(),
               if (_error != null) ...[
                 Text(_error!, style: TextStyle(color: visual.textMuted)),
-                TextButton(onPressed: _loadProfile, child: const Text('Reintentar')),
+                TextButton(
+                  onPressed: _loadProfile,
+                  child: const Text('Reintentar'),
+                ),
               ],
               TextField(
                 controller: _nameController,
@@ -137,7 +146,9 @@ class _PersonalAgentIdentityCardState
                   labelText: 'Tu nombre',
                   hintText: 'Ej. Emmanuel',
                   prefixIcon: const Icon(Icons.person_outline, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   isDense: true,
                 ),
                 style: TextStyle(color: visual.text, fontSize: 14),
@@ -150,8 +161,11 @@ class _PersonalAgentIdentityCardState
                 maxLength: 500,
                 decoration: InputDecoration(
                   labelText: 'Preferencias clave sobre ti',
-                  hintText: 'Ej. Respuestas cordiales, sin rodeos, no citas viernes.',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  hintText:
+                      'Ej. Respuestas cordiales, sin rodeos, no citas viernes.',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   isDense: true,
                 ),
                 style: TextStyle(color: visual.text, fontSize: 14),
@@ -161,10 +175,14 @@ class _PersonalAgentIdentityCardState
                 style: FilledButton.styleFrom(
                   backgroundColor: visual.accent,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                onPressed: _loading || _saving || _error != null ? null : _saveProfile,
+                onPressed: _loading || _saving || _error != null
+                    ? null
+                    : _saveProfile,
                 icon: const Icon(Icons.check_rounded, size: 18),
                 label: Text(
                   _saving ? 'Guardando…' : 'Guardar identidad',

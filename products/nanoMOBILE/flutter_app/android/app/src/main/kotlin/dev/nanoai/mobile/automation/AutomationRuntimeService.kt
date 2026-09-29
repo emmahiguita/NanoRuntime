@@ -72,8 +72,8 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
         // Android 14/15 invariant: startForeground MUST be called before stopSelf
         // whenever the service was started via startForegroundService().
         startInForeground()
-        if (running || NanoApplication.from(this).runtimeScope.hasHolder(RuntimeScope.Holder.UI)) {
-            Log.d(TAG, "onCreate: UI is active or service already running, stopping immediately")
+        if (running || NotificationAutomationBridge.notificationEventsSink != null) {
+            Log.d(TAG, "onCreate: notification consumer is active or service already running, stopping immediately")
             stopSelf()
             return
         }
@@ -318,9 +318,9 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
          * el inbox y el próximo wake la procesa (PENDING_WAKE documentado).
          */
         fun request(context: Context, reason: String = "notification_posted") {
-            val app = context.applicationContext as? NanoApplication ?: NanoApplication.from(context)
-            if (running || app.runtimeScope.hasHolder(RuntimeScope.Holder.UI)) {
-                Log.d(TAG, "Skipping FGS request ($reason): running=$running, uiActive=${app.runtimeScope.hasHolder(RuntimeScope.Holder.UI)}")
+            val sinkActive = NotificationAutomationBridge.notificationEventsSink != null
+            if (running || sinkActive) {
+                Log.d(TAG, "Skipping FGS request ($reason): running=$running, sinkActive=$sinkActive")
                 return
             }
             try {

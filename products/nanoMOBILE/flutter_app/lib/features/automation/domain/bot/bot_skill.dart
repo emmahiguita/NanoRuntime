@@ -1,4 +1,4 @@
-﻿/// BOT-SKILL-03 — Definición de Skills Modulares Instalables por Bot.
+/// BOT-SKILL-03 — Definición de Skills Modulares Instalables por Bot.
 ///
 /// **QUÉ HACE:**
 /// Agrupa conjuntos coherentes de herramientas (tools) bajo una capacidad
@@ -35,13 +35,13 @@ final class BotSkill {
   });
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'name': name,
-        'category': category,
-        'description': description,
-        'toolNames': toolNames,
-        'requiresPrivilege': requiresPrivilege,
-      };
+    'id': id,
+    'name': name,
+    'category': category,
+    'description': description,
+    'toolNames': toolNames,
+    'requiresPrivilege': requiresPrivilege,
+  };
 
   factory BotSkill.fromMap(Map<dynamic, dynamic> map) {
     return BotSkill(
@@ -49,14 +49,17 @@ final class BotSkill {
       name: map['name']?.toString() ?? '',
       category: map['category']?.toString() ?? 'General',
       description: map['description']?.toString() ?? '',
-      toolNames: (map['toolNames'] as List? ?? const []).whereType<String>().toList(),
+      toolNames: (map['toolNames'] as List? ?? const [])
+          .whereType<String>()
+          .toList(),
       requiresPrivilege: map['requiresPrivilege'] == true,
     );
   }
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is BotSkill && runtimeType == other.runtimeType && id == other.id;
+      identical(this, other) ||
+      other is BotSkill && runtimeType == other.runtimeType && id == other.id;
 
   @override
   int get hashCode => id.hashCode;

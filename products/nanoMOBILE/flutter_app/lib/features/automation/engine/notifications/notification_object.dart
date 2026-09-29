@@ -114,7 +114,8 @@ final class NotificationObject {
             ...raw,
             ...m,
             if ((m['sender'] == null || '${m['sender']}'.trim().isEmpty) &&
-                raw['sender'] != null && '${raw['sender']}'.trim().isNotEmpty)
+                raw['sender'] != null &&
+                '${raw['sender']}'.trim().isNotEmpty)
               'sender': raw['sender'],
           }),
     ];
@@ -123,9 +124,12 @@ final class NotificationObject {
   factory NotificationObject.fromMap(Map<dynamic, dynamic> raw) {
     final rawSender = '${raw['sender'] ?? ''}'.trim();
     final rawTitle = '${raw['title'] ?? ''}'.trim();
-    final effectiveSender = rawSender.isNotEmpty ? rawSender : (raw['isGroup'] == true ? '' : rawTitle);
+    final effectiveSender = rawSender.isNotEmpty
+        ? rawSender
+        : (raw['isGroup'] == true ? '' : rawTitle);
     final lowerSender = effectiveSender.toLowerCase();
-    final isExplicitSelf = lowerSender.isNotEmpty &&
+    final isExplicitSelf =
+        lowerSender.isNotEmpty &&
         const {'tú', 'tu', 'you', 'yo', 'me'}.contains(lowerSender);
     return NotificationObject(
       key: '${raw['key'] ?? ''}',
@@ -133,7 +137,9 @@ final class NotificationObject {
       title: rawTitle,
       text: '${raw['text'] ?? ''}',
       messageText: '${raw['messageText'] ?? ''}',
-      messageTimestamp: raw['messageTimestamp'] is num ? (raw['messageTimestamp'] as num).toInt() : 0,
+      messageTimestamp: raw['messageTimestamp'] is num
+          ? (raw['messageTimestamp'] as num).toInt()
+          : 0,
       sender: effectiveSender,
       senderKey: '${raw['senderKey'] ?? ''}',
       senderUri: '${raw['senderUri'] ?? ''}',

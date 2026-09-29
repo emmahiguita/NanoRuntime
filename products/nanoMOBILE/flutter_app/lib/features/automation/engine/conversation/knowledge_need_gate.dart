@@ -52,7 +52,8 @@ final class KnowledgeNeedDecision {
     canAnswerLocally: true,
     allowsWebSearch: false,
     allowsLongFormGeneration: false,
-    rationale: 'Turno social o de reacción: resuelto puramente con cortesía local',
+    rationale:
+        'Turno social o de reacción: resuelto puramente con cortesía local',
   );
 
   /// Decisión canónica para estado o actividad viva del dueño.
@@ -64,7 +65,8 @@ final class KnowledgeNeedDecision {
     canAnswerLocally: true,
     allowsWebSearch: false,
     allowsLongFormGeneration: false,
-    rationale: 'Pregunta de estado vivo o planes del dueño: gobernada por veracidad local',
+    rationale:
+        'Pregunta de estado vivo o planes del dueño: gobernada por veracidad local',
   );
 }
 
@@ -72,11 +74,39 @@ final class KnowledgeNeedGate {
   const KnowledgeNeedGate();
 
   static const _externalKeywords = {
-    'que paso con', 'que paso hoy', 'viste que paso', 'supiste que paso',
-    'sabes algo de', 'noticias de', 'precio del dolar', 'cuanto esta el dolar',
-    'precio de bitcoin', 'como quedo el partido', 'quien gano', 'a que hora juega',
-    'clima en', 'va a llover', 'cuando sale', 'cuando se estrena', 'android 16',
-    'android 17', 'chatgpt', 'deepseek', 'gemini', 'openai',
+    'que paso con',
+    'que paso hoy',
+    'viste que paso',
+    'supiste que paso',
+    'sabes algo de',
+    'noticias de',
+    'precio del dolar',
+    'cuanto esta el dolar',
+    'precio de bitcoin',
+    'como quedo el partido',
+    'quien gano',
+    'a que hora juega',
+    'clima en',
+    'va a llover',
+    'cuando sale',
+    'cuando se estrena',
+    'android 16',
+    'android 17',
+    'chatgpt',
+    'deepseek',
+    'gemini',
+    'openai',
+    'que sabes sobre',
+    'que sabes de',
+    'sabes sobre',
+    'sabes de',
+    'quien fue',
+    'cuentame sobre',
+    'cuentame de',
+    'hablame de',
+    'explicame',
+    'que ocurrio',
+    'que significa',
   };
 
   /// Evalúa rigurosamente los requerimientos de conocimiento para el [text] y [act].
@@ -86,7 +116,9 @@ final class KnowledgeNeedGate {
     String? detectedIntent,
   }) {
     // 1. Invariante P0: Actos puramente sociales o reactivos jamás requieren búsqueda externa.
-    if (act.isPurelySocial || act == DialogueAct.repairRequest || act == DialogueAct.continuation) {
+    if (act.isPurelySocial ||
+        act == DialogueAct.repairRequest ||
+        act == DialogueAct.continuation) {
       return KnowledgeNeedDecision.socialLocal;
     }
 
@@ -98,7 +130,8 @@ final class KnowledgeNeedGate {
     final norm = normalizeText(text);
 
     // 3. Chequeo de intención explícita de conocimiento externo
-    final hasExternalSignal = _externalKeywords.any(norm.contains) ||
+    final hasExternalSignal =
+        _externalKeywords.any(norm.contains) ||
         norm.contains('noticia') ||
         norm.contains('resultado') ||
         norm.contains('quien es') ||
@@ -113,7 +146,8 @@ final class KnowledgeNeedGate {
         canAnswerLocally: false,
         allowsWebSearch: true,
         allowsLongFormGeneration: true,
-        rationale: 'Pregunta factual sobre entidad, evento o actualidad externa',
+        rationale:
+            'Pregunta factual sobre entidad, evento o actualidad externa',
       );
     }
 
@@ -126,7 +160,8 @@ final class KnowledgeNeedGate {
       canAnswerLocally: true,
       allowsWebSearch: false,
       allowsLongFormGeneration: act == DialogueAct.statement,
-      rationale: 'Turno conversacional estándar: atendido con memoria local y estilo',
+      rationale:
+          'Turno conversacional estándar: atendido con memoria local y estilo',
     );
   }
 }

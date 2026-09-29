@@ -29,19 +29,21 @@ class PlanExecutionCoordinator {
       ExecutionJournalEntry? executionIntent,
       RuleExecutionAuthority? authority,
       void Function()? onPhysicalEffectDispatched,
-    }) runToolGuarded,
+    })
+    runToolGuarded,
     required Future<String> Function(
       ToolCall call,
       ToolDefinition tool,
       ToolExecutionBudget budget,
-    ) executeWithTimeout,
+    )
+    executeWithTimeout,
     ExecutionJournal? executionJournal,
-  })  : _policy = policy,
-        _router = router,
-        _executor = executor,
-        _runToolGuarded = runToolGuarded,
-        _executeWithTimeout = executeWithTimeout,
-        _executionJournal = executionJournal;
+  }) : _policy = policy,
+       _router = router,
+       _executor = executor,
+       _runToolGuarded = runToolGuarded,
+       _executeWithTimeout = executeWithTimeout,
+       _executionJournal = executionJournal;
 
   final PolicyEngine _policy;
   final ActionPathRouter _router;
@@ -56,12 +58,14 @@ class PlanExecutionCoordinator {
     ExecutionJournalEntry? executionIntent,
     RuleExecutionAuthority? authority,
     void Function()? onPhysicalEffectDispatched,
-  }) _runToolGuarded;
+  })
+  _runToolGuarded;
   final Future<String> Function(
     ToolCall call,
     ToolDefinition tool,
     ToolExecutionBudget budget,
-  ) _executeWithTimeout;
+  )
+  _executeWithTimeout;
   final ExecutionJournal? _executionJournal;
   Future<void>? _journalRecovery;
 
@@ -80,11 +84,12 @@ class PlanExecutionCoordinator {
   };
 
   static bool requiresGoalDirectedExecution(List<ToolCall> plan) =>
-      plan.where((call) => uiStateSensitiveTools.contains(call.tool)).length > 1;
+      plan.where((call) => uiStateSensitiveTools.contains(call.tool)).length >
+      1;
 
   static String planSignature(List<ToolCall> plan) => canonicalFingerprint(
-        plan.map((call) => call.confirmationSignature).toList(growable: false),
-      );
+    plan.map((call) => call.confirmationSignature).toList(growable: false),
+  );
 
   static int _runSequence = 0;
   static String newRunId() =>
@@ -111,16 +116,14 @@ class PlanExecutionCoordinator {
   static ExecutionJournalStatus journalStatusFor(
     ToolExecutionStatus s, {
     required ExecutionJournalStatus notExecutedAs,
-  }) =>
-      switch (s) {
-        ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
-        ToolExecutionStatus.completedUnverified =>
-          ExecutionJournalStatus.completedUnverified,
-        ToolExecutionStatus.outcomeUnknown =>
-          ExecutionJournalStatus.outcomeUnknown,
-        ToolExecutionStatus.failed => ExecutionJournalStatus.failed,
-        ToolExecutionStatus.notExecuted => notExecutedAs,
-      };
+  }) => switch (s) {
+    ToolExecutionStatus.completed => ExecutionJournalStatus.verified,
+    ToolExecutionStatus.completedUnverified =>
+      ExecutionJournalStatus.completedUnverified,
+    ToolExecutionStatus.outcomeUnknown => ExecutionJournalStatus.outcomeUnknown,
+    ToolExecutionStatus.failed => ExecutionJournalStatus.failed,
+    ToolExecutionStatus.notExecuted => notExecutedAs,
+  };
 
   /// Ejecuta un plan multi-paso garantizando detección de bucles y control de journal.
   Future<PlanOutcome> runPlanGuarded(
@@ -194,8 +197,9 @@ class PlanExecutionCoordinator {
             '[confirmationInvalid] Confirmación válida, expirada, consumida o no pendiente en el journal.',
       );
     }
-    final confirmedStepIndex =
-        validConfirmation ? confirmation!.stepIndex : null;
+    final confirmedStepIndex = validConfirmation
+        ? confirmation!.stepIndex
+        : null;
     final startIndex = confirmedStepIndex ?? 0;
     for (var i = startIndex; i < total; i++) {
       cancellation?.throwIfCancelled();

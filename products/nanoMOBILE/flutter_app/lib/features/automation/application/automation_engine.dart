@@ -43,6 +43,11 @@ class AutomationEngine {
     AutomationOptions? options,
   }) => _coordinator.execute(goal, options: options);
 
+  /// Ejecuta un comando `@` escrito directamente en el módulo Automatización.
+  /// El coordinator conserva el router y las políticas existentes para cada
+  /// herramienta, sin convertir el comando en un objetivo que deba planear el LLM.
+  Future<String> runCommand(String command) => _coordinator.runCommand(command);
+
   /// Cancels only the caller-owned run. Completion remains asynchronous:
   /// tools already dispatched finish, pending cooperative steps are stopped.
   bool cancelExecution(String executionId) =>
