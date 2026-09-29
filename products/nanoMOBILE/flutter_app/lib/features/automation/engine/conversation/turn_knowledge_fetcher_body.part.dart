@@ -206,7 +206,26 @@ final class TurnKnowledgeFetcher {
     }
 
     if (candidates.isEmpty) {
-      debugPrint('[knowledge-router] no compatible read-only MCP AI tool');
+      final catalog = registry.lastTools.values
+          .map((tool) {
+            final properties = tool.inputSchema['properties'];
+            final fields = properties is Map
+                ? properties.keys.whereType<String>().join(',')
+                : '';
+            final requiredFields = tool.inputSchema['required'];
+            final requiredNames = requiredFields is List
+                ? requiredFields.whereType<String>().join(',')
+                : '';
+            return '${tool.qualifiedName} fields=[$fields] '
+                'required=[$requiredNames] readOnly=${tool.annotations.readOnlyHint} '
+                'destructive=${tool.annotations.destructiveHint}';
+          })
+          .join('; ');
+      final servers = registry.servers.map((server) => server.id).join(',');
+      debugPrint(
+        '[knowledge-router] no compatible MCP AI query tool; '
+        'servers=[$servers] tools=[$catalog]',
+      );
       return null;
     }
 
@@ -234,41 +253,54 @@ final class TurnKnowledgeFetcher {
     }
   }
 
-  List<McpRemoteTool> _mcpAssistantCandidates(Iterable<McpRemoteTool> tools) =>
-      tools
-          .where((tool) {
-            if (!tool.annotations.readOnlyHint ||
-                tool.annotations.destructiveHint) {
-              return false;
-            }
-            final words = RegExp(r'[a-z0-9]+', caseSensitive: false)
-                .allMatches('${tool.name} ${tool.description}')
-                .map((match) => match.group(0)!.toLowerCase())
-                .toSet();
-            const aiWords = {
-              'ai',
-              'llm',
-              'model',
-              'assistant',
-              'chat',
-              'ask',
-              'answer',
-              'generate',
-              'generation',
-              'inference',
-              'completion',
-              'deepseek',
-              'chatgpt',
-              'gemini',
-              'claude',
-              'kimi',
-              'glm',
-              'qwen',
-            };
-            return words.intersection(aiWords).isNotEmpty &&
-                _mcpQueryArguments(tool, 'probe') != null;
-          })
-          .toList(growable: false);
+  List<McpRemoteTool> _mcpAssistantCandidates(
+    Iterable<McpRemoteTool> tools,
+  ) => tools
+      .where((tool) {
+        if (tool.annotations.destructiveHint) return false;
+        // MCP chat providers often omit readOnlyHint because submitting a
+        // prompt writes to their hidden chat. Permit only clearly named AI
+        // generation tools with a supported query field; never device tools.
+        final identity = '${tool.serverId} ${tool.name} ${tool.description}'
+            .replaceAllMapped(
+              RegExp(r'([a-z0-9])([A-Z])'),
+              (match) => '${match[1]} ${match[2]}',
+            );
+        final words = RegExp(r'[a-z0-9]+', caseSensitive: false)
+            .allMatches(identity)
+            .map((match) => match.group(0)!.toLowerCase())
+            .toSet();
+        const aiMarkers = {
+          'ai',
+          'llm',
+          'model',
+          'assistant',
+          'deepseek',
+          'chatgpt',
+          'gemini',
+          'claude',
+          'kimi',
+          'glm',
+          'qwen',
+        };
+        const generationMarkers = {
+          'chat',
+          'ask',
+          'answer',
+          'generate',
+          'generation',
+          'inference',
+          'completion',
+          'prompt',
+          'query',
+          'respond',
+          'response',
+        };
+        return words.intersection(aiMarkers).isNotEmpty &&
+            words.intersection(generationMarkers).isNotEmpty &&
+            _mcpQueryArguments(tool, 'probe') != null;
+      })
+      .toList(growable: false);
 
   static String _assistantPrompt(String query) =>
       'Eres el asistente personal de Nano. Responde directamente en español '

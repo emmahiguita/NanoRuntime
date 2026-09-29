@@ -6,16 +6,16 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
-class ApiProviderSettingsSection extends ConsumerStatefulWidget {
-  const ApiProviderSettingsSection({super.key});
+class McpApiProviderSettingsCard extends ConsumerStatefulWidget {
+  const McpApiProviderSettingsCard({super.key});
 
   @override
-  ConsumerState<ApiProviderSettingsSection> createState() =>
-      _ApiProviderSettingsSectionState();
+  ConsumerState<McpApiProviderSettingsCard> createState() =>
+      _McpApiProviderSettingsCardState();
 }
 
-class _ApiProviderSettingsSectionState
-    extends ConsumerState<ApiProviderSettingsSection> {
+class _McpApiProviderSettingsCardState
+    extends ConsumerState<McpApiProviderSettingsCard> {
   final _keyController = TextEditingController();
   final _modelController = TextEditingController();
   final _baseUrlController = TextEditingController();
@@ -258,13 +258,13 @@ class _ApiProviderSettingsSectionState
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Elige una API para el chat o conserva el modelo local. '
-                          'Tus claves se guardan en el almacenamiento seguro del móvil.',
+                          'Elige el proveedor del chat. Tus claves se guardan de forma segura en el móvil.',
                           style: NanoType.caption(colors.onSurfaceVariant),
                         ),
                         const SizedBox(height: NanoSpacing.md),
                         DropdownButtonFormField<ApiProviderKind>(
                           initialValue: _config.provider,
+                          isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Servicio',
                             border: OutlineInputBorder(),
@@ -273,7 +273,11 @@ class _ApiProviderSettingsSectionState
                             for (final provider in ApiProviderKind.values)
                               DropdownMenuItem(
                                 value: provider,
-                                child: Text(provider.label),
+                                child: Text(
+                                  provider.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                           ],
                           onChanged: _busy ? null : _selectProvider,

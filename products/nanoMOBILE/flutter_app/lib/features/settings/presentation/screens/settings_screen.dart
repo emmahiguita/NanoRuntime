@@ -11,7 +11,6 @@ import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/core/widgets/nano_choice_group.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/features/settings/presentation/widgets/device_permissions_section.dart';
-import 'package:nanoai/features/settings/presentation/widgets/api_provider_settings_section.dart';
 import 'package:nanoai/features/settings/presentation/widgets/floating_assistant_section.dart';
 import 'package:nanoai/features/settings/presentation/widgets/account_settings_card.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
@@ -50,8 +49,6 @@ class SettingsScreen extends ConsumerWidget {
             ];
             final secondary = <Widget>[
               _inferenceSection(state, notifier, colors),
-              const SizedBox(height: NanoSpacing.md),
-              const ApiProviderSettingsSection(),
               const SizedBox(height: NanoSpacing.md),
               _voiceSection(state, notifier, colors),
             ];

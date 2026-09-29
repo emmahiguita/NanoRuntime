@@ -6,6 +6,7 @@ import '../../engine/agent_dependencies.dart';
 import '../../engine/mcp/mcp_store_catalog.dart';
 import '../../engine/orchestration/execution_journal.dart';
 import '../automation_visual_theme.dart';
+import '../widgets/mcp/api_provider_settings_card.dart';
 import '../widgets/mcp/mcp_graph_components.dart';
 import '../widgets/mcp/mcp_hot_injection_dialog.dart';
 import '../widgets/mcp/mcp_store_components.dart';
@@ -218,7 +219,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
           ),
           Tab(
             icon: Icon(Icons.extension_outlined, size: 18),
-            text: 'Tienda & Inyección',
+            text: 'MCP & Skills',
           ),
         ],
       ),
@@ -680,6 +681,8 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
+        const McpApiProviderSettingsCard(),
+        const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
             color: visual.cardStart,

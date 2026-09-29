@@ -16,14 +16,14 @@ enum ApiProviderKind {
 
 extension ApiProviderKindDetails on ApiProviderKind {
   String get label => switch (this) {
-    ApiProviderKind.local => 'Nano local (sin API)',
-    ApiProviderKind.openAi => 'OpenAI API (GPT / modelos Codex)',
-    ApiProviderKind.anthropic => 'Anthropic API (Claude)',
-    ApiProviderKind.gemini => 'Google AI API (Gemini)',
-    ApiProviderKind.deepSeek => 'DeepSeek API',
-    ApiProviderKind.groq => 'Groq API',
-    ApiProviderKind.openRouter => 'OpenRouter API',
-    ApiProviderKind.openAiCompatible => 'Otro proveedor compatible',
+    ApiProviderKind.local => 'Nano local',
+    ApiProviderKind.openAi => 'OpenAI / Codex',
+    ApiProviderKind.anthropic => 'Claude / Anthropic',
+    ApiProviderKind.gemini => 'Gemini',
+    ApiProviderKind.deepSeek => 'DeepSeek',
+    ApiProviderKind.groq => 'Groq',
+    ApiProviderKind.openRouter => 'OpenRouter',
+    ApiProviderKind.openAiCompatible => 'Endpoint compatible',
   };
 
   String get defaultModel => switch (this) {
@@ -185,7 +185,7 @@ final class ApiProviderChatService {
     final apiKey = await _store.readApiKey(config.provider);
     if (apiKey == null || apiKey.trim().isEmpty) {
       throw ApiProviderException(
-        'Agrega la clave de ${config.provider.label} en Ajustes > Proveedores de IA.',
+        'Agrega la clave de ${config.provider.label} en MCP & Skills > Tienda e Inyección.',
       );
     }
     if (config.model.trim().isEmpty) {

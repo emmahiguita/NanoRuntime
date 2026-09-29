@@ -114,7 +114,7 @@ class ChatSendUseCase {
       if (apiProviderSelected) {
         if (!apiSettings.hasApiKey) {
           listener.onTurnError(
-            'Agrega la clave de ${apiSettings.provider.label} en Ajustes > Proveedores de IA.',
+            'Agrega la clave de ${apiSettings.provider.label} en MCP & Skills > Tienda e Inyección.',
           );
           return;
         }
