@@ -74,6 +74,14 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
        );
 
   static const _externalKeywords = {
+    'investiga sobre',
+    'investiga acerca de',
+    'averigua sobre',
+    'averigua acerca de',
+    'busca informacion sobre',
+    'busca informacion acerca de',
+    'consulta informacion sobre',
+    'indaga sobre',
     'que paso con',
     'que paso hoy',
     'viste que paso',
@@ -129,6 +137,19 @@ final class RuntimeTurnKnowledgeRouter implements TurnKnowledgeRouter {
         .replaceAll('?', '')
         .trim();
     if (normalized.isEmpty) return false;
+
+    // Una orden explícita de investigación no es una pregunta social aunque el
+    // clasificador de intención la lea como una tarea o afirmación.
+    if (normalized.startsWith('investiga sobre ') ||
+        normalized.startsWith('investiga acerca de ') ||
+        normalized.startsWith('averigua sobre ') ||
+        normalized.startsWith('averigua acerca de ') ||
+        normalized.startsWith('busca informacion sobre ') ||
+        normalized.startsWith('busca informacion acerca de ') ||
+        normalized.startsWith('consulta informacion sobre ') ||
+        normalized.startsWith('indaga sobre ')) {
+      return true;
+    }
 
     final prediction = _intentClassifier.classify(text);
     // Regla crítica: jamás buscar en Internet citas personales, estado de

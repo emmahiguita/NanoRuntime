@@ -19,7 +19,9 @@
 library;
 
 import 'business_facts.dart';
-import 'business_fact_signals.dart';
+import 'business_intent_patterns.dart';
+import 'business_product_matcher.dart';
+import 'business_profile.dart';
 import 'business_text_matcher.dart';
 
 export 'business_text_matcher.dart'
@@ -33,6 +35,7 @@ final class FactSelection {
   final String delivery;
   final String payments;
   final String location;
+  final BusinessProfile profile;
 
   const FactSelection({
     this.businessName = '',
@@ -41,10 +44,13 @@ final class FactSelection {
     this.delivery = '',
     this.payments = '',
     this.location = '',
+    this.profile = const BusinessProfile(),
   });
 
+  // QUÉ HACE: indica si la consulta encontró un dato comercial que pueda responderla.
+  // CÓMO FUNCIONA: el nombre y perfil globales siguen en render(), pero no cuentan como coincidencia.
+  // POR QUÉ: evita enrutar mensajes personales a ventas solo porque el negocio esté configurado.
   bool get isEmpty =>
-      businessName.isEmpty &&
       products.isEmpty &&
       hours.isEmpty &&
       delivery.isEmpty &&
@@ -60,6 +66,7 @@ final class FactSelection {
     delivery: delivery,
     payments: payments,
     location: location,
+    profile: profile,
   );
 }
 
@@ -68,31 +75,32 @@ FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
   final normalized = normalizeText(message);
   final tokens = tokenizeText(normalized);
   if (tokens.isEmpty || facts.isEmpty) return const FactSelection();
-  final signals = detectBusinessFactSignals(normalized, tokens);
+  // Usa el mismo vocabulario que el resolutor para evitar clasificaciones divergentes.
+  final signals = detectBusinessIntentSignals(normalized, tokens);
 
   // 1. Detección de productos específicos primero
   final specificMatches = [
     for (final p in facts.products)
-      if (_productMatches(tokens, p)) p,
+      if (p.isAvailable && matchesBusinessProduct(normalized, tokens, p)) p,
   ];
 
   // 2. Si hay productos específicos que calzan, aislarlos para no saturar con el catálogo entero
   List<BusinessProduct> selectedProducts;
   if (specificMatches.isNotEmpty) {
     selectedProducts = specificMatches;
-  } else if (signals.wantsList) {
+  } else if (signals.isCatalogAsk) {
     // Solo cuando no hay producto específico y la intención es ver opciones generales
-    selectedProducts = facts.products;
+    selectedProducts = facts.products.where((p) => p.isAvailable).toList();
   } else {
     selectedProducts = const [];
   }
 
-  final hours = signals.wantsHours ? facts.hours.trim() : '';
-  final delivery = (signals.wantsDelivery || selectedProducts.isNotEmpty)
+  final hours = signals.isHoursAsk ? facts.hours.trim() : '';
+  final delivery = (signals.isDeliveryAsk || selectedProducts.isNotEmpty)
       ? facts.delivery.trim()
       : '';
-  final payments = signals.wantsPayments ? facts.payments.trim() : '';
-  final location = signals.wantsLocation ? facts.location.trim() : '';
+  final payments = signals.isPaymentAsk ? facts.payments.trim() : '';
+  final location = signals.isLocationAsk ? facts.location.trim() : '';
 
   return FactSelection(
     businessName: facts.businessName.trim(),
@@ -101,32 +109,6 @@ FactSelection selectFactsForMessage(String message, BusinessFacts facts) {
     delivery: delivery,
     payments: payments,
     location: location,
+    profile: facts.profile,
   );
-}
-
-/// Verifica si los tokens del mensaje hacen match con el nombre, categoría, SKU o variante/detalles del producto.
-bool _productMatches(Set<String> messageTokens, BusinessProduct product) {
-  final nameTokens = tokenizeText(normalizeText(product.name));
-  final detailTokens = tokenizeText(normalizeText(product.details));
-  final categoryTokens = product.category != null
-      ? tokenizeText(normalizeText(product.category!))
-      : const <String>{};
-  final skuTokens = product.sku != null
-      ? tokenizeText(normalizeText(product.sku!))
-      : const <String>{};
-  final variantTokens = {
-    for (final v in product.variants) ...tokenizeText(normalizeText(v)),
-  };
-
-  for (final token in messageTokens) {
-    if (!isSpecificBusinessToken(token)) continue;
-    if (nameTokens.contains(token) ||
-        detailTokens.contains(token) ||
-        categoryTokens.contains(token) ||
-        skuTokens.contains(token) ||
-        variantTokens.contains(token)) {
-      return true;
-    }
-  }
-  return false;
 }

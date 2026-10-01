@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../application/automation_coordinator_provider.dart';
 import '../../engine/agent_dependencies.dart';
+import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_key.dart';
 import '../../engine/platform/notification_dismiss_client.dart';
@@ -64,6 +65,27 @@ final class ConversationHubActionController {
           'La memoria se limpió, pero Android no quitó la notificación activa.',
         );
       }
+    }
+    _refresh();
+  }
+
+  /// Transfiere [item] al agente [target] (Personal ↔ Negocios).
+  ///
+  /// La asignación se persiste en SQLite vía [ConversationAssignmentStore].
+  /// El motor la lee EN VIVO al siguiente turno (sin reiniciar): la memoria
+  /// de la conversación no se borra — solo el agente que la atiende cambia.
+  Future<void> transferAgent(
+    ConversationSummaryItem item,
+    ConversationAgentId target,
+  ) async {
+    final keys = messagingConversationKeys(item);
+    final store = _ref.read(conversationAssignmentStoreProvider);
+    for (final conversationId in keys) {
+      await store.transfer(
+        conversationId,
+        target,
+        reason: 'manual-ui',
+      );
     }
     _refresh();
   }

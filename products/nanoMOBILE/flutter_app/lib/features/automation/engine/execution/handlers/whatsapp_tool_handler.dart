@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../business/whatsapp_message_provider.dart';
 import '../../platform/whatsapp_media_share.dart';
 import '../../../application/whatsapp_contacts_provider.dart';
 import '../../planning/contact_matcher.dart';
@@ -19,14 +20,20 @@ import 'whatsapp_contact_resolver.dart';
 class WhatsAppToolHandler {
   final WhatsAppMediaShare _share;
   final WhatsAppContactsService _contacts;
+  late final WhatsAppMessageProvider _messageProvider;
   late final WhatsAppContactResolver _contactResolver;
 
   WhatsAppToolHandler({
     WhatsAppMediaShare share = const WhatsAppMediaShare(),
     WhatsAppContactsService? contacts,
+    WhatsAppMessageProvider? messageProvider,
   }) : _share = share,
        _contacts = contacts ?? _DefaultContactsService() {
     _contactResolver = WhatsAppContactResolver(_contacts);
+    // El proveedor decide por configuración; el default conserva el envío instalado.
+    _messageProvider =
+        messageProvider ??
+        ConfiguredWhatsAppMessageProvider(sendLocally: _sendLocally);
   }
 
   // ── Herramientas públicas ──────────────────────────────────────────────────
@@ -81,21 +88,38 @@ class WhatsAppToolHandler {
     }
 
     final resolved = await _contactResolver.resolve(contactQ);
-    if (resolved == null) {
+    final cloudSelected = await _messageProvider.cloudSelected();
+    final rawPhone = contactQ.replaceAll(RegExp(r'\D'), '');
+    final isDirectPhone =
+        RegExp(r'^[+0-9 ().-]+$').hasMatch(contactQ) &&
+        rawPhone.length >= 8 &&
+        rawPhone.length <= 15;
+    if (resolved == null && cloudSelected && !isDirectPhone) {
+      return '[error] Meta Cloud requiere teléfono internacional con 8 a 15 dígitos.';
+    }
+    if (resolved == null && !cloudSelected) {
       return '[error] No se encontró el contacto "$contactQ" en la agenda del dispositivo.';
     }
 
-    final ok = await _share.openChat(
-      contact: resolved.number,
-      text: text,
-      autoSend: true,
-    );
-    return ok
-        ? '[completedUnverified] Chat abierto para "${resolved.name}" '
-              '(${resolved.number}); el envío automático fue solicitado, pero '
-              'el clic y la entrega no están verificados.'
-        : '[error] No se pudo iniciar el envío a "${resolved.name}".';
+    try {
+      final phone = resolved?.number ?? rawPhone;
+      final name = resolved?.name ?? phone;
+      final receipt = await _messageProvider.send(phone, text);
+      return receipt.cloudMessageId != null
+          ? '[completed] Meta aceptó el mensaje de "$name" '
+                '($phone); ID ${receipt.cloudMessageId}.'
+          : '[completedUnverified] Flujo local abierto para "$name" '
+                '($phone); no se verifica clic ni entrega.';
+    } catch (error) {
+      final recipient = resolved?.name ?? contactQ;
+      return '[error] No se pudo enviar a "$recipient": '
+          '${error.toString().replaceFirst('Exception: ', '')}';
+    }
   }
+
+  /// Conserva el transporte existente, cuya automatización no confirma entrega.
+  Future<bool> _sendLocally(String phone, String text) =>
+      _share.openChat(contact: phone, text: text, autoSend: true);
 
   /// Comparte un archivo (imagen, video, pdf, documento) con un contacto.
   Future<String> shareFile(ToolCall call) async {

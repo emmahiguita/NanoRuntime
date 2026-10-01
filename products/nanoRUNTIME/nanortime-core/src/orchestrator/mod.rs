@@ -7,6 +7,7 @@
 pub mod cloud;
 pub mod cloud_provider;
 pub mod confidence;
+mod llama_chat_format;
 pub mod privacy;
 pub mod router;
 pub mod tool_parser;
@@ -1134,14 +1135,7 @@ impl Orchestrator {
         let user_msg = sanitize_chat_content(&user_parts.join("\n"));
 
         // ── Assemble chat template ──────────────────────────────────
-        // El historial se inyecta como turnos REALES del template (antes
-        // viajaba como texto plano dentro del turno user: los modelos
-        // instruct lo leían como contenido, no como conversación, y el
-        // modelo degradaba a respuestas vacías o genéricas).
-        //
-        // La familia se detecta desde el template GGUF real; el nombre del
-        // archivo queda como fallback para DeepSeek (su chat_template usa
-        // variables Jinja sin los literales de los tokens especiales).
+        // Roles nativos y familia del GGUF; el nombre solo respalda DeepSeek.
         let tpl = self.model_manager.chat_template().await.unwrap_or_default();
         let model_path_lower = self.config.local_model.path.to_lowercase();
         let is_gemma = tpl.contains("start_of_turn");
@@ -1216,8 +1210,13 @@ impl Orchestrator {
                 dynamic_turn,
                 prefix_meta,
             }
+        } else if llama_chat_format::matches(&tpl) {
+            // Llama 3 NO usa ChatML: conserva sistema cacheable y roles reales.
+            let (static_prefix, dynamic_turn) =
+                llama_chat_format::prompt_parts(&system_msg, &history, &user_msg);
+            InstructPromptParts { static_prefix, dynamic_turn, prefix_meta }
         } else {
-            // ChatML (Qwen, Llama-3): system como turno separado = prefix separable.
+            // ChatML (Qwen): sistema separado; Llama tiene su rama específica.
             let static_prefix = if !system_msg.is_empty() {
                 format!("<|im_start|>system\n{system_msg}<|im_end|>\n")
             } else {
@@ -1723,6 +1722,11 @@ fn sanitize_chat_content(content: &str) -> String {
         .replace("<|im_start|>", "< |im_start| >")
         .replace("<|im_end|>", "< |im_end| >")
         .replace("<|eot_id|>", "< |eot_id| >")
+        // El contenido externo tampoco puede abrir cabeceras Llama ni un BOS.
+        .replace("<|start_header_id|>", "< |start_header_id| >")
+        .replace("<|end_header_id|>", "< |end_header_id| >")
+        .replace("<|begin_of_text|>", "< |begin_of_text| >")
+        .replace("<|end_of_text|>", "< |end_of_text| >")
         .replace("<start_of_turn>", "< start_of_turn >")
         .replace("<end_of_turn>", "< end_of_turn >")
         .replace("<｜begin▁of▁sentence｜>", "< |begin_of_sentence| >")

@@ -86,7 +86,7 @@ class BusinessPresetsSheet extends ConsumerWidget {
                           ),
                         ),
                         Text(
-                          'Configura estrategia y tono con 1 toque.',
+                          '10 contratos versionados, editables y sin datos falsos.',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: visual.textMuted,

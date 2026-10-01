@@ -5,6 +5,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'business_facts.dart';
 
+part 'catalog_pdf_product_table.dart';
+
 // catalog_pdf_generator.dart
 //
 // QUÉ HACE:
@@ -24,24 +26,24 @@ class CatalogPdfGenerator {
   /// Genera los bytes del catálogo en PDF.
   static Future<Uint8List> generatePdfBytes({
     required BusinessFacts facts,
-    String businessName = 'Catálogo Oficial de Productos',
+    String? businessName,
     String? whatsappNumber,
   }) async {
     final pdf = pw.Document();
-
+    final title = _resolveTitle(facts, businessName);
     final cleanPhone = (whatsappNumber ?? '').replaceAll(RegExp(r'[^\d]'), '');
-    final waLink = cleanPhone.isNotEmpty
-        ? 'https://wa.me/$cleanPhone?text=Hola,%20vi%20su%20catálogo%20y%20deseo%20comprar'
-        : 'https://wa.me/';
+    final waLink = cleanPhone.isEmpty
+        ? null
+        : 'https://wa.me/$cleanPhone?text=Hola,%20vi%20su%20catálogo%20y%20deseo%20comprar';
 
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
         build: (context) => [
-          _buildHeader(businessName, facts),
+          _buildHeader(title, facts),
           pw.SizedBox(height: 16),
-          _buildProductTable(facts.products),
+          _buildCatalogProductTable(facts.products),
           pw.SizedBox(height: 20),
           _buildFooter(facts, waLink),
         ],
@@ -54,19 +56,17 @@ class CatalogPdfGenerator {
   /// Guarda el catálogo generado en el directorio temporal y retorna la ruta del archivo.
   static Future<File> generateAndSaveFile({
     required BusinessFacts facts,
-    String businessName = 'Catálogo Oficial de Productos',
+    String? businessName,
     String? whatsappNumber,
   }) async {
+    final title = _resolveTitle(facts, businessName);
     final bytes = await generatePdfBytes(
       facts: facts,
-      businessName: businessName,
+      businessName: title,
       whatsappNumber: whatsappNumber,
     );
     final tempDir = await getTemporaryDirectory();
-    final sanitized = businessName.toLowerCase().replaceAll(
-      RegExp(r'[^a-z0-9]'),
-      '_',
-    );
+    final sanitized = title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
     final file = File('${tempDir.path}/${sanitized}_catalogo.pdf');
     await file.writeAsBytes(bytes, flush: true);
     return file;
@@ -125,55 +125,7 @@ class CatalogPdfGenerator {
     );
   }
 
-  static pw.Widget _buildProductTable(List<BusinessProduct> products) {
-    if (products.isEmpty) {
-      return pw.Padding(
-        padding: const pw.EdgeInsets.symmetric(vertical: 30),
-        child: pw.Center(
-          child: pw.Text('No hay productos registrados en el catálogo.'),
-        ),
-      );
-    }
-
-    final headers = ['Ref / SKU', 'Artículo / Descripción', 'Stock', 'Precio'];
-    final data = products.map((p) {
-      final isAvail = p.isAvailable ? '' : ' [PAUSADO]';
-      final stockLabel = p.stock != null
-          ? (p.stock! > 0 ? '${p.stock}' : 'Agotado')
-          : 'Disponible';
-      final cat = p.category != null && p.category!.trim().isNotEmpty
-          ? '[${p.category!.trim()}] '
-          : '';
-      final details = p.details.trim().isNotEmpty
-          ? '\n${p.details.trim()}'
-          : '';
-      final ref = (p.sku != null && p.sku!.trim().isNotEmpty)
-          ? p.sku!.trim()
-          : p.id;
-      return [ref, '$cat${p.name}$isAvail$details', stockLabel, p.priceLabel];
-    }).toList();
-
-    return pw.TableHelper.fromTextArray(
-      headers: headers,
-      data: data,
-      headerStyle: pw.TextStyle(
-        fontWeight: pw.FontWeight.bold,
-        color: PdfColors.white,
-        fontSize: 10,
-      ),
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.teal),
-      cellStyle: const pw.TextStyle(fontSize: 9),
-      cellPadding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      columnWidths: {
-        0: const pw.FixedColumnWidth(80),
-        1: const pw.FlexColumnWidth(2),
-        2: const pw.FixedColumnWidth(70),
-        3: const pw.FixedColumnWidth(90),
-      },
-    );
-  }
-
-  static pw.Widget _buildFooter(BusinessFacts facts, String waLink) {
+  static pw.Widget _buildFooter(BusinessFacts facts, String? waLink) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(12),
       decoration: pw.BoxDecoration(
@@ -207,7 +159,9 @@ class CatalogPdfGenerator {
                   ),
                 pw.SizedBox(height: 4),
                 pw.Text(
-                  'Escanea el código QR o escribe a nuestro WhatsApp para hacer tu pedido.',
+                  waLink == null
+                      ? 'Comparte este catálogo para continuar la compra por tu canal habitual.'
+                      : 'Escanea el código QR para escribir al WhatsApp del negocio.',
                   style: const pw.TextStyle(
                     fontSize: 8,
                     color: PdfColors.grey700,
@@ -216,15 +170,24 @@ class CatalogPdfGenerator {
               ],
             ),
           ),
-          pw.SizedBox(width: 12),
-          pw.BarcodeWidget(
-            barcode: pw.Barcode.qrCode(),
-            data: waLink,
-            width: 55,
-            height: 55,
-          ),
+          if (waLink != null) ...[
+            pw.SizedBox(width: 12),
+            pw.BarcodeWidget(
+              barcode: pw.Barcode.qrCode(),
+              data: waLink,
+              width: 55,
+              height: 55,
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  static String _resolveTitle(BusinessFacts facts, String? requested) {
+    final explicit = requested?.trim() ?? '';
+    if (explicit.isNotEmpty) return explicit;
+    final stored = facts.businessName.trim();
+    return stored.isEmpty ? 'Catálogo Oficial de Productos' : stored;
   }
 }

@@ -1,5 +1,3 @@
-// payment_methods_dialog.dart
-//
 // QUÉ HACE:
 // Diálogo principal con Material Expressive 3 para configurar los métodos de pago comerciales.
 //

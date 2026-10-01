@@ -206,31 +206,13 @@ final class TurnKnowledgeFetcher {
     }
 
     if (candidates.isEmpty) {
-      final catalog = registry.lastTools.values
-          .map((tool) {
-            final properties = tool.inputSchema['properties'];
-            final fields = properties is Map
-                ? properties.keys.whereType<String>().join(',')
-                : '';
-            final requiredFields = tool.inputSchema['required'];
-            final requiredNames = requiredFields is List
-                ? requiredFields.whereType<String>().join(',')
-                : '';
-            return '${tool.qualifiedName} fields=[$fields] '
-                'required=[$requiredNames] readOnly=${tool.annotations.readOnlyHint} '
-                'destructive=${tool.annotations.destructiveHint}';
-          })
-          .join('; ');
-      final servers = registry.servers.map((server) => server.id).join(',');
-      debugPrint(
-        '[knowledge-router] no compatible MCP AI query tool; '
-        'servers=[$servers] tools=[$catalog]',
-      );
+      debugPrint('[knowledge-router] no compatible MCP AI query tool');
       return null;
     }
 
     final tool = candidates.first;
-    final arguments = _mcpQueryArguments(tool, _assistantPrompt(query));
+    final payload = _isAiAssistantTool(tool) ? _assistantPrompt(query) : query;
+    final arguments = _mcpQueryArguments(tool, payload);
     if (arguments == null) return null;
     try {
       final answer = (await caller(
@@ -258,9 +240,7 @@ final class TurnKnowledgeFetcher {
   ) => tools
       .where((tool) {
         if (tool.annotations.destructiveHint) return false;
-        // MCP chat providers often omit readOnlyHint because submitting a
-        // prompt writes to their hidden chat. Permit only clearly named AI
-        // generation tools with a supported query field; never device tools.
+        final isAiGen = _isAiAssistantTool(tool);
         final identity = '${tool.serverId} ${tool.name} ${tool.description}'
             .replaceAllMapped(
               RegExp(r'([a-z0-9])([A-Z])'),
@@ -270,37 +250,69 @@ final class TurnKnowledgeFetcher {
             .allMatches(identity)
             .map((match) => match.group(0)!.toLowerCase())
             .toSet();
-        const aiMarkers = {
-          'ai',
-          'llm',
-          'model',
-          'assistant',
-          'deepseek',
-          'chatgpt',
-          'gemini',
-          'claude',
-          'kimi',
-          'glm',
-          'qwen',
+        const knowledgeMarkers = {
+          'search',
+          'knowledge',
+          'docs',
+          'documentation',
+          'wiki',
+          'info',
+          'information',
+          'faq',
+          'lookup',
+          'retrieve',
+          'retrieval',
+          'rag',
         };
-        const generationMarkers = {
-          'chat',
-          'ask',
-          'answer',
-          'generate',
-          'generation',
-          'inference',
-          'completion',
-          'prompt',
-          'query',
-          'respond',
-          'response',
-        };
-        return words.intersection(aiMarkers).isNotEmpty &&
-            words.intersection(generationMarkers).isNotEmpty &&
+        final isReadOnlyKnowledge =
+            tool.annotations.readOnlyHint &&
+            (words.intersection(knowledgeMarkers).isNotEmpty ||
+                words.contains('search') ||
+                words.contains('query'));
+        return (isAiGen || isReadOnlyKnowledge) &&
             _mcpQueryArguments(tool, 'probe') != null;
       })
       .toList(growable: false);
+
+  static bool _isAiAssistantTool(McpRemoteTool tool) {
+    final identity = '${tool.serverId} ${tool.name} ${tool.description}'
+        .replaceAllMapped(
+          RegExp(r'([a-z0-9])([A-Z])'),
+          (match) => '${match[1]} ${match[2]}',
+        );
+    final words = RegExp(r'[a-z0-9]+', caseSensitive: false)
+        .allMatches(identity)
+        .map((match) => match.group(0)!.toLowerCase())
+        .toSet();
+    const aiMarkers = {
+      'ai',
+      'llm',
+      'model',
+      'assistant',
+      'deepseek',
+      'chatgpt',
+      'gemini',
+      'claude',
+      'kimi',
+      'glm',
+      'qwen',
+    };
+    const generationMarkers = {
+      'chat',
+      'ask',
+      'answer',
+      'generate',
+      'generation',
+      'inference',
+      'completion',
+      'prompt',
+      'query',
+      'respond',
+      'response',
+    };
+    return words.intersection(aiMarkers).isNotEmpty &&
+        words.intersection(generationMarkers).isNotEmpty;
+  }
 
   static String _assistantPrompt(String query) =>
       'Eres el asistente personal de Nano. Responde directamente en español '
@@ -351,6 +363,13 @@ final class TurnKnowledgeFetcher {
         .replaceAll('ú', 'u');
     query = query.replaceFirst(
       RegExp(
+        r'^(?:investiga|investigar|averigua|averiguar|busca|consulta|indaga)\s+(?:informacion\s+)?(?:acerca de|sobre|de)\s+',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    query = query.replaceFirst(
+      RegExp(
         r'^(?:que sabes|sabes)\s+(?:acerca de|sobre|de)\s+',
         caseSensitive: false,
       ),
@@ -365,6 +384,11 @@ final class TurnKnowledgeFetcher {
     );
     query = query.replaceFirst(
       RegExp(r'^explicame\s+', caseSensitive: false),
+      '',
+    );
+    query = query.replaceFirst(RegExp(r'^(?:el|la|los|las)\s+'), '');
+    query = query.replaceFirst(
+      RegExp(r'^pais\s+(?!vasco\b)', caseSensitive: false),
       '',
     );
     return query.replaceAll(RegExp(r'^[¿?\s]+|[?!.\s]+$'), '').trim();
@@ -402,6 +426,7 @@ final class TurnKnowledgeFetcher {
       'me',
       'mi',
       'mis',
+      'pais',
       'por',
       'que',
       'quien',
@@ -488,9 +513,7 @@ final class TurnKnowledgeFetcher {
 }
 
 Map<String, Object?>? _mcpQueryArguments(McpRemoteTool tool, String query) {
-  if (!tool.annotations.readOnlyHint || tool.annotations.destructiveHint) {
-    return null;
-  }
+  if (tool.annotations.destructiveHint) return null;
 
   final properties = tool.inputSchema['properties'];
   if (properties is! Map) return null;
@@ -500,10 +523,16 @@ Map<String, Object?>? _mcpQueryArguments(McpRemoteTool tool, String query) {
     'prompt',
     'question',
     'search_query',
+    'user_query',
+    'user_prompt',
+    'prompt_text',
     'q',
     'text',
     'input',
     'message',
+    'user_message',
+    'content',
+    'instruction',
   };
   final arguments = <String, Object?>{};
   for (final entry in properties.entries) {

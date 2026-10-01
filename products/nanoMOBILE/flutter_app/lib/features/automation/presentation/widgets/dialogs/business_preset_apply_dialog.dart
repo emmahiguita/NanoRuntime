@@ -1,12 +1,13 @@
 // business_preset_apply_dialog.dart
 //
-// QUÉ HACE: confirma y aplica únicamente el tono de una plantilla comercial.
-// CÓMO: guarda el perfil elegido mediante Riverpod y mantiene intactos los
+// QUÉ HACE: confirma y aplica el contrato y tono de una plantilla comercial.
+// CÓMO: guarda el perfil versionado mediante Riverpod y mantiene intactos los
 // productos, horarios, pagos, ubicación y entregas configurados por el dueño.
 // POR QUÉ: una plantilla visual nunca debe introducir datos comerciales falsos.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
 import 'package:nanoai/features/automation/engine/business/business_presets.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
@@ -50,8 +51,11 @@ Future<void> applyBusinessPreset({
             ),
             const SizedBox(height: 8),
             Text(
-              'Solo configura un estilo editable. No reemplaza ni inventa '
-              'productos, horarios, pagos, ubicación o entregas.',
+              '${preset.profile.intents.length} intenciones, '
+              '${preset.profile.tools.length} herramientas declaradas y '
+              '${preset.profile.dialogues.length} flujo(s) editables.\n\n'
+              'No reemplaza ni inventa productos, horarios, pagos, '
+              'ubicación o entregas.',
               style: TextStyle(fontSize: 11, color: visual.textMuted),
             ),
           ],
@@ -75,16 +79,28 @@ Future<void> applyBusinessPreset({
   );
 
   if (confirmed != true || !context.mounted) return;
+  final navigator = Navigator.of(context);
+  final messenger = ScaffoldMessenger.of(context);
+  final stored = await ref
+      .read(businessFactsNotifierProvider.notifier)
+      .setProfile(preset.profile);
+  if (!context.mounted) return;
+  if (!stored) {
+    messenger.showSnackBar(
+      const SnackBar(content: Text('No fue posible guardar la plantilla.')),
+    );
+    return;
+  }
   await ref
       .read(businessToneProfileNotifierProvider.notifier)
       .update(preset.tone);
   if (!context.mounted) return;
 
-  Navigator.of(context).pop();
-  ScaffoldMessenger.of(context).showSnackBar(
+  navigator.pop();
+  messenger.showSnackBar(
     SnackBar(
       content: Text(
-        'Estilo "${preset.title}" aplicado. Completa tus datos reales en '
+        'Plantilla "${preset.title}" aplicada. Completa tus datos reales en '
         'Negocio, Productos y Pagos.',
       ),
       behavior: SnackBarBehavior.floating,

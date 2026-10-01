@@ -176,6 +176,15 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
                     else -> result.notImplemented()
                 }
             }
+        // FIX-3: device_metrics faltaba en el engine headless. El runtime
+        // lo llama durante cold-start para telemetría RAM/CPU. Sin registro
+        // lanzaba MissingPluginException y el modelo nunca reportaba métricas.
+        MethodChannel(messenger, dev.nanoai.mobile.channels.DeviceMetricsChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(
+                dev.nanoai.mobile.channels.DeviceMetricsChannelHandler(
+                    dev.nanoai.mobile.DeviceMetricsProvider(this),
+                ),
+            )
         MethodChannel(messenger, HEADLESS_CHANNEL).setMethodCallHandler(this)
     }
 

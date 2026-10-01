@@ -3,6 +3,8 @@ project("nanoshell")
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # JNI headers from NDK toolchain (NOT find_package(JNI) — that requires
 # a desktop JDK which is irrelevant for Android cross-compilation).
@@ -19,6 +21,10 @@ add_library(nanoshell SHARED
     pty_session_registry.c
     pty_jni.c
     worker_jni.c
+    # Registro de ownership/recolector separado del puente JNI (<200 líneas).
+    worker_daemon_registry.c
+    worker_daemons_jni.c
+    data_stats_jni.cpp
 )
 find_library(libdl dl)
 find_library(liblog log)

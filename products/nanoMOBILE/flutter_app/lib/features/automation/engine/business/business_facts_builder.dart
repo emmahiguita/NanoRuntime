@@ -16,6 +16,7 @@
 library;
 
 import 'business_product.dart';
+import 'business_profile.dart';
 
 /// Ensambla el bloque canónico <DATOS DEL NEGOCIO> para el modelo de lenguaje local.
 String buildBusinessBlock({
@@ -25,6 +26,7 @@ String buildBusinessBlock({
   String businessName = '',
   String payments = '',
   String location = '',
+  BusinessProfile profile = const BusinessProfile(),
 }) {
   final cleanName = businessName.trim();
   final cleanHours = hours.trim();
@@ -37,7 +39,8 @@ String buildBusinessBlock({
       cleanHours.isEmpty &&
       cleanDelivery.isEmpty &&
       cleanPayments.isEmpty &&
-      cleanLocation.isEmpty) {
+      cleanLocation.isEmpty &&
+      !profile.isConfigured) {
     return '';
   }
 
@@ -61,6 +64,30 @@ String buildBusinessBlock({
   }
   if (cleanLocation.isNotEmpty) {
     buffer.writeln('Ubicación: $cleanLocation');
+  }
+  if (profile.isConfigured) {
+    buffer
+      ..writeln('Perfil: ${profile.templateId} — ${profile.sector}')
+      ..writeln('Intenciones permitidas: ${profile.intents.join(', ')}');
+    if (profile.blockedAutomation.isNotEmpty) {
+      buffer.writeln(
+        'Automatización bloqueada: ${profile.blockedAutomation.join(', ')}',
+      );
+    }
+    if (profile.faq.isNotEmpty) {
+      buffer.writeln('FAQ verificadas:');
+      for (final item in profile.faq) {
+        buffer.writeln(
+          '- ${item.questionPatterns.join(' / ')} => ${item.answer}',
+        );
+      }
+    }
+    if (profile.tools.isNotEmpty) {
+      buffer.writeln(
+        'Herramientas declaradas (usar solo si ToolRouter las ofrece): '
+        '${profile.tools.join(', ')}',
+      );
+    }
   }
   buffer.write('</DATOS DEL NEGOCIO>');
   return buffer.toString();

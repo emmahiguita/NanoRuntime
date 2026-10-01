@@ -122,4 +122,7 @@ object NanoshellBridge {
      * -1 en caso de error.
      */
     @JvmStatic external fun workerKillTask(taskId: String): Int
+
+    /** Estadísticas [count,sum,min,max,mean,stddev] calculadas en C++ nativo. */
+    @JvmStatic external fun dataStatistics(values: DoubleArray): DoubleArray
 }

@@ -179,8 +179,10 @@ class InstalledAppCandidateProvider implements CandidateProvider {
     AppMatchKind.exactLabel => 1.0,
     AppMatchKind.exactPackage => 1.0,
     AppMatchKind.qualifiedLabel => 0.9,
+    AppMatchKind.alias => 0.85,
     AppMatchKind.prefixLabel => 0.8,
     AppMatchKind.token => 0.7,
+    AppMatchKind.fuzzy => 0.65,
   };
 
   String? _appQuery(String goal) {

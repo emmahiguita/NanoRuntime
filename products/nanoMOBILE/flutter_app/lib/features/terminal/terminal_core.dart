@@ -313,6 +313,10 @@ class NanoTerminalState extends State<NanoTerminal> {
     } catch (e) {
       _out('[init] inicio parcial ($e)', Ln.warn);
     }
+
+    // QUÉ: detiene la inicialización si la pestaña se cerró durante initAll.
+    // POR QUÉ: evita crear managers o ejecutar el comando inicial tras dispose.
+    if (!_alive || !mounted) return;
     _dispatcher = CommandDispatcher(
       shell: _shell,
       ctx: _ctx,
@@ -397,6 +401,9 @@ class NanoTerminalState extends State<NanoTerminal> {
     if (_docker != null) {
       _out('[docker] runtime listo', Ln.system);
     }
+
+    // checkInstalled también es asíncrono; vuelve a comprobar el ciclo de vida.
+    if (!_alive || !mounted) return;
     // Comando inicial inyectado desde la UI (card Kali del dashboard):
     // dispatcher ya construido, se ejecuta una sola vez.
     if (widget.initialCommand != null && !_initialCmdDone) {

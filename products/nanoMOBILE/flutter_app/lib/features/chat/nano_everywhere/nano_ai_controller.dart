@@ -21,6 +21,11 @@ class NanoAiController extends ChangeNotifier {
     required this.actions,
     NanoMediaDetector? mediaDetector,
     NanoMediaDownloader? mediaDownloader,
+    // QUÉ: Callback que el widget conecta al sheet de login.
+    // POR QUÉ: SRP — el controller no importa Flutter UI ni BuildContext.
+    //          Notifica al widget cuándo se requiere acción, con el providerId
+    //          sugerido. El widget puede abrir el sheet, un dialog, etc.
+    this.onLoginRequired,
   }) : _mediaDetector = mediaDetector ?? const NanoMediaDetector(),
        _mediaDownloader = mediaDownloader ?? NanoMediaDownloader();
 
@@ -29,6 +34,11 @@ class NanoAiController extends ChangeNotifier {
   final NanoActionPort actions;
   final NanoMediaDetector _mediaDetector;
   final NanoMediaDownloader _mediaDownloader;
+
+  /// Callback opcional: invocado cuando la gateway necesita login del usuario.
+  /// Recibe el [providerId] sugerido (el que falló). El widget debe mostrar UI.
+  /// Devuelve Future<bool>: true = usuario confirmó login, false = canceló.
+  final Future<bool> Function(String providerId)? onLoginRequired;
 
   NanoActivity activity = NanoActivity.idle;
   NanoMode mode = NanoMode.quick;

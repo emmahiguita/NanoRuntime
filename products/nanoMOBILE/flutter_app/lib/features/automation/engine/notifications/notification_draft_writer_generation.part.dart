@@ -6,8 +6,9 @@ part of 'notification_draft_writer.dart';
 Future<String?> _generateDraftReply(
   RuntimeNotificationDraftWriter writer,
   _PreparedDraftPrompt prepared,
-  bool localReady,
-) async {
+  bool localReady, {
+  Future<void> Function(String response)? onCloudResponse,
+}) async {
   final hasCloudPort =
       writer._cloudInferencePort != null &&
       writer._cloudInferencePort.isConfigured;
@@ -18,10 +19,13 @@ Future<String?> _generateDraftReply(
     cloudRaw = await writer._cloudInferencePort.generate(
       prompt: prepared.prompt,
       temperature: 0.3,
-      maxTokens: prepared.isSocial ? 128 : 320,
+      maxTokens: prepared.maxTokens,
     );
   }
-  if (cloudRaw != null && cloudRaw.trim().isNotEmpty) return cloudRaw;
+  if (cloudRaw != null && cloudRaw.trim().isNotEmpty) {
+    await onCloudResponse?.call(cloudRaw);
+    return cloudRaw;
+  }
   if (!localReady) {
     localReady = await writer
         ._ensureReady(writer._modelPath())
@@ -36,12 +40,14 @@ Future<String?> _generateDraftReply(
     writer._client,
     prompt: prepared.prompt,
     temperature: 0.3,
-    maxTokens: prepared.isSocial ? 128 : 320,
+    maxTokens: prepared.maxTokens,
     sessionId: prepared.sessionId,
-    context: prepared.persona.isNotEmpty ? prepared.persona : null,
-    history: null,
+    // Una sola copia del sistema; el texto variable viaja aparte para reutilizar KV.
+    context: prepared.systemContext.isNotEmpty ? prepared.systemContext : null,
+    history: prepared.history,
     // El runtime compartido conserva su timeout amplio para Chat/Terminal;
-    // WhatsApp debe ceder pronto al fallback MCP si la inferencia se atasca.
-    requestTimeout: const Duration(seconds: 30),
+    // WhatsApp debe ceder con un margen realista de 180s en dispositivos móviles
+    // durante carga/inferencia del modelo local.
+    requestTimeout: const Duration(seconds: 180),
   );
 }

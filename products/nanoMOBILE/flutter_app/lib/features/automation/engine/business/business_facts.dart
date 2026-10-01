@@ -18,7 +18,9 @@ import 'dart:convert';
 
 import '../storage/automation_db_store_client.dart';
 import 'business_facts_builder.dart';
+import 'business_profile.dart';
 import 'business_product.dart';
+import 'business_response_templates.dart';
 
 export 'business_facts_builder.dart';
 export 'business_product.dart';
@@ -31,6 +33,9 @@ final class BusinessFacts {
   final String delivery;
   final String payments;
   final String location;
+  final BusinessProfile profile;
+  // Las personalizaciones viven junto al negocio y migran con su JSON existente.
+  final BusinessResponseTemplates responseTemplates;
 
   const BusinessFacts({
     this.businessName = '',
@@ -39,6 +44,8 @@ final class BusinessFacts {
     this.delivery = '',
     this.payments = '',
     this.location = '',
+    this.profile = const BusinessProfile(),
+    this.responseTemplates = const BusinessResponseTemplates(),
   });
 
   bool get isEmpty =>
@@ -47,7 +54,9 @@ final class BusinessFacts {
       hours.trim().isEmpty &&
       delivery.trim().isEmpty &&
       payments.trim().isEmpty &&
-      location.trim().isEmpty;
+      location.trim().isEmpty &&
+      !profile.isConfigured &&
+      responseTemplates.phrases.isEmpty;
 
   factory BusinessFacts.fromJson(Map<String, dynamic> json) => BusinessFacts(
     businessName: (json['businessName'] as String?) ?? '',
@@ -59,6 +68,14 @@ final class BusinessFacts {
     delivery: (json['delivery'] as String?) ?? '',
     payments: (json['payments'] as String?) ?? '',
     location: (json['location'] as String?) ?? '',
+    profile: json['profile'] is Map
+        ? BusinessProfile.fromJson(
+            (json['profile'] as Map).cast<String, dynamic>(),
+          )
+        : const BusinessProfile(),
+    responseTemplates: BusinessResponseTemplates.fromJson(
+      json['responseTemplates'],
+    ),
   );
 
   Map<String, Object?> toJson() => {
@@ -68,6 +85,8 @@ final class BusinessFacts {
     'delivery': delivery,
     'payments': payments,
     'location': location,
+    'profile': profile.toJson(),
+    'responseTemplates': responseTemplates.toJson(),
   };
 
   /// Bloque autorizado para el prompt (todo el catálogo). Vacío → ''.
@@ -78,6 +97,7 @@ final class BusinessFacts {
     delivery: delivery,
     payments: payments,
     location: location,
+    profile: profile,
   );
 
   /// Copia segura para que una edición no elimine otros hechos configurados.
@@ -88,6 +108,8 @@ final class BusinessFacts {
     String? delivery,
     String? payments,
     String? location,
+    BusinessProfile? profile,
+    BusinessResponseTemplates? responseTemplates,
   }) => BusinessFacts(
     businessName: businessName ?? this.businessName,
     products: products ?? this.products,
@@ -95,6 +117,8 @@ final class BusinessFacts {
     delivery: delivery ?? this.delivery,
     payments: payments ?? this.payments,
     location: location ?? this.location,
+    profile: profile ?? this.profile,
+    responseTemplates: responseTemplates ?? this.responseTemplates,
   );
 }
 

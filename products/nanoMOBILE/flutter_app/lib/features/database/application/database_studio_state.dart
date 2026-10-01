@@ -24,6 +24,7 @@ class DatabaseStudioState {
   final String? errorMessage;
   final String? statusMessage;
   final bool isShellConnected;
+  final String? databasePath;
 
   const DatabaseStudioState({
     required this.tables,
@@ -35,10 +36,25 @@ class DatabaseStudioState {
     this.errorMessage,
     this.statusMessage,
     this.isShellConnected = true,
+    this.databasePath,
   });
 
   DataTable? get currentTable => tables[selectedTableName];
   DataTable? get activeDisplayTable => queryResult?.table ?? currentTable;
+  String get selectedTableSql => databasePath == null
+      ? selectedTableName
+      : '"${selectedTableName.replaceAll('"', '""')}"';
+
+  DatabaseStudioState withImportedTable(DataTable table, String message) =>
+      copyWith(
+        tables: {table.name: table},
+        selectedTableName: table.name,
+        currentQuery: 'SELECT * FROM ${table.name} LIMIT 50;',
+        isLoading: false,
+        statusMessage: '$message · ${table.rowCount} filas',
+        clearDatabasePath: true,
+        clearError: true,
+      );
 
   DatabaseStudioState copyWith({
     Map<String, DataTable>? tables,
@@ -50,17 +66,24 @@ class DatabaseStudioState {
     String? errorMessage,
     String? statusMessage,
     bool? isShellConnected,
+    String? databasePath,
+    bool clearDatabasePath = false,
+    bool clearError = false,
+    bool clearQueryResult = false,
   }) {
     return DatabaseStudioState(
       tables: tables ?? this.tables,
       selectedTableName: selectedTableName ?? this.selectedTableName,
-      queryResult: queryResult ?? this.queryResult,
+      queryResult: clearQueryResult ? null : queryResult ?? this.queryResult,
       currentQuery: currentQuery ?? this.currentQuery,
       queryHistory: queryHistory ?? this.queryHistory,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       statusMessage: statusMessage,
       isShellConnected: isShellConnected ?? this.isShellConnected,
+      databasePath: clearDatabasePath
+          ? null
+          : databasePath ?? this.databasePath,
     );
   }
 }

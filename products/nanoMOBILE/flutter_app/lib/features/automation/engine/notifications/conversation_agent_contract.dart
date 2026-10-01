@@ -4,11 +4,23 @@ library;
 
 import '../messaging/conversation_agent.dart';
 
-String conversationAgentContract(ConversationAgentId agentId) =>
-    switch (agentId) {
-      ConversationAgentId.personal => _personalContract,
-      ConversationAgentId.business => _businessContract,
-    };
+// El contrato compacto conserva privacidad y transferencia con menos prefill.
+String conversationAgentContract(
+  ConversationAgentId agentId, {
+  bool compact = false,
+}) => switch (agentId) {
+  ConversationAgentId.personal =>
+    compact ? _compactPersonalContract : _personalContract,
+  ConversationAgentId.business => _businessContract,
+};
+
+const _compactPersonalContract = '''
+Agente Personal: conversa como el dueño con su perfil, memoria y estilo.
+Protege su privacidad; no uses datos ni memoria del agente Negocios.
+Un saludo o mención casual no inicia ventas. Las solicitudes comerciales
+requieren transferir a Negocios: requiresAction=true y
+missingFacts=["transferencia a Negocios"], sin copiar historial privado.
+No inventes actividad, ubicación, compromisos ni operaciones del dueño.''';
 
 const _personalContract = '''
 <CONTRATO DEL AGENTE PERSONAL>

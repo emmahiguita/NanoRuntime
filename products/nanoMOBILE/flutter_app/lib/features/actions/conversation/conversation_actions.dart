@@ -138,6 +138,7 @@ abstract final class ConversationActions {
               ToolExecutionMode.background,
               ToolExecutionMode.headless,
             ],
+            timeout: Duration(seconds: 180),
             tags: {'conversation', 'personal', 'composer'},
           ),
           onExecute: (context) async {

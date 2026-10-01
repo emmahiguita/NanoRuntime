@@ -6,10 +6,13 @@ import '../../engine/connectors/business_data_connector_service.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/dialogs/dialog_container_shell.dart';
 
+part 'business_import_wizard_content.dart';
+part 'business_import_wizard_fields.dart';
+
 // business_import_wizard_dialog.dart
 //
 // QUÉ HACE:
-// Asistente visual en 3 pasos para mapeo, validación estricta y activación
+// Asistente visual en 2 pasos para mapeo, validación estricta y activación
 // de productos importados desde fuentes empresariales.
 //
 // CÓMO FUNCIONA:
@@ -62,245 +65,27 @@ class _BusinessImportWizardDialogState
   Future<void> _commit() async {
     if (_report == null || !_report!.hasValidData) return;
     setState(() => _saving = true);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.maybeOf(context);
     final service = ref.read(businessDataConnectorServiceProvider);
     final ok = await service.commitImport(
       report: _report!,
       replaceExisting: _replaceExisting,
     );
-    if (mounted) {
-      setState(() => _saving = false);
-      if (ok) {
-        Navigator.of(context).pop(true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '¡Se importaron ${_report!.validCount} productos con éxito!',
-            ),
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (ok) {
+      navigator.pop(true);
+      messenger?.showSnackBar(
+        SnackBar(
+          content: Text(
+            '¡Se importaron ${_report!.validCount} productos con éxito!',
           ),
-        );
-      }
+        ),
+      );
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    final columns = widget.table.columns;
-
-    return DialogContainerShell(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.auto_fix_high_rounded,
-                  color: visual.accent,
-                  size: 22,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _currentStep == 0
-                        ? 'Paso 1 de 2: Asignar Columnas'
-                        : 'Paso 2 de 2: Validar e Importar',
-                    style: TextStyle(
-                      color: visual.text,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (_currentStep == 0) ...[
-              _buildDropdown(
-                'Nombre / Artículo *',
-                _mapping.nameColumn,
-                columns,
-                (v) =>
-                    setState(() => _mapping = _mapping.copyWith(nameColumn: v)),
-              ),
-              _buildDropdown(
-                'Precio / Valor *',
-                _mapping.priceColumn,
-                columns,
-                (v) => setState(
-                  () => _mapping = _mapping.copyWith(priceColumn: v),
-                ),
-              ),
-              _buildDropdown(
-                'Existencias / Stock',
-                _mapping.stockColumn,
-                columns,
-                (v) => setState(
-                  () => _mapping = _mapping.copyWith(stockColumn: v),
-                ),
-              ),
-              _buildDropdown(
-                'Categoría (opcional)',
-                _mapping.categoryColumn,
-                columns,
-                (v) => setState(
-                  () => _mapping = _mapping.copyWith(categoryColumn: v),
-                ),
-              ),
-              _buildDropdown(
-                'Código / Referencia (opcional)',
-                _mapping.skuColumn,
-                columns,
-                (v) =>
-                    setState(() => _mapping = _mapping.copyWith(skuColumn: v)),
-              ),
-              _buildDropdown(
-                'Descripción / Detalles (opcional)',
-                _mapping.detailsColumn,
-                columns,
-                (v) => setState(
-                  () => _mapping = _mapping.copyWith(detailsColumn: v),
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: _mapping.isValid ? _runValidation : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: visual.accent,
-                  foregroundColor: Colors.black,
-                ),
-                child: const Text('Continuar a Validación'),
-              ),
-            ] else if (_report != null) ...[
-              _buildMetricCard(visual),
-              const SizedBox(height: 10),
-              SwitchListTile(
-                value: _replaceExisting,
-                onChanged: (v) => setState(() => _replaceExisting = v),
-                title: const Text(
-                  'Reemplazar catálogo completo',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-                subtitle: const Text(
-                  'Si está inactivo, fusionará con tus productos actuales respetando ediciones manuales',
-                  style: TextStyle(fontSize: 11),
-                ),
-                contentPadding: EdgeInsets.zero,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => setState(() => _currentStep = 0),
-                      child: const Text('Atrás'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _report!.hasValidData && !_saving
-                          ? _commit
-                          : null,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: visual.accent,
-                        foregroundColor: Colors.black,
-                      ),
-                      child: _saving
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Guardar y Activar'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDropdown(
-    String label,
-    String? current,
-    List<String> items,
-    ValueChanged<String?> onChanged,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: DropdownButtonFormField<String>(
-        initialValue: items.contains(current) ? current : null,
-        items: [
-          const DropdownMenuItem(
-            value: null,
-            child: Text('(Ninguno)', style: TextStyle(fontSize: 12)),
-          ),
-          ...items.map(
-            (col) => DropdownMenuItem(
-              value: col,
-              child: Text(col, style: const TextStyle(fontSize: 12)),
-            ),
-          ),
-        ],
-        onChanged: onChanged,
-        decoration: InputDecoration(
-          labelText: label,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 8,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMetricCard(AutomationVisualPalette visual) {
-    final r = _report!;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: visual.accentSoft,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Resumen de Validación:',
-            style: TextStyle(
-              color: visual.text,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '• Productos válidos para importar: ${r.validCount} de ${r.totalRows}',
-            style: const TextStyle(fontSize: 12),
-          ),
-          if (r.duplicateCount > 0)
-            Text(
-              '• Duplicados omitidos: ${r.duplicateCount}',
-              style: const TextStyle(fontSize: 12, color: Colors.amber),
-            ),
-          if (r.invalidCount > 0)
-            Text(
-              '• Filas con precio/nombre inválido: ${r.invalidCount}',
-              style: const TextStyle(fontSize: 12, color: Colors.orangeAccent),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _buildContent(context);
 }

@@ -8,6 +8,13 @@ library;
 
 import 'package:flutter/material.dart' show IconData, Icons;
 import '../messaging/tone_profile.dart';
+import 'business_dialogue.dart';
+import 'business_profile.dart';
+import 'business_rule.dart';
+
+part 'business_presets_catalog_a.dart';
+part 'business_presets_catalog_b.dart';
+part 'business_presets_catalog_c.dart';
 
 final class BusinessPreset {
   final String id;
@@ -15,6 +22,7 @@ final class BusinessPreset {
   final String description;
   final IconData icon;
   final ToneProfile tone;
+  final BusinessProfile profile;
 
   const BusinessPreset({
     required this.id,
@@ -22,94 +30,21 @@ final class BusinessPreset {
     required this.description,
     required this.icon,
     required this.tone,
+    required this.profile,
   });
 }
 
 abstract final class BusinessPresetsCatalog {
   static const presets = <BusinessPreset>[
-    BusinessPreset(
-      id: 'retail',
-      title: 'Tienda de Ropa / Comercio',
-      description:
-          'Estrategia comercial persuasiva, respuestas ágiles con emojis y enfoque en catálogo.',
-      icon: Icons.shopping_bag_outlined,
-      tone: ToneProfile(
-        enabled: true,
-        sales: ToneSales.persuasivo,
-        warmth: ToneWarmth.cercano,
-        emojis: true,
-        verbosity: ToneVerbosity.breve,
-      ),
-    ),
-    BusinessPreset(
-      id: 'restaurant',
-      title: 'Restaurante / Cafetería',
-      description:
-          'Atención cercana y persuasiva, agilidad en consultas de menú y domicilios.',
-      icon: Icons.restaurant_outlined,
-      tone: ToneProfile(
-        enabled: true,
-        sales: ToneSales.persuasivo,
-        warmth: ToneWarmth.cercano,
-        emojis: true,
-        verbosity: ToneVerbosity.media,
-      ),
-    ),
-    BusinessPreset(
-      id: 'services',
-      title: 'Servicios / Freelance',
-      description:
-          'Enfoque claro e informativo sin presión, asesoría profesional y directa.',
-      icon: Icons.work_outline_rounded,
-      tone: ToneProfile(
-        enabled: true,
-        sales: ToneSales.natural,
-        warmth: ToneWarmth.cercano,
-        emojis: false,
-        verbosity: ToneVerbosity.media,
-      ),
-    ),
-    BusinessPreset(
-      id: 'clinic',
-      title: 'Consultorio / Salud',
-      description:
-          'Trato formal y respetuoso de usted, sobrio sin emojis, enfocado en citas.',
-      icon: Icons.local_hospital_outlined,
-      tone: ToneProfile(
-        enabled: true,
-        sales: ToneSales.natural,
-        warmth: ToneWarmth.formal,
-        emojis: false,
-        verbosity: ToneVerbosity.media,
-      ),
-    ),
-    BusinessPreset(
-      id: 'courses',
-      title: 'Cursos / Academia',
-      description:
-          'Tono cercano e inspirador con enfoque persuasivo en inscripciones y programas.',
-      icon: Icons.school_outlined,
-      tone: ToneProfile(
-        enabled: true,
-        sales: ToneSales.persuasivo,
-        warmth: ToneWarmth.cercano,
-        emojis: true,
-        verbosity: ToneVerbosity.media,
-      ),
-    ),
-    BusinessPreset(
-      id: 'general',
-      title: 'Otro tipo de negocio',
-      description:
-          'Base neutral editable para cualquier actividad, sin datos precargados.',
-      icon: Icons.storefront_outlined,
-      tone: ToneProfile(
-        enabled: true,
-        sales: ToneSales.natural,
-        warmth: ToneWarmth.cercano,
-        emojis: false,
-        verbosity: ToneVerbosity.media,
-      ),
-    ),
+    barberPreset,
+    retailPreset,
+    restaurantPreset,
+    workshopPreset,
+    hotelPreset,
+    clinicPreset,
+    realEstatePreset,
+    ecommercePreset,
+    supportPreset,
+    customPreset,
   ];
 }

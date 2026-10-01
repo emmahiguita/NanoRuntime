@@ -1,14 +1,17 @@
 # Manual Oficial de Automatización con WhatsApp — Nano AI
 
-> **Versión del módulo**: 1.0 (Producción / Headless + UI)  
-> **Compatibilidad**: Android 11+ (Validado en Oppo ColorOS 14 / Android 14)  
+> **Versión del módulo**: 1.0 (candidato local / Headless + UI)
+>
+> **Compatibilidad declarada**: Android 11+
+>
 > **Aplicaciones soportadas**: WhatsApp (`com.whatsapp`) y WhatsApp Business (`com.whatsapp.w4b`)
+> **Alcance**: automatización local mediante APIs de Android; no es WhatsApp Cloud API.
 
 ---
 
 ## 1. Arquitectura y Principios de Diseño
 
-Nano AI utiliza una arquitectura nativa de mensajería sin servidores intermedios, sin APIs de nube y sin violar los términos de servicio de WhatsApp:
+Nano AI utiliza una arquitectura local de mensajería sin servidores intermedios ni APIs de nube. Emplea APIs públicas de Android; esto no implica certificación, asociación ni aprobación de Meta:
 
 ```
 [Notificación WhatsApp] 
@@ -41,7 +44,7 @@ Nano AI utiliza una arquitectura nativa de mensajería sin servidores intermedio
 ### Invariantes Clave
 1. **0% Fugas a la nube**: La inferencia corre 100% en el procesador del dispositivo móvil (GGUF local).
 2. **Opt-in explícito**: WhatsApp no se activa automáticamente; requiere consentimiento informado del dueño.
-3. **Deduplicación estricta**: Cero respuestas dobles o bucles infinitos por autoreenvíos ("Tú: ...").
+3. **Deduplicación estricta**: descarta eventos repetidos y autoreenvíos antes de decidir una respuesta.
 4. **Respeto al control humano**: Si el dueño toma la conversación o el modo es *Sugerencias*, Nano prepara el borrador y espera aprobación en la pantalla de mensajes.
 
 ---
@@ -77,15 +80,15 @@ Antes de iniciar la automatización, asegúrate de contar con:
 ### Paso 4: Conceder Exención de Batería
 1. Pulsa **Conceder** en el ítem **2. Exención de batería**.
 2. Acepta el diálogo del sistema *"¿Permitir que Nano AI funcione siempre en segundo plano?"*.
-3. Esto garantiza que el sistema operativo no congele el listener cuando el teléfono entre en modo de suspensión (*Doze mode*).
+3. Esto reduce el riesgo de que el sistema operativo congele el listener durante *Doze*; algunos fabricantes también exigen habilitar inicio automático.
 
 ### Paso 5: Activar Procesamiento en Segundo Plano
 1. Pulsa **Activar** en el ítem **3. Segundo plano (Background)**.
 2. Esto habilita el servicio en primer plano (`Foreground Service`) que mantiene despierto el receptor de mensajes aún cuando la interfaz de Nano AI esté cerrada.
 
 ### Paso 6: Habilitar WhatsApp o WhatsApp Business
-1. En el checklist, pulsa **Activar** en **5. Regla de WhatsApp activa**.
-2. O bien, ve a **Ajustes de automatización → Aplicaciones de WhatsApp** y activa los toggles correspondientes:
+1. Ve a **Nano Negocios → Canales** para activar WhatsApp Business de forma explícita.
+2. Para WhatsApp personal, usa **Ajustes de automatización → Aplicaciones de WhatsApp**:
    - `[x] WhatsApp (com.whatsapp)`
    - `[x] WhatsApp Business (com.whatsapp.w4b)`
 
@@ -116,7 +119,7 @@ Cuando el modo está en **Sugerencias** o el motor retiene una respuesta:
 4. Acciones disponibles:
    - **[Descartar]**: Elimina el borrador propuesto sin responder.
    - **[Editar]**: Abre un editor emergente para ajustar el texto antes del envío.
-   - **[Enviar]**: Envía la respuesta inmediatamente a través de la API oficial de RemoteInput de Android.
+   - **[Enviar]**: Envía la respuesta mediante `RemoteInput`, una API pública de Android.
 
 ---
 
@@ -131,6 +134,8 @@ Para que las respuestas de WhatsApp sean coherentes y fieles a tu identidad:
    - Define la política de precios y horarios de atención.
    - El clasificador `TurnComplexityClassifier` usará estos hechos para resolver consultas comerciales sin alucinaciones.
 
+El contrato de las diez plantillas, sus formatos editables y el procedimiento de mantenimiento están documentados en [MANUAL_NANO_NEGOCIOS.md](MANUAL_NANO_NEGOCIOS.md).
+
 ---
 
 ## 7. Preguntas Frecuentes y Solución de Problemas
@@ -140,7 +145,7 @@ Para que las respuestas de WhatsApp sean coherentes y fieles a tu identidad:
 - En dispositivos Oppo/ColorOS, Xiaomi/MIUI o Samsung, activa adicionalmente el permiso de **Inicio automático (Auto-start)** para Nano AI en los ajustes de Aplicaciones de Android.
 
 #### ¿WhatsApp puede bloquear mi número por usar Nano AI?
-- **No**. A diferencia de bots que usan librerías no oficiales o emulan WebSockets, Nano AI utiliza las APIs oficiales del sistema operativo Android (`NotificationListenerService` y `RemoteInput.Action`). Para WhatsApp, la acción es idéntica a cuando tú pulsas "Responder" desde la barra de notificaciones.
+- Nano utiliza APIs públicas de Android (`NotificationListenerService` y `RemoteInput.Action`) y no emula el protocolo de WhatsApp. Esto no garantiza cumplimiento contractual ni evita decisiones de la plataforma. El operador debe revisar las condiciones vigentes de WhatsApp/Meta y aplicar límites de frecuencia, consentimiento y control humano apropiados.
 
 #### ¿Qué sucede si respondo manualmente desde WhatsApp?
 - Nano detecta el evento de entrada y marca la conversación bajo **control humano**. Mientras estés activo en la conversación, Nano no interferirá con respuestas automáticas.

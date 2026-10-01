@@ -145,7 +145,13 @@ ConversationDecision? _reviewConversationReply({
       replyFold.contains('no estoy segura') ||
       replyFold.contains('todavia no') ||
       replyFold.contains('aun no');
+  final affirmsActivity =
+      ConversationDecisionGuards.affirmsOwnerActivity(understanding.reply);
+  final isLocationQuestion =
+      context.userText.toLowerCase().contains('donde') ||
+      understanding.intent.contains('askPhysicalLocation');
   if (!admitsUnknownFact &&
+      (affirmsActivity || isLocationQuestion) &&
       requiresOwnerLiveFact(
         messageText: context.userText,
         detectedIntent: understanding.intent,

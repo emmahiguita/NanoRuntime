@@ -3,23 +3,12 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../engine/business/business_facts.dart';
 import '../../engine/business/catalog_pdf_generator.dart';
-import '../../engine/platform/whatsapp_media_share.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/dialogs/dialog_container_shell.dart';
 
-// catalog_pdf_preview_dialog.dart
-//
-// QUÉ HACE:
-// Modal interactivo para previsualizar, exportar y enviar el catálogo comercial
-// generado en PDF directamente a contactos de WhatsApp.
-//
-// CÓMO FUNCIONA:
-// - Genera el PDF en memoria mediante CatalogPdfGenerator.
-// - Permite enviar el archivo a través de WhatsAppMediaShare o el menú del sistema.
-// - Utiliza DialogContainerShell para evitar cualquier error de Overlay y desbordamiento.
-//
-// POR QUÉ:
-// Proporciona a los negocios una herramienta ágil para cotizaciones y catálogos en WhatsApp (< 200 líneas).
+// Genera, previsualiza e imprime el PDF con datos reales del negocio.
+// Comparte por el selector del sistema para no fingir un contacto de WhatsApp.
+// DialogContainerShell aporta un Overlay válido dentro del modal.
 
 class CatalogPdfPreviewDialog extends StatefulWidget {
   final BusinessFacts facts;
@@ -41,40 +30,26 @@ class CatalogPdfPreviewDialog extends StatefulWidget {
 class _CatalogPdfPreviewDialogState extends State<CatalogPdfPreviewDialog> {
   bool _generating = false;
 
-  Future<void> _shareToWhatsApp() async {
+  Future<void> _shareCatalog() async {
     setState(() => _generating = true);
     try {
       final file = await CatalogPdfGenerator.generateAndSaveFile(
         facts: widget.facts,
       );
-      const share = WhatsAppMediaShare();
-      final launched = await share.shareFile(
-        path: file.path,
-        contact: '',
-        caption: 'Adjunto nuestro catálogo comercial en formato PDF.',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(file.path, mimeType: 'application/pdf', name: 'catalogo.pdf'),
+          ],
+          text: 'Catálogo oficial de productos',
+        ),
       );
-
-      if (!launched && mounted) {
-        // Fallback a menú de compartir estándar
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [
-              XFile(
-                file.path,
-                mimeType: 'application/pdf',
-                name: 'catalogo.pdf',
-              ),
-            ],
-            text: 'Catálogo oficial de productos',
-          ),
-        );
-      }
       if (mounted) Navigator.of(context).pop();
-    } catch (e) {
+    } on Object {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No fue posible compartir el PDF.')),
+        );
       }
     } finally {
       if (mounted) setState(() => _generating = false);
@@ -84,16 +59,17 @@ class _CatalogPdfPreviewDialogState extends State<CatalogPdfPreviewDialog> {
   Future<void> _previewAndPrint() async {
     setState(() => _generating = true);
     try {
-      final bytes = await CatalogPdfGenerator.generatePdfBytes(
-        facts: widget.facts,
+      await Printing.layoutPdf(
+        name: 'catalogo_comercial.pdf',
+        onLayout: (_) =>
+            CatalogPdfGenerator.generatePdfBytes(facts: widget.facts),
       );
-      await Printing.sharePdf(bytes: bytes, filename: 'catalogo_comercial.pdf');
       if (mounted) Navigator.of(context).pop();
-    } catch (e) {
+    } on Object {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No fue posible abrir el PDF.')),
+        );
       }
     } finally {
       if (mounted) setState(() => _generating = false);
@@ -106,7 +82,7 @@ class _CatalogPdfPreviewDialogState extends State<CatalogPdfPreviewDialog> {
     final count = widget.facts.products.length;
 
     return DialogContainerShell(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -177,7 +153,7 @@ class _CatalogPdfPreviewDialogState extends State<CatalogPdfPreviewDialog> {
                     style: TextStyle(color: visual.textMuted, fontSize: 11),
                   ),
                   Text(
-                    '• Código QR interactivo para retornar al chat de compra.',
+                    '• Usa únicamente productos y políticas guardadas en Nano.',
                     style: TextStyle(color: visual.textMuted, fontSize: 11),
                   ),
                   Text(
@@ -189,7 +165,7 @@ class _CatalogPdfPreviewDialogState extends State<CatalogPdfPreviewDialog> {
             ),
             const SizedBox(height: 20),
             FilledButton.icon(
-              onPressed: _generating ? null : _shareToWhatsApp,
+              onPressed: _generating ? null : _shareCatalog,
               icon: const Icon(Icons.send_rounded, size: 18),
               label: _generating
                   ? const SizedBox(
@@ -197,7 +173,7 @@ class _CatalogPdfPreviewDialogState extends State<CatalogPdfPreviewDialog> {
                       height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Enviar por WhatsApp'),
+                  : const Text('Compartir catálogo'),
               style: FilledButton.styleFrom(
                 backgroundColor: visual.accent,
                 foregroundColor: Colors.black,

@@ -78,7 +78,7 @@ abstract final class RespondPersonalWhatsAppSkill {
               ToolExecutionMode.background,
               ToolExecutionMode.headless,
             ],
-            timeout: Duration(seconds: 45),
+            timeout: Duration(seconds: 240),
             tags: {'skill', 'whatsapp', 'personal', 'conversation'},
           ),
           onExecute: (context) async {

@@ -27,7 +27,11 @@ class ReportGeneratorService {
     required DataTable table,
     required DataReportConfig config,
     int? executionTimeMs,
-  }) => PdfDocumentBuilder.buildPdf(table: table, config: config, executionTimeMs: executionTimeMs);
+  }) => PdfDocumentBuilder.buildPdf(
+    table: table,
+    config: config,
+    executionTimeMs: executionTimeMs,
+  );
 
   /// Abre la vista previa del sistema para imprimir o guardar como PDF.
   static Future<void> previewOrPrintReport({
@@ -58,13 +62,22 @@ class ReportGeneratorService {
       executionTimeMs: executionTimeMs,
     );
     final tempDir = await getTemporaryDirectory();
-    final sanitizedTitle = config.title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final sanitizedTitle = config.title.replaceAll(
+      RegExp(r'[^a-zA-Z0-9_-]'),
+      '_',
+    );
     final filePath = '${tempDir.path}/$sanitizedTitle.pdf';
     final file = File(filePath);
     await file.writeAsBytes(pdfBytes);
     await SharePlus.instance.share(
       ShareParams(
-        files: [XFile(filePath, mimeType: 'application/pdf', name: '$sanitizedTitle.pdf')],
+        files: [
+          XFile(
+            filePath,
+            mimeType: 'application/pdf',
+            name: '$sanitizedTitle.pdf',
+          ),
+        ],
         subject: 'Informe Ejecutivo: ${config.title}',
       ),
     );
@@ -82,7 +95,10 @@ class ReportGeneratorService {
       executionTimeMs: executionTimeMs,
     );
     final docsDir = await getApplicationDocumentsDirectory();
-    final sanitizedTitle = config.title.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final sanitizedTitle = config.title.replaceAll(
+      RegExp(r'[^a-zA-Z0-9_-]'),
+      '_',
+    );
     final filePath = '${docsDir.path}/$sanitizedTitle.pdf';
     final file = File(filePath);
     await file.writeAsBytes(pdfBytes);

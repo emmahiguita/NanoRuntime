@@ -1,7 +1,6 @@
 /// QUÉ HACE:
 /// Estructura y tipifica la comprensión del mensaje entrante emitida por el LLM,
 /// garantizando que todas las obligaciones conversacionales se atiendan o aclaren.
-///
 /// CÓMO FUNCIONA:
 /// Decodifica JSON estructurado tolerando truncamiento de tokens y formatos legacy.
 /// Desglosa intenciones, preguntas, hechos faltantes, variantes de respuesta y
@@ -22,25 +21,18 @@ export 'conversation_obligation.dart';
 final class ConversationUnderstanding {
   /// Intención principal detectada en el mensaje.
   final String intent;
-
   /// Relación con la conversación previa ('nuevo', 'continua', 'responde', 'corrige').
   final String relation;
-
   /// Variantes alternativas de respuesta breve y natural.
   final List<String> options;
-
   /// Preguntas semánticas explícitas o implícitas extraídas del mensaje.
   final List<String> questions;
-
   /// Hechos requeridos ausentes del contexto que impiden responder con certeza.
   final List<String> missingFacts;
-
   /// Obligaciones atómicas desglosadas (disponibilidad, precio, envío, etc.).
   final List<TurnObligation> obligations;
-
   /// Indica si responder con verdad requiere invocar una acción o consulta viva.
   final bool requiresAction;
-
   /// Texto propuesto para enviar al interlocutor.
   final String reply;
 
@@ -65,6 +57,20 @@ final class ConversationUnderstanding {
   /// Cantidad de obligaciones atendidas en la respuesta actual.
   int get coveredObligationCount =>
       obligations.where((o) => o.isCovered).length;
+
+  /// Conserva la comprensión y exige revisión antes de cualquier envío.
+  ConversationUnderstanding withRequiredAction() => requiresAction
+      ? this
+      : ConversationUnderstanding(
+          intent: intent,
+          relation: relation,
+          options: options,
+          questions: questions,
+          missingFacts: missingFacts,
+          obligations: obligations,
+          requiresAction: true,
+          reply: reply,
+        );
 
   /// Construye la instancia desde JSON tolerando tipos heterogéneos.
   factory ConversationUnderstanding.fromJson(Map<String, dynamic> json) {

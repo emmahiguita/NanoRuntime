@@ -88,6 +88,7 @@ import 'model/automation_model.dart' show AutomationModelRole;
 import 'notifications/notification_draft_writer.dart';
 import '../personal_agent/application/persona_context.dart'
     show personaContextProvider;
+import '../personal_agent/application/external_response_experience_learning_service.dart';
 import '../personal_agent/domain/conversation_agent_role.dart'
     show routeConversationAgent;
 import 'planning/candidates/notification_candidate_provider.dart';
@@ -757,6 +758,12 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
           conversationId: conversationId,
           role: role,
         ),
+    // Solo conserva respuestas cloud del agente personal cuando owner y contacto dieron consentimiento.
+    externalResponseLearner:
+        ExternalResponseExperienceLearningService.instance.observe,
+    externalResponseLearningAllowed: (conversationId, sender) => ref
+        .read(personaContextProvider)
+        .allowsStyleLearningFor(sender, conversationId: conversationId),
     // P0-ROUTE — rol del turno ANTES de armar el prompt: el MISMO router
     // determinista del decisionContext (AUTO-02), con la misma evidencia
     // (catálogo real, convstate, personaContext). El writer gatea bloques

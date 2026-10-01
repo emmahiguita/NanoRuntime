@@ -21,11 +21,13 @@ import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
 import dev.nanoai.mobile.channels.AutomationStoreChannelHandler
 import dev.nanoai.mobile.channels.ChannelNames
 import dev.nanoai.mobile.channels.ContactsChannelHandler
+import dev.nanoai.mobile.channels.DataStudioChannelHandler
 import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
 import dev.nanoai.mobile.channels.DevicePermissionsChannelHandler
 import dev.nanoai.mobile.channels.EngineChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
 import dev.nanoai.mobile.channels.LanguageAssistChannelHandler
+import dev.nanoai.mobile.channels.LiteRtChannelHandler
 import dev.nanoai.mobile.channels.MediaCaptureChannelHandler
 import dev.nanoai.mobile.channels.ModelStorageChannelHandler
 import dev.nanoai.mobile.channels.NanoFloatingChannel
@@ -88,6 +90,12 @@ class MainActivity : FlutterActivity() {
 
     /** Canal para compartir prompts con apps nativas de IA (ChatGPT, Gemini…). */
     private var nanoNativeAiChannel: NanoNativeAiChannel? = null
+
+    /** Handler de LiteRT-LM (Google AI Edge): inferencia local con modelos .litertlm. */
+    private var liteRtChannelHandler: LiteRtChannelHandler? = null
+
+    /** EventSink vivo de la UI para reenrutar eventos cuando la Activity pasa a foreground. */
+    private var currentUiSink: EventChannel.EventSink? = null
 
     private val pathPolicy: SecurePathPolicy by lazy { SecurePathPolicy(filesDir) }
     private val downloadService: DownloadService by lazy { DownloadService(pathPolicy) }
@@ -207,13 +215,30 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        currentUiSink?.let { NotificationAutomationBridge.setSink(SINK_UI, it) }
+    }
+
     override fun onPause() {
         super.onPause()
         isForeground = false
     }
 
+    override fun onStop() {
+        NotificationAutomationBridge.clearSink(SINK_UI)
+        super.onStop()
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        NotificationAutomationBridge.clearSink(SINK_UI)
+        currentUiSink = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
 
     override fun onDestroy() {
+        NotificationAutomationBridge.clearSink(SINK_UI)
+        currentUiSink = null
         languageAssistHandler?.close()
         languageAssistHandler = null
         speechChannelHandler?.close()
@@ -225,6 +250,7 @@ class MainActivity : FlutterActivity() {
         nanoFloatingChannel = null
         nanoNativeAiChannel?.detach()
         nanoNativeAiChannel = null
+        liteRtChannelHandler = null
         NanoOverlayBridge.detach() // OVERLAY-03: limpiar puente al engine Flutter.
         ioScope.cancel()
         // Si el diálogo de permisos quedó abierto al destruirse la Activity,
@@ -381,9 +407,11 @@ class MainActivity : FlutterActivity() {
         EventChannel(messenger, "com.nanoai/notification_events").setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    currentUiSink = events
                     NotificationAutomationBridge.setSink(SINK_UI, events)
                 }
                 override fun onCancel(arguments: Any?) {
+                    currentUiSink = null
                     NotificationAutomationBridge.clearSink(SINK_UI)
                 }
             },
@@ -427,11 +455,26 @@ class MainActivity : FlutterActivity() {
                 }
         }
 
+        // LiteRT-LM: Registro del canal nativo para modelos .litertlm
+        val liteRtHandler = LiteRtChannelHandler(this, ioScope, mainHandler)
+        liteRtChannelHandler = liteRtHandler
+        MethodChannel(messenger, LiteRtChannelHandler.METHOD_CHANNEL_NAME)
+            .setMethodCallHandler(liteRtHandler)
+        EventChannel(messenger, LiteRtChannelHandler.STREAM_CHANNEL_NAME)
+            .setStreamHandler(liteRtHandler)
+
         MethodChannel(messenger, ChannelNames.SHARE)
             .setMethodCallHandler(ShareChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.SYSTEM)
             .setMethodCallHandler(SystemInventoryChannelHandler(this))
+
+        MethodChannel(
+            messenger,
+            ChannelNames.DATA_STUDIO,
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            messenger.makeBackgroundTaskQueue(),
+        ).setMethodCallHandler(DataStudioChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.MODEL_STORAGE)
             .setMethodCallHandler(

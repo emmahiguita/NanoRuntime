@@ -7,14 +7,12 @@ class DatabaseTableSelector extends StatelessWidget {
   final DatabaseStudioState state;
   final DatabaseStudioController controller;
   final NanoColors colors;
-  final ValueChanged<String>? onTableSelected;
 
   const DatabaseTableSelector({
     super.key,
     required this.state,
     required this.controller,
     required this.colors,
-    this.onTableSelected,
   });
 
   @override
@@ -39,6 +37,11 @@ class DatabaseTableSelector extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ChoiceChip(
+                // QUÉ: compacta el área visual del chip dentro de la barra de 48 dp.
+                // POR QUÉ: el tap target Material predeterminado mide 48 dp y, al
+                // sumarle el padding de la barra, pintaba la franja de overflow.
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -64,7 +67,10 @@ class DatabaseTableSelector extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: colors.outlineVariant.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(10),
@@ -85,13 +91,15 @@ class DatabaseTableSelector extends StatelessWidget {
                 onSelected: (selected) {
                   if (selected) {
                     controller.selectTable(entry.key);
-                    onTableSelected?.call(entry.key);
                   }
                 },
               ),
             ),
           ],
           ActionChip(
+            // Mantiene la acción final con las mismas restricciones que las tablas.
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
             avatar: const Icon(Icons.file_open_outlined, size: 14),
             label: const Text('Cargar Archivo', style: TextStyle(fontSize: 11)),
             backgroundColor: colors.surface,

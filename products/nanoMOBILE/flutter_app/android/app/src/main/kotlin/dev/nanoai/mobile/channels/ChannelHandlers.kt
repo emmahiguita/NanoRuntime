@@ -19,4 +19,5 @@ object ChannelNames {
     const val MEDIA_CAPTURE = MediaCaptureChannelHandler.CHANNEL_NAME
     const val SYSTEM = SystemInventoryChannelHandler.CHANNEL_NAME
     const val LANGUAGE_ASSIST = LanguageAssistChannelHandler.CHANNEL_NAME
+    const val DATA_STUDIO = DataStudioChannelHandler.CHANNEL_NAME
 }

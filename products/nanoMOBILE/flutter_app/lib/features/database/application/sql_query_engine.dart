@@ -5,7 +5,7 @@
 //
 // CÓMO FUNCIONA:
 // - Desvía consultas SELECT, SHOW TABLES y DESCRIBE a `SqlMemoryProcessor`.
-// - Desvía consultas hacia archivos `.db` a `SqlShellExecutor`.
+// - SQLite real se ejecuta mediante DatabasePort fuera de esta fachada en memoria.
 // - Mide tiempos exactos de ejecución en milisegundos (`Stopwatch`).
 //
 // POR QUÉ:
@@ -15,7 +15,6 @@ library;
 
 import '../domain/data_models.dart';
 import 'sql_memory_processor.dart';
-import 'sql_shell_executor.dart';
 
 class SqlQueryEngine {
   /// Ejecuta una consulta SQL sobre un mapa de tablas en memoria.
@@ -34,15 +33,21 @@ class SqlQueryEngine {
       final upper = trimmedQuery.toUpperCase();
 
       if (upper.startsWith('SELECT')) {
-        final resultTable = SqlMemoryProcessor.processSelect(trimmedQuery, tables);
+        final resultTable = SqlMemoryProcessor.processSelect(
+          trimmedQuery,
+          tables,
+        );
         stopwatch.stop();
         return QueryResult.success(
           query: query,
           table: resultTable,
           executionTimeMs: stopwatch.elapsedMilliseconds,
         );
-      } else if (upper.startsWith('SHOW TABLES') || upper.startsWith('SELECT TABLE_NAME')) {
-        final rows = tables.keys.map((k) => [k, tables[k]!.rowCount, tables[k]!.columnCount]).toList();
+      } else if (upper.startsWith('SHOW TABLES') ||
+          upper.startsWith('SELECT TABLE_NAME')) {
+        final rows = tables.keys
+            .map((k) => [k, tables[k]!.rowCount, tables[k]!.columnCount])
+            .toList();
         stopwatch.stop();
         return QueryResult.success(
           query: query,
@@ -55,7 +60,9 @@ class SqlQueryEngine {
         );
       } else if (upper.startsWith('DESCRIBE') || upper.startsWith('DESC ')) {
         final parts = trimmedQuery.split(RegExp(r'\s+'));
-        final tableName = parts.length > 1 ? parts[1].replaceAll(';', '').trim() : '';
+        final tableName = parts.length > 1
+            ? parts[1].replaceAll(';', '').trim()
+            : '';
         final table = tables[tableName] ?? tables.values.firstOrNull;
         if (table == null) {
           return QueryResult.error(query, 'Tabla "$tableName" no encontrada.');
@@ -91,10 +98,4 @@ class SqlQueryEngine {
       );
     }
   }
-
-  /// Ejecuta una consulta SQL en una base de datos SQLite real.
-  static Future<QueryResult> executeShellSqliteQuery({
-    required String dbPath,
-    required String query,
-  }) => SqlShellExecutor.execute(dbPath: dbPath, query: query);
 }

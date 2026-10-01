@@ -11,8 +11,7 @@
 // Mantiene el diseño usable, legible y compacto en cualquier tamaño o rotación de pantalla (SOLID - SRP).
 
 import 'package:flutter/material.dart';
-import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
-import 'dialog_container_shell.dart';
+import 'guided_fact_dialog.dart';
 
 class HoursEditDialog extends StatefulWidget {
   final String initial;
@@ -91,184 +90,49 @@ class _HoursEditDialogState extends State<HoursEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-
-    return DialogContainerShell(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: visual.accentSoft,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.schedule_rounded,
-                    color: visual.accent,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Horarios de Atención',
-                    style: TextStyle(
-                      color: visual.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Semantics(
-                  label: _isRawMode ? 'Modo guiado' : 'Texto libre',
-                  button: true,
-                  child: IconButton(
-                    icon: Icon(
-                      _isRawMode
-                          ? Icons.view_list_rounded
-                          : Icons.edit_note_rounded,
-                      color: visual.accent,
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      if (!_isRawMode)
-                        _rawController.text = _buildConsolidated();
-                      setState(() => _isRawMode = !_isRawMode);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: _isRawMode
-                  ? TextField(
-                      controller: _rawController,
-                      maxLines: 6,
-                      style: TextStyle(color: visual.text, fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText:
-                            'Ej. Lunes a Sábado de 8:00 AM a 8:00 PM. Domingos cerrado.',
-                        filled: true,
-                        fillColor: visual.inputFill,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _field(
-                          _weekdays,
-                          'Lunes a Viernes',
-                          visual,
-                          hint: 'Ej. 8:00 AM a 6:00 PM',
-                        ),
-                        const SizedBox(height: 8),
-                        _field(
-                          _saturdays,
-                          'Sábados',
-                          visual,
-                          hint: 'Ej. 9:00 AM a 2:00 PM o Cerrado',
-                        ),
-                        const SizedBox(height: 8),
-                        _field(
-                          _sundays,
-                          'Domingos y Festivos',
-                          visual,
-                          hint: 'Ej. Cerrado o 10:00 AM a 2:00 PM',
-                        ),
-                        const SizedBox(height: 8),
-                        _field(
-                          _offHoursPolicy,
-                          'Fuera de horario',
-                          visual,
-                          hint: 'Ej. Responderemos a primera hora al abrir',
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'Cancelar',
-                    style: TextStyle(color: visual.textMuted, fontSize: 12),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: () {
-                    final res = _isRawMode
-                        ? _rawController.text.trim()
-                        : _buildConsolidated();
-                    Navigator.of(context).pop(res.isNotEmpty ? res : null);
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: visual.accent,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    'Guardar',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return GuidedFactDialog(
+      title: 'Horarios de Atención',
+      icon: Icons.schedule_rounded,
+      isRawMode: _isRawMode,
+      rawController: _rawController,
+      rawHint: 'Ej. Lunes a Sábado de 8:00 AM a 8:00 PM. Domingos cerrado.',
+      onToggleMode: () {
+        if (!_isRawMode) {
+          _rawController.text = _buildConsolidated();
+        }
+        setState(() => _isRawMode = !_isRawMode);
+      },
+      onSave: () {
+        final result = _isRawMode
+            ? _rawController.text.trim()
+            : _buildConsolidated();
+        Navigator.of(context).pop(result.isNotEmpty ? result : null);
+      },
+      guidedFields: [
+        GuidedFactField(
+          controller: _weekdays,
+          label: 'Lunes a Viernes',
+          hint: 'Ej. 8:00 AM a 6:00 PM',
+        ),
+        const SizedBox(height: 8),
+        GuidedFactField(
+          controller: _saturdays,
+          label: 'Sábados',
+          hint: 'Ej. 9:00 AM a 2:00 PM o Cerrado',
+        ),
+        const SizedBox(height: 8),
+        GuidedFactField(
+          controller: _sundays,
+          label: 'Domingos y Festivos',
+          hint: 'Ej. Cerrado o 10:00 AM a 2:00 PM',
+        ),
+        const SizedBox(height: 8),
+        GuidedFactField(
+          controller: _offHoursPolicy,
+          label: 'Fuera de horario',
+          hint: 'Ej. Responderemos a primera hora al abrir',
+        ),
+      ],
     );
   }
-
-  Widget _field(
-    TextEditingController ctrl,
-    String label,
-    AutomationVisualPalette visual, {
-    String? hint,
-  }) => TextField(
-    controller: ctrl,
-    style: TextStyle(color: visual.text, fontSize: 12.5),
-    decoration: InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(fontSize: 11, color: visual.textMuted),
-      hintText: hint,
-      hintStyle: TextStyle(
-        fontSize: 10,
-        color: visual.textMuted.withValues(alpha: 0.5),
-      ),
-      filled: true,
-      fillColor: visual.inputFill,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide.none,
-      ),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    ),
-  );
 }

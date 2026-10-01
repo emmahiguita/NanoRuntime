@@ -10,6 +10,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'browser_ai_login_sheet.dart';
 import 'nano_ai_controller.dart';
 import 'nano_ai_models.dart';
 import 'nano_android_native_ai_port.dart';
@@ -64,10 +65,20 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
   late NanoAiController controller;
   late NanoOverlayRuntime overlay;
 
+  // QUÉ HACE: Crea la instancia única de NanoAiController conectando puertos y UI.
+  // CÓMO FUNCIONA: Inyecta proveedores web, acciones del sistema y el handler de login.
+  // POR QUÉ: Desacopla la lógica del controlador de la vista mediante Inversión de Dependencias (DIP).
   NanoAiController _makeController() => NanoAiController(
     providers: widget.webProviders,
     nativeApps: const NanoAndroidNativeAiPort(),
     actions: widget.actions,
+    onLoginRequired: (providerId) async {
+      if (!mounted) return false;
+      return showBrowserAiLoginSheet(
+        context,
+        suggestedProviderId: providerId,
+      );
+    },
   );
 
   @override

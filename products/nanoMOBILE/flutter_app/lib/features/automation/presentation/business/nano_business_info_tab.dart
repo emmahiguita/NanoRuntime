@@ -14,9 +14,13 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'meta_templates_screen.dart';
+import 'business_sales_messages_editor.dart';
 import '../../engine/business/business_facts_providers.dart';
+import '../../engine/business/business_profile.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/dialogs/business_presets_sheet.dart';
+import '../widgets/dialogs/business_profile_edit_dialog.dart';
 import '../widgets/dialogs/business_name_edit_dialog.dart';
 import '../widgets/dialogs/delivery_edit_dialog.dart';
 import '../widgets/dialogs/hours_edit_dialog.dart';
@@ -117,17 +121,65 @@ class NanoBusinessInfoTab extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
-        const AutomationSectionLabel('Plantillas Comerciales'),
+        const AutomationSectionLabel('Mensajes y Plantillas'),
         SettingsCard(
           children: [
+            // Abre el editor de frases que el resolutor de ventas usa al responder.
+            SettingsRow(
+              icon: Icons.edit_note_outlined,
+              title: 'Frases del agente de ventas',
+              subtitle: 'Editar saludo, cierre, asesor y respuestas frecuentes',
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BusinessSalesMessagesEditor(),
+                ),
+              ),
+            ),
+            // Esta ruta administra el WABA remoto; no confunde presets locales con Meta.
+            SettingsRow(
+              icon: Icons.cloud_sync_outlined,
+              title: 'Plantillas oficiales de Meta',
+              subtitle:
+                  'Consultar, crear y editar plantillas del WhatsApp Business API',
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const MetaTemplatesScreen(),
+                ),
+              ),
+            ),
             SettingsRow(
               icon: Icons.dashboard_customize_outlined,
               title: 'Cargar plantilla por rubro',
-              subtitle:
-                  'Comercio, restaurante, servicios, salud, academia u otro',
-              trailing: const ValueBadge(label: 'PLANTILLAS'),
+              subtitle: '10 perfiles originales versionados y editables',
+              trailing: const ValueBadge(label: '10 PLANTILLAS'),
               onTap: () => BusinessPresetsSheet.show(context),
             ),
+            if (facts.profile.isConfigured)
+              SettingsRow(
+                icon: Icons.schema_outlined,
+                title: 'Editar plantilla activa',
+                subtitle:
+                    '${facts.profile.templateId} · revisión ${facts.profile.revision}',
+                trailing: const ValueBadge(label: 'EDITABLE'),
+                onTap: () async {
+                  final updated = await showDialog<BusinessProfile>(
+                    context: context,
+                    useRootNavigator: true,
+                    builder: (_) =>
+                        BusinessProfileEditDialog(initial: facts.profile),
+                  );
+                  if (updated == null) return;
+                  final saved = await notifier.setProfile(updated);
+                  if (!context.mounted || saved) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No fue posible guardar los cambios.'),
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ],

@@ -106,6 +106,10 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       'Agentic premium para ejecución y herramientas multi-paso (2.2GB RAM).',
     'Gemma-3n-E2B-IT' =>
       'Modelo multimodal; Nano conecta ahora la ruta de texto, no la entrada visual.',
+    'Gemma-4-E2B-it' =>
+      'Gemma 4 multimodal de Google (2.3B activos, PLE). Optimizado para agentes y razonamiento en móvil.',
+    'Gemma-4-E2B-it (LiteRT)' =>
+      'Gemma 4 en formato .litertlm oficial para el motor Google LiteRT-LM (CPU/GPU/NPU).',
     'Hey Mycroft (wake word)' =>
       'Detector local de palabra de activación; requiere un runtime de audio compatible.',
     'Whisper-Tiny (Voz Local)' =>

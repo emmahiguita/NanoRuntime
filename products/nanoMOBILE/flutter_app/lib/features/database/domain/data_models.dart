@@ -1,11 +1,9 @@
-/// Tipos de datos admitidos en columnas de tablas y hojas de cálculo
-enum DataColumnType {
-  text,
-  integer,
-  real,
-  boolean,
-  datetime,
-}
+// QUÉ: contratos de datos compartidos por dominio, aplicación y presentación.
+// CÓMO: modelan tablas, resultados y configuración sin importar Flutter ni I/O.
+// POR QUÉ: el dominio permanece intercambiable y comprobable (DIP/Clean Architecture).
+
+/// Tipos de datos admitidos en columnas de tablas y hojas de cálculo.
+enum DataColumnType { text, integer, real, boolean, datetime }
 
 /// Representación en memoria de una tabla de datos (procedente de CSV, TSV o SQL)
 class DataTable {
@@ -30,10 +28,16 @@ class DataTable {
   String toCsv({String delimiter = ','}) {
     final buffer = StringBuffer();
     // Cabeceras
-    buffer.writeln(columns.map((c) => _escapeCsvValue(c, delimiter)).join(delimiter));
+    buffer.writeln(
+      columns.map((c) => _escapeCsvValue(c, delimiter)).join(delimiter),
+    );
     // Filas
     for (final row in rows) {
-      buffer.writeln(row.map((val) => _escapeCsvValue(val?.toString() ?? '', delimiter)).join(delimiter));
+      buffer.writeln(
+        row
+            .map((val) => _escapeCsvValue(val?.toString() ?? '', delimiter))
+            .join(delimiter),
+      );
     }
     return buffer.toString();
   }
@@ -42,11 +46,16 @@ class DataTable {
   String toTsv() => toCsv(delimiter: '\t');
 
   static String _escapeCsvValue(String value, String delimiter) {
-    if (value.contains(delimiter) || value.contains('"') || value.contains('\n') || value.contains('\r')) {
-      final escaped = value.replaceAll('"', '""');
+    // Neutraliza fórmulas al abrir el CSV en Excel/Sheets (CSV injection).
+    final safe = RegExp(r'^[\s]*[=+\-@]').hasMatch(value) ? "'$value" : value;
+    if (safe.contains(delimiter) ||
+        safe.contains('"') ||
+        safe.contains('\n') ||
+        safe.contains('\r')) {
+      final escaped = safe.replaceAll('"', '""');
       return '"$escaped"';
     }
-    return value;
+    return safe;
   }
 
   /// Crea una copia filtrada o proyectada
@@ -72,6 +81,7 @@ class QueryResult {
   final int executionTimeMs;
   final String? errorMessage;
   final int? affectedRows;
+  final bool truncated;
 
   const QueryResult({
     required this.query,
@@ -79,13 +89,18 @@ class QueryResult {
     this.executionTimeMs = 0,
     this.errorMessage,
     this.affectedRows,
+    this.truncated = false,
   });
 
   bool get isSuccess => errorMessage == null;
   bool get hasData => table != null && table!.isNotEmpty;
   int get rowCount => table?.rowCount ?? 0;
 
-  factory QueryResult.error(String query, String error, {int executionTimeMs = 0}) {
+  factory QueryResult.error(
+    String query,
+    String error, {
+    int executionTimeMs = 0,
+  }) {
     return QueryResult(
       query: query,
       errorMessage: error,
@@ -95,43 +110,19 @@ class QueryResult {
 
   factory QueryResult.success({
     required String query,
-    required DataTable table,
+    DataTable? table,
     int executionTimeMs = 0,
     int? affectedRows,
+    bool truncated = false,
   }) {
     return QueryResult(
       query: query,
       table: table,
       executionTimeMs: executionTimeMs,
       affectedRows: affectedRows,
+      truncated: truncated,
     );
   }
-}
-
-/// Origen de datos disponible en el estudio
-enum DataSourceType {
-  shellSpreadsheet,
-  localSqlite,
-  inMemory,
-  sample,
-}
-
-class DataSourceItem {
-  final String id;
-  final String title;
-  final String description;
-  final DataSourceType type;
-  final String? path;
-  final int estimatedRows;
-
-  const DataSourceItem({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.type,
-    this.path,
-    this.estimatedRows = 0,
-  });
 }
 
 /// Configuración para generar informes ejecutivos y tabulares en PDF
@@ -144,6 +135,7 @@ class DataReportConfig {
   final String? notes;
   final bool includeSummaryMetrics;
   final bool includeTimestamp;
+  final int maxRows;
 
   const DataReportConfig({
     required this.title,
@@ -154,5 +146,6 @@ class DataReportConfig {
     this.notes,
     this.includeSummaryMetrics = true,
     this.includeTimestamp = true,
+    this.maxRows = 500,
   });
 }

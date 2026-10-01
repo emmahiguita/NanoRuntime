@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../domain/whatsapp_contact.dart';
 import '../../application/whatsapp_contacts_provider.dart';
 import '../../engine/messaging/conversation_key.dart';
@@ -15,6 +16,7 @@ import '../../engine/notifications/notification_object.dart';
 import '../application/persona_context.dart';
 import '../application/persona_import.dart';
 import '../application/persona_repository.dart';
+import '../application/persona_training_dataset_exporter.dart';
 import '../domain/persona_example.dart';
 import '../domain/persona_profile.dart';
 import '../domain/personal_memory.dart';
@@ -25,6 +27,8 @@ import '../application/personal_style_seed.dart';
 part 'personalization_studio_actions.dart';
 part 'personalization_studio_actions_dialogs.dart';
 part 'personalization_studio_actions_import.dart';
+part 'personalization_studio_actions_training.dart';
+part 'personalization_studio_tabs.dart';
 part 'personalization_studio_loader.dart';
 part 'personalization_studio_dialog_models.dart';
 part 'personalization_studio_style_dialog.dart';
@@ -111,6 +115,15 @@ class _PersonalizationStudioScreenState
           ),
           actions: [
             Semantics(
+              label: 'Exportar ejemplos verificados para ajuste',
+              button: true,
+              child: IconButton(
+                tooltip: 'Exportar datos para ajuste',
+                icon: const Icon(Icons.file_upload_outlined, size: 20),
+                onPressed: _working ? null : _exportTrainingDataset,
+              ),
+            ),
+            Semantics(
               label: 'Ayuda',
               button: true,
               child: IconButton(
@@ -162,64 +175,7 @@ class _PersonalizationStudioScreenState
               }),
               onRefresh: _reload,
             ),
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _PersonalizationStudioExamplesTab(
-                    examples: _examples,
-                    canEdit: _canEdit,
-                    onAddPhrase: () => _editExample(),
-                    onAddTemplate: () => _editExample(template: true),
-                    onEditExample: (e) => _editExample(example: e),
-                    onAddResponse: _addResponseToExample,
-                    onDeleteExample: _deleteExampleConfirmed,
-                    onToggleExample: (e, v) => _run(
-                      () => _repo.updateExample(
-                        e,
-                        tone: {...e.tone, 'enabled': '$v'},
-                      ),
-                    ),
-                    onLoadMore: _loadMoreExamples,
-                  ),
-                  _PersonalizationStudioContactsTab(
-                    contacts: contacts,
-                    canEdit: _canEdit,
-                    onImport: _import,
-                    onNewContact: _newContact,
-                    onSelectAndEdit: (c) {
-                      _selectScope(c.id);
-                      unawaited(_editStyle(c));
-                    },
-                    onBind: _bind,
-                    onDelete: _deleteContactConfirmed,
-                  ),
-                  _PersonalizationStudioMemoriesTab(
-                    memories: _memories,
-                    scopes: _scopes,
-                    canEdit: _canEdit,
-                    onAddMemory: () => _editMemory(),
-                    onEditMemory: (m) => _editMemory(m),
-                    onToggleMemory: (m) => _run(
-                      () => _repo.savePersonalMemory(
-                        m.copyWith(
-                          metadata: {...m.metadata, 'enabled': '${!m.enabled}'},
-                        ),
-                      ),
-                    ),
-                    onDeleteMemory: _deleteMemoryConfirmed,
-                    onLoadMore: _loadMoreMemories,
-                  ),
-                  _PersonalizationStudioImportsTab(
-                    batches: batches,
-                    canEdit: _canEdit,
-                    onViewOrigin: _viewBatchOrigin,
-                    onDeleteBatch: _deleteBatch,
-                    metadataParser: _batchMetadata,
-                    dateFormatter: _batchDate,
-                  ),
-                ],
-              ),
-            ),
+            _personalizationTabs(contacts, batches),
           ],
         ),
       ),

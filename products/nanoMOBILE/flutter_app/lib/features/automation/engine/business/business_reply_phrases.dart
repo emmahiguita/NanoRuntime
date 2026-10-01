@@ -4,12 +4,19 @@
 library;
 
 import '../messaging/tone_profile.dart';
+import 'business_response_templates.dart';
 
 String businessGreeting({
   required String name,
   required ToneProfile tone,
   required String message,
+  BusinessResponseTemplates? templates,
 }) {
+  // Un texto editado por el negocio tiene prioridad sobre las variaciones base.
+  final edited = templates?.render(BusinessResponseTemplates.greeting, {
+    'negocio': name,
+  });
+  if (edited != null) return edited;
   final prefix = tone.emojis ? '👋 ' : '';
   final close = tone.verbosity == ToneVerbosity.breve
       ? '¿En qué podemos ayudarte?'
@@ -28,7 +35,47 @@ String businessGreeting({
   return '$prefix${_pick(options, message)}';
 }
 
-String businessHumanReply(ToneProfile tone, String message) {
+/// Redacta el saludo que acompaña una consulta usando el nombre configurado.
+String businessGreetingPrefix({
+  required String name,
+  required ToneProfile tone,
+  required BusinessResponseTemplates templates,
+}) =>
+    templates.render(BusinessResponseTemplates.greetingPrefix, {
+      'negocio': name,
+    }) ??
+    (tone.warmth == ToneWarmth.cercano
+        ? '${tone.emojis ? "👋 " : ""}¡Hola! Te damos la bienvenida a $name.'
+        : '${tone.emojis ? "👋 " : ""}Un cordial saludo. Bienvenido/a a $name.');
+
+/// Devuelve el cierre guardado o conserva la elección vigente de tono comercial.
+String businessSalesClosing({
+  required ToneProfile tone,
+  required BusinessResponseTemplates templates,
+}) {
+  final persuasive = tone.sales == ToneSales.persuasivo;
+  final fallback = tone.warmth == ToneWarmth.cercano
+      ? (persuasive
+            ? '¿Qué detalle quieres que revisemos para continuar?'
+            : '¿En qué más te podemos ayudar?')
+      : (persuasive
+            ? '¿Qué detalle desea que revisemos para continuar?'
+            : '¿Tiene alguna otra inquietud?');
+  return templates.render(BusinessResponseTemplates.salesClosing, const {}) ??
+      fallback;
+}
+
+String businessHumanReply(
+  ToneProfile tone,
+  String message, {
+  BusinessResponseTemplates? templates,
+}) {
+  // Mantiene derivación humana real; la frase solo personaliza su redacción.
+  final edited = templates?.render(
+    BusinessResponseTemplates.humanHandoff,
+    const {},
+  );
+  if (edited != null) return edited;
   final options = tone.warmth == ToneWarmth.cercano
       ? const [
           'Claro. Un asesor debe continuar esta conversación para ayudarte personalmente.',
@@ -45,8 +92,14 @@ String businessMissingReply({
   required List<String> missing,
   required ToneProfile tone,
   required String message,
+  BusinessResponseTemplates? templates,
 }) {
   final facts = missing.join(', ');
+  // Inserta únicamente los datos faltantes detectados por el motor.
+  final edited = templates?.render(BusinessResponseTemplates.missingFacts, {
+    'datos': facts,
+  });
+  if (edited != null) return edited;
   final options = tone.warmth == ToneWarmth.cercano
       ? [
           'No tengo confirmado $facts. ¿Quieres que te comunique con un asesor?',
@@ -63,10 +116,16 @@ String businessUnknownReply({
   required bool hasLink,
   required ToneProfile tone,
   required String message,
+  BusinessResponseTemplates? templates,
 }) {
   final subject = hasLink
       ? 'No puedo verificar el contenido del enlace desde esta conversación.'
       : 'No entendí del todo la consulta.';
+  // El motivo procede de la detección local de enlace o comprensión.
+  final edited = templates?.render(BusinessResponseTemplates.unknownMessage, {
+    'motivo': subject,
+  });
+  if (edited != null) return edited;
   final close = tone.warmth == ToneWarmth.cercano
       ? [
           '¿Puedes contarme qué necesitas o prefieres hablar con un asesor?',

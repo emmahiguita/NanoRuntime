@@ -87,13 +87,16 @@ class PaymentMethodsData {
           r'a nombre de\s+([a-záéíóúñ\s]+?)(?:\s*\(|\.|$)',
           caseSensitive: false,
         ).firstMatch(s);
-        if (mHolder != null)
+        if (mHolder != null) {
           data.accountHolder = mHolder.group(1)?.trim() ?? '';
+        }
         final mDoc = RegExp(
           r'(?:cc|nit)[\s:]*([0-9\.\-]+)',
           caseSensitive: false,
         ).firstMatch(s);
-        if (mDoc != null) data.accountDoc = mDoc.group(1)?.trim() ?? '';
+        if (mDoc != null) {
+          data.accountDoc = mDoc.group(1)?.trim() ?? '';
+        }
       } else if (lower.contains('nequi') ||
           lower.contains('daviplata') ||
           lower.contains('billetera') ||

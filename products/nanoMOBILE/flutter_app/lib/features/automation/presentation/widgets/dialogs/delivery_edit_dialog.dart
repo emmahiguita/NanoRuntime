@@ -11,8 +11,7 @@
 // Asegura que los formularios logísticos quepan ordenadamente en cualquier orientación sin overflows (SOLID - SRP).
 
 import 'package:flutter/material.dart';
-import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
-import 'dialog_container_shell.dart';
+import 'guided_fact_dialog.dart';
 
 class DeliveryEditDialog extends StatefulWidget {
   final String initial;
@@ -96,196 +95,67 @@ class _DeliveryEditDialogState extends State<DeliveryEditDialog> {
 
   String _buildConsolidated() {
     final parts = <String>[];
-    if (_coverage.text.trim().isNotEmpty) parts.add(_coverage.text.trim());
-    if (_estimatedTime.text.trim().isNotEmpty)
+    if (_coverage.text.trim().isNotEmpty) {
+      parts.add(_coverage.text.trim());
+    }
+    if (_estimatedTime.text.trim().isNotEmpty) {
       parts.add('Tiempo estimado: ${_estimatedTime.text.trim()}');
-    if (_costPolicy.text.trim().isNotEmpty)
+    }
+    if (_costPolicy.text.trim().isNotEmpty) {
       parts.add('Costos: ${_costPolicy.text.trim()}');
-    if (_carrier.text.trim().isNotEmpty)
+    }
+    if (_carrier.text.trim().isNotEmpty) {
       parts.add('Operado por: ${_carrier.text.trim()}');
+    }
     return parts.isEmpty ? widget.initial.trim() : parts.join('. ');
   }
 
   @override
   Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-
-    return DialogContainerShell(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: visual.accentSoft,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.local_shipping_rounded,
-                    color: visual.accent,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Envíos y Domicilios',
-                    style: TextStyle(
-                      color: visual.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Semantics(
-                  label: _isRawMode ? 'Modo guiado' : 'Texto libre',
-                  button: true,
-                  child: IconButton(
-                    icon: Icon(
-                      _isRawMode
-                          ? Icons.view_list_rounded
-                          : Icons.edit_note_rounded,
-                      color: visual.accent,
-                      size: 22,
-                    ),
-                    onPressed: () {
-                      if (!_isRawMode)
-                        _rawController.text = _buildConsolidated();
-                      setState(() => _isRawMode = !_isRawMode);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: _isRawMode
-                  ? TextField(
-                      controller: _rawController,
-                      maxLines: 6,
-                      style: TextStyle(color: visual.text, fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText:
-                            'Ej. Domicilios en el área metropolitana por \$8.000. Envíos nacionales por \$15.000 (Interrapidísimo/Envía)...',
-                        filled: true,
-                        fillColor: visual.inputFill,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _field(
-                          _coverage,
-                          'Cobertura de entregas',
-                          visual,
-                          hint: 'Ej. Local y nacional a toda Colombia',
-                        ),
-                        const SizedBox(height: 8),
-                        _field(
-                          _estimatedTime,
-                          'Tiempo estimado de entrega',
-                          visual,
-                          hint: 'Ej. 24 a 48 horas hábiles',
-                        ),
-                        const SizedBox(height: 8),
-                        _field(
-                          _costPolicy,
-                          'Tarifas y condiciones',
-                          visual,
-                          hint: 'Ej. Gratis por compras mayores a \$100.000',
-                        ),
-                        const SizedBox(height: 8),
-                        _field(
-                          _carrier,
-                          'Transportadora o mensajería',
-                          visual,
-                          hint: 'Ej. Domiciliarios propios e Interrapidísimo',
-                        ),
-                      ],
-                    ),
-            ),
-          ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'Cancelar',
-                    style: TextStyle(color: visual.textMuted, fontSize: 12),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: () {
-                    final res = _isRawMode
-                        ? _rawController.text.trim()
-                        : _buildConsolidated();
-                    Navigator.of(context).pop(res.isNotEmpty ? res : null);
-                  },
-                  style: FilledButton.styleFrom(
-                    backgroundColor: visual.accent,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  child: const Text(
-                    'Guardar',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return GuidedFactDialog(
+      title: 'Envíos y Domicilios',
+      icon: Icons.local_shipping_rounded,
+      isRawMode: _isRawMode,
+      rawController: _rawController,
+      rawHint:
+          'Ej. Domicilios locales con tarifa informada por el negocio. Envíos nacionales con plazo confirmado.',
+      onToggleMode: () {
+        if (!_isRawMode) {
+          _rawController.text = _buildConsolidated();
+        }
+        setState(() => _isRawMode = !_isRawMode);
+      },
+      onSave: () {
+        final result = _isRawMode
+            ? _rawController.text.trim()
+            : _buildConsolidated();
+        Navigator.of(context).pop(result.isNotEmpty ? result : null);
+      },
+      guidedFields: [
+        GuidedFactField(
+          controller: _coverage,
+          label: 'Cobertura de entregas',
+          hint: 'Ej. Local y nacional a toda Colombia',
+        ),
+        const SizedBox(height: 8),
+        GuidedFactField(
+          controller: _estimatedTime,
+          label: 'Tiempo estimado de entrega',
+          hint: 'Ej. 24 a 48 horas hábiles',
+        ),
+        const SizedBox(height: 8),
+        GuidedFactField(
+          controller: _costPolicy,
+          label: 'Tarifas y condiciones',
+          hint: 'Ej. Se confirma la tarifa antes de despachar',
+        ),
+        const SizedBox(height: 8),
+        GuidedFactField(
+          controller: _carrier,
+          label: 'Transportadora o mensajería',
+          hint: 'Ej. Domiciliarios propios o transportadora registrada',
+        ),
+      ],
     );
   }
-
-  Widget _field(
-    TextEditingController ctrl,
-    String label,
-    AutomationVisualPalette visual, {
-    String? hint,
-  }) => TextField(
-    controller: ctrl,
-    style: TextStyle(color: visual.text, fontSize: 12.5),
-    decoration: InputDecoration(
-      labelText: label,
-      labelStyle: TextStyle(fontSize: 11, color: visual.textMuted),
-      hintText: hint,
-      hintStyle: TextStyle(
-        fontSize: 10,
-        color: visual.textMuted.withValues(alpha: 0.5),
-      ),
-      filled: true,
-      fillColor: visual.inputFill,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide.none,
-      ),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-    ),
-  );
 }

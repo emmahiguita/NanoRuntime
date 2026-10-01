@@ -25,6 +25,8 @@ import 'burst_turn_gate.dart';
 import 'notification_event_trace.dart';
 import 'rule_pipeline.dart';
 
+part 'notification_event_router_recovery.part.dart';
+
 class NotificationEventRouter {
   NotificationEventRouter({required this.pipeline, this.gate});
 
@@ -35,6 +37,11 @@ class NotificationEventRouter {
   int _pendingBatches = 0;
   bool _hasDeferredBatches = false;
   bool _isDrainingBacklog = false;
+
+  // FIX-2: set de fingerprints de snapshots activos ya procesados en esta
+  // sesión del router. Evita que _drainBacklog re-inyecte las mismas
+  // notificaciones activas (que no tienen inbox eventId) en bucle cada 20s.
+  final Set<String> _coldStartSeenKeys = {};
 
   Timer? _periodicDrainTimer;
 
@@ -157,63 +164,12 @@ class NotificationEventRouter {
     }
   }
 
-  Future<void> _drainBacklog(int generation) async {
-    if (_isDrainingBacklog) return;
-    _isDrainingBacklog = true;
-    try {
-      if (_sub == null || generation != _generation) return;
-      final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 16);
-      if (_sub == null || generation != _generation) return;
-      for (final m in inboxEvents) {
-        if (_sub == null || generation != _generation) break;
-        await _routeBatch(m, generation, source: 'durable_inbox');
-      }
-      // Revisa también notificaciones activas porque el inbox conserva solo su identidad;
-      // el contenido real se rehidrata desde Android antes de procesar el evento.
-      final active = await NanoRuntimeApi.instance.listNotifications();
-      if (_sub == null || generation != _generation) return;
-      for (final m in active) {
-        if (_sub == null || generation != _generation) break;
-        await _routeBatch(m, generation, source: 'active_snapshot');
-      }
-    } catch (e, stack) {
-      NotificationEventTrace.failure('backlog', 'durable_inbox', e, stack);
-    } finally {
-      _isDrainingBacklog = false;
-    }
-  }
-
-  Future<void> _coldStartReplay(int generation) async {
-    for (var attempt = 0; attempt < 3; attempt++) {
-      await Future<void>.delayed(Duration(seconds: attempt == 0 ? 2 : 5));
-      if (_sub == null || generation != _generation) return;
-
-      final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 32);
-      if (_sub == null || generation != _generation) return;
-
-      for (final m in inboxEvents) {
-        if (_sub == null || generation != _generation) return;
-        await _routeBatch(m, generation, source: 'cold_start_inbox');
-      }
-
-      final active = await NanoRuntimeApi.instance.listNotifications();
-      if (_sub == null || generation != _generation) return;
-      if (inboxEvents.isEmpty && active.isEmpty) continue;
-
-      for (final m in active) {
-        if (_sub == null || generation != _generation) return;
-        await _routeBatch(m, generation, source: 'cold_start_snapshot');
-      }
-      return;
-    }
-  }
-
-  /// Cancela la fuente primero; los lotes ya iniciados observan la generación
-  /// inválida y terminan sin despachar ni reactivar el drenado del backlog.
+  /// Cancela el canal y espera los lotes activos antes de liberar el router.
   Future<void> stop() async {
     _generation++;
     _periodicDrainTimer?.cancel();
     _periodicDrainTimer = null;
+    _coldStartSeenKeys.clear();
     final subscription = _sub;
     _sub = null;
     _hasDeferredBatches = false;
@@ -227,9 +183,6 @@ class NotificationEventRouter {
         stack,
       );
     }
-
-    // No se falsea el contador: cada lote conserva su `finally`. La espera
-    // acotada permite teardown limpio sin dejar bloqueado el ciclo de Flutter.
     for (var attempt = 0; attempt < 15 && _pendingBatches > 0; attempt++) {
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }

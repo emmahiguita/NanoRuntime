@@ -61,6 +61,32 @@ const Map<String, ModelSourceDefinition> edgeOtherDefinitions = {
     story: 'Gemma-2-27B-IT de Google DeepMind ofrece capacidades de razonamiento profundo.',
   ),
 
+  'Gemma-4-E2B-it': ModelSourceDefinition(
+    id: 'Gemma-4-E2B-it',
+    officialRepo: 'google/gemma-4-E2B-it',
+    quantizedRepo: 'unsloth/gemma-4-E2B-it-GGUF',
+    developerName: 'Google DeepMind',
+    baseArchitecture: 'Multimodal Transformer (PLE + SwiGLU + RoPE)',
+    officialLicense: 'Apache-2.0',
+    officialContext: 131072,
+    officialVocab: 256000,
+    officialParams: 2.3,
+    quantizationSource: 'Unsloth / llama.cpp (Q4_K_M)',
+    officialBenchmarks: [],
+    officialCapabilities: [
+      VerifiedCapability(
+        name: 'LiteRT-LM & GGUF Dual-Backend',
+        description: 'Compatible con LiteRT-LM nativo (GPU OpenCL) y nanortime llama.cpp.',
+        source: ModelSource(
+          label: 'Google AI Edge / LiteRT-LM',
+          url: 'https://github.com/google-ai-edge/LiteRT-LM',
+          provenance: ModelDataProvenance.official,
+        ),
+      ),
+    ],
+    story: 'Gemma-4-E2B-it de Google DeepMind es un modelo multimodal y agentic optimizado para dispositivos móviles.',
+  ),
+
   'Ministral-3-3B-Instruct-2512': ModelSourceDefinition(
     id: 'Ministral-3-3B-Instruct-2512',
     officialRepo: 'mistralai/Ministral-3-3B-Instruct-2512',

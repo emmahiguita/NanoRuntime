@@ -171,6 +171,7 @@ final class PragmaticFastPath {
 
     final actLabel = intents.map((i) => i.name).join('+');
     final needsOwnerFact = intentNeedsOwnerLiveFact(intents.map((i) => i.name));
+    final affirmsActivity = ConversationDecisionGuards.affirmsOwnerActivity(result.reply);
     final isResponse = intents.any(_isRespondingIntent);
 
     return FastPathCandidate(
@@ -183,7 +184,7 @@ final class PragmaticFastPath {
         intent: actLabel,
         relation: isResponse ? 'responde' : 'nuevo',
         questions: const [],
-        missingFacts: needsOwnerFact
+        missingFacts: (needsOwnerFact && affirmsActivity)
             ? const ['estado actual del dueño']
             : const [],
         requiresAction: false,

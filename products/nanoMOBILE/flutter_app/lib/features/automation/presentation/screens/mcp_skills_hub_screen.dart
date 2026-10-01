@@ -8,7 +8,6 @@ import '../../engine/orchestration/execution_journal.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/mcp/api_provider_settings_card.dart';
 import '../widgets/mcp/mcp_graph_components.dart';
-import '../widgets/mcp/mcp_hot_injection_dialog.dart';
 import '../widgets/mcp/mcp_store_components.dart';
 import '../widgets/mcp/mcp_telemetry_components.dart';
 import '../widgets/mcp/mcp_tool_test_dialog.dart';
@@ -762,85 +761,15 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                visual.accent.withValues(alpha: 0.18),
-                visual.accent.withValues(alpha: 0.04),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: visual.accent.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: visual.accent,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.add_to_photos_rounded,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Inyección en Caliente (Hot Injection)',
-                      style: TextStyle(
-                        color: visual.text,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Conecta herramientas locales y servidores MCP remotos Streamable HTTP.',
-                      style: TextStyle(color: visual.textMuted, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: visual.accent,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onPressed: () => showMcpHotInjectionDialog(
-                  context: context,
-                  registry: mcpRegistry,
-                  persistence: ref.read(mcpServerPersistenceProvider),
-                  visual: visual,
-                  onInjected: (msg) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(msg)));
-                  },
-                ),
-                child: const Text(
-                  'Inyectar',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ],
-          ),
+        McpHotInjectionBanner(
+          visual: visual,
+          registry: mcpRegistry,
+          persistence: ref.read(mcpServerPersistenceProvider),
+          onInjected: (msg) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(msg)));
+          },
         ),
         const SizedBox(height: 20),
         Row(

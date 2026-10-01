@@ -302,6 +302,13 @@ class AutomationStoreDb(context: Context) {
         ) return -1L
         val metadata = org.json.JSONObject(toneJson.ifBlank { "{}" }).toString()
         val db = helper.writableDatabase
+        // CANDIDATE-DEDUP: una clave basada en entrada/salida normalizadas es única entre proveedores.
+        if (source.startsWith("ai_candidate:")) {
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS persona_ai_candidate_dedupe " +
+                    "ON persona_examples(persona_key, source) WHERE source LIKE 'ai_candidate:%'",
+            )
+        }
         val values = android.content.ContentValues().apply {
             put("persona_key", personaKey)
             put("body", body)
@@ -310,7 +317,17 @@ class AutomationStoreDb(context: Context) {
             put("incoming_text", incomingText)
             put("created_at_ms", System.currentTimeMillis())
         }
-        return db.insert("persona_examples", null, values)
+        // Ignora la repetición cloud por clave estable; los ejemplos humanos conservan su inserción original.
+        return if (source.startsWith("ai_candidate:")) {
+            db.insertWithOnConflict(
+                "persona_examples",
+                null,
+                values,
+                android.database.sqlite.SQLiteDatabase.CONFLICT_IGNORE,
+            )
+        } else {
+            db.insert("persona_examples", null, values)
+        }
     }
 
     /** Lista los ejemplos (más recientes primero). */

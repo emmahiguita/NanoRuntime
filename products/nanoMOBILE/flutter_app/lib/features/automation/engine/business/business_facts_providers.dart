@@ -7,6 +7,9 @@ library;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'business_facts.dart';
+import 'business_response_templates.dart';
+import 'business_profile.dart';
+import 'business_presets.dart';
 import 'business_text_matcher.dart';
 
 final businessFactsStoreProvider = Provider<BusinessFactsStore>((ref) {
@@ -26,9 +29,13 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
     try {
       final loaded = await _store.load();
       final cleanProducts = _mergeProducts([], loaded.products);
-      state = loaded.copyWith(products: cleanProducts);
-      // Repara una vez los duplicados históricos para que no reaparezcan al reiniciar.
-      if (cleanProducts.length != loaded.products.length) {
+      final profile = loaded.profile.isConfigured
+          ? loaded.profile
+          : customPreset.profile;
+      state = loaded.copyWith(products: cleanProducts, profile: profile);
+      // Migra perfil vacío y repara duplicados históricos una sola vez.
+      if (cleanProducts.length != loaded.products.length ||
+          !loaded.profile.isConfigured) {
         await _store.save(state);
       }
     } on Object {
@@ -41,7 +48,17 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
     await ready;
   }
 
-  Future<bool> loadPreset(BusinessFacts preset) => _persist(preset);
+  /// Cambiar de rubro conserva frases personalizadas por el propietario.
+  Future<bool> loadPreset(BusinessFacts preset) =>
+      _persist(preset.copyWith(responseTemplates: state.responseTemplates));
+
+  /// Aplica únicamente el contrato operativo; conserva todos los datos reales.
+  Future<bool> setProfile(BusinessProfile profile) =>
+      _persist(state.copyWith(profile: profile));
+
+  /// Persiste frases personalizadas sin modificar catálogo ni hechos del negocio.
+  Future<bool> setResponseTemplates(BusinessResponseTemplates templates) =>
+      _persist(state.copyWith(responseTemplates: templates));
 
   Future<bool> setBusinessName(String name) =>
       _persist(state.copyWith(businessName: name.trim()));

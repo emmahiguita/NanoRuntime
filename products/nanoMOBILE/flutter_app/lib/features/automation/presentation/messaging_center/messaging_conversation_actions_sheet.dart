@@ -7,17 +7,25 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import 'conversation_hub_action_controller.dart';
 
-enum _ConversationAction { archive, unarchive, clearMemory, remove }
+enum _ConversationAction { archive, unarchive, clearMemory, remove, transferAgent }
 
 Future<void> showMessagingConversationActions(
   BuildContext context,
   WidgetRef ref,
   ConversationSummaryItem item, {
   required bool isArchived,
+  ConversationAgentId? currentAgent,
 }) async {
+  final target = currentAgent == ConversationAgentId.business
+      ? ConversationAgentId.personal
+      : ConversationAgentId.business;
+  final targetLabel = target.displayName;
+  final currentLabel = currentAgent?.displayName ?? '…';
+
   final action = await showModalBottomSheet<_ConversationAction>(
     context: context,
     showDragHandle: true,
@@ -26,6 +34,33 @@ Future<void> showMessagingConversationActions(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // ── Agente actual ─────────────────────────────────────────────
+          ListTile(
+            leading: const Icon(Icons.smart_toy_rounded),
+            title: Row(
+              children: [
+                const Text('Agente: '),
+                Chip(
+                  label: Text(
+                    currentLabel,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ],
+            ),
+            subtitle: Text('Cambiar a → $targetLabel'),
+            onTap: () => Navigator.pop(
+              sheetContext,
+              _ConversationAction.transferAgent,
+            ),
+          ),
+          const Divider(height: 1),
           ListTile(
             leading: Icon(
               isArchived ? Icons.unarchive_rounded : Icons.archive_rounded,
@@ -82,6 +117,8 @@ Future<void> showMessagingConversationActions(
       _ConversationAction.unarchive => _archive(controller, item, false),
       _ConversationAction.clearMemory => _clear(controller, item),
       _ConversationAction.remove => _remove(controller, item),
+      _ConversationAction.transferAgent =>
+        _transfer(controller, item, target),
     };
     final text = await message;
     if (context.mounted) _showMessage(context, text);
@@ -117,6 +154,15 @@ Future<String> _remove(
 ) async {
   await controller.removeFromNano(item);
   return 'Conversación quitada del centro de Nano.';
+}
+
+Future<String> _transfer(
+  ConversationHubActionController controller,
+  ConversationSummaryItem item,
+  ConversationAgentId target,
+) async {
+  await controller.transferAgent(item, target);
+  return 'Agente cambiado a ${target.displayName}. Activo en el próximo mensaje.';
 }
 
 Future<bool> _confirmDestructiveAction(

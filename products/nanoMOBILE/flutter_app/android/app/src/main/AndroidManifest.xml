@@ -180,6 +180,15 @@
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />
 
+        <!-- LiteRT-LM: Declaración de bibliotecas nativas del sistema para aceleración GPU (OpenCL/VNDK).
+             required=false garantiza compatibilidad con dispositivos que no dispongan de estos drivers. -->
+        <uses-native-library
+            android:name="libOpenCL.so"
+            android:required="false" />
+        <uses-native-library
+            android:name="libvndksupport.so"
+            android:required="false" />
+
         <!-- WA-MEDIA-01: FileProvider del catálogo (files/nano/catalog).
              Sirve content:// URIs para ACTION_SEND a WhatsApp (EXTRA_STREAM).
              No exportado: solo la propia app genera las URIs y concede el

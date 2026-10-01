@@ -8,9 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import '../../../../core/providers/chat_provider.dart';
+import '../../../../core/services/nano_inference_coordinator.dart';
 import '../../../../core/services/whisper_stt_service.dart';
 import '../../../../core/theme/adaptive_theme.dart';
 import '../../application/models_provider.dart';
+import '../widgets/inference_benchmark_sheet.dart';
 import '../widgets/model_catalog_types.dart';
 import '../widgets/model_detail_sheet.dart';
 import '../widgets/models_landscape_view.dart';
@@ -79,6 +81,21 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.speed_rounded, size: 21),
+            tooltip: 'Benchmark LiteRT vs llama.cpp',
+            onPressed: () {
+              final coordinator = ref.read(nanoInferenceCoordinatorProvider);
+              final gguf = state.models.where((m) => m.installed && m.fileName.endsWith('.gguf')).firstOrNull;
+              final ggufPath = gguf?.localPath ?? '/data/user/0/dev.nanoai.mobile/files/nano/models/LFM2.5-350M-QAD-Q4_0.gguf';
+              showInferenceBenchmarkSheet(
+                context,
+                coordinator: coordinator,
+                ggufModelPath: ggufPath,
+                liteRtModelPath: '/data/user/0/dev.nanoai.mobile/files/nano/models/gemma-4-E2B-it.litertlm',
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, size: 21),
             tooltip: 'Actualizar catálogo y escanear',

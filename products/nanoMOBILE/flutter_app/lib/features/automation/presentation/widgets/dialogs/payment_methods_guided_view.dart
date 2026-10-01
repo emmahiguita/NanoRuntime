@@ -13,6 +13,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
+import 'payment_method_card.dart';
 import 'payment_methods_models.dart';
 
 class PaymentMethodsGuidedView extends StatelessWidget {
@@ -34,7 +35,7 @@ class PaymentMethodsGuidedView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildMethodCard(
+          PaymentMethodCard(
             visual: visual,
             title: 'Transferencia Bancaria',
             icon: Icons.account_balance_rounded,
@@ -44,35 +45,35 @@ class PaymentMethodsGuidedView extends StatelessWidget {
               onChanged();
             },
             fields: [
-              _field(
+              PaymentMethodField(
                 visual,
                 'Banco',
                 data.bankName,
                 (v) => data.bankName = v,
                 hint: 'Ej. Bancolombia',
               ),
-              _field(
+              PaymentMethodField(
                 visual,
                 'Tipo',
                 data.accountType,
                 (v) => data.accountType = v,
                 hint: 'Ahorros / Corriente',
               ),
-              _field(
+              PaymentMethodField(
                 visual,
                 'Número de cuenta',
                 data.accountNumber,
                 (v) => data.accountNumber = v,
                 hint: 'Ej. 123-456789-01',
               ),
-              _field(
+              PaymentMethodField(
                 visual,
                 'Titular',
                 data.accountHolder,
                 (v) => data.accountHolder = v,
                 hint: 'Nombre o Razón Social',
               ),
-              _field(
+              PaymentMethodField(
                 visual,
                 'CC / NIT',
                 data.accountDoc,
@@ -82,7 +83,7 @@ class PaymentMethodsGuidedView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _buildMethodCard(
+          PaymentMethodCard(
             visual: visual,
             title: 'Billetera Móvil (Nequi / Daviplata)',
             icon: Icons.phone_android_rounded,
@@ -92,14 +93,14 @@ class PaymentMethodsGuidedView extends StatelessWidget {
               onChanged();
             },
             fields: [
-              _field(
+              PaymentMethodField(
                 visual,
                 'Billetera',
                 data.walletName,
                 (v) => data.walletName = v,
                 hint: 'Nequi / Daviplata / Dale',
               ),
-              _field(
+              PaymentMethodField(
                 visual,
                 'Número de celular',
                 data.walletNumber,
@@ -109,7 +110,7 @@ class PaymentMethodsGuidedView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _buildMethodCard(
+          PaymentMethodCard(
             visual: visual,
             title: 'Enlace de Pago (Wompi / PSE / Bold)',
             icon: Icons.link_rounded,
@@ -119,14 +120,14 @@ class PaymentMethodsGuidedView extends StatelessWidget {
               onChanged();
             },
             fields: [
-              _field(
+              PaymentMethodField(
                 visual,
                 'Pasarela',
                 data.linkProvider,
                 (v) => data.linkProvider = v,
                 hint: 'Wompi / PSE / Bold',
               ),
-              _field(
+              PaymentMethodField(
                 visual,
                 'Enlace URL',
                 data.linkUrl,
@@ -136,7 +137,7 @@ class PaymentMethodsGuidedView extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _buildMethodCard(
+          PaymentMethodCard(
             visual: visual,
             title: 'Contra entrega y QR',
             icon: Icons.local_shipping_outlined,
@@ -147,14 +148,14 @@ class PaymentMethodsGuidedView extends StatelessWidget {
               onChanged();
             },
             fields: [
-              _field(
+              PaymentMethodField(
                 visual,
                 'Política contra entrega',
                 data.codNotes,
                 (v) => data.codNotes = v,
                 hint: 'Efectivo al recibir',
               ),
-              _field(
+              PaymentMethodField(
                 visual,
                 'Instrucción QR',
                 data.qrNotes,
@@ -187,104 +188,6 @@ class PaymentMethodsGuidedView extends StatelessWidget {
             },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMethodCard({
-    required AutomationVisualPalette visual,
-    required String title,
-    required IconData icon,
-    required bool enabled,
-    required ValueChanged<bool> onToggle,
-    required List<Widget> fields,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: visual.isDark
-            ? Colors.white.withValues(alpha: 0.03)
-            : const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: enabled
-              ? visual.accent.withValues(alpha: 0.35)
-              : (visual.isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : const Color(0xFFE2E8F0)),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(
-                icon,
-                size: 18,
-                color: enabled ? visual.accent : visual.textMuted,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: visual.text,
-                  ),
-                ),
-              ),
-              Switch(
-                value: enabled,
-                onChanged: onToggle,
-                activeThumbColor: visual.accent,
-              ),
-            ],
-          ),
-          if (enabled) ...[
-            const Divider(height: 8),
-            const SizedBox(height: 4),
-            ...fields,
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _field(
-    AutomationVisualPalette visual,
-    String label,
-    String initialVal,
-    ValueChanged<String> onVal, {
-    String? hint,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: TextFormField(
-        initialValue: initialVal,
-        onChanged: onVal,
-        style: TextStyle(color: visual.text, fontSize: 12),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: TextStyle(fontSize: 10.5, color: visual.textMuted),
-          hintText: hint,
-          hintStyle: TextStyle(
-            fontSize: 10,
-            color: visual.textMuted.withValues(alpha: 0.5),
-          ),
-          filled: true,
-          fillColor: visual.inputFill,
-          isDense: true,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 8,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide.none,
-          ),
-        ),
       ),
     );
   }

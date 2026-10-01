@@ -75,6 +75,7 @@ class UnifiedModelItem {
     if (cat.kind == ModelKind.wakeWord) return 'WAKE';
     if (cat.isMultimodal) return 'VISIÓN';
     final n = cat.name.toLowerCase();
+    if (cat.fileName.endsWith('.litertlm') || n.contains('litert')) return 'LITERT';
     if (n.contains('lfm')) return 'EDGE';
     if (n.contains('coder')) return 'CODER';
     if (n.contains('deepseek') || n.contains('r1')) return 'RAZÓN';

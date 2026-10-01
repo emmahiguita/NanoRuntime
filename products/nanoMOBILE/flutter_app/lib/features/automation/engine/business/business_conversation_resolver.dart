@@ -3,18 +3,15 @@
 // QUÉ HACE:
 // Orquestador y generador de respuestas comerciales automáticas para WhatsApp y atención al cliente.
 //
-// CÓMO FUNCIONA:
-// - Analiza la entrada con [BusinessIntentAnalyzer] detectando desde un "Hola" hasta párrafos multi-pregunta.
-// - Aplica el perfil de tono [ToneProfile] (persuasivo vs natural, tuteo vs formal, emojis, extensión).
-// - Ensambla respuestas fluidas con todos los datos consultados y produce 3 opciones interactivas de respuesta.
-//
-// POR QUÉ:
-// Conserva un fallback factual cuando el modelo contextual no está disponible (< 200 líneas).
+// CÓMO: analiza entradas breves o extensas, aplica el tono y compone opciones.
+// POR QUÉ: conserva un fallback factual si el modelo contextual no está disponible.
 
 import '../messaging/tone_profile.dart';
 import 'business_conversation_models.dart';
 import 'business_facts.dart';
 import 'business_intent_analyzer.dart';
+import 'business_product_reply.dart';
+import 'business_profile_policy.dart';
 import 'business_reply_phrases.dart';
 
 class BusinessConversationResolver {
@@ -34,8 +31,11 @@ class BusinessConversationResolver {
     if (clean.isEmpty) return null;
 
     final analysis = analyzer.analyze(clean, facts);
+    final availableProducts = facts.products
+        .where((product) => product.isAvailable)
+        .toList(growable: false);
     final missingFacts = <String>[
-      if (analysis.isCatalogAsk && facts.products.isEmpty) 'catálogo',
+      if (analysis.isCatalogAsk && availableProducts.isEmpty) 'catálogo',
       if (analysis.isDeliveryAsk && facts.delivery.trim().isEmpty) 'envíos',
       if (analysis.isPaymentAsk && facts.payments.trim().isEmpty)
         'medios de pago',
@@ -44,7 +44,6 @@ class BusinessConversationResolver {
     ];
 
     final isTuteo = tone.warmth == ToneWarmth.cercano;
-    final isPersuasive = tone.sales == ToneSales.persuasivo;
     final useEmojis = tone.emojis;
     final productLimit = switch (tone.verbosity) {
       ToneVerbosity.breve => 2,
@@ -55,11 +54,16 @@ class BusinessConversationResolver {
         ? businessName!.trim()
         : facts.businessName.trim();
     final bName = configuredName.isNotEmpty ? configuredName : 'nuestra tienda';
+    final requiresReview = !facts.profile.autoReply;
 
     // 1. Manejo de solicitud de asesor humano
     if (analysis.isHumanRequest) {
       return BusinessTurnReply(
-        text: businessHumanReply(tone, clean),
+        text: businessHumanReply(
+          tone,
+          clean,
+          templates: facts.responseTemplates,
+        ),
         suggestions: isTuteo
             ? const [
                 'Ver catálogo mientras espero',
@@ -72,16 +76,34 @@ class BusinessConversationResolver {
       );
     }
 
+    // La política activa resuelve FAQ y límites sensibles con datos guardados.
+    final policyReply = resolveBusinessProfilePolicy(clean, facts.profile);
+    if (policyReply != null) {
+      final needsHuman = policyReply.needsHuman || requiresReview;
+      return BusinessTurnReply(
+        text: policyReply.text,
+        suggestions: policyReply.suggestions,
+        isDirectResolution: !needsHuman,
+        needsHuman: needsHuman,
+      );
+    }
+
     // 2. Saludo puro: respuesta inmediata y amable sin esperar LLM
     if (analysis.isGreeting && analysis.totalIntentsCount == 1) {
       return BusinessTurnReply(
-        text: businessGreeting(name: bName, tone: tone, message: clean),
+        text: businessGreeting(
+          name: bName,
+          tone: tone,
+          message: clean,
+          templates: facts.responseTemplates,
+        ),
         suggestions: const [
           'Ver catálogo',
           'Costos de envío',
           'Medios de pago',
         ],
-        isDirectResolution: true,
+        isDirectResolution: !requiresReview,
+        needsHuman: requiresReview,
       );
     }
 
@@ -90,35 +112,28 @@ class BusinessConversationResolver {
 
     // 3. Saludo de apertura cuando acompaña preguntas comerciales
     if (analysis.isGreeting) {
-      final greeting = isTuteo
-          ? '${useEmojis ? "👋 " : ""}¡Hola! Te damos la bienvenida a $bName.'
-          : '${useEmojis ? "👋 " : ""}Un cordial saludo. Bienvenido/a a $bName.';
+      final greeting = businessGreetingPrefix(
+        name: bName,
+        tone: tone,
+        templates: facts.responseTemplates,
+      );
       textBuffer.write('$greeting ');
     }
 
     // 4. Productos / Catálogo
     if (analysis.matchedProducts.isNotEmpty) {
-      final prodList = analysis.matchedProducts
-          .take(productLimit)
-          .map(
-            (p) =>
-                '${p.name} por ${p.priceLabel}${p.stock != null && p.stock! > 0 ? " (disponible)" : ""}',
-          )
-          .join(', ');
-      final prodIntro = isTuteo
-          ? 'Según el catálogo registrado: $prodList.'
-          : 'Según la información registrada en el catálogo: $prodList.';
-      textBuffer.write('$prodIntro ');
-      suggestions.add('Confirmar pedido');
-    } else if (analysis.isCatalogAsk && facts.products.isNotEmpty) {
-      final topProds = facts.products
-          .take(productLimit + 1)
-          .map((p) => '${p.name} (${p.priceLabel})')
-          .join(' · ');
-      final catText = isTuteo
-          ? 'En nuestro catálogo manejamos: $topProds.'
-          : 'En nuestro catálogo disponemos de: $topProds.';
-      textBuffer.write('$catText ');
+      final productReply = buildMatchedProductReply(
+        products: analysis.matchedProducts,
+        limit: productLimit,
+        informal: isTuteo,
+        templates: facts.responseTemplates,
+      );
+      textBuffer.write('${productReply.text} ');
+      suggestions.add(productReply.suggestion);
+    } else if (analysis.isCatalogAsk && availableProducts.isNotEmpty) {
+      textBuffer.write(
+        '${buildCatalogReply(products: availableProducts, limit: productLimit + 1, informal: isTuteo, templates: facts.responseTemplates)} ',
+      );
       suggestions.add('Ver catálogo completo');
     }
 
@@ -150,18 +165,20 @@ class BusinessConversationResolver {
 
     // 9. Cierre comercial adaptado
     if (textBuffer.isNotEmpty) {
-      final closing = isTuteo
-          ? (isPersuasive
-                ? '¿Qué detalle quieres que revisemos para continuar?'
-                : '¿En qué más te podemos ayudar?')
-          : (isPersuasive
-                ? '¿Qué detalle desea que revisemos para continuar?'
-                : '¿Tiene alguna otra inquietud?');
+      final closing = businessSalesClosing(
+        tone: tone,
+        templates: facts.responseTemplates,
+      );
       textBuffer.write(closing);
     } else if (missingFacts.isNotEmpty) {
       // Sin hechos reales, pregunta de forma honesta y no promete información.
       textBuffer.write(
-        businessMissingReply(missing: missingFacts, tone: tone, message: clean),
+        businessMissingReply(
+          missing: missingFacts,
+          tone: tone,
+          message: clean,
+          templates: facts.responseTemplates,
+        ),
       );
       suggestions.add('Hablar con un asesor');
     } else {
@@ -170,6 +187,7 @@ class BusinessConversationResolver {
         hasLink: RegExp(r'https?://|www\.').hasMatch(clean.toLowerCase()),
         tone: tone,
         message: clean,
+        templates: facts.responseTemplates,
       );
       textBuffer.write(fallbackNotice);
       suggestions.addAll(['Ver catálogo', 'Hablar con un asesor']);
@@ -185,7 +203,8 @@ class BusinessConversationResolver {
     return BusinessTurnReply(
       text: finalReply,
       suggestions: suggestions.take(3).toList(),
-      isDirectResolution: true,
+      isDirectResolution: !requiresReview,
+      needsHuman: requiresReview,
       missingFacts: missingFacts,
     );
   }

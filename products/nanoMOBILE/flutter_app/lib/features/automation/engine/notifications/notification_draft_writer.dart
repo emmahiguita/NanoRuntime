@@ -12,6 +12,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:nanoai/core/services/generative_inference_port.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
+import 'package:nanoai/core/services/nano_identity_context.dart';
 
 import '../../personal_agent/domain/conversation_agent_role.dart'
     show
@@ -20,7 +21,6 @@ import '../../personal_agent/domain/conversation_agent_role.dart'
         isCorrectionMessage,
         isGreetingLikeMessage,
         isLiveStateQuestion,
-        isSocialReactionMessage,
         productMentionedWithoutCommerce;
 import '../messaging/conv_turn_state.dart' show isPureGreeting;
 import '../messaging/conversation_context_resolver.dart';
@@ -48,6 +48,7 @@ part 'notification_draft_writer_result.part.dart';
 part 'notification_draft_writer_queue.part.dart';
 part 'notification_draft_writer_context.part.dart';
 part 'notification_draft_writer_prompt.part.dart';
+part 'notification_draft_writer_personal_prompt.part.dart';
 part 'notification_draft_writer_generation.part.dart';
 part 'notification_draft_writer_draft.part.dart';
 part 'notification_draft_writer_response.part.dart';
@@ -74,11 +75,9 @@ final class RuntimeNotificationDraftWriter {
       String role,
     )?
     personaBlock,
-    // P0-ROUTE — rol del turno por dominio (router determinista AUTO-02,
-    // jamás LLM). null = rutas legacy: negocio y persona entran por match
-    // léxico como antes. Con routing, el ROL manda sobre el contexto:
-    // SALES → hechos del negocio; PERSONAL → persona+relación; el resto
-    // no recibe bloque comercial (NO COMMERCIAL = NO SALES CONTEXT).
+    // El router de dominio decide qué contexto puede entrar al prompt.
+    // Personal recibe persona; Negocios recibe hechos comerciales de su scope.
+    // null conserva la ruta legacy del consumidor.
     ConversationAgentRouting Function(
       String conversationId,
       String messageText,
@@ -90,6 +89,14 @@ final class RuntimeNotificationDraftWriter {
     agentFor,
     ConversationMemoryStore? memory,
     GenerativeInferencePort? cloudInferencePort,
+    Future<void> Function({
+      required String input,
+      required String response,
+      required String provider,
+    })?
+    externalResponseLearner,
+    bool Function(String conversationId, String sender)?
+    externalResponseLearningAllowed,
   }) : _client = client,
        _llmAllowed = llmAllowed,
        _ensureReady = ensureReady,
@@ -103,6 +110,8 @@ final class RuntimeNotificationDraftWriter {
        _routeFor = routeFor,
        _agentFor = agentFor,
        _memory = memory,
+       _externalResponseLearner = externalResponseLearner,
+       _externalResponseLearningAllowed = externalResponseLearningAllowed,
        _cloudInferencePort =
            cloudInferencePort ?? CloudGenerativeInferenceAdapter();
 
@@ -161,31 +170,27 @@ final class RuntimeNotificationDraftWriter {
   /// para el borrador). null = el writer conserva el prompt sin historial.
   final ConversationMemoryStore? _memory;
 
-  /// Drafts en vuelo por INPUT LÓGICO. Single-flight solo para la
-  /// reemisión del MISMO evento: un notify duplicado de Android (misma
-  /// notification.key + mismo timestamp + mismo texto) reutiliza el draft
-  /// en curso en vez de lanzar un segundo POST al motor, que lo rechaza
-  /// instantáneo (modelo ocupado) y produce un terminal failed falso.
-  /// Verificado en dispositivo: notify duplicado a los 10.5s marcó failed
-  /// mientras el borrador real llegó 35s después y se envió bien.
-  ///
-  /// P1-FIX (2026-09-06) — antes la clave era SOLO conversationId: un
-  /// mensaje nuevo que llegaba durante un borrador en curso recibía el
-  /// Future ANTERIOR y el dispatcher podía enviar el draft del mensaje A
-  /// como respuesta al mensaje B (evidencia física: "hola" → "Déjame
-  /// confirmar el stock del negro y te digo"). Invariante: 1 INPUT = 1
-  /// DRAFT. La clave es conversationId + fingerprint del input (la MISMA
-  /// evidencia del dedupe: notification.key, timestamp y texto).
+  /// QUÉ: recibe candidatas cloud y consulta el consentimiento personal/contacto.
+  /// CÓMO: ambas dependencias se inyectan desde el composition root.
+  /// POR QUÉ: separa persistencia y privacidad del generador de respuestas.
+  final Future<void> Function({
+    required String input,
+    required String response,
+    required String provider,
+  })?
+  _externalResponseLearner;
+  final bool Function(String conversationId, String sender)?
+  _externalResponseLearningAllowed;
+
+  /// Reutiliza solo el mismo evento lógico; uno nuevo genera su propio borrador.
+  /// La cola serializa el motor y descarta turnos superados sin cruzar respuestas.
   static final Map<String, Future<NotificationDraftResult?>> _inFlight = {};
   static final Map<String, String> _latestFlightKeyByConv = {};
   static Future<void> _draftTail = Future<void>.value();
   static int _queueDepth = 0;
   static const _maxQueueDepth = 64;
 
-  /// P1-FIX — fingerprint del input lógico. Reutiliza la evidencia real
-  /// del evento (no se inventa identidad): la misma notification.key con
-  /// el mismo timestamp y texto ES el mismo evento; cualquier diferencia
-  /// es un mensaje distinto.
+  /// Clave basada en el evento real: cualquier diferencia es otro mensaje.
   static String _flightFingerprint(NotificationObject n) =>
       IncomingMessage.fromNotification(n).eventId;
 

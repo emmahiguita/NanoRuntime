@@ -138,10 +138,13 @@ final class TurnComplexityClassifier {
     final isSocialClarification = _socialWellbeingClarification.hasMatch(t);
     final isSituationalInquiry = _situationalSocialInquiry.hasMatch(t);
     final isWellbeingMatch = _socialGreetingWellbeing.hasMatch(t);
+    final isActivityMatch = _socialActivityInquiry.hasMatch(t);
     final isSocialExemption =
-        isSocialClarification || isSituationalInquiry || isWellbeingMatch;
-    final isActivityOrSituational =
-        _socialActivityInquiry.hasMatch(t) || isSituationalInquiry;
+        isSocialClarification ||
+        isSituationalInquiry ||
+        isWellbeingMatch ||
+        isActivityMatch;
+    final isActivityOrSituational = isActivityMatch || isSituationalInquiry;
     final isCompoundGreetingInquiry =
         RegExp(
           r'^\s*(?:hola|hol|ola|buenas|buenos|hey|oe|saludos)\b',

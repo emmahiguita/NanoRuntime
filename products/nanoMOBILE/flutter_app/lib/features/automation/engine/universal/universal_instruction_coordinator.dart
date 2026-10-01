@@ -38,30 +38,16 @@ final class UniversalInstructionCoordinator {
     bool userConfirmed = false,
   }) async {
     final updatedObligations = <UniversalObligation>[];
-    String? foundDataSummary;
-    String? anomalySummary;
-
     for (final obl in contract.obligations) {
       if (obl.phase == ObligationPhase.readQuery) {
-        // Fase 1: Inspección de fuente de datos
-        if (obl.targetEntity.isNotEmpty) {
-          foundDataSummary =
-              'Inspeccioné ${obl.targetEntity}: se identificaron los registros solicitados.';
-          updatedObligations.add(
-            obl.copyWith(
-              status: ObligationExecutionStatus.completed,
-              resultSnippet: foundDataSummary,
-            ),
-          );
-        } else {
-          updatedObligations.add(
-            obl.copyWith(
-              status: ObligationExecutionStatus.failed,
-              missingRequirement:
-                  'No se encontró la ruta del archivo o tabla referenciada.',
-            ),
-          );
-        }
+        updatedObligations.add(
+          obl.copyWith(
+            status: ObligationExecutionStatus.failed,
+            missingRequirement: obl.targetEntity.isEmpty
+                ? 'No se indicó una fuente de datos verificable.'
+                : 'La fuente ${obl.targetEntity} no tiene un ejecutor conectado a este contrato.',
+          ),
+        );
       } else if (obl.phase == ObligationPhase.mutation) {
         // Fase 2: Mutación autorizable
         if (obl.requiresAuthorization && !userConfirmed) {
@@ -75,24 +61,28 @@ final class UniversalInstructionCoordinator {
         } else {
           updatedObligations.add(
             obl.copyWith(
-              status: ObligationExecutionStatus.completed,
-              resultSnippet: 'Catálogo comercial actualizado correctamente.',
+              status: ObligationExecutionStatus.failed,
+              missingRequirement:
+                  'No existe un adaptador de escritura verificable para ${obl.targetEntity}.',
             ),
           );
         }
       } else if (obl.phase == ObligationPhase.anomalyVerification) {
         // Fase 3: Verificación de anomalías
-        anomalySummary =
-            'No se encontraron anomalías ni inconsistencias en los datos.';
         updatedObligations.add(
           obl.copyWith(
-            status: ObligationExecutionStatus.completed,
-            resultSnippet: anomalySummary,
+            status: ObligationExecutionStatus.failed,
+            missingRequirement:
+                'No se puede afirmar ausencia de anomalías sin leer datos reales.',
           ),
         );
       } else {
         updatedObligations.add(
-          obl.copyWith(status: ObligationExecutionStatus.completed),
+          obl.copyWith(
+            status: ObligationExecutionStatus.failed,
+            missingRequirement:
+                'No hay un ejecutor verificable para esta obligación.',
+          ),
         );
       }
     }
@@ -131,7 +121,7 @@ final class UniversalInstructionCoordinator {
     }
 
     if (parts.isEmpty) {
-      return 'Procesé tu solicitud sin observaciones.';
+      return 'No ejecuté ninguna operación: no había un adaptador verificable para la solicitud.';
     }
     return parts.join('\n\n');
   }

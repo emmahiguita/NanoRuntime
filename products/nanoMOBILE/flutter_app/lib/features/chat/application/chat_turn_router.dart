@@ -30,6 +30,7 @@ import '../domain/chat_social_reply_resolver.dart';
 
 import '../../../core/models/chat_models.dart';
 import '../../../core/services/native_conversational_router.dart';
+import '../../database/application/data_chat_command_router.dart';
 import '../domain/chat_turn_route_result.dart';
 
 class ChatTurnRouter {
@@ -57,13 +58,19 @@ class ChatTurnRouter {
     // 1. Cancelación determinista inmediata
     if (ChatControlIntent.isCancellation(text)) {
       coordinator.cancelCurrent();
-      return ChatTurnRouteResult.completed(ChatMessage(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        sender: MessageSender.ai,
-        text: ChatControlIntent.cancellationReply(text),
-        timestamp: DateTime.now(),
-      ));
+      return ChatTurnRouteResult.completed(
+        ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: ChatControlIntent.cancellationReply(text),
+          timestamp: DateTime.now(),
+        ),
+      );
     }
+
+    // 1.1 Datos locales: solo responde cuando una operación SQLite real coincide.
+    final dataCommand = await const DataChatCommandRouter().tryRoute(text);
+    if (dataCommand != null) return dataCommand;
 
     const chatMemory = ChatMemoryTools();
     if (chatMemory.isMemoryCommand(text)) {
@@ -83,13 +90,15 @@ class ChatTurnRouter {
     // 2. Comandos `@` directos
     if (AgentToolDispatcher.isToolCommand(text)) {
       final result = await coordinator.runCommand(text);
-      return ChatTurnRouteResult.completed(ChatMessage(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        sender: MessageSender.ai,
-        text: automationUserFacingReason(result),
-        timestamp: DateTime.now(),
-        status: MessageStatus.sent,
-      ));
+      return ChatTurnRouteResult.completed(
+        ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: automationUserFacingReason(result),
+          timestamp: DateTime.now(),
+          status: MessageStatus.sent,
+        ),
+      );
     }
 
     // 3. Comandos Linux deterministas
@@ -109,7 +118,8 @@ class ChatTurnRouter {
           newFilePath = linuxCmd.call.text;
           linuxText = 'Creé ${linuxCmd.call.text} y verifiqué su contenido.';
         } else {
-          linuxText = 'No se pudo crear ${linuxCmd.call.text}: ${automationUserFacingReason(result.reason)}';
+          linuxText =
+              'No se pudo crear ${linuxCmd.call.text}: ${automationUserFacingReason(result.reason)}';
         }
       } else {
         final outcome = await coordinator.runTool(linuxCmd.call);
@@ -135,7 +145,8 @@ class ChatTurnRouter {
     );
     if (contract.executionMode != InstructionExecutionMode.conversationalOnly &&
         contract.obligations.length >= 2) {
-      final execRes = await const UniversalInstructionCoordinator().executeContract(contract: contract);
+      final execRes = await const UniversalInstructionCoordinator()
+          .executeContract(contract: contract);
       return ChatTurnRouteResult.completed(
         ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -166,7 +177,8 @@ class ChatTurnRouter {
         ChatMessage(
           id: DateTime.now().microsecondsSinceEpoch.toString(),
           sender: MessageSender.ai,
-          text: 'Objetivo resuelto:\n${automationUserFacingReason(flowResult.plan.summary)}',
+          text:
+              'Objetivo resuelto:\n${automationUserFacingReason(flowResult.plan.summary)}',
           timestamp: DateTime.now(),
           status: MessageStatus.sent,
           source: MessageSource.device,
@@ -177,11 +189,15 @@ class ChatTurnRouter {
     // 6. Catálogo estático y tareas Cross-App
     final known = await coordinator.tryKnownFlow(text);
     if (known != null) {
-      return ChatTurnRouteResult.completed(_deviceExecutionMessage(known.result));
+      return ChatTurnRouteResult.completed(
+        _deviceExecutionMessage(known.result),
+      );
     }
     final crossApp = await coordinator.tryCrossApp(text);
     if (crossApp != null) {
-      return ChatTurnRouteResult.completed(_deviceExecutionMessage(crossApp.result));
+      return ChatTurnRouteResult.completed(
+        _deviceExecutionMessage(crossApp.result),
+      );
     }
 
     // Los comandos locales deterministas de arriba siguen teniendo prioridad,
@@ -202,27 +218,33 @@ class ChatTurnRouter {
       hasModel: hasActiveModel,
     );
     if (nativeRes != null) {
-      return ChatTurnRouteResult.completed(ChatMessage(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        sender: MessageSender.ai,
-        text: nativeRes.text,
-        timestamp: DateTime.now(),
-        source: nativeRes.source,
-        suggestions: nativeRes.suggestions,
-        status: MessageStatus.sent,
-      ));
+      return ChatTurnRouteResult.completed(
+        ChatMessage(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          sender: MessageSender.ai,
+          text: nativeRes.text,
+          timestamp: DateTime.now(),
+          source: nativeRes.source,
+          suggestions: nativeRes.suggestions,
+          status: MessageStatus.sent,
+        ),
+      );
     }
 
     return const ChatTurnRouteResult.notHandled();
   }
 
-  static ChatMessage _deviceExecutionMessage(AutomationResult result) => ChatMessage(
+  static ChatMessage _deviceExecutionMessage(
+    AutomationResult result,
+  ) => ChatMessage(
     id: DateTime.now().microsecondsSinceEpoch.toString(),
     sender: MessageSender.ai,
-    text: 'Ejecutado en el dispositivo:\n${automationUserFacingReason(result.reason)}',
+    text:
+        'Ejecutado en el dispositivo:\n${automationUserFacingReason(result.reason)}',
     timestamp: DateTime.now(),
     source: MessageSource.device,
-    status: (result.status == AutomationResultStatus.completed ||
+    status:
+        (result.status == AutomationResultStatus.completed ||
             result.status == AutomationResultStatus.completedUnverified)
         ? MessageStatus.sent
         : MessageStatus.error,

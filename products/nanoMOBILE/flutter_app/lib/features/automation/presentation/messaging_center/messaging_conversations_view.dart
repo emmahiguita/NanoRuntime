@@ -125,6 +125,7 @@ class MessagingConversationsView extends ConsumerWidget {
                   ref,
                   item,
                   isArchived: isArchived,
+                  currentAgent: item.agentId,
                 ),
               );
             },
@@ -150,6 +151,7 @@ class MessagingConversationsView extends ConsumerWidget {
                   ref,
                   item,
                   isArchived: isArchived,
+                  currentAgent: item.agentId,
                 ),
               );
             },

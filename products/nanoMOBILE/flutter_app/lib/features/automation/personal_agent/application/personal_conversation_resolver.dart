@@ -170,6 +170,7 @@ class PersonalConversationResolver {
       'laughter',
       'wellbeingClarification',
       'socialReassurance',
+      'askActivity',
     };
     final intents = act.split('+');
     return intents.isNotEmpty && intents.every(allowed.contains);

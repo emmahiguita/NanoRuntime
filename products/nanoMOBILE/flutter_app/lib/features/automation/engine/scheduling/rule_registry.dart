@@ -5,100 +5,14 @@
 /// (nunca este registry). Puro + persistencia desacoplada ([RuleStore] DIP).
 library;
 
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart' show debugPrint, ChangeNotifier;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../messaging/messaging_package.dart';
+import 'rule_store.dart';
 import 'scheduled_rule.dart';
 import 'trigger.dart';
 
-/// Persistencia de reglas (DIP). Producción = shared_prefs JSON; tests = memoria.
-abstract interface class RuleStore {
-  Future<List<ScheduledRule>> load();
-  Future<void> save(List<ScheduledRule> rules);
-}
-
-/// Store en memoria (tests/preview). Determinista.
-class MemoryRuleStore implements RuleStore {
-  MemoryRuleStore([List<ScheduledRule>? seed])
-    : _rules = List.of(seed ?? const []);
-  List<ScheduledRule> _rules;
-
-  @override
-  Future<List<ScheduledRule>> load() async => List.of(_rules);
-
-  @override
-  Future<void> save(List<ScheduledRule> rules) async => _rules = List.of(rules);
-}
-
-/// Persistencia de reglas en shared_preferences (JSON). Producción.
-class SharedPrefsRuleStore implements RuleStore {
-  static const _key = 'automation.scheduled_rules.v1';
-  static const _eligiblePackagesKey = 'automation.eligible_packages';
-
-  @override
-  Future<List<ScheduledRule>> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null || raw.isEmpty) return const [];
-    try {
-      final list = jsonDecode(raw) as List;
-      final rules = [
-        for (final m in list)
-          ScheduledRule.fromJson((m as Map).cast<String, dynamic>()),
-      ];
-      final expectedMirror = computeEligiblePackages(rules);
-      if (prefs.getString(_eligiblePackagesKey) != expectedMirror) {
-        await prefs.setString(_eligiblePackagesKey, expectedMirror);
-      }
-      return rules;
-    } on Object {
-      // Never seed enabled defaults over unreadable user configuration.
-      rethrow;
-    }
-  }
-
-  static String computeEligiblePackages(List<ScheduledRule> rules) {
-    final enabledNotificationRules = rules.where(
-      (r) => r.enabled && r.trigger is NotificationTrigger,
-    );
-    final hasCatchAll = enabledNotificationRules.any(
-      (r) => (r.trigger as NotificationTrigger).packageName == null,
-    );
-    if (hasCatchAll) {
-      return '*';
-    } else {
-      final pkgs = enabledNotificationRules
-          .map((r) => (r.trigger as NotificationTrigger).packageName!)
-          .where((p) => p.isNotEmpty)
-          .toSet();
-      return pkgs.join(',');
-    }
-  }
-
-  @override
-  Future<void> save(List<ScheduledRule> rules) async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = await prefs.setString(
-      _key,
-      jsonEncode([for (final r in rules) r.toJson()]),
-    );
-    if (!saved) throw StateError('Rule persistence rejected');
-
-    // NATIVE-ADMISSION-01: Sincroniza paquetes elegibles para que Kotlin descarte
-    // ruido (<1ms) sin despertar FGS/FlutterEngine headless cuando la UI está cerrada.
-    final eligiblePackages = computeEligiblePackages(rules);
-    final mirrorSaved = await prefs.setString(
-      _eligiblePackagesKey,
-      eligiblePackages,
-    );
-    if (!mirrorSaved) {
-      throw StateError('Rule admission mirror persistence rejected');
-    }
-  }
-}
+export 'rule_store.dart';
 
 class RuleRegistry with ChangeNotifier {
   RuleRegistry(this._store);
@@ -140,24 +54,7 @@ class RuleRegistry with ChangeNotifier {
       ..clear()
       ..addAll(unique);
 
-    // Auto-seed regla universal de WhatsApp si no existe
-    final waId = ruleIdForPackage(MessagingPackage.whatsapp);
-    if (!_rules.any((r) => r.id == waId)) {
-      _rules.add(
-        ScheduledRule(
-          id: waId,
-          trigger: const NotificationTrigger(
-            packageName: MessagingPackage.whatsapp,
-          ),
-          action: RuleAction.reply,
-          dynamicReply: true,
-          enabled: true,
-          createdAt: DateTime.now(),
-          createdByUser: true,
-        ),
-      );
-    }
-
+    // No crea reglas implícitas: WhatsApp exige el opt-in del dueño en la UI.
     _loaded = true;
     _persist();
     notifyListeners();

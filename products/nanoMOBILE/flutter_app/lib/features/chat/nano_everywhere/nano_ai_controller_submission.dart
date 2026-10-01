@@ -102,6 +102,40 @@ extension NanoAiControllerSubmission on NanoAiController {
       if (!_current(token)) return;
       debugPrint('[nano-assistant][${mode.name}] ${error.runtimeType}: $error');
       debugPrintStack(stackTrace: stackTrace);
+
+      // QUÉ: Si el error es login requerido Y hay un callback de UI conectado,
+      //      mostrar el sheet y reintentar automáticamente si el usuario confirma.
+      // POR QUÉ: Sin esto, el usuario solo ve un texto de error y no sabe qué hacer.
+      //          Con onLoginRequired, el widget abre el sheet guiado de login.
+      if (error is NanoUserActionRequiredException && onLoginRequired != null) {
+        // Extraer el providerId del mensaje de error (el gateway lo incluye)
+        // o usar el primer provider disponible como fallback.
+        final providerId = providers.firstOrNull?.id ?? 'deepseek';
+        activity = NanoActivity.idle;
+        status = 'Iniciando sesión en el asistente web…';
+        _emit();
+
+        // Mostrar el sheet (el widget decide cómo — bottom sheet, dialog, etc.)
+        final confirmed = await onLoginRequired!(providerId);
+
+        if (!_current(token)) return; // cancelado por otra consulta
+        if (confirmed) {
+          // Usuario confirmó login → reintentar la misma consulta
+          status = 'Reintentando consulta…';
+          activity = NanoActivity.thinking;
+          _emit();
+          // submit() usa un nuevo token, así que esta llamada es limpia
+          await submit(input);
+          return; // submit() ya llama a _emit() internamente
+        }
+        // Usuario canceló → mensaje amigable sin stack trace
+        activity = NanoActivity.idle;
+        status = 'Sesión no iniciada. Cuando estés listo, reenvía tu mensaje.';
+        _emit();
+        return;
+      }
+
+      // Error no relacionado con login: comportamiento anterior
       activity = NanoActivity.error;
       status = switch (error) {
         NanoUserActionRequiredException action => action.message,

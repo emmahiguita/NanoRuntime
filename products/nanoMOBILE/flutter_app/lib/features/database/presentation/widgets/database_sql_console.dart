@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import '../../application/database_studio_controller.dart';
+import 'database_sql_chip.dart';
 
 /// Componente modular para el editor de consultas SQL y barra de snippets
 class DatabaseSqlConsole extends StatelessWidget {
@@ -24,28 +25,6 @@ class DatabaseSqlConsole extends StatelessWidget {
       queryController.text = '${queryController.text}$snippet';
     }
     controller.updateQueryText(queryController.text);
-  }
-
-  Widget _buildSnippetChip(String label, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: Colors.grey.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'JetBrainsMono',
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -83,23 +62,43 @@ class DatabaseSqlConsole extends StatelessWidget {
                   physics: const BouncingScrollPhysics(),
                   child: Row(
                     children: [
-                      _buildSnippetChip(
-                        'SELECT *',
-                        () => _insertSnippet('SELECT * FROM ${state.selectedTableName} LIMIT 25;'),
+                      DatabaseSqlChip(
+                        label: 'SELECT *',
+                        onTap: state.selectedTableName.isEmpty
+                            ? null
+                            : () => _insertSnippet(
+                                'SELECT * FROM ${state.selectedTableSql} LIMIT 25;',
+                              ),
                       ),
                       const SizedBox(width: 4),
-                      _buildSnippetChip(
-                        'COUNT(*)',
-                        () => _insertSnippet('SELECT COUNT(*) FROM ${state.selectedTableName};'),
+                      DatabaseSqlChip(
+                        label: 'COUNT(*)',
+                        onTap: state.selectedTableName.isEmpty
+                            ? null
+                            : () => _insertSnippet(
+                                'SELECT COUNT(*) FROM ${state.selectedTableSql};',
+                              ),
                       ),
                       const SizedBox(width: 4),
-                      _buildSnippetChip('WHERE', () => _insertSnippet(' WHERE ')),
+                      DatabaseSqlChip(
+                        label: 'WHERE',
+                        onTap: () => _insertSnippet(' WHERE '),
+                      ),
                       const SizedBox(width: 4),
-                      _buildSnippetChip('ORDER BY', () => _insertSnippet(' ORDER BY ')),
+                      DatabaseSqlChip(
+                        label: 'ORDER BY',
+                        onTap: () => _insertSnippet(' ORDER BY '),
+                      ),
                       const SizedBox(width: 4),
-                      _buildSnippetChip('GROUP BY', () => _insertSnippet(' GROUP BY ')),
+                      DatabaseSqlChip(
+                        label: 'GROUP BY',
+                        onTap: () => _insertSnippet(' GROUP BY '),
+                      ),
                       const SizedBox(width: 4),
-                      _buildSnippetChip('LIMIT 50', () => _insertSnippet(' LIMIT 50;')),
+                      DatabaseSqlChip(
+                        label: 'LIMIT 50',
+                        onTap: () => _insertSnippet(' LIMIT 50;'),
+                      ),
                     ],
                   ),
                 ),
@@ -112,7 +111,10 @@ class DatabaseSqlConsole extends StatelessWidget {
             children: [
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: colors.background,
                     borderRadius: BorderRadius.circular(8),
@@ -131,7 +133,9 @@ class DatabaseSqlConsole extends StatelessWidget {
                     maxLines: 2,
                     minLines: 1,
                     decoration: const InputDecoration(
-                      hintText: 'Ej: SELECT * FROM ventas_globales WHERE total > 5000 ORDER BY total DESC;',
+                      // Hint muestra un ejemplo real de las tablas del portafolio
+                      hintText:
+                          'Ej: SELECT * FROM servicios_programacion WHERE precio_cop > 1500000;',
                       border: InputBorder.none,
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(vertical: 8),
@@ -144,14 +148,22 @@ class DatabaseSqlConsole extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: colors.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
                 icon: state.isLoading
                     ? const SizedBox(
                         width: 14,
                         height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.play_arrow_rounded, size: 18),
                 label: const Text(

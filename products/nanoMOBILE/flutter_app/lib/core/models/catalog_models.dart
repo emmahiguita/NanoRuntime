@@ -37,9 +37,16 @@ enum ModelTier {
 /// carga y consume según su arquitectura:
 /// - [llm]: Modelo generativo de texto a texto en GGUF (llama.cpp).
 /// - [wakeWord]: Detector local en background (.tflite microWakeWord).
+/// Tipo de modelo (A16): el catálogo soporta diversas modalidades. Cada kind se
+/// carga y consume según su arquitectura:
+/// - [llm]: Modelo generativo de texto a texto en GGUF (llama.cpp).
+/// - [wakeWord]: Detector local en background (.tflite microWakeWord).
 /// - [voiceStt]: Transcripción de voz local en el dispositivo (Whisper GGML).
 /// - [multimodalVision]: Modelo con proyector visual CLIP/SigLIP (GGUF + mmproj).
 enum ModelKind { llm, wakeWord, voiceStt, multimodalVision }
+
+/// Formato y motor de inferencia nativo que consume el archivo del modelo.
+enum ModelBackendType { gguf, litertlm }
 
 class LmCatalogEntry {
   final String name;
@@ -65,6 +72,9 @@ class LmCatalogEntry {
   /// Tipo de modelo (A16): llm, wakeWord, voiceStt, multimodalVision.
   final ModelKind kind;
 
+  /// Motor de ejecución correspondiente (GGUF llama.cpp o LiteRT-LM).
+  final ModelBackendType backendType;
+
   /// Nombre del archivo del proyector visual (solo para [ModelKind.multimodalVision]).
   final String? mmprojFile;
 
@@ -86,6 +96,7 @@ class LmCatalogEntry {
     this.template = ChatTemplate.qwen,
     this.tier = ModelTier.interactive,
     this.kind = ModelKind.llm,
+    this.backendType = ModelBackendType.gguf,
     this.mmprojFile,
     this.mmprojUrl,
     this.mmprojSha256,
@@ -363,6 +374,40 @@ abstract final class NeuralCatalog {
       '189d42b4303cb1078ea8d00963f437cd6d884069b7ba2ba80b38cd09585dc415',
       template: ChatTemplate.gemma,
       tier: ModelTier.deep,
+    ),
+    // Gemma 4 E2B-it — Modelo multimodal 2026 de Google DeepMind (PLE, 2.3B activos, 128k contexto).
+    // GGUF y proyector visual mmproj verificados contra la API real de Hugging Face (unsloth/gemma-4-E2B-it-GGUF).
+    LmCatalogEntry(
+      'Gemma-4-E2B-it',
+      '2.3B',
+      'Q4_K_M',
+      2.89,
+      3.8,
+      'gemma-4-E2B-it-Q4_K_M.gguf',
+      'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf',
+      '740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8',
+      template: ChatTemplate.gemma,
+      tier: ModelTier.deep,
+      mmprojFile: 'mmproj-F16.gguf',
+      mmprojUrl:
+          'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/mmproj-F16.gguf',
+      mmprojSha256:
+          '140be8d7849741f88c50757d529b84373ee8e27052cc2236855b537f4a8215fa',
+    ),
+    // Gemma 4 E2B-it (LiteRT-LM) — Formato nativo .litertlm oficial de Google AI Edge (litert-community).
+    // Verificado con archivo real en dispositivo físico (2 588 147 712 bytes, GPU/CPU).
+    LmCatalogEntry(
+      'Gemma-4-E2B-it (LiteRT)',
+      '2.3B',
+      'int4',
+      2.41,
+      3.5,
+      'gemma-4-E2B-it.litertlm',
+      'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
+      '6e5c4f1e395deb959c494953478fa5cec4b8008f',
+      template: ChatTemplate.gemma,
+      tier: ModelTier.deep,
+      backendType: ModelBackendType.litertlm,
     ),
     // A16 — wake word (detector local microWakeWord, modelo .tflite). SHA256
     // verificado del release oficial OHF-Voice/micro-wake-word v2.1_models.

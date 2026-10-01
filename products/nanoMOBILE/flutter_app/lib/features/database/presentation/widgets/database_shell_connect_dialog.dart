@@ -21,27 +21,26 @@ class DatabaseShellConnectDialog extends StatefulWidget {
   }) {
     return showDialog(
       context: context,
-      builder: (ctx) => DatabaseShellConnectDialog(
-        controller: controller,
-        colors: colors,
-      ),
+      builder: (ctx) =>
+          DatabaseShellConnectDialog(controller: controller, colors: colors),
     );
   }
 
   @override
-  State<DatabaseShellConnectDialog> createState() => _DatabaseShellConnectDialogState();
+  State<DatabaseShellConnectDialog> createState() =>
+      _DatabaseShellConnectDialogState();
 }
 
-class _DatabaseShellConnectDialogState extends State<DatabaseShellConnectDialog> {
+class _DatabaseShellConnectDialogState
+    extends State<DatabaseShellConnectDialog> {
   late final TextEditingController _pathController;
   String? _validationError;
+  bool _connecting = false;
 
   @override
   void initState() {
     super.initState();
-    _pathController = TextEditingController(
-      text: '/data/data/dev.nanoai.mobile/files/nano/reporte.csv',
-    );
+    _pathController = TextEditingController();
   }
 
   @override
@@ -50,29 +49,29 @@ class _DatabaseShellConnectDialogState extends State<DatabaseShellConnectDialog>
     super.dispose();
   }
 
-  void _submit() async {
+  Future<void> _submit() async {
     final rawPath = _pathController.text.trim();
     try {
       final safePath = DatabaseSecurityGuard.validateAndSanitizePath(rawPath);
-      final messenger = ScaffoldMessenger.of(context);
-      Navigator.pop(context);
-
+      setState(() => _connecting = true);
       final ok = await widget.controller.importFromShellPath(safePath);
       if (!mounted) return;
-      if (!ok) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('No se pudo conectar con $safePath'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
+      if (ok) {
+        Navigator.pop(context);
+      } else {
+        setState(() {
+          _connecting = false;
+          _validationError = 'No se pudo abrir el archivo indicado.';
+        });
       }
     } on DatabaseSecurityException catch (secErr) {
       setState(() {
+        _connecting = false;
         _validationError = secErr.message;
       });
     } catch (e) {
       setState(() {
+        _connecting = false;
         _validationError = 'Error de ruta: $e';
       });
     }
@@ -88,7 +87,7 @@ class _DatabaseShellConnectDialogState extends State<DatabaseShellConnectDialog>
         children: [
           Icon(Icons.terminal_rounded, color: colors.primary),
           const SizedBox(width: 8),
-          const Text('Conectar Hoja Shell', style: TextStyle(fontSize: 16)),
+          const Text('Conectar ruta local', style: TextStyle(fontSize: 16)),
         ],
       ),
       content: Column(
@@ -96,7 +95,7 @@ class _DatabaseShellConnectDialogState extends State<DatabaseShellConnectDialog>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Indique la ruta del archivo CSV o TSV generado por scripts o comandos dentro del entorno Shell:',
+            'Escribe la ruta real de un CSV, TSV, XLSX o SQLite generado o guardado en el dispositivo.',
             style: TextStyle(fontSize: 12),
           ),
           const SizedBox(height: 12),
@@ -110,50 +109,24 @@ class _DatabaseShellConnectDialogState extends State<DatabaseShellConnectDialog>
             style: const TextStyle(fontFamily: 'JetBrainsMono', fontSize: 12),
             decoration: InputDecoration(
               labelText: 'Ruta absoluta en Shell',
-              hintText: '/data/data/dev.nanoai.mobile/files/nano/...',
+              hintText: '/ruta/al/archivo.csv',
               errorText: _validationError,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               isDense: true,
             ),
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            children: [
-              ActionChip(
-                label: const Text('reporte.csv', style: TextStyle(fontSize: 10)),
-                onPressed: () {
-                  setState(() {
-                    _pathController.text = '/data/data/dev.nanoai.mobile/files/nano/reporte.csv';
-                    _validationError = null;
-                  });
-                },
-              ),
-              ActionChip(
-                label: const Text('metricas.tsv', style: TextStyle(fontSize: 10)),
-                onPressed: () {
-                  setState(() {
-                    _pathController.text = '/data/data/dev.nanoai.mobile/files/nano/metricas.tsv';
-                    _validationError = null;
-                  });
-                },
-              ),
-              ActionChip(
-                label: const Text('Descargas SD', style: TextStyle(fontSize: 10)),
-                onPressed: () {
-                  setState(() {
-                    _pathController.text = '/sdcard/Download/datos.csv';
-                    _validationError = null;
-                  });
-                },
-              ),
-            ],
+          const Text(
+            'Para buscar visualmente, usa “Cargar archivo” en la barra de tablas.',
+            style: TextStyle(fontSize: 11),
           ),
         ],
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _connecting ? null : () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
@@ -161,8 +134,13 @@ class _DatabaseShellConnectDialogState extends State<DatabaseShellConnectDialog>
             backgroundColor: colors.primary,
             foregroundColor: Colors.white,
           ),
-          onPressed: _submit,
-          child: const Text('Conectar'),
+          onPressed: _connecting ? null : _submit,
+          child: _connecting
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Conectar'),
         ),
       ],
     );

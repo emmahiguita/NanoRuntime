@@ -42,7 +42,8 @@ class BusinessIntentAnalyzer {
 
     final matched = <BusinessProduct>[];
     for (final p in facts.products) {
-      if (matchesBusinessProduct(normalized, tokens, p)) {
+      // Los productos pausados siguen persistidos, pero nunca se ofrecen al cliente.
+      if (p.isAvailable && matchesBusinessProduct(normalized, tokens, p)) {
         matched.add(p);
       }
     }

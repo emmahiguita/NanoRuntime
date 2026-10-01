@@ -38,8 +38,8 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
     final incomingEvent = IncomingMessage.fromNotification(notification);
     final groupSender = notification.isGroup
         ? (notification.senderKey.isNotEmpty
-            ? notification.senderKey
-            : notification.sender)
+              ? notification.senderKey
+              : notification.sender)
         : null;
     if (_deduplicator.isDuplicate(
       conversationId,
@@ -118,10 +118,16 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
     // 4. Inferencia contextual LLM local (casos complejos / narrativos)
     final draft = await _draftSource(notification);
     if (draft != null && draft.hasReply) {
+      final businessReviewRequired =
+          isBusiness &&
+          (businessFacts ?? _factsSource?.call())?.profile.autoReply == false;
+      final understanding = businessReviewRequired
+          ? draft.understanding.withRequiredAction()
+          : draft.understanding;
       return _packReply(
         draft.reply,
-        draft.understanding,
-        draft.understanding.options,
+        understanding,
+        understanding.options,
         context,
         conversationId,
         false,

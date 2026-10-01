@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/features/automation/presentation/widgets/conversation_pdf_viewer.dart';
 import '../../application/database_studio_controller.dart';
 
 /// Modal bottom sheet para configurar, previsualizar y compartir informes ejecutivos en PDF
@@ -25,10 +26,8 @@ class DatabasePdfDialog extends StatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => DatabasePdfDialog(
-        controller: controller,
-        colors: colors,
-      ),
+      builder: (ctx) =>
+          DatabasePdfDialog(controller: controller, colors: colors),
     );
   }
 
@@ -39,6 +38,7 @@ class DatabasePdfDialog extends StatefulWidget {
 class _DatabasePdfDialogState extends State<DatabasePdfDialog> {
   late final TextEditingController _titleCtrl;
   late final TextEditingController _notesCtrl;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -82,7 +82,9 @@ class _DatabasePdfDialogState extends State<DatabasePdfDialog> {
             controller: _titleCtrl,
             decoration: InputDecoration(
               labelText: 'Título del Informe',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               isDense: true,
             ),
           ),
@@ -92,7 +94,9 @@ class _DatabasePdfDialogState extends State<DatabasePdfDialog> {
             maxLines: 2,
             decoration: InputDecoration(
               labelText: 'Notas o Conclusiones',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               isDense: true,
             ),
           ),
@@ -118,15 +122,37 @@ class _DatabasePdfDialogState extends State<DatabasePdfDialog> {
                     backgroundColor: colors.primary,
                     foregroundColor: Colors.white,
                   ),
-                  icon: const Icon(Icons.print_rounded, size: 16),
-                  label: const Text('Ver / Imprimir'),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    widget.controller.generateAndPreviewPdfReport(
-                      title: _titleCtrl.text.trim(),
-                      notes: _notesCtrl.text.trim(),
-                    );
-                  },
+                  icon: _exporting
+                      ? const SizedBox.square(
+                          dimension: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.visibility_rounded, size: 16),
+                  label: const Text('Crear y ver'),
+                  onPressed: _exporting
+                      ? null
+                      : () async {
+                          final navigator = Navigator.of(context);
+                          setState(() => _exporting = true);
+                          final path = await widget.controller.exportPdf(
+                            title: _titleCtrl.text.trim(),
+                            notes: _notesCtrl.text.trim(),
+                          );
+                          if (!mounted) return;
+                          setState(() => _exporting = false);
+                          if (path == null) return;
+                          final reportTitle = _titleCtrl.text.trim();
+                          navigator.pop();
+                          if (!navigator.mounted) return;
+                          await ConversationPdfViewer.show(
+                            navigator.context,
+                            pathOrUrl: path,
+                            title: reportTitle,
+                          );
+                        },
                 ),
               ),
             ],

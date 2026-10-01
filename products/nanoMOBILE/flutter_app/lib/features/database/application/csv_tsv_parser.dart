@@ -31,7 +31,10 @@ class CsvTsvParser {
     if (rawLines.isEmpty) return DataTable(name: name, columns: [], rows: []);
 
     final headerTokens = _tokenizeLine(rawLines.first, delimiter);
-    final columns = headerTokens.map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
+    final columns = headerTokens
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
     if (columns.isEmpty) return DataTable(name: name, columns: [], rows: []);
 
     final rows = <List<dynamic>>[];
@@ -51,11 +54,18 @@ class CsvTsvParser {
       columnTypes[columns[c]] = _detectColumnType(rows, c);
     }
 
-    return DataTable(name: name, columns: columns, rows: rows, columnTypes: columnTypes);
+    return DataTable(
+      name: name,
+      columns: columns,
+      rows: rows,
+      columnTypes: columnTypes,
+    );
   }
 
   static String _detectDelimiter(String content) {
-    final firstLine = content.split(RegExp(r'\r?\n')).firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
+    final firstLine = content
+        .split(RegExp(r'\r?\n'))
+        .firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
     int comma = 0, tab = 0, semi = 0, pipe = 0;
     bool inQuotes = false;
     for (int i = 0; i < firstLine.length; i++) {
@@ -90,7 +100,9 @@ class CsvTsvParser {
           buffer.write(char);
         }
       } else if ((char == '\n' || char == '\r') && !inQuotes) {
-        if (char == '\r' && i + 1 < content.length && content[i + 1] == '\n') i++;
+        if (char == '\r' && i + 1 < content.length && content[i + 1] == '\n') {
+          i++;
+        }
         lines.add(buffer.toString());
         buffer.clear();
       } else {
@@ -133,11 +145,16 @@ class CsvTsvParser {
     final intVal = int.tryParse(val);
     if (intVal != null) return intVal;
     final doubleVal = double.tryParse(val.replaceAll(',', '.'));
-    if (doubleVal != null && !doubleVal.isNaN && !doubleVal.isInfinite) return doubleVal;
+    if (doubleVal != null && !doubleVal.isNaN && !doubleVal.isInfinite) {
+      return doubleVal;
+    }
     return val;
   }
 
-  static DataColumnType _detectColumnType(List<List<dynamic>> rows, int colIdx) {
+  static DataColumnType _detectColumnType(
+    List<List<dynamic>> rows,
+    int colIdx,
+  ) {
     if (rows.isEmpty) return DataColumnType.text;
     int intCount = 0, realCount = 0, boolCount = 0, valid = 0;
     for (final row in rows) {

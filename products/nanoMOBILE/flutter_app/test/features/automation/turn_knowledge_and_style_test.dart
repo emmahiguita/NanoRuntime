@@ -14,15 +14,21 @@ void main() {
 
     test('TurnKnowledgeRouter detecta necesidad de conocimiento externo', () {
       expect(
-        knowledgeRouter.needsExternalKnowledge('¿Viste qué pasó hoy con Android 17?'),
+        knowledgeRouter.needsExternalKnowledge(
+          '¿Viste qué pasó hoy con Android 17?',
+        ),
         isTrue,
       );
       expect(
-        knowledgeRouter.needsExternalKnowledge('¿Cuánto está el precio del dólar?'),
+        knowledgeRouter.needsExternalKnowledge(
+          '¿Cuánto está el precio del dólar?',
+        ),
         isTrue,
       );
       expect(
-        knowledgeRouter.needsExternalKnowledge('¿Cómo quedó el partido de hoy?'),
+        knowledgeRouter.needsExternalKnowledge(
+          '¿Cómo quedó el partido de hoy?',
+        ),
         isTrue,
       );
       expect(
@@ -30,8 +36,22 @@ void main() {
         isFalse,
       );
       expect(
-        knowledgeRouter.needsExternalKnowledge('¿Cuánto vale el teléfono negro?'),
+        knowledgeRouter.needsExternalKnowledge(
+          '¿Cuánto vale el teléfono negro?',
+        ),
         isFalse,
+      );
+      expect(
+        knowledgeRouter.needsExternalKnowledge(
+          'Investiga sobre el país Colombia',
+        ),
+        isTrue,
+      );
+      expect(
+        knowledgeRouter.needsExternalKnowledge(
+          'Busca información acerca de la fotosíntesis',
+        ),
+        isTrue,
       );
     });
 
@@ -55,98 +75,149 @@ void main() {
       expect(styled.understanding.hasReply, isTrue);
     });
 
-    test('ConversationReplyComposer resuelve preguntas de conocimiento externo sin LLM', () async {
-      final mockKnowledgeRouter = _MockKnowledgeRouter(
-        facts: 'Google lanzó hoy la primera beta para desarrolladores de Android 17.',
-      );
+    test(
+      'ConversationReplyComposer resuelve preguntas de conocimiento externo sin LLM',
+      () async {
+        final mockKnowledgeRouter = _MockKnowledgeRouter(
+          facts:
+              'Google lanzó hoy la primera beta para desarrolladores de Android 17.',
+        );
 
-      final composer = RuntimeConversationReplyComposer(
-        draftSource: (n) async => null, // LLM apagado o no disponible
-        knowledgeRouter: mockKnowledgeRouter,
-        styleFormatter: const RuntimePersonalStyleFormatter(),
-        decisionContext: (n) => const ConversationDecisionContext(
-          agentRole: ConversationAgentRole.personal,
-          autonomyMode: ConversationAutonomyMode.safeAuto,
-          identityConfidence: 1.0,
-        ),
-      );
+        final composer = RuntimeConversationReplyComposer(
+          draftSource: (n) async => null, // LLM apagado o no disponible
+          knowledgeRouter: mockKnowledgeRouter,
+          styleFormatter: const RuntimePersonalStyleFormatter(),
+          decisionContext: (n) => const ConversationDecisionContext(
+            agentRole: ConversationAgentRole.personal,
+            autonomyMode: ConversationAutonomyMode.safeAuto,
+            identityConfidence: 1.0,
+          ),
+        );
 
-      final notif = _createNotification(
-        text: '¿Viste qué pasó hoy con Android 17?',
-      );
-      final result = await composer.compose(notif);
+        final notif = _createNotification(
+          text: '¿Viste qué pasó hoy con Android 17?',
+        );
+        final result = await composer.compose(notif);
 
-      expect(result, isNotNull);
-      expect(result!.isFastPath, isTrue);
-      expect(result.text, contains('Android 17'));
-      expect(result.text.contains('Pillá') || result.text.contains('vi') || result.text.contains('mirando'), isTrue);
-      expect(result.decision.disposition, ConversationDisposition.autoSend);
-    });
+        expect(result, isNotNull);
+        expect(result!.isFastPath, isTrue);
+        expect(result.text, contains('Android 17'));
+        expect(
+          result.text.contains('Pillá') ||
+              result.text.contains('vi') ||
+              result.text.contains('mirando'),
+          isTrue,
+        );
+        expect(result.decision.disposition, ConversationDisposition.autoSend);
+      },
+    );
 
-    test('ConversationReplyComposer consulta ChatGPT/MCP si falla el borrador local', () async {
-      final mockKnowledgeRouter = _MockKnowledgeRouter(
-        facts: 'El cielo se ve rojizo porque la luz azul se dispersa más.',
-        source: 'mcp_chatgpt_answer',
-        useExternalKnowledgeGate: false,
-      );
-      final composer = RuntimeConversationReplyComposer(
-        draftSource: (n) async => null,
-        knowledgeRouter: mockKnowledgeRouter,
-        decisionContext: (n) => const ConversationDecisionContext(
-          agentRole: ConversationAgentRole.personal,
-          autonomyMode: ConversationAutonomyMode.safeAuto,
-          identityConfidence: 1.0,
-        ),
-      );
+    test(
+      'ConversationReplyComposer resuelve una orden de investigación factual',
+      () async {
+        final mockKnowledgeRouter = _MockKnowledgeRouter(
+          facts:
+              'Colombia está ubicada en el extremo noroccidental de América del Sur.',
+        );
+        final composer = RuntimeConversationReplyComposer(
+          draftSource: (n) async => null,
+          knowledgeRouter: mockKnowledgeRouter,
+          decisionContext: (n) => const ConversationDecisionContext(
+            agentRole: ConversationAgentRole.personal,
+            autonomyMode: ConversationAutonomyMode.safeAuto,
+            identityConfidence: 1.0,
+          ),
+        );
 
-      final result = await composer.compose(_createNotification(
-        text: 'Explícame por qué el cielo cambia de color al atardecer.',
-      ));
+        final result = await composer.compose(
+          _createNotification(text: 'Investiga sobre el país Colombia'),
+        );
 
-      expect(mockKnowledgeRouter.lastQuery, contains('ChatGPT'));
-      expect(mockKnowledgeRouter.lastQuery, contains('Mensaje actual:'));
-      expect(result, isNotNull);
-      expect(result!.text, mockKnowledgeRouter.facts);
-      expect(result.decision.disposition, ConversationDisposition.autoSend);
-    });
+        expect(
+          mockKnowledgeRouter.lastQuery,
+          'Investiga sobre el país Colombia',
+        );
+        expect(result, isNotNull);
+        expect(result!.text, contains('Colombia'));
+        expect(result.decision.disposition, ConversationDisposition.autoSend);
+      },
+    );
 
-    test('un saludo natural como "hola prueba" responde sin esperar IA local', () async {
-      var draftCalls = 0;
-      final composer = RuntimeConversationReplyComposer(
-        draftSource: (n) async {
-          draftCalls++;
-          return null;
-        },
-      );
+    test(
+      'ConversationReplyComposer consulta ChatGPT/MCP si falla el borrador local',
+      () async {
+        final mockKnowledgeRouter = _MockKnowledgeRouter(
+          facts: 'El cielo se ve rojizo porque la luz azul se dispersa más.',
+          source: 'mcp_chatgpt_answer',
+          useExternalKnowledgeGate: false,
+        );
+        final composer = RuntimeConversationReplyComposer(
+          draftSource: (n) async => null,
+          knowledgeRouter: mockKnowledgeRouter,
+          decisionContext: (n) => const ConversationDecisionContext(
+            agentRole: ConversationAgentRole.personal,
+            autonomyMode: ConversationAutonomyMode.safeAuto,
+            identityConfidence: 1.0,
+          ),
+        );
 
-      final result = await composer.compose(
-        _createNotification(text: 'hola prueba'),
-      );
+        final result = await composer.compose(
+          _createNotification(
+            text: 'Explícame por qué el cielo cambia de color al atardecer.',
+          ),
+        );
 
-      expect(result, isNotNull);
-      expect(result!.isFastPath, isTrue);
-      expect(result.text, isNotEmpty);
-      expect(draftCalls, 0);
-    });
+        expect(mockKnowledgeRouter.lastQuery, contains('ChatGPT'));
+        expect(mockKnowledgeRouter.lastQuery, contains('Mensaje actual:'));
+        expect(result, isNotNull);
+        expect(result!.text, mockKnowledgeRouter.facts);
+        expect(result.decision.disposition, ConversationDisposition.autoSend);
+      },
+    );
 
-    test('el fallback conversacional no envía un resultado web como respuesta de IA', () async {
-      final mockKnowledgeRouter = _MockKnowledgeRouter(
-        facts: 'resultado crudo de buscador',
-        source: 'web_search',
-        useExternalKnowledgeGate: false,
-      );
-      final composer = RuntimeConversationReplyComposer(
-        draftSource: (n) async => null,
-        knowledgeRouter: mockKnowledgeRouter,
-      );
+    test(
+      'un saludo natural como "hola prueba" responde sin esperar IA local',
+      () async {
+        var draftCalls = 0;
+        final composer = RuntimeConversationReplyComposer(
+          draftSource: (n) async {
+            draftCalls++;
+            return null;
+          },
+        );
 
-      final result = await composer.compose(
-        _createNotification(text: 'Explícame un tema que no conozco.'),
-      );
+        final result = await composer.compose(
+          _createNotification(text: 'hola prueba'),
+        );
 
-      expect(mockKnowledgeRouter.lastQuery, contains('ChatGPT'));
-      expect(result, isNull);
-    });
+        expect(result, isNotNull);
+        expect(result!.isFastPath, isTrue);
+        expect(result.text, isNotEmpty);
+        expect(draftCalls, 0);
+      },
+    );
+
+    test(
+      'el fallback conversacional no envía un resultado web como respuesta de IA',
+      () async {
+        final mockKnowledgeRouter = _MockKnowledgeRouter(
+          facts: 'resultado crudo de buscador',
+          source: 'web_search',
+          useExternalKnowledgeGate: false,
+        );
+        final composer = RuntimeConversationReplyComposer(
+          draftSource: (n) async => null,
+          knowledgeRouter: mockKnowledgeRouter,
+        );
+
+        final result = await composer.compose(
+          _createNotification(text: 'Explícame un tema que no conozco.'),
+        );
+
+        expect(mockKnowledgeRouter.lastQuery, contains('ChatGPT'));
+        expect(result, isNull);
+      },
+    );
   });
 }
 
@@ -164,7 +235,9 @@ final class _MockKnowledgeRouter implements TurnKnowledgeRouter {
 
   @override
   bool needsExternalKnowledge(String text) =>
-      useExternalKnowledgeGate && text.toLowerCase().contains('android 17');
+      useExternalKnowledgeGate &&
+      (text.toLowerCase().contains('android 17') ||
+          text.toLowerCase().startsWith('investiga sobre '));
 
   @override
   Future<ExternalKnowledgeResult> fetchKnowledge(String text) async {

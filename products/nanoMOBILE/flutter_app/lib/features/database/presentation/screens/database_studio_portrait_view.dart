@@ -15,7 +15,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import '../../application/database_studio_controller.dart';
-import '../widgets/database_data_grid.dart';
+import '../widgets/database_workspace_tabs.dart';
 import '../widgets/database_sql_console.dart';
 import '../widgets/database_status_banner.dart';
 import '../widgets/database_table_selector.dart';
@@ -43,9 +43,6 @@ class DatabaseStudioPortraitView extends StatelessWidget {
           state: state,
           controller: controller,
           colors: colors,
-          onTableSelected: (tableName) {
-            queryController.text = 'SELECT * FROM $tableName LIMIT 50;';
-          },
         ),
 
         // 2. Editor de Consultas SQL y Snippets
@@ -66,7 +63,7 @@ class DatabaseStudioPortraitView extends StatelessWidget {
 
         // 4. Cuadrícula de Datos
         Expanded(
-          child: DatabaseDataGrid(
+          child: DatabaseWorkspaceTabs(
             table: state.activeDisplayTable,
             colors: colors,
           ),

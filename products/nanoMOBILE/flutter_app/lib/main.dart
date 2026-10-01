@@ -16,6 +16,7 @@ import 'core/theme/design_tokens.dart';
 import 'features/automation/headless/automation_headless_runner.dart';
 import 'features/automation/application/automation_coordinator_provider.dart'
     show notificationEventRouterProvider, timeTickSchedulerProvider;
+import 'features/automation/engine/scheduling/notification_event_router.dart';
 import 'features/browser/presentation/widgets/browser_pip_overlay.dart';
 import 'features/chat/nano_everywhere/nano_floating_wrapper.dart';
 
@@ -119,6 +120,8 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _applyImmersiveMode();
+      // Recupera mensajes durables al volver a la app sin esperar el ticker de 20 s.
+      ref.read(notificationEventRouterProvider).drainPendingEvents();
     }
   }
 

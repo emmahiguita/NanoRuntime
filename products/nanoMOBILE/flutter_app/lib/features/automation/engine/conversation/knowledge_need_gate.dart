@@ -17,6 +17,7 @@
 library;
 
 import '../business/fact_selector.dart' show normalizeText;
+import '../../../../core/services/nano_identity_context.dart';
 import '../language/dialogue_act.dart';
 import '../../personal_agent/domain/conversation_agent_message_classifier.dart'
     show isLiveStateQuestion;
@@ -74,6 +75,14 @@ final class KnowledgeNeedGate {
   const KnowledgeNeedGate();
 
   static const _externalKeywords = {
+    'investiga sobre',
+    'investiga acerca de',
+    'averigua sobre',
+    'averigua acerca de',
+    'busca informacion sobre',
+    'busca informacion acerca de',
+    'consulta informacion sobre',
+    'indaga sobre',
     'que paso con',
     'que paso hoy',
     'viste que paso',
@@ -109,6 +118,17 @@ final class KnowledgeNeedGate {
     'que significa',
   };
 
+  static const _researchRequestPrefixes = {
+    'investiga sobre ',
+    'investiga acerca de ',
+    'averigua sobre ',
+    'averigua acerca de ',
+    'busca informacion sobre ',
+    'busca informacion acerca de ',
+    'consulta informacion sobre ',
+    'indaga sobre ',
+  };
+
   /// Evalúa rigurosamente los requerimientos de conocimiento para el [text] y [act].
   KnowledgeNeedDecision evaluate({
     required String text,
@@ -136,9 +156,17 @@ final class KnowledgeNeedGate {
         norm.contains('resultado') ||
         norm.contains('quien es') ||
         norm.contains('que es');
+    final explicitResearchRequest = _researchRequestPrefixes.any(
+      (prefix) =>
+          norm.startsWith(prefix) &&
+          norm.substring(prefix.length).trim().isNotEmpty,
+    );
 
-    if (act == DialogueAct.question && hasExternalSignal) {
-      return const KnowledgeNeedDecision(
+    // La identidad de la app/modelo viene de su configuración, no de la Web.
+    if (!NanoIdentityContext.matches(text) &&
+        (explicitResearchRequest ||
+            (act == DialogueAct.question && hasExternalSignal))) {
+      return KnowledgeNeedDecision(
         needsExternalKnowledge: true,
         needsPersonalMemory: false,
         needsLiveState: false,
@@ -146,8 +174,9 @@ final class KnowledgeNeedGate {
         canAnswerLocally: false,
         allowsWebSearch: true,
         allowsLongFormGeneration: true,
-        rationale:
-            'Pregunta factual sobre entidad, evento o actualidad externa',
+        rationale: explicitResearchRequest
+            ? 'Orden explícita de investigación sobre un tema externo'
+            : 'Pregunta factual sobre entidad, evento o actualidad externa',
       );
     }
 

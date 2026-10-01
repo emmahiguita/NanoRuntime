@@ -10,6 +10,9 @@ final class _PreparedDraftPrompt {
     required this.sessionId,
     required this.isSocial,
     required this.persona,
+    required this.systemContext,
+    required this.maxTokens,
+    required this.history,
     required this.stopwatch,
   });
 
@@ -18,6 +21,9 @@ final class _PreparedDraftPrompt {
   final String sessionId;
   final bool isSocial;
   final String persona;
+  final String systemContext;
+  final int maxTokens;
+  final List<Map<String, String>>? history;
   final Stopwatch stopwatch;
 }
 
@@ -25,8 +31,9 @@ _PreparedDraftPrompt _prepareDraftPrompt(
   RuntimeNotificationDraftWriter writer,
   NotificationObject notification,
   String conversationId,
-  _ResolvedDraftContext context,
-) {
+  _ResolvedDraftContext context, {
+  required bool includePersonaInPrompt,
+}) {
   final msgText = context.messageText;
   final history = context.history;
   final historyEntries = context.historyEntries;
@@ -70,52 +77,50 @@ _PreparedDraftPrompt _prepareDraftPrompt(
   // el guard lo retiene, pero el objetivo es respuesta cotidiana. El
   // social prompt no necesita estructura: el escalón legacy del parser
   // toma el texto tras "Respuesta:".
-  // WA-CONV-UNDERSTANDING-01 — clasificador centralizado: cierra la fuga
-  // PragmaticFastPath → NULL → socialPrompt. Un turno narrativo/contextual
-  // /complejo JAMÁS usa el prompt mínimo aunque pase por isGreetingLikeMessage
-  // o isSocialReactionMessage (la fuga exacta del bug). El clasificador es
-  // determinista, 0 LLM, compartido entre el FastPath y el DraftWriter.
-  final complexity = turnComplexityClassifier.classify(msgText);
-
-  // P0-SOCIAL-2 — reacción social pura ("me alegra", "gracias", "dale")
-  // usa el MISMO prompt mínimo: el router ya la marcó personal
-  // y el prompt completo la empujó a operador. Excepción:
-  // turno mixto con producto mencionado conserva el prompt completo
-  // para responder al producto.
-  // R5-GREETING-01 — saludo extendido usa el social mínimo igual que el
-  // puro: con 60 entradas de historial el prompt completo revienta ctx=256.
-  // CONV-STATE-02 — la respuesta a la pregunta pendiente JAMÁS usa el
-  // social mínimo aunque empiece con saludo ("hola si").
-  // WA-CONV-UNDERSTANDING-01 — invariante: !eligibleForSocialPrompt suprime
-  // el social mínimo cuando el turno es narrativo/contextual/complejo.
-  final social =
+  // La ruta personal usa instrucciones compactas para bajar el prefill móvil;
+  // ventas, producto mezclado y estado vivo conservan el prompt estructurado.
+  final hasProductContext =
+      routing?.reasons.contains(productMentionedWithoutCommerce) ?? false;
+  final personalReply =
       agentId == ConversationAgentId.personal &&
       role == ConversationAgentRole.personal &&
-      complexity.eligibleForSocialPrompt &&
-      (isGreetingLikeMessage(msgText) ||
-          (isSocialReactionMessage(msgText) &&
-              !(routing?.reasons.contains(productMentionedWithoutCommerce) ??
-                  false)));
-  // R5-PROMPT-ECO-01 — la pregunta por la actividad/estado del dueño
-  // JAMÁS usa el social mínimo: su regla de honestidad vive en la regla
-  // 6 del prompt completo (evidencia 16:58:17: "como estas?" recibió el
-  // social con la frase LIVE STATE copiable y el 1.5B la devolvió como
-  // reply "No sabes ahora, ¿qué pasó?" — despachado al cliente).
-  final socialOrPendingReply =
-      social &&
+      !hasProductContext &&
       !(routing?.pendingReply ?? false) &&
       !isLiveStateQuestion(msgText);
-  final temporalBlock = TemporalLocationContext.promptBlock();
-  final agentContract = conversationAgentContract(agentId);
+  // Personal local compacto; transferencias y estado vivo conservan JSON.
+  final localConversation =
+      agentId == ConversationAgentId.personal && !includePersonaInPrompt;
+  final style =
+      agentId == ConversationAgentId.personal && writer._styleEnabled()
+      ? writer._styleText()
+      : null;
+  final identity = NanoIdentityContext.matches(msgText)
+      ? NanoIdentityContext.promptBlock(
+          modelPath: writer._modelPath(),
+          provider: includePersonaInPrompt
+              ? writer._cloudInferencePort?.providerId ?? 'cloud'
+              : 'local en este dispositivo',
+        )
+      : '';
+  final temporalBlock = localConversation
+      ? ''
+      : TemporalLocationContext.promptBlock();
+  final contract = conversationAgentContract(
+    agentId,
+    compact: localConversation,
+  );
+  final agentContract = [
+    contract,
+    if (identity.isNotEmpty) identity,
+  ].join('\n');
   final genSw = Stopwatch()..start();
-  final prompt = socialOrPendingReply
+  final prompt = localConversation
+      ? _personalTurnPrompt(msgText, persona, identity)
+      : personalReply
       ? conversationSocialPromptFor(
           text: msgText,
-          style:
-              agentId == ConversationAgentId.personal && writer._styleEnabled()
-              ? writer._styleText()
-              : null,
-          persona: persona,
+          style: style,
+          persona: includePersonaInPrompt ? persona : null,
           tone: tone,
           history: formatConversationHistory(socialEntries),
           temporalContext: temporalBlock,
@@ -124,13 +129,10 @@ _PreparedDraftPrompt _prepareDraftPrompt(
       : conversationAgentPromptFor(
           history: history,
           text: msgText,
-          style:
-              agentId == ConversationAgentId.personal && writer._styleEnabled()
-              ? writer._styleText()
-              : null,
+          style: style,
           business: business,
           tone: tone,
-          persona: persona,
+          persona: includePersonaInPrompt ? persona : null,
           clientContext: clientContext,
           temporalContext: temporalBlock,
           agentContract: agentContract,
@@ -140,8 +142,26 @@ _PreparedDraftPrompt _prepareDraftPrompt(
     messageText: msgText,
     prompt: prompt,
     sessionId: turnSession,
-    isSocial: socialOrPendingReply,
+    isSocial: personalReply,
     persona: persona,
+    history: localConversation ? _personalTurnHistory(context) : null,
+    systemContext: localConversation
+        ? _personalSystemContext(
+            contract: contract,
+            identity: identity,
+            style: style,
+            structured: !personalReply,
+          )
+        : includePersonaInPrompt
+        ? ''
+        : persona,
+    // Párrafos y preguntas compuestas necesitan más salida que un saludo.
+    maxTokens:
+        personalReply &&
+            !turnComplexityClassifier.classify(msgText).isComplex &&
+            msgText.length <= 240
+        ? 128
+        : 320,
     stopwatch: genSw,
   );
 }

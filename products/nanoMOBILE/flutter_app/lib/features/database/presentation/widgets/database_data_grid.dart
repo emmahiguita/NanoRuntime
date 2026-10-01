@@ -1,12 +1,14 @@
+// QUÉ: cuadrícula tabular paginada para conjuntos de datos reales.
+// CÓMO: PaginatedDataTable solicita únicamente las filas de la página visible.
+// POR QUÉ: evita construir miles de celdas a la vez y bloquear la interfaz.
+
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import '../../domain/data_models.dart' as dm;
 
-/// Visualizador modular de cuadrícula de datos con soporte bidireccional y sin desbordamientos
-class DatabaseDataGrid extends StatelessWidget {
+class DatabaseDataGrid extends StatefulWidget {
   final dm.DataTable? table;
   final NanoColors colors;
-
   const DatabaseDataGrid({
     super.key,
     required this.table,
@@ -14,115 +16,132 @@ class DatabaseDataGrid extends StatelessWidget {
   });
 
   @override
+  State<DatabaseDataGrid> createState() => _DatabaseDataGridState();
+}
+
+class _DatabaseDataGridState extends State<DatabaseDataGrid> {
+  int _rowsPerPage = 25;
+  final _key = GlobalKey<PaginatedDataTableState>();
+
+  @override
+  void didUpdateWidget(covariant DatabaseDataGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.table, widget.table)) _key.currentState?.pageTo(0);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final currentTable = table;
-
-    if (currentTable == null || currentTable.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.table_chart_outlined,
-              size: 48,
-              color: colors.onSurfaceVariant.withValues(alpha: 0.4),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No hay registros para mostrar',
-              style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Ejecute una consulta o conecte una hoja de cálculo',
-              style: TextStyle(
-                color: colors.onSurfaceVariant.withValues(alpha: 0.7),
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
+    final table = widget.table;
+    if (table == null || table.columns.isEmpty) return _empty();
+    final source = _TableRows(table, widget.colors);
     return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          physics: const BouncingScrollPhysics(),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: DataTableTheme(
-                data: DataTableThemeData(
-                  headingRowColor: WidgetStateProperty.all(
-                    colors.surfaceVariant.withValues(alpha: 0.5),
+      builder: (context, constraints) => SingleChildScrollView(
+        padding: const EdgeInsets.all(10),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth - 20),
+          child: PaginatedDataTable(
+            key: _key,
+            header: Text(
+              '${table.name} · ${table.rowCount} registros',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            columns: [
+              for (final column in table.columns)
+                DataColumn(
+                  label: Text(
+                    column,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  dataRowColor: WidgetStateProperty.resolveWith<Color>((states) {
-                    return colors.surface;
-                  }),
-                  headingTextStyle: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: colors.onSurface,
-                  ),
-                  dataTextStyle: TextStyle(
-                    fontFamily: 'JetBrainsMono',
-                    fontSize: 11.5,
-                    color: colors.onSurface,
-                  ),
-                  horizontalMargin: 12,
-                  columnSpacing: 20,
-                  dividerThickness: 0.5,
                 ),
-                child: DataTable(
-                  columns: currentTable.columns.map((col) {
-                    return DataColumn(
-                      label: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(col),
-                          const SizedBox(width: 4),
-                          Text(
-                            currentTable.columnTypes[col]?.name.toUpperCase() ?? '',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: colors.onSurfaceVariant.withValues(alpha: 0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  rows: [
-                    for (int r = 0; r < currentTable.rows.length; r++)
-                      DataRow(
-                        color: WidgetStateProperty.resolveWith<Color?>((states) {
-                          return r.isEven
-                              ? colors.surface
-                              : colors.surfaceVariant.withValues(alpha: 0.15);
-                        }),
-                        cells: [
-                          for (int c = 0; c < currentTable.columns.length; c++)
-                            DataCell(
-                              Text(
-                                c < currentTable.rows[r].length
-                                    ? (currentTable.rows[r][c]?.toString() ?? '-')
-                                    : '-',
-                              ),
-                            ),
-                        ],
-                      ),
-                  ],
+            ],
+            source: source,
+            rowsPerPage: _rowsPerPage,
+            availableRowsPerPage: const [25, 50, 100],
+            onRowsPerPageChanged: (value) =>
+                setState(() => _rowsPerPage = value ?? 25),
+            showFirstLastButtons: true,
+            showEmptyRows: false,
+            horizontalMargin: 12,
+            columnSpacing: 22,
+            headingRowColor: WidgetStatePropertyAll(
+              widget.colors.surfaceVariant.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _empty() => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.table_chart_outlined,
+          size: 48,
+          color: widget.colors.onSurfaceVariant.withValues(alpha: 0.4),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'No hay registros para mostrar',
+          style: TextStyle(color: widget.colors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Crea una tabla o importa CSV, Excel, Google Sheets o SQLite',
+          style: TextStyle(
+            color: widget.colors.onSurfaceVariant.withValues(alpha: 0.7),
+            fontSize: 12,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _TableRows extends DataTableSource {
+  final dm.DataTable table;
+  final NanoColors colors;
+  _TableRows(this.table, this.colors);
+
+  @override
+  DataRow? getRow(int index) {
+    if (index >= table.rows.length) return null;
+    final row = table.rows[index];
+    return DataRow.byIndex(
+      index: index,
+      color: WidgetStatePropertyAll(
+        index.isEven
+            ? colors.surface
+            : colors.surfaceVariant.withValues(alpha: 0.15),
+      ),
+      cells: [
+        for (var column = 0; column < table.columnCount; column++)
+          DataCell(
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                column < row.length ? '${row[column] ?? '-'}' : '-',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'JetBrainsMono',
+                  fontSize: 11,
                 ),
               ),
             ),
           ),
-        );
-      },
+      ],
     );
   }
+
+  @override
+  bool get isRowCountApproximate => false;
+  @override
+  int get rowCount => table.rowCount;
+  @override
+  int get selectedRowCount => 0;
 }

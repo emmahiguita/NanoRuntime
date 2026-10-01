@@ -1,18 +1,6 @@
-/// NANO-BUSINESS-CATALOG-TAB — Pestaña "Productos" del Agente Comercial.
-///
-/// QUÉ HACE:
-/// Administra el catálogo de productos y servicios: creación, edición
-/// de precios, control de stock, eliminación y exportación de catálogo en PDF.
-///
-/// CÓMO FUNCIONA:
-/// - Observa [businessFactsNotifierProvider] y abre [ProductDialog] con useRootNavigator: true.
-/// - Detecta si la pantalla está en orientación horizontal (landscape) y compacta
-///   los botones de acción en una sola fila para eliminar scroll innecesario.
-/// - Si no hay productos, renderiza un estado vacío descriptivo con llamadas a la acción.
-///
-/// POR QUÉ:
-/// Centraliza la fuente de verdad que el LLM y los resolvers consultan para cotizar
-/// y verificar disponibilidad, respetando SOLID y el límite de 200 líneas de código.
+/// Administra productos reales, stock, edición y exportación PDF.
+/// Observa [businessFactsNotifierProvider] para que cada cambio llegue al agente.
+/// En horizontal compacta las acciones sin duplicar la lógica del catálogo.
 library;
 
 import 'package:flutter/material.dart';
