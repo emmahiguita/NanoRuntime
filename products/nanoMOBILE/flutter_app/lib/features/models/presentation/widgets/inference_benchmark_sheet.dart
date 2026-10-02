@@ -1,185 +1,85 @@
-// inference_benchmark_sheet.dart
-// QUÉ HACE: Modal Material Expressive para comparar el rendimiento de llama.cpp (GGUF) vs LiteRT-LM (.litertlm).
-// CÓMO FUNCIONA: Ejecuta inferencia sobre la misma tarea en ambos motores y muestra TTFT, tokens/s y RAM.
-// POR QUÉ: Permite tomar decisiones basadas en telemetría objetiva para el hardware del usuario.
-library;
-
+// Comparación manual opt-in. La hoja muestra errores, no fabrica resultados al fallar.
+// Usa Material 3 y desplazamiento para conservar controles legibles en horizontal.
 import 'package:flutter/material.dart';
 import '../../../../core/services/nano_inference_coordinator.dart';
+import 'inference_benchmark_row.dart';
 
-/// Despliega el modal de benchmarking comparativo de motores.
 Future<void> showInferenceBenchmarkSheet(
   BuildContext context, {
   required NanoInferenceCoordinator coordinator,
   required String ggufModelPath,
   required String liteRtModelPath,
-}) async {
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _InferenceBenchmarkSheet(
-      coordinator: coordinator,
-      ggufPath: ggufModelPath,
-      liteRtPath: liteRtModelPath,
-    ),
-  );
-}
+}) => showModalBottomSheet<void>(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  builder: (_) => _BenchmarkSheet(
+    coordinator: coordinator,
+    ggufPath: ggufModelPath,
+    liteRtPath: liteRtModelPath,
+  ),
+);
 
-class _InferenceBenchmarkSheet extends StatefulWidget {
+class _BenchmarkSheet extends StatefulWidget {
   final NanoInferenceCoordinator coordinator;
-  final String ggufPath;
-  final String liteRtPath;
-
-  const _InferenceBenchmarkSheet({
+  final String ggufPath, liteRtPath;
+  const _BenchmarkSheet({
     required this.coordinator,
     required this.ggufPath,
     required this.liteRtPath,
   });
-
   @override
-  State<_InferenceBenchmarkSheet> createState() => _InferenceBenchmarkSheetState();
+  State<_BenchmarkSheet> createState() => _BenchmarkSheetState();
 }
 
-class _InferenceBenchmarkSheetState extends State<_InferenceBenchmarkSheet> {
+class _BenchmarkSheetState extends State<_BenchmarkSheet> {
   bool _running = false;
-  List<EngineBenchmarkResult> _results = const [];
-
-  // QUÉ HACE: Ejecuta el test comparativo en ambos motores respetando exclusión mutua.
-  // CÓMO FUNCIONA: Delega la orquestación a NanoInferenceCoordinator sin colisionar en RAM.
-  Future<void> _startBenchmark() async {
+  String? _error;
+  List<EngineBenchmarkResult> _results = [];
+  Future<void> _measure() async {
     setState(() {
       _running = true;
-      _results = const [];
+      _error = null;
+      _results = [];
     });
-
     try {
-      final res = await widget.coordinator.runBenchmarkComparison(
+      final results = await widget.coordinator.runBenchmarkComparison(
         prompt: 'Resume en una frase la importancia de la computación local.',
         ggufModelPath: widget.ggufPath,
         liteRtModelPath: widget.liteRtPath,
       );
-      if (mounted) {
-        setState(() {
-          _results = res;
-        });
-      }
-    } catch (e) {
-      debugPrint('[benchmark] error en modal: $e');
+      if (mounted) setState(() => _results = results);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
     } finally {
-      if (mounted) {
-        setState(() {
-          _running = false;
-        });
-      }
+      if (mounted) setState(() => _running = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final size = MediaQuery.sizeOf(context);
-    final isLandscape = size.width > size.height || size.height < 500;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(isLandscape ? 20 : 28)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        isLandscape ? 20 : 24,
-        isLandscape ? 10 : 16,
-        isLandscape ? 20 : 24,
-        MediaQuery.viewInsetsOf(context).bottom + (isLandscape ? 12 : 24),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: isLandscape ? 24 : 32,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            SizedBox(height: isLandscape ? 8 : 16),
-            Text(
-              'Benchmark: llama.cpp vs LiteRT-LM',
-              style: isLandscape ? theme.textTheme.titleMedium : theme.textTheme.titleLarge,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Compara latencia al primer token (TTFT), velocidad y estabilidad en este dispositivo.',
-              style: (isLandscape ? theme.textTheme.bodySmall : theme.textTheme.bodyMedium)?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            SizedBox(height: isLandscape ? 12 : 20),
-            if (_running) ...[
-              const Center(child: CircularProgressIndicator()),
-              const SizedBox(height: 12),
-              Center(
-                child: Text('Evaluando motores (exclusión mutua activa)…', style: theme.textTheme.bodySmall),
-              ),
-            ] else if (_results.isNotEmpty) ...[
-              for (final r in _results)
-                _BenchmarkRow(result: r, compact: isLandscape),
-              const SizedBox(height: 12),
-            ],
-            SizedBox(height: isLandscape ? 8 : 16),
-            FilledButton.icon(
-              onPressed: _running ? null : _startBenchmark,
-              icon: Icon(Icons.speed_rounded, size: isLandscape ? 18 : 20),
-              label: Text(_running ? 'Midiendo…' : 'Iniciar Benchmark Comparativo'),
-              style: FilledButton.styleFrom(minimumSize: Size.fromHeight(isLandscape ? 40 : 48)),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Widget auxiliar para mostrar las métricas de un motor individual
-class _BenchmarkRow extends StatelessWidget {
-  final EngineBenchmarkResult result;
-  final bool compact;
-
-  const _BenchmarkRow({required this.result, required this.compact});
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final isLiteRt = result.engine == LocalEngineType.liteRt;
-    final name = isLiteRt ? 'LiteRT-LM (.litertlm)' : 'llama.cpp (GGUF)';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: EdgeInsets.all(compact ? 8 : 12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Icon(isLiteRt ? Icons.bolt_rounded : Icons.memory_rounded, color: cs.primary, size: compact ? 18 : 22),
-              const SizedBox(width: 8),
-              Text(name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: compact ? 12 : 14)),
-            ],
+          Text('Comparar motores locales', style: theme.textTheme.titleLarge),
+          const SizedBox(height: 8),
+          const Text(
+            'Mismo prompt y límite de 64 tokens. La carga inicial se excluye del tiempo de respuesta.',
           ),
-          Text(
-            'TTFT: ${result.ttftMs}ms | ${result.tokensPerSec.toStringAsFixed(1)} t/s',
-            style: TextStyle(color: cs.onSurfaceVariant, fontSize: compact ? 11 : 13),
+          const SizedBox(height: 12),
+          if (_running) const LinearProgressIndicator(),
+          if (_error != null)
+            Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+          for (final result in _results) InferenceBenchmarkRow(result: result),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _running ? null : _measure,
+            icon: const Icon(Icons.speed_rounded),
+            label: Text(_running ? 'Midiendo…' : 'Comparar'),
           ),
         ],
       ),

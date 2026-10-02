@@ -3,7 +3,7 @@
 // QUÉ HACE: Recupera y razona sobre `PersonalMemory` (SQLite) y `ConversationMemory`
 //   desde un saludo ("Hola") hasta párrafos grandes, ofreciendo opciones naturales.
 // CÓMO FUNCIONA: Evalúa correferencias, citas, proyectos y párrafos multi-tema antes del LLM.
-// POR QUÉ: Evita respuestas robóticas o inventadas y mantiene <190 líneas (Clean Architecture + SOLID).
+// POR QUÉ: separa recuperación factual y redacción; sin hechos, delega al modelo.
 
 library;
 
@@ -16,6 +16,9 @@ import 'personal_conversation_resolver.dart' show PersonalTurnReply;
 import 'personal_memory_fact_helpers.dart';
 
 export 'personal_memory_fact_helpers.dart' show PersonalMemorySource;
+
+part 'personal_memory_coreference.dart';
+part 'personal_memory_plans.dart';
 
 final class PersonalMemoryFactResolver {
   final PersonalMemorySource? _memorySource;
@@ -82,161 +85,6 @@ final class PersonalMemoryFactResolver {
       // conversacional/MCP responda o que el dispatcher omita el envío.
     }
     return null;
-  }
-
-  Future<PersonalTurnReply> _resolveCoreference(
-    String userText,
-    String conversationId,
-    ConversationMemory? memory,
-  ) async {
-    final candidates = PersonalMemoryFactHelpers.extractConversationTopics(
-      memory,
-      currentText: userText,
-    );
-    final stored = await PersonalMemoryFactHelpers.findMatchingMemories(
-      memorySource: _memorySource,
-      conversationId: conversationId,
-      query: userText,
-      topics: const [],
-      minScore: 0.15,
-    );
-    for (final m in stored.take(2)) {
-      final s = '${m.key}: ${m.value}'.trim();
-      if (!candidates.contains(s)) candidates.add(s);
-    }
-
-    if (candidates.isEmpty) {
-      const ask =
-          'Parce, refrescame la memoria un segundo, ¿a cuál tema te referís exactamente?';
-      const opts = [
-        ask,
-        '¿Me recordás de qué estábamos hablando la otra vez?',
-        'Contame un poco más para ubicarnos bien.',
-      ];
-      return const PersonalTurnReply(
-        text: ask,
-        understanding: ConversationUnderstanding(
-          intent: 'coreference_clarification',
-          relation: 'corrige',
-          questions: [ask],
-          missingFacts: ['referente_conversacional_previo'],
-          reply: ask,
-          options: opts,
-        ),
-        suggestions: opts,
-        isFast: true,
-      );
-    }
-    if (candidates.length >= 2) {
-      final t1 = PersonalMemoryFactHelpers.shortenTopic(candidates[0]);
-      final t2 = PersonalMemoryFactHelpers.shortenTopic(candidates[1]);
-      final ask = 'Parce, ¿te referís a lo de "$t1" o a lo de "$t2"?';
-      final opts = [
-        ask,
-        'Sí, sobre "$t1" seguimos pendientes.',
-        'Si es por "$t2", decime cómo avanzamos.',
-      ];
-      return PersonalTurnReply(
-        text: ask,
-        understanding: ConversationUnderstanding(
-          intent: 'coreference_disambiguation',
-          relation: 'corrige',
-          questions: [ask],
-          reply: ask,
-          options: opts,
-        ),
-        suggestions: opts,
-        isFast: true,
-      );
-    }
-    final single = PersonalMemoryFactHelpers.shortenTopic(candidates.first);
-    final opts = PersonalMemoryFactHelpers.buildDynamicOptions(
-      userText: userText,
-      topics: [single],
-      memorySummary: single,
-    );
-    return PersonalTurnReply(
-      text: opts.first,
-      understanding: ConversationUnderstanding(
-        intent: 'coreference_resolved',
-        relation: 'continua',
-        reply: opts.first,
-        options: opts,
-      ),
-      suggestions: opts,
-      isFast: true,
-    );
-  }
-
-  Future<PersonalTurnReply> _resolveAppointmentOrProject(
-    String userText,
-    String conversationId,
-    ConversationMemory? memory,
-    HybridIntentPrediction pred, {
-    required bool isAppointment,
-  }) async {
-    final matched = await PersonalMemoryFactHelpers.findMatchingMemories(
-      memorySource: _memorySource,
-      conversationId: conversationId,
-      query: userText,
-      topics: pred.extractedTopics,
-      minScore: 0.25,
-    );
-    if (matched.isNotEmpty) return _composeFromMemory(matched.first, userText);
-
-    final evidence = PersonalMemoryFactHelpers.findEvidenceInConversation(
-      memory,
-      pred.extractedTopics,
-    );
-    if (evidence != null) {
-      final opts = PersonalMemoryFactHelpers.buildDynamicOptions(
-        userText: userText,
-        topics: pred.extractedTopics,
-        memorySummary: evidence,
-      );
-      return PersonalTurnReply(
-        text: opts.first,
-        understanding: ConversationUnderstanding(
-          intent: 'personal_memory_verified',
-          relation: 'responde',
-          reply: opts.first,
-          options: opts,
-        ),
-        suggestions: opts,
-        isFast: true,
-      );
-    }
-
-    final honest = isAppointment
-        ? 'Parce, déjame revisar cómo tengo la agenda para confirmar bien y ya te aviso.'
-        : 'Parce, ahí voy avanzando con eso paso a paso; apenas tenga novedad concreta te cuento.';
-    final opts = [
-      honest,
-      isAppointment
-          ? 'Dame unos minutos verifico mis horarios y te confirmo.'
-          : 'Todavía estoy afinando detalles, pero va por buen camino.',
-      isAppointment
-          ? '¿A qué hora te quedaría mejor por si acaso?'
-          : 'Apenas tenga lista la siguiente versión te la muestro.',
-    ];
-    return PersonalTurnReply(
-      text: honest,
-      understanding: ConversationUnderstanding(
-        intent: isAppointment
-            ? 'personal_appointment_unverified'
-            : 'personal_project_unverified',
-        relation: 'responde',
-        missingFacts: [
-          isAppointment
-              ? 'confirmacion_encuentro_propietario'
-              : 'estado_actual_proyecto_propietario',
-        ],
-        reply: honest,
-        options: opts,
-      ),
-      suggestions: opts,
-      isFast: true,
-    );
   }
 
   PersonalTurnReply _composeFromMemory(PersonalMemory m, String query) {

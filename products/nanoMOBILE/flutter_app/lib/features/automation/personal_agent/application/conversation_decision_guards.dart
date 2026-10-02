@@ -27,7 +27,10 @@ abstract final class ConversationDecisionGuards {
   /// efímero del dueño en primera persona ("Estoy trabajando", "Voy para el centro",
   /// "Tengo hambre", "Estoy en casa", "Estoy programando", "Ahora estoy ocupado").
   static bool affirmsOwnerActivity(String reply) {
-    final r = fold(reply);
+    // "No estoy seguro" expresa incertidumbre, no una actividad del dueño.
+    // Se retira solo esa cláusula: "..., estoy en casa" sigue bajo el guard.
+    // Así una respuesta honesta no queda retenida por la palabra "estoy".
+    final r = fold(reply).replaceAll(RegExp(r'\bno estoy segur[oa]\b'), '');
     final tokens = tokenizeText(r);
     if (tokens.isEmpty) return false;
     const wordMarks = {
@@ -60,6 +63,8 @@ abstract final class ConversationDecisionGuards {
     if (tokens.any(wordMarks.contains)) return true;
 
     const phraseMarks = [
+      // Observado en Gemma: esta preferencia temporal también exige evidencia.
+      'quiero descansar',
       'voy a',
       'voy pa',
       'voy para',

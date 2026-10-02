@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
@@ -19,9 +20,12 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       if (base == null || base.isEmpty) return null;
       final cleanBase = base.endsWith('/nano') || base.endsWith(r'\nano')
           ? base
-          : (base.endsWith('/') || base.endsWith(r'\') ? '${base}nano' : '$base/nano');
+          : (base.endsWith('/') || base.endsWith(r'\')
+                ? '${base}nano'
+                : '$base/nano');
       return '$cleanBase/models';
-    } catch (_) {
+    } catch (error) {
+      debugPrint('[models] No se pudo resolver modelsDir: $error');
       return null;
     }
   }
@@ -30,7 +34,9 @@ class CatalogLocalModelRepository implements LocalModelRepository {
   // CÓMO FUNCIONA: Mapea NeuralCatalog.models a LocalModel sin esperar I/O de disco.
   // POR QUÉ: Garantiza que la pantalla nunca arranque vacía ni parpadee.
   static List<LocalModel> initialCatalog() {
-    return NeuralCatalog.models.map((e) => _entryToModel(e, null, false)).toList();
+    return NeuralCatalog.models
+        .map((e) => _entryToModel(e, null, false))
+        .toList();
   }
 
   @override
@@ -42,7 +48,9 @@ class CatalogLocalModelRepository implements LocalModelRepository {
         models.add(await _toModel(entry, dirPath));
       }
       return models;
-    } catch (_) {
+    } catch (error, trace) {
+      // Conserva el catálogo visible, pero registra la causa real para mantenimiento.
+      debugPrint('[models] Falló la verificación del catálogo: $error\n$trace');
       return initialCatalog();
     }
   }
@@ -56,7 +64,11 @@ class CatalogLocalModelRepository implements LocalModelRepository {
     return _entryToModel(entry, dest?.path, installed);
   }
 
-  static LocalModel _entryToModel(LmCatalogEntry entry, String? destPath, bool installed) {
+  static LocalModel _entryToModel(
+    LmCatalogEntry entry,
+    String? destPath,
+    bool installed,
+  ) {
     return LocalModel(
       id: entry.file,
       name: entry.name,
@@ -109,7 +121,7 @@ class CatalogLocalModelRepository implements LocalModelRepository {
     'Gemma-4-E2B-it' =>
       'Gemma 4 multimodal de Google (2.3B activos, PLE). Optimizado para agentes y razonamiento en móvil.',
     'Gemma-4-E2B-it (LiteRT)' =>
-      'Gemma 4 en formato .litertlm oficial para el motor Google LiteRT-LM (CPU/GPU/NPU).',
+      'Texto e historial local con LiteRT-LM. CPU o GPU disponible; visión, audio y NPU no conectados.',
     'Hey Mycroft (wake word)' =>
       'Detector local de palabra de activación; requiere un runtime de audio compatible.',
     'Whisper-Tiny (Voz Local)' =>

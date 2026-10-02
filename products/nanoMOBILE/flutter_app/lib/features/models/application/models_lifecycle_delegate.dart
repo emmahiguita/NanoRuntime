@@ -45,7 +45,8 @@ class ModelsLifecycleDelegate {
   }) async {
     if (!item.installed || item.localPath == null) return;
     await ModelFileManager.deletePhysicalFile(item.localPath);
-    if (ref.read(chatProvider).activeModel.toLowerCase().contains(item.name.toLowerCase())) {
+    // Una variante distinta no comparte identidad por ser prefijo del nombre activo.
+    if (ref.read(chatProvider).activeModel.toLowerCase() == item.name.toLowerCase()) {
       unloadModel(ref);
     }
     if (WhisperSttService.instance.activeModelFile == item.fileName) {
@@ -60,7 +61,7 @@ class ModelsLifecycleDelegate {
     bool deletePhysicalFile = true,
   }) async {
     if (deletePhysicalFile) await ModelFileManager.deletePhysicalFile(model.path);
-    if (ref.read(chatProvider).activeModel.toLowerCase().contains(model.name.toLowerCase())) {
+    if (ref.read(chatProvider).activeModel.toLowerCase() == model.name.toLowerCase()) {
       unloadModel(ref);
     }
   }

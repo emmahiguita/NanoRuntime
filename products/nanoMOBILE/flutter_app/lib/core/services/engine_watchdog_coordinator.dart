@@ -22,6 +22,7 @@ class EngineWatchdogCoordinator {
   final EngineSupervisorState _supervisor = EngineSupervisorState();
   final MemoryGuardState _memoryGuard = MemoryGuardState();
   Timer? _healthTimer;
+  bool _paused = false;
 
   bool _recoveryInProgress = false;
   bool _healthCheckInProgress = false;
@@ -44,6 +45,7 @@ class EngineWatchdogCoordinator {
        _onStatusUpdate = onStatusUpdate;
 
   void start() {
+    _paused = false;
     _healthTimer?.cancel();
     _healthTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       unawaited(healthTick());
@@ -52,6 +54,7 @@ class EngineWatchdogCoordinator {
   }
 
   Future<void> healthTick() async {
+    if (_paused) return;
     if (_recoveryInProgress || _healthCheckInProgress) return;
     final s = _getStatus();
     if (s.phase == EnginePhase.idle) return;
@@ -81,6 +84,7 @@ class EngineWatchdogCoordinator {
   }
 
   Future<void> _memoryTick() async {
+    if (_paused) return;
     if (_recoveryInProgress || _memoryCheckInProgress) return;
     final s = _getStatus();
     if (s.phase == EnginePhase.idle || s.phase == EnginePhase.failed) return;
@@ -125,6 +129,7 @@ class EngineWatchdogCoordinator {
   }
 
   Future<void> _recover(RecoveryIntent intent) async {
+    if (_paused) return;
     if (_recoveryInProgress) return;
     _recoveryInProgress = true;
     try {
@@ -176,6 +181,12 @@ class EngineWatchdogCoordinator {
   }
 
   void dispose() {
+    pause();
+  }
+
+  // LiteRT no tiene servidor HTTP: pausar impide que el watchdog resucite GGUF.
+  void pause() {
+    _paused = true;
     _healthTimer?.cancel();
     _healthTimer = null;
   }

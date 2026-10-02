@@ -21,10 +21,6 @@ android {
         buildConfig = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "dev.nanoai.mobile"
         testInstrumentationRunner =
@@ -132,7 +128,18 @@ flutter {
     source = "../.."
 }
 
+// API vigente de Kotlin 2.4; mantiene el mismo bytecode Java 17.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        // Lee metadatos 2.4 de LiteRT sin cambiar las reglas del código existente.
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
+    }
+}
+
 dependencies {
+    // Motor real, fijado a una versión reproducible de Google Maven.
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.1")
     testImplementation("junit:junit:4.13.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")

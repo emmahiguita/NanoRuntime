@@ -114,7 +114,8 @@ class ModelsListSection extends StatelessWidget {
     final isVoice = item.catalog?.isVoiceStt ?? false;
     final isActive = isVoice
         ? (WhisperSttService.instance.activeModelFile == item.fileName)
-        : chatModel.toLowerCase().contains(item.name.toLowerCase());
+        // Igualdad exacta: LiteRT no debe marcar también la variante GGUF como activa.
+        : chatModel.toLowerCase() == item.name.toLowerCase();
     final status = isActive
         ? ModelUiStatus.active
         : (item.isDownloading
