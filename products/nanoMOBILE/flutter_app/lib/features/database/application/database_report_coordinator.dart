@@ -3,6 +3,7 @@
 // POR QUÉ: el controlador de estado no debe conocer detalles de documentos.
 
 import '../domain/data_models.dart';
+import '../domain/report_section.dart';
 import 'data_export_service.dart';
 import 'report_generator_service.dart';
 
@@ -28,19 +29,33 @@ final class DatabaseReportCoordinator {
     String? notes,
     String? query,
     int? executionTimeMs,
+    List<ReportSection>? sections,
   }) => exporter.exportPdf(
     table,
     DataReportConfig(
       title: title ?? 'Informe ${table.name}',
       queryUsed: query,
       notes: notes,
+      sections: sections ?? kDefaultReportSections,
     ),
     executionTimeMs: executionTimeMs,
   );
 
-  Future<void> share(DataTable table, {String? title}) =>
-      ReportGeneratorService.shareReport(
-        table: table,
-        config: DataReportConfig(title: title ?? 'Informe ${table.name}'),
-      );
+  Future<void> share(
+    DataTable table, {
+    String? title,
+    String? notes,
+    String? query,
+    int? executionTimeMs,
+    List<ReportSection>? sections,
+  }) => ReportGeneratorService.shareReport(
+    table: table,
+    config: DataReportConfig(
+      title: title ?? 'Informe ${table.name}',
+      notes: notes,
+      queryUsed: query,
+      sections: sections ?? kDefaultReportSections,
+    ),
+    executionTimeMs: executionTimeMs,
+  );
 }

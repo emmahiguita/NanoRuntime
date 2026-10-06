@@ -7,33 +7,31 @@
 /// (Data Studio, Catálogo, Alertas) y flujos nativos antes de invocar la inferencia generativa.
 ///
 /// POR QUÉ:
-/// Garantiza respuestas instantáneas en <5ms para tareas deterministas y ejecuta
-/// órdenes compuestas multidominio sin alucinaciones de LLM (< 200 líneas).
+/// Reserva las respuestas generativas al modelo seleccionado y conserva las
+/// operaciones locales verificables sin atribuirlas al motor de inferencia.
 library;
 
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/application/automation_feedback_presenter.dart';
-import 'package:nanoai/features/automation/domain/automation_goal.dart';
-import 'package:nanoai/features/automation/domain/automation_result.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 import 'package:nanoai/features/automation/engine/planning/linux_voice_command_parser.dart';
 import 'package:nanoai/features/automation/engine/universal/universal_instruction_contract.dart';
-import 'package:nanoai/features/automation/engine/universal/universal_instruction_coordinator.dart';
 import 'package:nanoai/features/automation/engine/universal/universal_instruction_parser.dart';
 
 import '../../browser_ai/application/browser_ai_gateway.dart';
 import 'chat_control_intent.dart';
+import 'chat_turn_pipeline_executor.dart';
 import 'web_ai_turn_router.dart';
 import '../domain/chat_context_builder.dart';
 import '../domain/chat_memory_tools.dart';
-import '../domain/chat_social_reply_resolver.dart';
 
 import '../../../core/models/chat_models.dart';
-import '../../../core/services/native_conversational_router.dart';
 import '../../database/application/data_chat_command_router.dart';
 import '../domain/chat_turn_route_result.dart';
 
 class ChatTurnRouter {
+  final ChatTurnPipelineExecutor _pipeline = const ChatTurnPipelineExecutor();
+
   const ChatTurnRouter();
 
   Future<ChatTurnRouteResult> tryRoute({
@@ -43,15 +41,13 @@ class ChatTurnRouter {
     required String? activeModelPath,
     required String? lastLinuxFilePath,
     bool preferConfiguredApi = false,
+    bool hasAttachments = false,
     List<ChatMessage> chatHistory = const [],
     BrowserAiGateway? browserAiGateway,
   }) async {
     // 0. Consultas directas a Web AI (ChatGPT, DeepSeek, etc.)
     if (browserAiGateway != null) {
-      final webAiRes = await const WebAiTurnRouter().tryRoute(
-        text: text,
-        gateway: browserAiGateway,
-      );
+      final webAiRes = await const WebAiTurnRouter().tryRoute(text: text, gateway: browserAiGateway);
       if (webAiRes != null) return webAiRes;
     }
 
@@ -59,12 +55,7 @@ class ChatTurnRouter {
     if (ChatControlIntent.isCancellation(text)) {
       coordinator.cancelCurrent();
       return ChatTurnRouteResult.completed(
-        ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: ChatControlIntent.cancellationReply(text),
-          timestamp: DateTime.now(),
-        ),
+        ChatMessage(id: DateTime.now().microsecondsSinceEpoch.toString(), sender: MessageSender.ai, text: ChatControlIntent.cancellationReply(text), timestamp: DateTime.now()),
       );
     }
 
@@ -74,14 +65,8 @@ class ChatTurnRouter {
 
     const chatMemory = ChatMemoryTools();
     if (chatMemory.isMemoryCommand(text)) {
-      final previousTurns = const ChatContextBuilder().historyBeforeCurrentUser(
-        chatHistory,
-        text,
-      );
-      final memoryReply = chatMemory.resolveCommand(
-        input: text,
-        history: previousTurns,
-      );
+      final previousTurns = const ChatContextBuilder().historyBeforeCurrentUser(chatHistory, text);
+      final memoryReply = chatMemory.resolveCommand(input: text, history: previousTurns);
       if (memoryReply != null) {
         return ChatTurnRouteResult.completed(memoryReply);
       }
@@ -91,162 +76,32 @@ class ChatTurnRouter {
     if (AgentToolDispatcher.isToolCommand(text)) {
       final result = await coordinator.runCommand(text);
       return ChatTurnRouteResult.completed(
-        ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: automationUserFacingReason(result),
-          timestamp: DateTime.now(),
-          status: MessageStatus.sent,
-        ),
+        ChatMessage(id: DateTime.now().microsecondsSinceEpoch.toString(), sender: MessageSender.ai, text: automationUserFacingReason(result), timestamp: DateTime.now(), status: MessageStatus.sent),
       );
     }
 
     // 3. Comandos Linux deterministas
-    final linuxCmd = const LinuxVoiceCommandParser().parse(
-      text,
-      lastFilePath: lastLinuxFilePath,
-    );
+    final linuxCmd = const LinuxVoiceCommandParser().parse(text, lastFilePath: lastLinuxFilePath);
     if (linuxCmd != null) {
-      String linuxText;
-      String? newFilePath = lastLinuxFilePath;
-      if (linuxCmd.call.tool == 'linux.writeFile') {
-        final result = await coordinator.execute(
-          AutomationGoal(text: text, expectation: linuxCmd.expectation),
-          plan: [linuxCmd.call],
-        );
-        if (result.isVerifiedSuccess) {
-          newFilePath = linuxCmd.call.text;
-          linuxText = 'Creé ${linuxCmd.call.text} y verifiqué su contenido.';
-        } else {
-          linuxText =
-              'No se pudo crear ${linuxCmd.call.text}: ${automationUserFacingReason(result.reason)}';
-        }
-      } else {
-        final outcome = await coordinator.runTool(linuxCmd.call);
-        linuxText = outcome.feedback;
-      }
-      return ChatTurnRouteResult.completed(
-        ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: linuxText,
-          timestamp: DateTime.now(),
-          status: MessageStatus.sent,
-          source: MessageSource.device,
-        ),
-        lastLinuxFilePath: newFilePath,
-      );
+      return _pipeline.executeLinux(text: text, linuxCmd: linuxCmd, coordinator: coordinator, lastLinuxFilePath: lastLinuxFilePath);
     }
 
     // 4. Cerebro Universal: Instrucciones compuestas multidominio
-    final contract = const UniversalInstructionParser().parse(
-      text: text,
-      lastLinuxFilePath: lastLinuxFilePath,
-    );
-    if (contract.executionMode != InstructionExecutionMode.conversationalOnly &&
-        contract.obligations.length >= 2) {
-      final execRes = await const UniversalInstructionCoordinator()
-          .executeContract(contract: contract);
-      return ChatTurnRouteResult.completed(
-        ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: execRes.userMessage,
-          timestamp: DateTime.now(),
-          status: MessageStatus.sent,
-          suggestions: execRes.responseOptions,
-          source: MessageSource.device,
-        ),
-      );
+    final contract = const UniversalInstructionParser().parse(text: text, lastLinuxFilePath: lastLinuxFilePath);
+    if (contract.executionMode != InstructionExecutionMode.conversationalOnly && contract.obligations.length >= 2) {
+      return _pipeline.executeUniversal(contract: contract);
     }
 
-    // 5. Flujos verificados en caché
-    final deterministic = await coordinator.tryDeterministic(text);
-    if (deterministic != null) {
-      final flowResult = deterministic.result;
-      if (flowResult.plan.pauseIndex != null) {
-        return ChatTurnRouteResult.pausePlan(
-          plan: deterministic.steps,
-          pauseIndex: flowResult.plan.pauseIndex,
-          confirmation: flowResult.plan.confirmation,
-          pauseTool: flowResult.plan.pauseCall?.tool,
-          pauseDescription: automationUserFacingReason(flowResult.plan.summary),
-        );
-      }
-      return ChatTurnRouteResult.completed(
-        ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text:
-              'Objetivo resuelto:\n${automationUserFacingReason(flowResult.plan.summary)}',
-          timestamp: DateTime.now(),
-          status: MessageStatus.sent,
-          source: MessageSource.device,
-        ),
-      );
-    }
+    // 5. Flujos verificados en caché y catálogo cross-app
+    final cached = await _pipeline.tryCachedFlows(text: text, coordinator: coordinator);
+    if (cached != null) return cached;
 
-    // 6. Catálogo estático y tareas Cross-App
-    final known = await coordinator.tryKnownFlow(text);
-    if (known != null) {
-      return ChatTurnRouteResult.completed(
-        _deviceExecutionMessage(known.result),
-      );
+    // Un turno conversacional no se contesta con plantillas: sigue hacia el motor real.
+    // ensureReady carga el modelo elegido aunque aún esté dormido.
+    if (preferConfiguredApi || activeModelPath?.trim().isNotEmpty == true) {
+      return const ChatTurnRouteResult.notHandled();
     }
-    final crossApp = await coordinator.tryCrossApp(text);
-    if (crossApp != null) {
-      return ChatTurnRouteResult.completed(
-        _deviceExecutionMessage(crossApp.result),
-      );
-    }
-
-    // Los comandos locales deterministas de arriba siguen teniendo prioridad,
-    // pero el chat conversacional debe llegar al proveedor API seleccionado.
-    if (preferConfiguredApi) return const ChatTurnRouteResult.notHandled();
-
-    // 7. Enrutador conversacional reactivo nativo
-    final hasActiveModel = engineOnline && activeModelPath != null;
-    final socialReply = const ChatSocialReplyResolver().resolve(
-      text,
-      chatHistory,
-    );
-    if (socialReply != null) {
-      return ChatTurnRouteResult.completed(socialReply);
-    }
-    final nativeRes = const NativeConversationalRouter().tryResolve(
-      text,
-      hasModel: hasActiveModel,
-    );
-    if (nativeRes != null) {
-      return ChatTurnRouteResult.completed(
-        ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: nativeRes.text,
-          timestamp: DateTime.now(),
-          source: nativeRes.source,
-          suggestions: nativeRes.suggestions,
-          status: MessageStatus.sent,
-        ),
-      );
-    }
-
+    // Sin modelo local/API, ChatSendUseCase intenta Browser AI y muestra su error real.
     return const ChatTurnRouteResult.notHandled();
   }
-
-  static ChatMessage _deviceExecutionMessage(
-    AutomationResult result,
-  ) => ChatMessage(
-    id: DateTime.now().microsecondsSinceEpoch.toString(),
-    sender: MessageSender.ai,
-    text:
-        'Ejecutado en el dispositivo:\n${automationUserFacingReason(result.reason)}',
-    timestamp: DateTime.now(),
-    source: MessageSource.device,
-    status:
-        (result.status == AutomationResultStatus.completed ||
-            result.status == AutomationResultStatus.completedUnverified)
-        ? MessageStatus.sent
-        : MessageStatus.error,
-  );
 }

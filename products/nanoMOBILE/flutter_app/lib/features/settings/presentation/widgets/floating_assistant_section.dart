@@ -44,12 +44,15 @@ class _FloatingAssistantSectionState extends State<FloatingAssistantSection>
   }
 
   Future<void> _checkStatus() async {
-    final permitted = await _system.permitted;
-    if (mounted) {
-      setState(() {
+    try {
+      final permitted = await _system.permitted;
+      final active = permitted && await _system.active;
+      if (mounted) setState(() {
         _hasPermission = permitted;
-        if (!permitted) _isActive = false;
+        _isActive = active;
       });
+    } catch (_) {
+      if (mounted) _showError();
     }
   }
 
@@ -70,10 +73,17 @@ class _FloatingAssistantSectionState extends State<FloatingAssistantSection>
         await _system.hide();
         if (mounted) setState(() => _isActive = false);
       }
+    } catch (_) {
+      if (mounted) _showError();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  /// Informa fallos del puente nativo sin dejar el switch bloqueado.
+  void _showError() => ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('No se pudo actualizar el asistente flotante.')),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +127,7 @@ class _FloatingAssistantSectionState extends State<FloatingAssistantSection>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Búho Flotante (Tipo Gemini)',
+                    'Asistente flotante',
                     style: NanoType.body(colors.onSurface).copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 3),

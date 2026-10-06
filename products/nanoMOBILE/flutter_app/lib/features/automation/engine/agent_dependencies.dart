@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/models/model_path_support.dart';
 import '../../../core/linux/linux_distribution_registry.dart';
 import '../../../core/services/nano_runtime_api.dart';
 import '../../../core/services/runtime_engine.dart';
@@ -595,11 +594,11 @@ final automationModelResolverProvider = Provider<AutomationModelResolver>((
       final livePath = ref.read(chatProvider).activeModelPath;
       if (livePath != null &&
           livePath.trim().isNotEmpty &&
-          File(livePath).existsSync()) {
+          isRunnableModelPath(livePath)) {
         return livePath;
       }
       final settingsPath = ref.read(settingsProvider).chatModelPath;
-      if (settingsPath.trim().isNotEmpty && File(settingsPath).existsSync()) {
+      if (isRunnableModelPath(settingsPath)) {
         return settingsPath;
       }
       // Fallback a modelo detectado/instalado físicamente en disco si existe
@@ -607,13 +606,13 @@ final automationModelResolverProvider = Provider<AutomationModelResolver>((
         final modelsState = ref.read(modelsProvider);
         for (final d in modelsState.detected) {
           final p = d.path;
-          if (p != null && p.trim().isNotEmpty && File(p).existsSync()) {
+          if (isRunnableModelPath(p)) {
             return p;
           }
         }
         for (final m in modelsState.models) {
           final p = m.localPath;
-          if (p != null && p.trim().isNotEmpty && File(p).existsSync()) {
+          if (isRunnableModelPath(p)) {
             return p;
           }
         }
@@ -622,10 +621,10 @@ final automationModelResolverProvider = Provider<AutomationModelResolver>((
     },
     automationModelPath: () {
       final p = ref.read(settingsProvider).automationModelPath;
-      if (p.trim().isNotEmpty && File(p).existsSync()) return p;
+      if (isRunnableModelPath(p)) return p;
       return null;
     },
-    modelPathExists: (path) => File(path).existsSync(),
+    modelPathExists: isRunnableModelPath,
   );
 });
 

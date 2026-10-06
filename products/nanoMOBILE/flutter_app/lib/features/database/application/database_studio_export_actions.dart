@@ -4,6 +4,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/data_models.dart';
+import '../domain/report_section.dart';
 import 'database_report_coordinator.dart';
 import 'database_studio_state.dart';
 
@@ -14,23 +15,46 @@ mixin DatabaseStudioExportActions on StateNotifier<DatabaseStudioState> {
       _export((table) => reports.delimited(table, tsv: tsv));
 
   Future<String?> exportHtml({String? title}) => _export(
-    (table) => reports.html(table, title: title, query: state.queryResult?.query),
+    (table) =>
+        reports.html(table, title: title, query: state.queryResult?.query),
   );
 
-  Future<String?> exportPdf({String? title, String? notes}) => _export(
+  Future<String?> exportPdf({
+    String? title,
+    String? notes,
+    List<ReportSection>? sections,
+  }) => _export(
     (table) => reports.pdf(
       table,
       title: title,
       notes: notes,
+      sections: sections,
       query: state.queryResult?.query,
       executionTimeMs: state.queryResult?.executionTimeMs,
     ),
   );
 
-  Future<void> shareCurrentReport({String? title}) async {
+  // Comparte la misma composición elegida en el editor y reporta errores.
+  Future<bool> shareCurrentReport({
+    String? title,
+    String? notes,
+    List<ReportSection>? sections,
+  }) async {
     final table = state.activeDisplayTable;
-    if (table != null && table.isNotEmpty) {
-      await reports.share(table, title: title);
+    if (table == null || table.isEmpty) return false;
+    try {
+      await reports.share(
+        table,
+        title: title,
+        notes: notes,
+        sections: sections,
+        query: state.queryResult?.query,
+        executionTimeMs: state.queryResult?.executionTimeMs,
+      );
+      return true;
+    } catch (error) {
+      state = state.copyWith(errorMessage: 'Falló la compartición: $error');
+      return false;
     }
   }
 
@@ -39,7 +63,10 @@ mixin DatabaseStudioExportActions on StateNotifier<DatabaseStudioState> {
     if (table == null) return null;
     try {
       final path = await operation(table);
-      state = state.copyWith(statusMessage: 'Archivo real creado: $path', clearError: true);
+      state = state.copyWith(
+        statusMessage: 'Archivo real creado: $path',
+        clearError: true,
+      );
       return path;
     } catch (error) {
       state = state.copyWith(errorMessage: 'Falló la exportación: $error');

@@ -60,6 +60,8 @@ Future<EngineBenchmarkResult> measureLocalEngine(
     if (!content) throw StateError('El modelo no produjo respuesta');
     if (type == LocalEngineType.liteRt) {
       count = coordinator.liteRt.lastMetrics.totalTokens;
+    } else if (type == LocalEngineType.mnn) {
+      count = (coordinator.mnn.lastMetrics['generated_tokens'] as num?)?.toInt();
     }
     return EngineBenchmarkResult(
       engine: type,

@@ -47,7 +47,23 @@ extension _MemoryCoreHydration on _MemoryCore {
     for (final e in raw.entries) {
       final m = (e.value as Map).cast<String, dynamic>();
       final memory = ConversationMemory.fromJson(m);
-      if (memory.conversationId.isNotEmpty && memory.entries.isNotEmpty) {
+      final convLower = memory.conversationId.toLowerCase();
+      if (convLower.contains('status@broadcast') ||
+          convLower.contains('@newsletter') ||
+          convLower == '0') {
+        continue;
+      }
+      final validEntries = memory.entries.where((entry) {
+        final textLower = entry.text.trim().toLowerCase();
+        return !textLower.contains('le gustó tu estado') &&
+            !textLower.contains('le gusta tu estado') &&
+            !textLower.contains('dio me gusta a tu estado') &&
+            !textLower.contains('comprobando si hay') &&
+            !textLower.contains('buscando mensajes nuevos');
+      }).toList();
+      if (validEntries.isEmpty) continue;
+
+      if (memory.conversationId.isNotEmpty && validEntries.isNotEmpty) {
         final scopeId = memory.scopeId.isNotEmpty
             ? memory.scopeId
             : _scopeFor(memory.conversationId);
@@ -56,7 +72,7 @@ extension _MemoryCoreHydration on _MemoryCore {
             memory.agentId ??
             _assignments?.agentForConversationId(memory.conversationId);
         if (agent != null) _agentByScope[scopeId] = agent;
-        final deduplicated = _deduplicateByEventId(memory.entries);
+        final deduplicated = _deduplicateByEventId(validEntries);
         repairedDuplicates |= deduplicated.length != memory.entries.length;
         _byConversation[scopeId] = deduplicated;
         if (memory.unresolvedObligations.isNotEmpty) {

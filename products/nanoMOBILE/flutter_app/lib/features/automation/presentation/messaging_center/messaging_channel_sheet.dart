@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/design_tokens.dart';
 import '../../application/automation_coordinator_provider.dart'
     show ruleRegistryProvider;
 import '../../engine/messaging/messaging_package.dart';
@@ -17,13 +18,16 @@ import '../../executors/notification_executor_provider.dart';
 import 'messaging_center_providers.dart';
 
 Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+
   return showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
-    backgroundColor: const Color(0xFF0F172A),
+    backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
     isScrollControlled: true,
     builder: (sheetContext) => Consumer(
       builder: (context, sheetRef, _) {
+        final colors = NanoThemeExtension.of(context).colors;
         final registry = sheetRef.watch(ruleRegistryProvider);
         final access = sheetRef.watch(notificationAccessProvider).valueOrNull;
         final hasAccess = access?.accessGranted == true;
@@ -45,10 +49,10 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Canales y permisos',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colors.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -58,7 +62,7 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
                   Platform.isAndroid
                       ? 'Elige qué canales puede procesar NanoAI.'
                       : 'iOS no permite leer mensajes de otras apps mediante notificaciones.',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                  style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12.5),
                 ),
                 if (Platform.isAndroid) ...[
                   const SizedBox(height: 12),
@@ -137,13 +141,15 @@ class _ChannelSwitch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+
     return SwitchListTile.adaptive(
       contentPadding: EdgeInsets.zero,
       dense: true,
-      title: Text(title, style: const TextStyle(color: Colors.white)),
+      title: Text(title, style: TextStyle(color: colors.onSurface)),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(color: Colors.white60, fontSize: 12),
+        style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
       ),
       value: value,
       onChanged: onChanged,

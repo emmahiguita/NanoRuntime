@@ -31,6 +31,14 @@ final class PersonaRepository {
 
   static final PersonaRepository instance = PersonaRepository._();
   static const _channel = MethodChannel('com.nanoai/automation_store');
+  // El motor Flutter puede exponer Dart unos milisegundos antes de registrar canales nativos.
+  static const _registrationRetryDelays = <Duration>[
+    Duration(milliseconds: 40),
+    Duration(milliseconds: 80),
+    Duration(milliseconds: 160),
+    Duration(milliseconds: 320),
+    Duration(milliseconds: 640),
+  ];
 
   /// Upsert del perfil de la persona (clave única, normalmente "owner").
   Future<bool> upsertPersona(
@@ -53,17 +61,22 @@ final class PersonaRepository {
 
   /// Todos los perfiles de persona (hoy: el del dueño).
   Future<List<PersonaProfile>> listPersonas() async {
-    try {
-      final rows = await _channel
-          .invokeListMethod<dynamic>('personaList')
-          .timeout(const Duration(seconds: 10));
-      return [
-        for (final row in rows ?? const [])
-          if (row is Map) PersonaProfile.fromRow(row.cast<dynamic, dynamic>()),
-      ];
-    } on Object catch (error) {
-      debugPrint('[persona] listPersonas falló: $error');
-      rethrow;
+    for (var attempt = 0; ; attempt++) {
+      try {
+        final rows = await _channel
+            .invokeListMethod<dynamic>('personaList')
+            .timeout(const Duration(seconds: 10));
+        return [
+          for (final row in rows ?? const [])
+            if (row is Map) PersonaProfile.fromRow(row.cast<dynamic, dynamic>()),
+        ];
+      } on MissingPluginException {
+        if (attempt >= _registrationRetryDelays.length) rethrow;
+        await Future<void>.delayed(_registrationRetryDelays[attempt]);
+      } on Object catch (error) {
+        debugPrint('[persona] listPersonas falló: $error');
+        rethrow;
+      }
     }
   }
 

@@ -42,6 +42,9 @@ class McpDiscoverySnapshot {
 class McpConnectionRegistry extends ChangeNotifier {
   final Map<String, McpClientPort> _clients = {};
   Map<String, McpRemoteTool> _lastTools = const {};
+  McpDiscoverySnapshot? _lastSnapshot;
+  Future<McpDiscoverySnapshot>? _discoveryInFlight;
+  int _registryRevision = 0;
 
   Iterable<McpServerDescriptor> get servers =>
       List.unmodifiable(_clients.values.map((client) => client.descriptor));
@@ -53,6 +56,7 @@ class McpConnectionRegistry extends ChangeNotifier {
   );
 
   Map<String, McpRemoteTool> get lastTools => Map.unmodifiable(_lastTools);
+  bool get hasDiscoverySnapshot => _lastSnapshot != null;
 
   McpClientPort? client(String serverId) => _clients[serverId];
 
@@ -79,6 +83,8 @@ class McpConnectionRegistry extends ChangeNotifier {
 
     final previous = _clients[id];
     _clients[id] = client;
+    _registryRevision++;
+    _lastSnapshot = null;
     if (exists) {
       _lastTools = Map.of(_lastTools)
         ..removeWhere((_, tool) => tool.serverId == id);
@@ -96,6 +102,8 @@ class McpConnectionRegistry extends ChangeNotifier {
 
   Future<void> unregister(String serverId) async {
     final removed = _clients.remove(serverId);
+    if (removed != null) _registryRevision++;
+    _lastSnapshot = null;
     _lastTools = Map.of(_lastTools)
       ..removeWhere((_, tool) => tool.serverId == serverId);
     if (removed != null) {
@@ -108,63 +116,102 @@ class McpConnectionRegistry extends ChangeNotifier {
   ///
   /// Un servidor caído no borra el catálogo de los demás ni genera un éxito
   /// falso. El fallo queda explícito en [McpDiscoverySnapshot.failures].
-  Future<McpDiscoverySnapshot> refreshTools() async {
+  /// Reutiliza una consulta en vuelo para que chat, hub y restauración no dupliquen handshakes.
+  Future<McpDiscoverySnapshot> refreshTools() {
+    final running = _discoveryInFlight;
+    if (running != null) return running;
+    final operation = _discoverTools();
+    _discoveryInFlight = operation;
+    return operation.whenComplete(() {
+      if (identical(_discoveryInFlight, operation)) _discoveryInFlight = null;
+    });
+  }
+
+  /// Descubre una vez al inicio; los cambios explícitos siguen usando refreshTools.
+  Future<McpDiscoverySnapshot> ensureToolsDiscovered() {
+    final snapshot = _lastSnapshot;
+    return snapshot == null ? refreshTools() : Future.value(snapshot);
+  }
+
+  Future<McpDiscoverySnapshot> _discoverTools() async {
+    final revision = _registryRevision;
     final tools = <String, McpRemoteTool>{};
     final failures = <McpDiscoveryFailure>[];
 
-    for (final entry in _clients.entries) {
-      final serverId = entry.key;
-      final client = entry.value;
-      try {
-        if (client.state != McpConnectionState.connected) {
-          final connection = await client.connect().timeout(
-            const Duration(seconds: 10),
-          );
-          if (!connection.success) {
-            failures.add(
+    // Servidores independientes se descubren en paralelo para evitar sumar timeouts.
+    final results = await Future.wait(
+      _clients.entries
+          .toList(growable: false)
+          .map((entry) => _discoverClient(entry.key, entry.value)),
+    );
+    for (final result in results) {
+      failures.addAll(result.failures);
+      for (final tool in result.tools) {
+        tools[tool.qualifiedName] = tool;
+      }
+    }
+
+    // Una conexión agregada durante la consulta exige descubrir también su catálogo.
+    if (revision != _registryRevision) return _discoverTools();
+    _lastTools = Map.unmodifiable(tools);
+    _lastSnapshot = McpDiscoverySnapshot(
+      tools: _lastTools,
+      failures: List.unmodifiable(failures),
+      capturedAt: DateTime.now().toUtc(),
+    );
+    notifyListeners();
+    return _lastSnapshot!;
+  }
+
+  Future<({List<McpRemoteTool> tools, List<McpDiscoveryFailure> failures})>
+  _discoverClient(String serverId, McpClientPort client) async {
+    try {
+      if (client.state != McpConnectionState.connected) {
+        final connection = await client.connect().timeout(
+          const Duration(seconds: 10),
+        );
+        if (!connection.success) {
+          return (
+            tools: const <McpRemoteTool>[],
+            failures: [
               McpDiscoveryFailure(
                 serverId: serverId,
                 reason: connection.message ?? connection.status.name,
               ),
-            );
-            continue;
-          }
+            ],
+          );
         }
-
-        final discovered = await client.listTools().timeout(
-          const Duration(seconds: 10),
-        );
-        for (final tool in discovered) {
-          if (tool.serverId != serverId) {
-            failures.add(
-              McpDiscoveryFailure(
-                serverId: serverId,
-                reason:
-                    'Tool ${tool.name} declaró serverId=${tool.serverId}; se esperaba $serverId.',
-              ),
-            );
-            continue;
-          }
-          tools[tool.qualifiedName] = tool;
+      }
+      final discovered = await client.listTools().timeout(
+        const Duration(seconds: 10),
+      );
+      final tools = <McpRemoteTool>[];
+      final failures = <McpDiscoveryFailure>[];
+      for (final tool in discovered) {
+        if (tool.serverId != serverId) {
+          failures.add(
+            McpDiscoveryFailure(
+              serverId: serverId,
+              reason: 'La herramienta declaró un servidor MCP distinto.',
+            ),
+          );
+        } else {
+          tools.add(tool);
         }
-      } catch (error) {
-        failures.add(
+      }
+      return (tools: tools, failures: failures);
+    } catch (error) {
+      return (
+        tools: const <McpRemoteTool>[],
+        failures: [
           McpDiscoveryFailure(
             serverId: serverId,
             reason: error is McpDiscoveryException
                 ? error.message
                 : 'discovery_exception:${error.runtimeType}',
           ),
-        );
-      }
+        ],
+      );
     }
-
-    _lastTools = Map.unmodifiable(tools);
-    notifyListeners();
-    return McpDiscoverySnapshot(
-      tools: _lastTools,
-      failures: List.unmodifiable(failures),
-      capturedAt: DateTime.now().toUtc(),
-    );
   }
 }

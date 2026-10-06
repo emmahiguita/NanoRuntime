@@ -16,6 +16,8 @@ class MessagingConversationAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final badgeBg = isDark ? const Color(0xFF0B1220) : Colors.white;
     final cleanName = item.displayName.trim();
     final initial = cleanName.isEmpty
         ? '?'
@@ -47,9 +49,9 @@ class MessagingConversationAvatar extends StatelessWidget {
             bottom: 0,
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFF0B1220),
+                color: badgeBg,
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFF0B1220), width: 2),
+                border: Border.all(color: badgeBg, width: 2),
               ),
               child: MessagingPlatformIcon(
                 platform: platform,

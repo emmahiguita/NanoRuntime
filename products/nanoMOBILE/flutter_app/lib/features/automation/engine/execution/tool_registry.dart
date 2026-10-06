@@ -443,7 +443,6 @@ class ToolRegistry {
       timeout: Duration(seconds: 20),
       description:
           'Ejecutar una herramienta MCP que interactúa con el dispositivo',
-      promptSyntax: '{"tool":"mcp.device","args":{"mcpTool":"<tool_id>"}}',
     ),
     ToolDefinition(
       name: 'mcp.externalWrite',
@@ -457,7 +456,6 @@ class ToolRegistry {
       name: 'mcp.privileged',
       timeout: Duration(seconds: 30),
       description: 'Ejecutar una herramienta MCP con privilegios de sistema',
-      promptSyntax: '{"tool":"mcp.privileged","args":{"mcpTool":"<tool_id>"}}',
     ),
     ToolDefinition(
       name: 'dev.inspect_app',

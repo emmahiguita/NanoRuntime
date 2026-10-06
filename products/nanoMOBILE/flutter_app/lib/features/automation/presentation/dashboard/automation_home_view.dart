@@ -27,6 +27,7 @@ import '../../engine/messaging/messaging_package.dart';
 import '../automation_layout.dart';
 import '../automation_visual_theme.dart';
 import 'automation_agent_card.dart';
+import 'automation_discover_nano_section.dart';
 import 'automation_inbox_card.dart';
 import 'automation_system_footer.dart';
 
@@ -37,6 +38,9 @@ class AutomationHomeView extends ConsumerWidget {
   final VoidCallback onRulesTap;
   final VoidCallback onSystemTap;
   final VoidCallback onPickModeTap;
+  final VoidCallback? onBrowserTap;
+  final VoidCallback? onChatTap;
+  final VoidCallback? onTerminalTap;
 
   const AutomationHomeView({
     super.key,
@@ -46,6 +50,9 @@ class AutomationHomeView extends ConsumerWidget {
     required this.onRulesTap,
     required this.onSystemTap,
     required this.onPickModeTap,
+    this.onBrowserTap,
+    this.onChatTap,
+    this.onTerminalTap,
   });
 
   @override
@@ -116,7 +123,16 @@ class AutomationHomeView extends ConsumerWidget {
             ),
             const SizedBox(height: 18),
 
-            // 4. Pilar ADMINISTRAR: Automatización y Sistema
+            // 4. Pilar DESCUBRE: Herramientas nucleares (Navegador, Chat IA, Terminal)
+            const AutomationSectionLabel('Descubre más sobre Nano'),
+            AutomationDiscoverNanoSection(
+              onBrowserTap: onBrowserTap,
+              onChatTap: onChatTap,
+              onTerminalTap: onTerminalTap,
+            ),
+            const SizedBox(height: 18),
+
+            // 5. Pilar ADMINISTRAR: Automatización y Sistema
             const AutomationSectionLabel('Control y Sistema'),
             AutomationSystemFooter(
               automationModeLabel: settings.agentAutomationMode.label,

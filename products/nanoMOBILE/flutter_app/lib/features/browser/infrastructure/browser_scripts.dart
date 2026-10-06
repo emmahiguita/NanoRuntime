@@ -1,6 +1,7 @@
 import 'browser_zoom_scripts.dart';
 import 'browser_auth_scripts.dart';
 import 'browser_pinch_zoom_engine.dart';
+import 'browser_media_script.dart';
 
 export 'browser_zoom_scripts.dart';
 export 'browser_auth_scripts.dart';
@@ -8,11 +9,11 @@ export 'browser_pinch_zoom_engine.dart';
 
 /// QUÉ HACE:
 /// Fachada central de scripts JavaScript inyectados en InAppWebView (Media, Dark Mode, PiP).
-/// 
+///
 /// CÓMO FUNCIONA:
 /// Delega scripts de zoom a BrowserZoomScripts y scripts de auth a BrowserAuthScripts,
 /// manteniendo compatibilidad con todo el código existente.
-/// 
+///
 /// POR QUÉ:
 /// Aplica el principio de Responsabilidad Única (SOLID) y arquitectura limpia,
 /// garantizando que ningún archivo supere las 150 líneas de código.
@@ -126,14 +127,23 @@ class BrowserScripts {
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 
   // --- Delegaciones de Zoom y Viewport ---
-  static const String pinchZoomEngineScript = BrowserPinchZoomEngine.pinchZoomScript;
-  static String setZoomLevelScript(double scale) => BrowserZoomScripts.setZoomLevelScript(scale);
-  static const String fitToScreenOverviewScript = BrowserZoomScripts.fitToScreenOverviewScript;
-  static const String mobileViewportAdapterScript = BrowserZoomScripts.mobileViewportAdapterScript;
-  static const String desktopViewportAdapterScript = BrowserZoomScripts.desktopViewportAdapterScript;
+  static const String pinchZoomEngineScript =
+      BrowserPinchZoomEngine.pinchZoomScript;
+  static String setZoomLevelScript(double scale) =>
+      BrowserZoomScripts.setZoomLevelScript(scale);
+  static const String fitToScreenOverviewScript =
+      BrowserZoomScripts.fitToScreenOverviewScript;
+  static const String mobileViewportAdapterScript =
+      BrowserZoomScripts.mobileViewportAdapterScript;
+  static const String desktopViewportAdapterScript =
+      BrowserZoomScripts.desktopViewportAdapterScript;
+
+  /// Comparte el puente por eventos entre pestañas y PiP, sin sondeos permanentes.
+  static const String audioServiceSyncScript = BrowserMediaScript.sync;
 
   // --- Delegaciones de Autenticación y Credenciales ---
-  static const String credentialManagerScript = BrowserAuthScripts.credentialManagerScript;
+  static const String credentialManagerScript =
+      BrowserAuthScripts.credentialManagerScript;
   static String buildAutofillScript(String username, String password) =>
       BrowserAuthScripts.buildAutofillScript(username, password);
 }

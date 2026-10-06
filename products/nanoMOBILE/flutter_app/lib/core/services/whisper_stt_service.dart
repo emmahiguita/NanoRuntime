@@ -132,10 +132,8 @@ class WhisperSttService {
       // Verificación de runtime nativo / cli whisper
       final whisperCliPath = await _resolveWhisperExecutable();
       if (whisperCliPath == null) {
-        // Diagnóstico honesto si el binario CLI aún se está desplegando
-        final sizeMb = (await File(modelPath).length() / (1024 * 1024)).toStringAsFixed(1);
-        return '[Whisper.cpp Local - MIT] Modelo $modelName ($sizeMb MB) verificado y listo en el dispositivo. '
-            'Ejecución nativa offline vinculada.';
+        debugPrint('[WhisperSttService] whisper-cli no disponible en el entorno.');
+        return null;
       }
 
       // Ejecución con Process.run seguro y timeout de 30 segundos

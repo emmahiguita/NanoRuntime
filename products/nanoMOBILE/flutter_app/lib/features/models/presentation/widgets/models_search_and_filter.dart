@@ -1,20 +1,12 @@
-// models_search_and_filter.dart — Barra de búsqueda y pills de filtrado de modelos.
-// QUÉ HACE: Renderiza la entrada de búsqueda de texto y las cápsulas de categoría (Qwen, DeepSeek, etc).
-// CÓMO FUNCIONA: Componente desacoplado con Material Expressive 3 y Micro-interacciones visuales.
-// POR QUÉ: Permite reutilizar la búsqueda tanto en modo vertical como en el panel lateral horizontal.
+// QUÉ: búsqueda local y filtros reales del catálogo.
+// CÓMO: texto nativo y filtros desplazables; respeta escala y ancho disponibles.
+// POR QUÉ: evita encerrar la tipografía en alturas de 34 píxeles.
 library;
 
 import 'package:flutter/material.dart';
-import '../../../../core/theme/design_tokens.dart';
 import 'model_action_components.dart';
 
 class ModelsSearchAndFilter extends StatelessWidget {
-  final TextEditingController controller;
-  final String activeFilter;
-  final ValueChanged<String> onFilterChanged;
-  final ValueChanged<String>? onSearchChanged;
-  final bool isCompact;
-
   const ModelsSearchAndFilter({
     super.key,
     required this.controller,
@@ -23,78 +15,74 @@ class ModelsSearchAndFilter extends StatelessWidget {
     this.onSearchChanged,
     this.isCompact = false,
   });
-
-  // QUÉ HACE: Opciones de filtrado por familia o estado del modelo.
-  // POR QUÉ: Liquid AI (LFM2.5) ya está en el catálogo — debe ser filtrable.
+  final TextEditingController controller;
+  final String activeFilter;
+  final ValueChanged<String> onFilterChanged;
+  final ValueChanged<String>? onSearchChanged;
+  final bool isCompact;
+  // Solo muestra familias presentes en el catálogo curado.
   static const filterOptions = [
     'Todos',
     'Instalados',
     'Qwen',
-    'DeepSeek',
-    'Llama',
     'Gemma',
-    'Phi',
     'Liquid AI',
+    'DeepSeek',
+    'Voz',
     'SD / Local',
   ];
 
+  /// Buscar no dispara inferencia ni descarga; solo filtra elementos existentes.
   @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          height: isCompact ? 34 : 38,
-          child: TextField(
-            controller: controller,
-            onChanged: onSearchChanged,
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontSize: isCompact ? 11.5 : 12.5,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Buscar modelos por nombre, familia...',
-              hintStyle: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: isCompact ? 11 : 12,
-                color: colors.onSurfaceVariant,
-              ),
-              prefixIcon: Icon(
-                Icons.search_rounded,
-                size: isCompact ? 16 : 18,
-                color: colors.onSurfaceVariant,
-              ),
-              filled: true,
-              fillColor: colors.surface.withValues(alpha: 0.6),
-              contentPadding: EdgeInsets.symmetric(vertical: isCompact ? 4 : 8),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(NanoRadius.medium),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 6),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: filterOptions
-                .map(
-                  (opt) => Padding(
-                    padding: const EdgeInsets.only(right: 5),
-                    child: IosSegmentPill(
-                      label: opt,
-                      selected: activeFilter == opt,
-                      onTap: () => onFilterChanged(opt),
-                    ),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: controller,
+        builder: (context, value, _) => TextField(
+          controller: controller,
+          onChanged: onSearchChanged,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => FocusScope.of(context).unfocus(),
+          style: Theme.of(context).textTheme.bodyMedium,
+          decoration: InputDecoration(
+            hintText: 'Buscar modelos',
+            filled: true,
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            suffixIcon: value.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: 'Borrar búsqueda',
+                    icon: const Icon(Icons.clear_rounded),
+                    onPressed: () {
+                      controller.clear();
+                      onSearchChanged?.call('');
+                    },
                   ),
-                )
-                .toList(),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
           ),
         ),
-      ],
-    );
-  }
+      ),
+      const SizedBox(height: 8),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final option in filterOptions)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: IosSegmentPill(
+                  label: option,
+                  selected: activeFilter == option,
+                  onTap: () => onFilterChanged(option),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
 }

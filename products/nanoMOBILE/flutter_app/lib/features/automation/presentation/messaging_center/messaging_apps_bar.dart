@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/design_tokens.dart';
 import '../../domain/messaging_platform.dart';
 import 'messaging_center_providers.dart';
 import 'messaging_platform_icon.dart';
@@ -84,31 +85,51 @@ class _AppTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = NanoThemeExtension.of(context).colors;
+    final accentColor = isDark ? const Color(0xFF00FF88) : colors.primary;
+
+    final backgroundColor = isSelected
+        ? accentColor.withValues(alpha: isDark ? 0.12 : 0.10)
+        : (isDark ? const Color(0xFF0F172A).withValues(alpha: 0.70) : Colors.white);
+
+    final borderColor = isSelected
+        ? accentColor
+        : (isDark ? Colors.white.withValues(alpha: 0.08) : colors.outline);
+
+    final textColor = isSelected
+        ? accentColor
+        : (isDark ? Colors.white.withValues(alpha: 0.85) : colors.onSurface);
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         width: 58,
         decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF00FF88).withValues(alpha: 0.12)
-              : const Color(0xFF0F172A).withValues(alpha: 0.70),
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected
-                ? const Color(0xFF00FF88)
-                : Colors.white.withValues(alpha: 0.08),
+            color: borderColor,
             width: isSelected ? 1.5 : 0.9,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF00FF88).withValues(alpha: 0.30),
+                    color: accentColor.withValues(alpha: isDark ? 0.30 : 0.18),
                     blurRadius: 10,
                     spreadRadius: 0.5,
                   ),
                 ]
-              : null,
+              : (!isDark
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
+                      ),
+                    ]
+                  : null),
         ),
         child: Stack(
           clipBehavior: Clip.none,
@@ -126,13 +147,11 @@ class _AppTile extends StatelessWidget {
                   Text(
                     label,
                     style: TextStyle(
-                      color: isSelected
-                          ? const Color(0xFF00FF88)
-                          : Colors.white.withValues(alpha: 0.85),
+                      color: textColor,
                       fontSize: 10,
                       fontWeight: isSelected
                           ? FontWeight.w700
-                          : FontWeight.w500,
+                          : FontWeight.w600,
                       letterSpacing: -0.2,
                     ),
                     maxLines: 1,
@@ -155,11 +174,11 @@ class _AppTile extends StatelessWidget {
                     minHeight: 16,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00FF88),
+                    color: accentColor,
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00FF88).withValues(alpha: 0.4),
+                        color: accentColor.withValues(alpha: isDark ? 0.4 : 0.25),
                         blurRadius: 4,
                       ),
                     ],
@@ -167,8 +186,8 @@ class _AppTile extends StatelessWidget {
                   child: Center(
                     child: Text(
                       unreadCount > 99 ? '99+' : '$unreadCount',
-                      style: const TextStyle(
-                        color: Colors.black,
+                      style: TextStyle(
+                        color: isDark ? Colors.black : Colors.white,
                         fontSize: 8.5,
                         fontWeight: FontWeight.w800,
                       ),

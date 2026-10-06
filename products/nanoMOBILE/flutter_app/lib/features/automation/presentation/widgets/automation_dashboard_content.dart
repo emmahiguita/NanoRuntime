@@ -49,6 +49,10 @@ class AutomationDashboardContent extends StatelessWidget {
     this.onBotStudioTap,
     this.onSkillsMcpTap,
     this.onTimeRuleTap,
+    this.onAiWebTap,
+    this.onBrowserTap,
+    this.onChatTap,
+    this.onTerminalTap,
   });
 
   final SettingsState settings;
@@ -69,13 +73,17 @@ class AutomationDashboardContent extends StatelessWidget {
   final VoidCallback? onConfirmTask;
   final VoidCallback? onDevTap;
   final VoidCallback? onMessagesTap;
-  final VoidCallback? onPersonalAgentTap;
-  final VoidCallback? onBusinessTap;
+  final ValueChanged<BuildContext>? onPersonalAgentTap;
+  final ValueChanged<BuildContext>? onBusinessTap;
   final VoidCallback? onRulesTap;
   final VoidCallback? onSettingsTap;
   final VoidCallback? onBotStudioTap;
   final VoidCallback? onSkillsMcpTap;
   final VoidCallback? onTimeRuleTap;
+  final VoidCallback? onAiWebTap;
+  final VoidCallback? onBrowserTap;
+  final VoidCallback? onChatTap;
+  final VoidCallback? onTerminalTap;
 
   @override
   Widget build(BuildContext context) {
@@ -121,6 +129,10 @@ class AutomationDashboardContent extends StatelessWidget {
                 onBotStudioTap: onBotStudioTap,
                 onSkillsMcpTap: onSkillsMcpTap,
                 onTimeRuleTap: onTimeRuleTap,
+                onAiWebTap: onAiWebTap,
+                onBrowserTap: onBrowserTap,
+                onChatTap: onChatTap,
+                onTerminalTap: onTerminalTap,
                 pendingDraftsCount: pendingDraftsCount,
                 activeRulesCount: rulesCount,
                 businessProductsCount: businessProductsCount,

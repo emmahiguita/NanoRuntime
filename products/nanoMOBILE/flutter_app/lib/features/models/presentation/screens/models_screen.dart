@@ -7,16 +7,24 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../../../core/models/catalog_models.dart';
 import '../../../../core/providers/chat_provider.dart';
 import '../../../../core/services/nano_inference_coordinator.dart';
 import '../../../../core/services/whisper_stt_service.dart';
 import '../../../../core/theme/adaptive_theme.dart';
+import '../../domain/local_model.dart';
 import '../../application/models_provider.dart';
 import '../widgets/inference_benchmark_sheet.dart';
 import '../widgets/model_catalog_types.dart';
-import '../widgets/model_detail_sheet.dart';
+import '../widgets/model_download_feedback.dart';
+import '../widgets/model_delete_confirmation.dart';
+import '../widgets/model_floating_dialog_route.dart';
 import '../widgets/models_landscape_view.dart';
 import '../widgets/models_portrait_view.dart';
+import '../widgets/models_screen_actions.dart';
+import '../widgets/models_top_nav_tabs.dart';
+
+part 'models_screen_actions.part.dart';
 
 class ModelsScreen extends ConsumerStatefulWidget {
   const ModelsScreen({super.key});
@@ -28,13 +36,18 @@ class ModelsScreen extends ConsumerStatefulWidget {
 class _ModelsScreenState extends ConsumerState<ModelsScreen> {
   final _search = TextEditingController();
   String _filter = 'Todos';
+  ModelsCatalogTab _activeTab = ModelsCatalogTab.explorar;
+  Set<String> _favorites = {};
+  final Set<String> _observedDownloads = {};
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       ref.read(modelsProvider.notifier).maybeAutoScanAll();
       WhisperSttService.instance.init();
+      final favs = await ModelsScreenActions.loadFavorites();
+      if (mounted) setState(() => _favorites = favs);
     });
   }
 
@@ -46,6 +59,29 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Solo avisa resultados de descargas iniciadas mientras el catálogo está activo.
+    ref.listen(modelsProvider, (previous, next) {
+      if (previous == null) return;
+      for (final model in next.models) {
+        final oldIndex = previous.models.indexWhere(
+          (old) => old.id == model.id,
+        );
+        if (oldIndex < 0) continue;
+        if (model.isDownloading) {
+          _observedDownloads.add(model.id);
+          continue;
+        }
+        if (!_observedDownloads.remove(model.id)) continue;
+        if (model.downloadState != ModelDownloadState.installed &&
+            model.downloadState != ModelDownloadState.failed) {
+          continue;
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) ModelDownloadFeedback.show(context, model);
+        });
+      }
+    });
+
     final state = ref.watch(modelsProvider);
     final notifier = ref.read(modelsProvider.notifier);
     final chatModel = ref.watch(chatProvider).activeModel;
@@ -57,6 +93,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
       detected: state.detected,
       query: query,
       filter: _filter,
+      favorites: _favorites,
     );
 
     final totalInstalledGb = state.models
@@ -65,6 +102,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
     final totalInstalledCount =
         state.models.where((m) => m.installed).length +
         state.detected.where((d) => d.usable).length;
+    final downloadsCount = state.models.where((m) => m.isDownloading).length;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -84,17 +122,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
           IconButton(
             icon: const Icon(Icons.speed_rounded, size: 21),
             tooltip: 'Benchmark LiteRT vs llama.cpp',
-            onPressed: () {
-              final coordinator = ref.read(nanoInferenceCoordinatorProvider);
-              final gguf = state.models.where((m) => m.installed && m.fileName.endsWith('.gguf')).firstOrNull;
-              final ggufPath = gguf?.localPath ?? '/data/user/0/dev.nanoai.mobile/files/nano/models/LFM2.5-350M-QAD-Q4_0.gguf';
-              showInferenceBenchmarkSheet(
-                context,
-                coordinator: coordinator,
-                ggufModelPath: ggufPath,
-                liteRtModelPath: '/data/user/0/dev.nanoai.mobile/files/nano/models/gemma-4-E2B-it.litertlm',
-              );
-            },
+            onPressed: () => _openBenchmark(state.models),
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, size: 21),
@@ -111,13 +139,19 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
               chatModel: chatModel,
               searchController: _search,
               activeFilter: _filter,
+              activeTab: _activeTab,
               items: items,
               totalInstalledGb: totalInstalledGb,
               totalInstalledCount: totalInstalledCount,
+              favoritesCount: _favorites.length,
+              downloadsCount: downloadsCount,
               onFilterChanged: (f) => setState(() => _filter = f),
+              onTabChanged: _onTabChanged,
               onSearchChanged: (_) => setState(() {}),
               onPickDownloadDir: _pickDownloadDir,
-              onShowDetails: (it) => _showDetails(context, it),
+              onShowDetails: (it) => _showDetails(context, it, items),
+              onSelectRecommendedModel: (name) =>
+                  _onSelectModelByName(items, name),
             )
           : ModelsPortraitView(
               state: state,
@@ -125,54 +159,20 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
               chatModel: chatModel,
               searchController: _search,
               activeFilter: _filter,
+              activeTab: _activeTab,
               items: items,
               totalInstalledGb: totalInstalledGb,
               totalInstalledCount: totalInstalledCount,
+              favoritesCount: _favorites.length,
+              downloadsCount: downloadsCount,
               onFilterChanged: (f) => setState(() => _filter = f),
+              onTabChanged: _onTabChanged,
               onSearchChanged: (_) => setState(() {}),
               onPickDownloadDir: _pickDownloadDir,
-              onShowDetails: (it) => _showDetails(context, it),
+              onShowDetails: (it) => _showDetails(context, it, items),
+              onSelectRecommendedModel: (name) =>
+                  _onSelectModelByName(items, name),
             ),
-    );
-  }
-
-  Future<void> _pickDownloadDir() async {
-    final path = await FilePicker.getDirectoryPath();
-    if (path == null || !mounted) return;
-    await ref.read(modelsProvider.notifier).setDownloadDir(path);
-  }
-
-  // QUÉ HACE: Abre la hoja modal de detalle técnico de un modelo.
-  // CÓMO FUNCIONA: Usa ModelDetailSheet.show con el BuildContext activo.
-  // POR QUÉ: Permite abrir el bottom sheet fluido sobre el navigator raíz.
-  void _showDetails(BuildContext targetContext, UnifiedModelItem item) {
-    final chatModel = ref.read(chatProvider).activeModel;
-    final isVoice = item.catalog?.isVoiceStt ?? false;
-    final isActive = isVoice
-        ? (WhisperSttService.instance.activeModelFile == item.fileName)
-        : chatModel.toLowerCase().contains(item.name.toLowerCase());
-    final notifier = ref.read(modelsProvider.notifier);
-
-    ModelDetailSheet.show(
-      targetContext,
-      item: item,
-      isActive: isActive,
-      onUse: () => item.isCatalog
-          ? notifier.loadModel(item.catalog!.id)
-          : notifier.useDetected(item.detected!),
-      onDownload: item.isCatalog
-          ? () => notifier.downloadModel(item.catalog!.id)
-          : null,
-      onCancel: item.isCatalog ? () => notifier.cancelDownload() : null,
-      onUnload: isActive
-          ? () =>
-                (isVoice ? notifier.unloadVoiceModel() : notifier.unloadModel())
-          : null,
-      onDelete: item.isCatalog
-          ? () => notifier.deleteModel(item.catalog!.id)
-          : (item.detected != null
-              ? () => notifier.deleteDetectedModel(item.detected!)
-              : null),
     );
   }
 }

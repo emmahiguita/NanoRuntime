@@ -2,6 +2,8 @@
 // CÓMO: modelan tablas, resultados y configuración sin importar Flutter ni I/O.
 // POR QUÉ: el dominio permanece intercambiable y comprobable (DIP/Clean Architecture).
 
+import 'report_section.dart';
+
 /// Tipos de datos admitidos en columnas de tablas y hojas de cálculo.
 enum DataColumnType { text, integer, real, boolean, datetime }
 
@@ -12,17 +14,41 @@ class DataTable {
   final List<List<dynamic>> rows;
   final Map<String, DataColumnType> columnTypes;
 
+  final String? sourceUrl;
+  final String? syncEndpointUrl;
+
   const DataTable({
     required this.name,
     required this.columns,
     required this.rows,
     this.columnTypes = const {},
+    this.sourceUrl,
+    this.syncEndpointUrl,
   });
 
   int get rowCount => rows.length;
   int get columnCount => columns.length;
   bool get isEmpty => rows.isEmpty;
   bool get isNotEmpty => rows.isNotEmpty;
+  bool get isGoogleSheet => sourceUrl?.contains('spreadsheets') ?? false;
+
+  /// Actualiza el valor de una celda específica en memoria
+  DataTable updateCell({
+    required int rowIndex,
+    required int columnIndex,
+    required dynamic newValue,
+  }) {
+    if (rowIndex < 0 || rowIndex >= rows.length) return this;
+    final newRows = List<List<dynamic>>.generate(rows.length, (i) {
+      if (i != rowIndex) return rows[i];
+      final newRow = List<dynamic>.from(rows[i]);
+      if (columnIndex >= 0 && columnIndex < newRow.length) {
+        newRow[columnIndex] = newValue;
+      }
+      return newRow;
+    });
+    return copyWith(rows: newRows);
+  }
 
   /// Exporta los datos a formato CSV estándar con escape de comillas
   String toCsv({String delimiter = ','}) {
@@ -64,12 +90,16 @@ class DataTable {
     List<String>? columns,
     List<List<dynamic>>? rows,
     Map<String, DataColumnType>? columnTypes,
+    String? sourceUrl,
+    String? syncEndpointUrl,
   }) {
     return DataTable(
       name: name ?? this.name,
       columns: columns ?? this.columns,
       rows: rows ?? this.rows,
       columnTypes: columnTypes ?? this.columnTypes,
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      syncEndpointUrl: syncEndpointUrl ?? this.syncEndpointUrl,
     );
   }
 }
@@ -136,6 +166,7 @@ class DataReportConfig {
   final bool includeSummaryMetrics;
   final bool includeTimestamp;
   final int maxRows;
+  final List<ReportSection> sections;
 
   const DataReportConfig({
     required this.title,
@@ -147,5 +178,6 @@ class DataReportConfig {
     this.includeSummaryMetrics = true,
     this.includeTimestamp = true,
     this.maxRows = 500,
+    this.sections = kDefaultReportSections,
   });
 }

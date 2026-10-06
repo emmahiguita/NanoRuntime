@@ -20,8 +20,10 @@ class GoogleAccountRepository {
         final profile = GoogleAccountProfile.fromJson(jsonStr);
         // P0-TRUTH-02: Si el perfil almacenado proviene de las credenciales sintéticas
         // hardcodeadas en versiones anteriores, depurar a no configurado para veracidad estricta.
-        if (profile.email.contains('emmanuel.higuita') ||
-            profile.email.trim().isEmpty) {
+        final email = profile.email.trim().toLowerCase();
+        if (email.isEmpty ||
+            email.contains('emmanuel.higuita') ||
+            email == 'eememeai@gmail.com') {
           await prefs.remove(_keyProfile);
           return const GoogleAccountProfile.unconfigured();
         }

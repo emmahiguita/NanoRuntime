@@ -1,217 +1,96 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_site_theme.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_window_omnibox.dart';
+import '../../domain/browser_tab_model.dart';
+import 'browser_display_mode.dart';
+import 'browser_icon_button.dart';
+import 'browser_view_mode_button.dart';
+import 'browser_window_controls.dart';
+import 'browser_window_omnibox.dart';
 
-/// Barra superior de navegación y controles ergonómicos de la ventana del navegador.
-///
-/// - QUÉ HACE: Presenta la distribución estándar profesional:
-///   [ATRÁS] [ADELANTE] [URL / BÚSQUEDA] [PESTAÑAS] [MENÚ]
-///   sin botones intrusivos de Búho ni sobrecargas visuales.
-/// - CÓMO FUNCIONA: Botones táctiles de alta respuesta con accesibilidad [Semantics],
-///   integración con [BrowserWindowOmnibox] para edición en vivo y sincronización con el WebView nativo.
-/// - POR QUÉ: Diseño Material Expressive 3 moderno, estético, funcional y menor a 180 líneas.
+/// Navegación principal en una fila: salida, historial, dirección y vistas.
 class BrowserWindowTopBar extends StatelessWidget {
   final BrowserTabModel activeTab;
   final int tabCount;
-  final bool isVerticalStackMode, isCarouselMode;
-  final double currentZoom;
+  final BrowserDisplayMode displayMode;
   final InAppWebViewController? controller;
-  final VoidCallback onBack,
-      onForward,
-      onReload,
-      onToggleStackMode,
-      onToggleCarouselMode,
-      onOpenOptionsMenu;
-  final VoidCallback? onMinimize, onMaximize, onClose;
+  final VoidCallback onBack, onForward, onReload, onOpenOptionsMenu;
+  final VoidCallback? onExit, onMinimize, onMaximize, onClose;
   final ValueChanged<String> onNavigate;
-  final ValueChanged<double> onZoomChanged;
-
+  final ValueChanged<BrowserDisplayMode> onDisplayMode;
   const BrowserWindowTopBar({
     super.key,
     required this.activeTab,
     required this.tabCount,
-    required this.isVerticalStackMode,
-    required this.isCarouselMode,
-    required this.currentZoom,
+    required this.displayMode,
     required this.controller,
     required this.onBack,
     required this.onForward,
     required this.onReload,
-    required this.onToggleStackMode,
-    required this.onToggleCarouselMode,
     required this.onOpenOptionsMenu,
     required this.onNavigate,
-    required this.onZoomChanged,
+    required this.onDisplayMode,
+    this.onExit,
     this.onMinimize,
     this.onMaximize,
     this.onClose,
   });
 
+  /// En teléfonos oculta solo avanzar; nunca reduce el campo ni el área táctil.
   @override
-  Widget build(BuildContext context) {
-    final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
-    final siteColor = BrowserSiteTheme.getSiteColor(activeTab.url);
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isLand ? 4 : 6,
-        vertical: isLand ? 2 : 4,
-      ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF060D17),
-        border: Border(
-          bottom: BorderSide(color: Color(0xFF162232), width: 1.0),
-        ),
-      ),
-      child: Row(
-        children: [
-          // 1. ATRÁS
-          _ActionBtn(
-            icon: Icons.arrow_back_rounded,
-            label: 'Página anterior',
-            color: activeTab.canGoBack ? Colors.white : const Color(0xFF64748B),
-            size: isLand ? 15 : 18,
-            onTap: onBack,
+  Widget build(BuildContext context) => Material(
+    color: Theme.of(context).colorScheme.surface,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final showForward = constraints.maxWidth >= 430;
+        final address = BrowserWindowOmnibox(
+          url: activeTab.url,
+          title: activeTab.title,
+          siteColor: Theme.of(context).colorScheme.primary,
+          isLandscape: constraints.maxWidth >= 600,
+          isLoading: activeTab.isLoading,
+          progress: activeTab.progress,
+          onSubmitted: onNavigate,
+          onReload: onReload,
+          onStop: controller == null ? null : () => controller!.stopLoading(),
+        );
+        final controls = BrowserWindowControls(
+          onOptions: onOpenOptionsMenu,
+          onMinimize: onMinimize,
+          onMaximize: onMaximize,
+          onClose: onClose,
+        );
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          child: Row(
+            children: [
+              if (onExit != null)
+                BrowserIconButton(
+                  icon: Icons.arrow_back_rounded,
+                  label: 'Volver a Automatización',
+                  onPressed: onExit,
+                ),
+              BrowserIconButton(
+                icon: Icons.chevron_left_rounded,
+                label: 'Página anterior',
+                onPressed: activeTab.canGoBack ? onBack : null,
+              ),
+              if (showForward)
+                BrowserIconButton(
+                  icon: Icons.chevron_right_rounded,
+                  label: 'Página siguiente',
+                  onPressed: activeTab.canGoForward ? onForward : null,
+                ),
+              Expanded(child: address),
+              BrowserViewModeButton(
+                mode: displayMode,
+                tabCount: tabCount,
+                onSelected: onDisplayMode,
+              ),
+              controls,
+            ],
           ),
-          // 2. ADELANTE
-          _ActionBtn(
-            icon: Icons.arrow_forward_rounded,
-            label: 'Página siguiente',
-            color: activeTab.canGoForward
-                ? Colors.white
-                : const Color(0xFF475569),
-            size: isLand ? 15 : 18,
-            onTap: onForward,
-          ),
-          SizedBox(width: isLand ? 3 : 5),
-          // 3. URL / BÚSQUEDA (OMNIBOX)
-          Expanded(
-            child: BrowserWindowOmnibox(
-              url: activeTab.url,
-              title: activeTab.title,
-              siteColor: siteColor,
-              isLandscape: isLand,
-              isLoading: activeTab.isLoading,
-              progress: activeTab.progress,
-              onSubmitted: onNavigate,
-              onReload: onReload,
-              onStop: () => controller?.stopLoading(),
-            ),
-          ),
-          SizedBox(width: isLand ? 3 : 5),
-          // 4. PESTAÑAS
-          _buildTabCounter(isLand),
-          if (onMinimize != null)
-            _ActionBtn(
-              icon: Icons.remove_rounded,
-              label: 'Minimizar navegador',
-              color: const Color(0xFFF59E0B),
-              size: isLand ? 13 : 16,
-              onTap: onMinimize!,
-            ),
-          if (onMaximize != null)
-            _ActionBtn(
-              icon: Icons.fullscreen_rounded,
-              label: 'Cambiar tamaño del navegador',
-              color: const Color(0xFF38BDF8),
-              size: isLand ? 13 : 16,
-              onTap: onMaximize!,
-            ),
-          if (onClose != null)
-            _ActionBtn(
-              icon: Icons.close_rounded,
-              label: 'Cerrar pestaña',
-              color: const Color(0xFFEF4444),
-              size: isLand ? 13 : 16,
-              onTap: onClose!,
-            ),
-          // 5. MENÚ DE OPCIONES
-          _ActionBtn(
-            icon: Icons.more_vert_rounded,
-            label: 'Opciones de navegación',
-            color: const Color(0xFFCBD5E1),
-            size: isLand ? 14 : 17,
-            onTap: onOpenOptionsMenu,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabCounter(bool isLand) {
-    return Semantics(
-      label: 'Alternar pestañas, $tabCount activas',
-      button: true,
-      child: InkWell(
-        onTap: onToggleStackMode,
-        borderRadius: BorderRadius.circular(isLand ? 5 : 7),
-        child: Container(
-          width: isLand ? 22 : 28,
-          height: isLand ? 22 : 28,
-          decoration: BoxDecoration(
-            color: isVerticalStackMode
-                ? const Color(0xFF10B981).withValues(alpha: 0.25)
-                : const Color(0xFF162232),
-            borderRadius: BorderRadius.circular(isLand ? 5 : 7),
-            border: Border.all(
-              color: isVerticalStackMode
-                  ? const Color(0xFF10B981)
-                  : const Color(0xFF334155),
-              width: 1.0,
-            ),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            '$tabCount',
-            style: TextStyle(
-              color: isVerticalStackMode
-                  ? const Color(0xFF10B981)
-                  : Colors.white,
-              fontSize: isLand ? 9.5 : 11.5,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Botón táctil ergonómico con Semantics accesible libre de Tooltip para prevenir 'No Overlay'.
-class _ActionBtn extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final double size;
-  final VoidCallback onTap;
-
-  const _ActionBtn({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.size,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
-    return Semantics(
-      label: label,
-      button: true,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: isLand ? 22 : 28,
-          height: isLand ? 22 : 28,
-          alignment: Alignment.center,
-          margin: const EdgeInsets.symmetric(horizontal: 1),
-          child: Icon(icon, size: size, color: color),
-        ),
-      ),
-    );
-  }
+        );
+      },
+    ),
+  );
 }

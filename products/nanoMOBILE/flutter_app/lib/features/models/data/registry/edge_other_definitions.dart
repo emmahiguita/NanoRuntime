@@ -21,14 +21,8 @@ const Map<String, ModelSourceDefinition> edgeOtherDefinitions = {
     quantizationSource: 'Bartowski / llama.cpp (Q4_K_M)',
     officialBenchmarks: [
       VerifiedBenchmark(
-        name: 'MMLU',
-        value: 49.3,
-        unit: 'score (5-shot)',
-        source: ModelSource(
-          label: 'Meta Llama 3.2 Model Card',
-          url: 'https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct',
-          provenance: ModelDataProvenance.official,
-        ),
+        name: 'MMLU', value: 49.3, unit: 'score (5-shot)',
+        source: ModelSource(label: 'Meta Llama 3.2 Card', url: 'https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct', provenance: ModelDataProvenance.official),
       ),
     ],
     officialCapabilities: [
@@ -192,12 +186,8 @@ const Map<String, ModelSourceDefinition> edgeOtherDefinitions = {
     officialCapabilities: [
       VerifiedCapability(
         name: 'QAD: Cuantización Calibrada',
-        description: 'Usa datos de activación para minimizar la pérdida de fidelidad en 219 MB.',
-        source: ModelSource(
-          label: 'LFM2.5-350M-GGUF README',
-          url: 'https://huggingface.co/LiquidAI/LFM2.5-350M-GGUF',
-          provenance: ModelDataProvenance.official,
-        ),
+        description: 'Usa activaciones para minimizar pérdida en 219 MB.',
+        source: ModelSource(label: 'Liquid AI README', url: 'https://huggingface.co/LiquidAI/LFM2.5-350M-GGUF', provenance: ModelDataProvenance.official),
       ),
     ],
     story: 'Variante QAD de LFM2.5-350M con calibración de activación para máxima fidelidad en 219 MB.',

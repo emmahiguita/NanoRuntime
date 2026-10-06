@@ -96,6 +96,28 @@ final liveNotificationsProvider =
         final messageText = notif.messageText.isNotEmpty
             ? notif.messageText
             : (notif.text.isNotEmpty ? notif.text : '');
+
+        final lowerName = displayName.trim().toLowerCase();
+        final lowerMsg = messageText.trim().toLowerCase();
+        if (displayName == '0' ||
+            lowerName == 'actualizaciones de estado' ||
+            lowerName == 'status updates' ||
+            lowerName == 'actualizaciones' ||
+            lowerName == 'novedades' ||
+            lowerName.contains('comprobando si hay') ||
+            lowerName.contains('buscando mensajes nuevos')) {
+          continue;
+        }
+        if (lowerMsg.contains('le gustó tu estado') ||
+            lowerMsg.contains('le gusta tu estado') ||
+            lowerMsg.contains('dio me gusta a tu estado') ||
+            lowerMsg.contains('reacted to your status') ||
+            lowerMsg.contains('replied to your status') ||
+            lowerMsg.contains('comprobando si hay') ||
+            lowerMsg.contains('buscando mensajes nuevos')) {
+          continue;
+        }
+
         final atMs = notif.messageTimestamp > 0
             ? notif.messageTimestamp
             : (notif.postedAt.millisecondsSinceEpoch > 0

@@ -1,21 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_site_theme.dart';
+import '../../domain/browser_tab_model.dart';
+import 'browser_icon_button.dart';
 
-/// Franja horizontal de pestañas abiertas con favicon y botón de cierre.
-/// 
-/// - ¿Qué hace?: Muestra la lista de pestañas abiertas en scroll horizontal, indicando la activa
-///   con borde azul luminoso, e incluye el botón '+' para abrir nuevas pestañas.
-/// - ¿Cómo funciona?: Renderiza un `ListView.separated` donde cada pestaña muestra su favicon
-///   vectorial (`BrowserSiteTheme`), título recortado y botón '✕' si hay más de una pestaña.
-/// - ¿Por qué?: Separa la gestión visual de pestañas del contenedor principal del navegador (SRP).
+/// Lista horizontal de pestañas: títulos acotados y selección visible.
+/// El botón de añadir permanece accesible sin desplazar toda la lista.
 class BrowserWindowTabsStrip extends StatelessWidget {
   final List<BrowserTabModel> tabs;
   final String activeTabId;
-  final ValueChanged<String> onSelectTab;
-  final ValueChanged<String> onCloseTab;
+  final ValueChanged<String> onSelectTab, onCloseTab;
   final VoidCallback onAddTab;
-
   const BrowserWindowTabsStrip({
     super.key,
     required this.tabs,
@@ -25,88 +18,77 @@ class BrowserWindowTabsStrip extends StatelessWidget {
     required this.onAddTab,
   });
 
+  /// El teclado tiene prioridad; ocultar esta franja no destruye las WebViews.
   @override
   Widget build(BuildContext context) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
-    return Container(
-      height: isLandscape ? 26 : 36,
-      padding: EdgeInsets.symmetric(horizontal: isLandscape ? 6 : 8, vertical: isLandscape ? 1 : 3),
-      decoration: const BoxDecoration(
-        color: Color(0xFF08121E),
-        border: Border(bottom: BorderSide(color: Color(0xFF1E293B), width: 1.0)),
-      ),
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        itemCount: tabs.length + 1,
-        separatorBuilder: (_, __) => SizedBox(width: isLandscape ? 5 : 8),
-        itemBuilder: (context, index) {
-          if (index == tabs.length) {
-            return Center(
-              child: InkWell(
-                onTap: onAddTab,
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: isLandscape ? 6 : 10, vertical: isLandscape ? 2 : 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
-                  child: Icon(Icons.add_rounded, color: const Color(0xFF94A3B8), size: isLandscape ? 13 : 16),
-                ),
-              ),
-            );
-          }
-
-          final tab = tabs[index];
-          final isActive = tab.id == activeTabId;
-
-          return Center(
-            child: InkWell(
-              onTap: () => onSelectTab(tab.id),
-              borderRadius: BorderRadius.circular(20),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: EdgeInsets.symmetric(horizontal: isLandscape ? 6 : 10, vertical: isLandscape ? 2 : 5),
-                decoration: BoxDecoration(
-                  color: isActive ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isActive ? const Color(0xFF10B981).withValues(alpha: 0.6) : const Color(0xFF334155).withValues(alpha: 0.4),
-                    width: 1.0,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    BrowserSiteTheme.buildFavicon(
-                      tab.url,
-                      size: isLandscape ? 14 : 18,
-                      isLandscape: isLandscape,
-                    ),
-                    SizedBox(width: isLandscape ? 5 : 8),
-                    Text(
-                      tab.title.isNotEmpty ? tab.title : 'Pestaña',
-                      style: TextStyle(
-                        fontSize: isLandscape ? 10.5 : 12,
-                        fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                        color: isActive ? Colors.white : const Color(0xFF94A3B8),
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) {
+      return const SizedBox.shrink();
+    }
+    final colors = Theme.of(context).colorScheme;
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    return Material(
+      color: colors.surface,
+      child: SizedBox(
+        height: 48 * scale.clamp(1, 2),
+        child: Row(
+          children: [
+            Expanded(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: tabs.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 4),
+                itemBuilder: (context, index) {
+                  final tab = tabs[index];
+                  final selected = tab.id == activeTabId;
+                  return SizedBox(
+                    width: 196,
+                    child: Semantics(
+                      selected: selected,
+                      child: Material(
+                        color: selected
+                            ? colors.secondaryContainer
+                            : colors.surface,
+                        borderRadius: BorderRadius.circular(10),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () => onSelectTab(tab.id),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  tab.title.isEmpty
+                                      ? 'Nueva pestaña'
+                                      : tab.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                              ),
+                              if (tabs.length > 1)
+                                BrowserIconButton(
+                                  icon: Icons.close_rounded,
+                                  label: 'Cerrar ${tab.title}',
+                                  onPressed: () => onCloseTab(tab.id),
+                                )
+                              else
+                                const SizedBox(width: 12),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
-                    if (tabs.length > 1) ...[
-                      SizedBox(width: isLandscape ? 4 : 6),
-                      GestureDetector(
-                        onTap: () => onCloseTab(tab.id),
-                        child: Icon(Icons.close_rounded, size: isLandscape ? 11 : 14, color: const Color(0xFF64748B)),
-                      ),
-                    ],
-                  ],
-                ),
+                  );
+                },
               ),
             ),
-          );
-        },
+            BrowserIconButton(
+              icon: Icons.add_rounded,
+              label: 'Nueva pestaña',
+              onPressed: onAddTab,
+            ),
+          ],
+        ),
       ),
     );
   }

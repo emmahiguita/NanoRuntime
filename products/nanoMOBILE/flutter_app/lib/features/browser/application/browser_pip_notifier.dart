@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/main.dart' show audioHandler;
 
 import '../domain/browser_pip_model.dart';
 import '../infrastructure/browser_scripts.dart';
@@ -25,32 +26,49 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
   Future<void> _handleNativeCallback(MethodCall call) async {
     if (call.method == 'pipModeChanged') {
       state = state.copyWith(isSystemPip: call.arguments == true);
-    } else if (call.method == 'onUserLeaveHint' && state.isActive && !state.isSystemPip) {
+    } else if (call.method == 'onUserLeaveHint' &&
+        state.isActive &&
+        !state.isSystemPip) {
       enterSystemPictureInPicture();
     }
   }
 
   /// Registra la pestaña fuente actualmente visible.
-  void attachController(InAppWebViewController? controller) => _sourceController = controller;
+  void attachController(InAppWebViewController? controller) =>
+      _sourceController = controller;
 
-  void attachPipController(InAppWebViewController? controller) => _pipController = controller;
+  /// La ventana PiP usa la misma sesión Android que las pestañas normales.
+  void attachPipController(InAppWebViewController? controller) {
+    _pipController = controller;
+    if (controller != null) {
+      audioHandler.attachSource('browser-pip', controller);
+    }
+  }
 
   /// Mueve la reproducción al PiP. Devuelve true cuando se encontró un medio HTML.
   Future<bool> activatePip({
-    required String tabId, required String url, required String title,
+    required String tabId,
+    required String url,
+    required String title,
     InAppWebViewController? controller,
   }) async {
     _sourceController = controller ?? _sourceController;
     final media = await _readMediaState(_sourceController);
     if (media != null) {
       try {
-        await _sourceController?.evaluateJavascript(source: BrowserScripts.pauseMediaScript);
+        await _sourceController?.evaluateJavascript(
+          source: BrowserScripts.pauseMediaScript,
+        );
       } catch (_) {}
     }
 
     state = state.copyWith(
-      isActive: true, isCompact: false, isMaximized: false,
-      activeTabId: tabId, url: url, title: title,
+      isActive: true,
+      isCompact: false,
+      isMaximized: false,
+      activeTabId: tabId,
+      url: url,
+      title: title,
       isPlaying: media?.wasPlaying ?? false,
       resumePositionSeconds: media?.positionSeconds ?? 0,
       transferPending: media != null,
@@ -65,7 +83,8 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
     try {
       await controller.evaluateJavascript(
         source: BrowserScripts.restoreVisibleMediaScript(
-          positionSeconds: state.resumePositionSeconds, shouldPlay: state.isPlaying,
+          positionSeconds: state.resumePositionSeconds,
+          shouldPlay: state.isPlaying,
         ),
       );
     } finally {
@@ -75,26 +94,48 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
 
   Future<void> deactivatePip() async {
     try {
-      await _pipController?.evaluateJavascript(source: BrowserScripts.pauseMediaScript);
+      await _pipController?.evaluateJavascript(
+        source: BrowserScripts.pauseMediaScript,
+      );
     } catch (_) {}
     _pipController = null;
-    state = state.copyWith(isActive: false, isPlaying: false, isSystemPip: false, isMaximized: false, transferPending: false);
+    audioHandler.detachSource('browser-pip');
+    state = state.copyWith(
+      isActive: false,
+      isPlaying: false,
+      isSystemPip: false,
+      isMaximized: false,
+      transferPending: false,
+    );
   }
 
   // Alterna entre modo compacto y expandido del PiP (era bug: siempre forzaba false)
   void toggleCompact() => state = state.copyWith(isCompact: !state.isCompact);
 
-  void toggleMaximized() => state = state.copyWith(isMaximized: !state.isMaximized);
+  void toggleMaximized() =>
+      state = state.copyWith(isMaximized: !state.isMaximized);
 
   void updatePosition(Offset newPosition, Size screenSize) {
-    final x = newPosition.dx.clamp(8.0, (screenSize.width - state.size.width - 8).clamp(8.0, double.infinity));
-    final y = newPosition.dy.clamp(40.0, (screenSize.height - state.size.height - 40).clamp(40.0, double.infinity));
+    final x = newPosition.dx.clamp(
+      8.0,
+      (screenSize.width - state.size.width - 8).clamp(8.0, double.infinity),
+    );
+    final y = newPosition.dy.clamp(
+      40.0,
+      (screenSize.height - state.size.height - 40).clamp(40.0, double.infinity),
+    );
     state = state.copyWith(position: Offset(x, y));
   }
 
   void updatePositionRaw(Offset newPosition, Size screenSize) {
-    final x = newPosition.dx.clamp(0.0, (screenSize.width - state.size.width).clamp(0.0, double.infinity));
-    final y = newPosition.dy.clamp(0.0, (screenSize.height - state.size.height).clamp(0.0, double.infinity));
+    final x = newPosition.dx.clamp(
+      0.0,
+      (screenSize.width - state.size.width).clamp(0.0, double.infinity),
+    );
+    final y = newPosition.dy.clamp(
+      0.0,
+      (screenSize.height - state.size.height).clamp(0.0, double.infinity),
+    );
     state = state.copyWith(position: Offset(x, y));
   }
 
@@ -170,6 +211,7 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
 
   @override
   void dispose() {
+    audioHandler.detachSource('browser-pip');
     _systemPipChannel.setMethodCallHandler(null);
     super.dispose();
   }

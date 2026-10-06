@@ -2,44 +2,26 @@ import 'chat_models.dart';
 part 'catalog_entries_0.dart';
 part 'catalog_entries_1.dart';
 part 'catalog_entries_2.dart';
+part 'catalog_entries_3.dart';
 
-/// Catálogo REAL de modelos GGUF descargables desde HuggingFace.
+/// Catálogo de modelos y recursos con archivo, backend y SHA definidos.
 ///
-/// Cada entrada declara URL de descarga directa (`resolve/main/...`) y el
-/// SHA256 exacto del archivo (lfs oid verificado contra la API de
-/// HuggingFace el 2026-08-13 y re-auditado el 2026-09-04). La descarga en
-/// la app exige que el hash del archivo recibido coincida: sin SHA256
-/// válido, el modelo no se instala.
+/// LiteRT-LM y GGUF se enrutan por el formato declarado; no se infiere velocidad
+/// del nombre del modelo. La instalación comprueba el SHA antes de usar el archivo.
 ///
-/// MODELS-CAT-02 — reglas de admisión (auditoría 2026-09-04 contra la API):
-/// 1. El archivo debe existir COMO UN SOLO GGUF en el repo. Fuera los
-///    partidos en shards (qwen2.5-7b/14b/32b): nanortime no soporta split
-///    y la URL apuntaría a un archivo inexistente.
-/// 2. Solo móvil: ramGb ≤ ~7 GB (cabe en un teléfono de 8 GB con margen).
-///    Fuera 27B/32B — nunca cargarán en un móvil, ni en batch.
-/// 3. Un solo cuant por modelo cuando uno es estrictamente peor (Q4_K_S
-///    vs Q4_K_M del mismo modelo: se queda el K_M).
-///
-/// Un solo motor nanortime corre a la vez: cambiar de modelo requiere
-/// reiniciar el motor, y eso lo orquesta la app vía EngineSupervisor
-/// (kill limpio + respawn con --model <path>).
-/// Tier de rendimiento del modelo — Gate R9. El chat debe seleccionar
-/// INTERACTIVE por defecto; DEEP/EXTREME solo si el usuario elige explícitamente.
+/// Se mantiene una opción pequeña por defecto y alternativas pesadas marcadas
+/// como avanzadas; el rendimiento de cada teléfono se comprueba por separado.
 enum ModelTier {
-  /// ≤3B: tiempo al primer token < ~5s en móvil. Default del chat.
+  /// Opción ligera que se puede ofrecer como predeterminada tras validarla.
   interactive,
 
-  /// 4B–7B: usable pero lento en el primer token.
+  /// Recurso avanzado: el usuario lo elige por memoria o contexto.
   deep,
 
-  /// 9B+: solo batch/insistencia explícita. Nunca default del chat.
+  /// Modelo pesado: no se selecciona por defecto en un móvil.
   extreme,
 }
 
-/// Tipo de modelo (A16): el catálogo soporta diversas modalidades. Cada kind se
-/// carga y consume según su arquitectura:
-/// - [llm]: Modelo generativo de texto a texto en GGUF (llama.cpp).
-/// - [wakeWord]: Detector local en background (.tflite microWakeWord).
 /// Tipo de modelo (A16): el catálogo soporta diversas modalidades. Cada kind se
 /// carga y consume según su arquitectura:
 /// - [llm]: Modelo generativo de texto a texto en GGUF (llama.cpp).
@@ -49,7 +31,7 @@ enum ModelTier {
 enum ModelKind { llm, wakeWord, voiceStt, multimodalVision }
 
 /// Formato y motor de inferencia nativo que consume el archivo del modelo.
-enum ModelBackendType { gguf, litertlm }
+enum ModelBackendType { gguf, litertlm, mnn }
 
 class LmCatalogEntry {
   final String name;
@@ -87,6 +69,9 @@ class LmCatalogEntry {
   /// Hash SHA-256 verificado del proyector visual.
   final String? mmprojSha256;
 
+  /// Commit in the provider's model repository for verified multi-file packages.
+  final String? packageRevision;
+
   const LmCatalogEntry(
     this.name,
     this.params,
@@ -103,6 +88,7 @@ class LmCatalogEntry {
     this.mmprojFile,
     this.mmprojUrl,
     this.mmprojSha256,
+    this.packageRevision,
   });
 }
 
@@ -112,6 +98,7 @@ abstract final class NeuralCatalog {
     ..._catalogEntries0,
     ..._catalogEntries1,
     ..._catalogEntries2,
+    ..._catalogEntries3,
   ];
 
   static LmCatalogEntry entryOf(String name) =>
@@ -119,10 +106,21 @@ abstract final class NeuralCatalog {
 
   static String fileOf(String name) => entryOf(name).file;
 
-  /// Gate R9 — modelo interactivo por defecto: el primer modelo del catálogo
-  /// con tier INTERACTIVE (≤3B). El chat NUNCA debe arrancar con un modelo
-  /// DEEP/EXTREME seleccionado por defecto: eso hace parecer lenta a toda la
-  /// app. El usuario elige un modelo grande explícitamente si lo necesita.
+  /// Resolves an installed path through catalog metadata; imported GGUF paths
+  /// are explicitly registered as GGUF by the model picker/repository.
+  static ModelBackendType backendForPath(String? path) {
+    if (path == null || path.isEmpty) return ModelBackendType.gguf;
+    final normalized = path.replaceAll('\\', '/').replaceAll(RegExp(r'/+$'), '');
+    // El paquete MNN contiene varios archivos internos; clasificamos también
+    // las rutas que terminan en llm_config.json, sin confundir nombres parciales.
+    final segments = normalized.split('/');
+    for (final entry in models) {
+      if (segments.contains(entry.file)) return entry.backendType;
+    }
+    return ModelBackendType.gguf;
+  }
+
+  /// Elige la primera opción ligera; los modelos avanzados requieren elección.
   static LmCatalogEntry get defaultInteractive {
     for (final m in models) {
       if (m.tier == ModelTier.interactive) return m;

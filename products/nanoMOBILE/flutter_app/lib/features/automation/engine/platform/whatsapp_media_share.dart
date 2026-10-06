@@ -18,17 +18,37 @@ class WhatsAppMediaShare {
 
   static const _channel = MethodChannel('com.nanoai/share');
 
-  /// Copia [sourcePath] al catálogo fijo y devuelve la ruta estable.
+  /// Copia [sourcePath] a una carpeta organizada del catálogo y devuelve la ruta estable.
   /// null = el canal no respondió o la copia falló.
-  Future<String?> copyToCatalog(String sourcePath) async {
+  Future<String?> copyToCatalog(
+    String sourcePath, {
+    String category = NanoMediaCategory.documents,
+  }) async {
     try {
       return await _channel.invokeMethod<String>('copyToCatalog', {
         'sourcePath': sourcePath,
+        'category': category,
       });
     } on PlatformException {
       return null;
     } on MissingPluginException {
       return null;
+    }
+  }
+
+  /// Archivos guardados dentro del catálogo privado de Nano.
+  Future<List<NanoCatalogFile>> listCatalog() async {
+    try {
+      final raw = await _channel.invokeListMethod<Map<Object?, Object?>>(
+        'listCatalog',
+      );
+      return (raw ?? const <Map<Object?, Object?>>[])
+          .map(NanoCatalogFile.fromMap)
+          .toList(growable: false);
+    } on PlatformException {
+      return const [];
+    } on MissingPluginException {
+      return const [];
     }
   }
 
@@ -107,4 +127,86 @@ class WhatsAppMediaShare {
       return false;
     }
   }
+}
+
+class NanoMediaCategory {
+  static const products = 'productos_servicios';
+  static const reports = 'informes';
+  static const photos = 'fotos';
+  static const videos = 'videos';
+  static const documents = 'documentos';
+
+  static const all = <NanoMediaCategoryInfo>[
+    NanoMediaCategoryInfo(
+      products,
+      'Productos y servicios',
+      'PDF de precios, catálogo y ofertas',
+      '▤',
+    ),
+    NanoMediaCategoryInfo(
+      reports,
+      'Informes',
+      'Reportes y documentos generados',
+      '▥',
+    ),
+    NanoMediaCategoryInfo(
+      photos,
+      'Fotos',
+      'Imágenes listas para compartir',
+      '▧',
+    ),
+    NanoMediaCategoryInfo(videos, 'Videos', 'Clips y videos', '▶'),
+    NanoMediaCategoryInfo(documents, 'Documentos', 'PDF y otros archivos', '▤'),
+  ];
+
+  static String forFileName(String name) {
+    final extension = name.split('.').last.toLowerCase();
+    if (const {
+      'jpg',
+      'jpeg',
+      'png',
+      'webp',
+      'gif',
+      'heic',
+    }.contains(extension)) {
+      return photos;
+    }
+    if (const {'mp4', 'mov', 'm4v', '3gp', 'mkv'}.contains(extension)) {
+      return videos;
+    }
+    return documents;
+  }
+}
+
+class NanoMediaCategoryInfo {
+  final String id;
+  final String title;
+  final String subtitle;
+  final String icon;
+
+  const NanoMediaCategoryInfo(this.id, this.title, this.subtitle, this.icon);
+}
+
+class NanoCatalogFile {
+  final String name;
+  final String path;
+  final String category;
+  final int sizeBytes;
+  final int modifiedAtMs;
+
+  const NanoCatalogFile({
+    required this.name,
+    required this.path,
+    required this.category,
+    required this.sizeBytes,
+    required this.modifiedAtMs,
+  });
+
+  factory NanoCatalogFile.fromMap(Map<Object?, Object?> map) => NanoCatalogFile(
+    name: map['name']?.toString() ?? '',
+    path: map['path']?.toString() ?? '',
+    category: map['category']?.toString() ?? NanoMediaCategory.documents,
+    sizeBytes: (map['sizeBytes'] as num?)?.toInt() ?? 0,
+    modifiedAtMs: (map['modifiedAtMs'] as num?)?.toInt() ?? 0,
+  );
 }

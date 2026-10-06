@@ -60,7 +60,10 @@ class AccountDeletionFailedException extends AccountException {
 
 class ReauthenticationRequiredException extends AccountException {
   const ReauthenticationRequiredException([String? code])
-    : super('Por seguridad, vuelve a iniciar sesión antes de esta acción.', code);
+    : super(
+        'Por seguridad, vuelve a iniciar sesión antes de esta acción.',
+        code,
+      );
 }
 
 class BillingUnavailableException extends AccountException {
@@ -81,4 +84,25 @@ class PurchaseCancelledException extends AccountException {
 class EntitlementVerificationException extends AccountException {
   const EntitlementVerificationException([String? code])
     : super('No se pudo verificar la validez de la suscripción.', code);
+}
+
+/// Cancela solo el flujo visual; no representa un fallo de autenticación.
+class GoogleSignInCancelledException extends AccountException {
+  const GoogleSignInCancelledException()
+    : super('Selección de cuenta cancelada.', 'google-sign-in-cancelled');
+}
+
+/// Explica el Client ID OAuth que falta sin fingir una identidad local.
+class GoogleSignInNotConfiguredException extends AccountException {
+  const GoogleSignInNotConfiguredException()
+    : super(
+        'Falta configurar el Client ID OAuth de Google para Nano.',
+        'google-oauth-not-configured',
+      );
+}
+
+/// Mantiene los errores del SDK fuera de la interfaz y del dominio.
+class GoogleSignInFailedException extends AccountException {
+  const GoogleSignInFailedException()
+    : super('Google no pudo verificar esta cuenta. Intenta de nuevo.');
 }

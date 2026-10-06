@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../engine/mcp/http_mcp_client.dart';
-import '../../../engine/mcp/local_device_mcp_client.dart';
 import '../../../engine/mcp/mcp_client_port.dart';
 import '../../../engine/mcp/mcp_connection_registry.dart';
 import '../../../engine/mcp/mcp_store_catalog.dart';
 import '../../../engine/mcp/mcp_server_persistence.dart';
-import '../../../engine/system/installed_app_catalog.dart';
 import '../../automation_visual_theme.dart';
 import 'mcp_hot_injection_dialog.dart';
 
@@ -29,6 +27,8 @@ class McpStoreItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isRemoteTemplate = item.transport == McpTransportKind.streamableHttp;
+    final stateColor = isConnected ? visual.success : visual.accent;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -37,7 +37,7 @@ class McpStoreItemCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isConnected
-              ? const Color(0xFF10B981).withValues(alpha: 0.5)
+              ? visual.success.withValues(alpha: 0.5)
               : visual.cardBorder,
           width: isConnected ? 1.2 : 1.0,
         ),
@@ -57,20 +57,14 @@ class McpStoreItemCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color:
-                      (isConnected
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFF8B5CF6))
-                          .withValues(alpha: 0.15),
+                  color: stateColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   item.transport.name.toUpperCase(),
                   style: TextStyle(
-                    color: isConnected
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFF8B5CF6),
-                    fontSize: 10,
+                    color: stateColor,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -79,7 +73,7 @@ class McpStoreItemCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   item.author,
-                  style: TextStyle(color: visual.textMuted, fontSize: 11),
+                  style: TextStyle(color: visual.textMuted, fontSize: 12),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -108,7 +102,7 @@ class McpStoreItemCard extends StatelessWidget {
                         'OFICIAL',
                         style: TextStyle(
                           color: Colors.blue,
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -158,7 +152,7 @@ class McpStoreItemCard extends StatelessWidget {
                       style: TextStyle(
                         fontFamily: 'monospace',
                         color: visual.text,
-                        fontSize: 10,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -169,17 +163,23 @@ class McpStoreItemCard extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Text(
-                isConnected ? 'CONECTADO Y ACTIVO' : 'NO CONECTADO',
-                style: TextStyle(
-                  color: isConnected
-                      ? const Color(0xFF10B981)
-                      : visual.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  isConnected
+                      ? 'CONECTADO Y ACTIVO'
+                      : isRemoteTemplate
+                      ? 'PLANTILLA LISTA PARA CONFIGURAR'
+                      : 'NO CONECTADO',
+                  style: TextStyle(
+                    color: isConnected ? visual.success : visual.textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               if (isConnected)
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
@@ -208,9 +208,12 @@ class McpStoreItemCard extends StatelessWidget {
                     minimumSize: Size.zero,
                   ),
                   onPressed: onConnect,
-                  child: const Text(
-                    'Conectar',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                  child: Text(
+                    isRemoteTemplate ? 'Configurar' : 'Conectar',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
             ],
@@ -227,13 +230,17 @@ Future<void> showMcpStoreConnectDialog({
   required McpStoreItem item,
   required McpConnectionRegistry registry,
   required McpServerPersistence persistence,
-  required InstalledAppCatalog? appCatalog,
   required AutomationVisualPalette visual,
   required void Function(String message) onConnected,
 }) async {
   if (item.transport == McpTransportKind.androidBinder) {
-    final client = LocalDeviceMcpClient(appCatalog: appCatalog);
-    await registry.register(client, replaceExisting: true);
+    // El cliente local ya fue creado con sus dependencias reales en el composition root.
+    if (registry.client(item.id) == null) {
+      onConnected(
+        'El conector local de Nano no está registrado en esta sesión.',
+      );
+      return;
+    }
     final snap = await registry.refreshTools();
     onConnected(
       '${item.name} conectado. ${snap.tools.length} herramientas activas.',
@@ -241,6 +248,12 @@ Future<void> showMcpStoreConnectDialog({
     return;
   }
 
+  final idController = TextEditingController(
+    text: item.transport == McpTransportKind.streamableHttp
+        ? 'mcp-server-${DateTime.now().millisecondsSinceEpoch}'
+        : item.id,
+  );
+  final nameController = TextEditingController(text: item.name);
   final endpointController = TextEditingController(text: item.defaultEndpoint);
   final tokenController = TextEditingController();
 
@@ -275,6 +288,38 @@ Future<void> showMcpStoreConnectDialog({
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Text(
+                      'Identificador único del servidor:',
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: idController,
+                      style: TextStyle(
+                        color: visual.text,
+                        fontSize: 13,
+                        fontFamily: 'monospace',
+                      ),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        hintText: 'calendar-mcp',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Nombre para mostrar:',
+                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: nameController,
+                      style: TextStyle(color: visual.text, fontSize: 13),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        hintText: 'Mi calendario',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Text(
                       'Endpoint URL del servidor MCP:',
                       style: TextStyle(color: visual.textMuted, fontSize: 12),
@@ -351,11 +396,20 @@ Future<void> showMcpStoreConnectDialog({
                         });
 
                         HttpMcpClient? client;
+                        final serverId = idController.text.trim();
+                        var saved = false;
                         try {
+                          if (registry.client(serverId) != null) {
+                            throw const FormatException(
+                              'duplicate_mcp_server_id',
+                            );
+                          }
                           final descriptor = item.toDescriptor(
+                            customServerId: serverId,
+                            customDisplayName: nameController.text.trim(),
                             customEndpoint: endpointController.text.trim(),
                             credentialRef: persistence.credentialRefFor(
-                              item.id,
+                              serverId,
                             ),
                           );
                           persistence.validateDescriptor(descriptor);
@@ -377,25 +431,46 @@ Future<void> showMcpStoreConnectDialog({
                             return;
                           }
 
+                          final registration = await registry.register(client);
+                          if (registration.status ==
+                              McpRegistrationStatus.duplicateRejected) {
+                            throw const FormatException(
+                              'duplicate_mcp_server_id',
+                            );
+                          }
                           await persistence.save(
                             descriptor,
                             credentialToken: token.isEmpty ? null : token,
                           );
-                          await registry.register(
-                            client,
-                            replaceExisting: true,
-                          );
+                          saved = true;
                           final snap = await registry.refreshTools();
                           if (ctx.mounted) Navigator.of(ctx).pop();
+                          final discoveryFailure = snap.failures
+                              .where((failure) => failure.serverId == serverId)
+                              .firstOrNull;
                           onConnected(
-                            '${item.name} conectado. ${snap.tools.length} herramientas disponibles.',
+                            discoveryFailure == null
+                                ? '${descriptor.displayName} conectado; ${snap.tools.values.where((tool) => tool.serverId == serverId).length} herramientas descubiertas.'
+                                : 'Conectó, pero no pudo descubrir herramientas: ${discoveryFailure.reason}',
                           );
                         } catch (_) {
-                          await client?.disconnect();
+                          if (saved) {
+                            try {
+                              await persistence.remove(serverId);
+                            } on Object {
+                              // El error principal se conserva; no se oculta por un rollback fallido.
+                            }
+                          }
+                          if (client != null &&
+                              registry.client(serverId) == client) {
+                            await registry.unregister(serverId);
+                          } else {
+                            await client?.disconnect();
+                          }
                           setDlgState(() {
                             connecting = false;
                             errorMsg =
-                                'No se pudo guardar o completar la conexión MCP.';
+                                'No se pudo guardar la conexión. Verifica que el ID sea único y que la URL implemente Streamable HTTP.';
                           });
                         }
                       },
@@ -416,6 +491,8 @@ Future<void> showMcpStoreConnectDialog({
       );
     },
   ).whenComplete(() {
+    idController.dispose();
+    nameController.dispose();
     tokenController.clear();
     tokenController.dispose();
     endpointController.dispose();
@@ -520,10 +597,7 @@ class McpHotInjectionBanner extends StatelessWidget {
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: visual.accent,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),

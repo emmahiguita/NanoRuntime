@@ -4,7 +4,8 @@
 // POR QUÉ: Desacopla lógica de datos de los widgets; mantiene < 200 líneas (SOLID/SRP).
 library;
 
-import '../../../../core/models/catalog_models.dart' show ModelKind;
+import '../../../../core/models/catalog_models.dart'
+    show ModelKind, ModelBackendType;
 import '../../domain/detected_model.dart';
 import '../../domain/local_model.dart';
 
@@ -19,11 +20,14 @@ class UnifiedModelItem {
   bool get isCatalog => catalog != null;
   String get name => isCatalog ? catalog!.name : detected!.name;
   String get fileName => isCatalog ? catalog!.fileName : detected!.name;
-  bool get isDownloading => catalog?.downloadState == ModelDownloadState.downloading;
+  // Verificar sigue ocupando la descarga: ofrece cancelar, nunca descargar otra vez.
+  bool get isDownloading => catalog?.isDownloading ?? false;
 
   double get sizeGb => isCatalog
       ? catalog!.sizeGb
-      : (detected!.sizeBytes > 0 ? detected!.sizeBytes / (1024 * 1024 * 1024) : 0.0);
+      : (detected!.sizeBytes > 0
+            ? detected!.sizeBytes / (1024 * 1024 * 1024)
+            : 0.0);
 
   double get ramGb => isCatalog ? catalog!.ramGb : 0.0;
   bool get installed => isCatalog ? catalog!.installed : detected!.usable;
@@ -36,15 +40,13 @@ class UnifiedModelItem {
   String get company {
     if (!isCatalog) return 'Tarjeta SD / Local';
     final n = catalog!.name.toLowerCase();
+    // Una destilación de Qwen pertenece a DeepSeek: comprobarla antes de Qwen.
     if (n.contains('deepseek')) return 'DeepSeek AI';
-    if (n.contains('qwen')) return 'Alibaba Qwen';
-    if (n.contains('llama')) return 'Meta Llama';
-    if (n.contains('gemma')) return 'Google Gemma';
-    if (n.contains('phi')) return 'Microsoft Phi';
     if (n.contains('lfm') || n.contains('liquid')) return 'Liquid AI';
+    if (n.contains('qwen')) return 'Alibaba Qwen';
+    if (n.contains('gemma')) return 'Google Gemma';
     if (n.contains('whisper')) return 'OpenAI Whisper';
-    if (n.contains('ministral') || n.contains('mistral')) return 'Mistral AI';
-    if (n.contains('moondream')) return 'Moondream';
+    if (n.contains('llama')) return 'Meta Llama';
     return 'Comunidad AI';
   }
 
@@ -57,11 +59,17 @@ class UnifiedModelItem {
     if (cat.kind == ModelKind.wakeWord) return 'WAKE WORD • ACTIVACIÓN LOCAL';
     if (cat.isMultimodal) return 'VISIÓN ARTIFICIAL • MULTIMODAL';
     final n = cat.name.toLowerCase();
-    if (n.contains('lfm') || n.contains('liquid')) return 'LIQUID AI • ULTRALIGERO EDGE';
-    if (n.contains('deepseek') || n.contains('r1')) return 'DEEPSEEK AI • RAZONAMIENTO';
+    if (n.contains('lfm') || n.contains('liquid')) {
+      return 'LIQUID AI • ULTRALIGERO EDGE';
+    }
+    if (n.contains('deepseek') || n.contains('r1')) {
+      return 'DEEPSEEK AI • RAZONAMIENTO';
+    }
     if (n.contains('coder')) return 'ALIBABA QWEN • PROGRAMACIÓN';
     if (n.contains('moondream')) return 'MOONDREAM • VISIÓN COMPACTA';
-    if (n.contains('ministral') || n.contains('mistral')) return 'MISTRAL AI • CONVERSACIÓN';
+    if (n.contains('ministral') || n.contains('mistral')) {
+      return 'MISTRAL AI • CONVERSACIÓN';
+    }
     return '$company • MODELOS MÓVILES';
   }
 
@@ -75,25 +83,22 @@ class UnifiedModelItem {
     if (cat.kind == ModelKind.wakeWord) return 'WAKE';
     if (cat.isMultimodal) return 'VISIÓN';
     final n = cat.name.toLowerCase();
-    if (cat.fileName.endsWith('.litertlm') || n.contains('litert')) return 'LITERT';
+    if (cat.backendType == ModelBackendType.litertlm) return 'LITERT';
+    if (cat.backendType == ModelBackendType.mnn) return 'MNN';
     if (n.contains('lfm')) return 'EDGE';
     if (n.contains('coder')) return 'CODER';
     if (n.contains('deepseek') || n.contains('r1')) return 'RAZÓN';
-    if (n.contains('0.6b') || n.contains('0.8b') || n.contains('350m')) return 'NANO';
+    if (n.contains('0.6b') || n.contains('0.8b') || n.contains('350m')) {
+      return 'NANO';
+    }
     if (n.contains('instruct')) return 'CHAT';
     return 'LLM';
   }
 
-  // QUÉ HACE: true si es candidato recomendado para móvil (<1GB RAM, sin calentamiento).
+  // El badge aplica al único modelo marcado tras medirlo en el Oppo objetivo.
   // POR QUÉ: UI muestra badge ⭐ y lo ubica en la sección de modelos óptimos para hardware móvil.
   bool get isRecommendedForNano {
-    if (!isCatalog) return false;
-    final n = catalog!.name.toLowerCase();
-    return n.contains('qwen3.5-0.8b') ||
-        n.contains('lfm2.5-350m-qad') ||
-        n.contains('qwen2.5-0.5b') ||
-        n.contains('qwen2.5-1.5b') ||
-        n.contains('llama-3.2-1b');
+    return isCatalog && catalog!.name == 'Qwen3-0.6B-Instruct (LiteRT)';
   }
 
   // QUÉ HACE: true si es modelo especializado (Whisper Voz, Visión o Coder).
@@ -101,12 +106,7 @@ class UnifiedModelItem {
   bool get isSpecialized {
     if (!isCatalog) return false;
     final cat = catalog!;
-    final n = cat.name.toLowerCase();
-    return cat.isVoiceStt ||
-        cat.isMultimodal ||
-        cat.kind == ModelKind.wakeWord ||
-        n.contains('coder') ||
-        n.contains('moondream');
+    return cat.isVoiceStt || cat.isMultimodal || cat.kind == ModelKind.wakeWord;
   }
 }
 
@@ -120,31 +120,34 @@ class ModelFilterHelper {
     required List<DetectedModel> detected,
     required String query,
     required String filter,
+    Set<String>? favorites,
   }) {
     final list = <UnifiedModelItem>[];
     if (filter != 'SD / Local') {
       list.addAll(catalog.map((m) => UnifiedModelItem.catalog(m)));
     }
-    if (filter == 'Todos' || filter == 'SD / Local' || filter == 'Instalados') {
+    if (filter == 'Todos' || filter == 'SD / Local' || filter == 'Instalados' || filter == 'Favoritos') {
       list.addAll(detected.map((d) => UnifiedModelItem.detected(d)));
     }
 
     final filtered = list.where((item) {
       final q = query.toLowerCase();
-      final matches = q.isEmpty ||
+      final matches =
+          q.isEmpty ||
           item.name.toLowerCase().contains(q) ||
           item.company.toLowerCase().contains(q);
       if (!matches) return false;
       return switch (filter) {
         'Instalados' => item.installed,
-        'Qwen'       => item.company.contains('Qwen'),
-        'DeepSeek'   => item.company.contains('DeepSeek'),
-        'Llama'      => item.company.contains('Llama'),
-        'Gemma'      => item.company.contains('Gemma'),
-        'Phi'        => item.company.contains('Phi'),
-        'Liquid AI'  => item.company.contains('Liquid'),
+        'Favoritos' => favorites?.contains(item.name) ?? false,
+        'Descargas' => item.isDownloading || item.installed,
+        'Qwen' => item.company.contains('Qwen'),
+        'Gemma' => item.company.contains('Gemma'),
+        'Liquid AI' => item.company == 'Liquid AI',
+        'DeepSeek' => item.company == 'DeepSeek AI',
+        'Voz' => item.isCatalog && item.catalog!.isVoiceStt,
         'SD / Local' => !item.isCatalog,
-        _            => true,
+        _ => true,
       };
     }).toList();
 
@@ -162,5 +165,11 @@ class ModelFilterHelper {
 
 /// Estados visuales de cada tarjeta en el catálogo.
 enum ModelUiStatus {
-  active, installed, available, downloading, error, incompatible, runtimeUnavailable,
+  active,
+  installed,
+  available,
+  downloading,
+  error,
+  incompatible,
+  runtimeUnavailable,
 }

@@ -1,7 +1,19 @@
-// model_new_badge_banner.dart — Banner de notificación de nuevo modelo open-source.
-// QUÉ HACE: Muestra un aviso cuando hay modelos nuevos en el catálogo no instalados ni vistos.
-// CÓMO FUNCIONA: Lee SharedPreferences para saber qué modelos ya vio el usuario; calcula nuevos.
-// POR QUÉ: Permite notificar en la pantalla de Modelos sin depender de push notifications externas.
+// model_new_badge_banner.dart — Banner informativo Material 3 Expressive para el catálogo.
+//
+// QUÉ HACE:
+// Notifica al usuario de nuevos modelos curados instalables en el dispositivo (Gemma, Qwen,
+// Qwen Omni, Whisper o importación GGUF) que aún no han sido vistos ni instalados.
+//
+// CÓMO FUNCIONA:
+// 1. Lee SharedPreferences (`nano_seen_model_ids_v1`) para filtrar los modelos no vistos.
+// 2. Se adapta fluidamente entre modo vertical y horizontal (landscape) ajustando paddings y escala.
+// 3. Aplica Material 3 Expressive usando los tokens de color del tema (Theme.of(context)),
+//    eliminando colores ámbar fijos y tipografías desalineadas.
+//
+// POR QUÉ:
+// Mantiene consistencia visual con el sistema de diseño, evita elementos rígidos que
+// ocupen demasiado espacio vertical en landscape y comunica con precisión los motores disponibles.
+
 library;
 
 import 'package:flutter/material.dart';
@@ -9,9 +21,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../domain/local_model.dart';
 
-/// Widget que notifica modelos nuevos no vistos desde el último lanzamiento.
 class ModelNewBadgeBanner extends StatefulWidget {
-  // Lista de modelos del catálogo para calcular cuáles son nuevos.
   final List<LocalModel> models;
 
   const ModelNewBadgeBanner({super.key, required this.models});
@@ -21,11 +31,9 @@ class ModelNewBadgeBanner extends StatefulWidget {
 }
 
 class _ModelNewBadgeBannerState extends State<ModelNewBadgeBanner> {
-  // QUÉ HACE: IDs de modelos nuevos no vistos por el usuario.
   List<String> _newModelIds = [];
   bool _dismissed = false;
 
-  // Clave para persistir los modelos ya vistos.
   static const _seenKey = 'nano_seen_model_ids_v1';
 
   @override
@@ -34,8 +42,6 @@ class _ModelNewBadgeBannerState extends State<ModelNewBadgeBanner> {
     _computeNew();
   }
 
-  // QUÉ HACE: Detecta cuando el catálogo cambia (por scan o actualización) y recalcula.
-  // POR QUÉ: Permite que el banner reaccione inmediatamente tras refrescar la lista.
   @override
   void didUpdateWidget(covariant ModelNewBadgeBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -44,9 +50,7 @@ class _ModelNewBadgeBannerState extends State<ModelNewBadgeBanner> {
     }
   }
 
-  // QUÉ HACE: Compara catálogo actual contra IDs ya vistos en SharedPreferences.
-  // CÓMO FUNCIONA: Lee lista guardada → diff con catálogo actual → muestra los nuevos.
-  // POR QUÉ: Sin red ni APIs — funciona offline; se actualiza cuando el catálogo crece.
+  // QUÉ HACE: Calcula modelos pendientes de ver sin requerir conectividad de red.
   Future<void> _computeNew() async {
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getStringList(_seenKey) ?? [];
@@ -58,7 +62,7 @@ class _ModelNewBadgeBannerState extends State<ModelNewBadgeBanner> {
     setState(() => _newModelIds = newIds);
   }
 
-  // QUÉ HACE: Marca los modelos nuevos como vistos y cierra el banner.
+  // QUÉ HACE: Guarda en storage local que el usuario ya cerró este aviso.
   Future<void> _dismiss() async {
     final prefs = await SharedPreferences.getInstance();
     final seen = prefs.getStringList(_seenKey) ?? [];
@@ -69,48 +73,81 @@ class _ModelNewBadgeBannerState extends State<ModelNewBadgeBanner> {
 
   @override
   Widget build(BuildContext context) {
-    // No mostrar si no hay modelos nuevos o el usuario ya lo cerró.
     if (_dismissed || _newModelIds.isEmpty) return const SizedBox.shrink();
-    final colors = NanoThemeExtension.of(context).colors;
+
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final count = _newModelIds.length;
 
+    // QUÉ HACE: Contenedor con Material Expressive adaptable a vertical/horizontal.
     return Container(
-      margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF59E0B).withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(NanoRadius.medium),
-        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35), width: 0.8),
+      margin: EdgeInsets.only(
+        bottom: isLandscape ? NanoSpacing.xs : NanoSpacing.sm,
       ),
-      child: Row(children: [
-        const Text('✨', style: TextStyle(fontSize: 20)),
-        const SizedBox(width: 10),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              count == 1
-                  ? '1 modelo nuevo disponible'
-                  : '$count modelos nuevos disponibles',
-              style: const TextStyle(
-                fontFamily: 'Inter', fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white,
-              ),
-            ),
-            Text(
-              'Modelos open-source pequeños para móvil añadidos al catálogo.',
-              style: TextStyle(
-                fontFamily: 'Inter', fontSize: 10.5, color: colors.onSurfaceVariant,
-              ),
-            ),
-          ],
-        )),
-        const SizedBox(width: 8),
-        // Botón para cerrar el banner y marcar como visto.
-        GestureDetector(
-          onTap: _dismiss,
-          child: Icon(Icons.close_rounded, size: 18, color: colors.onSurfaceVariant),
+      padding: EdgeInsets.symmetric(
+        horizontal: isLandscape ? 12 : 14,
+        vertical: isLandscape ? 6 : 10,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(NanoRadius.medium),
+        border: Border.all(
+          color: colorScheme.outlineVariant.withValues(alpha: 0.35),
+          width: 0.8,
         ),
-      ]),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.auto_awesome_rounded,
+            size: isLandscape ? 18 : 22,
+            color: colorScheme.primary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  count == 1
+                      ? '1 modelo disponible para instalar'
+                      : '$count modelos disponibles para instalar',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: isLandscape ? 11.5 : 12.5,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  'Catálogo curado para tu móvil: Gemma (LiteRT), Qwen, Qwen Omni (MNN), Whisper (Voz) e importación GGUF externa.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: isLandscape ? 10.0 : 11.0,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: isLandscape ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Cerrar aviso',
+            icon: Icon(
+              Icons.close_rounded,
+              size: isLandscape ? 16 : 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: _dismiss,
+          ),
+        ],
+      ),
     );
   }
 }

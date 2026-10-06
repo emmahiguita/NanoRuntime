@@ -20,6 +20,7 @@ extension ChatNotifierActions on ChatNotifier {
     required String path,
     required int sizeBytes,
   }) async {
+    final mediaPath = await _copyAttachmentForMnn(path, extension: 'jpg');
     final observation = await _visionAdapter.describe(path);
     addAttachment(
       ChatAttachment(
@@ -31,17 +32,67 @@ extension ChatNotifierActions on ChatNotifier {
                 'no se inventó una descripción.',
         kind: ChatAttachmentKind.photo,
         sizeBytes: sizeBytes,
+        mediaPath: mediaPath,
       ),
     );
     return observation != null;
   }
 
-  void removeAttachment(String name) => state = state.copyWith(
-    attachments: _msgManager.removeAttachment(
-      currentAttachments: state.attachments,
+  /// Copies media into app cache so the composer can delete the picker file safely.
+  Future<String?> _copyAttachmentForMnn(String source, {required String extension}) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final target = File('${dir.path}/nano_mnn_${DateTime.now().microsecondsSinceEpoch}.$extension');
+      await File(source).copy(target.path);
+      return target.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Preserves a picked audio file until the current turn finishes.
+  Future<void> addAudioAttachment({
+    required String name,
+    required String path,
+    required int sizeBytes,
+  }) async {
+    final mediaPath = await _copyAttachmentForMnn(path, extension: 'wav');
+    addAttachment(ChatAttachment(
       name: name,
-    ),
-  );
+      content: '[Audio adjuntado: $name]',
+      kind: ChatAttachmentKind.audio,
+      sizeBytes: sizeBytes,
+      mediaPath: mediaPath,
+    ));
+  }
+
+  // Elimina la copia temporal cuando el usuario quita un adjunto; evita
+  // acumular imágenes/audio huérfanos en el caché de la aplicación.
+  void removeAttachment(String name) {
+    final removed = state.attachments.where((item) => item.name == name);
+    state = state.copyWith(
+      attachments: _msgManager.removeAttachment(
+        currentAttachments: state.attachments,
+        name: name,
+      ),
+    );
+    unawaited(_deleteAttachmentMedia(removed));
+  }
+
+  // Borra únicamente archivos creados por el adaptador, nunca el original
+  // elegido por el usuario ni una ruta que no pertenezca al caché temporal.
+  Future<void> _deleteAttachmentMedia(Iterable<ChatAttachment> attachments) async {
+    for (final attachment in attachments) {
+      final path = attachment.mediaPath;
+      if (path == null || path.isEmpty) continue;
+      try {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      } catch (error) {
+        debugPrint('[chat] no se pudo limpiar adjunto temporal: $error');
+      }
+    }
+  }
 
   Future<void> refreshEngine() => _modelService.refreshEngine(
     activeModelPath: state.activeModelPath,
@@ -101,14 +152,16 @@ extension ChatNotifierActions on ChatNotifier {
 
   void stopVoiceConversation() => _voiceCoordinator.stopVoiceConversation();
 
-  void stop() {
-    _sendUseCase.streamSession.stop(engine: _engine);
+  Future<void> stop() async {
+    await _sendUseCase.streamSession.stop(engine: _engine);
     state = state.copyWith(generating: false, streamingText: '');
     unawaited(_msgManager.persistMessages(state.messages));
   }
 
   Future<void> clear() async {
-    if (state.generating) stop();
+    if (state.generating) await stop();
+    final attachments = state.attachments;
+    await _deleteAttachmentMedia(attachments);
     _sendUseCase.coordinator.reset();
     _toolCoordinator.reset();
     _modelService.rotateSession();

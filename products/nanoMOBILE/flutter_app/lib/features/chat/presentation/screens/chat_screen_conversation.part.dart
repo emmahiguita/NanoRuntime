@@ -34,15 +34,23 @@ extension _ChatScreenConversation on _ChatScreenState {
       return;
     }
     setState(() => _listening = true);
+    NanoFloatingWrapper.activeController?.setListening(true);
     _partialSub = NanoRuntimeApi.instance.voicePartialStream.listen((partial) {
       if (!mounted || !_listening) return;
-      setState(() => _dictatedText = partial);
+      setState(() {
+        _dictatedText = partial;
+        _textController.text = partial;
+        _textController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _textController.text.length),
+        );
+      });
     });
     final text = await NanoRuntimeApi.instance.startVoiceRecognition();
     await _partialSub?.cancel();
     _partialSub = null;
     if (!mounted) return;
     setState(() => _listening = false);
+    NanoFloatingWrapper.activeController?.setListening(false);
     if (text == null || text.trim().isEmpty) {
       // Sin texto final: si el dictado en vivo dejó algo se conserva; si no,
       // aviso honesto.
@@ -51,7 +59,13 @@ extension _ChatScreenConversation on _ChatScreenState {
       }
       return;
     }
-    setState(() => _dictatedText = text.trim());
+    setState(() {
+      _dictatedText = text.trim();
+      _textController.text = text.trim();
+      _textController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _textController.text.length),
+      );
+    });
     // VOICE-PRO-04: el dictado LLENA el campo y el usuario decide cuándo
     // enviar. El autoenvío sorprendía: no daba tiempo a revisar lo que el
     // reconocedor había entendido (y un error de transcripción se ejecutaba
@@ -82,12 +96,12 @@ extension _ChatScreenConversation on _ChatScreenState {
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool forceJump = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Guard: el widget puede desmontarse antes de que se ejecute el callback.
       if (!mounted || !_scrollController.hasClients) return;
       final target = _scrollController.position.maxScrollExtent;
-      if (MediaQuery.disableAnimationsOf(context)) {
+      if (forceJump || MediaQuery.disableAnimationsOf(context)) {
         _scrollController.jumpTo(target);
       } else {
         _scrollController.animateTo(
@@ -97,5 +111,25 @@ extension _ChatScreenConversation on _ChatScreenState {
         );
       }
     });
+  }
+  /// QUÉ HACE: Inicia una nueva sesión limpia archivando la anterior en el historial soberano.
+  /// CÓMO FUNCIONA: Si hay mensajes, los persiste en ChatHistoryStore y resetea ChatNotifier.
+  /// POR QUÉ: Permite al usuario comenzar un nuevo tema sin diálogos destructivos confusos.
+  Future<void> _startNewConversation(ChatNotifier notifier) async {
+    final state = ref.read(chatProvider);
+    if (state.messages.isEmpty) return;
+    HapticFeedback.selectionClick();
+    await ChatHistoryStore().save(state.messages);
+    await notifier.clear();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(
+          content: Text('Nueva conversación iniciada · Chat anterior guardado en historial'),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
   }
 }

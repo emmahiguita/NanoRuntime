@@ -14,6 +14,7 @@ import '../../executors/notification_executor_provider.dart';
 import 'messaging_dedup_merger.dart';
 import 'messaging_live_notifications_provider.dart';
 import 'messaging_conversation_keys.dart';
+import 'notification_history_provider.dart';
 
 export 'messaging_live_notifications_provider.dart';
 
@@ -49,6 +50,7 @@ final allHubConversationsProvider =
     FutureProvider<List<ConversationSummaryItem>>((ref) async {
       ref.watch(liveNotificationStreamProvider);
       ref.watch(conversationHubVersionProvider);
+      ref.watch(notificationHistoryEventsProvider);
 
       final personalList = await ref.watch(
         conversationHubListProvider(ConversationAgentId.personal).future,
@@ -57,10 +59,14 @@ final allHubConversationsProvider =
         conversationHubListProvider(ConversationAgentId.business).future,
       );
       final liveList = await ref.watch(liveNotificationsProvider.future);
+      final notificationHistory = await ref.watch(
+        notificationHistoryConversationsProvider.future,
+      );
 
       return MessagingDedupMerger.deduplicateAndSort([
         ...personalList,
         ...businessList,
+        ...notificationHistory,
         ...liveList,
       ]);
     });

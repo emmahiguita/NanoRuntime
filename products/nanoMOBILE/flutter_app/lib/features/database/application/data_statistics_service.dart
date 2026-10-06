@@ -46,6 +46,7 @@ final class DataStatisticsService {
       categoryColumn: prepared.categoryColumn,
       categories: prepared.categories,
       seriesColumn: firstSeries?.key,
+      seriesLabelColumn: prepared.seriesLabelColumn,
       series: firstSeries?.value.take(60).toList() ?? const [],
       seriesLabels: prepared.seriesLabels.take(60).toList(),
       quality: prepared.quality,

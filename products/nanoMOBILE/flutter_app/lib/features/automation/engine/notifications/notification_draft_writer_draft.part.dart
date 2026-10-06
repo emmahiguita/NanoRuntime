@@ -14,13 +14,11 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
         writer._cloudInferencePort.isConfigured;
     var localReady = false;
     if (!hasCloudPort) {
-      // FIX-1: cuando el motor está en degraded (model_loaded=false), hacer
-      // poll con backoff exponencial hasta 20s antes de caer al fallback.
-      // Antes retornaba null al primer intento fallido, causando que todos los
-      // mensajes del cold_start_snapshot fallaran mientras el modelo cargaba.
+      // Espera a que el motor activo termine de cargar antes de redactar.
+      // Los motores locales esperan una sola carga; GGUF sondea el estado HTTP.
       localReady = await _waitForEngineReady(
         writer,
-        maxWait: const Duration(seconds: 20),
+        maxWait: const Duration(seconds: 45),
       );
       if (!localReady) {
         debugPrint(
@@ -104,7 +102,13 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
       raw,
       notification,
       conversationId,
-      allowPlainText: prepared.isSocial,
+      // Qwen local puede contestar en lenguaje natural a planes no verificados;
+      // el parser solo aceptará esa ruta si expresa incertidumbre explícita.
+      allowPlainText: prepared.isSocial ||
+          (!hasCloudPort &&
+              context.agentId == ConversationAgentId.personal &&
+              context.role == ConversationAgentRole.personal &&
+              isLiveStateQuestion(notification.text)),
     );
   } on Object catch (e) {
     // Motor local no disponible o falló → sin borrador (honesto).
@@ -122,11 +126,24 @@ Future<bool> _waitForEngineReady(
   RuntimeNotificationDraftWriter writer, {
   required Duration maxWait,
 }) async {
+  // QUÉ HACE: espera una sola carga para los motores locales LiteRT y MNN.
+  // CÓMO: su Future ya representa la carga nativa completa; no la cancela por sondeo.
+  // POR QUÉ: repetir ensureReady cada seis segundos encolaba cargas MNN durante JNI.
+  final modelPath = writer._modelPath();
+  final backend = NeuralCatalog.backendForPath(modelPath);
+  if (backend == ModelBackendType.mnn ||
+      backend == ModelBackendType.litertlm) {
+    return writer
+        ._ensureReady(modelPath)
+        .timeout(maxWait, onTimeout: () => false);
+  }
+
+  // GGUF conserva sondeo: el supervisor HTTP puede vivir antes de cargar el modelo.
   final deadline = DateTime.now().add(maxWait);
   var delayMs = 500;
   while (DateTime.now().isBefore(deadline)) {
     final ready = await writer
-        ._ensureReady(writer._modelPath())
+        ._ensureReady(modelPath)
         .timeout(const Duration(seconds: 6), onTimeout: () => false);
     if (ready) return true;
     final remaining = deadline.difference(DateTime.now()).inMilliseconds;

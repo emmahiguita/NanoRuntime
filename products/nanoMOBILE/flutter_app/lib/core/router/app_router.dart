@@ -12,7 +12,6 @@ import '../../features/linux/presentation/screens/mobile_linux_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_launch_screen.dart';
 import '../../features/desktop/presentation/screens/vnc_screen.dart';
 import '../../features/desktop/presentation/screens/desktop_audit_screen.dart';
-import '../../features/automation/presentation/screens/automation_screen.dart';
 import '../../features/automation/presentation/screens/automation_messages_screen.dart';
 import '../../features/automation/presentation/screens/whatsapp_onboarding_screen.dart';
 import '../../features/automation/presentation/screens/mcp_skills_hub_screen.dart';
@@ -36,12 +35,12 @@ class AppRouter {
   static final GlobalKey<NavigatorState> rootNavigatorKey =
       GlobalKey<NavigatorState>(debugLabel: 'rootNav');
 
-  /// Claves de Navigator por branch (orden: dashboard, chat, models,
+  /// Claves de Navigator por branch (orden: dashboard, models,
   /// terminal, settings). Permiten que ScaffoldShell resuelva el back real:
   /// dentro de una pestaña, el gesto atrás debe hacer pop del stack interno
   /// del branch (p.ej. /terminal/shell → /terminal) ANTES de saltar a Inicio.
   static final List<GlobalKey<NavigatorState>> branchKeys = List.generate(
-    5,
+    4,
     (i) => GlobalKey<NavigatorState>(debugLabel: 'branchNav_$i'),
   );
 
@@ -65,20 +64,15 @@ class AppRouter {
                 pageBuilder: (_, __) =>
                     const NoTransitionPage(child: DashboardScreen()),
               ),
-            ],
-          ),
-          StatefulShellBranch(
-            navigatorKey: branchKeys[1],
-            routes: [
               GoRoute(
-                path: '/chat',
+                path: '/automation',
                 pageBuilder: (_, __) =>
-                    const NoTransitionPage(child: ChatScreen()),
+                    const NoTransitionPage(child: DashboardScreen()),
               ),
             ],
           ),
           StatefulShellBranch(
-            navigatorKey: branchKeys[2],
+            navigatorKey: branchKeys[1],
             routes: [
               GoRoute(
                 path: '/models',
@@ -88,7 +82,7 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
-            navigatorKey: branchKeys[3],
+            navigatorKey: branchKeys[2],
             routes: [
               GoRoute(
                 path: '/terminal',
@@ -114,7 +108,7 @@ class AppRouter {
             ],
           ),
           StatefulShellBranch(
-            navigatorKey: branchKeys[4],
+            navigatorKey: branchKeys[3],
             routes: [
               GoRoute(
                 path: '/settings',
@@ -124,6 +118,11 @@ class AppRouter {
             ],
           ),
         ],
+      ),
+      // /chat → Chat IA con Modelos
+      GoRoute(
+        path: '/chat',
+        pageBuilder: (_, __) => _glassMorph(const ChatScreen()),
       ),
       // /browser → Navegador Web Real integrado de Nano AI
       GoRoute(
@@ -137,11 +136,6 @@ class AppRouter {
       GoRoute(
         path: '/desktop',
         pageBuilder: (_, __) => _expressiveSlide(const DesktopLaunchScreen()),
-      ),
-      // /automation → apartado dedicado (NO vive en Ajustes)
-      GoRoute(
-        path: '/automation',
-        pageBuilder: (_, __) => _glassMorph(const AutomationScreen()),
       ),
       // /automation/messages → responder mensajes (función de usuario, no Dev)
       GoRoute(
@@ -213,6 +207,17 @@ class AppRouter {
 
 
   /// Transición Principal de Navegación (Glass Morph Transition)
+  ///
+  /// QUÉ HACE:
+  /// Aplica una animación fluida de desvanecimiento y escalado translúcido entre pantallas.
+  ///
+  /// CÓMO FUNCIONA:
+  /// Envuelve el widget hijo dentro de un `Material` transparente.
+  ///
+  /// POR QUÉ:
+  /// Previene el error visual crítico de Flutter "No Overlay widget found" y evita que
+  /// los textos muestren cajas rojas con texto amarillo o dobles subrayados amarillos
+  /// cuando se despliegan tooltips, menús contextuales o selectores de terminal.
   static Page<void> _glassMorph(Widget child) => CustomTransitionPage<void>(
     transitionDuration: NanoMotionDurations.navigation,
     reverseTransitionDuration: NanoMotionDurations.navigation,
@@ -223,10 +228,20 @@ class AppRouter {
         child: child,
       );
     },
-    child: child,
+    child: Material(
+      type: MaterialType.transparency,
+      child: child,
+    ),
   );
 
   /// Transición Secundaria (Expressive Slide)
+  ///
+  /// QUÉ HACE:
+  /// Desplaza la pantalla lateralmente siguiendo los tokens de Material Expressive 3.
+  ///
+  /// POR QUÉ:
+  /// El ancestro `Material` garantiza la propagación del tema y la correcta resolución
+  /// de overlays para diálogos y hojas modales en modo vertical y horizontal.
   static Page<void> _expressiveSlide(Widget child) =>
       CustomTransitionPage<void>(
         transitionDuration: NanoMotionDurations.standard,
@@ -238,6 +253,9 @@ class AppRouter {
             child: child,
           );
         },
-        child: child,
+        child: Material(
+          type: MaterialType.transparency,
+          child: child,
+        ),
       );
 }

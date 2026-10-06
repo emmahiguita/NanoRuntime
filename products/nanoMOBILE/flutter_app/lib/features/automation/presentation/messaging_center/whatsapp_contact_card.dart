@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/settings_provider.dart';
+import '../../../../core/theme/design_tokens.dart';
 import '../../domain/whatsapp_contact.dart';
 import '../../personal_agent/domain/conversation_owner.dart';
 import '../../application/automation_coordinator_provider.dart';
@@ -44,6 +45,10 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = NanoThemeExtension.of(context).colors;
+    final botColor = isDark ? const Color(0xFF25D366) : colors.primary;
+
     final contact = widget.contact;
     final initial = contact.name.trim().isNotEmpty
         ? contact.name.trim()[0].toUpperCase()
@@ -60,9 +65,15 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
             ? ownershipStore.ownershipFor(contact.number)
             : null);
 
-    final bool isBotActive = targetMode == 'selected'
-        ? ownership?.owner == ConversationOwner.bot
-        : !(ownership?.humanOwns ?? false);
+    // Solo cuentas confirmadas pueden recibir automatización; teléfonos comunes quedan manuales.
+    final bool isBotActive = contact.isWhatsAppVerified &&
+        (targetMode == 'selected'
+            ? ownership?.owner == ConversationOwner.bot
+            : !(ownership?.humanOwns ?? false));
+
+    final border = isBotActive
+        ? botColor.withValues(alpha: isDark ? 0.35 : 0.45)
+        : (isDark ? Colors.white.withValues(alpha: 0.1) : colors.outline);
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _pressed = true),
@@ -77,17 +88,25 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           margin: const EdgeInsets.only(bottom: 8),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _pressed
-                  ? [const Color(0x551E293B), const Color(0x400F172A)]
-                  : [const Color(0x381E293B), const Color(0x220F172A)],
-            ),
+            color: isDark ? null : (_pressed ? const Color(0xFFF1F5F9) : Colors.white),
+            gradient: isDark
+                ? LinearGradient(
+                    colors: _pressed
+                        ? [const Color(0x551E293B), const Color(0x400F172A)]
+                        : [const Color(0x381E293B), const Color(0x220F172A)],
+                  )
+                : null,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isBotActive
-                  ? const Color(0xFF25D366).withValues(alpha: 0.35)
-                  : Colors.white.withValues(alpha: 0.1),
-            ),
+            border: Border.all(color: border),
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
@@ -113,10 +132,10 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
                         Flexible(
                           child: Text(
                             contact.name,
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: isDark ? Colors.white : colors.onSurface,
                               fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -130,21 +149,23 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
                               vertical: 1,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF00A884,
-                              ).withValues(alpha: 0.2),
+                              color: isDark
+                                  ? const Color(0xFF00A884).withValues(alpha: 0.2)
+                                  : const Color(0xFF0F766E).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: const Color(
-                                  0xFF00A884,
-                                ).withValues(alpha: 0.5),
+                                color: isDark
+                                    ? const Color(0xFF00A884).withValues(alpha: 0.5)
+                                    : const Color(0xFF0F766E).withValues(alpha: 0.4),
                                 width: 0.6,
                               ),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Business',
                               style: TextStyle(
-                                color: Color(0xFF00A884),
+                                color: isDark
+                                    ? const Color(0xFF00A884)
+                                    : const Color(0xFF0F766E),
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -154,9 +175,13 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      contact.number.isNotEmpty ? contact.number : contact.jid,
+                      contact.isWhatsAppVerified
+                          ? (contact.number.isNotEmpty ? contact.number : contact.jid)
+                          : '${contact.number} · No verificado',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.5)
+                            : colors.onSurfaceVariant,
                         fontSize: 11.5,
                       ),
                       maxLines: 1,
@@ -169,6 +194,12 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
               InkWell(
                 borderRadius: BorderRadius.circular(10),
                 onTap: () async {
+                  if (!contact.isWhatsAppVerified) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Este número no está confirmado como cuenta de WhatsApp.')),
+                    );
+                    return;
+                  }
                   final newOwner = isBotActive
                       ? ConversationOwner.human
                       : ConversationOwner.bot;
@@ -188,13 +219,17 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
                   ),
                   decoration: BoxDecoration(
                     color: isBotActive
-                        ? const Color(0xFF25D366).withValues(alpha: 0.16)
-                        : Colors.white.withValues(alpha: 0.06),
+                        ? botColor.withValues(alpha: isDark ? 0.16 : 0.12)
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF1F5F9)),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isBotActive
-                          ? const Color(0xFF25D366).withValues(alpha: 0.45)
-                          : Colors.white.withValues(alpha: 0.18),
+                          ? botColor.withValues(alpha: isDark ? 0.45 : 0.50)
+                          : (isDark
+                              ? Colors.white.withValues(alpha: 0.18)
+                              : colors.outline),
                     ),
                   ),
                   child: Row(
@@ -203,19 +238,25 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
                       Icon(
                         isBotActive
                             ? Icons.smart_toy_rounded
-                            : Icons.pause_circle_outline_rounded,
+                            : contact.isWhatsAppVerified
+                                ? Icons.pause_circle_outline_rounded
+                                : Icons.help_outline_rounded,
                         size: 14,
                         color: isBotActive
-                            ? const Color(0xFF25D366)
-                            : Colors.white54,
+                            ? botColor
+                            : (isDark ? Colors.white54 : colors.onSurfaceVariant),
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        isBotActive ? 'Activo' : 'Pausado',
+                        isBotActive
+                            ? 'Activo'
+                            : contact.isWhatsAppVerified
+                                ? 'Pausado'
+                                : 'No verificado',
                         style: TextStyle(
                           color: isBotActive
-                              ? const Color(0xFF25D366)
-                              : Colors.white60,
+                              ? botColor
+                              : (isDark ? Colors.white60 : colors.onSurfaceVariant),
                           fontSize: 10.5,
                           fontWeight: FontWeight.bold,
                         ),

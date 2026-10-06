@@ -90,9 +90,16 @@ class _NanoOwlAliveState extends State<NanoOwlAlive>
     if (!animate || !mounted || isSleep || isFly) return;
     var idx = 0;
     blinkTimer = Timer.periodic(const Duration(milliseconds: 45), (t) {
-      if (!mounted || !animate || idx >= NanoOwlFrames.blinkFrames.length) {
-        t.cancel(); blinkTimer = null;
-        if (mounted) { setState(() => blinkStep = -1); _scheduleBlink(); }
+      // BLINK-RACE-FIX: si el estado cambió a sleep/fly mientras el blink
+      // estaba corriendo, cancelar inmediatamente y resetear el step.
+      if (!mounted || !animate || isSleep || isFly ||
+          idx >= NanoOwlFrames.blinkFrames.length) {
+        t.cancel();
+        blinkTimer = null;
+        if (mounted) {
+          setState(() => blinkStep = -1);
+          if (!isSleep && !isFly) _scheduleBlink();
+        }
         return;
       }
       setState(() => blinkStep = idx++);
@@ -131,12 +138,12 @@ class _NanoOwlAliveState extends State<NanoOwlAlive>
       return NanoOwlFrames.flyFrames[idx.clamp(0, NanoOwlFrames.flyFrames.length - 1)];
     }
     return switch (widget.activity) {
-      NanoActivity.listening => 'assets/owl/listening.png',
+      NanoActivity.listening => NanoOwlFrames.listening,
       NanoActivity.thinking || NanoActivity.debating ||
-      NanoActivity.comparing || NanoActivity.acting => 'assets/owl/think.png',
-      NanoActivity.success => 'assets/owl/welcome.png',
-      NanoActivity.error => 'assets/owl/surprised.png',
-      _ => 'assets/owl/idle.png',
+      NanoActivity.comparing || NanoActivity.acting => NanoOwlFrames.thinking,
+      NanoActivity.success => NanoOwlFrames.success,
+      NanoActivity.error => NanoOwlFrames.error,
+      _ => NanoOwlFrames.idle,
     };
   }
 

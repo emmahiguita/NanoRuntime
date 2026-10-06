@@ -116,24 +116,25 @@ class NanoUniversalInputConfig {
 
   @override
   int get hashCode => Object.hash(
-        hint,
-        initialText,
-        onSubmit,
-        onChanged,
-        onVoice,
-        onAttach,
-        isGenerating,
-        isListening,
-        onStop,
-        clearOnSubmit,
-        keepFocusOnSubmit,
-        keepDockVisible,
-        focusNode,
-        controller,
-      );
+    hint,
+    initialText,
+    onSubmit,
+    onChanged,
+    onVoice,
+    onAttach,
+    isGenerating,
+    isListening,
+    onStop,
+    clearOnSubmit,
+    keepFocusOnSubmit,
+    keepDockVisible,
+    focusNode,
+    controller,
+  );
 }
 
-class NanoUniversalInputNotifier extends StateNotifier<NanoUniversalInputConfig> {
+class NanoUniversalInputNotifier
+    extends StateNotifier<NanoUniversalInputConfig> {
   NanoUniversalInputNotifier() : super(const NanoUniversalInputConfig());
 
   /// Config por ámbito con `scopeId` (una por pestaña/pantalla). El frame del
@@ -201,8 +202,8 @@ class NanoUniversalInputNotifier extends StateNotifier<NanoUniversalInputConfig>
 /// Provider global que expone la configuración activa para la barra cósmica.
 final nanoUniversalInputProvider =
     StateNotifierProvider<NanoUniversalInputNotifier, NanoUniversalInputConfig>(
-  (ref) => NanoUniversalInputNotifier(),
-);
+      (ref) => NanoUniversalInputNotifier(),
+    );
 
 /// Widget que define el ámbito de entrada de la pantalla activa.
 ///
@@ -330,10 +331,9 @@ class _NanoInputScopeState extends ConsumerState<NanoInputScope> {
       controller: widget.controller,
     );
     _applied = config;
-    ref.read(nanoUniversalInputProvider.notifier).setConfig(
-      config,
-      scopeId: widget.scopeId,
-    );
+    ref
+        .read(nanoUniversalInputProvider.notifier)
+        .setConfig(config, scopeId: widget.scopeId);
   }
 
   @override

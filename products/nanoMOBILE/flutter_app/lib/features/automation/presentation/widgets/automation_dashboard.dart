@@ -1,23 +1,17 @@
-/// AUTOMATION-DASHBOARD — Centro de control operativo de Nano AI.
-///
-/// QUÉ HACE:
-/// Orquesta la interfaz del asistente: composer cósmico, voz push-to-talk,
-/// tareas activas y las 4 áreas unificadas (Inbox, Personal, Negocio, Sistema).
-///
-/// CÓMO FUNCIONA:
-/// Conecta [NanoInputScope] al árbol de widgets y delega en controladores modulares.
-///
-/// POR QUÉ:
-/// Cumple estrictamente con el límite de < 200 líneas garantizando alta cohesión.
+// QUÉ: dashboard operativo con entrada contextual de texto y voz.
+// CÓMO: conecta el scope y presenta estados reales; ejecución separada en un part.
+// POR QUÉ: conserva controles y recursos sin mezclar presentación y despacho.
 library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/providers/chat_provider.dart';
 import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/services/nano_runtime_api.dart';
 import '../../../../core/widgets/navigation/nano_universal_input.dart';
+import '../../../browser_ai/presentation/sheets/ai_web_sessions_sheet.dart';
 import '../../application/automation_coordinator_provider.dart'
     show pendingRepliesProvider, ruleRegistryProvider;
 import '../../application/automation_diagnostics.dart';
@@ -38,7 +32,9 @@ import 'automation_dashboard_dialogs.dart';
 import 'automation_dashboard_runner.dart';
 import 'automation_dashboard_voice.dart';
 import 'automation_dashboard_voice_controller.dart';
+import 'automation_command_feedback.dart';
 export 'automation_engine_status_provider.dart';
+part 'automation_dashboard_execution.dart';
 
 class AutomationDashboard extends ConsumerStatefulWidget {
   const AutomationDashboard({
@@ -54,7 +50,9 @@ class AutomationDashboard extends ConsumerStatefulWidget {
   });
 
   final VoidCallback? onSettingsTap, onMessagesTap, onRulesTap;
-  final VoidCallback? onBusinessTap, onPersonalAgentTap, onBotStudioTap;
+  // El contexto pertenece a la tarjeta: permite medir su origen, no el dashboard.
+  final ValueChanged<BuildContext>? onBusinessTap, onPersonalAgentTap;
+  final VoidCallback? onBotStudioTap;
   final VoidCallback? onSkillsMcpTap, onDevTap;
 
   @override
@@ -110,78 +108,9 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
     super.dispose();
   }
 
-  Future<AutomationResult?> _runTask(
-    String text, {
-    ActionConfirmation? confirmation,
-    bool fromVoice = false,
-    bool speakResult = true,
-  }) async {
-    final goal = text.trim();
-    if (goal.isEmpty || _running) return null;
-    final executionId = confirmation?.executionId ?? 'dash-${UniqueKey()}';
-    _activeEngine = ref.read(automationEngineProvider);
-    _activeExecutionId = executionId;
-    setState(() {
-      _running = true;
-      _lastGoal = goal;
-      _lastStatus = null;
-      _lastReason = '';
-    });
-
-    // Los comandos explícitos deben ir al router de herramientas; como objetivos,
-    // el planner intentaba interpretarlos como tareas normales y no ejecutaba MCP.
-    if (AgentToolDispatcher.isToolCommand(goal)) {
-      try {
-        final feedback = await _activeEngine!.runCommand(goal);
-        if (!mounted) return null;
-        setState(() {
-          _lastStatus = AutomationResultStatus.completed;
-          _lastReason = feedback;
-          _lastConfirmation = null;
-          _running = false;
-        });
-      } on Object catch (error) {
-        if (!mounted) return null;
-        setState(() {
-          _lastStatus = AutomationResultStatus.failed;
-          _lastReason =
-              'No se pudo ejecutar el comando de Automatización (${error.runtimeType}).';
-          _lastConfirmation = null;
-          _running = false;
-        });
-      }
-      return null;
-    }
-
-    final result = await AutomationDashboardRunner.execute(
-      text: goal,
-      engine: _activeEngine!,
-      diagnostics: ref.read(automationDiagnosticsProvider),
-      confirmation: confirmation,
-      executionId: executionId,
-    );
-
-    if (mounted && result != null) {
-      setState(() {
-        _lastStatus = result.status;
-        _lastReason = automationUserFacingReason(result.reason);
-        _lastConfirmation = result.confirmation;
-        _running = false;
-      });
-      if (result.status == AutomationResultStatus.paused &&
-          result.confirmation != null) {
-        unawaited(NanoRuntimeApi.instance.showAutomationConfirmation());
-      }
-      if (ref.read(settingsProvider).voiceEnabled &&
-          speakResult &&
-          !isDiagCommand(goal)) {
-        await ref
-            .read(chatProvider.notifier)
-            .voiceSession
-            .respond(AutomationDashboardRunner.spokenResult(result));
-      }
-    }
-    return result;
+  /// La extensión de ejecución solicita cambios; el State es dueño de setState.
+  void _updateExecutionState(VoidCallback update) {
+    if (mounted) setState(update);
   }
 
   @override
@@ -250,6 +179,10 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         onSettingsTap: widget.onSettingsTap,
         onBotStudioTap: widget.onBotStudioTap,
         onSkillsMcpTap: widget.onSkillsMcpTap,
+        onAiWebTap: () => AiWebSessionsSheet.show(context),
+        onBrowserTap: () => context.push('/browser'),
+        onChatTap: () => context.push('/chat'),
+        onTerminalTap: () => context.push('/terminal'),
         onTimeRuleTap: () => AutomationDashboardDialogs.createTimeRule(
           context: context,
           ruleCreator: ref.read(ruleCreatorProvider),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'inference_media_input.dart';
 
 /// Cliente HTTP hacia el motor llama.cpp real desplegado localmente en el
 /// dispositivo (binario `nan`, libs en `llama_libs/`, modelos `.gguf`).
@@ -14,6 +15,8 @@ import 'package:flutter/foundation.dart';
 class LLMEngineClient {
   final String baseUrl;
   final Duration timeout;
+  // El router puede ampliar la espera de prefill según el motor sin cambiar el contrato del chat.
+  Duration get streamIdleTimeout => const Duration(seconds: 45);
   final http.Client _client;
   // Fábrica del client de streaming (uno nuevo por stream para poder cerrarlo
   // en cancelación sin afectar el client compartido). Inyectable en tests.
@@ -168,6 +171,7 @@ class LLMEngineClient {
     String? context,
     List<Map<String, String>>? history,
     Duration? requestTimeout,
+    List<InferenceMediaInput> mediaInputs = const [],
   }) async {
     // WA-LIVE-02 — request_id SIEMPRE presente (antes solo en streaming):
     // tras un timeout el cliente corta el socket y llama /cancel con este id.
@@ -262,6 +266,7 @@ class LLMEngineClient {
     String? context,
     List<Map<String, String>>? history,
     String? requestId,
+    List<InferenceMediaInput> mediaInputs = const [],
   }) {
     final client = _streamClientFactory?.call() ?? http.Client();
     final controller = StreamController<LLMStreamToken>();

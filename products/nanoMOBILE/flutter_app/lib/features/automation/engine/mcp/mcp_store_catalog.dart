@@ -37,12 +37,14 @@ class McpStoreItem {
   final List<String> sampleTools;
 
   McpServerDescriptor toDescriptor({
+    String? customServerId,
+    String? customDisplayName,
     String? customEndpoint,
     String? credentialRef,
   }) {
     return McpServerDescriptor(
-      id: id,
-      displayName: name,
+      id: customServerId ?? id,
+      displayName: customDisplayName ?? name,
       transport: transport,
       endpoint: customEndpoint ?? defaultEndpoint,
       credentialRef: credentialRef,
@@ -61,7 +63,8 @@ class McpStoreCatalog {
   // servidores MCP garantizados y podían responder 404 aunque la UI dijera "verificado".
   static const List<McpStoreItem> defaultItems = [
     McpStoreItem(
-      id: 'mcp.device.local',
+      // Debe coincidir con el descriptor del cliente local ya registrado.
+      id: 'device',
       name: 'Local Device Inspector',
       author: 'NanoAI',
       category: McpStoreCategory.system,

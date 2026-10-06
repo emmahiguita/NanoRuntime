@@ -6,6 +6,7 @@ import '../../../../core/theme/nano_type.dart';
 import '../../../../core/widgets/nano_components.dart';
 import '../../../../core/widgets/nano_owl_avatar.dart';
 import '../../application/account_providers.dart';
+import '../widgets/google_sign_in_sheet.dart';
 import '../widgets/register_country_picker.dart';
 import '../widgets/register_form_fields.dart';
 
@@ -46,7 +47,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (!_acceptTerms) {
       setState(() {
-        _errorMessage = 'Debes aceptar los Términos y Condiciones para continuar.';
+        _errorMessage =
+            'Debes aceptar los Términos y Condiciones para continuar.';
       });
       return;
     }
@@ -60,10 +62,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
-    final fullPhone = '${_selectedCountry.dialCode} ${_phoneController.text.trim()}';
+    final fullPhone =
+        '${_selectedCountry.dialCode} ${_phoneController.text.trim()}';
     final displayName = '$firstName $lastName'.trim();
 
-    final error = await ref.read(authControllerProvider.notifier).register(
+    final error = await ref
+        .read(authControllerProvider.notifier)
+        .register(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           displayName: displayName,
@@ -81,6 +86,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (error == null) {
         context.go('/auth/verify-email');
       }
+    }
+  }
+
+  void _handleGoogle() async {
+    final success = await GoogleSignInSheet.show(context);
+    if (success == true && mounted) {
+      context.go('/dashboard');
     }
   }
 
@@ -111,7 +123,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Center(child: NanoOwlAvatar(size: 52, state: NanoOwlState.idle)),
+                  const Center(
+                    child: NanoOwlAvatar(size: 52, state: NanoOwlState.idle),
+                  ),
                   const SizedBox(height: NanoSpacing.sm),
                   Text(
                     'Crear Cuenta Profesional',
@@ -131,9 +145,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       decoration: BoxDecoration(
                         color: colors.error.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(NanoRadius.small),
-                        border: Border.all(color: colors.error.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: colors.error.withValues(alpha: 0.3),
+                        ),
                       ),
-                      child: Text(_errorMessage!, style: NanoType.caption(colors.error)),
+                      child: Text(
+                        _errorMessage!,
+                        style: NanoType.caption(colors.error),
+                      ),
                     ),
                     const SizedBox(height: NanoSpacing.md),
                   ],
@@ -149,11 +168,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       showNanoCountryPicker(
                         context: context,
                         colors: colors,
-                        onSelected: (country) => setState(() => _selectedCountry = country),
+                        onSelected: (country) =>
+                            setState(() => _selectedCountry = country),
                       );
                     },
                     acceptTerms: _acceptTerms,
-                    onAcceptTermsChanged: (v) => setState(() => _acceptTerms = v ?? false),
+                    onAcceptTermsChanged: (v) =>
+                        setState(() => _acceptTerms = v ?? false),
                     colors: colors,
                   ),
                   const SizedBox(height: NanoSpacing.lg),
@@ -164,6 +185,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     primary: true,
                     expanded: true,
                     onPressed: _isLoading ? null : _handleRegister,
+                  ),
+                  const SizedBox(height: NanoSpacing.sm),
+                  NanoActionButton(
+                    label: 'Continuar con Google',
+                    primary: false,
+                    expanded: true,
+                    icon: Icons.g_mobiledata_rounded,
+                    onPressed: _isLoading ? null : _handleGoogle,
                   ),
                   const SizedBox(height: NanoSpacing.md),
                 ],

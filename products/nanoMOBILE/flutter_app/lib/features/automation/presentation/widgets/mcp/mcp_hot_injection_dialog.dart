@@ -265,8 +265,15 @@ Future<void> showMcpHotInjectionDialog({
                           credentialRef: persistence.credentialRefFor(serverId),
                         );
                         HttpMcpClient? client;
+                        var registered = false;
+                        var saved = false;
                         try {
                           persistence.validateDescriptor(desc);
+                          if (registry.client(serverId) != null) {
+                            throw const FormatException(
+                              'duplicate_mcp_server_id',
+                            );
+                          }
                           client = HttpMcpClient(
                             descriptor: desc,
                             credentialToken: token.isEmpty ? null : token,
@@ -283,21 +290,37 @@ Future<void> showMcpHotInjectionDialog({
                             });
                             return;
                           }
+                          final registration = await registry.register(client);
+                          if (registration.status ==
+                              McpRegistrationStatus.duplicateRejected) {
+                            throw const FormatException(
+                              'duplicate_mcp_server_id',
+                            );
+                          }
+                          registered = true;
                           await persistence.save(
                             desc,
                             credentialToken: token.isEmpty ? null : token,
                           );
-                          await registry.register(
-                            client,
-                            replaceExisting: true,
-                          );
+                          saved = true;
                           final snap = await registry.refreshTools();
                           if (ctx.mounted) Navigator.of(ctx).pop();
                           onInjected(
                             'Servidor conectado y guardado. ${snap.tools.length} herramientas activas.',
                           );
                         } catch (_) {
-                          await client?.disconnect();
+                          if (saved) {
+                            try {
+                              await persistence.remove(serverId);
+                            } on Object {
+                              // Un fallo al revertir no debe ocultar el motivo inicial.
+                            }
+                          }
+                          if (registered) {
+                            await registry.unregister(serverId);
+                          } else {
+                            await client?.disconnect();
+                          }
                           if (ctx.mounted) {
                             setDlgState(() {
                               testing = false;

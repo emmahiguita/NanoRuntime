@@ -28,6 +28,9 @@ dependencies:
   archive: ^3.6.1
   xml: ^6.5.0
   flutter_secure_storage: 10.3.4
+  audio_service: ^0.18.19
+  audio_session: ^0.2.4
+  google_sign_in: 7.2.0
 
 dev_dependencies:
   flutter_test:

@@ -20,7 +20,7 @@ abstract final class WhatsAppStatusClassifier {
   static final _statusReactionRegex = RegExp(
     r'(reaccion[oó]\s+(con\s+.*?\s+)?a\s+tu\s+(estado|actualizaci[oó]n)|'
     r'respondi[oó]\s+a\s+tu\s+estado|'
-    r'(le\s+gusta|dio\s+me\s+gusta).*?tu\s+estado|'
+    r'(le\s+gusta|dio\s+me\s+gusta|le\s+gust[oó]).*?tu\s+estado|'
     r'reacted\s+.*?\s+to\s+your\s+status|'
     r'replied\s+to\s+your\s+status|'
     r'reagiu\s+ao?\s+seu\s+status)',
@@ -30,6 +30,7 @@ abstract final class WhatsAppStatusClassifier {
 
   static final _systemMaintenanceRegex = RegExp(
     r'(buscando\s+mensajes\s+nuevos|'
+    r'comprobando\s+si\s+hay\s+(mensajes\s+nuevos)?|'
     r'checking\s+for\s+new\s+messages|'
     r'whatsapp\s+web|'
     r'copia\s+de\s+seguridad|'
@@ -131,12 +132,11 @@ abstract final class WhatsAppStatusClassifier {
       return true;
     }
 
-    if (!notif.hasMessagingStyle &&
-        isSystemMaintenance(
-          packageName: notif.packageName,
-          title: notif.title,
-          text: notif.text,
-        )) {
+    if (isSystemMaintenance(
+      packageName: notif.packageName,
+      title: notif.title,
+      text: notif.text,
+    )) {
       return true;
     }
 

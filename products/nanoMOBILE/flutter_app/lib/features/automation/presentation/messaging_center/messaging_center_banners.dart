@@ -37,13 +37,23 @@ class MessagingPermissionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: isDark
+            ? color.withValues(alpha: 0.08)
+            : color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.25), width: 1),
+        border: Border.all(
+          color: isDark
+              ? color.withValues(alpha: 0.25)
+              : color.withValues(alpha: 0.35),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -64,7 +74,7 @@ class MessagingPermissionBanner extends StatelessWidget {
                 Text(
                   subtitle,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: colors.onSurfaceVariant,
                     fontSize: 11.5,
                   ),
                 ),
@@ -75,7 +85,9 @@ class MessagingPermissionBanner extends StatelessWidget {
           FilledButton.tonal(
             onPressed: onAction,
             style: FilledButton.styleFrom(
-              backgroundColor: color.withValues(alpha: 0.2),
+              backgroundColor: isDark
+                  ? color.withValues(alpha: 0.2)
+                  : color.withValues(alpha: 0.15),
               foregroundColor: color,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               minimumSize: Size.zero,
@@ -111,16 +123,20 @@ class MessagingSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultAccent = isDark ? const Color(0xFF00FF88) : colors.primary;
+
     return Row(
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 14, color: iconColor ?? const Color(0xFF00FF88)),
+          Icon(icon, size: 14, color: iconColor ?? defaultAccent),
           const SizedBox(width: 6),
         ],
         Text(
           label.toUpperCase(),
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
+            color: colors.onSurfaceVariant,
             fontSize: 11,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.8,
@@ -130,68 +146,23 @@ class MessagingSectionLabel extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : colors.outline.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             '$count',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.8)
+                  : colors.onSurface,
               fontSize: 10,
               fontWeight: FontWeight.w700,
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-class MessagingErrorCard extends StatelessWidget {
-  final Object error;
-  final VoidCallback onRetry;
-
-  const MessagingErrorCard({
-    super.key,
-    required this.error,
-    required this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(NanoSpacing.md),
-      margin: const EdgeInsets.all(NanoSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            color: Colors.redAccent,
-            size: 28,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Error al cargar conversaciones: $error',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded, size: 16),
-            label: const Text('Reintentar'),
-          ),
-        ],
-      ),
     );
   }
 }

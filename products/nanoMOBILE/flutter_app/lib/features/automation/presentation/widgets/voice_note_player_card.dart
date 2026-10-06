@@ -132,17 +132,31 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentGreen = isDark ? const Color(0xFF00FF88) : const Color(0xFF059669);
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(10),
       constraints: const BoxConstraints(maxWidth: 310),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        color: isDark
+            ? const Color(0xFF0F172A).withValues(alpha: 0.85)
+            : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFFF59E0B).withValues(alpha: 0.40),
+          color: isDark
+              ? const Color(0xFFF59E0B).withValues(alpha: 0.40)
+              : const Color(0xFFD97706).withValues(alpha: 0.40),
           width: 0.9,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,7 +187,9 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                   children: [
                     LinearProgressIndicator(
                       value: _progress.clamp(0.0, 1.0),
-                      backgroundColor: Colors.white.withValues(alpha: 0.15),
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.15)
+                          : Colors.black.withValues(alpha: 0.08),
                       valueColor: const AlwaysStoppedAnimation(
                         Color(0xFFF59E0B),
                       ),
@@ -186,15 +202,15 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                       children: [
                         Text(
                           _formatTime(_currentSeconds),
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          style: TextStyle(
+                            color: isDark ? Colors.white70 : const Color(0xFF475569),
                             fontSize: 11,
                           ),
                         ),
                         Text(
                           _formatTime(_totalSeconds),
-                          style: const TextStyle(
-                            color: Colors.white54,
+                          style: TextStyle(
+                            color: isDark ? Colors.white54 : const Color(0xFF94A3B8),
                             fontSize: 11,
                           ),
                         ),
@@ -212,7 +228,9 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : Colors.black.withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -233,10 +251,10 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFF00FF88).withValues(alpha: 0.12),
+                color: accentGreen.withValues(alpha: isDark ? 0.12 : 0.08),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: const Color(0xFF00FF88).withValues(alpha: 0.35),
+                  color: accentGreen.withValues(alpha: isDark ? 0.35 : 0.45),
                   width: 0.7,
                 ),
               ),
@@ -247,7 +265,7 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                     _isTranscribing
                         ? Icons.autorenew_rounded
                         : Icons.record_voice_over_rounded,
-                    color: const Color(0xFF00FF88),
+                    color: accentGreen,
                     size: 14,
                   ),
                   const SizedBox(width: 5),
@@ -257,8 +275,8 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                         : (_transcription != null
                               ? 'Re-transcribir nota de voz'
                               : 'Transcribir nota de voz'),
-                    style: const TextStyle(
-                      color: Color(0xFF00FF88),
+                    style: TextStyle(
+                      color: accentGreen,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),

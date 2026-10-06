@@ -99,13 +99,7 @@ class NanoScreenShell extends StatelessWidget {
                   ),
                   if (trailing != null) ...[
                     const SizedBox(width: 8),
-                    Flexible(
-                      flex: 3,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: trailing!,
-                      ),
-                    ),
+                    trailing!,
                   ],
                 ],
               ),

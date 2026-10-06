@@ -17,6 +17,8 @@ class IosPermissionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+
     return Container(
       margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -36,7 +38,7 @@ class IosPermissionBanner extends StatelessWidget {
             color: Color(0xFF6366F1),
           ),
           const SizedBox(width: 10),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -46,7 +48,7 @@ class IosPermissionBanner extends StatelessWidget {
                     fontFamily: 'Inter',
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: colors.onSurface,
                   ),
                 ),
                 Text(
@@ -54,7 +56,7 @@ class IosPermissionBanner extends StatelessWidget {
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 10.5,
-                    color: Colors.white70,
+                    color: colors.onSurfaceVariant,
                   ),
                 ),
               ],

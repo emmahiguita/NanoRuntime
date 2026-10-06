@@ -30,11 +30,28 @@ NotificationDraftResult? _parseDraftOutput(
   // defectuoso ni metadatos: ventas/estado vivo siguen exigiendo su contrato.
   final parsed = parseConversationUnderstanding(response);
   final plain = response.trim();
+  // Para un plan personal desconocido solo se admite una respuesta que diga
+  // que no sabe o devuelve la pregunta sin afirmar planes no verificados.
+  final liveUnknown =
+      isLiveStateQuestion(notification.text) && _admitsUnknownLiveFact(plain);
+  final liveReciprocal =
+      isLiveStateQuestion(notification.text) && _isSafeLiveReciprocal(plain);
   final canUsePlain =
       allowPlainText &&
-      !RegExp(r'[{}]|"(?:reply|intent|requiresAction)"\s*:').hasMatch(plain);
+      !RegExp(r'[{}]|"(?:reply|intent|requiresAction)"\s*:').hasMatch(plain) &&
+      (!isLiveStateQuestion(notification.text) || liveUnknown || liveReciprocal);
   final understanding =
-      parsed ?? (canUsePlain ? ConversationUnderstanding(reply: plain) : null);
+      parsed ??
+      (canUsePlain
+          ? ConversationUnderstanding(
+              reply: plain,
+              intent: liveUnknown
+                  ? 'personal_live_state_unknown'
+                  : liveReciprocal
+                  ? 'personal_live_state_reciprocal'
+                  : '',
+            )
+          : null);
   final draft = understanding?.reply ?? '';
   // CONV-SEM-03 — traza diagnóstica del entendimiento (temporal, como
   // [ctx:gate]): sin ella la relación declarada por el modelo era
@@ -76,4 +93,31 @@ NotificationDraftResult? _parseDraftOutput(
     'inputChars=${notification.text.length} replyChars=${reply.length}',
   );
   return NotificationDraftResult(understanding: understanding, reply: reply);
+}
+
+// Reconoce incertidumbre factual, pero nunca convierte una afirmación de planes
+// sin evidencia en permiso para responder automáticamente.
+bool _admitsUnknownLiveFact(String value) {
+  final folded = value
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u');
+  return RegExp(
+    r'\bno\s+(?:lo\s+)?se\b|\bno\s+(?:lo\s+)?tengo\s+(?:claro|definido|confirmado)\b|'
+    r'\bno\s+he\s+(?:decidido|pensado|confirmado)\b|\b(?:aun|todavia)\s+no\b',
+  ).hasMatch(folded);
+}
+
+// Acepta un rebote breve como «¿Y tú?» porque no afirma ningún hecho del dueño.
+bool _isSafeLiveReciprocal(String value) {
+  final folded = value
+      .toLowerCase()
+      .replaceAll('ú', 'u')
+      .replaceAll(RegExp(r'[¿?¡!.,;:]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return RegExp(r'^(?:y tu|y vos|y usted)$').hasMatch(folded);
 }

@@ -5,12 +5,10 @@ import 'nano_glyph.dart';
 /// Modela las 6 secciones de la aplicación manteniendo una arquitectura
 /// limpia e independiente de routers concretos.
 enum NanoDestination {
-  home('Inicio', NanoGlyphType.home, '/dashboard'),
-  chat('Chat', NanoGlyphType.chat, '/chat'),
+  automation('Automatización', NanoGlyphType.automation, '/dashboard'),
   models('Modelos', NanoGlyphType.models, '/models'),
   terminal('Terminal', NanoGlyphType.terminal, '/terminal'),
-  settings('Ajustes', NanoGlyphType.settings, '/settings'),
-  automation('Automatización', NanoGlyphType.automation, '/automation');
+  settings('Ajustes', NanoGlyphType.settings, '/settings');
 
   const NanoDestination(this.label, this.glyph, this.route);
 

@@ -19,6 +19,10 @@ class NanoFloatingSystem {
   Future<bool> get permitted async =>
       await _channel.invokeMethod<bool>('hasPermission') ?? false;
 
+  /// Consulta si la burbuja nativa está realmente creada.
+  Future<bool> get active async =>
+      await _channel.invokeMethod<bool>('isActive') ?? false;
+
   Future<void> requestPermission() =>
       _channel.invokeMethod<void>('requestPermission');
 

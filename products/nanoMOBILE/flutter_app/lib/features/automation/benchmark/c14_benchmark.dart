@@ -180,8 +180,6 @@ class C14Benchmark {
       try {
         await Future<void>.delayed(const Duration(milliseconds: 400));
         await NanoRuntimeApi.instance.agentLaunchPackage('dev.nanoai.mobile');
-        await Future<void>.delayed(const Duration(milliseconds: 400));
-        await NanoRuntimeApi.instance.agentLaunchPackage('dev.nanoai.mobile');
       } catch (_) {}
     }
 

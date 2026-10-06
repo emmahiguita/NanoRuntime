@@ -33,16 +33,10 @@ void main() {
       );
     });
 
-    test('El catálogo estático incluye ambos formatos de Gemma 4', () {
-      final ggufModel = NeuralCatalog.models.firstWhere(
-        (m) => m.name.contains('Gemma-4-E2B-it') && m.backendType == ModelBackendType.gguf,
-      );
+    test('El catálogo estático incluye formato LiteRT de Gemma 4', () {
       final litertModel = NeuralCatalog.models.firstWhere(
         (m) => m.name.contains('Gemma-4-E2B-it') && m.backendType == ModelBackendType.litertlm,
       );
-
-      expect(ggufModel.url, contains('.gguf'));
-      expect(ggufModel.backendType, ModelBackendType.gguf);
 
       expect(litertModel.name, contains('LiteRT'));
       expect(litertModel.url, contains('.litertlm'));
@@ -63,7 +57,11 @@ void main() {
           case 'isAvailable':
             return {'supported': true, 'hasGpuOpenCl': true};
           case 'initialize':
-            return {'success': true, 'message': 'Loaded'};
+            return {
+              'success': true,
+              'message': 'Loaded',
+              'backend': (methodCall.arguments as Map)['backend'] ?? 'gpu',
+            };
           case 'release':
             return true;
           default:
@@ -112,6 +110,7 @@ void main() {
   group('NanoInferenceCoordinator - Mutual Exclusion Policy', () {
     const litertChannel = MethodChannel('com.nanoai/litert');
     const engineChannel = MethodChannel('com.nanoai/engine');
+    const mnnChannel = MethodChannel('com.nanoai/mnn');
     final engineCalls = <String>[];
 
     setUp(() {
@@ -119,8 +118,13 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(litertChannel, (MethodCall methodCall) async {
         switch (methodCall.method) {
+          case 'isAvailable':
+            return {'supported': true, 'hasGpuOpenCl': true};
           case 'initialize':
-            return {'success': true};
+            return {
+              'success': true,
+              'backend': (methodCall.arguments as Map)['backend'] ?? 'gpu',
+            };
           case 'release':
             return true;
           default:
@@ -132,6 +136,8 @@ void main() {
           .setMockMethodCallHandler(engineChannel, (MethodCall methodCall) async {
         engineCalls.add(methodCall.method);
         switch (methodCall.method) {
+          case 'stop':
+            return true;
           case 'stopEngine':
             return {'success': true};
           case 'startEngine':
@@ -142,6 +148,11 @@ void main() {
             return null;
         }
       });
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(mnnChannel, (MethodCall methodCall) async {
+        return true;
+      });
     });
 
     tearDown(() {
@@ -149,16 +160,16 @@ void main() {
           .setMockMethodCallHandler(litertChannel, null);
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(engineChannel, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(mnnChannel, null);
     });
 
     test('Apaga llama.cpp antes de iniciar LiteRT-LM para prevenir OOM', () async {
       final api = NanoRuntimeApi();
       final llamaNotifier = RuntimeEngineNotifier(api);
-      final litertAdapter = LiteRtInferenceAdapter();
 
       final coordinator = NanoInferenceCoordinator(
         llamaEngine: llamaNotifier,
-        liteRtEngine: litertAdapter,
       );
 
       // Conmutar a LiteRT
@@ -170,7 +181,7 @@ void main() {
 
       expect(ok, isTrue);
       expect(coordinator.activeType, LocalEngineType.liteRt);
-      expect(litertAdapter.isInitialized, isTrue);
+      expect(coordinator.liteRt.isInitialized, isTrue);
 
       // Limpieza ordenada
       coordinator.dispose();

@@ -17,10 +17,13 @@ import 'database_statistics_panel.dart';
 class DatabaseWorkspaceTabs extends StatefulWidget {
   final dm.DataTable? table;
   final NanoColors colors;
+  final void Function(int rowIndex, int columnIndex, dynamic newValue)? onCellEdit;
+
   const DatabaseWorkspaceTabs({
     super.key,
     required this.table,
     required this.colors,
+    this.onCellEdit,
   });
 
   @override
@@ -30,6 +33,8 @@ class DatabaseWorkspaceTabs extends StatefulWidget {
 class _DatabaseWorkspaceTabsState extends State<DatabaseWorkspaceTabs> {
   // Resultado del análisis estadístico; null mientras carga o sin tabla.
   DataStatisticsSnapshot? _snapshot;
+  Object? _analysisError;
+  bool _loading = false;
 
   // Token de versión: cada nueva tabla incrementa el contador.
   // La closure del Future captura su propio token; si no coincide con el actual,
@@ -60,15 +65,32 @@ class _DatabaseWorkspaceTabsState extends State<DatabaseWorkspaceTabs> {
     // QUÉ: retira inmediatamente las cifras de la tabla anterior.
     // POR QUÉ: estadísticas viejas no deben presentarse como datos actuales.
     _snapshot = null;
+    _analysisError = null;
+    _loading = table != null;
     if (table == null) {
       // Sin tabla no hay trabajo asíncrono; el token ya anuló el Future anterior.
       return;
     }
-    const DataStatisticsService().analyze(table).then((result) {
-      // Descarta si: widget desmontado O llegó una tabla más nueva
-      if (!mounted || token != _rev) return;
-      setState(() => _snapshot = result);
-    });
+    const DataStatisticsService()
+        .analyze(table)
+        .then(
+          (result) {
+            // Descarta si: widget desmontado O llegó una tabla más nueva
+            if (!mounted || token != _rev) return;
+            setState(() {
+              _snapshot = result;
+              _loading = false;
+            });
+          },
+          onError: (Object error) {
+            // Convierte fallos del motor nativo en estado visible y recuperable.
+            if (!mounted || token != _rev) return;
+            setState(() {
+              _analysisError = error;
+              _loading = false;
+            });
+          },
+        );
   }
 
   @override
@@ -103,16 +125,45 @@ class _DatabaseWorkspaceTabsState extends State<DatabaseWorkspaceTabs> {
         Expanded(
           child: TabBarView(
             children: [
-              DatabaseDataGrid(table: widget.table, colors: widget.colors),
-              DatabaseStatisticsPanel(
-                snapshot: _snapshot,
+              DatabaseDataGrid(
+                table: widget.table,
                 colors: widget.colors,
+                onCellEdit: widget.onCellEdit,
               ),
-              DatabaseProfilePanel(snapshot: _snapshot, colors: widget.colors),
+              _analysisBody(
+                DatabaseStatisticsPanel(
+                  snapshot: _snapshot,
+                  colors: widget.colors,
+                ),
+              ),
+              _analysisBody(
+                DatabaseProfilePanel(
+                  snapshot: _snapshot,
+                  colors: widget.colors,
+                ),
+              ),
             ],
           ),
         ),
       ],
     ),
   );
+
+  // Comparte carga y error entre las dos pestañas sin duplicar el análisis.
+  Widget _analysisBody(Widget child) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_analysisError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No fue posible calcular el reporte estadístico.\n$_analysisError',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: widget.colors.error),
+          ),
+        ),
+      );
+    }
+    return child;
+  }
 }

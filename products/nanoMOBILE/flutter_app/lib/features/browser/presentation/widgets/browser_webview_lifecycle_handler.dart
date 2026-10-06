@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nanoai/main.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
@@ -77,7 +78,6 @@ class BrowserWebViewLifecycleHandler {
     ctrl.addJavaScriptHandler(
       handlerName: 'nanoSaveCredential',
       callback: (args) {
-        // Misma protección para evitar banners sobre un contexto inválido.
         if (!isAlive()) return null;
         if (args.length >= 3 && (args[2]?.toString().isNotEmpty ?? false)) {
           onPromptSaveCredential(
@@ -88,12 +88,13 @@ class BrowserWebViewLifecycleHandler {
         }
       },
     );
+    // La sesión pertenece al WebView, que sigue vivo al salir de esta pantalla.
+    audioHandler.attachSource(tab.id, ctrl);
   }
 
   void onLoadStart(InAppWebViewController ctrl, WebUri? url) {
-    if (url == null) return;
-    // Nunca se presenta UI desde un callback cuyo widget ya fue destruido.
-    if (!isAlive()) return;
+    audioHandler.clearSource(tab.id);
+    if (url == null || !isAlive()) return;
     ++_loadGeneration;
     final urlStr = reportedUrl = url.toString();
     if (!BrowserSecurityFirewall.isAllowedUrl(urlStr)) {
@@ -106,16 +107,103 @@ class BrowserWebViewLifecycleHandler {
     }
     ref
         .read(browserTabProvider.notifier)
-        .updateTabById(tab.id, url: urlStr, isLoading: true, progress: 0.1);
+        .updateTabById(
+          tab.id,
+          url: urlStr,
+          isLoading: true,
+          progress: 0.1,
+          clearError: true,
+        );
   }
 
   Future<void> onLoadStop(InAppWebViewController ctrl, WebUri? url) async {
     final generation = _loadGeneration;
     await BrowserWebViewLoadSynchronizer(
-      ref: ref, tab: tab, isDesktopMode: isDesktopMode,
-      isDarkModeWeb: isDarkModeWeb, currentZoom: currentZoom,
+      ref: ref,
+      tab: tab,
+      isDesktopMode: isDesktopMode,
+      isDarkModeWeb: isDarkModeWeb,
+      currentZoom: currentZoom,
       isAlive: () => isAlive() && generation == _loadGeneration,
     ).synchronize(ctrl, url);
+  }
+
+  void onReceivedError(
+    InAppWebViewController ctrl,
+    WebResourceRequest request,
+    WebResourceError error,
+  ) {
+    if (!isAlive() || !(request.isForMainFrame ?? true)) return;
+    ref
+        .read(browserTabProvider.notifier)
+        .updateTabById(
+          tab.id,
+          hasError: true,
+          errorMessage: error.description,
+          isLoading: false,
+          progress: 0.0,
+        );
+  }
+
+  void onReceivedHttpError(
+    InAppWebViewController ctrl,
+    WebResourceRequest request,
+    WebResourceResponse res,
+  ) {
+    if (!isAlive() || !(request.isForMainFrame ?? true)) return;
+    final code = res.statusCode ?? 0;
+    if (code >= 400) {
+      ref
+          .read(browserTabProvider.notifier)
+          .updateTabById(
+            tab.id,
+            hasError: true,
+            errorCode: code,
+            errorMessage: res.reasonPhrase ?? 'Error HTTP $code',
+            isLoading: false,
+          );
+    }
+  }
+
+  void onUpdateVisitedHistory(
+    InAppWebViewController ctrl,
+    WebUri? url,
+    bool? isReload,
+  ) async {
+    if (!isAlive() || url == null) return;
+    final urlStr = reportedUrl = url.toString();
+    try {
+      final canBack = await ctrl.canGoBack();
+      final canFwd = await ctrl.canGoForward();
+      if (!isAlive()) return;
+      ref
+          .read(browserTabProvider.notifier)
+          .updateTabById(
+            tab.id,
+            url: urlStr,
+            canGoBack: canBack,
+            canGoForward: canFwd,
+          );
+    } catch (_) {}
+  }
+
+  void onRenderProcessGone(
+    InAppWebViewController ctrl,
+    RenderProcessGoneDetail detail,
+  ) {
+    audioHandler.clearSource(tab.id);
+    if (!isAlive()) return;
+    if (detail.didCrash) {
+      ref
+          .read(browserTabProvider.notifier)
+          .updateTabById(
+            tab.id,
+            hasError: true,
+            errorMessage: 'El proceso del navegador se reinició.',
+            isLoading: false,
+          );
+    }
+    ctrl.reload();
   }
 
   Future<NavigationActionPolicy> shouldOverrideUrlLoading(

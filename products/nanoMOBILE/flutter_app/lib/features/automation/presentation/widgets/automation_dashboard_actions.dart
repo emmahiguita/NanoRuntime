@@ -16,12 +16,15 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../core/widgets/feather_core_icon.dart';
+import '../../../../core/theme/nano_hero_source.dart';
 import '../../../../core/widgets/navigation/nano_glyph.dart';
 import '../automation_visual_theme.dart';
 import '../dashboard/automation_agent_card.dart';
+import '../dashboard/automation_discover_nano_section.dart';
 import '../dashboard/automation_inbox_card.dart';
 import '../dashboard/automation_system_footer.dart';
 import 'automation_suggestion_carousel.dart';
+import 'nano_models_editorial.dart';
 
 class QuickAutomationActions extends StatelessWidget {
   const QuickAutomationActions({
@@ -35,6 +38,10 @@ class QuickAutomationActions extends StatelessWidget {
     this.onBotStudioTap,
     this.onSkillsMcpTap,
     this.onTimeRuleTap,
+    this.onAiWebTap,
+    this.onBrowserTap,
+    this.onChatTap,
+    this.onTerminalTap,
     this.suppressSuggestions = false,
     this.pendingDraftsCount = 0,
     this.activeRulesCount = 0,
@@ -54,11 +61,15 @@ class QuickAutomationActions extends StatelessWidget {
   final VoidCallback? onMessagesTap;
   final VoidCallback? onSettingsTap;
   final VoidCallback? onRulesTap;
-  final VoidCallback? onBusinessTap;
-  final VoidCallback? onPersonalAgentTap;
+  final ValueChanged<BuildContext>? onBusinessTap;
+  final ValueChanged<BuildContext>? onPersonalAgentTap;
   final VoidCallback? onBotStudioTap;
   final VoidCallback? onSkillsMcpTap;
   final VoidCallback? onTimeRuleTap;
+  final VoidCallback? onAiWebTap;
+  final VoidCallback? onBrowserTap;
+  final VoidCallback? onChatTap;
+  final VoidCallback? onTerminalTap;
 
   static const _actions = [
     ('Abrir Bluetooth', 'abrir Bluetooth', NanoGlyphType.bluetooth),
@@ -86,39 +97,56 @@ class QuickAutomationActions extends StatelessWidget {
           children: [
             if (onPersonalAgentTap != null)
               Expanded(
-                child: AutomationAgentCard(
-                  title: 'Nano Personal',
-                  subtitle: 'Habla como tú',
-                  isActive: true,
-                  iconWidget: const FeatherCoreIcon(
-                    type: FeatherCoreType.personalAgent,
-                    size: 24,
+                child: NanoHeroSource(
+                  tag: nanoPersonalHeroTag,
+                  builder: (origin) => AutomationAgentCard(
+                    title: 'Nano Personal',
+                    subtitle: 'Habla como tú',
+                    isActive: true,
+                    iconWidget: const FeatherCoreIcon(
+                      type: FeatherCoreType.personalAgent,
+                      size: 24,
+                    ),
+                    channels: const ['WhatsApp', 'Telegram'],
+                    metricLabel: 'Estilo & Memoria',
+                    onTap: () => onPersonalAgentTap!(origin),
                   ),
-                  channels: const ['WhatsApp', 'Telegram'],
-                  metricLabel: 'Estilo & Memoria',
-                  onTap: onPersonalAgentTap!,
                 ),
               ),
             if (onPersonalAgentTap != null && onBusinessTap != null)
               const SizedBox(width: 12),
             if (onBusinessTap != null)
               Expanded(
-                child: AutomationAgentCard(
-                  title: 'Nano Negocio',
-                  subtitle: 'Atiende clientes',
-                  isActive: isW4bActive,
-                  iconWidget: const FeatherCoreIcon(
-                    type: FeatherCoreType.whatsappBusiness,
-                    size: 24,
+                child: NanoHeroSource(
+                  tag: nanoBusinessHeroTag,
+                  builder: (origin) => AutomationAgentCard(
+                    title: 'Nano Negocio',
+                    showStatus: true,
+                    subtitle: 'Atiende clientes',
+                    isActive: isW4bActive,
+                    iconWidget: const FeatherCoreIcon(
+                      type: FeatherCoreType.whatsappBusiness,
+                      size: 24,
+                    ),
+                    channels: const ['WhatsApp Business', 'Catálogo'],
+                    metricLabel: businessProductsCount > 0
+                        ? '$businessProductsCount prod.'
+                        : 'Catálogo',
+                    onTap: () => onBusinessTap!(origin),
                   ),
-                  channels: const ['WhatsApp Business', 'Catálogo'],
-                  metricLabel: businessProductsCount > 0
-                      ? '$businessProductsCount prod.'
-                      : 'Catálogo',
-                  onTap: onBusinessTap!,
                 ),
               ),
           ],
+        ),
+        const SizedBox(height: 20),
+        const NanoModelsEditorial(),
+        const SizedBox(height: 18),
+        const AutomationSectionLabel('Descubre más sobre Nano'),
+        AutomationDiscoverNanoSection(
+          onAiWebTap: onAiWebTap,
+          onBrowserTap: onBrowserTap,
+          onChatTap: onChatTap,
+          onTerminalTap: onTerminalTap,
         ),
         const SizedBox(height: 18),
         const AutomationSectionLabel('Control y Sistema'),

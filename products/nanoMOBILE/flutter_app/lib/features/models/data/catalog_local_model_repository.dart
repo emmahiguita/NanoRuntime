@@ -5,13 +5,14 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/features/models/domain/local_model.dart';
 import 'package:nanoai/features/models/domain/local_model_repository.dart';
 import 'package:nanoai/features/models/data/model_integrity.dart';
+import 'mnn_omni_package.dart';
 
 /// Repositorio honesto: el estado de descarga se decide contra el filesystem
 /// real de la app (files/nano/models/), nunca contra una constante.
 class CatalogLocalModelRepository implements LocalModelRepository {
   const CatalogLocalModelRepository();
 
-  /// Directorio de modelos GGUF de la app. Resuelto vía getFilesDir del
+  /// Directorio de archivos locales de modelos. Resuelto vía getFilesDir del
   /// runtime; null si el canal no está disponible (sin runtime → nada
   /// aparece instalado, honesto).
   static Future<String?> modelsDir() async {
@@ -56,12 +57,13 @@ class CatalogLocalModelRepository implements LocalModelRepository {
   }
 
   Future<LocalModel> _toModel(LmCatalogEntry entry, String? dirPath) async {
-    final dest = dirPath == null
+    final path = dirPath == null
         ? null
-        : File('$dirPath${Platform.pathSeparator}${entry.file}');
-    final installed =
-        dest != null && await ModelIntegrity.verify(dest, entry.sha256);
-    return _entryToModel(entry, dest?.path, installed);
+        : '$dirPath${Platform.pathSeparator}${entry.file}';
+    final installed = path != null && (entry.backendType == ModelBackendType.mnn
+        ? await MnnOmniPackage.isInstalled(Directory(path))
+        : await ModelIntegrity.verify(File(path), entry.sha256));
+    return _entryToModel(entry, path, installed);
   }
 
   static LocalModel _entryToModel(
@@ -87,6 +89,8 @@ class CatalogLocalModelRepository implements LocalModelRepository {
       progress: installed ? 1.0 : 0.0,
       url: entry.url,
       sha256: entry.sha256,
+      backendType: entry.backendType,
+      packageRevision: entry.packageRevision,
       localPath: installed ? destPath : null,
       active: false,
       loading: false,
@@ -96,49 +100,30 @@ class CatalogLocalModelRepository implements LocalModelRepository {
     );
   }
 
+  // Las fichas distinguen compatibilidad publicada de mediciones del Oppo.
   static String _descriptionFor(String name) => switch (name) {
-    'Qwen2.5-1.5B-Instruct' =>
-      'Ligero y rápido, ideal para CPU móvil. Carga por defecto.',
-    'Qwen2.5-3B-Instruct' =>
-      'Mejor calidad de 3B: tarda más pero responde mejor.',
-    'Qwen3.5-4B' =>
-      'Generación 2026 (linear attention). Recomendado para dispositivos con 4GB de RAM.',
-    'Qwen3.5-4B-Q4_K_M' => 'Variante Q4_K_M: máxima calidad de la clase 4B.',
-    'DeepSeek-R1-Distill-Qwen-7B' =>
-      'Razonamiento profundo. Pesado para móvil.',
-    'DeepSeek-R1-Distill-Qwen-7B-Q2' =>
-      'Variante Q2_K del 7B: menor RAM, calidad reducida.',
-    'LFM2.5-1.2B-Instruct-Q4_0-QAD' =>
-      'Conversación permanente ultra-rápida. Diseñado para background 24/7 y móviles de 4GB.',
-    'Qwen3.5-2B-Q4_K_M' =>
-      'Comprensión semántica, extracción de entidades y análisis para móviles equilibrados.',
-    'LFM2.5-1.2B-Thinking' =>
-      'Razonamiento profundo bajo demanda (<think>) ultraligero y de bajo impacto de batería.',
-    'LFM2.5-2.6B-Q4_0-QAD' =>
-      'Agentic premium para ejecución y herramientas multi-paso (2.2GB RAM).',
-    'Gemma-3n-E2B-IT' =>
-      'Modelo multimodal; Nano conecta ahora la ruta de texto, no la entrada visual.',
-    'Gemma-4-E2B-it' =>
-      'Gemma 4 multimodal de Google (2.3B activos, PLE). Optimizado para agentes y razonamiento en móvil.',
+    'Qwen3-0.6B-Instruct (LiteRT)' =>
+      'Qwen3 INT4 con LiteRT-LM. Es la opción ligera; la velocidad depende del dispositivo y de la sesión.',
+    'Qwen2.5-1.5B-Instruct (LiteRT)' =>
+      'Paquete LiteRT-LM Q8 oficial, contexto de 4096. El proveedor midió hasta 2.2 GB de pico en otro teléfono; MediaTek sin medir.',
     'Gemma-4-E2B-it (LiteRT)' =>
-      'Texto e historial local con LiteRT-LM. CPU o GPU disponible; visión, audio y NPU no conectados.',
-    'Hey Mycroft (wake word)' =>
-      'Detector local de palabra de activación; requiere un runtime de audio compatible.',
+      'LiteRT-LM para texto. La estimación declarada de RAM es 3.5 GB; no se ha validado en este Oppo MediaTek.',
     'Whisper-Tiny (Voz Local)' =>
-      'Transcripción de voz ultra-rápida (75MB) en CPU móvil con whisper.cpp.',
+      'Transcripción local con el modelo Tiny de whisper.cpp.',
     'Whisper-Base (Voz Local)' =>
-      'Reconocimiento de voz de alta precisión para dictado y comandos locales.',
-    'Moondream2-1.8B-Vision' =>
-      'Modelo multimodal compacto: comprensión visual y preguntas sobre imágenes locales.',
-    // MODELS-CAT-04: ultraligeros 2026
-    'LFM2.5-350M-Q4_K_M' =>
-      'Motor ultraligero LiquidAI (350M, conv+atención). Comprensión multilingüe en <500 MB RAM.',
-    'LFM2.5-350M-QAD' =>
-      'LFM2.5-350M con cuantización calibrada QAD: máxima calidad para 220 MB de archivo.',
-    'Qwen3-0.6B-Q8_0' =>
-      'Qwen3-0.6B en máxima precisión (Q8_0). 640 MB · 0.9 GB RAM · Apache 2.0.',
-    'Qwen3.5-0.8B-Q4_K_M' =>
-      'Qwen 3.5 generación 2026 (0.8B). Conversación en español, comprensión e instrucciones. 580 MB · <900 MB RAM.',
-    _ => 'Cuantización y tamaño reales de HuggingFace.',
+      'Transcripción local con el modelo Base de whisper.cpp.',
+    'Qwen2.5-Omni-3B (MNN)' =>
+      'Paquete oficial MNN CPU, revisión fija. La ruta móvil actual responde texto; imagen y audio no están habilitados. Consumo y velocidad pendientes de medir en este teléfono.',
+    'LFM2.5-230M (LiteRT)' =>
+      'Modelo compacto de Liquid AI convertido por litert-community. Paquete INT8 para texto; RAM estimada y velocidad pendiente de medir.',
+    'DeepSeek-R1-Distill-Qwen-1.5B (LiteRT)' =>
+      'Modelo de razonamiento de DeepSeek en el paquete LiteRT-LM de AI Edge Gallery. RAM estimada; velocidad pendiente de medir en este teléfono.',
+    'Qwen2.5-0.5B-Instruct (GGUF Q4_0)' =>
+      'Qwen2.5 0.5B oficial en Q4_0 para llama.cpp. RAM estimada; velocidad y consumo pendientes de medir en este teléfono.',
+    'Qwen2.5-1.5B-Instruct (GGUF Q4_0)' =>
+      'Qwen2.5 1.5B oficial en Q4_0 para llama.cpp. Alternativa CPU; no se garantiza que supere la variante LiteRT.',
+    'Llama-3.2-1B-Instruct (GGUF Q4_0)' =>
+      'Modelo Meta Llama 3.2 con conversión GGUF Q4_0 de bartowski. RAM estimada y velocidad pendiente de medir.',
+    _ => 'Recurso local del catálogo; revisa formato y tamaño antes de instalar.',
   };
 }

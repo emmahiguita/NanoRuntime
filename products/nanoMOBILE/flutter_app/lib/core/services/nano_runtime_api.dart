@@ -20,6 +20,8 @@ abstract final class NanoRuntimeChannels {
   static const mediaCapture = 'com.nanoai/media_capture';
   static const system = 'com.nanoai/system';
   static const languageAssist = 'com.nanoai/language_assist';
+  static const performance = 'com.nanoai/performance';
+  static const thermalEvents = 'com.nanoai/thermal_events';
 }
 
 /// Resultado del handshake de runtime.
@@ -1187,12 +1189,21 @@ class NanoRuntimeApi {
   // mensajes y NotificationEventRouter consumen el mismo canal, así que la
   // suscripción de plataforma debe compartirse y hacer fan-out en Dart.
   static final Stream<Map<dynamic, dynamic>> _notificationEventStream =
-      _notificationEvents
-          .receiveBroadcastStream()
-          .map((e) => Map<dynamic, dynamic>.from(e as Map));
+      _notificationEvents.receiveBroadcastStream().map(
+        (e) => Map<dynamic, dynamic>.from(e as Map),
+      );
 
   Stream<Map<dynamic, dynamic>> get notificationEvents =>
       _notificationEventStream;
+
+  // Aísla los cambios de SQLite del canal que puede disparar automatizaciones.
+  static const EventChannel _notificationHistoryEvents = EventChannel(
+    'com.nanoai/notification_history_events',
+  );
+  Stream<int> get notificationHistoryEvents => _notificationHistoryEvents
+      .receiveBroadcastStream()
+      .where((event) => event is int)
+      .cast<int>();
 
   /// Snapshot de notificaciones ACTIVAS del listener nativo (sin resúmenes de
   /// grupo ni notificaciones propias, ordenadas por postTime desc). Retry en

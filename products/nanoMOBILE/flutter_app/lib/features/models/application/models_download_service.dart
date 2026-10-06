@@ -5,22 +5,25 @@
 library;
 
 import 'dart:io';
+import '../../../core/models/catalog_models.dart';
 import '../data/model_downloader.dart';
+import '../data/mnn_omni_package.dart';
 import '../domain/local_model.dart';
 
-typedef DownloadUpdateCallback = void Function(
-  ModelDownloadState state,
-  double progress, {
-  String? path,
-  String? error,
-});
+typedef DownloadUpdateCallback =
+    void Function(
+      ModelDownloadState state,
+      double progress, {
+      String? path,
+      String? error,
+    });
 
 class ModelsDownloadService {
   final ModelDownloader _downloader;
   bool _isCancelled = false;
 
   ModelsDownloadService({ModelDownloader? downloader})
-      : _downloader = downloader ?? ModelDownloader();
+    : _downloader = downloader ?? ModelDownloader();
 
   Future<void> startDownload({
     required LocalModel item,
@@ -38,16 +41,26 @@ class ModelsDownloadService {
         defaultDirGetter: defaultDirGetter,
       );
 
-      final file = await _downloader.download(
-        url: item.url,
-        destPath: destPath,
-        expectedSha256: item.sha256,
-        onProgress: (p) => onUpdate(ModelDownloadState.downloading, p),
-        onVerifying: () => onUpdate(ModelDownloadState.verifying, 1.0),
-        cancelToken: () async => _isCancelled,
-      );
-
-      onUpdate(ModelDownloadState.installed, 1.0, path: file.path);
+      if (item.backendType == ModelBackendType.mnn) {
+        await MnnOmniPackage.download(
+          destination: destPath,
+          downloader: _downloader,
+          cancelled: () => _isCancelled,
+          onProgress: (p) => onUpdate(ModelDownloadState.downloading, p),
+          onVerifying: () => onUpdate(ModelDownloadState.verifying, 0),
+        );
+        onUpdate(ModelDownloadState.installed, 1.0, path: destPath);
+      } else {
+        final file = await _downloader.download(
+          url: item.url,
+          destPath: destPath,
+          expectedSha256: item.sha256,
+          onProgress: (p) => onUpdate(ModelDownloadState.downloading, p),
+          onVerifying: () => onUpdate(ModelDownloadState.verifying, 1.0),
+          cancelToken: () async => _isCancelled,
+        );
+        onUpdate(ModelDownloadState.installed, 1.0, path: file.path);
+      }
     } catch (e) {
       onUpdate(ModelDownloadState.failed, 0, error: '$e');
     }

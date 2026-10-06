@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'nano_ai_models.dart';
+import 'nano_media_html_extractor.dart';
 
 class NanoMediaDetector {
   const NanoMediaDetector({http.Client? client, MethodChannel? channel})
@@ -14,6 +15,7 @@ class NanoMediaDetector {
         _channel = channel;
   final http.Client? _client;
   final MethodChannel? _channel;
+  final NanoMediaHtmlExtractor _htmlExtractor = const NanoMediaHtmlExtractor();
 
   static const MethodChannel _defaultChannel = MethodChannel('dev.nanoai/floating');
 
@@ -88,7 +90,7 @@ class NanoMediaDetector {
           NanoMediaResource(
             url: uri.toString(),
             type: _classifyMime(contentType),
-            title: _extractFilename(uri),
+            title: _htmlExtractor.extractFilename(uri),
             estimatedBytes: contentLength,
             sourceUrl: uri.toString(),
           ),
@@ -101,7 +103,7 @@ class NanoMediaDetector {
       final resp = await http.Response.fromStream(getRes);
       final html = resp.body;
 
-      final htmlItems = _extractFromHtml(html, uri);
+      final htmlItems = _htmlExtractor.extract(html, uri);
       if (htmlItems.isNotEmpty) return htmlItems;
 
       // Fallback para redes sociales cuando el entorno no tiene canal nativo (ej. tests)
@@ -117,7 +119,7 @@ class NanoMediaDetector {
           NanoMediaResource(
             url: uri.toString(),
             type: extType,
-            title: _extractFilename(uri),
+            title: _htmlExtractor.extractFilename(uri),
             sourceUrl: uri.toString(),
           ),
         ];
@@ -143,20 +145,8 @@ class NanoMediaDetector {
         final streamUrl = (raw['downloadUrl'] as String?) ?? uri.toString();
         final service = (raw['sourceService'] as String?) ?? _serviceLabel(uri.host);
         return [
-          NanoMediaResource(
-            url: streamUrl,
-            type: NanoMediaType.video,
-            title: 'Video MP4 ($service)',
-            quality: 'MP4 · Stream directo',
-            sourceUrl: uri.toString(),
-          ),
-          NanoMediaResource(
-            url: streamUrl,
-            type: NanoMediaType.audio,
-            title: 'Audio MP3 ($service)',
-            quality: 'MP3 · Solo audio',
-            sourceUrl: uri.toString(),
-          ),
+          NanoMediaResource(url: streamUrl, type: NanoMediaType.video, title: 'Video MP4 ($service)', quality: 'MP4 · Stream directo', sourceUrl: uri.toString()),
+          NanoMediaResource(url: streamUrl, type: NanoMediaType.audio, title: 'Audio MP3 ($service)', quality: 'MP3 · Solo audio', sourceUrl: uri.toString()),
         ];
       }
     } catch (_) {
@@ -167,21 +157,10 @@ class NanoMediaDetector {
 
   List<NanoMediaResource> _buildFallbackSocialResources(Uri uri) {
     final service = _serviceLabel(uri.host);
+    final u = uri.toString();
     return [
-      NanoMediaResource(
-        url: uri.toString(),
-        type: NanoMediaType.video,
-        title: 'Video MP4 ($service)',
-        quality: 'MP4 · Extractor NanoSnaptube',
-        sourceUrl: uri.toString(),
-      ),
-      NanoMediaResource(
-        url: uri.toString(),
-        type: NanoMediaType.audio,
-        title: 'Audio MP3 ($service)',
-        quality: 'MP3 · Solo audio',
-        sourceUrl: uri.toString(),
-      ),
+      NanoMediaResource(url: u, type: NanoMediaType.video, title: 'Video MP4 ($service)', quality: 'MP4 · Extractor NanoSnaptube', sourceUrl: u),
+      NanoMediaResource(url: u, type: NanoMediaType.audio, title: 'Audio MP3 ($service)', quality: 'MP3 · Solo audio', sourceUrl: u),
     ];
   }
 
@@ -224,88 +203,5 @@ class NanoMediaDetector {
       return NanoMediaType.document;
     }
     return null;
-  }
-
-  String _extractFilename(Uri uri) {
-    final segments = uri.pathSegments;
-    if (segments.isNotEmpty && segments.last.isNotEmpty) {
-      return segments.last;
-    }
-    return 'archivo_${uri.host}';
-  }
-
-  List<NanoMediaResource> _extractFromHtml(String html, Uri baseUri) {
-    final resources = <NanoMediaResource>[];
-
-    // OpenGraph Video
-    final ogVideo = RegExp(r'<meta\s+property=["\x27]og:video(?::secure_url)?["\x27]\s+content=["\x27]([^"\x27]+)["\x27]', caseSensitive: false)
-        .firstMatch(html)?.group(1);
-    if (ogVideo != null) {
-      resources.add(NanoMediaResource(
-        url: _resolveUrl(ogVideo, baseUri),
-        type: NanoMediaType.video,
-        title: 'Vídeo principal (${baseUri.host})',
-        sourceUrl: baseUri.toString(),
-      ));
-    }
-
-    // OpenGraph Image
-    final ogImage = RegExp(r'<meta\s+property=["\x27]og:image["\x27]\s+content=["\x27]([^"\x27]+)["\x27]', caseSensitive: false)
-        .firstMatch(html)?.group(1);
-    if (ogImage != null) {
-      resources.add(NanoMediaResource(
-        url: _resolveUrl(ogImage, baseUri),
-        type: NanoMediaType.image,
-        title: 'Imagen destacada (${baseUri.host})',
-        sourceUrl: baseUri.toString(),
-      ));
-    }
-
-    // Enlaces directos a PDFs y documentos embebidos (<a href="...pdf">)
-    final docLinks = RegExp(r'<a[^>]+href=["\x27]([^"\x27]+\.pdf(?:[?#][^"\x27]*)?)["\x27]', caseSensitive: false)
-        .allMatches(html);
-    for (final m in docLinks) {
-      final href = m.group(1);
-      if (href != null) {
-        final full = _resolveUrl(href, baseUri);
-        if (resources.every((r) => r.url != full)) {
-          final uri = Uri.tryParse(full);
-          final title = uri != null ? _extractFilename(uri) : 'Documento PDF';
-          resources.add(NanoMediaResource(
-            url: full,
-            type: NanoMediaType.document,
-            title: title,
-            sourceUrl: baseUri.toString(),
-          ));
-        }
-      }
-    }
-
-    // Tags <video src="..."> y <source src="...">
-    final videoSrcs = RegExp(r'<video[^>]+src=["\x27]([^"\x27]+)["\x27]|<source[^>]+src=["\x27]([^"\x27]+\.(?:mp4|webm))["\x27]', caseSensitive: false)
-        .allMatches(html);
-    for (final m in videoSrcs) {
-      final src = m.group(1) ?? m.group(2);
-      if (src != null) {
-        final full = _resolveUrl(src, baseUri);
-        if (resources.every((r) => r.url != full)) {
-          resources.add(NanoMediaResource(
-            url: full,
-            type: NanoMediaType.video,
-            title: 'Vídeo detectado (${resources.length + 1})',
-            sourceUrl: baseUri.toString(),
-          ));
-        }
-      }
-    }
-
-    return resources;
-  }
-
-  String _resolveUrl(String relative, Uri baseUri) {
-    if (relative.startsWith('http://') || relative.startsWith('https://')) {
-      return relative;
-    }
-    return baseUri.resolve(relative).toString();
   }
 }

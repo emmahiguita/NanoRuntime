@@ -52,6 +52,12 @@ extension _ChatScreenAttachments on _ChatScreenState {
             sizeBytes: picked.sizeBytes,
           ),
         );
+      case NanoAttachKind.audio:
+        await notifier.addAudioAttachment(
+          name: picked.name,
+          path: picked.path,
+          sizeBytes: picked.sizeBytes,
+        );
       case NanoAttachKind.document:
         await _attachTextDocument(picked, notifier);
     }

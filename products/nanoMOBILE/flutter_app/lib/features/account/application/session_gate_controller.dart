@@ -10,8 +10,7 @@ import '../domain/auth_user.dart';
 /// Controlador central de la sesión en el ciclo de vida de la aplicación.
 ///
 /// CÓMO FUNCIONA:
-/// Al iniciar Nano, hidrata la sesión persistente local. Si existe sesión,
-/// arranca de inmediato sin mostrar pantallas de login (Session Gate real).
+/// Al iniciar Nano, hidrata solo la sesión que se guardó después de autenticar.
 /// Valida si se requiere verificación de correo o si la cuenta está deshabilitada.
 ///
 /// POR QUÉ:
@@ -37,6 +36,7 @@ class SessionGateNotifier extends StateNotifier<AuthState> {
       if (user != null && user.isNotEmpty) {
         await _resolveAuthenticatedUser(user);
       } else {
+        // Un perfil guardado no prueba una sesión OAuth; por eso no inicia sesión.
         state = AuthState.unauthenticated();
       }
     } catch (_) {
@@ -61,7 +61,10 @@ class SessionGateNotifier extends StateNotifier<AuthState> {
         return;
       }
 
-      if (!user.isEmailVerified && !user.isAnonymous) {
+      final isGoogleUser =
+          user.uid.startsWith('goog_') ||
+          user.email.toLowerCase().endsWith('@gmail.com');
+      if (!user.isEmailVerified && !user.isAnonymous && !isGoogleUser) {
         state = AuthState.emailVerificationRequired(
           user: user,
           profile: profile,
@@ -89,7 +92,10 @@ class SessionGateNotifier extends StateNotifier<AuthState> {
     if (state.status == AuthStatus.authenticated) {
       state = AuthState.authenticated(user: state.user, profile: updated);
     } else {
-      state = AuthState.offlineAuthenticated(user: state.user, profile: updated);
+      state = AuthState.offlineAuthenticated(
+        user: state.user,
+        profile: updated,
+      );
     }
   }
 

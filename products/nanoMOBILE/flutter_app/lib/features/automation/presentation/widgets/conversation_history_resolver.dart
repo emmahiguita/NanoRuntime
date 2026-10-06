@@ -135,11 +135,21 @@ class ConversationHistoryResolver {
     if (a.eventId.isNotEmpty && b.eventId.isNotEmpty) {
       return a.eventId == b.eventId;
     }
+    final sameText = a.text.trim().toLowerCase() == b.text.trim().toLowerCase();
+    final provisionalConfirmation =
+        (a.kind == ConversationMemoryEntryKind.outboundDispatched &&
+            b.kind == ConversationMemoryEntryKind.outboundVerified) ||
+        (b.kind == ConversationMemoryEntryKind.outboundDispatched &&
+            a.kind == ConversationMemoryEntryKind.outboundVerified);
+    // Aceptación y confirmación son dos estados del mismo envío, no dos burbujas.
+    if (provisionalConfirmation && sameText && (a.atMs - b.atMs).abs() <= 30000) {
+      return true;
+    }
     final sameDirection =
         (a.kind == ConversationMemoryEntryKind.inbound) ==
         (b.kind == ConversationMemoryEntryKind.inbound);
     return sameDirection &&
         (a.atMs - b.atMs).abs() <= 2000 &&
-        a.text.trim().toLowerCase() == b.text.trim().toLowerCase();
+        sameText;
   }
 }

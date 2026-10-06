@@ -1,7 +1,20 @@
 part of 'chat_screen.dart';
 
+// QUÉ HACE:
+// Gestiona los diálogos modales de confirmación e interacción crítica del chat.
+//
+// CÓMO FUNCIONA:
+// - Despliega modales de advertencia al limpiar el historial o eliminar mensajes.
+// - Implementa la barrera de confirmación obligatoria para tool-calling (Política §12)
+//   mediante showNanoModalDialog con Material y Overlay local garantizado.
+//
+// POR QUÉ:
+// Aplica principios SOLID (Single Responsibility Principle) encapsulando la lógica
+// modal en un archivo compacto (< 140 líneas) sin procesos zombies ni fugas de memoria.
 extension _ChatScreenDialogs on _ChatScreenState {
-  /// Diálogo de confirmación para limpiar todo el historial.
+  /// QUÉ HACE: Diálogo de confirmación para vaciar por completo el historial de la conversación.
+  /// CÓMO FUNCIONA: Solicita validación explícita del usuario antes de invocar `notifier.clear()`.
+  /// POR QUÉ: Evita pérdidas accidentales de datos en el chat activo.
   Future<void> _showClearDialog(ChatNotifier notifier) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final confirmed = await showNanoModalDialog<bool>(
@@ -38,7 +51,9 @@ extension _ChatScreenDialogs on _ChatScreenState {
     }
   }
 
-  /// Diálogo de confirmación para eliminar un mensaje individual.
+  /// QUÉ HACE: Diálogo para eliminar un mensaje individual específico.
+  /// CÓMO FUNCIONA: Muestra una vista previa del texto y confirma su eliminación selectiva.
+  /// POR QUÉ: Permite al usuario depurar turnos o errores puntuales sin perder toda la sesión.
   Future<void> _showDeleteDialog(
     ChatNotifier notifier,
     ChatMessage message,
@@ -82,10 +97,10 @@ extension _ChatScreenDialogs on _ChatScreenState {
     }
   }
 
-  /// Diálogo de confirmación de herramienta. Decisión obligatoria del
-  /// humano: aprobar ejecuta la acción (confirmed), rechazar la cancela con
-  /// evidencia en el trace. Si la pantalla se desmonta sin decisión, el
-  /// pendiente queda descartado por el siguiente send().
+  /// QUÉ HACE: Barrera de confirmación para tool-calling (Política §12).
+  /// CÓMO FUNCIONA: Si el agente desea ejecutar una acción en el dispositivo,
+  ///   requiere aprobación explícita del humano; si se rechaza, cancela la acción.
+  /// POR QUÉ: Garantiza control y seguridad absoluta sobre ejecuciones locales en Android/Linux.
   Future<void> _showToolConfirmDialog(String tool) async {
     final description = ref.read(chatProvider).pendingToolDescription ?? '';
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;

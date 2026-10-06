@@ -157,6 +157,9 @@ final class McpServerPersistence {
     if (descriptor.transport != McpTransportKind.streamableHttp) {
       throw const FormatException('unsupported_persisted_mcp_transport');
     }
+    if (const {'device', 'nano.mobile', 'nano-linux'}.contains(descriptor.id)) {
+      throw const FormatException('reserved_mcp_server_id');
+    }
     final endpoint = Uri.tryParse(descriptor.endpoint?.trim() ?? '');
     if (endpoint == null ||
         !{'http', 'https'}.contains(endpoint.scheme) ||

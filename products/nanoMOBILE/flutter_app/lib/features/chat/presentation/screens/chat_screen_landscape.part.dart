@@ -1,59 +1,66 @@
 part of 'chat_screen.dart';
 
+// QUÉ HACE:
+// Adapta la interfaz de chat al modo horizontal (Landscape) en dispositivos móviles y tabletas.
+//
+// CÓMO FUNCIONA:
+// - Calcula un ancho ergonómico centralizado (contentWidth) según la resolución disponible.
+// - Distribuye el padding lateral para que los mensajes no se estiren de extremo a extremo de forma ilegible.
+// - Invoca `_buildComposerBar(compact: true)` con menor altura y controles optimizados para pantallas apaisadas.
+// - Maneja el scroll elástico con `BouncingScrollPhysics` y burbujas interactivas con acciones rápidas (`suggestions`).
+//
+// POR QUÉ:
+// Asegura una experiencia visual y táctil profesional de primer nivel en horizontal (< 150 líneas),
+// cumpliendo los principios de diseño Material 3 Expressive para móviles.
 extension _ChatScreenLandscape on _ChatScreenState {
-  /// UI-REV-16 — chat horizontal: la lista de mensajes domina TODO el ancho
-  /// (sin panel lateral de escritura; la barra universal del shell sigue
-  /// siendo el punto de escritura) y las acciones del chat flotan en vidrio
-  /// arriba a la derecha. Los adjuntos pendientes se muestran en una franja
-  /// inferior. Nada se solapa: la lista reserva sus despejes.
+  /// QUÉ HACE: Renderiza la disposición en columna adaptada para pantallas apaisadas.
+  /// CÓMO FUNCIONA: Limita el ancho de la lista de mensajes y centra la barra de redacción compacta.
+  /// POR QUÉ: Mantiene la legibilidad del texto en líneas de 60-80 caracteres y previene desbordamientos.
   Widget _buildLandscapeChat(
     ChatState state,
     ChatNotifier notifier,
     MediaQueryData mediaQuery,
   ) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final screenWidth = mediaQuery.size.width;
     final targetWidth = screenWidth >= 900
-        ? screenWidth * 0.60
-        : screenWidth * 0.82;
-    final contentWidth = targetWidth.clamp(360.0, 760.0).toDouble();
+        ? screenWidth * 0.65
+        : screenWidth * 0.85;
+    final contentWidth = targetWidth.clamp(360.0, 840.0).toDouble();
     final availableSide = (screenWidth - contentWidth) / 2;
     final sidePadding = availableSide > 12.0 ? availableSide : 12.0;
-    final attachmentTopPadding = state.attachments.isEmpty ? 8.0 : 58.0;
 
-    return Stack(
-      fit: StackFit.expand,
+    return Column(
       children: [
-        Positioned.fill(
+        Expanded(
           child: _messageList(
             state,
             notifier,
-            topPadding: attachmentTopPadding,
-            bottomPadding: kNanoBarScrollReserve,
-            emptyBottomPadding: 24,
+            topPadding: 8.0,
+            bottomPadding: 8.0,
+            emptyBottomPadding: 16.0,
             sidePadding: sidePadding,
           ),
         ),
-        if (state.attachments.isNotEmpty)
-          Positioned(
-            top: 8,
-            left: sidePadding,
-            right: sidePadding,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: _AttachmentPillsStrip(
-                attachments: state.attachments,
-                onRemove: notifier.removeAttachment,
-              ),
+        Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: contentWidth),
+            child: _buildComposerBar(
+              context,
+              state,
+              notifier,
+              colors,
+              compact: true,
             ),
           ),
+        ),
       ],
     );
   }
 
-  /// UI-REV-14 — lista de mensajes compartida vertical/horizontal. Un solo
-  /// builder para las dos orientaciones; solo cambian los despejes (inferior
-  /// para la barra en vertical, superior para la toolbar flotante en
-  /// horizontal) y el lateral.
+  /// QUÉ HACE: Lista virtualizada de mensajes compartida entre modo vertical y horizontal.
+  /// CÓMO FUNCIONA: Renderiza burbujas de usuario, asistente, streaming en vivo o estado vacío (EmptyChat).
+  /// POR QUÉ: Evita duplicación de código (DRY) y soporta sugerencias interactivas para responder sin escribir.
   Widget _messageList(
     ChatState state,
     ChatNotifier notifier, {

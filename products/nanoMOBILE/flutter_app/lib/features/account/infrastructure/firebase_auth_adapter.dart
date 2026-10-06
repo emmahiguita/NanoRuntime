@@ -1,35 +1,30 @@
 import 'dart:async';
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import '../domain/account_exceptions.dart';
 import '../domain/auth_repository.dart';
 import '../domain/auth_user.dart';
+import 'auth_credentials_helper.dart';
+import 'google_auth_adapter.dart';
 import 'local_account_storage.dart';
 import 'secure_storage_adapter.dart';
 
 /// QUÉ HACE:
-/// Adaptador de autenticación con arquitectura resiliente e híbrida (Firebase / Local).
-///
-/// CÓMO FUNCIONA:
-/// Gestiona la identidad del usuario, validaciones criptográficas de credenciales,
-/// emisión de eventos reactivos y persistencia segura de la sesión.
-///
-/// POR QUÉ:
-/// Garantiza que la autenticación opere sin fallos bloqueantes si Firebase Auth no está
-/// disponible en el dispositivo o no cuenta con conexión en ese momento (Local-First).
-class FirebaseAuthAdapter implements AuthRepository {
+/// Adaptador local de correo y sesión; Google se delega al adaptador OAuth.
+class LocalAuthAdapter implements AuthRepository {
   final LocalAccountStorage _localStorage;
   final SecureStorageAdapter _secureStorage;
+  final GoogleAuthAdapter _googleAuth;
   final StreamController<AuthUser?> _authStateController =
       StreamController<AuthUser?>.broadcast();
 
   AuthUser? _currentUser;
 
-  FirebaseAuthAdapter({
+  LocalAuthAdapter({
     LocalAccountStorage? localStorage,
     SecureStorageAdapter? secureStorage,
+    GoogleAuthAdapter? googleAuth,
   }) : _localStorage = localStorage ?? LocalAccountStorage(),
-       _secureStorage = secureStorage ?? SecureStorageAdapter() {
+       _secureStorage = secureStorage ?? SecureStorageAdapter(),
+       _googleAuth = googleAuth ?? GoogleAuthAdapter() {
     _init();
   }
 
@@ -52,31 +47,26 @@ class FirebaseAuthAdapter implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    final cleanEmail = email.trim().toLowerCase();
-    if (cleanEmail.isEmpty || !cleanEmail.contains('@')) {
+    final clean = email.trim().toLowerCase();
+    if (!clean.contains('@'))
       throw const InvalidCredentialsException('invalid-email');
-    }
-    if (password.length < 6) {
+    if (password.length < 6)
       throw const InvalidCredentialsException('wrong-password');
-    }
 
-    final storedHash = await _secureStorage.read('pwd_$cleanEmail');
-    final incomingHash = sha256.convert(utf8.encode(password)).toString();
-
+    final storedHash = await _secureStorage.read('pwd_$clean');
+    final incomingHash = AuthCredentialsHelper.hashPassword(password);
     if (storedHash != null && storedHash != incomingHash) {
       throw const InvalidCredentialsException('wrong-password');
     }
 
-    // Generar UID derivado de forma determinista para la cuenta
-    final uid = 'usr_${sha256.convert(utf8.encode(cleanEmail)).toString().substring(0, 24)}';
     final user = AuthUser(
-      uid: uid,
-      email: cleanEmail,
-      displayName: cleanEmail.split('@').first,
+      uid: AuthCredentialsHelper.deriveUserUid(clean),
+      email: clean,
+      displayName: clean.split('@').first,
       isEmailVerified: true,
     );
 
-    await _secureStorage.write('pwd_$cleanEmail', incomingHash);
+    await _secureStorage.write('pwd_$clean', incomingHash);
     await _localStorage.saveUser(user);
     _currentUser = user;
     _authStateController.add(user);
@@ -89,29 +79,25 @@ class FirebaseAuthAdapter implements AuthRepository {
     required String password,
     required String displayName,
   }) async {
-    final cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail.contains('@') || !cleanEmail.contains('.')) {
+    final clean = email.trim().toLowerCase();
+    if (!AuthCredentialsHelper.isValidEmail(clean)) {
       throw const InvalidCredentialsException('invalid-email');
     }
-    if (password.length < 8) {
-      throw const WeakPasswordException();
-    }
+    if (password.length < 8) throw const WeakPasswordException();
 
-    final existing = await _secureStorage.read('pwd_$cleanEmail');
-    if (existing != null) {
-      throw const EmailAlreadyInUseException();
-    }
+    final existing = await _secureStorage.read('pwd_$clean');
+    if (existing != null) throw const EmailAlreadyInUseException();
 
-    final uid = 'usr_${sha256.convert(utf8.encode(cleanEmail)).toString().substring(0, 24)}';
-    final pwdHash = sha256.convert(utf8.encode(password)).toString();
-    await _secureStorage.write('pwd_$cleanEmail', pwdHash);
-
+    await _secureStorage.write(
+      'pwd_$clean',
+      AuthCredentialsHelper.hashPassword(password),
+    );
     final user = AuthUser(
-      uid: uid,
-      email: cleanEmail,
+      uid: AuthCredentialsHelper.deriveUserUid(clean),
+      email: clean,
       displayName: displayName.trim().isNotEmpty
           ? displayName.trim()
-          : cleanEmail.split('@').first,
+          : clean.split('@').first,
       isEmailVerified: false,
     );
 
@@ -123,44 +109,28 @@ class FirebaseAuthAdapter implements AuthRepository {
 
   @override
   Future<AuthUser> signInWithGoogle() async {
-    // Implementación idempotente: vincula o inicia sesión con Google
-    const email = 'usuario.nano@gmail.com';
-    final uid = 'goog_${sha256.convert(utf8.encode(email)).toString().substring(0, 20)}';
-
-
-    final user = AuthUser(
-      uid: uid,
-      email: email,
-      displayName: 'Usuario Google Nano',
-      photoUrl: null,
-      isEmailVerified: true,
-    );
-
-    await _localStorage.saveUser(user);
+    // OAuth entrega la cuenta; este adaptador solo guarda la sesión de Nano local.
+    final user = await _googleAuth.signIn();
     _currentUser = user;
+    await _localStorage.saveUser(user);
     _authStateController.add(user);
     return user;
   }
 
   @override
   Future<void> sendPasswordResetEmail(String email) async {
-    final clean = email.trim().toLowerCase();
-    if (!clean.contains('@')) {
+    if (!email.trim().toLowerCase().contains('@')) {
       throw const InvalidCredentialsException('invalid-email');
     }
-    // Protección contra enumeración: completa sin lanzar error si no existe
   }
 
   @override
-  Future<void> sendEmailVerification() async {
-    // Despacho de verificación con cooldown
-  }
+  Future<void> sendEmailVerification() async {}
 
   @override
   Future<AuthUser> reloadUser() async {
     final current = await getCurrentUser();
     if (current == null) throw const UserNotFoundException();
-    // Simula confirmación de verificación si estaba pendiente
     final updated = current.copyWith(isEmailVerified: true);
     await _localStorage.saveUser(updated);
     _currentUser = updated;
@@ -183,3 +153,9 @@ class FirebaseAuthAdapter implements AuthRepository {
     await signOut();
   }
 }
+
+/// Mantiene compatibilidad con importadores antiguos; el adaptador ya no usa Firebase.
+@Deprecated(
+  'Use LocalAuthAdapter; this repository has no Firebase Auth backend.',
+)
+typedef FirebaseAuthAdapter = LocalAuthAdapter;

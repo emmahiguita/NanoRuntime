@@ -7,12 +7,19 @@ import 'messaging_channel_sheet.dart';
 /// Encabezado principal del Centro de Mensajería con título y botón de conexión.
 class MessagingCenterHeader extends ConsumerWidget {
   final VoidCallback? onConnectApp;
+  final VoidCallback? onOpenLibrary;
 
-  const MessagingCenterHeader({super.key, this.onConnectApp});
+  const MessagingCenterHeader({
+    super.key,
+    this.onConnectApp,
+    this.onOpenLibrary,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = NanoThemeExtension.of(context).colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? const Color(0xFF00FF88) : colors.primary;
     final canPop = Navigator.of(context).canPop();
     final compact = MediaQuery.sizeOf(context).width < 390;
 
@@ -29,10 +36,7 @@ class MessagingCenterHeader extends ConsumerWidget {
                 button: true,
                 child: IconButton(
                   visualDensity: VisualDensity.compact,
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: Colors.white,
-                  ),
+                  icon: Icon(Icons.arrow_back_rounded, color: colors.onSurface),
                   onPressed: () {
                     Navigator.of(context).maybePop();
                   },
@@ -45,26 +49,22 @@ class MessagingCenterHeader extends ConsumerWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: const Color(0xFF00FF88).withValues(alpha: 0.15),
+                color: accentColor.withValues(alpha: isDark ? 0.15 : 0.10),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: const Color(0xFF00FF88).withValues(alpha: 0.35),
+                  color: accentColor.withValues(alpha: isDark ? 0.35 : 0.40),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF00FF88).withValues(alpha: 0.25),
+                    color: accentColor.withValues(alpha: isDark ? 0.25 : 0.15),
                     blurRadius: 8,
                     offset: const Offset(0, 1),
                   ),
                 ],
               ),
-              child: const Center(
-                child: Icon(
-                  Icons.forum_rounded,
-                  color: Color(0xFF00FF88),
-                  size: 19,
-                ),
+              child: Center(
+                child: Icon(Icons.forum_rounded, color: accentColor, size: 19),
               ),
             ),
             const SizedBox(width: NanoSpacing.sm + 4),
@@ -88,7 +88,7 @@ class MessagingCenterHeader extends ConsumerWidget {
                       ),
                       if (!compact) ...[
                         const SizedBox(width: 7),
-                        const _PrivateStatusPill(),
+                        _PrivateStatusPill(color: accentColor),
                       ],
                     ],
                   ),
@@ -103,6 +103,14 @@ class MessagingCenterHeader extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: NanoSpacing.xs),
+            // Acceso directo a PDFs guardados: evita buscarlos en otro módulo.
+            if (onOpenLibrary != null)
+              IconButton(
+                tooltip: 'Biblioteca PDF',
+                visualDensity: VisualDensity.compact,
+                onPressed: onOpenLibrary,
+                icon: Icon(Icons.folder_open_rounded, color: accentColor),
+              ),
             // Abre controles reales; en ancho compacto conserva una zona táctil amplia.
             InkWell(
               onTap:
@@ -115,27 +123,23 @@ class MessagingCenterHeader extends ConsumerWidget {
                   vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00FF88).withValues(alpha: 0.12),
+                  color: accentColor.withValues(alpha: isDark ? 0.12 : 0.10),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFF00FF88).withValues(alpha: 0.30),
+                    color: accentColor.withValues(alpha: isDark ? 0.30 : 0.40),
                     width: 1,
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.add_rounded,
-                      size: 14,
-                      color: Color(0xFF00FF88),
-                    ),
+                    Icon(Icons.add_rounded, size: 14, color: accentColor),
                     if (!compact) ...[
                       const SizedBox(width: 4),
-                      const Text(
+                      Text(
                         'Canales',
                         style: TextStyle(
-                          color: Color(0xFF00FF88),
+                          color: accentColor,
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
                         ),
@@ -153,28 +157,27 @@ class MessagingCenterHeader extends ConsumerWidget {
 }
 
 class _PrivateStatusPill extends StatelessWidget {
-  const _PrivateStatusPill();
+  final Color color;
+  const _PrivateStatusPill({required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFF00FF88).withValues(alpha: 0.10),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(
-          color: const Color(0xFF00FF88).withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.lock_outline_rounded, size: 8, color: Color(0xFF00FF88)),
-          SizedBox(width: 3),
+          Icon(Icons.lock_outline_rounded, size: 8, color: color),
+          const SizedBox(width: 3),
           Text(
             'PRIVADO',
             style: TextStyle(
-              color: Color(0xFF00FF88),
+              color: color,
               fontSize: 7.5,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.35,

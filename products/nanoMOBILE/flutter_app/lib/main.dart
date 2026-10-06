@@ -19,12 +19,16 @@ import 'features/automation/application/automation_coordinator_provider.dart'
 import 'features/automation/engine/scheduling/notification_event_router.dart';
 import 'features/browser/presentation/widgets/browser_pip_overlay.dart';
 import 'features/chat/nano_everywhere/nano_floating_wrapper.dart';
+import 'features/browser/application/browser_audio_service_initializer.dart';
+import 'features/browser/application/browser_audio_handler.dart';
 
 /// Channel used by MainActivity to navigate when the app is already running
 /// and Android opens the app from system settings.
 const _kNavChannel = MethodChannel('com.nanoai/navigation');
 
 void Function(String prompt)? _onExternalPromptReceived;
+
+late final BrowserAudioHandler audioHandler;
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -39,13 +43,26 @@ Future<void> main() async {
     return;
   }
 
+  final container = ProviderContainer();
+
+  // Crear el controlador local de inmediato; registrar el servicio del SO no
+  // debe impedir que Flutter dibuje la primera pantalla.
+  audioHandler = BrowserAudioHandler(container);
+
   final initialRoute = binding.platformDispatcher.defaultRouteName;
   AppRouter.init(initialRoute == '/' ? null : initialRoute);
 
   initializeLinuxDistributions();
 
-  runApp(const ProviderScope(child: NanoPlatformApp()));
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: const NanoPlatformApp(),
+    ),
+  );
   _listenSystemNavigation();
+  // El audio es opcional al inicio y se conecta después del primer frame.
+  unawaited(initializeBrowserAudioService(audioHandler));
 }
 
 /// Warm start: app is already alive and Android asks it to open Settings.
@@ -133,8 +150,12 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
 
+    final lightColors = settings.themeMode == 'Claro'
+        ? NanoLightColors()
+        : NanoClassicLightColors();
+
     final lightTheme = AppTheme.buildTheme(
-      NanoLightColors(),
+      lightColors,
       glassEnabled: settings.glassEnabled,
       glassOpacity: settings.glassOpacity,
       glassClarity: settings.glassClarity,
@@ -158,8 +179,8 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
       debugShowCheckedModeBanner: false,
       theme: lightTheme,
       darkTheme: darkTheme,
-      // DARK_ONLY: el modo claro queda pendiente hasta completar su diseño.
-      themeMode: ThemeMode.dark,
+      // TEMA REACTIVO: Sincronizado reactivamente con las preferencias del usuario (Claro / Oscuro / Sistema).
+      themeMode: ref.watch(themeModeProvider),
       themeAnimationDuration:
           WidgetsBinding
               .instance

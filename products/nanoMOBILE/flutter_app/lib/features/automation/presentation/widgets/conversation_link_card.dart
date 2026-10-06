@@ -39,6 +39,7 @@ class ConversationLinkCard extends StatelessWidget {
   }
 
   Widget _renderCard(BuildContext context, LinkMetadata metadata) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final domain = metadata.siteName?.isNotEmpty == true
         ? metadata.siteName!
         : (Uri.tryParse(url)?.host.replaceFirst('www.', '') ?? url);
@@ -51,15 +52,19 @@ class ConversationLinkCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 4),
       constraints: const BoxConstraints(maxWidth: 320),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withValues(alpha: 0.85),
+        color: isDark
+            ? const Color(0xFF0F172A).withValues(alpha: 0.85)
+            : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+          color: isDark
+              ? const Color(0xFF38BDF8).withValues(alpha: 0.35)
+              : const Color(0xFF0284C7).withValues(alpha: 0.35),
           width: 0.9,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -121,8 +126,8 @@ class ConversationLinkCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       metadata.title!,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         height: 1.25,
@@ -136,7 +141,7 @@ class ConversationLinkCard extends StatelessWidget {
                     Text(
                       metadata.description!,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.70),
+                        color: isDark ? Colors.white.withValues(alpha: 0.70) : const Color(0xFF475569),
                         fontSize: 11,
                         height: 1.3,
                       ),

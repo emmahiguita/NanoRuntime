@@ -8,6 +8,7 @@ import '../../mcp/mcp_tool_resolver.dart';
 import '../../voice/execution_cancellation.dart';
 import '../tool_call.dart';
 import '../tool_outcome.dart';
+import 'mcp_command_list_formatter.dart';
 
 /// Manejador de herramientas y comandos MCP (Model Context Protocol).
 /// Cumple SRP: descubrimiento y ejecución remota de herramientas MCP.
@@ -40,29 +41,7 @@ class McpToolHandler {
     }
 
     if (query.isEmpty || sub == 'list' || sub == 'listar') {
-      final snapshot = await mcpReg.refreshTools();
-      final buf = StringBuffer(
-        '🔌 Servidores y herramientas MCP conectadas:\n',
-      );
-      for (final s in mcpReg.servers) {
-        buf.writeln(
-          '• Servidor "${s.id}" (${s.displayName}) [${s.transport.name}]',
-        );
-      }
-      if (snapshot.tools.isEmpty) {
-        buf.writeln('  (Sin herramientas descubiertas)');
-      } else {
-        for (final entry in snapshot.tools.entries) {
-          buf.writeln('  - ${entry.key}: ${entry.value.description}');
-        }
-      }
-      if (snapshot.failures.isNotEmpty) {
-        buf.writeln('\n⚠️ Fallos de descubrimiento:');
-        for (final f in snapshot.failures) {
-          buf.writeln('  • ${f.serverId}: ${f.reason}');
-        }
-      }
-      return buf.toString().trim();
+      return McpCommandListFormatter(mcpReg).format(parts);
     }
 
     String toolName = '';

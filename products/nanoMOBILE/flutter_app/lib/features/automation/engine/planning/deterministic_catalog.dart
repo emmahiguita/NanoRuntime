@@ -29,7 +29,9 @@ class DeterministicFlow {
   });
 
   bool matches(String normalizedGoal, String keyword) {
-    if (!normalizedGoal.contains(keyword)) return false;
+    // Palabra completa (no subcadena): 'chat' NO debe capturar "chatgpt",
+    // ni 'web' a "webtoon". Se tolera plural simple (archivo → archivos).
+    if (!_containsWholeWord(normalizedGoal, keyword)) return false;
     // Mencionar una app en una pregunta no autoriza abrirla. Conserva el atajo exacto.
     // La intención operativa debe contener un término de apertura como palabra completa.
     final launchesApp = steps.any((step) => step.tool == 'launch_app');
@@ -46,6 +48,16 @@ class DeterministicFlow {
     if (requiredAny.isEmpty) return true;
     return requiredAny.any(normalizedGoal.contains);
   }
+}
+
+/// true si [keyword] aparece en [goal] delimitada por no-letras/no-dígitos
+/// (Unicode-aware: \b de Dart no reconoce á/ñ). Admite plural "s"/"es".
+bool _containsWholeWord(String goal, String keyword) {
+  if (keyword.isEmpty) return false;
+  return RegExp(
+    r'(^|[^\p{L}\p{N}])' + RegExp.escape(keyword) + r'(?:s|es)?($|[^\p{L}\p{N}])',
+    unicode: true,
+  ).hasMatch(goal);
 }
 
 class DeterministicFlowCatalog {

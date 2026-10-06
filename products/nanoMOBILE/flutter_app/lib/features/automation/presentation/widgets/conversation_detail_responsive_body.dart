@@ -105,8 +105,10 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
       itemBuilder: (context, index) {
         final entry = entries[entries.length - 1 - index];
         final isSelf =
+            entry.kind == ConversationMemoryEntryKind.outboundVerified ||
             entry.kind == ConversationMemoryEntryKind.outboundDispatched ||
-            entry.kind == ConversationMemoryEntryKind.outboundObservedManual;
+            entry.kind == ConversationMemoryEntryKind.outboundObservedManual ||
+            entry.kind == ConversationMemoryEntryKind.effectUnknown;
         return _buildChatBubble(
           entry.text,
           !isSelf,

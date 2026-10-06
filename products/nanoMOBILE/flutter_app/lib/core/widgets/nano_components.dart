@@ -12,7 +12,7 @@ export 'nano_optical_surface.dart';
 /// desde el tema activo: una pantalla que los usa queda automáticamente
 /// correcta en modo claro y oscuro, sin TextStyle crudos ni hex sueltos.
 
-/// Tarjeta de superficie con glassmorphism óptico y bisel metálico perimetral.
+/// Tarjeta de superficie con glassmorphism óptico, bisel metálico perimetral y movimiento 3D.
 class NanoCard extends StatelessWidget {
   const NanoCard({
     super.key,
@@ -22,6 +22,8 @@ class NanoCard extends StatelessWidget {
     this.onTap,
     this.highlight = false,
     this.borderRadius = NanoRadius.large,
+    this.tilt = true,
+    this.autoReflect = true,
   });
 
   final Widget child;
@@ -30,6 +32,8 @@ class NanoCard extends StatelessWidget {
   final VoidCallback? onTap;
   final bool highlight;
   final double borderRadius;
+  final bool tilt;
+  final bool autoReflect;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +43,8 @@ class NanoCard extends StatelessWidget {
       padding: padding,
       isActive: highlight,
       onTap: onTap,
+      tilt: tilt,
+      autoReflect: autoReflect,
       child: child,
     );
   }
@@ -181,10 +187,10 @@ class NanoMetricText extends StatelessWidget {
   }
 }
 
-/// Botón de acción estandarizado: primario (relleno) u outline, con icono
-/// opcional y texto siempre en NanoType.label. Los colores de fondo/texto
-/// siguen la convención del theme (negro sobre verde neón en oscuro,
-/// blanco sobre esmeralda en claro).
+/// Botón de acción estandarizado con estética de cristal líquido / frosted glass.
+///
+/// QUÉ HACE: Renderiza botones ejecutivos con transparencia de vidrio, bisel sutil
+/// y tipografía de alto contraste (sin bloques de color verde plano/sólido).
 class NanoActionButton extends StatelessWidget {
   const NanoActionButton({
     super.key,
@@ -204,23 +210,90 @@ class NanoActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final labelStyle = primary
-        ? NanoType.label(
-            colors is NanoDarkColors ? const Color(0xFF000000) : Colors.white,
-          )
-        : NanoType.label(colors.primary);
+    final isDark = colors is NanoDarkColors;
 
-    final button = primary
-        ? ElevatedButton.icon(
-            onPressed: onPressed,
-            icon: icon != null ? Icon(icon, size: NanoIcons.small) : null,
-            label: Text(label, style: labelStyle),
-          )
-        : OutlinedButton.icon(
-            onPressed: onPressed,
-            icon: icon != null ? Icon(icon, size: NanoIcons.small) : null,
-            label: Text(label, style: labelStyle),
-          );
+    final Widget button;
+    if (primary) {
+      button = Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: isDark
+              ? colors.primary.withValues(alpha: 0.16)
+              : colors.primary.withValues(alpha: 0.12),
+          border: Border.all(
+            color: isDark
+                ? colors.primary.withValues(alpha: 0.38)
+                : colors.primary.withValues(alpha: 0.32),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colors.primary.withValues(alpha: isDark ? 0.12 : 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: onPressed,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Row(
+                mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      size: NanoIcons.small,
+                      color: isDark ? colors.onSurface : colors.primary,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      color: isDark ? colors.onSurface : colors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      button = OutlinedButton.icon(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colors.onSurface.withValues(alpha: 0.8),
+          side: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: 0.4),
+            width: 1.0,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        ),
+        icon: icon != null ? Icon(icon, size: NanoIcons.small) : null,
+        label: Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            letterSpacing: -0.2,
+            color: colors.onSurface.withValues(alpha: 0.8),
+          ),
+        ),
+      );
+    }
 
     return expanded ? SizedBox(width: double.infinity, child: button) : button;
   }

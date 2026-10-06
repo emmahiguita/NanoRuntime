@@ -1,30 +1,58 @@
 // nano_providers.dart — Riverpod providers del asistente flotante.
-// QUÉ: Expone los tres recursos que NanoFloatingWrapper necesita inyectados:
-//      webProviders (lista de NanoProvider), actions (NanoActionPort),
-//      y audioLevel (ValueNotifier<double> silencioso).
-// CÓMO: Lee browserAiGatewayProvider y agentDispatcherProvider ya existentes;
-//      construye NanoProvider.ask usando BrowserAiGateway.query().
-// POR QUÉ: Un solo lugar de composición (DIP / composition root). La cápsula
-//          flotante no instancia nada — solo consume providers inyectados.
+// QUÉ: Expone los recursos que NanoFloatingWrapper necesita inyectados:
+//      webProviders (lista de NanoProvider incluyendo modelo local LiteRT),
+//      actions (NanoActionPort), y audioLevel (ValueNotifier<double> silencioso).
+// CÓMO: Lee runtimeEngineProvider para el modelo local y browserAiGatewayProvider para la web.
+// POR QUÉ: Un solo lugar de composición (DIP / composition root). Permite al Búho
+//          responder offline y ultra-rápido usando Qwen3 LiteRT antes de intentar la web.
+library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../browser_ai/application/browser_ai_gateway.dart';
 import '../../browser_ai/domain/browser_ai_query.dart';
 import '../../automation/engine/agent_dependencies.dart';
+import '../../../core/services/runtime_engine.dart';
 import 'nano_ai_models.dart';
 import 'nano_action_port_adapter.dart';
 
 /// Nivel de audio del micrófono 0..1 compartido por toda la sesión.
-/// Conéctalo al SpeechChannelHandler real cuando esté disponible.
 final nanoAudioLevelProvider = Provider<ValueNotifier<double>>(
   (ref) => ValueNotifier(0.0),
 );
 
-/// Inyecta las rutas web existentes; el asistente prueba solo una por turno y oculta su origen.
+/// Inyecta rutas locales y web; prioriza el modelo LiteRT local cuando está disponible.
 final nanoWebProvidersProvider = Provider<List<NanoProvider>>((ref) {
   final gateway = ref.watch(browserAiGatewayProvider);
+  final engineNotifier = ref.watch(runtimeEngineProvider.notifier);
 
-  NanoProvider buildProvider(String id, String name) => NanoProvider(
+  // Proveedor Local LiteRT-LM (Qwen3 / Gemma) para inferencia nativa en el dispositivo.
+  final localProvider = NanoProvider(
+    id: 'local_litert',
+    name: 'Nano Local (LiteRT)',
+    kind: NanoProviderKind.local,
+    ask: (prompt) async {
+      try {
+        final client = engineNotifier.client;
+        final handle = client.generateStream(
+          prompt: prompt,
+          maxTokens: 512,
+          temperature: 0.3,
+        );
+        final buffer = StringBuffer();
+        await for (final token in handle.stream) {
+          buffer.write(token.content);
+        }
+        final result = buffer.toString().trim();
+        if (result.isNotEmpty) return result;
+      } catch (e) {
+        debugPrint('[NanoFloating] Inferencia local LiteRT falló: $e');
+      }
+      throw Exception('El modelo local no está listo o no generó respuesta.');
+    },
+  );
+
+  NanoProvider buildWebProvider(String id, String name) => NanoProvider(
     id: id,
     name: name,
     kind: NanoProviderKind.approvedWeb,
@@ -32,10 +60,9 @@ final nanoWebProvidersProvider = Provider<List<NanoProvider>>((ref) {
       final res = await gateway.query(
         BrowserAiQuery(providerId: id, prompt: prompt),
       );
-      // BrowserAiResponse.isCompleted + .content (no .ok/.text)
       if (res.needsUserAction) {
         throw const NanoUserActionRequiredException(
-          'La sesión necesita atención. Inicia sesión en la pestaña del navegador y vuelve a enviar tu mensaje.',
+          'La sesión necesita atención. Inicia sesión en el navegador.',
         );
       }
       if (res.isCompleted && res.content.trim().isNotEmpty) {
@@ -46,11 +73,12 @@ final nanoWebProvidersProvider = Provider<List<NanoProvider>>((ref) {
   );
 
   return [
-    buildProvider('deepseek', 'DeepSeek'),
-    buildProvider('chatgpt', 'ChatGPT'),
-    buildProvider('gemini', 'Gemini'),
-    buildProvider('claude', 'Claude'),
-    buildProvider('mistral', 'Mistral'),
+    localProvider,
+    buildWebProvider('deepseek', 'DeepSeek'),
+    buildWebProvider('chatgpt', 'ChatGPT'),
+    buildWebProvider('gemini', 'Gemini'),
+    buildWebProvider('claude', 'Claude'),
+    buildWebProvider('mistral', 'Mistral'),
   ];
 });
 

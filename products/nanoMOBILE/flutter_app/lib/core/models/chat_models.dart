@@ -20,7 +20,7 @@ enum MessageSource { model, device }
 enum ChatTemplate { qwen, deepseek, llama, mistral, gemma }
 
 /// Tipo de adjunto pendiente de envío.
-enum ChatAttachmentKind { text, photo, video, document }
+enum ChatAttachmentKind { text, photo, video, audio, document }
 
 /// Adjunto pendiente de envío: un archivo elegido en el composer.
 ///
@@ -36,12 +36,15 @@ class ChatAttachment {
   final String content;
   final ChatAttachmentKind kind;
   final int sizeBytes;
+  /// Temporary app-private path retained only while MNN consumes the media.
+  final String? mediaPath;
 
   const ChatAttachment({
     required this.name,
     required this.content,
     this.kind = ChatAttachmentKind.text,
     this.sizeBytes = 0,
+    this.mediaPath,
   });
 }
 

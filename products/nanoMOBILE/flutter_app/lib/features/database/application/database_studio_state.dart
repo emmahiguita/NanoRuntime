@@ -25,6 +25,8 @@ class DatabaseStudioState {
   final String? statusMessage;
   final bool isShellConnected;
   final String? databasePath;
+  final bool isLiveSyncActive;
+  final DateTime? lastSyncedAt;
 
   const DatabaseStudioState({
     required this.tables,
@@ -37,6 +39,8 @@ class DatabaseStudioState {
     this.statusMessage,
     this.isShellConnected = true,
     this.databasePath,
+    this.isLiveSyncActive = false,
+    this.lastSyncedAt,
   });
 
   DataTable? get currentTable => tables[selectedTableName];
@@ -45,7 +49,11 @@ class DatabaseStudioState {
       ? selectedTableName
       : '"${selectedTableName.replaceAll('"', '""')}"';
 
-  DatabaseStudioState withImportedTable(DataTable table, String message) =>
+  DatabaseStudioState withImportedTable(
+    DataTable table,
+    String message, {
+    bool isLiveSync = false,
+  }) =>
       copyWith(
         tables: {table.name: table},
         selectedTableName: table.name,
@@ -54,6 +62,8 @@ class DatabaseStudioState {
         statusMessage: '$message · ${table.rowCount} filas',
         clearDatabasePath: true,
         clearError: true,
+        isLiveSyncActive: isLiveSync || table.isGoogleSheet,
+        lastSyncedAt: DateTime.now(),
       );
 
   DatabaseStudioState copyWith({
@@ -67,6 +77,8 @@ class DatabaseStudioState {
     String? statusMessage,
     bool? isShellConnected,
     String? databasePath,
+    bool? isLiveSyncActive,
+    DateTime? lastSyncedAt,
     bool clearDatabasePath = false,
     bool clearError = false,
     bool clearQueryResult = false,
@@ -84,6 +96,8 @@ class DatabaseStudioState {
       databasePath: clearDatabasePath
           ? null
           : databasePath ?? this.databasePath,
+      isLiveSyncActive: isLiveSyncActive ?? this.isLiveSyncActive,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
     );
   }
 }

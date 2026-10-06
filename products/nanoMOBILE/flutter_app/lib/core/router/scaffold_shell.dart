@@ -20,11 +20,6 @@ class ScaffoldShell extends ConsumerWidget {
 
   final StatefulNavigationShell shell;
 
-  // UI-REV-08: el último acceso del panel no es una pestaña del shell — es
-  // el atajo a la pantalla de Automatización (ruta global /automation, la
-  // misma que abre el Inicio). Se navega con push, no con goBranch.
-  static const int _automationShortcutIndex = 5;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = shell.currentIndex;
@@ -36,21 +31,26 @@ class ScaffoldShell extends ConsumerWidget {
     final isDark = shellColors is NanoDarkColors;
 
     final location = GoRouterState.of(context).matchedLocation;
-    final isDashboardHome = location == '/dashboard';
+    final isDashboardHome =
+        location == '/dashboard' || location == '/automation';
     final isBrowser = location.startsWith('/browser');
 
     // Recursos del asistente flotante (Riverpod, sin recrearse en cada frame).
     final webProviders = ref.watch(nanoWebProvidersProvider);
-    final actionPort  = ref.watch(nanoActionPortProvider);
-    final audioLevel  = ref.watch(nanoAudioLevelProvider);
+    final actionPort = ref.watch(nanoActionPortProvider);
+    final audioLevel = ref.watch(nanoAudioLevelProvider);
 
-    final shellContent = MediaQuery.removePadding(
-      context: context,
-      removeTop: false,
-      removeBottom: true,
-      removeLeft: true,
-      removeRight: true,
-      child: shell,
+    // Lee el MediaQuery dentro del viewport: el teclado ya fue consumido allí.
+    // Capturarlo aquí con el contexto padre reintroducía el inset y vaciaba Modelos.
+    final shellContent = Builder(
+      builder: (viewportContext) => MediaQuery.removePadding(
+        context: viewportContext,
+        removeTop: false,
+        removeBottom: true,
+        removeLeft: true,
+        removeRight: true,
+        child: shell,
+      ),
     );
     final boundedContent = Center(
       child: ConstrainedBox(
@@ -80,9 +80,7 @@ class ScaffoldShell extends ConsumerWidget {
             // Por que: elimina el jank y sobrecarga de GPU durante el cambio de pantalla.
             Positioned.fill(
               child: RepaintBoundary(
-                child: BuhoWallpaper(
-                  scrimOpacity: isDark ? 0.45 : 0.22,
-                ),
+                child: BuhoWallpaper(scrimOpacity: isDark ? 0.45 : 0.22),
               ),
             ),
             // DOCK-FLOAT-01: floatOverContent en true garantiza que la pantalla hija
@@ -96,10 +94,6 @@ class ScaffoldShell extends ConsumerWidget {
               transparentDock: true,
               protectTop: !isDashboardHome,
               onDestinationSelected: (index) {
-                if (index == _automationShortcutIndex) {
-                  context.push('/automation');
-                  return;
-                }
                 shell.goBranch(index, initialLocation: index == currentIndex);
               },
               // NANO-EVERYWHERE-02: NanoFloatingWrapper añade el búho flotante
@@ -115,7 +109,8 @@ class ScaffoldShell extends ConsumerWidget {
                   if (controller == null) return;
                   controller.setListening(true);
                   try {
-                    final text = await NanoRuntimeApi.instance.startVoiceRecognition();
+                    final text = await NanoRuntimeApi.instance
+                        .startVoiceRecognition();
                     if (text != null && text.trim().isNotEmpty) {
                       controller.queuePrompt(text.trim());
                     }
@@ -126,6 +121,7 @@ class ScaffoldShell extends ConsumerWidget {
                 child: boundedContent,
               ),
             ),
+            // El navegador publica controles en Android solo mientras existe un medio.
           ],
         ),
       ),

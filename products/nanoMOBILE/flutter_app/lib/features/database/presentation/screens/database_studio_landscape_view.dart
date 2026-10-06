@@ -92,6 +92,8 @@ class DatabaseStudioLandscapeView extends StatelessWidget {
                       errorMessage: state.errorMessage,
                       statusMessage: state.statusMessage,
                       latencyMs: state.queryResult?.executionTimeMs,
+                      isLiveSyncActive: state.isLiveSyncActive,
+                      onSyncNow: controller.syncGoogleSheetsNow,
                       colors: colors,
                     ),
                   ],
@@ -106,6 +108,11 @@ class DatabaseStudioLandscapeView extends StatelessWidget {
                 child: DatabaseWorkspaceTabs(
                   table: state.activeDisplayTable,
                   colors: colors,
+                  onCellEdit: (row, col, val) => controller.updateTableCell(
+                    rowIndex: row,
+                    columnIndex: col,
+                    value: val,
+                  ),
                 ),
               ),
             ),

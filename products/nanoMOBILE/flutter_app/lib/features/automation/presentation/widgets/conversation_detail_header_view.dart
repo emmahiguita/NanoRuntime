@@ -116,7 +116,8 @@ extension ConversationDetailHeaderView on _ConversationDetailSheetState {
 
   Widget _buildControlOption({required bool isBot, required AutomationVisualPalette visual, required bool isLandscape}) {
     final active = isBot ? !_isHumanOwned : _isHumanOwned;
-    final color = isBot ? const Color(0xFF00FF88) : const Color(0xFF007AFF);
+    final botColor = visual.isDark ? const Color(0xFF00FF88) : const Color(0xFF059669);
+    final color = isBot ? botColor : const Color(0xFF007AFF);
     final icon = isBot ? CupertinoIcons.sparkles : CupertinoIcons.person_fill;
     final label = isBot ? 'IA Activa (Bot)' : 'Control Humano';
 

@@ -24,6 +24,8 @@ class ConversationPdfCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fileName = ConversationMediaSource(pathOrUrl).displayName;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: () => ConversationMediaViewer.openPdfDocument(
         context,
@@ -32,10 +34,14 @@ class ConversationPdfCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: Colors.redAccent.withValues(alpha: 0.16),
+          color: isDark
+              ? Colors.redAccent.withValues(alpha: 0.16)
+              : Colors.red.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.redAccent.withValues(alpha: 0.38),
+            color: isDark
+                ? Colors.redAccent.withValues(alpha: 0.38)
+                : Colors.red.withValues(alpha: 0.25),
             width: 0.8,
           ),
         ),
@@ -62,25 +68,28 @@ class ConversationPdfCard extends StatelessWidget {
                 children: [
                   Text(
                     fileName.isNotEmpty ? fileName : 'Documento.pdf',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                       fontSize: 12.5,
                       fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const Text(
+                  Text(
                     'Visualizar PDF · Toca para abrir',
-                    style: TextStyle(color: Colors.white70, fontSize: 10.5),
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                      fontSize: 10.5,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(
+            Icon(
               Icons.visibility_rounded,
-              color: Colors.white70,
+              color: isDark ? Colors.white70 : const Color(0xFF64748B),
               size: 16,
             ),
           ],
@@ -98,31 +107,40 @@ class ConversationFileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = ConversationMediaSource(pathOrUrl).displayName;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return GestureDetector(
       onTap: () => ConversationMediaViewer.openExternalLink(context, pathOrUrl),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.10),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.10)
+              : Colors.black.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.20),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.20)
+                : const Color(0x33CBD5E1),
             width: 0.8,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+            Icon(
               Icons.attach_file_rounded,
-              color: Colors.white70,
+              color: isDark ? Colors.white70 : const Color(0xFF64748B),
               size: 16,
             ),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
                 name,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: TextStyle(
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                  fontSize: 12,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

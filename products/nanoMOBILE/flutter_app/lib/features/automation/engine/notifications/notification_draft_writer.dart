@@ -10,6 +10,8 @@ library;
 import 'dart:async';
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:nanoai/core/models/catalog_models.dart'
+    show ModelBackendType, NeuralCatalog;
 import 'package:nanoai/core/services/generative_inference_port.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/core/services/nano_identity_context.dart';

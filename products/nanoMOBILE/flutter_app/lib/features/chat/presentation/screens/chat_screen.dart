@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,6 +22,10 @@ import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/pdf_report_service.dart';
 import '../../nano_everywhere/nano_floating_wrapper.dart';
+import '../../nano_everywhere/nano_ai_models.dart';
+import 'package:nanoai/features/browser_ai/presentation/sheets/ai_web_sessions_sheet.dart';
+import 'package:nanoai/core/services/chat_history_store.dart';
+import 'package:nanoai/core/widgets/nano_owl_avatar.dart';
 
 /// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
 ///
@@ -30,11 +35,16 @@ import '../../nano_everywhere/nano_floating_wrapper.dart';
 part 'chat_screen_conversation.part.dart';
 part 'chat_screen_attachments.part.dart';
 part 'chat_screen_layout.part.dart';
+part 'chat_screen_composer.part.dart';
+part 'chat_screen_composer_controls.part.dart';
 part 'chat_screen_actions.part.dart';
 part 'chat_screen_menu.part.dart';
+part 'chat_screen_menu_tile.part.dart';
 part 'chat_screen_exports.part.dart';
 part 'chat_screen_landscape.part.dart';
 part 'chat_screen_dialogs.part.dart';
+part 'chat_screen_history.part.dart';
+part 'chat_screen_history_view.part.dart';
 part 'chat_screen_reading_mode.part.dart';
 part 'chat_screen_reading_controls.part.dart';
 part 'chat_screen_reading_text.part.dart';
@@ -50,11 +60,9 @@ class ChatScreen extends ConsumerStatefulWidget {
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
+  final _textController = TextEditingController();
+  final _focusNode = FocusNode();
 
-  // NAV-BAR-FIX-01 — el campo de escritura del chat ES la barra universal del
-  // shell (NanoInputScope). El dictado por voz escribe aquí y viaja a la
-  // barra vía `initialText` del scope (antes iba a un TextEditingController
-  // huérfano que ningún TextField mostraba: la voz estaba rota).
   String _dictatedText = '';
 
   // Voz usa SpeechRecognizer/TTS de Android. Cámara delega en la app del
@@ -74,16 +82,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    _textController.addListener(_onTextChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(forceJump: true));
+  }
+
+  void _onTextChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _partialSub?.cancel();
+    _textController.removeListener(_onTextChanged);
+    _textController.dispose();
+    _focusNode.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  @override
   @override
   Widget build(BuildContext context) => _buildChatScreen(context);
 }

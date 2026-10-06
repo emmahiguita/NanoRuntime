@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_motion.dart';
 import 'package:nanoai/features/home/buho_wallpaper.dart';
 
 /// Lenguaje visual local de Automatización.
@@ -17,6 +18,7 @@ abstract final class AutomationVisual {
   static AutomationVisualMode modeFromSetting(String themeMode) =>
       switch (themeMode) {
         'Claro' => AutomationVisualMode.lightGlass,
+        'Clásico' => AutomationVisualMode.lightGlass,
         'Oscuro' => AutomationVisualMode.dark,
         _ => AutomationVisualMode.system,
       };
@@ -37,8 +39,18 @@ abstract final class AutomationVisual {
     AutomationVisualMode mode,
   ) {
     final inheritedColors = NanoThemeExtension.of(context).colors;
-    final isDark = inheritedColors is NanoDarkColors;
-    final colors = inheritedColors;
+    final isDark = switch (mode) {
+      AutomationVisualMode.lightGlass => false,
+      AutomationVisualMode.dark => true,
+      AutomationVisualMode.system => inheritedColors is NanoDarkColors,
+    };
+    final colors = isDark
+        ? (inheritedColors is NanoDarkColors
+            ? inheritedColors
+            : NanoDarkColors())
+        : (inheritedColors is NanoLightColors
+            ? inheritedColors
+            : NanoLightColors());
     final themeExt = NanoThemeExtension.maybeOf(context);
     final glassOpacity = themeExt?.glassOpacity ?? 0.70;
     final glassClarity = themeExt?.glassClarity ?? 0.85;
@@ -70,14 +82,16 @@ abstract final class AutomationVisual {
             0.98,
           );
 
+    final accentColor = colors.accent;
+
     return AutomationVisualPalette(
       resolvedColors: colors,
       isDark: isDark,
-      accent: isDark ? colors.primary : const Color(0xFF1D6FE8),
+      accent: accentColor,
       onAccent: Colors.white,
       accentSoft: isDark
-          ? colors.primary.withValues(alpha: 0.16)
-          : const Color(0xFFDBEAFE), // Blue 100
+          ? colors.primary.withValues(alpha: 0.20)
+          : colors.primaryContainer,
       canvas: colors.backgroundPrimary,
       surface: isDark
           ? colors.glassPrimary.withValues(alpha: 0.72 * glassOpacity)
@@ -103,7 +117,7 @@ abstract final class AutomationVisual {
           : const Color(0xFFE2E8F0),
       shadow: isDark ? const Color(0x35000000) : const Color(0x0C0F172A),
       shadowSoft: isDark ? const Color(0x200D1F4A) : const Color(0x060F172A),
-      success: colors.success,
+      success: isDark ? const Color(0xFF38BDF8) : const Color(0xFF1D6FE8),
     );
   }
 
@@ -332,6 +346,30 @@ class AutomationSurfaceCard extends StatefulWidget {
 
 class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
   bool _pressed = false;
+  double _tiltX = 0.0;
+  double _tiltY = 0.0;
+
+  void _onPointer(PointerEvent e) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || box.size.isEmpty) return;
+    final local = box.globalToLocal(e.position);
+    setState(() {
+      final nx = local.dx / box.size.width;
+      final ny = local.dy / box.size.height;
+      _tiltY = (nx - 0.5) * 0.045;
+      _tiltX = -(ny - 0.5) * 0.045;
+      _pressed = true;
+    });
+  }
+
+  void _reset() {
+    if (_tiltX == 0 && _tiltY == 0 && !_pressed) return;
+    setState(() {
+      _tiltX = 0.0;
+      _tiltY = 0.0;
+      _pressed = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -431,21 +469,35 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
       ),
     );
 
-    if (widget.onTap != null) {
-      return Listener(
-        onPointerDown: (_) => setState(() => _pressed = true),
-        onPointerUp: (_) => setState(() => _pressed = false),
-        onPointerCancel: (_) => setState(() => _pressed = false),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOutCubic,
-          scale: _pressed ? 0.985 : 1.0,
-          child: card,
-        ),
-      );
-    }
+    final tiltMatrix = (reduceMotion || (_tiltX == 0 && _tiltY == 0))
+        ? Matrix4.identity()
+        : (Matrix4.identity()
+          ..setEntry(3, 2, 0.0012)
+          ..rotateX(_tiltX)
+          ..rotateY(_tiltY));
 
-    return card;
+    final motionCard = AnimatedContainer(
+      duration: _pressed
+          ? NanoMotionDurations.press
+          : const Duration(milliseconds: 320),
+      curve: _pressed ? NanoMotionCurves.press : NanoMotionCurves.glassSpring,
+      transform: tiltMatrix,
+      transformAlignment: Alignment.center,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 140),
+        curve: Curves.easeOutCubic,
+        scale: _pressed ? 0.985 : 1.0,
+        child: card,
+      ),
+    );
+
+    return Listener(
+      onPointerDown: _onPointer,
+      onPointerMove: _onPointer,
+      onPointerUp: (_) => _reset(),
+      onPointerCancel: (_) => _reset(),
+      child: motionCard,
+    );
   }
 }
 

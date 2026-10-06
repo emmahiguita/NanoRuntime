@@ -61,13 +61,47 @@ abstract final class MessagingDedupMerger {
     ConversationSummaryItem b,
   ) => MessagingConversationIdentity.areSame(a, b);
 
+  static bool _isSpurious(ConversationSummaryItem item) {
+    final name = item.displayName.trim().toLowerCase();
+    final convId = item.conversationId.trim().toLowerCase();
+    final lastMsg = item.lastMessage.trim().toLowerCase();
+
+    if (name == '0' || convId == '0' || convId == 'live:0') return true;
+    if (convId.contains('status@broadcast') || convId.contains('@newsletter')) {
+      return true;
+    }
+    if (name == 'actualizaciones de estado' ||
+        name == 'status updates' ||
+        name == 'actualizaciones' ||
+        name == 'novedades') {
+      return true;
+    }
+    if (name.contains('comprobando si hay') ||
+        name.contains('buscando mensajes nuevos')) {
+      return true;
+    }
+    if (lastMsg.contains('le gustó tu estado') ||
+        lastMsg.contains('le gusta tu estado') ||
+        lastMsg.contains('dio me gusta a tu estado') ||
+        lastMsg.contains('reacted to your status') ||
+        lastMsg.contains('replied to your status') ||
+        lastMsg.contains('comprobando si hay') ||
+        lastMsg.contains('buscando mensajes nuevos')) {
+      return true;
+    }
+    return false;
+  }
+
   /// Agrupa equivalencias en O(n²) y fusiona cada componente una sola vez.
   /// Evita el reinicio de recorrido anterior, que podía crecer hasta O(n³).
   static List<ConversationSummaryItem> deduplicateAndSort(
     List<ConversationSummaryItem> input,
   ) {
     final valid = input
-        .where((item) => isSupportedMessagingApp(item.packageName))
+        .where(
+          (item) =>
+              isSupportedMessagingApp(item.packageName) && !_isSpurious(item),
+        )
         .toList();
     final parents = List<int>.generate(valid.length, (index) => index);
 

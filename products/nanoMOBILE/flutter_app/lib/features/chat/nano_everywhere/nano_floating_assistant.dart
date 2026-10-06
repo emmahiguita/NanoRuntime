@@ -9,9 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'nano_ai_controller.dart';
 import 'nano_assistant_panel.dart';
+import 'nano_floating_orb.dart';
 import 'nano_motion.dart';
-import 'nano_owl_alive.dart';
-import 'nano_owl_orbital_ring.dart';
 
 class NanoFloatingAssistant extends StatefulWidget {
   const NanoFloatingAssistant({
@@ -159,59 +158,19 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant> {
                       onVoice: widget.onVoice,
                       onCollapse: _dismissAssistant,
                     )
-                  : Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => expanded = true);
-                          },
-                          onPanStart: (_) => setState(() => _dragging = true),
-                          onPanCancel: () => setState(() => _dragging = false),
-                          onPanUpdate: (d) => setState(() {
-                            position = Offset(
-                              (x + d.delta.dx).clamp(0.0, maxX),
-                              (y + d.delta.dy).clamp(0.0, maxY),
-                            );
-                          }),
-                          onPanEnd: (_) => setState(() => _dragging = false),
-                          child: NanoOwlOrbitalRing(
-                            size: 76,
-                            activity: widget.controller.activity,
-                            child: NanoOwlAlive(
-                              size: 64,
-                              activity: widget.controller.activity,
-                            ),
-                          ),
-                        ),
-                        // Botón de cierre para despedir al Búho cuando está en orbe
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: _dismissAssistant,
-                            child: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: const Color(0xEE090D16),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFF22D3EE).withValues(alpha: 0.5),
-                                  width: 1.2,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 13,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                  : NanoFloatingOrb(
+                      activity: widget.controller.activity,
+                      onTap: () => setState(() => expanded = true),
+                      onDismiss: _dismissAssistant,
+                      onPanStart: (_) => setState(() => _dragging = true),
+                      onPanCancel: () => setState(() => _dragging = false),
+                      onPanUpdate: (d) => setState(() {
+                        position = Offset(
+                          (x + d.delta.dx).clamp(0.0, maxX),
+                          (y + d.delta.dy).clamp(0.0, maxY),
+                        );
+                      }),
+                      onPanEnd: (_) => setState(() => _dragging = false),
                     ),
             ),
           ],

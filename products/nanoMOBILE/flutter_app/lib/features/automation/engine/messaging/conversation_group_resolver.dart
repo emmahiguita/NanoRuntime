@@ -70,13 +70,14 @@ abstract final class ConversationGroupResolver {
     if (isGroupFlag) return true;
     final id = convId.toLowerCase();
     if (id.contains('@g.us') || id.contains('group:')) return true;
-    if (shortcutId != null && shortcutId.toLowerCase().contains('@g.us'))
+    if (shortcutId != null && shortcutId.toLowerCase().contains('@g.us')) {
       return true;
+    }
     if (rawTitle != null && rawTitle.contains(' @ ')) return true;
-    if (conversationTitle != null && conversationTitle.trim().isNotEmpty)
+    if (conversationTitle != null && conversationTitle.trim().isNotEmpty) {
       return true;
-    if (getCachedGroupTitle(convId) != null) return true;
-    return false;
+    }
+    return getCachedGroupTitle(convId) != null;
   }
 
   /// Limpia sufijos de cantidad de mensajes y marcadores técnicos
@@ -117,20 +118,21 @@ abstract final class ConversationGroupResolver {
   static bool isGenericTitle(String? title) {
     if (title == null) return true;
     final lower = title.trim().toLowerCase();
-    if (lower.isEmpty ||
-        lower.startsWith('@') || // Menciones en mensajes (ej: @Infinity)
-        lower == 'grupo de whatsapp' ||
-        lower.startsWith('grupo de whatsapp') ||
+    return lower.isEmpty ||
+        lower == 'tú' ||
+        lower == 'tu' ||
+        lower == 'you' ||
+        lower == 'conversación' ||
+        lower == 'conversacion' ||
+        lower.startsWith('@') ||
         lower == 'grupo' ||
-        lower == 'chat de whatsapp' ||
-        lower.startsWith('contacto whatsapp') ||
-        lower == 'whatsapp' ||
         lower == 'chat' ||
-        RegExp(r'^\d+$').hasMatch(lower) ||
-        lower.contains('@g.us')) {
-      return true;
-    }
-    return false;
+        lower == 'whatsapp' ||
+        lower.startsWith('grupo de whatsapp') ||
+        lower.startsWith('chat de whatsapp') ||
+        lower.startsWith('contacto whatsapp') ||
+        lower.contains('@g.us') ||
+        RegExp(r'^\d+$').hasMatch(lower);
   }
 
   /// Resuelve la tupla (groupTitle, lastSender) a partir de los metadatos disponibles

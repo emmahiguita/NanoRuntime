@@ -11,23 +11,28 @@ class ConversationalSystemResolvers {
   static NativeConversationalResponse resolveGreeting({required bool hasModel}) {
     final hour = DateTime.now().hour;
     final timeGreeting = hour < 12
-        ? '¡Buenos días!'
-        : (hour < 19 ? '¡Buenas tardes!' : '¡Buenas noches!');
+        ? 'Buenos días'
+        : (hour < 19 ? 'Buenas tardes' : 'Buenas noches');
 
-    final variants = [
-      '$timeGreeting Qué gusto leerte. Estoy aquí para conversar o ayudarte con lo que necesites. ¿Cómo estás?',
-      '$timeGreeting ¡Hola! ¿Cómo te va? Cuéntame qué tienes en mente, sin prisa.',
-      '$timeGreeting Me alegra saludarte. ¿Cómo va tu día? Podemos hablar de cualquier tema.',
-    ];
-    final selectedGreeting = variants[(DateTime.now().second) % variants.length];
+    if (hasModel) {
+      return NativeConversationalResponse(
+        text: '$timeGreeting. Modelo local listo para razonar. ¿En qué te colaboro hoy?',
+        suggestions: const [
+          '¿Qué puedes hacer?',
+          'Escribe un resumen',
+          'Genera código',
+          '⚡ Estado del Dispositivo',
+        ],
+      );
+    }
 
     return NativeConversationalResponse(
-      text: selectedGreeting,
+      text: '$timeGreeting. Nano está operativo en modo nativo. Puedes gestionar el sistema, Linux y automatizaciones, o seleccionar un modelo para razonar offline.',
       suggestions: const [
-        'Estoy bien, gracias',
-        'Quiero conversar un rato',
-        'Tengo una pregunta',
-        'Ayúdame con algo',
+        '🤖 Catálogo de Modelos',
+        '⚡ Estado del Dispositivo',
+        '💻 Abrir Linux',
+        '🛠️ ¿Qué puedes hacer?',
       ],
     );
   }

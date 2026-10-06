@@ -1,15 +1,31 @@
 part of 'chat_screen.dart';
 
+// QUÉ HACE:
+// Orquesta la disposición visual principal de la pantalla de chat en modo vertical (Portrait).
+//
+// CÓMO FUNCIONA:
+// - Supervisa el flujo de mensajes y estado de generación conectando listeners a `chatProvider`.
+// - Delega la composición inferior a `_buildComposerBar` (en `chat_screen_composer.part.dart`).
+// - Cambia limpiamente al modo lectura `_ReadingMode` o al modo horizontal `_buildLandscapeChat`.
+// - Sincroniza el búho flotante con el estado de inferencia local.
+//
+// POR QUÉ:
+// Aplica principios SOLID y Clean Architecture (< 120 líneas), garantizando separación estricta
+// de responsabilidades, evitando cuellos de botella en la renderización y previniendo procesos zombies.
 extension _ChatScreenLayout on _ChatScreenState {
+  /// QUÉ HACE: Construye la estructura visual principal del chat con shell, mensajes y composer.
+  /// CÓMO FUNCIONA: Escucha cambios de generación para auto-scroll y actualiza la actividad del búho.
+  /// POR QUÉ: Ofrece una experiencia responsiva tanto en teléfonos verticales como al rotar la pantalla.
   Widget _buildChatScreen(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final state = ref.watch(chatProvider);
     final notifier = ref.read(chatProvider.notifier);
     final mediaQuery = MediaQuery.of(context);
     final screenSize = mediaQuery.size;
+
     // ORIENTATION-FIX: usa Orientation real del dispositivo (no width > height).
     // El teclado reduce la altura disponible en portrait, lo que hace que
-    // width > height sea verdadero erróneamente y activa el layout landscape.
+    // width > height sea verdadero erróneamente y activaría el layout landscape por error.
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
     final isCompactLandscape = isLandscape && screenSize.height < 520;
@@ -18,11 +34,14 @@ extension _ChatScreenLayout on _ChatScreenState {
     ref.listen(chatProvider.select((s) => s.messages.length), (_, __) {
       _scrollToBottom();
     });
-    ref.listen(chatProvider.select((s) => s.generating), (_, __) {
+    ref.listen(chatProvider.select((s) => s.generating), (_, next) {
       _scrollToBottom();
+      // Sincronizar el búho flotante con la generación del chat
+      NanoFloatingWrapper.activeController?.setActivity(
+        next ? NanoActivity.thinking : NanoActivity.idle,
+      );
     });
-    // Política §12: el tool-calling pidió una escritura externa — diálogo de
-    // confirmación obligatorio (sin dismiss lateral: decisión del humano).
+    // Política §12: confirmación obligatoria para tool-calling en dispositivo.
     ref.listen(chatProvider.select((s) => s.pendingTool), (prev, next) {
       if (next != null && prev != next) {
         _showToolConfirmDialog(next);
@@ -32,36 +51,31 @@ extension _ChatScreenLayout on _ChatScreenState {
     return NanoInputScope(
       scopeId: 'chat',
       hint: 'Escribe un mensaje a Nano AI...',
-      // NAV-BAR-FIX-01 — el texto dictado llega a la barra universal por aquí.
+      controller: _textController,
+      focusNode: _focusNode,
       initialText: _dictatedText.isEmpty ? null : _dictatedText,
       onSubmit: (text) {
         notifier.send(text);
-        // El envío consumió el dictado: la barra se limpia sola (clearOnSubmit).
+        _textController.clear();
         setState(() => _dictatedText = '');
       },
       onVoice: _toggleMic,
       onAttach: _attachFile,
       isGenerating: state.generating,
-      // NAV-BAR-FIX-05 — el orbe de la barra refleja el estado real del
-      // micrófono (stop rojo pulsante mientras escucha).
       isListening: _listening,
       onStop: notifier.stop,
       keepFocusOnSubmit: true,
-      // En horizontal el compositor no se oculta solo: escribir y enviar
-      // sigue disponible sin depender de una píldora minimizada.
       keepDockVisible: true,
       child: NanoScreenShell(
         title: 'Chat',
         hideHeader: _isReadingMode,
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         trailing: _isReadingMode
             ? null
             : _chatActions(state, notifier, colors, landscape: isLandscape),
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // QUÉ HACE: usa la superficie del tema como lienzo sólido del chat.
-            // POR QUÉ: elimina el degradado decorativo que ensucia la lectura.
             Positioned.fill(
               child: RepaintBoundary(
                 child: ColoredBox(color: Theme.of(context).colorScheme.surface),
@@ -76,35 +90,26 @@ extension _ChatScreenLayout on _ChatScreenState {
                     )
                   : isLandscape
                   ? _buildLandscapeChat(state, notifier, mediaQuery)
-                  : Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: isCompactLandscape ? 1440 : 1400,
-                        ),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
+                  : Column(
+                      children: [
+                        Expanded(
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: isCompactLandscape ? 1440 : 1400,
+                              ),
                               child: _messageList(
                                 state,
                                 notifier,
-                                bottomPadding: kNanoBarScrollReserve,
+                                bottomPadding: 16.0,
                                 emptyBottomPadding: 24,
                                 sidePadding: isCompactLandscape ? 10.0 : 18.0,
                               ),
                             ),
-                            if (state.attachments.isNotEmpty)
-                              Positioned(
-                                left: isCompactLandscape ? 12 : 24,
-                                right: isCompactLandscape ? 12 : 24,
-                                bottom: 12,
-                                child: _AttachmentPillsStrip(
-                                  attachments: state.attachments,
-                                  onRemove: notifier.removeAttachment,
-                                ),
-                              ),
-                          ],
+                          ),
                         ),
-                      ),
+                        _buildComposerBar(context, state, notifier, colors),
+                      ],
                     ),
             ),
           ],

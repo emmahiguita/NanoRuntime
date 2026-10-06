@@ -18,12 +18,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../application/whatsapp_contacts_provider.dart';
-import '../../engine/messaging/conversation_agent.dart';
-import '../../engine/messaging/conversation_hub_providers.dart';
-import '../widgets/conversation_detail_sheet.dart';
 import 'messaging_center_banners.dart';
+import 'messaging_error_card.dart';
+import 'messaging_contact_selection_list.dart';
 import 'messaging_contacts_policy_bar.dart';
-import 'whatsapp_contact_card.dart';
 
 class MessagingContactsView extends ConsumerWidget {
   const MessagingContactsView({super.key});
@@ -37,160 +35,160 @@ class MessagingContactsView extends ConsumerWidget {
     return hasPermissionAsync.when(
       data: (hasPermission) {
         if (!hasPermission) {
-          return MessagingPermissionBanner(
-            icon: Icons.contacts_rounded,
-            color: const Color(0xFF25D366),
-            title: 'Permiso de Contactos requerido',
-            subtitle:
-                'NanoAI necesita permiso de lectura de contactos para encontrar tus chats de WhatsApp.',
-            actionLabel: 'Permitir acceso',
-            onAction: () async {
-              await ref
-                  .read(whatsappContactsServiceProvider)
-                  .requestPermission();
-              ref.invalidate(contactsPermissionProvider);
-              ref.invalidate(allWhatsAppContactsProvider);
-            },
+          return SliverToBoxAdapter(
+            child: MessagingPermissionBanner(
+              icon: Icons.contacts_rounded,
+              color: const Color(0xFF25D366),
+              title: 'Permiso de Contactos requerido',
+              subtitle:
+                  'NanoAI necesita permiso de lectura de contactos para encontrar tus chats de WhatsApp.',
+              actionLabel: 'Permitir acceso',
+              onAction: () async {
+                await ref
+                    .read(whatsappContactsServiceProvider)
+                    .requestPermission();
+                ref.invalidate(contactsPermissionProvider);
+                ref.invalidate(allWhatsAppContactsProvider);
+              },
+            ),
           );
         }
 
         if (allContactsAsync.isLoading) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: Color(0xFF25D366)),
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final colors = NanoThemeExtension.of(context).colors;
+          return SliverToBoxAdapter(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: CircularProgressIndicator(
+                  color: isDark ? const Color(0xFF25D366) : colors.primary,
+                ),
+              ),
             ),
           );
         }
 
         if (allContactsAsync.hasError) {
-          return MessagingErrorCard(
-            error: allContactsAsync.error.toString(),
-            onRetry: () => ref.invalidate(allWhatsAppContactsProvider),
+          return SliverToBoxAdapter(
+            child: MessagingErrorCard(
+              error: allContactsAsync.error.toString(),
+              onRetry: () => ref.invalidate(allWhatsAppContactsProvider),
+            ),
           );
         }
 
         if (contacts.isEmpty) {
-          return _buildEmptyContacts(ref);
+          return _buildEmptyContacts(context, ref);
         }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const MessagingContactsPolicyBar(),
-            MessagingSectionLabel(
-              icon: Icons.people_alt_rounded,
-              iconColor: const Color(0xFF25D366),
-              label: 'Contactos de WhatsApp',
-              count: contacts.length,
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final colors = NanoThemeExtension.of(context).colors;
+        final brandGreen = isDark ? const Color(0xFF25D366) : colors.primary;
+
+        return SliverMainAxisGroup(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const MessagingContactsPolicyBar(),
+                  MessagingSectionLabel(
+                    icon: Icons.people_alt_rounded,
+                    iconColor: brandGreen,
+                    label: 'Contactos de WhatsApp',
+                    count: contacts.length,
+                  ),
+                  const SizedBox(height: NanoSpacing.xs),
+                ],
+              ),
             ),
-            const SizedBox(height: NanoSpacing.xs),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: contacts.length,
-              itemBuilder: (context, index) {
-                final contact = contacts[index];
-                return WhatsAppContactCard(
-                  contact: contact,
-                  onTap: () {
-                    // Crea un item fidedigno con el JID y número del contacto
-                    final item = ConversationSummaryItem(
-                      conversationId: contact.jid,
-                      displayName: contact.name,
-                      packageName: contact.isBusiness
-                          ? 'com.whatsapp.w4b'
-                          : 'com.whatsapp',
-                      lastMessage: contact.number.isNotEmpty
-                          ? contact.number
-                          : contact.jid,
-                      lastAtMs: DateTime.now().millisecondsSinceEpoch,
-                      agentId: ConversationAgentId.personal,
-                    );
-                    ConversationDetailSheet.show(context, item);
-                  },
-                );
-              },
-            ),
+            MessagingContactSelectionList(contacts: contacts),
           ],
         );
       },
-      loading: () => const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(color: Color(0xFF25D366)),
+      loading: () => const SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(color: Color(0xFF25D366)),
+          ),
         ),
       ),
-      error: (e, _) => MessagingErrorCard(
-        error: e.toString(),
-        onRetry: () => ref.invalidate(allWhatsAppContactsProvider),
+      error: (e, _) => SliverToBoxAdapter(
+        child: MessagingErrorCard(
+          error: e.toString(),
+          onRetry: () => ref.invalidate(allWhatsAppContactsProvider),
+        ),
       ),
     );
   }
 
-  Widget _buildEmptyContacts(WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
-      alignment: Alignment.center,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: const Color(0xFF25D366).withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF25D366).withValues(alpha: 0.3),
+  Widget _buildEmptyContacts(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = NanoThemeExtension.of(context).colors;
+    final brandGreen = isDark ? const Color(0xFF25D366) : colors.primary;
+
+    return SliverToBoxAdapter(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: brandGreen.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: brandGreen.withValues(alpha: 0.3)),
+              ),
+              child: Center(
+                child: Icon(
+                  Icons.contact_phone_rounded,
+                  size: 30,
+                  color: brandGreen,
+                ),
               ),
             ),
-            child: const Center(
-              child: Icon(
-                Icons.contact_phone_rounded,
-                size: 30,
-                color: Color(0xFF25D366),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'No se encontraron contactos de WhatsApp',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Asegúrate de tener contactos guardados con cuenta de WhatsApp en tu teléfono.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
-              fontSize: 13,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextButton.icon(
-            onPressed: () {
-              ref.invalidate(allWhatsAppContactsProvider);
-            },
-            icon: const Icon(
-              Icons.refresh_rounded,
-              size: 16,
-              color: Color(0xFF25D366),
-            ),
-            label: const Text(
-              'Actualizar contactos',
+            const SizedBox(height: 16),
+            Text(
+              'No se encontraron contactos de WhatsApp',
               style: TextStyle(
-                color: Color(0xFF25D366),
-                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : colors.onSurface,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 6),
+            Text(
+              'Asegúrate de tener contactos guardados con cuenta de WhatsApp en tu teléfono.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.5)
+                    : colors.onSurfaceVariant,
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextButton.icon(
+              onPressed: () {
+                ref.invalidate(allWhatsAppContactsProvider);
+              },
+              icon: Icon(Icons.refresh_rounded, size: 16, color: brandGreen),
+              label: Text(
+                'Actualizar contactos',
+                style: TextStyle(
+                  color: brandGreen,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -58,6 +58,8 @@ class DatabaseStudioPortraitView extends StatelessWidget {
           errorMessage: state.errorMessage,
           statusMessage: state.statusMessage,
           latencyMs: state.queryResult?.executionTimeMs,
+          isLiveSyncActive: state.isLiveSyncActive,
+          onSyncNow: controller.syncGoogleSheetsNow,
           colors: colors,
         ),
 
@@ -66,6 +68,11 @@ class DatabaseStudioPortraitView extends StatelessWidget {
           child: DatabaseWorkspaceTabs(
             table: state.activeDisplayTable,
             colors: colors,
+            onCellEdit: (row, col, val) => controller.updateTableCell(
+              rowIndex: row,
+              columnIndex: col,
+              value: val,
+            ),
           ),
         ),
       ],

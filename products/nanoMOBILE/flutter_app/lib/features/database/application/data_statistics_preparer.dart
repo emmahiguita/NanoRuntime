@@ -11,6 +11,7 @@ typedef PreparedStatistics = ({
   String? categoryColumn,
   List<CategoryFrequency> categories,
   List<String> seriesLabels,
+  String? seriesLabelColumn,
   List<ColumnQuality> quality,
 });
 
@@ -53,26 +54,55 @@ abstract final class DataStatisticsPreparer {
     }
 
     final category = _categoryDistribution(table, numericValues.keys.toSet());
+    final seriesLabelColumn = _seriesLabelColumn(
+      table,
+      numericValues.keys.toSet(),
+      category.$1,
+    );
     return (
       numericValues: numericValues,
       nullCells: nullCells,
       categoryColumn: category.$1,
       categories: category.$2,
-      seriesLabels: _seriesLabels(table, numericValues, category.$1),
+      seriesLabels: _seriesLabels(table, numericValues, seriesLabelColumn),
+      seriesLabelColumn: seriesLabelColumn,
       quality: quality,
     );
+  }
+
+  // Prefiere una columna temporal verificable; si no existe usa la categoría.
+  static String? _seriesLabelColumn(
+    DataTable table,
+    Set<String> numeric,
+    String? fallback,
+  ) {
+    for (var index = 0; index < table.columns.length; index++) {
+      if (numeric.contains(table.columns[index])) continue;
+      var populated = 0, temporal = 0;
+      for (final row in table.rows.take(80)) {
+        if (index >= row.length || row[index] == null) continue;
+        final value = '${row[index]}'.trim();
+        if (value.isEmpty) continue;
+        populated++;
+        if (DateTime.tryParse(value) != null) temporal++;
+      }
+      if (populated > 0 && temporal / populated >= 0.8) {
+        return table.columns[index];
+      }
+    }
+    return fallback;
   }
 
   // Alinea cada etiqueta con una fila numérica válida de la primera serie.
   static List<String> _seriesLabels(
     DataTable table,
     Map<String, List<double>> numericValues,
-    String? categoryColumn,
+    String? labelColumn,
   ) {
     final seriesIndex = table.columns.indexOf(
       numericValues.keys.firstOrNull ?? '',
     );
-    final labelIndex = table.columns.indexOf(categoryColumn ?? '');
+    final labelIndex = table.columns.indexOf(labelColumn ?? '');
     final labels = <String>[];
     if (seriesIndex < 0) return labels;
     for (final row in table.rows) {

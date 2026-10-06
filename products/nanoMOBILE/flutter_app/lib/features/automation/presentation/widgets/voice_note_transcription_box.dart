@@ -24,15 +24,21 @@ class VoiceNoteTranscriptionBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (text.isEmpty) return const SizedBox.shrink();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentGreen = isDark ? const Color(0xFF00FF88) : const Color(0xFF059669);
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.35)
+            : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.15),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.15)
+              : const Color(0x33CBD5E1),
           width: 0.6,
         ),
       ),
@@ -43,14 +49,14 @@ class VoiceNoteTranscriptionBox extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.notes_rounded, color: Color(0xFF00FF88), size: 12),
-                  SizedBox(width: 4),
+                  Icon(Icons.notes_rounded, color: accentGreen, size: 12),
+                  const SizedBox(width: 4),
                   Text(
                     'Transcripción en tiempo real',
                     style: TextStyle(
-                      color: Color(0xFF00FF88),
+                      color: accentGreen,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -69,11 +75,11 @@ class VoiceNoteTranscriptionBox extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const Padding(
-                    padding: EdgeInsets.all(2),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
                     child: Icon(
                       Icons.copy_rounded,
-                      color: Colors.white60,
+                      color: isDark ? Colors.white60 : const Color(0xFF64748B),
                       size: 13,
                     ),
                   ),
@@ -84,8 +90,8 @@ class VoiceNoteTranscriptionBox extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             text,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
               fontSize: 12,
               height: 1.3,
             ),

@@ -37,14 +37,14 @@ class SettingsRepository {
     }
     try {
       final m = jsonDecode(json) as Map<String, dynamic>;
-      // DARK-ONLY (decisión del dueño, 2026-09-05, confirmada en validación):
-      // cualquier valor que no sea 'Oscuro' (ausente, 'Sistema' de defaults
-      // viejos o 'Claro' guardado) se carga como 'Oscuro'. El dispositivo
-      // quedó en claro por valores heredados y el usuario percibía las
-      // superficies claras como "pantalla gris" al navegar. El selector de
-      // tema sigue disponible en Ajustes para cambios futuros conscientes.
+      // TEMA: Carga 'Oscuro', 'Claro' (Blanco y Verde), 'Clásico' (Blanco y Azul) o 'Sistema'.
+      // Default: 'Oscuro' si no hay valor previo configurado.
+      final savedTheme = m['themeMode'] as String? ?? 'Oscuro';
+      final validTheme = (savedTheme == 'Claro' || savedTheme == 'Clásico' || savedTheme == 'Sistema')
+          ? savedTheme
+          : 'Oscuro';
       return SettingsState(
-        themeMode: 'Oscuro',
+        themeMode: validTheme,
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
@@ -403,9 +403,9 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
   final settings = ref.watch(settingsProvider);
   return settings.themeMode == 'Oscuro'
       ? ThemeMode.dark
-      : settings.themeMode == 'Claro'
-      ? ThemeMode.light
-      : ThemeMode.system;
+      : (settings.themeMode == 'Claro' || settings.themeMode == 'Clásico')
+          ? ThemeMode.light
+          : ThemeMode.system;
 });
 
 /// Deserializa AutomationModelMode por nombre, degradando a sameAsChat si el

@@ -77,22 +77,28 @@ class _TerminalHubScreenState extends State<TerminalHubScreen> {
         ],
         actionLabel: 'Administrar Entornos',
       ),
+      // MÓDULO VISOR LINUX (GUI / X11 VNC) — OPCIONAL BAJO DEMANDA
+      // QUÉ HACE:
+      // Ofrece acceso al escritorio gráfico X11 remoto mediante un cliente RFB 3.8.
+      // POR QUÉ ES OPCIONAL:
+      // Para desarrollo y automatización el Modo Terminal es suficiente y 10x más ligero.
+      // Este módulo se mantiene disponible para usuarios que requieran software estrictamente gráfico.
       TerminalHubCard(
         id: 'visor_linux',
-        title: 'Visor Linux',
-        eyebrow: 'ESCRITORIO',
+        title: 'Visor Linux (GUI)',
+        eyebrow: 'ESCRITORIO (OPCIONAL)',
         description:
-            'Prepara el escritorio gráfico X11 y abre el visor remoto VNC con aceleración.',
+            'Entorno gráfico X11 y visor remoto VNC bajo demanda. Opcional para apps de escritorio.',
         icon: Icons.desktop_windows_rounded,
         accent: colors.tertiary,
         imageAsset: 'assets/promo/ad3.jpg',
         route: '/desktop',
         highlights: const [
-          'Streaming de escritorio gráfico con latencia ultrabaja',
-          'Soporte de gestos táctiles y teclado físico Bluetooth',
-          'Resolución adaptable y escalado de pantalla nítido',
+          'Opcional bajo demanda: no consume recursos hasta activarse',
+          'Soporte de gestos táctiles, trackpad virtual y teclado físico',
+          'Aceleración de renderizado RFB con zoom dinámico',
         ],
-        actionLabel: 'Iniciar Visor Gráfico',
+        actionLabel: 'Abrir Visor Opcional',
       ),
       TerminalHubCard(
         id: 'data_studio',

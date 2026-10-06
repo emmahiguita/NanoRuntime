@@ -7,18 +7,24 @@ library;
 import 'registry/deepseek_source_definitions.dart';
 import 'registry/edge_other_definitions.dart';
 import 'registry/model_source_definition.dart';
+import 'registry/mobile_litert_definitions.dart';
 import 'registry/qwen_compact_definitions.dart';
 import 'registry/qwen_heavy_definitions.dart';
+import 'registry/qwen_litert_definition.dart';
 import 'registry/qwen_mid_definitions.dart';
+import 'registry/qwen_omni_definition.dart';
 
 export 'registry/model_source_definition.dart';
 
 abstract final class ModelSourceRegistry {
   static final Map<String, ModelSourceDefinition> registry = {
+    ...mobileLiteRtDefinitions,
     ...deepseekSourceDefinitions,
     ...qwenCompactDefinitions,
     ...qwenMidDefinitions,
     ...qwenHeavyDefinitions,
+    ...qwenLiteRtDefinition,
+    ...qwenOmniDefinition,
     ...edgeOtherDefinitions,
   };
 

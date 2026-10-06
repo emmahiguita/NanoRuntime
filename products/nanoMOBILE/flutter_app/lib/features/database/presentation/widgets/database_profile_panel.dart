@@ -62,7 +62,10 @@ class DatabaseProfilePanel extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Completitud general', style: TextStyle(fontWeight: FontWeight.w800)),
+              const Text(
+                'Completitud general',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
               Text(
                 '${(data.completeness * 100).toStringAsFixed(1)}% · '
                 '${data.nullCells} celdas vacías',
@@ -86,10 +89,16 @@ class DatabaseProfilePanel extends StatelessWidget {
           children: [
             // Nombre de la columna a la izquierda
             Expanded(
-              child: Text(column.column, style: const TextStyle(fontWeight: FontWeight.w700)),
+              child: Text(
+                column.column,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
             // Tipo detectado a la derecha (TEXT, INTEGER, REAL…)
-            Text(column.detectedType, style: TextStyle(fontSize: 11, color: colors.accent)),
+            Text(
+              column.detectedType,
+              style: TextStyle(fontSize: 11, color: colors.accent),
+            ),
           ],
         ),
         const SizedBox(height: 9),

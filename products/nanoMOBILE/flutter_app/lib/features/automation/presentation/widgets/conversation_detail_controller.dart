@@ -1,23 +1,16 @@
 part of 'conversation_detail_sheet.dart';
 
-/// [ConversationDetailController]
-///
-/// QUÉ HACE:
-/// Administra el estado de propiedad de la conversación (Humano vs Bot), la transferencia
-/// entre agentes especializados y la generación de sugerencias IA locales multimodales.
-///
-/// CÓMO FUNCIONA:
-/// 1. `_toggleOwnership`: Alterna y persiste en SQLite si la conversación está en manos del
-///    dueño humano o si Nano AI tiene autorización de responder automáticamente.
-/// 2. `_transferAgent`: Cambia el bot/agente asignado (ej: Ventas, Soporte, Personal) migrando
-///    únicamente el contexto imprescindible para evitar contaminación cruzada de memoria.
-/// 3. `_generateAiSuggestion`: prioriza el compositor contextual; el generador
-///    determinista solo agrega variantes cuando existen hechos comerciales reales.
-///
-/// POR QUÉ:
-/// Desacopla la lógica de control y generación IA de la presentación gráfica, manteniendo
-/// cada archivo con una sola responsabilidad y por debajo del límite de 200 líneas.
+/// Gestiona el dueño del chat, la transferencia de agente y sugerencias.
+/// Cada acción persiste su estado y usa el compositor de respuestas real.
 extension ConversationDetailController on _ConversationDetailSheetState {
+  // Repara al reabrir la conversación el vínculo Bot → regla de notificación.
+  void _restoreWhatsAppAutomation() {
+    if (_isHumanOwned) return;
+    unawaited(_ensureWhatsAppRule().catchError((Object error) {
+      if (mounted) setState(() => _statusText = 'IA no activada: $error');
+    }));
+  }
+
   Future<void> _toggleOwnership(bool human) async {
     final previous = _isHumanOwned;
     setState(() {
@@ -40,6 +33,8 @@ extension ConversationDetailController on _ConversationDetailSheetState {
       if (conversationIds.isEmpty) {
         throw StateError('La conversación no tiene identidad técnica');
       }
+      // Evita guardar ownership Bot si no pudo quedar activo su disparador.
+      if (!human) await _ensureWhatsAppRule();
       for (final conversationId in conversationIds) {
         await store.setOwner(conversationId, newOwner);
       }
@@ -58,6 +53,19 @@ extension ConversationDetailController on _ConversationDetailSheetState {
         _statusText = 'No se pudo cambiar el control: $error';
       });
     }
+  }
+
+  // Sincroniza el Bot visible con la regla que admite notificaciones reales.
+  Future<void> _ensureWhatsAppRule() async {
+    final packageName = widget.item.packageName;
+    if (packageName != MessagingPackage.whatsapp &&
+        packageName != MessagingPackage.whatsappBusiness) {
+      return;
+    }
+    final registry = ref.read(ruleRegistryProvider);
+    await registry.load();
+    registry.seedWhatsAppRule(packageName);
+    await registry.flush();
   }
 
   Future<void> _transferAgent(ConversationAgentId target) async {
@@ -157,20 +165,13 @@ extension ConversationDetailController on _ConversationDetailSheetState {
               facts: businessFacts,
             )
           : const <String>[];
-      for (final opt in generated) {
-        if (!allOptions.contains(opt)) {
-          allOptions.add(opt);
-        }
-      }
-
-      final uniqueOptions = <String>[];
-      for (final opt in allOptions) {
-        final clean = opt.trim();
-        if (clean.isNotEmpty && !uniqueOptions.contains(clean)) {
-          uniqueOptions.add(clean);
-        }
-        if (uniqueOptions.length >= 6) break;
-      }
+      allOptions.addAll(generated.where((opt) => !allOptions.contains(opt)));
+      final uniqueOptions = allOptions
+          .map((o) => o.trim())
+          .where((o) => o.isNotEmpty)
+          .toSet()
+          .take(6)
+          .toList();
 
       if (mounted) {
         setState(() {

@@ -5,13 +5,13 @@ import 'dart:convert';
 ///
 /// CÓMO FUNCIONA:
 /// Modela los atributos elementales de identidad provistos por el proveedor
-/// de autenticación (Firebase UID, email, nombre y estado de verificación).
+/// de autenticación (UID del proveedor, email, nombre y estado de verificación).
 /// Es una entidad inmutable pura sin dependencias de infraestructura ni frameworks.
 ///
 /// POR QUÉ:
 /// Cumple con Clean Architecture (Domain Layer): aísla la lógica de negocio
-/// de las clases de Firebase Auth (`User`), permitiendo pruebas unitarias limpias
-/// y portabilidad a otros mecanismos de identidad si fuera necesario.
+/// de las clases de cualquier SDK de autenticación, manteniendo el dominio
+/// independiente de la infraestructura.
 class AuthUser {
   final String uid;
   final String email;

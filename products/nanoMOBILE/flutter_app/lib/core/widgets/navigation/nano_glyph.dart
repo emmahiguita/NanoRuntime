@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'nano_nav_tokens.dart';
 
 enum NanoGlyphType {
@@ -36,12 +37,7 @@ enum NanoGlyphType {
   cpu,
 }
 
-enum NanoIconState {
-  normal,
-  active,
-  selected,
-  disabled,
-}
+enum NanoIconState { normal, active, selected, disabled }
 
 /// Componente centralizado de iconografía Nano Design System v1.
 ///
@@ -71,7 +67,8 @@ class NanoIcon extends StatefulWidget {
   State<NanoIcon> createState() => _NanoIconState();
 }
 
-class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin {
+class _NanoIconState extends State<NanoIcon>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
   late final Animation<double> _scale;
 
@@ -82,9 +79,10 @@ class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    _scale = Tween<double>(begin: 1.0, end: 0.965).animate(
-      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 0.965,
+    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -111,17 +109,22 @@ class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = NanoNavTokens.activeAccent(Theme.of(context).brightness);
-    final effectiveColor = widget.color ??
-        (widget.state == NanoIconState.selected || widget.state == NanoIconState.active
+    final themeColors = Theme.of(context).extension<NanoThemeExtension>()?.colors;
+    final themeColor = themeColors?.accent ?? NanoNavTokens.activeAccent(Theme.of(context).brightness);
+    final effectiveColor =
+        widget.color ??
+        (widget.state == NanoIconState.selected ||
+                widget.state == NanoIconState.active
             ? themeColor
             : (widget.state == NanoIconState.disabled
-                ? Colors.grey.withValues(alpha: 0.4)
-                : (Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFFE6EDF6)
-                    : const Color(0xFF0F172A))));
-    final effectiveGlow = widget.glow ??
-        (widget.state == NanoIconState.active || widget.state == NanoIconState.selected);
+                  ? Colors.grey.withValues(alpha: 0.4)
+                  : (Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFE6EDF6)
+                        : const Color(0xFF0F172A))));
+    final effectiveGlow =
+        widget.glow ??
+        (widget.state == NanoIconState.active ||
+            widget.state == NanoIconState.selected);
 
     Widget iconWidget = NanoGlyph(
       type: widget.type,
@@ -140,10 +143,8 @@ class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin
         behavior: HitTestBehavior.opaque,
         child: AnimatedBuilder(
           animation: _scale,
-          builder: (context, child) => Transform.scale(
-            scale: _scale.value,
-            child: child,
-          ),
+          builder: (context, child) =>
+              Transform.scale(scale: _scale.value, child: child),
           child: iconWidget,
         ),
       );
@@ -345,10 +346,7 @@ class _NanoGlyphPainter extends CustomPainter {
     final door = Path()
       ..moveTo(w * .41, h * .82)
       ..lineTo(w * .41, h * .62)
-      ..arcToPoint(
-        Offset(w * .59, h * .62),
-        radius: Radius.circular(w * .09),
-      )
+      ..arcToPoint(Offset(w * .59, h * .62), radius: Radius.circular(w * .09))
       ..lineTo(w * .59, h * .82);
     c.drawPath(door, stroke);
   }
@@ -480,14 +478,30 @@ class _NanoGlyphPainter extends CustomPainter {
     final p = Path()
       ..moveTo(w * .65, h * .38)
       ..lineTo(w * .40, h * .63)
-      ..arcToPoint(Offset(w * .28, h * .63), radius: Radius.circular(w * .08), clockwise: false)
-      ..arcToPoint(Offset(w * .28, h * .51), radius: Radius.circular(w * .08), clockwise: false)
+      ..arcToPoint(
+        Offset(w * .28, h * .63),
+        radius: Radius.circular(w * .08),
+        clockwise: false,
+      )
+      ..arcToPoint(
+        Offset(w * .28, h * .51),
+        radius: Radius.circular(w * .08),
+        clockwise: false,
+      )
       ..lineTo(w * .56, h * .23)
       ..arcToPoint(Offset(w * .74, h * .23), radius: Radius.circular(w * .12))
       ..arcToPoint(Offset(w * .74, h * .41), radius: Radius.circular(w * .12))
       ..lineTo(w * .46, h * .69)
-      ..arcToPoint(Offset(w * .28, h * .69), radius: Radius.circular(w * .12), clockwise: false)
-      ..arcToPoint(Offset(w * .20, h * .51), radius: Radius.circular(w * .16), clockwise: false)
+      ..arcToPoint(
+        Offset(w * .28, h * .69),
+        radius: Radius.circular(w * .12),
+        clockwise: false,
+      )
+      ..arcToPoint(
+        Offset(w * .20, h * .51),
+        radius: Radius.circular(w * .16),
+        clockwise: false,
+      )
       ..lineTo(w * .20, h * .45);
     c.drawPath(p, stroke);
   }
@@ -584,7 +598,11 @@ class _NanoGlyphPainter extends CustomPainter {
       ..close();
     c.drawPath(p, stroke);
     c.drawArc(
-      Rect.fromCenter(center: Offset(w * .50, h * .68), width: w * .20, height: h * .16),
+      Rect.fromCenter(
+        center: Offset(w * .50, h * .68),
+        width: w * .20,
+        height: h * .16,
+      ),
       0,
       3.14159,
       false,
@@ -681,14 +699,22 @@ class _NanoGlyphPainter extends CustomPainter {
       ..close();
     c.drawPath(p, stroke);
     c.drawArc(
-      Rect.fromCenter(center: Offset(w * .48, h * .50), width: w * .32, height: h * .36),
+      Rect.fromCenter(
+        center: Offset(w * .48, h * .50),
+        width: w * .32,
+        height: h * .36,
+      ),
       -0.9,
       1.8,
       false,
       stroke,
     );
     c.drawArc(
-      Rect.fromCenter(center: Offset(w * .48, h * .50), width: w * .52, height: h * .56),
+      Rect.fromCenter(
+        center: Offset(w * .48, h * .50),
+        width: w * .52,
+        height: h * .56,
+      ),
       -0.9,
       1.8,
       false,

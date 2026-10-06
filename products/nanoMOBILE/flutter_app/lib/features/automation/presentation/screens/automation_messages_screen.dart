@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 
@@ -64,34 +63,14 @@ class _AutomationMessagesBody extends StatelessWidget {
                   // (mismo patrón documentado en Chat).
                   resizeToAvoidBottomInset: false,
                   body: LayoutBuilder(
-                    builder: (context, constraints) {
-                      // QUÉ HACE: Adapta la reserva inferior de scroll según la orientación de pantalla.
-                      // CÓMO: Detecta landscape y usa kNanoBarScrollReserveLandscape (76dp) en vez de portrait (200dp).
-                      // POR QUÉ: En landscape, 200dp ocupaba más del 50% de la altura útil de la pantalla mobile.
-                      final isLandscape =
-                          MediaQuery.orientationOf(context) ==
-                          Orientation.landscape;
-                      final bottomReserve = isLandscape
-                          ? kNanoBarScrollReserveLandscape
-                          : kNanoBarScrollReserve;
-                      return SingleChildScrollView(
-                        keyboardDismissBehavior:
-                            ScrollViewKeyboardDismissBehavior.onDrag,
-                        padding: EdgeInsets.fromLTRB(
-                          NanoSpacing.md,
-                          isLandscape ? NanoSpacing.xs : NanoSpacing.md,
-                          NanoSpacing.md,
-                          bottomReserve,
-                        ),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              maxWidth: AutomationLayout.contentMaxWidth(
-                                context,
-                              ),
-                            ),
-                            child: const MessagingCenterView(),
+                    builder: (context, _) {
+                      // El Centro administra un solo scroll perezoso para mensajes.
+                      return Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: AutomationLayout.contentMaxWidth(context),
                           ),
+                          child: const MessagingCenterView(),
                         ),
                       );
                     },

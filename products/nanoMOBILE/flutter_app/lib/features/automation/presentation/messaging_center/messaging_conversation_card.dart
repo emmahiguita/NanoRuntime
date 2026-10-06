@@ -5,7 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
-
+import '../../../../core/theme/design_tokens.dart';
 import '../../domain/messaging_platform.dart';
 import '../../engine/language/conversation_semantic_tag.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
@@ -29,6 +29,10 @@ class MessagingConversationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = NanoThemeExtension.of(context).colors;
+    final accentGreen = isDark ? const Color(0xFF00E676) : colors.primary;
+
     final platform = MessagingPlatform.fromPackageAndAgent(
       item.packageName,
       item.agentId,
@@ -40,11 +44,13 @@ class MessagingConversationCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
-      color: const Color(0xD1111928),
-      elevation: 0,
+      color: isDark ? const Color(0xD1111928) : Colors.white,
+      elevation: isDark ? 0 : 0.5,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: Colors.white.withValues(alpha: 0.09)),
+        side: BorderSide(
+          color: isDark ? Colors.white.withValues(alpha: 0.09) : colors.outline,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -68,18 +74,22 @@ class MessagingConversationCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleSmall
                                 ?.copyWith(
-                                  color: Colors.white,
+                                  color: isDark
+                                      ? Colors.white
+                                      : colors.onSurface,
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 13,
+                                  fontSize: 13.5,
                                 ),
                           ),
                         ),
                         if (item.isGroup) ...[
                           const SizedBox(width: 5),
-                          const Icon(
+                          Icon(
                             Icons.groups_rounded,
                             size: 14,
-                            color: Color(0xFF93C5FD),
+                            color: isDark
+                                ? const Color(0xFF93C5FD)
+                                : const Color(0xFF2563EB),
                           ),
                         ],
                       ],
@@ -96,8 +106,10 @@ class MessagingConversationCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.58),
-                                  fontSize: 11,
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.58)
+                                      : colors.onSurfaceVariant,
+                                  fontSize: 11.5,
                                 ),
                           ),
                         ),
@@ -116,10 +128,10 @@ class MessagingConversationCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (isLive) ...[
-                          const Icon(
+                          Icon(
                             Icons.circle,
                             size: 7,
-                            color: Color(0xFF00E676),
+                            color: accentGreen,
                           ),
                           const SizedBox(width: 4),
                         ],
@@ -130,7 +142,9 @@ class MessagingConversationCard extends StatelessWidget {
                             overflow: TextOverflow.fade,
                             softWrap: false,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.48),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.48)
+                                  : colors.onSurfaceVariant,
                               fontSize: 9.5,
                             ),
                           ),
@@ -142,10 +156,10 @@ class MessagingConversationCard extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         if (item.hasPendingReply)
-                          const Badge(
-                            backgroundColor: Color(0xFF00E676),
-                            textColor: Colors.black,
-                            label: Text('1'),
+                          Badge(
+                            backgroundColor: accentGreen,
+                            textColor: isDark ? Colors.black : Colors.white,
+                            label: const Text('1'),
                           ),
                         // QUÉ HACE: Botón de opciones de conversación sin Tooltip intrusivo.
                         // CÓMO: Usa Semantics en lugar de tooltip: para evitar el error "No Overlay widget found".
@@ -164,7 +178,9 @@ class MessagingConversationCard extends StatelessWidget {
                             icon: Icon(
                               Icons.more_horiz_rounded,
                               size: 19,
-                              color: Colors.white.withValues(alpha: 0.62),
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.62)
+                                  : colors.onSurfaceVariant,
                             ),
                           ),
                         ),

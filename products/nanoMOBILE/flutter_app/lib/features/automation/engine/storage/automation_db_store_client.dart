@@ -15,6 +15,13 @@ class AutomationDbStoreClient {
   static final AutomationDbStoreClient instance = AutomationDbStoreClient._();
 
   static const _channel = MethodChannel('com.nanoai/automation_store');
+  static const _channelRegistrationRetryDelays = <Duration>[
+    Duration(milliseconds: 40),
+    Duration(milliseconds: 80),
+    Duration(milliseconds: 160),
+    Duration(milliseconds: 320),
+    Duration(milliseconds: 640),
+  ];
 
   bool _isHealthy = true;
   int _failedWriteCount = 0;
@@ -65,9 +72,18 @@ class AutomationDbStoreClient {
     }
   }
 
-  Future<String?> requiredSection(String key) => _channel
-      .invokeMethod<String>('get', {'key': key})
-      .timeout(const Duration(seconds: 10));
+  Future<String?> requiredSection(String key) async {
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await _channel
+            .invokeMethod<String>('get', {'key': key})
+            .timeout(const Duration(seconds: 10));
+      } on MissingPluginException {
+        if (attempt >= _channelRegistrationRetryDelays.length) rethrow;
+        await Future<void>.delayed(_channelRegistrationRetryDelays[attempt]);
+      }
+    }
+  }
 
   /// Reemplazo atómico de la sección. false = rechazada (whitelist/tamaño).
   Future<bool> putSection(String key, String json) async {

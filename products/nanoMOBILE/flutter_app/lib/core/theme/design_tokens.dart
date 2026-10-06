@@ -115,18 +115,18 @@ abstract class NanoColors {
 }
 
 class NanoDarkColors implements NanoColors {
-  // Identidad sobria y ejecutiva Cyber Emerald / Obsidian Dark:
-  // Verde Esmeralda noble de alto contraste, Obsidian Slate profunda y tipografía nítida blanca.
+  // Identidad sobria y ejecutiva Cosmic Blue / Obsidian Dark:
+  // Azul noble de alto contraste, Obsidian Slate profunda y tipografía nítida blanca.
   @override
-  final primary = const Color(0xFF10B981); // Verde Esmeralda Cyber de alto contraste
+  final primary = const Color(0xFF2563EB); // Azul eléctrico de alto contraste
   @override
-  final primaryContainer = const Color(0xFF062D1F); // Obsidiana esmeralda profunda
+  final primaryContainer = const Color(0xFF0C1F3D); // Obsidiana azul profunda
   @override
-  final onPrimaryContainer = const Color(0xFFA7F3D0); // Menta clara de máxima legibilidad
+  final onPrimaryContainer = const Color(0xFFBFDBFE); // Azul claro de máxima legibilidad
   @override
-  final secondary = const Color(0xFF10B981); // Emerald 500
+  final secondary = const Color(0xFF1D6FE8); // Azul iOS / 500
   @override
-  final secondaryContainer = const Color(0xFF042016); // Deep Emerald Container
+  final secondaryContainer = const Color(0xFF0F294D); // Deep Blue Container
   @override
   final surface = const Color(0xFF0F172A); // Slate 900
   @override
@@ -150,11 +150,11 @@ class NanoDarkColors implements NanoColors {
   @override
   final info = const Color(0xFF38BDF8); // Sky 400
   @override
-  final tertiary = const Color(0xFF059669); // Emerald 600
+  final tertiary = const Color(0xFF38BDF8); // Sky 400
   @override
-  final accent = const Color(0xFF10B981); // Verde Emerald noble principal
+  final accent = const Color(0xFF2563EB); // Azul noble principal
   @override
-  final onAccent = const Color(0xFF020711); // Fondo oscuro sobre acento
+  final onAccent = const Color(0xFFFFFFFF); // Blanco sobre acento
   @override
   final danger = const Color(0xFFEF4444);
   @override
@@ -310,77 +310,78 @@ class NanoDarkColors implements NanoColors {
 }
 
 class NanoLightColors implements NanoColors {
+  // Identidad Modo Claro: Blanco y Verde Esmeralda / Menta de alto contraste.
   @override
-  final primary = const Color(0xFF1D6FE8); // Blue iOS — Azul profesional claro
+  final primary = const Color(0xFF059669); // Verde Esmeralda profesional de alto contraste
   @override
-  final primaryContainer = const Color(0xFFDBEAFE); // Blue 100
+  final primaryContainer = const Color(0xFFD1FAE5); // Menta claro 100
   @override
-  final onPrimaryContainer = const Color(0xFF1E3A8A); // Blue 900
+  final onPrimaryContainer = const Color(0xFF064E3B); // Esmeralda profundo 900
   @override
-  final secondary = const Color(0xFF2563EB); // Blue 600
+  final secondary = const Color(0xFF10B981); // Esmeralda 500
   @override
-  final secondaryContainer = const Color(0xFFEFF6FF); // Blue 50
+  final secondaryContainer = const Color(0xFFECFDF5); // Menta tenue 50
   @override
   final surface = const Color(0xFFFFFFFF); // Blanco puro
   @override
-  final surfaceVariant = const Color(0xFFF8F9FA); // Gris claro limpio
+  final surfaceVariant = const Color(0xFFF0FDF4); // Superficie clara con tinte menta sutil
   @override
-  final background = const Color(0xFFF8F9FA); // Canvas Blanco
+  final background = const Color(0xFFF8FAF9); // Canvas Blanco limpio
   @override
-  final onSurface = const Color(0xFF1A1D20); // Texto oscuro nítido
+  final onSurface = const Color(0xFF0F172A); // Texto carbón nítido
   @override
-  final onSurfaceVariant = const Color(0xFF5A626A); // Texto secundario
+  final onSurfaceVariant = const Color(0xFF475569); // Texto secundario
   @override
-  final outline = const Color(0xFFE2E8F0); // Borde suave visible
+  final outline = const Color(0xFFCBD5E1); // Borde suave
   @override
-  final outlineVariant = const Color(0xFFF1F5F9); // Separadores suaves
+  final outlineVariant = const Color(0xFFE2E8F0); // Separadores suaves
   @override
-  final success = const Color(0xFF0F9E6E); // Esmeralda 600
+  final success = const Color(0xFF10B981); // Emerald 500
   @override
-  final warning = const Color(0xFFA16207); // Ámbar 700
+  final warning = const Color(0xFFD97706); // Ámbar 600
   @override
-  final error = const Color(0xFFD6455A); // Coral 600
+  final error = const Color(0xFFDC2626); // Rojo 600
   @override
-  final info = const Color(0xFF0369A1); // Sky 700
+  final info = const Color(0xFF0284C7); // Sky 600
   @override
-  final tertiary = const Color(0xFF6D28D9); // Violeta 700
+  final tertiary = const Color(0xFF047857); // Esmeralda 700
   @override
-  final accent = const Color(0xFF1D6FE8); // Azul iOS principal
+  final accent = const Color(0xFF059669); // Verde Esmeralda Nano principal
   @override
-  final onAccent = const Color(0xFFFFFFFF); // Blanco sobre azul
+  final onAccent = const Color(0xFFFFFFFF); // Blanco sobre esmeralda
   @override
-  final danger = const Color(0xFFD6455A); // Coral 600
+  final danger = const Color(0xFFDC2626); // Rojo 600
   @override
-  final codeBlockBg = const Color(0xFFF3F4F6); // Canvas Secondary
+  final codeBlockBg = const Color(0xFFF1F5F9); // Fondo código suave
   @override
-  final quoteBg = const Color(0xFFEFF6FF); // Blue 50 tint
+  final quoteBg = const Color(0xFFECFDF5); // Menta tenue
   @override
   final terminalBg = const Color(0xFFF8FAFC); // Slate 50
   @override
-  final terminalGreen = const Color(0xFF047857); // Esmeralda 700
+  final terminalGreen = const Color(0xFF059669); // Verde terminal
 
   // Glassmorphism tokens (solo modo claro) — bordes ópticos metálicos
   @override
-  final glassSurface = const Color(0xCCFFFFFF); // Blanco 80% translúcido
+  final glassSurface = const Color(0xEEFFFFFF); // Blanco 93% cristalino
   @override
-  final glassBorder = const Color(0x401D6FE8); // Blue steel suave
+  final glassBorder = const Color(0x3310B981); // Borde reflectivo verde esmeralda
   @override
-  final glassOverlay = const Color(0x0D1D6FE8); // Blue 5% overlay óptico
+  final glassOverlay = const Color(0x0A10B981); // Aura verde ultra sutil
 
   // --- Glass Metallic Redesign Tokens ---
   @override
-  final bgTop = const Color(0xFFF7F9FC); // Canvas Primary
+  final bgTop = const Color(0xFFFFFFFF); // Canvas Primary
   @override
-  final bgMiddle = const Color(0xFFF2F6FA); // Canvas Secondary
+  final bgMiddle = const Color(0xFFF8FAF9); // Canvas Secondary
   @override
-  final bgBottom = const Color(0xFFEEF5FB); // Canvas Ice
+  final bgBottom = const Color(0xFFEFF7F2); // Canvas Menta Ice
 
   @override
-  final glass100 = const Color(0xFFEFF7FC); // Glass Ice
+  final glass100 = const Color(0xFFF0FDF4); // Glass Menta
   @override
   final glass200 = const Color(0xFFFFFFFF); // Glass White
   @override
-  final glass300 = const Color(0xFFEDF5FF); // Glass Blue
+  final glass300 = const Color(0xFFE6FFFA); // Glass Teal/Menta
   @override
   final glass400 = const Color(0xFFF8FAFC); // Glass Pearl
 
@@ -391,65 +392,65 @@ class NanoLightColors implements NanoColors {
   @override
   final metalSilver = const Color(0xFFDCE5ED);
   @override
-  final metalCool = const Color(0xFFB7C6D4);
+  final metalCool = const Color(0xFF94A3B8);
   @override
-  final metalSteel = const Color(0xFF9EADBC);
+  final metalSteel = const Color(0xFF64748B);
   @override
-  final metalGraphite = const Color(0xFF3F4856);
+  final metalGraphite = const Color(0xFF334155);
   @override
-  final metalDark = const Color(0xFF141B25);
+  final metalDark = const Color(0xFF0F172A);
 
   @override
-  final warmReflect1 = const Color(0xFFF1E5D8); // Metal Warm
+  final warmReflect1 = const Color(0xFFECFDF5); // Reflejo menta
   @override
-  final warmReflect2 = const Color(0xFFEED8B6);
+  final warmReflect2 = const Color(0xFFD1FAE5);
   @override
-  final warmReflect3 = const Color(0xFFFFD9A6);
+  final warmReflect3 = const Color(0xFFA7F3D0);
 
   @override
-  final coldReflect1 = const Color(0xFFBCEBFF);
+  final coldReflect1 = const Color(0xFFD1FAE5);
   @override
-  final coldReflect2 = const Color(0xFF76DFFF);
+  final coldReflect2 = const Color(0xFFA7F3D0);
   @override
-  final coldReflect3 = const Color(0xFF57B8FF);
+  final coldReflect3 = const Color(0xFF6EE7B7);
   @override
-  final coldReflect4 = const Color(0xFF6787FF);
+  final coldReflect4 = const Color(0xFF34D399);
   @override
-  final coldReflect5 = const Color(0xFF8073FF);
+  final coldReflect5 = const Color(0xFF059669);
 
   @override
-  final nanoCyan = const Color(0xFF0891B2);
+  final nanoCyan = const Color(0xFF00D4B2);
   @override
-  final nanoTurquoise = const Color(0xFF0D9488);
+  final nanoTurquoise = const Color(0xFF10B981);
   @override
-  final nanoBlue = const Color(0xFF4F46E5);
+  final nanoBlue = const Color(0xFF059669);
   @override
-  final nanoViolet = const Color(0xFF6D28D9);
+  final nanoViolet = const Color(0xFF047857);
 
   // --- Canonical Semantic Light Palette Tokens ---
   @override
-  final backgroundPrimary = const Color(0xFFF7F9FC); // Canvas Base Home
+  final backgroundPrimary = const Color(0xFFF8FAFC); // Canvas Base Blanco
   @override
-  final backgroundSecondary = const Color(0xFFF2F6FA); // Canvas Secondary
+  final backgroundSecondary = const Color(0xFFF0FDF4); // Canvas Secondary Menta
   @override
-  final backgroundElevated = const Color(0xFFFFFFFF); // Canvas Elevated
+  final backgroundElevated = const Color(0xFFFFFFFF); // Canvas Elevated Blanco
   @override
-  final backgroundIce = const Color(0xFFEEF5FB); // Canvas Ice
+  final backgroundIce = const Color(0xFFEFF7F2); // Canvas Ice Menta
   @override
   final backgroundPearl = const Color(0xFFF8FAFC);
   @override
-  final backgroundDeep = const Color(0xFFE9F0F8);
+  final backgroundDeep = const Color(0xFFE2E8F0);
   @override
-  final backgroundNavy = const Color(0xFFDCE5ED);
+  final backgroundNavy = const Color(0xFFD1FAE5);
 
   @override
   final glassPrimary = const Color(0xFFFFFFFF); // Glass White Puro
   @override
   final glassSecondary = const Color(0xFFF8FAFC); // Glass Pearl
   @override
-  final glassGraphite = const Color(0xFFEFF7FC); // Glass Ice
+  final glassGraphite = const Color(0xFFF0FDF4); // Glass Menta suave
   @override
-  final glassBlue = const Color(0xFFEDF5FF); // Glass Blue
+  final glassBlue = const Color(0xFFE6FFFA); // Glass Teal/Menta
 
   @override
   final glassLow = 0.15;
@@ -461,53 +462,247 @@ class NanoLightColors implements NanoColors {
   final glassOpaque = 0.60;
 
   @override
-  final textPrimary = const Color(0xFF111827); // Text Primary
+  final textPrimary = const Color(0xFF0F172A); // Text Primary
   @override
-  final textSecondary = const Color(0xFF4B5563); // Text Secondary
+  final textSecondary = const Color(0xFF475569); // Text Secondary
   @override
-  final textTertiary = const Color(0xFF6B7280); // Text Tertiary
+  final textTertiary = const Color(0xFF64748B); // Text Tertiary
   @override
-  final textDisabled = const Color(0xFF9CA3AF); // Text Disabled
+  final textDisabled = const Color(0xFF94A3B8); // Text Disabled
 
   @override
-  final accentCyan = const Color(0xFF1D6FE8); // Azul iOS principal
+  final accentCyan = const Color(0xFF00D4B2); // Cyan menta
   @override
-  final accentMint = const Color(0xFF2563EB); // Azul 600
+  final accentMint = const Color(0xFF10B981); // Emerald 500
   @override
-  final accentSky = const Color(0xFF60A5FA); // Azul 400
+  final accentSky = const Color(0xFF34D399); // Mint 400
   @override
-  final accentBlue = const Color(0xFF1D6FE8); // Azul iOS principal
+  final accentBlue = const Color(0xFF059669); // Emerald 600
   @override
-  final accentLavender = const Color(0xFF818CF8); // Indigo 400
+  final accentLavender = const Color(0xFF047857); // Emerald 700
 
   @override
-  final iceReflection = const Color(0xFFEFF6FF);
+  final iceReflection = const Color(0xFFECFDF5);
   @override
-  final silverReflection = const Color(0xFFBFDBFE);
+  final silverReflection = const Color(0xFFD1FAE5);
   @override
   final pearlReflection = const Color(0xFFFFFFFF);
   @override
-  final warmReflection = const Color(0xFFEFF6FF);
+  final warmReflection = const Color(0xFFF0FDF4);
   @override
-  final lavenderReflection = const Color(0xFFDBEAFE);
+  final lavenderReflection = const Color(0xFFD1FAE5);
 
   @override
   final borderPrimaryColor = const Color(0xFFFFFFFF);
   @override
-  final borderSecondaryColor = const Color(0xFFE5E7EB);
+  final borderSecondaryColor = const Color(0xFFE2E8F0);
   @override
-  final borderAccentColor = const Color(0x661D6FE8); // Blue borde reflectivo
+  final borderAccentColor = const Color(0x6610B981); // Verde borde reflectivo
 
   @override
-  bool get isClassicOrange => true;
+  bool get isClassicOrange => false;
 }
 
-/// Paleta de sistema en modo claro: hereda directamente la paleta clara canónica
-/// con identidad Naranja Nano de alto contraste sobre superficies limpias.
-class NanoSystemLightColors extends NanoLightColors {}
+/// Identidad Modo Clásico: Blanco y Azul profesional sobre superficies limpias.
+class NanoClassicLightColors implements NanoColors {
+  @override
+  final primary = const Color(0xFF1D6FE8); // Azul iOS profesional de alto contraste
+  @override
+  final primaryContainer = const Color(0xFFDBEAFE); // Azul claro 100
+  @override
+  final onPrimaryContainer = const Color(0xFF1E40AF); // Azul oscuro 900
+  @override
+  final secondary = const Color(0xFF2563EB); // Azul 600
+  @override
+  final secondaryContainer = const Color(0xFFEFF6FF); // Azul tenue 50
+  @override
+  final surface = const Color(0xFFFFFFFF); // Blanco puro
+  @override
+  final surfaceVariant = const Color(0xFFF1F5F9); // Superficie clara con tinte sutil azul
+  @override
+  final background = const Color(0xFFF8FAFC); // Canvas Blanco limpio
+  @override
+  final onSurface = const Color(0xFF0F172A); // Texto carbón nítido
+  @override
+  final onSurfaceVariant = const Color(0xFF475569); // Texto secundario
+  @override
+  final outline = const Color(0xFFCBD5E1); // Borde suave
+  @override
+  final outlineVariant = const Color(0xFFE2E8F0); // Separadores suaves
+  @override
+  final success = const Color(0xFF10B981); // Emerald 500
+  @override
+  final warning = const Color(0xFFD97706); // Ámbar 600
+  @override
+  final error = const Color(0xFFDC2626); // Rojo 600
+  @override
+  final info = const Color(0xFF0284C7); // Sky 600
+  @override
+  final tertiary = const Color(0xFF3B82F6); // Blue 500
+  @override
+  final accent = const Color(0xFF1D6FE8); // Azul Nano principal
+  @override
+  final onAccent = const Color(0xFFFFFFFF); // Blanco sobre azul
+  @override
+  final danger = const Color(0xFFDC2626); // Rojo 600
+  @override
+  final codeBlockBg = const Color(0xFFF1F5F9); // Fondo código suave
+  @override
+  final quoteBg = const Color(0xFFEFF6FF); // Azul tenue
+  @override
+  final terminalBg = const Color(0xFFF8FAFC); // Slate 50
+  @override
+  final terminalGreen = const Color(0xFF1D6FE8); // Azul terminal
+
+  // Glassmorphism tokens (solo modo claro) — bordes ópticos metálicos
+  @override
+  final glassSurface = const Color(0xEEFFFFFF); // Blanco 93% cristalino
+  @override
+  final glassBorder = const Color(0x401D6FE8); // Borde reflectivo azul
+  @override
+  final glassOverlay = const Color(0x0D1D6FE8); // Aura azul ultra sutil
+
+  // --- Glass Metallic Redesign Tokens ---
+  @override
+  final bgTop = const Color(0xFFFFFFFF); // Canvas Primary
+  @override
+  final bgMiddle = const Color(0xFFF8FAF9); // Canvas Secondary
+  @override
+  final bgBottom = const Color(0xFFEEF5FB); // Canvas Ice Azul
+
+  @override
+  final glass100 = const Color(0xFFEFF7FC); // Glass Ice
+  @override
+  final glass200 = const Color(0xFFFFFFFF); // Glass White
+  @override
+  final glass300 = const Color(0xFFDBEAFE); // Glass Blue
+  @override
+  final glass400 = const Color(0xFFF8FAFC); // Glass Pearl
+
+  @override
+  final metalWhite = const Color(0xFFFFFFFF);
+  @override
+  final metalPearl = const Color(0xFFF8FAFC);
+  @override
+  final metalSilver = const Color(0xFFDCE5ED);
+  @override
+  final metalCool = const Color(0xFF94A3B8);
+  @override
+  final metalSteel = const Color(0xFF64748B);
+  @override
+  final metalGraphite = const Color(0xFF334155);
+  @override
+  final metalDark = const Color(0xFF0F172A);
+
+  @override
+  final warmReflect1 = const Color(0xFFEFF6FF); // Reflejo azul claro
+  @override
+  final warmReflect2 = const Color(0xFFDBEAFE);
+  @override
+  final warmReflect3 = const Color(0xFFBFDBFE);
+
+  @override
+  final coldReflect1 = const Color(0xFFDBEAFE);
+  @override
+  final coldReflect2 = const Color(0xFFBFDBFE);
+  @override
+  final coldReflect3 = const Color(0xFF93C5FD);
+  @override
+  final coldReflect4 = const Color(0xFF60A5FA);
+  @override
+  final coldReflect5 = const Color(0xFF1D6FE8);
+
+  @override
+  final nanoCyan = const Color(0xFF0284C7);
+  @override
+  final nanoTurquoise = const Color(0xFF2563EB);
+  @override
+  final nanoBlue = const Color(0xFF1D6FE8);
+  @override
+  final nanoViolet = const Color(0xFF1E40AF);
+
+  // --- Canonical Semantic Light Palette Tokens ---
+  @override
+  final backgroundPrimary = const Color(0xFFF8FAFC); // Canvas Base Blanco
+  @override
+  final backgroundSecondary = const Color(0xFFEFF6FF); // Canvas Secondary Azul
+  @override
+  final backgroundElevated = const Color(0xFFFFFFFF); // Canvas Elevated Blanco
+  @override
+  final backgroundIce = const Color(0xFFDBEAFE); // Canvas Ice Azul
+  @override
+  final backgroundPearl = const Color(0xFFF8FAFC);
+  @override
+  final backgroundDeep = const Color(0xFFE2E8F0);
+  @override
+  final backgroundNavy = const Color(0xFFBFDBFE);
+
+  @override
+  final glassPrimary = const Color(0xFFFFFFFF); // Glass White Puro
+  @override
+  final glassSecondary = const Color(0xFFF8FAFC); // Glass Pearl
+  @override
+  final glassGraphite = const Color(0xFFEFF6FF); // Glass Azul suave
+  @override
+  final glassBlue = const Color(0xFFDBEAFE); // Glass Blue
+
+  @override
+  final glassLow = 0.15;
+  @override
+  final glassMedium = 0.30;
+  @override
+  final glassStrong = 0.45;
+  @override
+  final glassOpaque = 0.60;
+
+  @override
+  final textPrimary = const Color(0xFF0F172A); // Text Primary
+  @override
+  final textSecondary = const Color(0xFF475569); // Text Secondary
+  @override
+  final textTertiary = const Color(0xFF64748B); // Text Tertiary
+  @override
+  final textDisabled = const Color(0xFF94A3B8); // Text Disabled
+
+  @override
+  final accentCyan = const Color(0xFF0284C7); // Sky 700
+  @override
+  final accentMint = const Color(0xFF38BDF8); // Sky 400
+  @override
+  final accentSky = const Color(0xFF60A5FA); // Blue 400
+  @override
+  final accentBlue = const Color(0xFF1D6FE8); // Blue iOS
+  @override
+  final accentLavender = const Color(0xFF1E40AF); // Blue 800
+
+  @override
+  final iceReflection = const Color(0xFFEFF6FF);
+  @override
+  final silverReflection = const Color(0xFFDBEAFE);
+  @override
+  final pearlReflection = const Color(0xFFFFFFFF);
+  @override
+  final warmReflection = const Color(0xFFF0F9FF);
+  @override
+  final lavenderReflection = const Color(0xFFE0E7FF);
+
+  @override
+  final borderPrimaryColor = const Color(0xFFFFFFFF);
+  @override
+  final borderSecondaryColor = const Color(0xFFE2E8F0);
+  @override
+  final borderAccentColor = const Color(0x661D6FE8); // Azul borde reflectivo
+
+  @override
+  bool get isClassicOrange => false;
+}
+
+/// Paleta de sistema en modo claro: hereda directamente la paleta clásica
+/// con identidad Azul y Blanco sobre superficies limpias.
+class NanoSystemLightColors extends NanoClassicLightColors {}
 
 /// Paleta de sistema en modo oscuro: hereda directamente la paleta oscura
-/// con superficies profundas y acento ámbar noble sin cyan.
+/// con superficies profundas y acento azul noble.
 class NanoSystemDarkColors extends NanoDarkColors {}
 
 /// Identidad clásica para modo oscuro.

@@ -8,7 +8,7 @@ import 'package:nanoai/features/chat/domain/camera_capture_backend.dart';
 import '../../theme/design_tokens.dart';
 
 /// Tipo de adjunto de archivo.
-enum NanoAttachKind { photo, video, document }
+enum NanoAttachKind { photo, video, audio, document }
 
 /// Tipo de selección realizada en la hoja flotante: comando o archivo.
 enum NanoAttachSelectionType { attachment, command }
@@ -80,6 +80,7 @@ class NanoAttachSheet {
       final type = switch (rawResult) {
         NanoAttachKind.photo => FileType.image, // Resuelto arriba por cámara.
         NanoAttachKind.video => FileType.video,
+        NanoAttachKind.audio => FileType.audio,
         NanoAttachKind.document => FileType.any,
       };
       try {
@@ -309,6 +310,16 @@ class _AttachSheet extends StatelessWidget {
                       title: 'Cámara',
                       onTap: () =>
                           Navigator.of(context).pop(NanoAttachKind.photo),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _FileTile(
+                      icon: Icons.audiotrack_outlined,
+                      iconColor: const Color(0xFF60A5FA),
+                      title: 'Audio',
+                      onTap: () =>
+                          Navigator.of(context).pop(NanoAttachKind.audio),
                     ),
                   ),
                   const SizedBox(width: 8),

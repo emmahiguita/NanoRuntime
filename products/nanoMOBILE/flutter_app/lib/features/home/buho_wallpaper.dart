@@ -45,7 +45,7 @@ class BuhoWallpaper extends StatelessWidget {
 
     if (!useImage) {
       return ColoredBox(
-        color: dark ? const Color(0xFF090A0F) : const Color(0xFFF8F9FA),
+        color: dark ? const Color(0xFF090A0F) : const Color(0xFFF8FAF9),
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -58,9 +58,9 @@ class BuhoWallpaper extends StatelessWidget {
                       Color(0xFF08090D),
                     ]
                   : const [
-                      Color(0xFFF9FAFB),
-                      Color(0xFFF3F4F6),
-                      Color(0xFFE5E7EB),
+                      Color(0xFFFFFFFF),
+                      Color(0xFFF7FAF8),
+                      Color(0xFFEFF7F2),
                     ],
               stops: const [0.0, 0.45, 1.0],
             ),

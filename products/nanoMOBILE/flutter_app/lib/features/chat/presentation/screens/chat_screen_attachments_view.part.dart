@@ -41,14 +41,10 @@ class _AttachmentPillsStrip extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0x33261505)
-                    : const Color(0x18FF6D00),
+                color: colors.accent.withValues(alpha: isDark ? 0.12 : 0.08),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isDark
-                      ? const Color(0x4DFF8C2A)
-                      : const Color(0x40FF6D00),
+                  color: colors.accent.withValues(alpha: isDark ? 0.28 : 0.20),
                   width: 0.8,
                 ),
               ),
@@ -61,6 +57,7 @@ class _AttachmentPillsStrip extends StatelessWidget {
                     switch (att.kind) {
                       ChatAttachmentKind.photo => Icons.image_rounded,
                       ChatAttachmentKind.video => Icons.videocam_rounded,
+                      ChatAttachmentKind.audio => Icons.audiotrack_rounded,
                       ChatAttachmentKind.document ||
                       ChatAttachmentKind.text => Icons.description_rounded,
                     },

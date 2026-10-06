@@ -96,9 +96,15 @@ class _NanoOwlAvatarState extends State<NanoOwlAvatar> with TickerProviderStateM
     if (!mounted || widget.state != NanoOwlState.idle) return;
     var step = 0;
     _blinkTimer = Timer.periodic(const Duration(milliseconds: 45), (t) {
-      if (!mounted || step >= NanoOwlFrames.blinkFrames.length) {
+      if (!mounted || widget.state != NanoOwlState.idle || step >= NanoOwlFrames.blinkFrames.length) {
         t.cancel();
-        if (mounted) { setState(() => _blinkFrame = -1); _scheduleBlink(); }
+        _blinkTimer = null;
+        if (mounted) {
+          setState(() => _blinkFrame = -1);
+          if (widget.state == NanoOwlState.idle && widget.enableRandomBlink) {
+            _scheduleBlink();
+          }
+        }
         return;
       }
       setState(() => _blinkFrame = step++);

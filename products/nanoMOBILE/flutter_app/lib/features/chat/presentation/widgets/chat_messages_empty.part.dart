@@ -1,6 +1,6 @@
 part of 'chat_messages.dart';
 
-class EmptyChat extends StatelessWidget {
+class EmptyChat extends ConsumerWidget {
   const EmptyChat({
     super.key,
     required this.engineOnline,
@@ -16,11 +16,24 @@ class EmptyChat extends StatelessWidget {
   final VoidCallback onRetry;
   final VoidCallback onGoModels;
 
+  /// Mapea el estado del chatProvider a un NanoOwlState visual.
+  NanoOwlState _owlState(ChatState chat) {
+    if (chat.generating) return NanoOwlState.thinking;
+    if (!chat.engineOnline) return NanoOwlState.sleep;
+    if (chat.activeModelPath == null) return NanoOwlState.idle;
+    if (chat.connection == ModelConnectionState.loadingModel) {
+      return NanoOwlState.responding;
+    }
+    return NanoOwlState.idle;
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final mediaSize = MediaQuery.sizeOf(context);
     final isCompact = mediaSize.height < 600;
+    final chatState = ref.watch(chatProvider);
+    final owlState = _owlState(chatState);
 
     return Center(
       child: SingleChildScrollView(
@@ -35,13 +48,13 @@ class EmptyChat extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Animated Nano Owl Hero Avatar
+                // Animated Nano Owl Hero Avatar — sincronizado con chatProvider
                 NanoOwlAvatar(
                   size: isCompact ? 72 : 96,
-                  state: NanoOwlState.idle,
+                  state: owlState,
                   enableBreathing: true,
-                  enableRandomBlink: true,
-                  enableGlow: true,
+                  enableRandomBlink: owlState == NanoOwlState.idle,
+                  enableGlow: owlState != NanoOwlState.idle,
                 ),
                 SizedBox(height: isCompact ? 12 : 18),
                 Text(
@@ -82,3 +95,4 @@ class EmptyChat extends StatelessWidget {
     );
   }
 }
+

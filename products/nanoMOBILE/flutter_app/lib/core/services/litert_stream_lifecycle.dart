@@ -7,6 +7,7 @@ extension LiteRtStreaming on LiteRtInferenceAdapter {
     double temperature = 0.3,
     double topP = 0.95,
     int maxTokens = 512,
+    String? sessionId,
     String? context,
     List<Map<String, String>>? history,
     required String requestId,
@@ -69,6 +70,7 @@ extension LiteRtStreaming on LiteRtInferenceAdapter {
           await LiteRtInferenceAdapter._channel.invokeMethod('generate', {
             'requestId': requestId,
             'prompt': prompt,
+            'sessionId': sessionId,
             'context': context,
             'history': history ?? [],
             'temperature': temperature,

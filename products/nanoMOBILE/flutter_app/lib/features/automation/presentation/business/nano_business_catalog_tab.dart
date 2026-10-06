@@ -10,6 +10,7 @@ import '../../engine/business/business_facts_providers.dart';
 import '../automation_visual_theme.dart';
 import '../connectors/business_connectors_sheet.dart';
 import 'catalog_pdf_preview_dialog.dart';
+import 'business_document_library_dialog.dart';
 import '../widgets/dialogs/product_dialog.dart';
 import '../widgets/settings_tile_components.dart';
 import '../../../../core/widgets/nano_promo_card.dart';
@@ -52,6 +53,14 @@ class NanoBusinessCatalogTab extends ConsumerWidget {
             _buildPdfButton(context, facts),
           ],
         ],
+        // Biblioteca persistente: guarda catálogos e importa PDF del teléfono.
+        const SizedBox(height: 8),
+        // Abre la biblioteca persistente para importar o compartir PDFs.
+        OutlinedButton.icon(
+          onPressed: () => BusinessDocumentLibraryDialog.show(context, facts),
+          icon: const Icon(Icons.folder_open_rounded, size: 16),
+          label: const Text('Documentos para compartir'),
+        ),
         const SizedBox(height: 14),
         if (facts.products.isEmpty)
           Padding(
@@ -188,4 +197,6 @@ class NanoBusinessCatalogTab extends ConsumerWidget {
       ),
     );
   }
+
+  // Abre carpetas Nano para reutilizar PDF y compartirlo con la app elegida.
 }

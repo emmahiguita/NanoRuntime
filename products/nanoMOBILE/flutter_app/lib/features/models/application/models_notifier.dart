@@ -3,6 +3,7 @@
 // CÓMO FUNCIONA: Orquesta servicios especializados delegando escaneo, descarga y ciclo de vida.
 // POR QUÉ: Centraliza la reactividad de la UI asegurando arquitectura limpia y código < 200 líneas.
 library;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,16 +28,28 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   final ModelsDownloadService _downloader;
   final ModelsScanCoordinator _scanner;
   final Future<String?> Function() _modelsDir;
-  final _reconciler = const ModelsReconciliationService(), _lifecycle = const ModelsLifecycleDelegate(), _picker = const CustomModelPickerService();
+  final _reconciler = const ModelsReconciliationService(),
+      _lifecycle = const ModelsLifecycleDelegate(),
+      _picker = const CustomModelPickerService();
   String? _downloadingId;
   List<DetectedModel>? _lastDetected;
 
-  ModelsNotifier(this._ref, this._repository, {
-    ModelsDownloadService? downloader, ModelStorageRepository? storage, Future<String?> Function()? modelsDir,
+  ModelsNotifier(
+    this._ref,
+    this._repository, {
+    ModelsDownloadService? downloader,
+    ModelStorageRepository? storage,
+    Future<String?> Function()? modelsDir,
   }) : _downloader = downloader ?? ModelsDownloadService(),
-       _scanner = ModelsScanCoordinator(storage: storage ?? const ChannelModelStorageRepository()),
+       _scanner = ModelsScanCoordinator(
+         storage: storage ?? const ChannelModelStorageRepository(),
+       ),
        _modelsDir = modelsDir ?? CatalogLocalModelRepository.modelsDir,
-       super(ModelsState(models: CatalogLocalModelRepository.initialCatalog())) { _load(); }
+       super(
+         ModelsState(models: CatalogLocalModelRepository.initialCatalog()),
+       ) {
+    _load();
+  }
 
   // QUÉ HACE: Carga el catálogo base y verifica archivos instalados en disco.
   Future<void> _load() async {
@@ -47,7 +60,10 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
       final models = await _reconciler.verifyConfiguredDirectory(raw, dir);
       if (!mounted) return;
       state = _lastDetected != null && !state.scanning
-          ? _applyScan(_lastDetected!, models: models).copyWith(downloadDir: dir)
+          ? _applyScan(
+              _lastDetected!,
+              models: models,
+            ).copyWith(downloadDir: dir)
           : state.copyWith(models: models, downloadDir: dir);
     } catch (e) {
       debugPrint('[models] listModels falló: $e');
@@ -58,7 +74,9 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   Future<void> setDownloadDir(String? path) async {
     state = state.copyWith(downloadDir: path);
     final prefs = await SharedPreferences.getInstance();
-    path == null ? await prefs.remove(_downloadDirPrefKey) : await prefs.setString(_downloadDirPrefKey, path);
+    path == null
+        ? await prefs.remove(_downloadDirPrefKey)
+        : await prefs.setString(_downloadDirPrefKey, path);
   }
 
   // QUÉ HACE: Inicia la descarga HTTP/HF de un modelo con verificación hash progresiva.
@@ -67,11 +85,23 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     if (item == null || item.installed || _downloadingId != null) return;
     _downloadingId = id;
     await _downloader.startDownload(
-      item: item, configuredDir: state.downloadDir, defaultDirGetter: _modelsDir,
+      item: item,
+      configuredDir: state.downloadDir,
+      defaultDirGetter: _modelsDir,
       onUpdate: (st, p, {path, error}) {
         if (!mounted) return;
-        if (st == ModelDownloadState.installed || st == ModelDownloadState.failed) _downloadingId = null;
-        _update(id, downloadState: st, progress: p, localPath: path, error: error, clearError: st == ModelDownloadState.installed);
+        if (st == ModelDownloadState.installed ||
+            st == ModelDownloadState.failed) {
+          _downloadingId = null;
+        }
+        _update(
+          id,
+          downloadState: st,
+          progress: p,
+          localPath: path,
+          error: error,
+          clearError: st == ModelDownloadState.installed,
+        );
       },
     );
   }
@@ -80,20 +110,49 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   void cancelDownload() {
     _downloader.cancel();
     if (_downloadingId != null) {
-      _update(_downloadingId!, downloadState: ModelDownloadState.failed, progress: 0, error: 'descarga cancelada');
+      _update(
+        _downloadingId!,
+        downloadState: ModelDownloadState.failed,
+        progress: 0,
+        error: 'descarga cancelada',
+      );
       _downloadingId = null;
     }
   }
 
-  void _update(String id, {ModelDownloadState? downloadState, double? progress, String? localPath, String? error, bool clearError = false}) {
-    state = state.copyWith(models: [for (final m in state.models)
-      m.id == id ? m.copyWith(downloadState: downloadState, progress: progress, localPath: localPath, error: error, clearError: clearError) : m]);
+  void _update(
+    String id, {
+    ModelDownloadState? downloadState,
+    double? progress,
+    String? localPath,
+    String? error,
+    bool clearError = false,
+  }) {
+    state = state.copyWith(
+      models: [
+        for (final m in state.models)
+          m.id == id
+              ? m.copyWith(
+                  downloadState: downloadState,
+                  progress: progress,
+                  localPath: localPath,
+                  error: error,
+                  clearError: clearError,
+                )
+              : m,
+      ],
+    );
   }
 
   // QUÉ HACE: Carga el modelo en el motor de inferencia local o Whisper.
   Future<void> loadModel(String id, {bool confirmedExtreme = false}) async {
     final item = state.models.where((m) => m.id == id).firstOrNull;
-    if (item != null && await _lifecycle.loadModel(ref: _ref, item: item, confirmedExtreme: confirmedExtreme)) {
+    if (item != null &&
+        await _lifecycle.loadModel(
+          ref: _ref,
+          item: item,
+          confirmedExtreme: confirmedExtreme,
+        )) {
       state = state.copyWith(models: List.from(state.models));
     }
   }
@@ -105,28 +164,58 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   }
 
   // QUÉ HACE: Elimina el binario de disco y actualiza el estado.
-  Future<void> deleteModel(String id) async {
+  Future<bool> deleteModel(String id) async {
     final item = state.models.where((m) => m.id == id).firstOrNull;
-    if (item != null && _downloadingId != id) {
-      await _lifecycle.deleteModel(ref: _ref, item: item);
-      _update(id, downloadState: ModelDownloadState.notInstalled, progress: 0, clearError: true);
+    if (item == null || _downloadingId == id) return false;
+    // Mantiene el estado instalado si el motor no se detuvo o el borrado falló.
+    final deleted = await _lifecycle.deleteModel(ref: _ref, item: item);
+    if (deleted) {
+      _update(
+        id,
+        downloadState: ModelDownloadState.notInstalled,
+        progress: 0,
+        clearError: true,
+      );
     }
+    return deleted;
   }
 
-  Future<void> deleteDetectedModel(DetectedModel model, {bool deletePhysicalFile = true}) async {
-    await _lifecycle.deleteDetectedModel(ref: _ref, model: model, deletePhysicalFile: deletePhysicalFile);
-    state = state.copyWith(detected: state.detected.where((m) => m.path != model.path && m != model).toList());
+  Future<bool> deleteDetectedModel(
+    DetectedModel model, {
+    bool deletePhysicalFile = true,
+  }) async {
+    // Mantiene el modelo visible si el motor o el borrado físico no terminaron bien.
+    final deleted = await _lifecycle.deleteDetectedModel(
+      ref: _ref,
+      model: model,
+      deletePhysicalFile: deletePhysicalFile,
+    );
+    if (deleted) {
+      state = state.copyWith(
+        detected: state.detected
+            .where((m) => m.path != model.path && m != model)
+            .toList(),
+      );
+    }
+    return deleted;
   }
 
   // QUÉ HACE: Escaneos de almacenamiento SAF y general con auto-detección y permisos.
   Future<void> scanStorage() => _runScan(_scanner.scanSaf);
   Future<void> scanStorageAll() => _runScan(_scanner.scanAll);
-  Future<void> pickTreeAndScan() async => (state.scanning || await _scanner.pickTree() == null) ? null : scanStorage();
+  Future<void> pickTreeAndScan() async =>
+      (state.scanning || await _scanner.pickTree() == null)
+      ? null
+      : scanStorage();
 
   Future<void> maybeAutoScan() async {
     final tree = await _scanner.persistedTree();
     if (mounted) state = state.copyWith(treeGranted: tree != null);
-    if (tree != null && !state.allFilesGranted && !_scanner.shouldThrottleSafScan()) await scanStorage();
+    if (tree != null &&
+        !state.allFilesGranted &&
+        !_scanner.shouldThrottleSafScan()) {
+      await scanStorage();
+    }
   }
 
   Future<void> maybeAutoScanAll() async {
@@ -155,37 +244,70 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     } catch (e) {
       if (!mounted) return;
       _scanner.resetThrottles();
-      state = state.copyWith(scanning: false, scanError: e is StateError ? 'Permiso requerido.' : 'Escaneo falló: $e');
+      state = state.copyWith(
+        scanning: false,
+        scanError: e is StateError ? 'Permiso requerido.' : 'Escaneo falló: $e',
+      );
     }
   }
 
-  ModelsState _applyScan(List<DetectedModel> detected, {List<LocalModel>? models}) {
+  ModelsState _applyScan(
+    List<DetectedModel> detected, {
+    List<LocalModel>? models,
+  }) {
     _lastDetected = detected;
-    final r = _reconciler.reconcile(detected, currentModels: models ?? state.models);
-    return state.copyWith(scanning: false, models: r.models, detected: r.detected, scanError: null);
+    final r = _reconciler.reconcile(
+      detected,
+      currentModels: models ?? state.models,
+    );
+    return state.copyWith(
+      scanning: false,
+      models: r.models,
+      detected: r.detected,
+      scanError: null,
+    );
   }
 
   // QUÉ HACE: Activa un modelo detectado en tarjeta SD o ruta externa.
   Future<void> useDetected(DetectedModel model) async {
     if (!model.usable) {
-      state = state.copyWith(scanError: 'Archivo incompatible: se requiere cabecera GGUF válida.');
+      state = state.copyWith(
+        scanError: 'Archivo incompatible: se requiere cabecera GGUF válida.',
+      );
       return;
     }
     if (state.loadingDetectedUri != null) return;
-    if (model.path == null) state = state.copyWith(loadingDetectedUri: model.uri);
+    if (model.path == null) {
+      state = state.copyWith(loadingDetectedUri: model.uri);
+    }
     try {
-      await _lifecycle.useDetected(ref: _ref, model: model, openFd: _scanner.openFd);
+      await _lifecycle.useDetected(
+        ref: _ref,
+        model: model,
+        openFd: _scanner.openFd,
+      );
     } catch (e) {
-      if (mounted) state = state.copyWith(scanError: 'No se pudo abrir ${model.name}: $e');
+      if (mounted) {
+        state = state.copyWith(scanError: 'No se pudo abrir ${model.name}: $e');
+      }
     } finally {
-      if (mounted && model.path == null) state = state.copyWith(loadingDetectedUri: null);
+      if (mounted && model.path == null) {
+        state = state.copyWith(loadingDetectedUri: null);
+      }
     }
   }
 
   Future<bool> pickCustomModelFile() async {
     final model = await _picker.pickModel();
     if (model == null) return false;
-    state = state.copyWith(detected: [model, for (final m in state.detected) if (m.path != model.path) m], scanError: null);
+    state = state.copyWith(
+      detected: [
+        model,
+        for (final m in state.detected)
+          if (m.path != model.path) m,
+      ],
+      scanError: null,
+    );
     await useDetected(model);
     return true;
   }

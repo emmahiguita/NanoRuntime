@@ -175,13 +175,21 @@ class _S extends State<TerminalTabScreen> with WidgetsBindingObserver {
       },
       child: LayoutBuilder(
         builder: (context, constraints) {
+          // ERGONOMÍA MOBILE & LANDSCAPE:
+          // QUÉ HACE:
+          // Detecta si el dispositivo está girado horizontalmente y si el teclado táctil está visible.
+          // CÓMO FUNCIONA:
+          // Cuando el teclado está abierto, viewInsets.bottom ya eleva el contenido.
+          // Reducir la reserva inferior a 0 o mínimo evita perder 72px valiosos de pantalla.
+          // POR QUÉ:
+          // Al programar en móviles, cada píxel vertical cuenta para mostrar más líneas de código en vim/micro.
           final isDeviceLandscape =
               MediaQuery.orientationOf(context) == Orientation.landscape;
-          final isLandscape = isDeviceLandscape && constraints.maxHeight < 520;
+          final isLandscape = isDeviceLandscape || constraints.maxHeight < 500;
           final viewInsets = MediaQuery.viewInsetsOf(context);
           final isKeyboardOpen = viewInsets.bottom > 0;
           final double bottomReserve =
-              isKeyboardOpen ? (isLandscape ? 56.0 : 72.0) : (isLandscape ? 90.0 : kNanoBarScrollReserve);
+              isKeyboardOpen ? 0.0 : (isLandscape ? 64.0 : kNanoBarScrollReserve);
 
           final terminalContent = Container(
             margin: const EdgeInsets.fromLTRB(6, 2, 6, 4),

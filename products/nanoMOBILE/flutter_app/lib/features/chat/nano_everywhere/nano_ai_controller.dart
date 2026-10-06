@@ -6,7 +6,6 @@
 // POR QUÉ: Comprende desde un simple "hola" hasta párrafos extensos sin respuestas
 //          robóticas o estáticas, proveyendo opciones de respuesta interactivas.
 import 'package:flutter/foundation.dart';
-import '../../../../core/services/native_conversational_router.dart';
 import '../domain/chat_suggestion_engine.dart';
 import 'nano_ai_models.dart';
 import 'nano_media_detector.dart';

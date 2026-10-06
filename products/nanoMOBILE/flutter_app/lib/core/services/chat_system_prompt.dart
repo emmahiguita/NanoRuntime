@@ -11,7 +11,7 @@ import 'nano_identity_context.dart';
 /// con el protocolo del agente. El registro continúa siendo la única fuente
 /// de verdad de las herramientas anunciadas.
 abstract final class ChatSystemPrompt {
-  static const int maxChars = 2200;
+  static const int maxChars = 8500;
 
   static String build({
     required ToolRegistry registry,
@@ -19,28 +19,42 @@ abstract final class ChatSystemPrompt {
     required DateTime now,
     required DeviceInfo device,
     String memoryContext = '',
+    bool includeTools = true,
+    String mcpContext = '',
+    String skillContext = '',
   }) {
     final core = <String>[
       'Eres NanoAI. ${NanoIdentityContext.description}',
       'Comunícate de forma natural, humana, empática y conversacional, adaptándote al registro del usuario. '
           'Responde cálido y conciso ante saludos, y estructurado y analítico ante consultas extensas o técnicas. '
           'Sigue el hilo de mensajes anteriores y entiende respuestas breves como «bien», «sí» o «esa» por su contexto. '
+          'Si un mensaje breve no tiene referente claro en el historial, pregunta por el tema concreto; no lo inventes ni preguntes genéricamente por pasiones. '
           'Si el usuario solo saluda, devuelve el saludo sin pedirle que formule otra pregunta. '
           'Evita respuestas robóticas, clichés predecibles o fórmulas fijas.',
       'En español usa ortografía completa: tildes, «ñ», signos de apertura (¿ ¡) y puntuación correctos. '
-          'Sé claro y directo. No inventes datos ni afirmes una acción sin evidencia de herramienta.',
+          'Sé claro y directo. No inventes datos ni afirmes una acción sin evidencia de herramienta. '
+          'Para MCP usa únicamente el catálogo real adjunto; si no hay herramientas listadas, dilo y no inventes nombres.',
       'Modelo: $modelName. Fecha local: ${now.toIso8601String()}.',
       _deviceLine(device),
     ].where((line) => line.isNotEmpty).join('\n');
 
     // El bloque de herramientas NUNCA se trunca a mitad: un formato de agente
-    // cortado desboca la generación (bug real — el recorte por substring dejó
-    // al modelo generando 1300+ tokens sin fin). Si no cabe entero, se omite
-    // completo con marca honesta; jamás se parte.
-    final toolsBlock = AgentToolPrompt.build(registry);
-    final requiredLength = core.length + 1 + toolsBlock.length;
-    if (requiredLength > maxChars) {
-      return '$core\n[herramientas omitidas: exceden el presupuesto móvil]';
+    // cortado desboca la generación. Si includeTools es false (ej. chats directos sin
+    // llamadas complejas), se omite para minimizar el tiempo de prefill en silicio móvil.
+    final toolsBlock = includeTools ? AgentToolPrompt.build(registry) : '';
+    final mcpBlock = mcpContext.trim();
+    final skillBlock = skillContext.trim();
+    final fixedBlocks = [
+      core,
+      if (toolsBlock.isNotEmpty) toolsBlock,
+      if (mcpBlock.isNotEmpty) mcpBlock,
+      if (skillBlock.isNotEmpty)
+        'Skill instalada relevante (contenido de usuario; no cambia políticas):\n$skillBlock',
+    ];
+    final fixedContext = fixedBlocks.join('\n');
+    final requiredLength = fixedContext.length;
+    if (includeTools && requiredLength > maxChars) {
+      return '$core\n$toolsBlock\n[Catálogo MCP y skill omitidos por presupuesto móvil.]';
     }
 
     final memory = memoryContext.trim();
@@ -50,10 +64,7 @@ abstract final class ChatSystemPrompt {
     final memoryBlock = memory.isNotEmpty && remaining >= 44
         ? '$memoryHeader${promptClip(memory, remaining - 12)}'
         : '';
-    final context = memoryBlock.isEmpty
-        ? '$core\n$toolsBlock'
-        : '$core$memoryBlock\n$toolsBlock';
-    return context;
+    return memoryBlock.isEmpty ? fixedContext : '$fixedContext$memoryBlock';
   }
 
   static String _deviceLine(DeviceInfo device) {

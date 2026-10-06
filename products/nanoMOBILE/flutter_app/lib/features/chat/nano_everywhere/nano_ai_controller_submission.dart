@@ -59,25 +59,7 @@ extension NanoAiControllerSubmission on NanoAiController {
         return;
       }
 
-      final local = const NativeConversationalRouter().tryResolve(prompt);
-      if (local != null) {
-        final provider =
-            providers.firstOrNull ??
-            const NanoProvider(
-              id: 'nano_local',
-              name: 'Nano',
-              kind: NanoProviderKind.local,
-            );
-        answers = [
-          NanoAnswer(provider: provider, requestId: token, text: local.text),
-        ];
-        suggestions = local.suggestions;
-        activity = NanoActivity.success;
-        status = 'Listo.';
-        _emit();
-        return;
-      }
-
+      // Quick siempre consulta un provider conectado; no fabrica respuestas locales.
       final route = providers.firstWhere(
         (provider) =>
             provider.supportsProgrammaticQuery &&

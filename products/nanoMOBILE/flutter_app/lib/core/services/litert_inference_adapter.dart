@@ -52,6 +52,7 @@ final class LiteRtInferenceAdapter implements GenerativeInferencePort {
   }) async {
     if (_path == modelPath && _backend == backend) return true;
     _path = null;
+    _backend = null;
     final response = await _channel.invokeMapMethod<String, dynamic>(
       'initialize',
       {'modelPath': modelPath, 'backend': backend},
@@ -71,12 +72,14 @@ final class LiteRtInferenceAdapter implements GenerativeInferencePort {
     required String prompt,
     double temperature = 0.3,
     int maxTokens = 320,
+    String? sessionId,
   }) async {
     final buffer = StringBuffer();
     await for (final token in generateTokens(
       prompt: prompt,
       temperature: temperature,
       maxTokens: maxTokens,
+      sessionId: sessionId,
       requestId: LLMEngineClient.newRequestId(),
     )) {
       if (!token.stop) buffer.write(token.content);
@@ -88,10 +91,12 @@ final class LiteRtInferenceAdapter implements GenerativeInferencePort {
     required String prompt,
     double temperature = 0.3,
     int maxTokens = 512,
+    String? sessionId,
   }) => generateTokens(
     prompt: prompt,
     temperature: temperature,
     maxTokens: maxTokens,
+    sessionId: sessionId,
     requestId: LLMEngineClient.newRequestId(),
   ).where((event) => !event.stop).map((event) => event.content);
 

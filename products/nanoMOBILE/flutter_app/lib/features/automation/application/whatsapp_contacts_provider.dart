@@ -10,14 +10,8 @@ class WhatsAppContactsService {
 
   /// Verifica si el permiso READ_CONTACTS está concedido.
   Future<bool> hasPermission() async {
-    try {
-      final res = await _channel.invokeMethod<bool>('hasContactsPermission');
-      return res == true;
-    } on PlatformException {
-      return false;
-    } on MissingPluginException {
-      return false;
-    }
+    final res = await _channel.invokeMethod<bool>('hasContactsPermission');
+    return res == true;
   }
 
   /// Solicita el permiso READ_CONTACTS al usuario.
@@ -29,27 +23,17 @@ class WhatsAppContactsService {
       return res == true;
     } on PlatformException {
       return false;
-    } on MissingPluginException {
-      return false;
     }
   }
 
   /// Consulta la lista de contactos de WhatsApp sincronizados en el dispositivo.
   Future<List<WhatsAppContact>> getContacts() async {
-    try {
-      final res = await _channel.invokeListMethod<dynamic>(
-        'getWhatsAppContacts',
-      );
-      if (res == null) return const [];
-      return res
-          .whereType<Map<dynamic, dynamic>>()
-          .map((m) => WhatsAppContact.fromMap(m))
-          .toList();
-    } on PlatformException {
-      return const [];
-    } on MissingPluginException {
-      return const [];
-    }
+    final res = await _channel.invokeListMethod<dynamic>('getWhatsAppContacts');
+    if (res == null) return const [];
+    return res
+        .whereType<Map<dynamic, dynamic>>()
+        .map((m) => WhatsAppContact.fromMap(m))
+        .toList();
   }
 }
 
@@ -69,7 +53,8 @@ final allWhatsAppContactsProvider = FutureProvider<List<WhatsAppContact>>((
   ref,
 ) async {
   final service = ref.watch(whatsappContactsServiceProvider);
-  final hasPerm = await service.hasPermission();
+  // Comparte el permiso ya consultado por la pestaña y evita otro MethodChannel.
+  final hasPerm = await ref.watch(contactsPermissionProvider.future);
   if (!hasPerm) return const [];
   return service.getContacts();
 });

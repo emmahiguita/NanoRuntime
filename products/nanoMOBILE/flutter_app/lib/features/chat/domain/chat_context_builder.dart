@@ -1,18 +1,37 @@
 import '../../../core/models/chat_models.dart';
 import '../../../core/services/chat_system_prompt.dart';
+import '../../../core/services/conversational/conversational_intent_matcher.dart';
 
 /// Constructor y saneador de contexto para el LLM móvil.
 ///
 /// Responsabilidad única (SRP): ensamblar los turnos role/content y el prompt
 /// para la inferencia, asegurando límites móviles y filtrado de fallos previos.
 class ChatContextBuilder {
-  static const int maxHistoryMessages = 10;
+  static const int maxHistoryMessages = 6;
+  // Este límite es del historial completo para no multiplicarlo por mensaje.
   static const int maxHistoryChars = 1200;
   static const int maxUserChars = 2000;
   static const int maxAttachmentChars = 1500;
   static const int maxToolTraceChars = 900;
 
   const ChatContextBuilder();
+
+  /// Decide si la consulta necesita el catálogo real de herramientas en el prompt.
+  /// Las categorías reutilizan el router existente; el chat cotidiano omite ese peso.
+  static bool requiresToolCatalog(String input) {
+    final text = input.toLowerCase().trim();
+    return ConversationalIntentMatcher.isAutomationDomain(text) ||
+        ConversationalIntentMatcher.isLinuxDomain(text) ||
+        ConversationalIntentMatcher.isSystemStatusRequest(text) ||
+        ConversationalIntentMatcher.isAppControlDomain(text) ||
+        ConversationalIntentMatcher.isAIModelDomain(text) ||
+        ConversationalIntentMatcher.isDevelopmentDomain(text) ||
+        ConversationalIntentMatcher.isWebSearchIntent(text) ||
+        ConversationalIntentMatcher.isSkillsRepoQuery(text) ||
+        ConversationalIntentMatcher.isHelpRequest(text) ||
+        text.contains('mcp') ||
+        text.contains('skill');
+  }
 
   /// Construye el historial como lista de turnos role/content para el motor.
   ///
@@ -26,31 +45,36 @@ class ChatContextBuilder {
     final window = history.length > maxHistoryMessages
         ? history.sublist(history.length - maxHistoryMessages)
         : history;
-    for (final msg in window) {
+    var remainingChars = maxHistoryChars;
+    for (final msg in window.reversed) {
+      if (remainingChars <= 0) break;
+      final content = ChatSystemPrompt.promptClip(msg.text, remainingChars);
       result.add({
         'role': msg.sender == MessageSender.user ? 'user' : 'assistant',
-        'content': ChatSystemPrompt.promptClip(msg.text, maxHistoryChars),
+        'content': content,
       });
+      remainingChars -= content.length;
     }
+    final orderedResult = result.reversed.toList();
 
     // Trace de herramientas: la llamada JSON como assistant y el resultado
     // real como user, para que el modelo continúe informado del resultado.
     for (var i = 0; i + 1 < toolTrace.length; i += 2) {
-      result.add({
+      orderedResult.add({
         'role': 'assistant',
         'content': ChatSystemPrompt.promptClip(
           toolTrace[i],
           maxToolTraceChars,
         ),
       });
-      result.add({
+      orderedResult.add({
         'role': 'user',
         'content':
             'Resultado de la herramienta:\n'
             '${ChatSystemPrompt.promptClip(toolTrace[i + 1], maxToolTraceChars)}',
       });
     }
-    return result;
+    return orderedResult;
   }
 
   /// Devuelve el historial anterior al turno user actual. En rondas con tools,

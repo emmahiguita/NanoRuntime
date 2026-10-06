@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
+import 'package:nanoai/core/theme/nano_hero_source.dart';
+import 'package:nanoai/core/theme/nano_hero_zoom_route.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 
 import '../automation_visual_theme.dart';
@@ -22,33 +24,38 @@ import '../bot_studio/bot_studio_screen.dart';
 /// Las herramientas técnicas viven en la pantalla Dev (icono en el header).
 /// Solo un botón atrás (NanoScreenShell, auto) — sin panel de navegación.
 class AutomationScreen extends ConsumerWidget {
-  const AutomationScreen({super.key});
+  final bool isEmbeddedInShell;
+
+  const AutomationScreen({super.key, this.isEmbeddedInShell = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final visualMode = AutomationVisual.modeFromSetting(
       ref.watch(settingsProvider.select((settings) => settings.themeMode)),
     );
+    final dashboardContent = AutomationDashboard(
+      onSettingsTap: () => _openSettings(context),
+      onMessagesTap: () => context.push('/automation/messages'),
+      onRulesTap: () => _openRules(context),
+      onBusinessTap: _openBusiness,
+      onPersonalAgentTap: _openPersonalAgent,
+      onBotStudioTap: () => _openBotStudio(context),
+      onSkillsMcpTap: () => _openSkillsMcp(context),
+      onDevTap: () => _openDev(context),
+    );
+
     return AnimatedTheme(
       data: AutomationVisual.theme(context, mode: visualMode),
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
       child: Builder(
         builder: (context) {
+          if (isEmbeddedInShell) {
+            return dashboardContent;
+          }
           return Scaffold(
             resizeToAvoidBottomInset: false,
-            body: NanoShellBarScope(
-              child: AutomationDashboard(
-                onSettingsTap: () => _openSettings(context),
-                onMessagesTap: () => context.push('/automation/messages'),
-                onRulesTap: () => _openRules(context),
-                onBusinessTap: () => _openBusiness(context),
-                onPersonalAgentTap: () => _openPersonalAgent(context),
-                onBotStudioTap: () => _openBotStudio(context),
-                onSkillsMcpTap: () => _openSkillsMcp(context),
-                onDevTap: () => _openDev(context),
-              ),
-            ),
+            body: NanoShellBarScope(child: dashboardContent),
           );
         },
       ),
@@ -81,13 +88,21 @@ class AutomationScreen extends ConsumerWidget {
 
   static void _openBusiness(BuildContext context) {
     Navigator.of(context).push(
-      nanoGlassPageRoute<void>(builder: (_) => const NanoBusinessScreen()),
+      nanoHeroZoomRoute<void>(
+        originContext: context,
+        tag: nanoBusinessHeroTag,
+        builder: (_) => const NanoBusinessScreen(),
+      ),
     );
   }
 
   static void _openPersonalAgent(BuildContext context) {
     Navigator.of(context).push(
-      nanoGlassPageRoute<void>(builder: (_) => const NanoPersonalScreen()),
+      nanoHeroZoomRoute<void>(
+        originContext: context,
+        tag: nanoPersonalHeroTag,
+        builder: (_) => const NanoPersonalScreen(),
+      ),
     );
   }
 

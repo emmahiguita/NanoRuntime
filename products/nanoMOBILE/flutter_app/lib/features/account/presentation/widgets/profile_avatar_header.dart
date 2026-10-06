@@ -1,19 +1,12 @@
-// profile_avatar_header.dart — Cabecera de foto y estatus de identidad personal.
-// QUÉ HACE: Renderiza la fotografía circular del usuario, badges y selector de imagen.
-// CÓMO FUNCIONA: Muestra foto local/remota o iniciales, con modal para elegir/eliminar foto.
-// POR QUÉ: La identidad del usuario debe centrarse en la persona y no en el búho de Nano.
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/theme/nano_type.dart';
 
+/// Imagen local/remota o iniciales; nunca sustituye identidad por datos inventados.
 class ProfileAvatarHeader extends StatelessWidget {
-  final String displayName;
-  final String username;
+  final String displayName, username;
   final String? photoPath;
   final ValueChanged<String?> onPhotoChanged;
-
   const ProfileAvatarHeader({
     super.key,
     required this.displayName,
@@ -22,126 +15,111 @@ class ProfileAvatarHeader extends StatelessWidget {
     required this.onPhotoChanged,
   });
 
+  /// Lee caracteres completos para iniciales con emoji o acentos.
   String get _initials {
-    if (displayName.trim().isEmpty) return 'U';
     final parts = displayName.trim().split(RegExp(r'\s+'));
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[parts.length - 1][0]}'.toUpperCase();
+    if (parts.first.isEmpty) return 'U';
+    return [
+      parts.first,
+      if (parts.length > 1) parts.last,
+    ].map((part) => part.characters.first.toUpperCase()).join();
   }
 
-  void _openPhotoSheet(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    showModalBottomSheet(
+  /// Cierra el modal antes del selector Android y verifica montaje al volver.
+  Future<void> _choosePhoto(BuildContext context) async {
+    final action = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: colors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(NanoRadius.large)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      useRootNavigator: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SingleChildScrollView(
+        child: SafeArea(
+          top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 36, height: 4,
-                decoration: BoxDecoration(color: colors.outlineVariant, borderRadius: BorderRadius.circular(2)),
-              ),
-              const SizedBox(height: 16),
-              Text('Foto de perfil', style: NanoType.title(colors.onSurface)),
-              const SizedBox(height: 12),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: Color(0xFF10B981)),
-                title: Text('Elegir de la galería', style: NanoType.body(colors.onSurface)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final result = await FilePicker.pickFiles(type: FileType.image);
-                  if (result != null && result.files.single.path != null) {
-                    onPhotoChanged(result.files.single.path);
-                  }
-                },
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Elegir imagen'),
+                onTap: () => Navigator.of(sheetContext).pop('choose'),
               ),
-              if (photoPath != null && photoPath!.isNotEmpty)
+              if ((photoPath ?? '').isNotEmpty)
                 ListTile(
-                  leading: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444)),
-                  title: Text('Eliminar foto actual', style: NanoType.body(const Color(0xFFEF4444))),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    onPhotoChanged(null);
-                  },
+                  leading: const Icon(Icons.delete_outline_rounded),
+                  title: const Text('Quitar foto'),
+                  onTap: () => Navigator.of(sheetContext).pop('remove'),
                 ),
             ],
           ),
         ),
       ),
     );
+    if (!context.mounted || action == null) return;
+    if (action == 'remove') {
+      onPhotoChanged(null);
+      return;
+    }
+    try {
+      final result = await FilePicker.pickFiles(type: FileType.image);
+      if (!context.mounted) return;
+      final path = result?.files.single.path;
+      if (path != null) onPhotoChanged(path);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo abrir la imagen. Intenta de nuevo.'),
+          ),
+        );
+      }
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final colors = NanoThemeExtension.of(context).colors;
-    final hasCustomPhoto = photoPath != null && photoPath!.isNotEmpty && File(photoPath!).existsSync();
-
-    return Center(
-      child: Column(
-        children: [
-          Stack(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.6), width: 2),
-                ),
-                child: CircleAvatar(
-                  radius: 46,
-                  backgroundColor: colors.surfaceVariant,
-                  backgroundImage: hasCustomPhoto ? FileImage(File(photoPath!)) : null,
-                  child: !hasCustomPhoto
-                      ? Text(_initials, style: NanoType.display(colors.primary).copyWith(fontWeight: FontWeight.bold, fontSize: 32))
-                      : null,
-                ),
-              ),
-              Positioned(
-                bottom: 0, right: 0,
-                child: GestureDetector(
-                  onTap: () => _openPhotoSheet(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: colors.background, width: 2.5),
-                    ),
-                    child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          TextButton.icon(
-            onPressed: () => _openPhotoSheet(context),
-            icon: const Icon(Icons.edit_outlined, size: 15, color: Color(0xFF10B981)),
-            label: Text('Cambiar foto', style: NanoType.caption(const Color(0xFF10B981)).copyWith(fontWeight: FontWeight.w600)),
-          ),
-          Text(displayName.isNotEmpty ? displayName : 'Emmanuel Higuita',
-              style: NanoType.headline(colors.onSurface).copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(username.isNotEmpty ? (username.startsWith('@') ? username : '@$username') : '@emmanuel',
-              style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontWeight: FontWeight.w500)),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFF10B981).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text('Cuenta personal',
-                style: NanoType.caption(const Color(0xFF10B981)).copyWith(fontWeight: FontWeight.w600, fontSize: 11)),
-          ),
-        ],
-      ),
+  /// Carga asíncrona sin existsSync en cada frame; errores muestran iniciales.
+  Widget _photo(BuildContext context) {
+    final fallback = Center(
+      child: Text(_initials, style: Theme.of(context).textTheme.headlineMedium),
+    );
+    final path = photoPath;
+    if (path == null || path.isEmpty) return fallback;
+    final uri = Uri.tryParse(path);
+    if (uri?.scheme == 'https' || uri?.scheme == 'http') {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback,
+      );
+    }
+    return Image.file(
+      File(path),
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => fallback,
     );
   }
+
+  /// Una acción de foto y textos envolventes evitan redundancia y recortes.
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      ClipOval(child: SizedBox(width: 80, height: 80, child: _photo(context))),
+      TextButton.icon(
+        onPressed: () => _choosePhoto(context),
+        icon: const Icon(Icons.edit_outlined, size: 18),
+        label: const Text('Cambiar foto'),
+      ),
+      Text(
+        displayName.trim().isEmpty ? 'Tu perfil' : displayName.trim(),
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.titleLarge,
+      ),
+      if (username.trim().isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Text(
+          username.startsWith('@') ? username : '@$username',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ],
+    ],
+  );
 }

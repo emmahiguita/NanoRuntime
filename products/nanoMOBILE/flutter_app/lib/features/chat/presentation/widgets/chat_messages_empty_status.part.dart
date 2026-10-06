@@ -83,13 +83,17 @@ class _EmptyChatStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHigh,
+        color: isDark ? const Color(0xCC0E1726) : const Color(0xF5F8FAFC),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: scheme.outlineVariant),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.10)
+              : Colors.black.withValues(alpha: 0.08),
+        ),
       ),
       child: Column(
         children: [
@@ -99,19 +103,29 @@ class _EmptyChatStatusCard extends StatelessWidget {
               Icon(icon, size: 18, color: color),
               const SizedBox(width: 8),
               Flexible(
-                child: Text(title, style: TextStyle(color: color)),
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: isDark ? Colors.white70 : const Color(0xFF334155),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 10),
           if (isPrimary)
-            ElevatedButton.icon(
+            FilledButton.icon(
               onPressed: onPressed,
               icon: const Icon(Icons.download_rounded, size: 16),
               label: Text(actionLabel),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: scheme.primary,
-                foregroundColor: scheme.onPrimary,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF0284C7),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             )
           else
@@ -121,8 +135,15 @@ class _EmptyChatStatusCard extends StatelessWidget {
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: Text(actionLabel),
               style: OutlinedButton.styleFrom(
-                foregroundColor: scheme.onSurfaceVariant,
-                side: BorderSide(color: scheme.outlineVariant),
+                foregroundColor: isDark ? Colors.white70 : const Color(0xFF475569),
+                side: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.15)
+                      : Colors.black.withValues(alpha: 0.12),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
         ],

@@ -40,7 +40,7 @@ class _EmptyChatQuickActionGrid extends StatelessWidget {
             ),
             _QuickCard(
               icon: Icons.description_rounded,
-              iconColor: const Color(0xFFFF9100),
+              iconColor: const Color(0xFF6366F1),
               title: 'Informe Técnico en PDF',
               subtitle: 'Genera un reporte estructurado y compártelo',
               onTap: () => onSuggestion(

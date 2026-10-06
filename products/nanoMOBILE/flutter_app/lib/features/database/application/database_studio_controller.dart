@@ -16,6 +16,7 @@ import 'database_session_loader.dart';
 import 'database_studio_export_actions.dart';
 import 'database_studio_source_actions.dart';
 import 'database_studio_state.dart';
+import 'google_sheets_sync_service.dart';
 import 'sql_query_engine.dart';
 import 'tabular_import_service.dart';
 
@@ -36,6 +37,8 @@ class DatabaseStudioController extends StateNotifier<DatabaseStudioState>
   final DeviceDataFilePicker filePicker;
   @override
   final DatabaseSessionLoader sessionLoader;
+  @override
+  final GoogleSheetsSyncService sheetsSync;
 
   @override
   final DatabaseReportCoordinator reports;
@@ -49,19 +52,23 @@ class DatabaseStudioController extends StateNotifier<DatabaseStudioState>
     this.filePicker = const DeviceDataFilePicker(),
     this.sessionLoader = const DatabaseSessionLoader(),
     this.reports = const DatabaseReportCoordinator(),
+    this.sheetsSync = const GoogleSheetsSyncService(),
   }) : super(
          const DatabaseStudioState(
            tables: {},
            selectedTableName: '',
-           // Query inicial: lista tablas del portafolio de servicios de programación.
-           // Se reemplaza automáticamente al conectar la demo o una BD real.
-           currentQuery: "SELECT * FROM servicios_programacion ORDER BY precio_cop DESC;",
+           currentQuery: '',
            isShellConnected: false,
-           statusMessage: 'Conectando SQLite local…',
+           statusMessage: 'Base de datos lista · Conecta Google Sheets o crea tablas',
          ),
        ) {
     unawaited(initializeDefaultDatabase());
   }
+
+  /// QUÉ: Expone el estado actual de forma pública y segura para componentes y diálogos.
+  /// CÓMO: Devuelve el getter protegido state sin violar las directrices de StateNotifier.
+  /// POR QUÉ: Permite a widgets consultar el estado sin anotaciones de prueba ni acoplamiento indebido.
+  DatabaseStudioState get currentState => state;
 
   void updateQueryText(String query) =>
       state = state.copyWith(currentQuery: query);
@@ -122,6 +129,12 @@ class DatabaseStudioController extends StateNotifier<DatabaseStudioState>
 
   @override
   void invalidatePendingQuery() => _queryRevision++;
+
+  @override
+  void dispose() {
+    disposeGoogleSheetsSync();
+    super.dispose();
+  }
 
   static List<String> _remember(String query, List<String> previous) {
     final history = <String>[query, ...previous.where((item) => item != query)];

@@ -18,7 +18,8 @@ library;
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
+import 'package:flutter/foundation.dart'
+    show debugPrint, debugPrintStack, kDebugMode;
 
 import '../messaging/conversation_key.dart';
 import '../messaging/conversation_memory.dart';
@@ -56,6 +57,7 @@ class RulePipeline {
     Future<void>? readiness,
     TurnSupersedeGuard? supersedeGuard,
     bool Function(String sender, String conversationId)? allowsStyleLearning,
+    bool Function(NotificationObject notification)? allowsNotification,
 
     /// Callback disparado tras registrar cada mensaje entrante en memoria.
     /// Usado por el coordinator de Riverpod para invalidar la señal reactiva
@@ -71,6 +73,7 @@ class RulePipeline {
        _readiness = readiness,
        _supersedeGuard = supersedeGuard,
        _allowsStyleLearning = allowsStyleLearning,
+       _allowsNotification = allowsNotification,
        _onInboundMessage = onInboundMessage;
 
   final RuleRegistry _registry;
@@ -88,6 +91,9 @@ class RulePipeline {
   final TurnSupersedeGuard? _supersedeGuard;
   final bool Function(String sender, String conversationId)?
   _allowsStyleLearning;
+
+  /// Gate por contacto: evita inferencia y borradores fuera de los chats elegidos.
+  final bool Function(NotificationObject notification)? _allowsNotification;
 
   /// WA-HUB-REACTIVE-01 — callback para invalidar la señal reactiva del hub.
   final void Function(String conversationId)? _onInboundMessage;
@@ -166,10 +172,23 @@ class RulePipeline {
         await _registry.flush();
         for (final event in events) {
           MessagingMetrics.increment('notificationsObserved');
-          if (!isNotificationEligible(event.packageName) ||
+          final ruleEligible = isNotificationEligible(event.packageName);
+          final contactAllowed = _allowsNotification?.call(event) ?? true;
+          final ignoredAsStatus =
+              WhatsAppStatusClassifier.shouldIgnoreFromChatHub(event);
+          if (!ruleEligible ||
+              !contactAllowed ||
               event.isSummary ||
-              WhatsAppStatusClassifier.shouldIgnoreFromChatHub(event)) {
+              ignoredAsStatus) {
             MessagingMetrics.increment('noiseDropped');
+            // Expone solo los gates booleanos en debug; nunca texto ni contacto.
+            if (kDebugMode && event.packageName == MessagingPackage.whatsapp) {
+              debugPrint(
+                '[wa-admission] rejected rule=$ruleEligible '
+                'contact=$contactAllowed summary=${event.isSummary} '
+                'status=$ignoredAsStatus',
+              );
+            }
             continue;
           }
 
@@ -443,6 +462,7 @@ class RulePipeline {
     // matchearlo = no es un evento de automatización: ni bitácora, ni dedupe,
     // ni memoria, ni LLM.
     if (!isNotificationEligible(notif.packageName) ||
+        !(_allowsNotification?.call(notif) ?? true) ||
         notif.isSummary ||
         WhatsAppStatusClassifier.shouldIgnoreFromChatHub(notif)) {
       debugPrint(

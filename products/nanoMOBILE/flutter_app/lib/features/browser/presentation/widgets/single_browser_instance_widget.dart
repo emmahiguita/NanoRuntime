@@ -11,6 +11,7 @@ import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
 import 'package:nanoai/features/browser/infrastructure/browser_scripts.dart';
 import 'package:nanoai/features/browser/infrastructure/browser_security_firewall.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_credential_save_banner.dart';
+import 'package:nanoai/features/browser/presentation/widgets/browser_error_view.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_gesture_arena.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_keep_alive_wrapper.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_site_theme.dart';
@@ -249,6 +250,10 @@ class _SingleBrowserInstanceWidgetState
                 source: BrowserScripts.credentialManagerScript,
                 injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
               ),
+              UserScript(
+                source: BrowserScripts.audioServiceSyncScript,
+                injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START, // Temprano para atrapar media elements rápidos
+              ),
             ]),
             gestureRecognizers: BrowserGestureArena.buildGestureRecognizers(
               isMaximized: isFull,
@@ -288,6 +293,10 @@ class _SingleBrowserInstanceWidgetState
                 _handler.onReceivedServerTrustAuthRequest,
             onReceivedHttpAuthRequest: _handler.onReceivedHttpAuthRequest,
             onPermissionRequest: _handler.onPermissionRequest,
+            onReceivedError: _handler.onReceivedError,
+            onReceivedHttpError: _handler.onReceivedHttpError,
+            onUpdateVisitedHistory: _handler.onUpdateVisitedHistory,
+            onRenderProcessGone: _handler.onRenderProcessGone,
           ),
         ),
         if (widget.tab.isLoading && widget.tab.progress < 1.0)
@@ -300,6 +309,30 @@ class _SingleBrowserInstanceWidgetState
               minHeight: 2.0,
               backgroundColor: Colors.transparent,
               valueColor: AlwaysStoppedAnimation<Color>(siteColor),
+            ),
+          ),
+        if (widget.tab.hasError)
+          Positioned.fill(
+            child: BrowserErrorView(
+              url: widget.tab.url,
+              errorMessage: widget.tab.errorMessage,
+              errorCode: widget.tab.errorCode,
+              onRetry: () {
+                final ctrl = registry.controllerFor(widget.tab.id);
+                if (ctrl != null) {
+                  ref.read(browserTabProvider.notifier).updateTabById(
+                    widget.tab.id,
+                    clearError: true,
+                    isLoading: true,
+                    progress: 0.1,
+                  );
+                  ctrl.reload();
+                } else {
+                  widget.onNavigate?.call(widget.tab.url);
+                }
+              },
+              onNavigate: (targetUrl) => widget.onNavigate?.call(targetUrl),
+              onGoHome: () => widget.onNavigate?.call('https://www.google.com'),
             ),
           ),
         if (_showSaveBanner && _pendingDomain != null)

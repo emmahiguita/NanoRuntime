@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/settings_provider.dart';
+import '../../../../core/theme/design_tokens.dart';
 
 /// MESSAGING-CONTACTS-POLICY-BAR — Selector Glassmorphism de política del agente.
 ///
@@ -19,9 +20,14 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final colors = NanoThemeExtension.of(context).colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final settings = ref.watch(settingsProvider);
     final mode = settings.waTargetContactsMode;
     final isAll = mode == 'all';
+
+    final allColor = isDark ? const Color(0xFF00E676) : const Color(0xFF059669);
+    final selectedColor = isDark ? const Color(0xFF00D2FF) : const Color(0xFF0284C7);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -31,18 +37,22 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: const Color(0x14FFFFFF),
+              color: isDark ? const Color(0x14FFFFFF) : colors.surfaceVariant.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0x22FFFFFF), width: 0.8),
+              border: Border.all(
+                color: isDark ? const Color(0x22FFFFFF) : colors.outline.withValues(alpha: 0.3),
+                width: 0.8,
+              ),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: _segment(
+                    context: context,
                     title: 'Todos los contactos',
                     icon: Icons.public_rounded,
                     selected: isAll,
-                    color: const Color(0xFF00E676),
+                    color: allColor,
                     onTap: () => ref
                         .read(settingsProvider.notifier)
                         .setWaTargetContactsMode('all'),
@@ -51,10 +61,11 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                 const SizedBox(width: 4),
                 Expanded(
                   child: _segment(
+                    context: context,
                     title: 'Solo seleccionados',
                     icon: Icons.playlist_add_check_rounded,
                     selected: !isAll,
-                    color: const Color(0xFF00D2FF),
+                    color: selectedColor,
                     onTap: () => ref
                         .read(settingsProvider.notifier)
                         .setWaTargetContactsMode('selected'),
@@ -67,12 +78,14 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: isAll ? const Color(0x0E00E676) : const Color(0x0E00D2FF),
+              color: isAll
+                  ? allColor.withValues(alpha: isDark ? 0.08 : 0.10)
+                  : selectedColor.withValues(alpha: isDark ? 0.08 : 0.10),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: isAll
-                    ? const Color(0x3300E676)
-                    : const Color(0x3300D2FF),
+                    ? allColor.withValues(alpha: 0.35)
+                    : selectedColor.withValues(alpha: 0.35),
                 width: 0.8,
               ),
             ),
@@ -82,9 +95,7 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                 Icon(
                   isAll ? Icons.info_outline_rounded : Icons.shield_outlined,
                   size: 14,
-                  color: isAll
-                      ? const Color(0xFF00E676)
-                      : const Color(0xFF00D2FF),
+                  color: isAll ? allColor : selectedColor,
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -96,9 +107,7 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                             ? 'AGENTE ACTIVO: TODOS LOS CONTACTOS'
                             : 'AGENTE ACTIVO: SOLO CONTACTOS SELECCIONADOS',
                         style: TextStyle(
-                          color: isAll
-                              ? const Color(0xFF00E676)
-                              : const Color(0xFF00D2FF),
+                          color: isAll ? allColor : selectedColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 10,
                           letterSpacing: 0.3,
@@ -109,10 +118,10 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                         isAll
                             ? 'Nano responderá a cualquier contacto entrante. Puedes pausar contactos específicos con su switch.'
                             : 'Nano responderá ÚNICAMENTE a contactos con el switch de agente encendido.',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10,
                           height: 1.25,
-                          color: Colors.white70,
+                          color: colors.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -127,12 +136,16 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
   }
 
   Widget _segment({
+    required BuildContext context,
     required String title,
     required IconData icon,
     required bool selected,
     required Color color,
     required VoidCallback onTap,
   }) {
+    final colors = NanoThemeExtension.of(context).colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -140,17 +153,34 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.2) : Colors.transparent,
+          color: selected
+              ? (isDark ? color.withValues(alpha: 0.2) : Colors.white)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? color.withValues(alpha: 0.5) : Colors.transparent,
+            color: selected
+                ? (isDark ? color.withValues(alpha: 0.5) : colors.outline.withValues(alpha: 0.4))
+                : Colors.transparent,
             width: 0.8,
           ),
+          boxShadow: selected && !isDark
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 13, color: selected ? color : Colors.white60),
+            Icon(
+              icon,
+              size: 13,
+              color: selected ? color : colors.onSurfaceVariant,
+            ),
             const SizedBox(width: 4),
             Flexible(
               child: Text(
@@ -158,7 +188,7 @@ class MessagingContactsPolicyBar extends ConsumerWidget {
                 style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: selected ? FontWeight.bold : FontWeight.w500,
-                  color: selected ? color : Colors.white70,
+                  color: selected ? color : colors.onSurfaceVariant,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),

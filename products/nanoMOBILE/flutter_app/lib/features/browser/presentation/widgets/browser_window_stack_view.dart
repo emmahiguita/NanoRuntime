@@ -3,23 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
 import 'package:nanoai/features/browser/application/browser_webview_registry.dart';
 import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_dialog_helper.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_find_in_page_widget.dart';
+import 'package:nanoai/features/browser/presentation/widgets/browser_resizable_split.dart';
+import 'package:nanoai/features/browser/presentation/widgets/browser_stack_page_factory.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_window_scroll_rail.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_window_stack_bar.dart';
-import 'package:nanoai/features/browser/presentation/widgets/single_browser_instance_widget.dart';
 
-/// Vista de ventanas múltiples apiladas — con claves estables y soporte adaptativo.
-///
-/// - QUÉ HACE: Presenta la colección de pestañas en lista reordenable (portrait) o panel split (landscape).
-/// - CÓMO FUNCIONA: Mantiene una clave estable [ValueKey] ('browser_instance_${tab.id}') entre orientaciones
-///   evitando que Flutter destruya la PlatformView nativa del WebView al rotar de vertical a horizontal.
-/// - POR QUÉ: Elimina la pérdida de sonido y pantallas negras por reconstrucción destructiva (<200 líneas).
+/// QUÉ/CÓMO/POR QUÉ: organiza ventanas con claves estables para que rotar,
+/// reordenar o dividir la pantalla no destruya las WebViews nativas.
 class BrowserWindowStackView extends StatelessWidget {
   final BrowserTabState tabState;
   final Set<String> minimizedWindowIds;
   final String? maximizedWindowId;
-  final double currentZoom;
   final bool isDesktopMode, isDarkModeWeb, showFindInPage;
   final ScrollController scrollController;
   final WidgetRef ref;
@@ -30,6 +25,7 @@ class BrowserWindowStackView extends StatelessWidget {
       onOpenFocused,
       onCloseFindInPage,
       onBackToStack;
+  final VoidCallback? onExit;
   final void Function(BrowserTabModel) onOpenOptions;
   final void Function(String id) onToggleMinimize, onToggleMaximize, onCloseTab;
   final void Function(String tabId, String url) onNavigate;
@@ -39,7 +35,6 @@ class BrowserWindowStackView extends StatelessWidget {
     required this.tabState,
     required this.minimizedWindowIds,
     required this.maximizedWindowId,
-    required this.currentZoom,
     required this.isDesktopMode,
     required this.isDarkModeWeb,
     required this.showFindInPage,
@@ -57,61 +52,16 @@ class BrowserWindowStackView extends StatelessWidget {
     required this.onToggleMaximize,
     required this.onCloseTab,
     required this.onNavigate,
+    this.onExit,
   });
 
-  Widget _buildPane(
-    BuildContext context,
-    BrowserTabModel tab, {
-    bool isActive = true,
-  }) {
-    return SingleBrowserInstanceWidget(
-      key: instanceKeyForTab(tab.id),
-      tab: tab,
-      fillHeight: true,
-      showCardHeader: true,
-      isMinimized: false,
-      isMaximized: true,
-      isCurrentActive: isActive,
-      currentZoom: tab.zoomLevel,
-      isDesktopMode: isDesktopMode,
-      isDarkModeWeb: isDarkModeWeb,
-      onToggleMinimize: () => onToggleMinimize(tab.id),
-      onToggleMaximize: () => onToggleMaximize(tab.id),
-      onClose: () => onCloseTab(tab.id),
-      onNavigate: (url) => onNavigate(tab.id, url),
-      onControllerCreated: (c) =>
-          ref.read(browserWebViewRegistryProvider).attachController(tab.id, c),
-      onExternalPrompt: (u) =>
-          BrowserDialogHelper.promptExternalApp(context, u),
-    );
-  }
-
-  Widget _buildItem(BuildContext context, BrowserTabModel tab, {int? index}) {
-    final isMin = minimizedWindowIds.contains(tab.id);
-    final isMax = maximizedWindowId == tab.id;
-    return SingleBrowserInstanceWidget(
-      key: instanceKeyForTab(tab.id),
-      tab: tab,
-      fillHeight: false,
-      showCardHeader: true,
-      isMinimized: isMin,
-      isMaximized: isMax,
-      isCurrentActive: tab.id == tabState.activeTabId,
-      currentZoom: tab.zoomLevel,
-      isDesktopMode: isDesktopMode,
-      isDarkModeWeb: isDarkModeWeb,
-      dragIndex: index,
-      onToggleMinimize: () => onToggleMinimize(tab.id),
-      onToggleMaximize: () => onToggleMaximize(tab.id),
-      onSelectTab: () => onToggleMinimize(tab.id),
-      onClose: () => onCloseTab(tab.id),
-      onControllerCreated: (c) =>
-          ref.read(browserWebViewRegistryProvider).attachController(tab.id, c),
-      onNavigate: (url) => onNavigate(tab.id, url),
-      onExternalPrompt: (u) =>
-          BrowserDialogHelper.promptExternalApp(context, u),
-    );
-  }
+  Widget _find(BrowserWebViewRegistry registry, BrowserTabModel tab) =>
+      showFindInPage
+      ? BrowserFindInPageWidget(
+          controller: registry.controllerFor(tab.id),
+          onClose: onCloseFindInPage,
+        )
+      : const SizedBox.shrink();
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +69,19 @@ class BrowserWindowStackView extends StatelessWidget {
     final activeTab = tabState.activeTab;
     final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
     final tabs = tabState.tabs;
+    final pages = BrowserStackPageFactory(
+      tabState: tabState,
+      minimizedWindowIds: minimizedWindowIds,
+      maximizedWindowId: maximizedWindowId,
+      isDesktopMode: isDesktopMode,
+      isDarkModeWeb: isDarkModeWeb,
+      ref: ref,
+      instanceKeyForTab: instanceKeyForTab,
+      onToggleMinimize: onToggleMinimize,
+      onToggleMaximize: onToggleMaximize,
+      onCloseTab: onCloseTab,
+      onNavigate: onNavigate,
+    );
 
     if (maximizedWindowId != null) {
       final maxTab = tabs.firstWhere(
@@ -130,33 +93,10 @@ class BrowserWindowStackView extends StatelessWidget {
           BrowserWindowMaximizedBar(
             onBackToStack: onBackToStack,
             onOpenOptions: () => onOpenOptions(maxTab),
+            onExit: onExit,
           ),
-          if (showFindInPage)
-            BrowserFindInPageWidget(
-              controller: reg.controllerFor(maxTab.id),
-              onClose: onCloseFindInPage,
-            ),
-          Expanded(
-            child: SingleBrowserInstanceWidget(
-              key: instanceKeyForTab(maxTab.id),
-              tab: maxTab,
-              fillHeight: true,
-              showCardHeader: true,
-              isMinimized: false,
-              isMaximized: true,
-              isCurrentActive: true,
-              currentZoom: maxTab.zoomLevel,
-              isDesktopMode: isDesktopMode,
-              isDarkModeWeb: isDarkModeWeb,
-              onToggleMinimize: () => onToggleMinimize(maxTab.id),
-              onToggleMaximize: onBackToStack,
-              onClose: () => onCloseTab(maxTab.id),
-              onNavigate: (url) => onNavigate(maxTab.id, url),
-              onControllerCreated: (c) => reg.attachController(maxTab.id, c),
-              onExternalPrompt: (u) =>
-                  BrowserDialogHelper.promptExternalApp(context, u),
-            ),
-          ),
+          _find(reg, maxTab),
+          Expanded(child: pages.pane(context, maxTab)),
         ],
       );
     }
@@ -173,6 +113,7 @@ class BrowserWindowStackView extends StatelessWidget {
       onOpenCarousel: onOpenCarousel,
       onOpenFocused: onOpenFocused,
       onOpenOptions: () => onOpenOptions(activeTab),
+      onExit: onExit,
     );
 
     if (isLand && tabs.length >= 2) {
@@ -181,15 +122,11 @@ class BrowserWindowStackView extends StatelessWidget {
       return Column(
         children: [
           stackBar,
-          if (showFindInPage)
-            BrowserFindInPageWidget(
-              controller: reg.controllerFor(activeTab.id),
-              onClose: onCloseFindInPage,
-            ),
+          _find(reg, activeTab),
           Expanded(
-            child: _ResizableLandscapeSplit(
-              left: _buildPane(context, leftTab, isActive: true),
-              right: _buildPane(context, rightTab, isActive: false),
+            child: BrowserResizableSplit(
+              left: pages.pane(context, leftTab, isActive: true),
+              right: pages.pane(context, rightTab, isActive: false),
             ),
           ),
         ],
@@ -200,12 +137,8 @@ class BrowserWindowStackView extends StatelessWidget {
       return Column(
         children: [
           stackBar,
-          if (showFindInPage)
-            BrowserFindInPageWidget(
-              controller: reg.controllerFor(activeTab.id),
-              onClose: onCloseFindInPage,
-            ),
-          Expanded(child: _buildPane(context, activeTab)),
+          _find(reg, activeTab),
+          Expanded(child: pages.pane(context, activeTab)),
         ],
       );
     }
@@ -213,11 +146,7 @@ class BrowserWindowStackView extends StatelessWidget {
     return Column(
       children: [
         stackBar,
-        if (showFindInPage)
-          BrowserFindInPageWidget(
-            controller: reg.controllerFor(activeTab.id),
-            onClose: onCloseFindInPage,
-          ),
+        _find(reg, activeTab),
         Expanded(
           child: Stack(
             children: [
@@ -237,7 +166,7 @@ class BrowserWindowStackView extends StatelessWidget {
                     .reorderTab(oldIdx, newIdx),
                 itemBuilder: (c, i) => KeyedSubtree(
                   key: ValueKey('tab_item_${tabs[i].id}'),
-                  child: _buildItem(context, tabs[i], index: i),
+                  child: pages.card(context, tabs[i], i),
                 ),
               ),
               BrowserWindowScrollRail(
@@ -264,58 +193,4 @@ class BrowserWindowStackView extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Split horizontal ajustable. Mantiene ambas WebViews montadas mientras el
-/// usuario cambia el ancho; arrastrar el separador no recrea ninguna página.
-class _ResizableLandscapeSplit extends StatefulWidget {
-  const _ResizableLandscapeSplit({required this.left, required this.right});
-
-  final Widget left;
-  final Widget right;
-
-  @override
-  State<_ResizableLandscapeSplit> createState() =>
-      _ResizableLandscapeSplitState();
-}
-
-class _ResizableLandscapeSplitState extends State<_ResizableLandscapeSplit> {
-  static const double _dividerWidth = 18;
-  double _leftFraction = 0.5;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final available = (constraints.maxWidth - _dividerWidth).clamp(
-        1.0,
-        double.infinity,
-      );
-      return Row(
-        children: [
-          SizedBox(width: available * _leftFraction, child: widget.left),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onDoubleTap: () => setState(() => _leftFraction = 0.5),
-            onHorizontalDragUpdate: (details) => setState(() {
-              _leftFraction = (_leftFraction + details.delta.dx / available)
-                  .clamp(0.22, 0.78);
-            }),
-            child: const SizedBox(
-              width: _dividerWidth,
-              child: Center(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Color(0xFF334155),
-                    borderRadius: BorderRadius.all(Radius.circular(2)),
-                  ),
-                  child: SizedBox(width: 3, height: 42),
-                ),
-              ),
-            ),
-          ),
-          Expanded(child: widget.right),
-        ],
-      );
-    },
-  );
 }

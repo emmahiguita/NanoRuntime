@@ -56,6 +56,7 @@ class DataStatisticsSnapshot {
   final String? categoryColumn;
   final List<CategoryFrequency> categories;
   final String? seriesColumn;
+  final String? seriesLabelColumn;
   final List<double> series;
   final List<String> seriesLabels;
   final List<ColumnQuality> quality;
@@ -73,6 +74,7 @@ class DataStatisticsSnapshot {
     required this.engine,
     this.categoryColumn,
     this.seriesColumn,
+    this.seriesLabelColumn,
   });
 
   double get completeness {

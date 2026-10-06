@@ -42,8 +42,8 @@ class NanoOpticalSurface extends StatefulWidget {
     this.glassOpacityScale = 1.0,
     this.onTap,
     this.onLongPress,
-    this.tilt = false,
-    this.tiltIntensity = 0.035,
+    this.tilt = true,
+    this.tiltIntensity = 0.045,
     this.autoReflect = false,
   });
 
@@ -189,6 +189,43 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
     if (_isPointerInside) setState(() => _isPointerInside = false);
   }
 
+  void _handlePointerDown(PointerDownEvent event) {
+    final nextLight = _lightFromPosition(event.localPosition);
+    setState(() {
+      _isPointerInside = true;
+      _pointerLight = nextLight;
+    });
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.forward();
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    final nextLight = _lightFromPosition(event.localPosition);
+    if (!_isPointerInside ||
+        (nextLight.x - _pointerLight.x).abs() > 0.025 ||
+        (nextLight.y - _pointerLight.y).abs() > 0.025) {
+      setState(() {
+        _isPointerInside = true;
+        _pointerLight = nextLight;
+      });
+    }
+  }
+
+  void _handlePointerUp(PointerUpEvent _) {
+    if (_isPointerInside) setState(() => _isPointerInside = false);
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.reverse();
+    }
+  }
+
+  void _handlePointerCancel(PointerCancelEvent _) {
+    if (_isPointerInside) setState(() => _isPointerInside = false);
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.reverse();
+    }
+  }
+
   /// Alineación de la luz pendiente, normalizada a [-1,1] desde la posición
   /// local del puntero (hover de ratón O táctil).
   Alignment _lightFromPosition(Offset localPosition) {
@@ -291,28 +328,39 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
       );
     }
 
-    final Widget out;
+    final Matrix4 targetMatrix;
     if (widget.tilt && _isPointerInside && !reduceMotion) {
-      // Giro 3D del panel: rota hacia el puntero con perspectiva suave.
-      // rotationY -x (se aleja a la derecha), rotationX +y (se inclina
-      // hacia atrás arriba), como un vidrio siguiendo la luz.
-      final tilt = Matrix4.identity()
+      targetMatrix = Matrix4.identity()
         ..setEntry(3, 2, 0.0012)
         ..rotateY(-_pointerLight.x * widget.tiltIntensity)
         ..rotateX(_pointerLight.y * widget.tiltIntensity);
-      out = Transform(
-        transform: tilt,
-        alignment: Alignment.center,
-        child: surface,
-      );
     } else {
-      out = surface;
+      targetMatrix = Matrix4.identity();
     }
 
-    return MouseRegion(
-      onHover: reduceMotion ? null : _handlePointerHover,
-      onExit: _handlePointerExit,
-      child: out,
+    final out = AnimatedContainer(
+      duration: _isPointerInside
+          ? const Duration(milliseconds: 140)
+          : const Duration(milliseconds: 320),
+      curve: _isPointerInside
+          ? NanoMotionCurves.press
+          : NanoMotionCurves.glassSpring,
+      transform: targetMatrix,
+      transformAlignment: Alignment.center,
+      child: surface,
+    );
+
+    return Listener(
+      onPointerDown: reduceMotion ? null : _handlePointerDown,
+      onPointerMove: reduceMotion ? null : _handlePointerMove,
+      onPointerUp: reduceMotion ? null : _handlePointerUp,
+      onPointerCancel: reduceMotion ? null : _handlePointerCancel,
+      behavior: HitTestBehavior.translucent,
+      child: MouseRegion(
+        onHover: reduceMotion ? null : _handlePointerHover,
+        onExit: _handlePointerExit,
+        child: out,
+      ),
     );
   }
 

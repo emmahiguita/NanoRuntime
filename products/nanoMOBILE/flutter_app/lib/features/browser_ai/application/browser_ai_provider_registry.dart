@@ -1,20 +1,24 @@
+// browser_ai_provider_registry.dart — Registro central de proveedores web de IA.
+// QUÉ HACE: Administra catálogo inmutable de proveedores oficiales y dinámicos creados por el usuario.
+// CÓMO FUNCIONA: Mantiene un mapa indexado por ID e incorpora Kimi, Qwen, ChatGPT, Gemini, Copilot, etc.
+// POR QUÉ: Permite al usuario interactuar con cualquier IA web sin modificar el núcleo de Nano AI.
+library;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../domain/browser_ai_custom_provider_model.dart';
 import '../domain/browser_ai_provider.dart';
+import '../infrastructure/browser_ai_preferences.dart';
 import '../infrastructure/providers/chatgpt_provider.dart';
 import '../infrastructure/providers/claude_provider.dart';
+import '../infrastructure/providers/copilot_provider.dart';
+import '../infrastructure/providers/custom_dynamic_provider.dart';
 import '../infrastructure/providers/deepseek_provider.dart';
 import '../infrastructure/providers/gemini_provider.dart';
+import '../infrastructure/providers/kimi_provider.dart';
 import '../infrastructure/providers/mistral_provider.dart';
+import '../infrastructure/providers/perplexity_provider.dart';
+import '../infrastructure/providers/qwen_provider.dart';
 
-/// QUÉ HACE:
-/// Registro y catálogo central de proveedores web de IA.
-///
-/// CÓMO FUNCIONA:
-/// Mantiene un mapa en memoria de [BrowserAiProvider] indexado por su ID,
-/// permitiendo registrar dinámicamente nuevos modelos o consultar por URL.
-///
-/// POR QUÉ:
-/// Cumple con Inversión de Dependencias (DIP) y Responsabilidad Única (SRP).
 class BrowserAiProviderRegistry {
   final Map<String, BrowserAiProvider> _providers = {};
 
@@ -22,9 +26,13 @@ class BrowserAiProviderRegistry {
     final list = initialProviders ??
         const [
           ChatGptProvider(),
-          GeminiProvider(),
-          ClaudeProvider(),
           DeepSeekProvider(),
+          GeminiProvider(),
+          KimiProvider(),
+          QwenProvider(),
+          ClaudeProvider(),
+          PerplexityProvider(),
+          CopilotProvider(),
           MistralProvider(),
         ];
     for (final p in list) {
@@ -37,7 +45,7 @@ class BrowserAiProviderRegistry {
 
   /// Registra o actualiza un proveedor.
   void register(BrowserAiProvider provider) {
-    _providers[provider.id] = provider;
+    _providers[provider.id.trim().toLowerCase()] = provider;
   }
 
   /// Busca un proveedor por su ID.
@@ -52,9 +60,28 @@ class BrowserAiProviderRegistry {
     }
     return null;
   }
+
+  /// Registra un proveedor dinámico creado por el usuario.
+  void registerCustom(BrowserAiCustomProviderModel model) {
+    final uri = Uri.tryParse(model.url);
+    if (uri != null) {
+      register(CustomDynamicProvider(
+        customId: model.id,
+        name: model.name,
+        url: uri,
+      ));
+    }
+  }
 }
 
-/// Provider global de Riverpod para el registro de proveedores Browser AI.
+/// Provider global de Riverpod con carga inicial de proveedores personalizados.
 final browserAiProviderRegistryProvider = Provider<BrowserAiProviderRegistry>((ref) {
-  return BrowserAiProviderRegistry();
+  final registry = BrowserAiProviderRegistry();
+  // Carga asíncrona no bloqueante de proveedores guardados en disco
+  BrowserAiPreferences.loadCustomProviders().then((customs) {
+    for (final c in customs) {
+      registry.registerCustom(c);
+    }
+  });
+  return registry;
 });

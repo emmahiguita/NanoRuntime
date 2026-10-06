@@ -5,6 +5,7 @@
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../domain/data_models.dart';
+import 'report_text_formatter.dart';
 
 abstract final class PdfReportWidgets {
   static const primary = PdfColor.fromInt(0xFF0F172A);
@@ -27,7 +28,7 @@ abstract final class PdfReportWidgets {
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Text(
-              config.companyName,
+              ReportTextFormatter.clean(config.companyName, maxLength: 60),
               style: pw.TextStyle(
                 fontSize: 10,
                 fontWeight: pw.FontWeight.bold,
@@ -36,7 +37,7 @@ abstract final class PdfReportWidgets {
             ),
             pw.SizedBox(height: 2),
             pw.Text(
-              config.title,
+              ReportTextFormatter.clean(config.title, maxLength: 100),
               style: pw.TextStyle(
                 fontSize: 18,
                 fontWeight: pw.FontWeight.bold,
@@ -45,7 +46,7 @@ abstract final class PdfReportWidgets {
             ),
             if (config.subtitle.isNotEmpty)
               pw.Text(
-                config.subtitle,
+                ReportTextFormatter.clean(config.subtitle, maxLength: 120),
                 style: const pw.TextStyle(
                   fontSize: 10,
                   color: PdfColors.grey700,
@@ -56,17 +57,18 @@ abstract final class PdfReportWidgets {
         pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
+            if (config.includeTimestamp)
+              pw.Text(
+                'Generado: ${DateTime.now().toIso8601String().substring(0, 16).replaceAll("T", " ")}',
+                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+              ),
             pw.Text(
-              'Generado: ${DateTime.now().toIso8601String().substring(0, 16).replaceAll("T", " ")}',
-              style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
-            ),
-            pw.Text(
-              'Origen: ${table.name}',
+              'Origen: ${ReportTextFormatter.clean(table.name, maxLength: 60)}',
               style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
             ),
             if (config.author.isNotEmpty)
               pw.Text(
-                'Autor: ${config.author}',
+                'Autor: ${ReportTextFormatter.clean(config.author, maxLength: 60)}',
                 style: const pw.TextStyle(
                   fontSize: 8,
                   color: PdfColors.grey600,

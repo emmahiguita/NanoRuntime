@@ -87,6 +87,9 @@ class AppTheme {
               secondaryContainer: c.secondaryContainer,
               surface: c.surface,
               surfaceContainer: c.surfaceVariant,
+              surfaceContainerLow: c.backgroundPrimary,
+              surfaceContainerHigh: c.backgroundElevated,
+              surfaceContainerHighest: c.backgroundPearl,
               onSurface: c.onSurface,
               onSurfaceVariant: c.onSurfaceVariant,
               outline: c.outline,
@@ -101,8 +104,10 @@ class AppTheme {
               secondary: c.secondary,
               secondaryContainer: c.secondaryContainer,
               surface: c.surface,
-              surfaceContainer: c.surfaceVariant,
+              surfaceContainer: c.backgroundElevated,
               surfaceContainerLow: c.backgroundPrimary,
+              surfaceContainerHigh: c.surfaceVariant,
+              surfaceContainerHighest: c.surfaceVariant,
               onSurface: c.onSurface,
               onSurfaceVariant: c.onSurfaceVariant,
               outline: c.outline,
@@ -144,12 +149,12 @@ class AppTheme {
       iconTheme: IconThemeData(color: c.onSurface, size: 24),
       cardTheme: CardThemeData(
         elevation: 0,
-        color: isDark ? c.surface : c.glassSurface,
+        color: isDark ? c.surface : c.backgroundElevated,
         surfaceTintColor: c.primary,
         shape: RoundedRectangleBorder(
           borderRadius: NanoShapes.large,
           side: BorderSide(
-            color: isDark ? Colors.transparent : c.glassBorder,
+            color: isDark ? Colors.transparent : c.outline,
             width: 1,
           ),
         ),
@@ -159,7 +164,7 @@ class AppTheme {
         centerTitle: false,
         elevation: 0,
         scrolledUnderElevation: 3,
-        backgroundColor: isDark ? c.background : c.glassSurface,
+        backgroundColor: isDark ? c.background : c.backgroundElevated,
         surfaceTintColor: c.primary,
         titleTextStyle: _textTheme.titleMedium?.copyWith(
           color: c.onSurface,
@@ -170,7 +175,7 @@ class AppTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: c is NanoDarkColors
             ? c.surfaceVariant.withValues(alpha: 0.5)
-            : c.glassSurface,
+            : c.backgroundElevated,
         indicatorColor: c.primaryContainer,
         elevation: 0,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -196,20 +201,54 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: c.primary,
-          foregroundColor: c.onAccent,
-          elevation: 0, // M3 fully expressive buttons are flat by default
-          shape: const StadiumBorder(), // M3 standard pill shape
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          backgroundColor: c is NanoDarkColors
+              ? c.primary.withValues(alpha: 0.16)
+              : c.primary.withValues(alpha: 0.12),
+          foregroundColor: c is NanoDarkColors ? c.onSurface : c.primary,
+          elevation: 0,
+          side: BorderSide(
+            color: c.primary.withValues(alpha: c is NanoDarkColors ? 0.38 : 0.28),
+            width: 1.0,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: c is NanoDarkColors
+              ? c.primary.withValues(alpha: 0.16)
+              : c.primary.withValues(alpha: 0.12),
+          foregroundColor: c is NanoDarkColors ? c.onSurface : c.primary,
+          elevation: 0,
+          side: BorderSide(
+            color: c.primary.withValues(alpha: c is NanoDarkColors ? 0.38 : 0.28),
+            width: 1.0,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: NanoTextColors.forText(c.primary, c),
-          side: BorderSide(color: c.outlineVariant, width: 1.5),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(fontWeight: FontWeight.w600),
+          foregroundColor: c.onSurface.withValues(alpha: 0.85),
+          side: BorderSide(color: c.outlineVariant.withValues(alpha: 0.45), width: 1.0),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       ),
@@ -230,18 +269,19 @@ class AppTheme {
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
+        // En modo claro usa superficie blanca elevada (#FFFFFF) con borde definido
         filled: true,
-        fillColor: c is NanoDarkColors ? c.surfaceVariant : c.glassSurface,
+        fillColor: c is NanoDarkColors ? c.surfaceVariant : c.backgroundElevated,
         border: OutlineInputBorder(
           borderRadius: NanoShapes.extraLarge,
           borderSide: BorderSide(
-            color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
+            color: c is NanoDarkColors ? Colors.transparent : c.outline,
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: NanoShapes.extraLarge,
           borderSide: BorderSide(
-            color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
+            color: c is NanoDarkColors ? Colors.transparent : c.outline,
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -285,7 +325,7 @@ class AppTheme {
         shape: const StadiumBorder(),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface,
+        backgroundColor: c is NanoDarkColors ? c.surface : c.backgroundElevated,
         contentTextStyle: TextStyle(
           color: c.onSurface,
           fontWeight: FontWeight.w500,
@@ -293,19 +333,19 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: NanoShapes.medium,
           side: BorderSide(
-            color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
+            color: c is NanoDarkColors ? Colors.transparent : c.outline,
           ),
         ),
         behavior: SnackBarBehavior.floating,
         elevation: 2,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface,
+        backgroundColor: c is NanoDarkColors ? c.surface : c.backgroundElevated,
         surfaceTintColor: c.primary, // Tonal elevation
         shape: RoundedRectangleBorder(
           borderRadius: NanoShapes.large,
           side: BorderSide(
-            color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
+            color: c is NanoDarkColors ? Colors.transparent : c.outline,
           ),
         ),
         elevation: 4,
@@ -317,14 +357,14 @@ class AppTheme {
         contentTextStyle: TextStyle(color: c.onSurfaceVariant, fontSize: 16),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: c is NanoDarkColors ? c.surface : c.glassSurface,
+        backgroundColor: c is NanoDarkColors ? c.surface : c.backgroundElevated,
         surfaceTintColor: c.primary,
         shape: RoundedRectangleBorder(
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(32),
           ), // Very organic top corners
           side: BorderSide(
-            color: c is NanoDarkColors ? Colors.transparent : c.glassBorder,
+            color: c is NanoDarkColors ? Colors.transparent : c.outline,
           ),
         ),
         elevation: 2,
@@ -368,13 +408,15 @@ class AppTheme {
     glassBlur: glassBlur,
   );
 
-  /// Tema claro: paleta azul iOS profesional, superficies limpias de alto contraste.
+  /// Tema claro: paleta blanco y verde esmeralda, superficies limpias de alto contraste.
   static final light = _base(NanoLightColors());
 
-  /// Tema oscuro: paleta oscura profunda con acento verde Cyber/Emerald y tipografía blanca nítida.
+  /// Tema clásico: paleta blanco y azul profesional de alto contraste.
+  static final classic = _base(NanoClassicLightColors());
+
+  /// Tema oscuro: paleta oscura profunda con tipografía blanca nítida.
   static final dark = _base(NanoDarkColors());
 
   static final systemLight = _base(NanoSystemLightColors());
   static final systemDark = _base(NanoSystemDarkColors());
-  static final classic = _base(NanoClassicDarkColors());
 }

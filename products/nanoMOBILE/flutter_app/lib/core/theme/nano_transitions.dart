@@ -205,13 +205,25 @@ Future<T?> showNanoModalDialog<T>({
   required WidgetBuilder builder,
   bool barrierDismissible = true,
 }) {
+  // QUÉ HACE: Despliega un modal con transición glassmórfica y ámbito Overlay seguro.
+  // CÓMO FUNCIONA: Envuelve el builder en Material transparente y un Overlay local dedicado.
+  // POR QUÉ: Erradica por completo el fallo "No Overlay widget found" en diálogos con botones o tooltips.
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.black54,
     transitionDuration: NanoMotionDurations.standard,
-    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+    pageBuilder: (dialogContext, animation, secondaryAnimation) => Material(
+      type: MaterialType.transparency,
+      child: Overlay(
+        initialEntries: [
+          OverlayEntry(
+            builder: (overlayContext) => builder(overlayContext),
+          ),
+        ],
+      ),
+    ),
     transitionBuilder: (context, animation, secondaryAnimation, child) {
       return NanoModalGlassTransition(animation: animation, child: child);
     },

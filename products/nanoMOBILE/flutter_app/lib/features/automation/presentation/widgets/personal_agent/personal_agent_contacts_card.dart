@@ -32,8 +32,9 @@ class PersonalAgentContactsCard extends ConsumerWidget {
 
     final activeCount = allContactsAsync.maybeWhen(
       data: (contacts) => isAll
-          ? contacts.length
+          ? contacts.where((c) => c.isWhatsAppVerified).length
           : contacts.where((c) {
+              if (!c.isWhatsAppVerified) return false;
               final key = c.jid.isNotEmpty ? c.jid : c.number;
               final ownership =
                   ownershipStore.ownershipFor(key) ??
@@ -58,7 +59,7 @@ class PersonalAgentContactsCard extends ConsumerWidget {
           icon: Icons.contact_emergency_rounded,
           title: 'Destinatarios de WhatsApp',
           subtitle: isAll
-              ? 'Atención global — responde a todos tus chats'
+              ? 'Modo global — responde a chats de WhatsApp con reglas activas'
               : 'Atención selectiva — solo contactos autorizados',
           trailing: ValueBadge(label: isAll ? 'TODOS' : '$activeCount ACTIVOS'),
           showChevron: false,
@@ -137,7 +138,7 @@ class PersonalAgentContactsCard extends ConsumerWidget {
           Expanded(
             child: Text(
               isAll
-                  ? 'El agente responde a cualquier chat entrante. Puedes pausar contactos específicos.'
+                  ? 'El agente responde a chats elegibles de WhatsApp con reglas activas. Puedes pausar contactos.'
                   : 'El agente responderá ÚNICAMENTE a los contactos que actives manualmente (ej. Emm).',
               style: TextStyle(
                 fontSize: 11.5,

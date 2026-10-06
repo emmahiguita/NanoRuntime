@@ -11,6 +11,9 @@ import '../widgets/mcp/mcp_graph_components.dart';
 import '../widgets/mcp/mcp_store_components.dart';
 import '../widgets/mcp/mcp_telemetry_components.dart';
 import '../widgets/mcp/mcp_tool_test_dialog.dart';
+import '../widgets/mcp/mcp_connected_servers_section.dart';
+import '../widgets/mcp/mcp_registry_catalog_section.dart';
+import 'skill_manager_screen.dart';
 
 /// Hub visual interactivo para MCP (Model Context Protocol) y Skills de Nano AI.
 ///
@@ -234,10 +237,8 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
     final mcpTools = mcpRegistry.lastTools;
     final connectedServerIds = mcpRegistry.connectedServerIds;
     final systemGraphAsync = ref.watch(systemGraphProvider);
-    final skillStore = ref.watch(skillStoreProvider);
-    final approvedSkills = skillStore.approved();
     final deviceModel =
-        systemGraphAsync.valueOrNull?.device.model ?? 'Samsung / Android';
+        systemGraphAsync.valueOrNull?.device.model ?? 'Android sin detectar';
     final appsCount = systemGraphAsync.valueOrNull?.apps.length ?? 0;
 
     return LayoutBuilder(
@@ -274,7 +275,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               'device': deviceModel,
               'installed_apps': appsCount,
               'servers_connected': connectedServerIds.length,
-              'tools_loaded': mcpTools.length + 3 + approvedSkills.length,
+              'tools_loaded': mcpTools.length,
             },
           ),
           // 2. Capacidades de Plataforma del Dispositivo
@@ -285,7 +286,8 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
             type: McpGraphNodeType.platform,
             offset: centerOffset + const Offset(-240, -120),
             icon: Icons.accessibility_new_rounded,
-            statusColor: const Color(0xFFF59E0B),
+            // Accesibilidad está activa; el ámbar sugería una advertencia inexistente.
+            statusColor: visual.accent,
             metadata: const {
               'service': 'AgentAccessibilityService',
               'status': 'ACTIVE',
@@ -364,10 +366,10 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
         ];
 
         final edges = <McpGraphEdge>[
-          const McpGraphEdge(
+          McpGraphEdge(
             from: 'core',
             to: 'plat.accessibility',
-            color: Color(0xFFF59E0B),
+            color: visual.accent,
           ),
           const McpGraphEdge(
             from: 'core',
@@ -418,9 +420,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
               type: McpGraphNodeType.mcp,
               offset: serverOffset,
               icon: Icons.devices_other_rounded,
-              statusColor: connected
-                  ? const Color(0xFF10B981)
-                  : visual.textMuted,
+              statusColor: connected ? visual.accent : visual.textMuted,
               metadata: {
                 'server_id': server.id,
                 'status': connected ? 'CONNECTED' : 'DISCONNECTED',
@@ -434,7 +434,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
             McpGraphEdge(
               from: 'core',
               to: serverNodeId,
-              color: connected ? const Color(0xFF10B981) : visual.textMuted,
+              color: connected ? visual.accent : visual.textMuted,
             ),
           );
 
@@ -681,6 +681,18 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
         const McpApiProviderSettingsCard(),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.auto_awesome_outlined),
+            label: const Text('Administrar e importar skills'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SkillManagerScreen(),
+              ),
+            ),
+          ),
+        ),
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
@@ -692,7 +704,7 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
             controller: _searchController,
             style: TextStyle(color: visual.text, fontSize: 14),
             decoration: InputDecoration(
-              hintText: 'Buscar servidores MCP y Skills...',
+              hintText: 'Buscar conectores incluidos en Nano...',
               hintStyle: TextStyle(color: visual.textMuted, fontSize: 13),
               prefixIcon: Icon(
                 Icons.search_rounded,
@@ -722,7 +734,13 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              for (final cat in McpStoreCategory.values)
+              for (final cat in McpStoreCategory.values.where(
+                (category) =>
+                    category == McpStoreCategory.all ||
+                    McpStoreCatalog.defaultItems.any(
+                      (item) => item.category == category,
+                    ),
+              ))
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: FilterChip(
@@ -771,23 +789,48 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
             ).showSnackBar(SnackBar(content: Text(msg)));
           },
         ),
+        const SizedBox(height: 16),
+        McpConnectedServersSection(
+          registry: mcpRegistry,
+          persistence: ref.read(mcpServerPersistenceProvider),
+          visual: visual,
+        ),
+        const SizedBox(height: 20),
+        McpRegistryCatalogSection(
+          visual: visual,
+          onConnect: (item) => showMcpStoreConnectDialog(
+            context: context,
+            item: item,
+            registry: mcpRegistry,
+            persistence: ref.read(mcpServerPersistenceProvider),
+            visual: visual,
+            onConnected: (message) => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(message))),
+          ),
+        ),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Servidores & Skills Disponibles (${items.length})',
-              style: TextStyle(
-                color: visual.text,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
+            Expanded(
+              child: Text(
+                'Conectores incluidos por Nano (${items.length})',
+                style: TextStyle(
+                  color: visual.text,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               '${connectedServerIds.length} activos',
-              style: const TextStyle(
-                color: Color(0xFF10B981),
+              style: TextStyle(
+                color: visual.accent,
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -815,7 +858,6 @@ class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
                 item: item,
                 registry: mcpRegistry,
                 persistence: ref.read(mcpServerPersistenceProvider),
-                appCatalog: ref.read(installedAppCatalogProvider),
                 visual: visual,
                 onConnected: (msg) {
                   ScaffoldMessenger.of(

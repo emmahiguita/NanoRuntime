@@ -16,6 +16,7 @@ import 'package:nanoai/features/automation/engine/business/business_facts_provid
 import 'package:nanoai/features/automation/engine/business/business_conversation_resolver.dart';
 import 'package:nanoai/features/automation/engine/language/language_assist.dart';
 import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
+import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall, ToolExecutionStatus, ToolOutcome;
@@ -38,6 +39,8 @@ import 'package:nanoai/features/automation/engine/perception/healing/assisted_le
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart';
+import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_policy.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_agent_message_classifier.dart'
     show isCorrectionMessage;
@@ -73,6 +76,7 @@ import 'package:nanoai/features/automation/engine/mcp/mcp_tool.dart';
 import 'package:nanoai/features/automation/engine/mcp/mcp_tool_projection.dart';
 import 'package:nanoai/features/automation/engine/messaging/reply_transport.dart';
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
+import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart' show resolveConversationIdentity;
 import 'package:nanoai/features/skills/personal_agent/respond_personal_whatsapp_skill.dart';
 
 import '../domain/automation_goal.dart' show AutomationOptions;
@@ -633,6 +637,23 @@ final rulePipelineProvider = Provider<RulePipeline>((ref) {
     rateLimiter: ref.watch(contactRateLimiterProvider),
     readiness: ref.watch(automationStoresHydratedProvider),
     supersedeGuard: ref.watch(turnSupersedeGuardProvider),
+    // En modo de contactos seleccionados, solo ownership Bot puede llegar al LLM.
+    allowsNotification: (notification) {
+      final settings = ref.read(settingsProvider);
+      final isWhatsApp =
+          notification.packageName == MessagingPackage.whatsapp ||
+          notification.packageName == MessagingPackage.whatsappBusiness;
+      if (!isWhatsApp || settings.waTargetContactsMode != 'selected') {
+        return true;
+      }
+      final identity = resolveConversationIdentity(notification);
+      final owner = ConversationOwnershipPolicy.ownershipForNotification(
+        store: ref.read(conversationOwnershipStoreProvider),
+        conversationId: identity.key.id,
+        notification: notification,
+      );
+      return owner?.owner == ConversationOwner.bot;
+    },
     allowsStyleLearning: (sender, conversationId) => ref
         .read(personaContextProvider)
         .allowsStyleLearningFor(sender, conversationId: conversationId),

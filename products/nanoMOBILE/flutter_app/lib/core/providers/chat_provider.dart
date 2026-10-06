@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
@@ -166,20 +168,25 @@ class ChatNotifier extends StateNotifier<ChatState>
     );
     unawaited(_msgManager.persistMessages(state.messages));
 
-    await _sendUseCase.execute(
-      text: t,
-      attachments: attachments,
-      generationId: _sendUseCase.streamSession.beginGeneration(),
-      activeModelPath: state.activeModelPath,
-      activeModel: state.activeModel,
-      sessionId: _modelService.sessionId,
-      engineOnline: state.engineOnline,
-      lastLinuxFilePath: _lastLinuxFilePath,
-      isMounted: () => mounted,
-      getMessages: () => state.messages,
-      onUpdateLastLinuxFilePath: (path) => _lastLinuxFilePath = path,
-      listener: this,
-    );
+    try {
+      await _sendUseCase.execute(
+        text: t,
+        attachments: attachments,
+        generationId: _sendUseCase.streamSession.beginGeneration(),
+        activeModelPath: state.activeModelPath,
+        activeModel: state.activeModel,
+        sessionId: _modelService.sessionId,
+        engineOnline: state.engineOnline,
+        lastLinuxFilePath: _lastLinuxFilePath,
+        isMounted: () => mounted,
+        getMessages: () => state.messages,
+        onUpdateLastLinuxFilePath: (path) => _lastLinuxFilePath = path,
+        listener: this,
+      );
+    } finally {
+      // El modelo ya terminó (o fue cancelado) antes de liberar sus archivos.
+      await _deleteAttachmentMedia(attachments);
+    }
   }
 
   @override

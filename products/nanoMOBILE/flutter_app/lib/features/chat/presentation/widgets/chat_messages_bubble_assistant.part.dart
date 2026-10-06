@@ -8,7 +8,7 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
     final time =
         '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
     final displayModel = source == MessageSource.device
-        ? 'Nano · Memento'
+        ? 'Nano Asistente'
         : (model.isEmpty ? 'Nano AI' : model);
     // AI Message: Free-flowing unboxed layout (ChatGPT / Claude style)
     return Container(
@@ -62,7 +62,7 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
                   ),
                 ),
                 child: Text(
-                  source == MessageSource.device ? '⚡ MEMENTO CBR' : 'LOCAL IA',
+                  source == MessageSource.device ? 'SISTEMA' : 'LOCAL IA',
                   style: TextStyle(
                     color: source == MessageSource.device
                         ? (isDark

@@ -68,11 +68,14 @@ class DatabaseStatisticsPanel extends StatelessWidget {
               if (data.categories.isNotEmpty)
                 _chartCard(
                   'Distribución · ${data.categoryColumn}',
-                  AnimatedCategoryChart(values: data.categories, color: colors.accent),
+                  AnimatedCategoryChart(
+                    values: data.categories,
+                    color: colors.accent,
+                  ),
                 ),
               if (data.series.isNotEmpty)
                 _chartCard(
-                  'Serie real · ${data.seriesColumn}',
+                  _seriesTitle(data),
                   AnimatedSeriesChart(
                     values: data.series,
                     labels: data.seriesLabels,
@@ -93,7 +96,9 @@ class DatabaseStatisticsPanel extends StatelessWidget {
                       for (var i = 0; i < cards.length; i++)
                         Expanded(
                           child: Padding(
-                            padding: EdgeInsets.only(right: i == cards.length - 1 ? 0 : 12),
+                            padding: EdgeInsets.only(
+                              right: i == cards.length - 1 ? 0 : 12,
+                            ),
                             child: cards[i],
                           ),
                         ),
@@ -102,7 +107,10 @@ class DatabaseStatisticsPanel extends StatelessWidget {
                 : Column(
                     children: [
                       for (final card in cards)
-                        Padding(padding: const EdgeInsets.only(bottom: 12), child: card),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: card,
+                        ),
                     ],
                   );
           },
@@ -131,4 +139,12 @@ class DatabaseStatisticsPanel extends StatelessWidget {
     fontWeight: FontWeight.w800,
     color: colors.onSurface,
   );
+
+  // Explica ambos ejes usando exclusivamente nombres de columnas reales.
+  String _seriesTitle(DataStatisticsSnapshot data) {
+    final labels = data.seriesLabelColumn;
+    return labels == null
+        ? 'Serie · ${data.seriesColumn}'
+        : 'Serie · ${data.seriesColumn} por $labels';
+  }
 }

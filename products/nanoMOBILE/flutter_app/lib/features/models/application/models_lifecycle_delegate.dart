@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/models/catalog_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/whisper_stt_service.dart';
+import 'package:nanoai/core/services/runtime_engine.dart';
 import '../domain/detected_model.dart';
 import '../domain/local_model.dart';
 import 'model_file_manager.dart';
@@ -25,45 +26,73 @@ class ModelsLifecycleDelegate {
   }) async {
     if (!item.installed || item.localPath == null) return false;
     if (item.kind == ModelKind.voiceStt) {
-      await WhisperSttService.instance.setActiveModel(item.fileName, item.localPath!);
+      await WhisperSttService.instance.setActiveModel(
+        item.fileName,
+        item.localPath!,
+      );
       return true;
     }
-    ref.read(chatProvider.notifier).selectModel(item.name, path: item.localPath, confirmedExtreme: confirmedExtreme);
+    ref
+        .read(chatProvider.notifier)
+        .selectModel(
+          item.name,
+          path: item.localPath,
+          confirmedExtreme: confirmedExtreme,
+        );
     return false;
   }
 
   // QUÉ HACE: Descarga el modelo activo del motor de inferencia liberando memoria RAM.
-  void unloadModel(Ref ref) => ref.read(chatProvider.notifier).selectModel('', path: null);
+  void unloadModel(Ref ref) =>
+      ref.read(chatProvider.notifier).selectModel('', path: null);
 
   // QUÉ HACE: Descarga el modelo de voz Whisper liberando recursos de audio.
-  Future<void> unloadVoiceModel() async => WhisperSttService.instance.clearActiveModel();
+  Future<void> unloadVoiceModel() async =>
+      WhisperSttService.instance.clearActiveModel();
 
   // QUÉ HACE: Elimina el archivo binario del modelo y descarga del runtime si estaba activo.
-  Future<void> deleteModel({
-    required Ref ref,
-    required LocalModel item,
-  }) async {
-    if (!item.installed || item.localPath == null) return;
-    await ModelFileManager.deletePhysicalFile(item.localPath);
-    // Una variante distinta no comparte identidad por ser prefijo del nombre activo.
-    if (ref.read(chatProvider).activeModel.toLowerCase() == item.name.toLowerCase()) {
-      unloadModel(ref);
+  Future<bool> deleteModel({required Ref ref, required LocalModel item}) async {
+    // Se detiene el motor antes de borrar para no invalidar un modelo aún abierto por JNI.
+    if (!item.installed || item.localPath == null) return false;
+    final voiceIsActive =
+        WhisperSttService.instance.activeModelFile == item.fileName;
+    if (voiceIsActive) await unloadVoiceModel();
+    final runtime = ref.read(runtimeEngineProvider.notifier);
+    final chatPath = ref.read(chatProvider).activeModelPath;
+    if ((runtime.currentModelPath == item.localPath ||
+            chatPath == item.localPath) &&
+        !await runtime.stop()) {
+      return false;
     }
-    if (WhisperSttService.instance.activeModelFile == item.fileName) {
-      await unloadVoiceModel();
+    if (chatPath == item.localPath) unloadModel(ref);
+    if (!await ModelFileManager.deletePhysicalFile(item.localPath)) {
+      return false;
     }
+    return true;
   }
 
   // QUÉ HACE: Elimina modelo detectado en almacenamiento externo.
-  Future<void> deleteDetectedModel({
+  Future<bool> deleteDetectedModel({
     required Ref ref,
     required DetectedModel model,
     bool deletePhysicalFile = true,
   }) async {
-    if (deletePhysicalFile) await ModelFileManager.deletePhysicalFile(model.path);
-    if (ref.read(chatProvider).activeModel.toLowerCase() == model.name.toLowerCase()) {
+    // Si el modelo detectado es el activo, libera el motor antes del archivo externo.
+    final activePath = ref.read(chatProvider).activeModelPath;
+    if (deletePhysicalFile &&
+        activePath != null &&
+        activePath == model.path &&
+        !await ref.read(runtimeEngineProvider.notifier).stop()) {
+      return false;
+    }
+    if (deletePhysicalFile && activePath != null && activePath == model.path) {
       unloadModel(ref);
     }
+    if (deletePhysicalFile &&
+        !await ModelFileManager.deletePhysicalFile(model.path)) {
+      return false;
+    }
+    return true;
   }
 
   // QUÉ HACE: Activa un modelo detectado en almacenamiento externo.
