@@ -80,6 +80,11 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
         instance = this
         running = true
         val app = NanoApplication.from(this)
+        // Recuperación automática: libera leases huérfanos de caídas previas antes de bootear el engine
+        val recovered = app.durableInbox.recoverExpiredLeases()
+        if (recovered > 0) {
+            Log.i(TAG, "Recuperados $recovered mensajes huérfanos con lease expirado tras reinicio")
+        }
         app.runtimeScope.acquire(RuntimeScope.Holder.AUTOMATION)
         // El worker :nanoshell se arranca ya: el engine headless puede pedir
         // el LLM on-demand apenas drene la primera fila (sin latencia extra).
@@ -158,9 +163,8 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
             .setMethodCallHandler(AgentChannelHandler())
         MethodChannel(messenger, RuntimeChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(RuntimeChannelHandler())
-        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME,
-            io.flutter.plugin.common.StandardMethodCodec.INSTANCE, messenger.makeBackgroundTaskQueue())
-            .setMethodCallHandler(AutomationStoreChannelHandler(this))
+        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(AutomationStoreChannelHandler(this.applicationContext))
         val language = dev.nanoai.mobile.channels.LanguageAssistChannelHandler(this)
         languageHandler = language
         MethodChannel(messenger, dev.nanoai.mobile.channels.LanguageAssistChannelHandler.CHANNEL_NAME)
@@ -185,6 +189,22 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
                     dev.nanoai.mobile.DeviceMetricsProvider(this),
                 ),
             )
+
+        // WA-PROD-01 / LiteRT Headless: Registramos LiteRtChannelHandler en el engine headless
+        // usando el mismo singleton NanoModelRuntimeSupervisor compartido con la UI.
+        // Esto permite a Qwen3-0.6B generar respuestas automáticas sin duplicar el modelo en RAM.
+        val liteRtSupervisor = app.modelRuntimeSupervisor
+        val liteRtHandler = dev.nanoai.mobile.channels.LiteRtChannelHandler(
+            this,
+            ioScope,
+            mainHandler,
+            liteRtSupervisor
+        )
+        MethodChannel(messenger, dev.nanoai.mobile.channels.LiteRtChannelHandler.METHOD_CHANNEL_NAME)
+            .setMethodCallHandler(liteRtHandler)
+        EventChannel(messenger, dev.nanoai.mobile.channels.LiteRtChannelHandler.STREAM_CHANNEL_NAME)
+            .setStreamHandler(liteRtHandler)
+
         MethodChannel(messenger, HEADLESS_CHANNEL).setMethodCallHandler(this)
     }
 
@@ -219,6 +239,50 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
                     NanoApplication.from(this).durableInbox.complete(eventId)
                 }
                 result.success(true)
+            }
+
+            "markGenerated" -> {
+                val eventId = call.argument<String>("eventId")
+                val text = call.argument<String>("text") ?: ""
+                if (!eventId.isNullOrEmpty()) {
+                    NanoApplication.from(this).durableInbox.markGenerated(eventId, text)
+                }
+                result.success(true)
+            }
+
+            "markSending" -> {
+                val eventId = call.argument<String>("eventId")
+                if (!eventId.isNullOrEmpty()) {
+                    NanoApplication.from(this).durableInbox.markSending(eventId)
+                }
+                result.success(true)
+            }
+
+            "markSent" -> {
+                val eventId = call.argument<String>("eventId")
+                if (!eventId.isNullOrEmpty()) {
+                    NanoApplication.from(this).durableInbox.markSent(eventId)
+                }
+                result.success(true)
+            }
+
+            "recordFailure" -> {
+                val eventId = call.argument<String>("eventId")
+                val category = call.argument<String>("category") ?: "UNKNOWN"
+                val message = call.argument<String>("message")
+                if (!eventId.isNullOrEmpty()) {
+                    NanoApplication.from(this).durableInbox.recordFailure(eventId, category, message)
+                }
+                result.success(true)
+            }
+
+            "isAlreadySent" -> {
+                val eventId = call.argument<String>("eventId")
+                if (!eventId.isNullOrEmpty()) {
+                    result.success(NanoApplication.from(this).durableInbox.isAlreadySent(eventId))
+                } else {
+                    result.success(false)
+                }
             }
 
             "pendingCount" -> result.success(NanoApplication.from(this).durableInbox.pendingCount())

@@ -16,10 +16,14 @@ final class ConversationCleanupClient {
     required String scopeId,
     required String memoryJson,
   }) async {
-    return await _channel.invokeMethod<bool>('conversationClear', {
-          'scopeId': scopeId,
-          'memoryJson': memoryJson,
-        }) ??
-        false;
+    try {
+      return await _channel.invokeMethod<bool>('conversationClear', {
+            'scopeId': scopeId,
+            'memoryJson': memoryJson,
+          }) ??
+          false;
+    } catch (_) {
+      return false;
+    }
   }
 }

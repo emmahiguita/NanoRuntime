@@ -25,6 +25,7 @@ class WhatsAppTextSendBackend(private val context: Context) {
         requestedPackage: String = "com.whatsapp",
         autoSend: Boolean = false,
         expectedAliasOverride: String? = null,
+        onAutoSendResult: ((Boolean, String) -> Unit)? = null,
     ): WhatsAppOpenResult {
         val cleanContact = contact
             .replace("@s.whatsapp.net", "")
@@ -55,18 +56,25 @@ class WhatsAppTextSendBackend(private val context: Context) {
             ?: resolveContactName(digits)
             ?: cleanContact.takeIf { it != digits }
 
-        fun arm(pkg: String) {
-            if (autoSend && AgentAccessibilityBridge.service != null) {
-                AgentAccessibilityBridge.armAutoSendAndReturn(
+        fun arm(pkg: String): Boolean {
+            if (!autoSend) return true
+            return AgentAccessibilityBridge.armAutoSendAndReturn(
                     targetPkg = pkg,
                     targetContact = digits,
                     expectedAlias = expectedAlias,
+                    timeoutMs = 12_000L,
+                    onResult = onAutoSendResult,
                 )
-            }
         }
 
         return try {
-            arm(requestedPackage)
+            if (!arm(requestedPackage)) {
+                return WhatsAppOpenResult(
+                    ok = false,
+                    code = "accessibility_unavailable",
+                    message = "Accesibilidad de Nano no est?? conectada.",
+                )
+            }
             context.startActivity(intent)
             WhatsAppOpenResult(ok = true)
         } catch (_: ActivityNotFoundException) {
@@ -77,7 +85,13 @@ class WhatsAppTextSendBackend(private val context: Context) {
             }
             try {
                 intent.setPackage(fallback)
-                arm(fallback)
+                if (!arm(fallback)) {
+                    return WhatsAppOpenResult(
+                        ok = false,
+                        code = "accessibility_unavailable",
+                        message = "Accesibilidad de Nano no est?? conectada.",
+                    )
+                }
                 context.startActivity(intent)
                 WhatsAppOpenResult(ok = true)
             } catch (_: ActivityNotFoundException) {

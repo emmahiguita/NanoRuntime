@@ -30,6 +30,13 @@ class AutomationStoreDb(context: Context) {
             writable = { helper.writableDatabase },
         )
     }
+    // Este archivo separa el historial observado de la memoria de decisiones del agente.
+    private val notificationHistory by lazy {
+        NotificationHistorySqlStore(
+            readable = { helper.readableDatabase },
+            writable = { helper.writableDatabase },
+        )
+    }
 
     /** Snapshot completo: section → json. */
     @Synchronized
@@ -177,6 +184,21 @@ class AutomationStoreDb(context: Context) {
     @Synchronized
     fun listConversationMessages(scopeId: String, limit: Int): List<Map<String, Any>> =
         conversations.listMessages(scopeId, limit)
+
+    /** Persiste mensajes reales expuestos por notificaciones, solo en el dispositivo. */
+    @Synchronized
+    internal fun appendNotificationHistory(events: List<NotificationHistoryEvent>) =
+        notificationHistory.append(events)
+
+    /** Devuelve una fila por conversación para el Centro de Mensajería. */
+    @Synchronized
+    fun listNotificationConversations(limit: Int): List<Map<String, Any?>> =
+        notificationHistory.listConversations(limit)
+
+    /** Devuelve el transcript local de una conversación identificada por hash. */
+    @Synchronized
+    fun listNotificationMessages(historyId: String, limit: Int): List<Map<String, Any?>> =
+        notificationHistory.listMessages(historyId, limit)
 
     /** Limpia memoria local normalizada + snapshot; nunca toca datos de WhatsApp. */
     @Synchronized
@@ -714,6 +736,7 @@ class AutomationStoreDb(context: Context) {
             db.execSQL(OCCURRENCES_DDL)
             for (ddl in PERSONA_DDL_STATEMENTS) db.execSQL(ddl)
             ConversationSqlStore.ensureSchema(db)
+            NotificationHistorySqlStore.ensureSchema(db)
             ensureFts(db)
         }
 
@@ -723,6 +746,7 @@ class AutomationStoreDb(context: Context) {
             db.execSQL(OCCURRENCES_DDL)
             for (ddl in PERSONA_DDL_STATEMENTS) db.execSQL(ddl)
             ConversationSqlStore.ensureSchema(db)
+            NotificationHistorySqlStore.ensureSchema(db)
             db.execSQL(FTS_DDL)
         }
 

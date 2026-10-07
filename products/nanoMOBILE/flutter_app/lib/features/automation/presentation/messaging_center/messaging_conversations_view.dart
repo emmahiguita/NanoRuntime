@@ -60,10 +60,10 @@ class MessagingConversationsView extends ConsumerWidget {
         child: MessagingErrorCard(
           error: allHubAsync.error.toString(),
           onRetry: () {
-            // Un reintento debe volver a consultar también el historial SQLite local.
             ref.invalidate(notificationHistoryConversationsProvider);
             ref.invalidate(allHubConversationsProvider);
             ref.invalidate(liveNotificationsProvider);
+            ref.read(conversationHubVersionProvider.notifier).state++;
           },
         ),
       );
@@ -78,6 +78,8 @@ class MessagingConversationsView extends ConsumerWidget {
             ref.invalidate(archivedConversationIdsProvider);
             ref.invalidate(notificationHistoryConversationsProvider);
             ref.invalidate(allHubConversationsProvider);
+            ref.invalidate(liveNotificationsProvider);
+            ref.read(conversationHubVersionProvider.notifier).state++;
           },
         ),
       );

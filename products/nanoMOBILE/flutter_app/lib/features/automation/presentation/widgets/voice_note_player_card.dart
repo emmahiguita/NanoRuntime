@@ -115,6 +115,7 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
     });
     final result = await VoiceNoteTranscriber.transcribe(
       audioPathOrUrl: widget.audioPathOrUrl,
+      force: true,
       onPartialText: (partial) {
         if (mounted) setState(() => _transcription = partial);
       },
@@ -133,7 +134,7 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accentGreen = isDark ? const Color(0xFF00FF88) : const Color(0xFF059669);
+    final accentBlue = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -251,10 +252,10 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
-                color: accentGreen.withValues(alpha: isDark ? 0.12 : 0.08),
+                color: accentBlue.withValues(alpha: isDark ? 0.12 : 0.08),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: accentGreen.withValues(alpha: isDark ? 0.35 : 0.45),
+                  color: accentBlue.withValues(alpha: isDark ? 0.35 : 0.45),
                   width: 0.7,
                 ),
               ),
@@ -265,7 +266,7 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                     _isTranscribing
                         ? Icons.autorenew_rounded
                         : Icons.record_voice_over_rounded,
-                    color: accentGreen,
+                    color: accentBlue,
                     size: 14,
                   ),
                   const SizedBox(width: 5),
@@ -276,7 +277,7 @@ class _VoiceNotePlayerCardState extends State<VoiceNotePlayerCard> {
                               ? 'Re-transcribir nota de voz'
                               : 'Transcribir nota de voz'),
                     style: TextStyle(
-                      color: accentGreen,
+                      color: accentBlue,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),

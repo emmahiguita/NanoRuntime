@@ -43,38 +43,42 @@ final class SqliteConversationOwnershipStore
   Future<void> _writes = Future<void>.value();
   final Map<String, int> _revisions = {};
 
-  Future<void> load() => _loading ??= _load();
+  Future<void> load() => _loading ??= _load().catchError((error) {
+    _loading = null;
+    throw error;
+  });
 
   Future<void> _load() async {
     final raw = await AutomationDbStoreClient.instance.requiredSection(
       'ownership',
     );
     if (raw == null || raw.isEmpty) return;
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map) throw const FormatException('Invalid ownership store');
-    final loaded = <String, ConversationOwnership>{};
-    for (final entry in decoded.entries) {
-      final value = entry.value;
-      if (entry.key is! String ||
-          value is! Map ||
-          value['owner'] is! String ||
-          value['updatedAtMs'] is! int) {
-        throw const FormatException('Invalid ownership entry');
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return;
+      final loaded = <String, ConversationOwnership>{};
+      for (final entry in decoded.entries) {
+        final value = entry.value;
+        if (entry.key is! String ||
+            value is! Map ||
+            value['owner'] is! String ||
+            value['updatedAtMs'] is! int) {
+          continue;
+        }
+        final owner = _parseOwner(value['owner'] as String);
+        if (owner == null) continue;
+        final conversationId = canonicalConversationId(entry.key as String);
+        if (conversationId.isEmpty) continue;
+        loaded[conversationId] = ConversationOwnership(
+          conversationId: conversationId,
+          owner: owner,
+          updatedAtMs: value['updatedAtMs'] as int,
+        );
       }
-      final owner = _parseOwner(value['owner'] as String);
-      if (owner == null) {
-        throw const FormatException('Unknown conversation owner');
-      }
-      final conversationId = canonicalConversationId(entry.key as String);
-      if (conversationId.isEmpty) continue;
-      final item = ConversationOwnership(
-        conversationId: conversationId,
-        owner: owner,
-        updatedAtMs: value['updatedAtMs'] as int,
-      );
-      loaded[conversationId] = item;
+      _byConversation.addAll(loaded);
+    } catch (_) {
+      // Tolera formatos antiguos o corruptos sin tumbar el hilo visual
     }
-    _byConversation.addAll(loaded);
   }
 
   @override

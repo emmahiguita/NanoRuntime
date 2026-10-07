@@ -64,3 +64,7 @@
 # el manifesto/USER_SERVICE y el Stub por Binder: R8 no debe renombrarlos.
 -keep class dev.nanoai.mobile.shizuku.** { *; }
 -keepnames class * implements dev.nanoai.mobile.shizuku.IPackageAction
+
+# ── MNN Native & Token Callback (evita que R8 elimine/ofusque onToken) ──
+-keep class dev.nanoai.mobile.mnn.** { *; }
+

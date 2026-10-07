@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Conexion al motor llama.cpp local (loopback 127.0.0.1) y descarga de modelos -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Consulta factual del estado real de red y WiFi para el agente (@dispositivo) -->
@@ -34,6 +35,10 @@
          stopSelf; nunca notificación eterna. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <!-- audio_service mantiene la reproducción real con pantalla apagada y
+         libera su wake lock al detenerla. Android 14+ exige el tipo multimedia. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
     <!-- Permiso estándar para programar alarmas en el reloj del sistema sin intervención manual -->
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM"/>
     <!-- OVERLAY-01: Permite dibujar el búho flotante sobre otras apps (tipo Gemini).
@@ -189,6 +194,24 @@
             android:name="libvndksupport.so"
             android:required="false" />
 
+        <service
+            android:name="com.ryanheise.audioservice.AudioService"
+            android:foregroundServiceType="mediaPlayback"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+        <receiver
+            android:name="com.ryanheise.audioservice.MediaButtonReceiver"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
         <!-- WA-MEDIA-01: FileProvider del catálogo (files/nano/catalog).
              Sirve content:// URIs para ACTION_SEND a WhatsApp (EXTRA_STREAM).
              No exportado: solo la propia app genera las URIs y concede el
@@ -210,6 +233,11 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Visibilidad acotada a apps con actividad de inicio; no enumera todo paquete instalado. -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

@@ -38,7 +38,13 @@ object WhatsAppMediaVerifier {
 
         for (candidate in candidates) {
             val nodes = root.findAccessibilityNodeInfosByText(candidate)
-            if (!nodes.isNullOrEmpty()) {
+            val expected = normalizeIdentity(candidate)
+            val exactMatch = nodes.orEmpty().any { node ->
+                listOfNotNull(node.text?.toString(), node.contentDescription?.toString())
+                    .any { normalizeIdentity(it) == expected }
+            }
+            nodes.orEmpty().forEach { it.recycle() }
+            if (exactMatch) {
                 Log.i(TAG, "Destinatario verificado con éxito en la UI: '$candidate'")
                 return true
             }
@@ -46,6 +52,13 @@ object WhatsAppMediaVerifier {
 
         Log.w(TAG, "Fail-closed: No se confirmó el contacto en la UI actual (buscados: $candidates)")
         return false
+    }
+
+    // La búsqueda Android devuelve coincidencias parciales; igualdad normalizada evita usar un alias dentro de otro texto.
+    private fun normalizeIdentity(value: String): String {
+        val trimmed = value.trim()
+        val digits = trimmed.filter(Char::isDigit)
+        return if (digits.length >= 7) digits else trimmed.lowercase().replace(Regex("\\s+"), " ")
     }
 
     /**

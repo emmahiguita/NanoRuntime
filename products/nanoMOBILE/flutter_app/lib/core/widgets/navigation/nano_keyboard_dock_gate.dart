@@ -13,11 +13,13 @@ class NanoKeyboardDockGate extends StatefulWidget {
 }
 
 class _NanoKeyboardDockGateState extends State<NanoKeyboardDockGate> {
-  late final FocusNode _focus;
+  late final FocusScopeNode _focus;
   @override
   void initState() {
     super.initState();
-    _focus = FocusNode()..addListener(_onFocus);
+    // FocusScopeNode con canRequestFocus: false contiene el subárbol del dock,
+    // detectando cuando cualquier control hijo (TextField, botones) tiene el foco.
+    _focus = FocusScopeNode(canRequestFocus: false)..addListener(_onFocus);
   }
 
   /// El cambio de foco reconstruye solo el límite del dock, no el módulo.
@@ -36,6 +38,6 @@ class _NanoKeyboardDockGateState extends State<NanoKeyboardDockGate> {
   Widget build(BuildContext context) => Visibility(
     visible: MediaQuery.viewInsetsOf(context).bottom == 0 || _focus.hasFocus,
     maintainState: true,
-    child: Focus(focusNode: _focus, child: widget.child),
+    child: FocusScope(node: _focus, child: widget.child),
   );
 }

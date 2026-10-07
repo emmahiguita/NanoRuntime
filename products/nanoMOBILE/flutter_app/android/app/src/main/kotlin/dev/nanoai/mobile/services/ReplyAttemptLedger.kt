@@ -3,9 +3,9 @@ package dev.nanoai.mobile.services
 import java.security.MessageDigest
 
 /**
- * Durable at-most-once guard for a WhatsApp notification reply capability.
- * A notification key + revision is the unit Android exposes for RemoteInput;
- * replaying it must never create a second outgoing message.
+ * Durable at-most-once guard for one explicit RemoteInput dispatch operation.
+ * A notification can stay active across many messages, so each user send also
+ * carries its own nonce; a replay of that same operation remains blocked.
  */
 internal class ReplyAttemptLedger(
     private val readEntries: () -> Set<String>,
@@ -51,6 +51,7 @@ internal fun replyAttemptId(
     actionIndex: Int,
     remoteInputKey: String,
     contextFingerprint: String,
+    attemptNonce: String = "",
 ): String {
     val canonical = listOf(
         notificationKey,
@@ -58,6 +59,7 @@ internal fun replyAttemptId(
         actionIndex.toString(),
         remoteInputKey,
         contextFingerprint,
+        attemptNonce,
     ).joinToString("\u0000")
     return MessageDigest.getInstance("SHA-256")
         .digest(canonical.toByteArray(Charsets.UTF_8))

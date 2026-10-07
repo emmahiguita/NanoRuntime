@@ -46,9 +46,9 @@ class SpotlightCardMesh extends StatelessWidget {
             blurRadius: 28,
             offset: Offset(shadowShiftX * 0.5, 14),
           ),
-          // Resplandor esmeralda difuso estilo iOS
+          // Resplandor especular difuso estilo iOS
           BoxShadow(
-            color: const Color(0xFF10B981).withValues(alpha: 0.18),
+            color: const Color(0xFF2563EB).withValues(alpha: 0.16),
             blurRadius: 32,
             spreadRadius: -2,
             offset: Offset(shadowShiftX * 0.3, 6),
@@ -78,7 +78,7 @@ class SpotlightCardMesh extends StatelessWidget {
                     colors: [
                       Colors.white.withValues(alpha: 0.0),
                       Colors.white.withValues(alpha: 0.16),
-                      const Color(0xFF44FFCE).withValues(alpha: 0.08),
+                      const Color(0xFF60A5FA).withValues(alpha: 0.10),
                       Colors.white.withValues(alpha: 0.0),
                     ],
                     stops: const [0.30, 0.48, 0.54, 0.70],
@@ -92,7 +92,7 @@ class SpotlightCardMesh extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: const Color(0xFF44FFCE).withValues(alpha: 0.38),
+                    color: const Color(0xFF3B82F6).withValues(alpha: 0.35),
                     width: 0.9,
                   ),
                 ),

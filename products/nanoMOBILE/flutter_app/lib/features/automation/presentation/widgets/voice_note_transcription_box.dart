@@ -25,7 +25,7 @@ class VoiceNoteTranscriptionBox extends StatelessWidget {
   Widget build(BuildContext context) {
     if (text.isEmpty) return const SizedBox.shrink();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accentGreen = isDark ? const Color(0xFF00FF88) : const Color(0xFF059669);
+    final accentColor = isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB);
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -51,12 +51,12 @@ class VoiceNoteTranscriptionBox extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.notes_rounded, color: accentGreen, size: 12),
+                  Icon(Icons.notes_rounded, color: accentColor, size: 12),
                   const SizedBox(width: 4),
                   Text(
                     'Transcripción en tiempo real',
                     style: TextStyle(
-                      color: accentGreen,
+                      color: accentColor,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),

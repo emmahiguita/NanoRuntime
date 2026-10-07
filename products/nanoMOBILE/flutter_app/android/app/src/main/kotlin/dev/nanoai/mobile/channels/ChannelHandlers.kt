@@ -20,4 +20,5 @@ object ChannelNames {
     const val SYSTEM = SystemInventoryChannelHandler.CHANNEL_NAME
     const val LANGUAGE_ASSIST = LanguageAssistChannelHandler.CHANNEL_NAME
     const val DATA_STUDIO = DataStudioChannelHandler.CHANNEL_NAME
+    const val PERFORMANCE = PerformanceChannelHandler.CHANNEL_NAME
 }

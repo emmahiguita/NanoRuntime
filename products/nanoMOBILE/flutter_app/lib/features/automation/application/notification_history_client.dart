@@ -6,17 +6,32 @@ class NotificationHistoryClient {
 
   /// Devuelve resúmenes persistidos para alimentar el panel de conversaciones.
   Future<List<Map<String, dynamic>>> conversations({int limit = 100}) async {
-    final rows = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
-      'notificationHistoryList', {'limit': limit},
-    );
-    return rows?.map((row) => row.cast<String, dynamic>()).toList() ?? const [];
+    try {
+      final rows = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
+        'notificationHistoryList',
+        {'limit': limit},
+      );
+      return rows?.map((row) => row.cast<String, dynamic>()).toList() ??
+          const [];
+    } catch (error) {
+      return const [];
+    }
   }
 
   /// Lee mensajes reales por el hash opaco de conversación, no por su nombre.
-  Future<List<Map<String, dynamic>>> messages(String historyId, {int limit = 500}) async {
-    final rows = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
-      'notificationHistoryMessages', {'historyId': historyId, 'limit': limit},
-    );
-    return rows?.map((row) => row.cast<String, dynamic>()).toList() ?? const [];
+  Future<List<Map<String, dynamic>>> messages(
+    String historyId, {
+    int limit = 500,
+  }) async {
+    try {
+      final rows = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
+        'notificationHistoryMessages',
+        {'historyId': historyId, 'limit': limit},
+      );
+      return rows?.map((row) => row.cast<String, dynamic>()).toList() ??
+          const [];
+    } catch (error) {
+      return const [];
+    }
   }
 }

@@ -510,33 +510,18 @@ class AutomationSectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
     return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 8, top: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 3,
-            height: 12,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: visual.accent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: visual
-                    .text, // Modificado de textMuted a text para mayor legibilidad
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.only(left: 2, bottom: 8, top: 12),
+      child: Text(
+        label.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontFamily: 'Inter',
+          color: visual.textMuted.withValues(alpha: 0.88),
+          fontSize: 11.0,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 1.2,
+        ),
       ),
     );
   }

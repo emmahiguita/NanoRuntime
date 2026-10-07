@@ -40,6 +40,7 @@ import 'semantic_output_gate.dart';
 import 'personal_style_formatter.dart';
 import 'persona_style_resolver.dart';
 import 'turn_context_router.dart';
+import 'conversation_media_enricher.dart';
 import 'turn_knowledge_router.dart';
 
 export 'conversation_reply_composer_models.dart';

@@ -33,14 +33,15 @@ class _NanoFloatingNavigationFrameState
   _NanoPanelMode _panelMode = _NanoPanelMode.minimized;
   Timer? _idleTimer;
   Offset _dragOffset = Offset.zero;
-  // Abre los destinos y arma un único temporizador reiniciable de reposo.
-  void _showNavigation() {
+  // Abre la barra. Si la pantalla activa requiere entrada constante (ej. Terminal),
+  // se expande directamente a modo escritura ('search') para programar al instante.
+  void _showNavigation({bool directSearch = false}) {
     _idleTimer?.cancel();
     setState(() {
       _dockMode = NanoNavDockMode.bottom;
-      _panelMode = _NanoPanelMode.navigation;
+      _panelMode = directSearch ? _NanoPanelMode.search : _NanoPanelMode.navigation;
     });
-    _armIdleCollapse();
+    if (!directSearch) _armIdleCollapse();
   }
 
   void _armIdleCollapse() {
@@ -110,6 +111,14 @@ class _NanoFloatingNavigationFrameState
             ref.read(nanoUniversalInputProvider.notifier).slotFor(targetSlot),
       ),
     );
+
+    // AUTO-ADAPTACIÓN: si la pantalla activa solicita entrada constante (Terminal, etc.)
+    // y el panel estaba minimizado, se promueve de inmediato a modo comando/escritura ('search').
+    if (inputConfig.keepDockVisible && _panelMode == _NanoPanelMode.minimized) {
+      _idleTimer?.cancel();
+      _panelMode = _NanoPanelMode.search;
+    }
+
     final side = widget.allowSideDock && _dockMode != NanoNavDockMode.bottom;
     final reserve = side || widget.floatOverContent
         ? 0.0
@@ -151,7 +160,9 @@ class _NanoFloatingNavigationFrameState
                   searchHint: widget.searchHint,
                   onSearch: widget.onSearch,
                   onVoice: widget.onVoice,
-                  onShowNavigation: _showNavigation,
+                  onShowNavigation: () => _showNavigation(
+                    directSearch: inputConfig.keepDockVisible,
+                  ),
                   onToggleSearch: _toggleSearch,
                   onPointerDown: _armIdleCollapse,
                   onDragStart: () => _idleTimer?.cancel(),

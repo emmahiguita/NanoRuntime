@@ -157,10 +157,13 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
     }
   }
 
-  void unloadModel() => _lifecycle.unloadModel(_ref);
+  Future<void> unloadModel() async {
+    await _lifecycle.unloadModel(_ref);
+    if (mounted) state = state.copyWith(models: List.from(state.models));
+  }
   Future<void> unloadVoiceModel() async {
     await _lifecycle.unloadVoiceModel();
-    state = state.copyWith(models: List.from(state.models));
+    if (mounted) state = state.copyWith(models: List.from(state.models));
   }
 
   // QUÉ HACE: Elimina el binario de disco y actualiza el estado.

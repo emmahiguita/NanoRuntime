@@ -90,6 +90,7 @@ class ContactsChannelHandler(
     private fun queryWhatsAppContacts(): List<Map<String, Any>> {
         val contacts = mutableListOf<Map<String, Any>>()
         val seenJids = mutableSetOf<String>()
+        val seenNumbers = mutableSetOf<String>()
 
         val projection = arrayOf(
             ContactsContract.Data._ID,
@@ -139,6 +140,7 @@ class ContactsChannelHandler(
                     }
 
                     val cleanNumber = jid.substringBefore("@")
+                    seenNumbers.add(cleanNumber.filter(Char::isDigit))
 
                     contacts.add(
                         mapOf(
@@ -147,6 +149,8 @@ class ContactsChannelHandler(
                             "number" to cleanNumber,
                             "jid" to jid,
                             "isBusiness" to isBusiness,
+                            // Los registros MIME de WhatsApp son la única fuente confirmada de la cuenta.
+                            "isWhatsAppVerified" to true,
                         ),
                     )
                 }
@@ -180,10 +184,10 @@ class ContactsChannelHandler(
                 while (pc.moveToNext()) {
                     val rawNum = if (pNumIdx >= 0) pc.getString(pNumIdx) else null
                     val digits = rawNum?.filter { it.isDigit() } ?: ""
-                    if (digits.length < 7) continue
+                    if (digits.length < 7 || digits in seenNumbers) continue
 
-                    val jid = "$digits@s.whatsapp.net"
-                    if (!seenJids.add(jid)) continue
+                    val contactKey = "phonebook:$digits"
+                    if (!seenJids.add(contactKey)) continue
 
                     val pId = if (pIdIdx >= 0) pc.getString(pIdIdx) else ""
                     val pContactId = if (pContactIdIdx >= 0) pc.getString(pContactIdIdx) else ""
@@ -194,8 +198,10 @@ class ContactsChannelHandler(
                             "id" to (pContactId.ifBlank { pId }),
                             "name" to pName,
                             "number" to digits,
-                            "jid" to jid,
+                            // Un teléfono guardado permite preparar un envío manual, pero no prueba que use WhatsApp.
+                            "jid" to "",
                             "isBusiness" to false,
+                            "isWhatsAppVerified" to false,
                         )
                     )
                 }

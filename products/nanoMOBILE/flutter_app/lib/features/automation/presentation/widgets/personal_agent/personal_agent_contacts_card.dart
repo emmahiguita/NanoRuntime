@@ -115,14 +115,10 @@ class PersonalAgentContactsCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: isAll
-            ? const Color(0xFF00E676).withValues(alpha: 0.08)
-            : const Color(0xFF00D2FF).withValues(alpha: 0.08),
+        color: visual.accentSoft,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isAll
-              ? const Color(0xFF00E676).withValues(alpha: 0.3)
-              : const Color(0xFF00D2FF).withValues(alpha: 0.3),
+          color: visual.outline,
           width: 0.8,
         ),
       ),
@@ -132,7 +128,7 @@ class PersonalAgentContactsCard extends ConsumerWidget {
           Icon(
             isAll ? Icons.info_outline_rounded : Icons.shield_outlined,
             size: 14,
-            color: isAll ? const Color(0xFF00E676) : const Color(0xFF00D2FF),
+            color: visual.accent,
           ),
           const SizedBox(width: 6),
           Expanded(
@@ -143,9 +139,7 @@ class PersonalAgentContactsCard extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 11.5,
                 height: 1.35,
-                color: visual.isDark
-                    ? const Color(0xFFD6DEE8)
-                    : visual.textMuted,
+                color: visual.textMuted,
               ),
             ),
           ),
@@ -162,8 +156,8 @@ class PersonalAgentContactsCard extends ConsumerWidget {
   ) {
     return OutlinedButton.icon(
       style: OutlinedButton.styleFrom(
-        foregroundColor: const Color(0xFF00E676),
-        side: const BorderSide(color: Color(0x5500E676)),
+        foregroundColor: visual.accent,
+        side: BorderSide(color: visual.outline),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         visualDensity: VisualDensity.compact,

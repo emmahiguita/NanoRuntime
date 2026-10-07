@@ -77,9 +77,9 @@ class AgentHeaderWidget extends StatelessWidget {
                       letterSpacing: -0.4,
                     ),
                     children: [
-                      const TextSpan(
+                      TextSpan(
                         text: 'NANO ',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: visual.text),
                       ),
                       TextSpan(
                         text: 'AI',
@@ -135,9 +135,7 @@ class AgentHeaderWidget extends StatelessWidget {
                     : Icons.volume_off_rounded,
                 color: isVoiceOutputEnabled
                     ? visual.accent
-                    : (visual.isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : visual.textMuted),
+                    : visual.textMuted,
                 size: 20,
               ),
             ),
@@ -153,9 +151,7 @@ class AgentHeaderWidget extends StatelessWidget {
                     : Icons.voice_chat_outlined,
                 color: isConversationActive
                     ? visual.accent
-                    : (visual.isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : visual.textMuted),
+                    : visual.textMuted,
                 size: 20,
               ),
             ),
@@ -167,7 +163,7 @@ class AgentHeaderWidget extends StatelessWidget {
               onPressed: onDevTap,
               icon: Icon(
                 Icons.smart_toy_outlined,
-                color: visual.accent,
+                color: visual.textMuted,
                 size: 21,
               ),
             ),

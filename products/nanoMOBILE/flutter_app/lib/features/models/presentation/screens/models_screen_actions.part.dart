@@ -83,7 +83,10 @@ extension _ModelsScreenActions on _ModelsScreenState {
     final isVoice = item.catalog?.isVoiceStt ?? false;
     final isActive = isVoice
         ? WhisperSttService.instance.activeModelFile == item.fileName
-        : chatModel.toLowerCase().contains(item.name.toLowerCase());
+        : (chatModel.isNotEmpty &&
+            (chatModel.toLowerCase() == item.name.toLowerCase() ||
+             item.name.toLowerCase().contains(chatModel.toLowerCase()) ||
+             chatModel.toLowerCase().contains(item.name.toLowerCase())));
     final notifier = ref.read(modelsProvider.notifier);
     ModelFloatingDialogRoute.show(
       targetContext,
@@ -94,16 +97,17 @@ extension _ModelsScreenActions on _ModelsScreenState {
       // Reutiliza los dos archivos instalados y comprobados por el catálogo.
       onCompare: () => _openBenchmark(items),
       onShare: () => ModelsScreenActions.shareModel(context, item),
-      onUse: () => item.isCatalog
-          ? notifier.loadModel(item.catalog!.id)
-          : notifier.useDetected(item.detected!),
+      onUse: () => isActive
+          ? (isVoice ? notifier.unloadVoiceModel() : notifier.unloadModel())
+          : (item.isCatalog
+              ? notifier.loadModel(item.catalog!.id)
+              : notifier.useDetected(item.detected!)),
       onDownload: item.isCatalog
           ? () => notifier.downloadModel(item.catalog!.id)
           : null,
       onCancel: item.isCatalog ? notifier.cancelDownload : null,
-      onUnload: isActive
-          ? () => isVoice ? notifier.unloadVoiceModel() : notifier.unloadModel()
-          : null,
+      onUnload: () =>
+          isVoice ? notifier.unloadVoiceModel() : notifier.unloadModel(),
       onDelete: item.isCatalog || item.detected != null
           ? () => confirmModelDeletion(
               context: targetContext,

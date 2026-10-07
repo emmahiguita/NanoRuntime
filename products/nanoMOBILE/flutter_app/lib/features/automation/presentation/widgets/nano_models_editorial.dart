@@ -47,7 +47,7 @@ class _NanoModelsEditorialState extends State<NanoModelsEditorial>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Badge tipográfico animado sutil ────────────────────────────────
+          // ── Eyebrow / Metadato editorial ────────────────────────────────
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -56,16 +56,16 @@ class _NanoModelsEditorialState extends State<NanoModelsEditorial>
                 child: FadeTransition(
                   opacity: _pulseOpacity,
                   child: Container(
-                    width: 7.5,
-                    height: 7.5,
+                    width: 7.0,
+                    height: 7.0,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: visual.accent,
                       boxShadow: [
                         BoxShadow(
-                          color: visual.accent.withValues(alpha: 0.65),
-                          blurRadius: 6,
-                          spreadRadius: 1,
+                          color: visual.accent.withValues(alpha: 0.40),
+                          blurRadius: 4,
+                          spreadRadius: 0.5,
                         ),
                       ],
                     ),
@@ -77,55 +77,67 @@ class _NanoModelsEditorialState extends State<NanoModelsEditorial>
                 'INFERENCIA EN SILICIO LOCAL',
                 style: TextStyle(
                   fontFamily: 'Inter',
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0,
-                  color: visual.accent,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.1,
+                  color: visual.textMuted.withValues(alpha: 0.88),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
 
-          // ── Título editorial suelto ───────────────────────────────────────
+          // ── Título editorial jerárquico ───────────────────────────────────
           Text(
             'Prueba Qwen y Gemma en tu dispositivo',
             style: TextStyle(
               fontFamily: 'Inter',
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
+              fontSize: 21,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.4,
               height: 1.25,
               color: visual.text,
             ),
           ),
           const SizedBox(height: 8),
 
-          // ── Párrafo editorial corto y suelto (sin card) ────────────────────
+          // ── Párrafo editorial sobrio (texto neutral de alto contraste) ────
           RichText(
             text: TextSpan(
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: 13.5,
-                height: 1.5,
-                color: visual.text.withValues(alpha: 0.86),
+                height: 1.48,
+                color: visual.textMuted.withValues(alpha: 0.90),
               ),
               children: [
                 const TextSpan(
-                  text: 'Descubre el poder de la IA integrada con aceleración local sin servidores externos. Prueba ',
+                  text: 'Descubre el poder de la IA integrada con aceleración local sin servidores externos. Ejecuta ',
                 ),
-                _linkSpan('Qwen', () => context.push('/models'), visual.accent),
+                TextSpan(
+                  text: 'Qwen',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: visual.text,
+                  ),
+                ),
                 const TextSpan(text: ' y '),
-                _linkSpan('Gemma', () => context.push('/models'), visual.accent),
+                TextSpan(
+                  text: 'Gemma',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: visual.text,
+                  ),
+                ),
                 const TextSpan(
-                  text: ' en el Chat de IA, los Agentes Autónomos o en las herramientas de sistema que se indican a continuación.',
+                  text: ' en el Chat de IA, los Agentes Autónomos o en las herramientas de sistema.',
                 ),
               ],
             ),
           ),
           const SizedBox(height: 10),
 
-          // ── Micro-enlace interactivo hacia el gestor de modelos ────────────
+          // ── Enlace de acción principal unificado ──────────────────────────
           InkWell(
             onTap: () {
               HapticFeedback.lightImpact();
@@ -160,23 +172,4 @@ class _NanoModelsEditorialState extends State<NanoModelsEditorial>
       ),
     );
   }
-
-  InlineSpan _linkSpan(String text, VoidCallback onTap, Color color) => WidgetSpan(
-    alignment: PlaceholderAlignment.baseline,
-    baseline: TextBaseline.alphabetic,
-    child: GestureDetector(
-      onTap: onTap,
-      child: Text(
-        text,
-        style: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 13.5,
-          fontWeight: FontWeight.w700,
-          decoration: TextDecoration.underline,
-          decorationColor: color,
-          color: color,
-        ),
-      ),
-    ),
-  );
 }

@@ -98,7 +98,7 @@ class _MessagingAdvertisementState
                 width: active ? 14 : 4,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: active ? const Color(0xFF00FF88) : Colors.white38,
+                  color: active ? const Color(0xFF3B82F6) : Colors.white38,
                   borderRadius: BorderRadius.circular(2),
                 ),
               );
@@ -113,11 +113,11 @@ class _MessagingAdvertisementState
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
-                color: const Color(0xFF00FF88),
+                color: const Color(0xFF2563EB),
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF00FF88).withValues(alpha: 0.40),
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.40),
                     blurRadius: 6,
                   ),
                 ],
@@ -125,10 +125,10 @@ class _MessagingAdvertisementState
               child: Text(
                 '$count PENDIENTE${count == 1 ? '' : 'S'}',
                 style: const TextStyle(
-                  color: Colors.black,
+                  color: Colors.white,
                   fontSize: 9,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.2,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
                 ),
               ),
             ),
@@ -143,7 +143,7 @@ class _MessagingAdvertisementState
               color: Colors.black.withValues(alpha: 0.55),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: const Color(0xFF00FF88).withValues(alpha: 0.35),
+                color: const Color(0xFF3B82F6).withValues(alpha: 0.35),
                 width: 0.8,
               ),
             ),
@@ -153,15 +153,16 @@ class _MessagingAdvertisementState
                 Icon(
                   Icons.auto_awesome_rounded,
                   size: 9,
-                  color: Color(0xFF00FF88),
+                  color: Color(0xFF60A5FA),
                 ),
                 SizedBox(width: 3),
                 Text(
                   'ANVERSO • NANO AI',
                   style: TextStyle(
-                    color: Color(0xFF00FF88),
+                    color: Color(0xFF93C5FD),
                     fontSize: 8,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
                   ),
                 ),
               ],

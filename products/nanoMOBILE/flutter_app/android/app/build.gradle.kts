@@ -103,6 +103,9 @@ android {
             useLegacyPackaging = true
             // Excluye libnanortime_ffi.so (60.75 MB huérfana sin consumidor) para reducir el APK
             excludes += "**/libnanortime_ffi.so"
+            // Capa de diagnóstico Vulkan: ningún motor la necesita para inferir.
+            // No empaquetarla conserva los motores y evita 4.44 MiB comprimidos.
+            excludes += "**/libVkLayer_khronos_validation.so"
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -112,6 +115,11 @@ android {
     }
 
     buildTypes {
+        configureEach {
+            // Flutter agrega tres ABI por buildType y oculta el filtro global.
+            // Limpiarlas hace heredar arm64-v8a de defaultConfig en toda variante.
+            ndk.abiFilters.clear()
+        }
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true

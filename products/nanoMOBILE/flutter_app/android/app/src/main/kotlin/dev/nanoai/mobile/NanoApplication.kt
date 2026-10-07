@@ -16,6 +16,9 @@ class NanoApplication : Application() {
     val runtimeScope: RuntimeScope by lazy { RuntimeScope(this) }
     val durableInbox: DurableInbox by lazy { DurableInbox(this) }
     val automationStoreDb: AutomationStoreDb by lazy { AutomationStoreDb(this) }
+    val modelRuntimeSupervisor: dev.nanoai.mobile.runtime.NanoModelRuntimeSupervisor by lazy {
+        dev.nanoai.mobile.runtime.NanoModelRuntimeSupervisor(this)
+    }
 
     companion object {
         fun from(context: Context): NanoApplication =

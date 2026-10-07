@@ -43,8 +43,10 @@ class ModelsLifecycleDelegate {
   }
 
   // QUÉ HACE: Descarga el modelo activo del motor de inferencia liberando memoria RAM.
-  void unloadModel(Ref ref) =>
-      ref.read(chatProvider.notifier).selectModel('', path: null);
+  Future<void> unloadModel(Ref ref) async {
+    ref.read(chatProvider.notifier).selectModel('', path: null);
+    await ref.read(runtimeEngineProvider.notifier).stop();
+  }
 
   // QUÉ HACE: Descarga el modelo de voz Whisper liberando recursos de audio.
   Future<void> unloadVoiceModel() async =>

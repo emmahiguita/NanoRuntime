@@ -33,7 +33,8 @@ class DataStudioChannelHandler(private val context: Context) : MethodChannel.Met
 
     private fun defaultDatabase(): File = context.getDatabasePath(DEFAULT_DB).also {
         it.parentFile?.mkdirs()
-        SQLiteDatabase.openOrCreateDatabase(it, null).use(DataStudioDemoDatabase::seedIfNeeded)
+        // La base del usuario nace vacía; el ejemplo vive en un archivo separado.
+        SQLiteDatabase.openOrCreateDatabase(it, null).close()
     }
 
     private fun createDatabase(rawName: String): String {

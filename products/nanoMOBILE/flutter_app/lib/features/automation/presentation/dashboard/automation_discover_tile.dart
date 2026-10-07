@@ -75,42 +75,38 @@ class AutomationDiscoverTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. Badge superior colorido con icono
+                // 1. Icono superior unificado en contenedor sobrio
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: badgeColor,
-                    gradient: badgeGradient,
-                    borderRadius: badgeBorderRadius ?? BorderRadius.circular(99),
-                    boxShadow: [
-                      BoxShadow(
-                        color: badgeColor.withValues(alpha: 0.35),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
+                    color: visual.accentSoft,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: visual.accent.withValues(alpha: isDark ? 0.32 : 0.22),
+                      width: 1,
+                    ),
                   ),
                   alignment: Alignment.center,
                   child: Icon(
                     icon,
-                    size: 22,
-                    color: Colors.white,
+                    size: 20,
+                    color: visual.accent,
                   ),
                 ),
                 const SizedBox(height: 12),
 
-                // 2. Etiqueta / Categoría (ej: "Multi-Proveedor", "Navegación Asistida")
+                // 2. Etiqueta / Categoría (jerarquía secundaria limpia)
                 Text(
                   category,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
                     color: visual.textMuted.withValues(alpha: 0.85),
-                    letterSpacing: 0.1,
+                    letterSpacing: 0.4,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -122,10 +118,10 @@ class AutomationDiscoverTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 14.5,
+                    fontSize: 15.0,
                     fontWeight: FontWeight.w700,
                     color: visual.text,
-                    letterSpacing: -0.1,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -137,10 +133,10 @@ class AutomationDiscoverTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 11.2,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w400,
                     color: visual.textMuted,
-                    height: 1.32,
+                    height: 1.35,
                   ),
                 ),
               ],

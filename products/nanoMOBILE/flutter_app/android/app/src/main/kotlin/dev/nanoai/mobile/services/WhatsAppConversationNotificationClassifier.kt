@@ -25,11 +25,11 @@ internal data class WhatsAppConversationEvidence(
 internal object WhatsAppConversationNotificationClassifier {
     private val packages = setOf("com.whatsapp", "com.whatsapp.w4b")
     private val statusReaction = Regex(
-        """((reaccion[oó]|respondi[oó]|le gusta|dio me gusta|liked|reacted|replied).{0,48}(tu estado|your status|seu status)|(tu estado|your status|seu status).{0,48}(le gusta|liked|reacted))""",
+        """((reaccion[oó]|respondi[oó]|le gusta|dio me gusta|le gust[oó]|liked|reacted|replied).{0,48}(tu estado|your status|seu status)|(tu estado|your status|seu status).{0,48}(le gusta|liked|reacted))""",
         setOf(RegexOption.IGNORE_CASE),
     )
     private val systemNotice = Regex(
-        """buscando mensajes nuevos|checking for new messages|whatsapp web|copia de seguridad|backup in progress""",
+        """buscando mensajes nuevos|comprobando si hay|checking for new messages|whatsapp web|copia de seguridad|backup in progress""",
         setOf(RegexOption.IGNORE_CASE),
     )
 

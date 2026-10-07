@@ -23,6 +23,7 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
             "shareText" -> shareText(call, result)
             "openChat" -> openChat(call, result)
             "copyToCatalog" -> copyToCatalog(call, result)
+            "listCatalog" -> listCatalog(result)
             "shareFile" -> shareFile(call, result)
             "scheduleWhatsAppMessage" -> scheduleWhatsAppMessage(call, result)
             "cancelScheduledWhatsAppMessage" -> cancelScheduledWhatsAppMessage(call, result)
@@ -214,14 +215,15 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
 
             val expectedAlias = resolveContactName(digits) ?: cleanContact.takeIf { it != digits }
 
-            // Si el servicio de accesibilidad está disponible y se solicita auto-envío,
-            // armamos el retorno automático con verificación de contacto/número.
-            if (autoSend && AgentAccessibilityBridge.service != null) {
-                AgentAccessibilityBridge.armAutoSendAndReturn(
-                    targetPkg = requestedPkg,
-                    targetContact = digits,
-                    expectedAlias = expectedAlias
+            // autoSend no puede caer silenciosamente en “solo abrir”: eso fingía un envío.
+            if (autoSend && !armVerifiedAutoSend(requestedPkg, digits, expectedAlias)) {
+                AgentAccessibilityBridge.disarmAutoSend()
+                result.error(
+                    "accessibility_unavailable",
+                    "Activa Nano Mobile Agent en Accesibilidad para iniciar el envío automático.",
+                    null
                 )
+                return
             }
 
             try {
@@ -230,17 +232,24 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
             } catch (e: ActivityNotFoundException) {
                 val fallbackPkg = if (requestedPkg == "com.whatsapp") "com.whatsapp.w4b" else "com.whatsapp"
                 try {
+                    AgentAccessibilityBridge.disarmAutoSend()
                     intent.setPackage(fallbackPkg)
-                    if (autoSend && AgentAccessibilityBridge.service != null) {
-                        AgentAccessibilityBridge.armAutoSendAndReturn(
-                            targetPkg = fallbackPkg,
-                            targetContact = digits,
-                            expectedAlias = expectedAlias
+                    if (autoSend && !armVerifiedAutoSend(fallbackPkg, digits, expectedAlias)) {
+                        result.error(
+                            "accessibility_unavailable",
+                            "No se pudo preparar el envío automático en la app de WhatsApp disponible.",
+                            null
                         )
+                        return
                     }
                     activity.startActivity(intent)
                     result.success(true)
                 } catch (_: ActivityNotFoundException) {
+                    AgentAccessibilityBridge.disarmAutoSend()
+                    if (autoSend) {
+                        result.error("package_not_found", "No se encontró una app compatible de WhatsApp", null)
+                        return
+                    }
                     intent.setPackage(null)
                     activity.startActivity(intent)
                     result.success(true)
@@ -250,6 +259,16 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
             AgentAccessibilityBridge.disarmAutoSend()
             result.error("open_chat_failed", "No se pudo abrir el chat: ${e.message}", null)
         }
+    }
+
+    // Arma el envío únicamente si el servicio conectado acepta el destinatario que se verificará.
+    private fun armVerifiedAutoSend(pkg: String, phone: String, alias: String?): Boolean {
+        if (AgentAccessibilityBridge.service == null) return false
+        return AgentAccessibilityBridge.armAutoSendAndReturn(
+            targetPkg = pkg,
+            targetContact = phone,
+            expectedAlias = alias
+        )
     }
 
     private fun resolveContactName(phoneDigits: String): String? {
@@ -297,12 +316,10 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         return null
     }
 
-    /// WA-MEDIA-01 — copia el archivo elegido por el usuario a la carpeta FIJA
-    /// del catálogo (files/nano/catalog/<basename>). El archivo vive estable:
-    /// la regla persiste ESTA ruta, no el path temporal del file_picker. Si ya
-    /// existe un archivo con el mismo nombre, se reutiliza (nombre fijo).
+    /// Copia el archivo elegido a una carpeta de Nano privada y persistente.
     private fun copyToCatalog(call: MethodCall, result: MethodChannel.Result) {
-        val source = (call.arguments as? Map<*, *>)?.get("sourcePath") as? String
+        val args = call.arguments as? Map<*, *>
+        val source = args?.get("sourcePath") as? String
         if (source.isNullOrBlank()) {
             result.error("empty_path", "Sin archivo de origen", null)
             return
@@ -313,14 +330,58 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
                 result.error("missing_file", "El archivo de origen no existe", null)
                 return
             }
-            val dir = File(activity.filesDir, "nano/catalog").apply { mkdirs() }
-            val dest = File(dir, src.name)
-            if (!dest.exists()) src.copyTo(dest, overwrite = false)
+            val allowedCategories = setOf(
+                "productos_servicios", "informes", "fotos", "videos", "documentos"
+            )
+            val requestedCategory = args?.get("category")?.toString()
+            val category = requestedCategory?.takeIf { it in allowedCategories } ?: "documentos"
+            val dir = File(activity.filesDir, "nano/catalog/$category").apply { mkdirs() }
+            val extension = src.extension.takeIf { it.isNotBlank() }?.let { ".$it" }.orEmpty()
+            val stem = src.nameWithoutExtension.ifBlank { "archivo" }
+            var dest = File(dir, src.name)
+            var suffix = 2
+            while (dest.exists()) {
+                dest = File(dir, "$stem ($suffix)$extension")
+                suffix++
+            }
+            src.copyTo(dest, overwrite = false)
             result.success(dest.absolutePath)
         } catch (e: Exception) {
             result.error("copy_failed", "No se pudo copiar al catálogo: ${e.message}", null)
         }
     }
+
+    /// Devuelve solo archivos de las carpetas administradas por Nano.
+    private fun listCatalog(result: MethodChannel.Result) {
+        try {
+            val root = File(activity.filesDir, "nano/catalog").apply { mkdirs() }
+            val categories = listOf(
+                "productos_servicios", "informes", "fotos", "videos", "documentos"
+            )
+            val files = mutableListOf<Map<String, Any>>()
+            // Conserva la compatibilidad con archivos copiados por versiones anteriores.
+            root.listFiles()?.filter { it.isFile }?.forEach { file ->
+                files += catalogFile(file, "documentos")
+            }
+            categories.forEach { category ->
+                val dir = File(root, category).apply { mkdirs() }
+                dir.listFiles()?.filter { it.isFile }?.forEach { file ->
+                    files += catalogFile(file, category)
+                }
+            }
+            result.success(files.sortedByDescending { it["modifiedAtMs"] as Long })
+        } catch (e: Exception) {
+            result.error("catalog_read_failed", "No se pudo leer la biblioteca de Nano: ${e.message}", null)
+        }
+    }
+
+    private fun catalogFile(file: File, category: String): Map<String, Any> = mapOf(
+        "name" to file.name,
+        "path" to file.absolutePath,
+        "category" to category,
+        "sizeBytes" to file.length(),
+        "modifiedAtMs" to file.lastModified(),
+    )
 
     /// WA-MEDIA-01 — Camino A (1 tap del usuario): abre WhatsApp directamente
     /// con el archivo + contacto + caption. ACTION_SEND + EXTRA_STREAM +

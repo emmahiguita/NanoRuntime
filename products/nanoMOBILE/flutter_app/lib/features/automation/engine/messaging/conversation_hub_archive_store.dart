@@ -18,21 +18,26 @@ final class ConversationHubArchiveStore {
   Future<void> _writes = Future<void>.value();
 
   Future<Set<String>> load() async {
-    await (_loading ??= _load());
+    await (_loading ??= _load().catchError((error) {
+      _loading = null;
+      throw error;
+    }));
     return Set.unmodifiable(_archived);
   }
 
   Future<void> _load() async {
     final raw = await AutomationDbStoreClient.instance.section(_section);
     if (raw == null || raw.isEmpty) return;
-    final decoded = jsonDecode(raw);
-    if (decoded is! Map || decoded['archived'] is! List) {
-      throw const FormatException('Invalid conversation hub state');
-    }
-    for (final value in decoded['archived'] as List) {
-      if (value is! String) continue;
-      final key = canonicalConversationId(value);
-      if (_valid(key)) _archived.add(key);
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map || decoded['archived'] is! List) return;
+      for (final value in decoded['archived'] as List) {
+        if (value is! String) continue;
+        final key = canonicalConversationId(value);
+        if (_valid(key)) _archived.add(key);
+      }
+    } catch (_) {
+      // Tolera json no parseable sin romper el hub
     }
   }
 

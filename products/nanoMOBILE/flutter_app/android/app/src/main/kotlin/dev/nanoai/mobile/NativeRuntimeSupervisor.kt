@@ -56,11 +56,14 @@ class NativeRuntimeSupervisor(
     }
 
     /**
-     * Acceso al cliente del proceso :nanoshell para otros propietarios de
-     * daemons (EngineSupervisor spawnea el PIE nanortime por la misma vía).
-     * El supervisor sigue siendo el único dueño del ciclo de vida del worker.
+     * Entrega el worker solo cuando una función nativa realmente lo necesita.
+     * Así LiteRT no compite por memoria con :nanoshell; GGUF, SAF y terminal
+     * conservan el arranque transparente y la espera acotada de WorkerClient.
      */
-    fun workerClient(): WorkerClient? = workerClient
+    fun workerClient(): WorkerClient? {
+        ensureRunning()
+        return workerClient
+    }
 
     fun installPackages(packages: List<String>, onProgress: (String, Int) -> Unit): Boolean {
         ensureRunning()

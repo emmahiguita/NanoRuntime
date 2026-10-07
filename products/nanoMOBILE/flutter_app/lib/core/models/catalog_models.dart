@@ -3,6 +3,7 @@ part 'catalog_entries_0.dart';
 part 'catalog_entries_1.dart';
 part 'catalog_entries_2.dart';
 part 'catalog_entries_3.dart';
+part 'catalog_entries_4.dart';
 
 /// Catálogo de modelos y recursos con archivo, backend y SHA definidos.
 ///
@@ -99,6 +100,7 @@ abstract final class NeuralCatalog {
     ..._catalogEntries1,
     ..._catalogEntries2,
     ..._catalogEntries3,
+    ..._catalogEntries4,
   ];
 
   static LmCatalogEntry entryOf(String name) =>

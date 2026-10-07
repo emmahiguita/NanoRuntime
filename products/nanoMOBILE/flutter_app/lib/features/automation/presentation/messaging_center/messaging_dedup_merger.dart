@@ -13,6 +13,8 @@
 /// Cumple con Single Responsibility (SOLID) y la regla de archivos < 200 líneas.
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
 import '../../engine/messaging/conversation_hub_providers.dart';
 import 'messaging_conversation_identity.dart';
 import 'messaging_summary_merger.dart';
@@ -94,15 +96,26 @@ abstract final class MessagingDedupMerger {
 
   /// Agrupa equivalencias en O(n²) y fusiona cada componente una sola vez.
   /// Evita el reinicio de recorrido anterior, que podía crecer hasta O(n³).
+  /// Loguea cada paso para auditoría en tiempo real vía logcat.
   static List<ConversationSummaryItem> deduplicateAndSort(
     List<ConversationSummaryItem> input,
   ) {
+    debugPrint(
+      '[msgcenter:dedup] input=${input.length} '
+      'ids=${input.map((e) => '"${e.conversationId.substring(0, e.conversationId.length.clamp(0, 20))}"').join(',')}',
+    );
+
     final valid = input
         .where(
           (item) =>
               isSupportedMessagingApp(item.packageName) && !_isSpurious(item),
         )
         .toList();
+
+    debugPrint(
+      '[msgcenter:dedup] valid=${valid.length} filtered=${input.length - valid.length}',
+    );
+
     final parents = List<int>.generate(valid.length, (index) => index);
 
     int rootOf(int index) {
@@ -117,7 +130,14 @@ abstract final class MessagingDedupMerger {
     void union(int first, int second) {
       final firstRoot = rootOf(first);
       final secondRoot = rootOf(second);
-      if (firstRoot != secondRoot) parents[secondRoot] = firstRoot;
+      if (firstRoot != secondRoot) {
+        debugPrint(
+          '[msgcenter:dedup] merge '
+          '"${valid[first].displayName}"(${valid[first].conversationId.substring(0, valid[first].conversationId.length.clamp(0, 24))}) '
+          '+ "${valid[second].displayName}"(${valid[second].conversationId.substring(0, valid[second].conversationId.length.clamp(0, 24))})',
+        );
+        parents[secondRoot] = firstRoot;
+      }
     }
 
     for (var first = 0; first < valid.length; first++) {
@@ -139,6 +159,12 @@ abstract final class MessagingDedupMerger {
 
     final result = grouped.values.toList(growable: false);
     result.sort((a, b) => b.lastAtMs.compareTo(a.lastAtMs));
+
+    debugPrint(
+      '[msgcenter:dedup] result=${result.length} '
+      'names=${result.map((e) => '"${e.displayName}"').join(',')}',
+    );
+
     return result;
   }
 }

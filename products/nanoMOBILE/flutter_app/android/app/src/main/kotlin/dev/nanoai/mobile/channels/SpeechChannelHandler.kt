@@ -116,6 +116,16 @@ class SpeechChannelHandler(
             "playAudioFile" -> playAudioFile(call.argument<String>("path").orEmpty(), result)
             "stopAudioFile" -> stopAudioFile(result)
             "getAudioDuration" -> getAudioDuration(call.argument<String>("path").orEmpty(), result)
+            "convertAudioToWav" -> {
+                val input = call.argument<String>("inputPath").orEmpty()
+                val output = call.argument<String>("outputPath").orEmpty()
+                val ok = dev.nanoai.mobile.services.AudioWavConverter.convertToWav(input, output)
+                if (ok) {
+                    result.success(output)
+                } else {
+                    result.error("convert_error", "No se pudo convertir audio a WAV", null)
+                }
+            }
             else -> result.notImplemented()
         }
     }

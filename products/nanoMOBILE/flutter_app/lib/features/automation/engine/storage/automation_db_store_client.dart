@@ -15,13 +15,6 @@ class AutomationDbStoreClient {
   static final AutomationDbStoreClient instance = AutomationDbStoreClient._();
 
   static const _channel = MethodChannel('com.nanoai/automation_store');
-  static const _channelRegistrationRetryDelays = <Duration>[
-    Duration(milliseconds: 40),
-    Duration(milliseconds: 80),
-    Duration(milliseconds: 160),
-    Duration(milliseconds: 320),
-    Duration(milliseconds: 640),
-  ];
 
   bool _isHealthy = true;
   int _failedWriteCount = 0;
@@ -73,16 +66,28 @@ class AutomationDbStoreClient {
   }
 
   Future<String?> requiredSection(String key) async {
-    for (var attempt = 0; ; attempt++) {
+    for (var attempt = 0; attempt < 8; attempt++) {
       try {
         return await _channel
             .invokeMethod<String>('get', {'key': key})
-            .timeout(const Duration(seconds: 10));
+            .timeout(const Duration(seconds: 4));
       } on MissingPluginException {
-        if (attempt >= _channelRegistrationRetryDelays.length) rethrow;
-        await Future<void>.delayed(_channelRegistrationRetryDelays[attempt]);
+        if (attempt == 7) {
+          debugPrint(
+            '[automation-store] requiredSection($key) canal nativo no listo, fallback graceful',
+          );
+          return null;
+        }
+        final delayMs = 40 * (1 << attempt);
+        await Future<void>.delayed(
+          Duration(milliseconds: delayMs.clamp(40, 1000)),
+        );
+      } catch (error) {
+        debugPrint('[automation-store] requiredSection($key) falló: $error');
+        return null;
       }
     }
+    return null;
   }
 
   /// Reemplazo atómico de la sección. false = rechazada (whitelist/tamaño).

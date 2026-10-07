@@ -160,12 +160,12 @@ class NanoDarkColors implements NanoColors {
   @override
   final codeBlockBg = const Color(0xFF08101E);
   @override
-  final quoteBg = const Color(0xFF042016); // Esmeralda profundo
+  final quoteBg = const Color(0xFF0C192C); // Obsidiana azul profunda
   @override
   final terminalBg = const Color(0xFF0B1120); // Coincide con background
   @override
   final terminalGreen = const Color(0xFF10B981); // Verde terminal
-
+ 
   // Glassmorphism no aplicado en modo oscuro (usa valores por defecto)
   @override
   final glassSurface = const Color(0x00000000); // Transparente
@@ -173,7 +173,7 @@ class NanoDarkColors implements NanoColors {
   final glassBorder = const Color(0x00000000); // Transparente
   @override
   final glassOverlay = const Color(0x00000000); // Transparente
-
+ 
   // --- Glass Metallic Redesign Tokens ---
   @override
   final bgTop = const Color(0xFF020711); // backgroundPrimary
@@ -181,7 +181,7 @@ class NanoDarkColors implements NanoColors {
   final bgMiddle = const Color(0xFF050C16); // backgroundSecondary
   @override
   final bgBottom = const Color(0xFF08131F); // backgroundElevated
-
+ 
   @override
   final glass100 = const Color(0xFF0B1825);
   @override
@@ -190,7 +190,7 @@ class NanoDarkColors implements NanoColors {
   final glass300 = const Color(0xFF141D28);
   @override
   final glass400 = const Color(0xFF0B1E30);
-
+ 
   @override
   final metalWhite = const Color(0xFFFFFFFF);
   @override
@@ -205,14 +205,14 @@ class NanoDarkColors implements NanoColors {
   final metalGraphite = const Color(0xFF3F4856);
   @override
   final metalDark = const Color(0xFF141B25);
-
+ 
   @override
-  final warmReflect1 = const Color(0xFFE6FFFA);
+  final warmReflect1 = const Color(0xFFEFF6FF);
   @override
-  final warmReflect2 = const Color(0xFFB2F5EA);
+  final warmReflect2 = const Color(0xFFDBEAFE);
   @override
-  final warmReflect3 = const Color(0xFF81E6D9);
-
+  final warmReflect3 = const Color(0xFFBFDBFE);
+ 
   @override
   final coldReflect1 = const Color(0xFFBCEBFF);
   @override
@@ -223,16 +223,16 @@ class NanoDarkColors implements NanoColors {
   final coldReflect4 = const Color(0xFF6787FF);
   @override
   final coldReflect5 = const Color(0xFF8073FF);
-
+ 
   @override
-  final nanoCyan = const Color(0xFF00D4B2);
+  final nanoCyan = const Color(0xFF38BDF8);
   @override
-  final nanoTurquoise = const Color(0xFF10B981);
+  final nanoTurquoise = const Color(0xFF60A5FA);
   @override
-  final nanoBlue = const Color(0xFF059669);
+  final nanoBlue = const Color(0xFF2563EB);
   @override
-  final nanoViolet = const Color(0xFF047857);
-
+  final nanoViolet = const Color(0xFF4F46E5);
+ 
   // --- New Semantic Dark Palette Tokens ---
   @override
   final backgroundPrimary = const Color(0xFF020711);
@@ -248,7 +248,7 @@ class NanoDarkColors implements NanoColors {
   final backgroundIce = const Color(0xFF0B1825);
   @override
   final backgroundPearl = const Color(0xFF141D28);
-
+ 
   @override
   final glassPrimary = const Color(0xFF0B1825);
   @override
@@ -257,7 +257,7 @@ class NanoDarkColors implements NanoColors {
   final glassGraphite = const Color(0xFF141D28);
   @override
   final glassBlue = const Color(0xFF0B1E30);
-
+ 
   @override
   final glassLow = 0.32;
   @override
@@ -266,44 +266,44 @@ class NanoDarkColors implements NanoColors {
   final glassStrong = 0.62;
   @override
   final glassOpaque = 0.78;
-
+ 
   @override
   final textPrimary = const Color(0xFFF8FAFC);
   @override
-  final textSecondary = const Color(0xFFA8B3C2);
+  final textSecondary = const Color(0xFF94A3B8);
   @override
-  final textTertiary = const Color(0xFF737F91);
+  final textTertiary = const Color(0xFF64748B);
   @override
-  final textDisabled = const Color(0xFF526071);
-
+  final textDisabled = const Color(0xFF475569);
+ 
   @override
-  final accentCyan = const Color(0xFF00D4B2);
+  final accentCyan = const Color(0xFF38BDF8);
   @override
-  final accentMint = const Color(0xFF10B981);
+  final accentMint = const Color(0xFF60A5FA);
   @override
-  final accentSky = const Color(0xFF34D399);
+  final accentSky = const Color(0xFF93C5FD);
   @override
-  final accentBlue = const Color(0xFF059669);
+  final accentBlue = const Color(0xFF2563EB);
   @override
-  final accentLavender = const Color(0xFF047857);
-
+  final accentLavender = const Color(0xFF818CF8);
+ 
   @override
-  final iceReflection = const Color(0xFFD1FAE5);
+  final iceReflection = const Color(0xFFDBEAFE);
   @override
   final silverReflection = const Color(0xFFB9C6D3);
   @override
   final pearlReflection = const Color(0xFFF5F7FA);
   @override
-  final warmReflection = const Color(0xFFCCFBF1);
+  final warmReflection = const Color(0xFFEFF6FF);
   @override
-  final lavenderReflection = const Color(0xFFA7F3D0);
-
+  final lavenderReflection = const Color(0xFFE0E7FF);
+ 
   @override
   final borderPrimaryColor = const Color(0x26FFFFFF); // rgba(255,255,255,0.15)
   @override
   final borderSecondaryColor = const Color(0x2E97A1BF); // rgba(151,170,191,0.18)
   @override
-  final borderAccentColor = const Color(0x6610B981);
+  final borderAccentColor = const Color(0x553B82F6);
 
   @override
   bool get isClassicOrange => false;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'design_tokens.dart';
 
 /// â”€â”€ Typography Tokens (Inter — misma familia que el resto de la app) â”€â”€
 /// Reemplaza los `TextStyle(...)` crudos (Roboto por defecto) por una
@@ -134,6 +135,40 @@ class NanoType {
     color: c,
     height: 1.2,
   );
+
+  // ── Context-aware Semantic Helpers (Jerarquía Universal) ──
+  static TextStyle displayOf(BuildContext context) =>
+      display(NanoThemeExtension.of(context).colors.textPrimary);
+
+  static TextStyle largeTitleOf(BuildContext context) =>
+      largeTitle(NanoThemeExtension.of(context).colors.textPrimary);
+
+  static TextStyle titleOf(BuildContext context) =>
+      title(NanoThemeExtension.of(context).colors.textPrimary);
+
+  static TextStyle headlineOf(BuildContext context) =>
+      headline(NanoThemeExtension.of(context).colors.textPrimary);
+
+  static TextStyle bodyOf(BuildContext context) =>
+      body(NanoThemeExtension.of(context).colors.textPrimary);
+
+  static TextStyle bodySecondaryOf(BuildContext context) =>
+      bodySecondary(NanoThemeExtension.of(context).colors.textSecondary);
+
+  static TextStyle subtitleOf(BuildContext context) =>
+      subtitle(NanoThemeExtension.of(context).colors.textSecondary);
+
+  static TextStyle captionOf(BuildContext context) =>
+      caption(NanoThemeExtension.of(context).colors.textSecondary);
+
+  static TextStyle labelOf(BuildContext context) =>
+      label(NanoThemeExtension.of(context).colors.textPrimary);
+
+  static TextStyle microOf(BuildContext context) =>
+      micro(NanoThemeExtension.of(context).colors.textTertiary);
+
+  static TextStyle overlineOf(BuildContext context) =>
+      overline(NanoThemeExtension.of(context).colors.textTertiary);
 }
 
 /// â”€â”€ Icon Tokens â”€â”€

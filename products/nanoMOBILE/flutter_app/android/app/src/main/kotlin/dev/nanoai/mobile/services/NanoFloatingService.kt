@@ -14,16 +14,14 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import dev.nanoai.mobile.R
 
-/**
- * NanoFloatingService — Asistente flotante nativo estilo Gemini y descargador estilo Snaptube.
- *
- * QUÉ: Alterna entre burbuja viva/pestaña iOS y panel Glass interactivo sin abrir MainActivity.
- * CÓMO: WindowManager gestiona TYPE_APPLICATION_OVERLAY. Orquesta NanoScreenReader, NanoOverlayBridge,
- *       NanoMediaResolver (YouTube/X/Insta) y NanoMediaDownloader (DownloadManager).
- * POR QUÉ: Permite usar la IA y descargar MP4/MP3 en WhatsApp o YouTube sin salir de ellas.
- * SOLID-S: Orquesta las capas nativas de vista, interacción y descarga multimedia.
- */
+/** Overlay nativo: WindowManager posee la burbuja y libera sus recursos al detenerse. */
 class NanoFloatingService : Service() {
+    companion object {
+        // Estado del servicio real, no una preferencia que sobreviva a su muerte.
+        @Volatile var isActive = false
+            private set
+    }
+
     private lateinit var manager: WindowManager
     private lateinit var bubble: FrameLayout
     private lateinit var owlView: ImageView
@@ -57,6 +55,7 @@ class NanoFloatingService : Service() {
         setupBubble()
         manager.addView(bubble, bubbleLayout)
         owlMotion = NanoOwlAnimator(owlView).also { it.start() }
+        isActive = true
     }
 
     private fun setupBubble() {
@@ -185,6 +184,7 @@ class NanoFloatingService : Service() {
 
     // onDestroy: orden crítico (animaciones → panel → burbuja → shutdown snapshotter).
     override fun onDestroy() {
+        isActive = false
         if (::touchHelper.isInitialized) touchHelper.cancel()
         if (::owlMotion.isInitialized) owlMotion.stop()
         if (::downloader.isInitialized) downloader.detach()

@@ -30,8 +30,8 @@ class TheaterSpotlightPainter extends CustomPainter {
       ..shader =
           RadialGradient(
             colors: [
-              const Color(0xFF44FFCE).withValues(alpha: 0.16),
-              const Color(0xFF10B981).withValues(alpha: 0.07),
+              const Color(0xFF3B82F6).withValues(alpha: 0.12),
+              const Color(0xFF1D4ED8).withValues(alpha: 0.05),
               Colors.transparent,
             ],
             stops: const [0.0, 0.55, 1.0],
@@ -47,7 +47,7 @@ class TheaterSpotlightPainter extends CustomPainter {
       ..shader =
           RadialGradient(
             colors: [
-              const Color(0xFF00E5A0).withValues(alpha: 0.10),
+              const Color(0xFF2563EB).withValues(alpha: 0.08),
               Colors.transparent,
             ],
             stops: const [0.0, 1.0],

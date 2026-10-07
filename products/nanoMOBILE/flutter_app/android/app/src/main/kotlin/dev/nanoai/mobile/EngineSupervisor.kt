@@ -707,7 +707,7 @@ class EngineSupervisor(
          *  se fuerza /reload. Verificado en Oppo: ctx=256 (survival_fit) deja
          *  toda generación vacía; 4096 resuelve con prompt de ~1900 tokens. */
         private const val CTX_MIN_USABLE = 2048
-        private const val CTX_RELOAD_TARGET = 4096
+        private const val CTX_RELOAD_TARGET = 2048
         private const val CTX_STATUS_MAX_ATTEMPTS = 36
         private const val CTX_STATUS_POLL_MS = 5_000L
         private const val CTX_RELOAD_TIMEOUT_MS = 300_000

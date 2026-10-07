@@ -52,6 +52,8 @@ class NanoFloatingChannel(private val activity: Activity, messenger: BinaryMesse
 
                 // Verifica si SYSTEM_ALERT_WINDOW está concedido.
                 "hasPermission" -> result.success(Settings.canDrawOverlays(activity))
+                // Ajustes consulta el ciclo de vida del servicio, no un booleano local.
+                "isActive" -> result.success(NanoFloatingService.isActive)
 
                 // Abre la pantalla del sistema para otorgar el permiso.
                 "requestPermission" -> {

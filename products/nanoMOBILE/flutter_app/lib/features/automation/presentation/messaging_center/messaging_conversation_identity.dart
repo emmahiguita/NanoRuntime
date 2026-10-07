@@ -62,17 +62,33 @@ abstract final class MessagingConversationIdentity {
     final identitiesB = _strongIdentities(b);
     if (identitiesA.any(identitiesB.contains)) return true;
 
-    // Último puente permitido: misma etiqueta humana no técnica y exactamente
-    // una fuente viva. Nunca fusiona dos filas persistidas sólo por nombre.
-    final aLive = a.conversationId.toLowerCase().startsWith('live:');
-    final bLive = b.conversationId.toLowerCase().startsWith('live:');
+    // Puente de notificationKey entre history: y filas persistidas.
+    // history:X no empieza en live: pero comparte notificationKey con live:X
+    // o con la fila SQLite que lo generó.
+    final notifKeyA = a.notificationKey?.trim() ?? '';
+    final notifKeyB = b.notificationKey?.trim() ?? '';
+    if (notifKeyA.isNotEmpty && notifKeyA == notifKeyB) return true;
+
+    // Último puente permitido: misma etiqueta humana no técnica y al menos
+    // UNA fuente es transitoria (live: o history:). Nunca fusiona dos filas
+    // persistidas sólo por nombre para no mezclar contactos homónimos.
+    final aTransient = _isTransientId(a.conversationId);
+    final bTransient = _isTransientId(b.conversationId);
     final nameA = a.displayName.trim().toLowerCase();
     final nameB = b.displayName.trim().toLowerCase();
-    return aLive != bLive &&
+    return (aTransient || bTransient) &&
+        !(aTransient && bTransient) &&
         nameA.isNotEmpty &&
         nameA == nameB &&
         !isTechnicalName(nameA) &&
         !isTechnicalName(nameB);
+  }
+
+  /// Identifica IDs transitorios (live: de notificaciones activas,
+  /// history: del historial de notificaciones persistido).
+  static bool _isTransientId(String id) {
+    final lower = id.toLowerCase();
+    return lower.startsWith('live:') || lower.startsWith('history:');
   }
 
   static String? _jidFrom(String raw) => RegExp(

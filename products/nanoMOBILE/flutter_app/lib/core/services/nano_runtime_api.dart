@@ -1021,6 +1021,22 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Convierte cualquier archivo de audio soportado (.opus, .m4a, .aac) a WAV PCM 16-bit
+  /// usando los decodificadores nativos de Android (MediaCodec).
+  Future<String?> convertAudioToWav(String inputPath, {String? outputPath}) async {
+    try {
+      final out = outputPath ?? '${inputPath}_converted.wav';
+      final res = await _speech.invokeMethod<String>('convertAudioToWav', {
+        'inputPath': inputPath,
+        'outputPath': out,
+      });
+      return res;
+    } catch (e) {
+      debugPrint('[runtime] convertAudioToWav error: $e');
+      return null;
+    }
+  }
+
   /// A14.4 — acción Shizuku TIPADA: detener una app (reversible).
   /// El nativo vincula el UserService Shizuku (corre con privilegios) y valida
   /// el packageName. El estado de autorización lo valida el broker antes.

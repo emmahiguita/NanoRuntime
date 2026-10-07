@@ -5,8 +5,9 @@
 /// Signal, Discord, Slack, Teams o cualquier app que publique una notificación
 /// de mensajería contestable.
 ///
-/// Puro Dart: parsea el mapa crudo que expone `listActiveNotifications` (nativo).
 library;
+
+import '../../domain/incoming_attachment.dart';
 
 /// Objeto de notificación con identidad/estructura real extraída del
 /// MessagingStyle de Android. Campos vacíos = no expuesto por la app origen
@@ -69,6 +70,7 @@ final class NotificationObject {
   final String notificationCategory;
   final bool hasMessagingStyle;
   final bool isConversationEvent;
+  final List<IncomingAttachment> attachments;
 
   const NotificationObject({
     required this.key,
@@ -98,6 +100,7 @@ final class NotificationObject {
     this.notificationCategory = '',
     this.hasMessagingStyle = true,
     this.isConversationEvent = true,
+    this.attachments = const [],
   });
 
   /// Expand Android's visible message history using each original event's
@@ -166,6 +169,24 @@ final class NotificationObject {
       notificationCategory: '${raw['notificationCategory'] ?? ''}',
       hasMessagingStyle: raw['hasMessagingStyle'] != false,
       isConversationEvent: raw['isConversationEvent'] != false,
+      attachments: [
+        if (raw['audioPath'] != null && '${raw['audioPath']}'.trim().isNotEmpty)
+          IncomingAttachment(
+            type: AttachmentType.voice,
+            localPath: '${raw['audioPath']}'.trim(),
+            observedAt: raw['messageTimestamp'] is num ? (raw['messageTimestamp'] as num).toInt() : 0,
+            resolutionStatus: AttachmentResolutionStatus.resolved,
+            confidence: AttachmentConfidence.resolvedExact,
+          ),
+        if (raw['imagePath'] != null && '${raw['imagePath']}'.trim().isNotEmpty)
+          IncomingAttachment(
+            type: AttachmentType.image,
+            localPath: '${raw['imagePath']}'.trim(),
+            observedAt: raw['messageTimestamp'] is num ? (raw['messageTimestamp'] as num).toInt() : 0,
+            resolutionStatus: AttachmentResolutionStatus.resolved,
+            confidence: AttachmentConfidence.resolvedExact,
+          ),
+      ],
     );
   }
 
@@ -189,6 +210,41 @@ final class NotificationObject {
     final hay = '$sender $conversationTitle $title'.toLowerCase();
     return hay.contains(needle);
   }
+
+  /// Copia inmutable con texto actualizado/enriquecido preservando la identidad.
+  NotificationObject withText(
+    String newText, {
+    List<IncomingAttachment>? attachments,
+  }) => NotificationObject(
+    key: key,
+    packageName: packageName,
+    title: title,
+    text: newText,
+    messageText: newText,
+    messageTimestamp: messageTimestamp,
+    sender: sender,
+    senderKey: senderKey,
+    senderUri: senderUri,
+    conversationTitle: conversationTitle,
+    conversationId: conversationId,
+    shortcutId: shortcutId,
+    locusId: locusId,
+    accountHint: accountHint,
+    isGroup: isGroup,
+    isSummary: isSummary,
+    isTruncated: isTruncated,
+    isSelf: isSelf,
+    postTime: postTime,
+    canReply: canReply,
+    remoteInputKey: remoteInputKey,
+    actionIndex: actionIndex,
+    actions: actions,
+    ongoing: ongoing,
+    notificationCategory: notificationCategory,
+    hasMessagingStyle: hasMessagingStyle,
+    isConversationEvent: isConversationEvent,
+    attachments: attachments ?? this.attachments,
+  );
 
   @override
   String toString() =>

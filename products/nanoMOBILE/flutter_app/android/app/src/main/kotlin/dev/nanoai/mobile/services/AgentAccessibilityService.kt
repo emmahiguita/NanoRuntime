@@ -823,20 +823,24 @@ object AgentAccessibilityBridge {
     @Volatile
     private var autoSendExpectedAlias: String? = null
 
+    // Devuelve el resultado del click a quien program?? el env??o; abrir WhatsApp no basta.
+    private var autoSendResult: ((Boolean, String) -> Unit)? = null
+
     private val autoSendRunnable = object : Runnable {
         override fun run() {
             if (!isAutoSendArmed) return
             val s = service
             if (s == null || System.currentTimeMillis() > autoSendDeadlineMs) {
-                isAutoSendArmed = false
+                completeAutoSend(false, if (s == null) "Accesibilidad se desconect??." else "No se confirm?? el click de env??o.")
                 return
             }
 
             val executed = s.performAutoSendAndReturn(autoSendTargetPkg, autoSendTargetContact, autoSendExpectedAlias)
             if (executed) {
-                isAutoSendArmed = false
+                completeAutoSend(true, "Acci??n de env??o pulsada; entrega no confirmada por WhatsApp.")
             } else {
-                s.mainThreadHandler.postDelayed(this, 120)
+                // Intervalo acotado para que WhatsApp monte la vista sin consultar el árbol cada 120 ms.
+                s.mainThreadHandler.postDelayed(this, 220)
             }
         }
     }
@@ -864,7 +868,7 @@ object AgentAccessibilityBridge {
         if (s != null) {
             s.mainThreadHandler.removeCallbacks(autoSendRunnable)
         }
-        isAutoSendArmed = false
+        completeAutoSend(false, "Accesibilidad se desconect?? antes del env??o.")
         service = null
         lastEvent = null
         listeners.clear()
@@ -874,24 +878,47 @@ object AgentAccessibilityBridge {
         targetPkg: String? = null,
         targetContact: String? = null,
         expectedAlias: String? = null,
-        timeoutMs: Long = 5000L
-    ) {
-        val s = service ?: return
+        timeoutMs: Long = 5000L,
+        onResult: ((Boolean, String) -> Unit)? = null,
+    ): Boolean {
+        val s = service ?: return false
+        if (isAutoSendArmed && autoSendResult != null && autoSendResult !== onResult) {
+            completeAutoSend(false, "Env??o reemplazado por otra solicitud.")
+        }
         isAutoSendArmed = true
         autoSendDeadlineMs = System.currentTimeMillis() + timeoutMs
         autoSendTargetPkg = targetPkg
         autoSendTargetContact = targetContact
         autoSendExpectedAlias = expectedAlias
+        autoSendResult = onResult
         s.mainThreadHandler.removeCallbacks(autoSendRunnable)
         // Revisar tras un breve lapso para que la ventana de WhatsApp inicie
         s.mainThreadHandler.postDelayed(autoSendRunnable, 150)
+        return true
     }
 
-    fun disarmAutoSend() {
+    // Cierra una sola vez el ciclo y libera Handler/destinatario incluso ante timeout.
+    private fun completeAutoSend(success: Boolean, message: String) {
+        val wasArmed = isAutoSendArmed
+        val s = service
+        s?.mainThreadHandler?.removeCallbacks(autoSendRunnable)
         isAutoSendArmed = false
+        val callback = autoSendResult
+        autoSendResult = null
         autoSendTargetContact = null
         autoSendExpectedAlias = null
-        service?.mainThreadHandler?.removeCallbacks(autoSendRunnable)
+        autoSendTargetPkg = null
+        if (wasArmed && callback != null) {
+            try {
+                callback(success, message)
+            } catch (error: Exception) {
+                Log.e("nanoagent", "No se pudo registrar el resultado de autoenvío", error)
+            }
+        }
+    }
+
+    fun disarmAutoSend(reason: String = "Env??o cancelado antes del click.") {
+        completeAutoSend(false, reason)
     }
 
     fun notifyEvent(eventType: Int, packageName: String, className: String, timestamp: Long) {
@@ -902,7 +929,7 @@ object AgentAccessibilityBridge {
             service?.let { s ->
                 s.mainThreadHandler.post {
                     if (isAutoSendArmed && s.performAutoSendAndReturn(autoSendTargetPkg, autoSendTargetContact, autoSendExpectedAlias)) {
-                        isAutoSendArmed = false
+                        completeAutoSend(true, "Acci??n de env??o pulsada; entrega no confirmada por WhatsApp.")
                     }
                 }
             }

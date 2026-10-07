@@ -42,6 +42,24 @@ class AutomationStoreChannelHandler(
                 result.success(db.section(key))
             }
 
+            // Lecturas del historial local real; el cliente solo envía límites e identificadores opacos.
+            "notificationHistoryList" -> result.success(
+                db.listNotificationConversations(call.argument<Number>("limit")?.toInt() ?: 100),
+            )
+            "notificationHistoryMessages" -> {
+                val historyId = call.argument<String>("historyId").orEmpty()
+                if (historyId.isBlank()) {
+                    result.error("BAD_ARG", "historyId requerido", null)
+                    return
+                }
+                result.success(
+                    db.listNotificationMessages(
+                        historyId,
+                        call.argument<Number>("limit")?.toInt() ?: 500,
+                    ),
+                )
+            }
+
             "put" -> {
                 val key = call.argument<String>("key")
                 val json = call.argument<String>("json")

@@ -33,9 +33,8 @@ class RuntimeScope(context: Context) {
 
     fun hasHolder(holder: Holder): Boolean = synchronized(lock) { holder in holders }
 
-    /** Registra al requestor. Devuelve true si es el PRIMERO (el llamador
-     *  decide cuándo arrancar el worker: la UI lo difiere para no pelear el
-     *  primer frame; automation arranca de inmediato). */
+    /** Registra al requestor. Devuelve true si es el PRIMERO. La UI mantiene
+     *  el worker bajo demanda; automation puede iniciarlo al recibir trabajo. */
     fun acquire(holder: Holder): Boolean = synchronized(lock) {
         val first = holders.isEmpty()
         holders.add(holder)

@@ -217,3 +217,13 @@ products/old_home.dart
 *.db
 *.sqlite
 *.sqlite3
+
+# Temporary test media, scripts and captures
+*.png
+*.wav
+*.opus
+whisper.cpp/
+whisper.sh
+.qwen_*.json
+.agents/
+products/.agents/

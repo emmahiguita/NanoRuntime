@@ -1,18 +1,4 @@
-// voice_note_transcriber.dart
-//
-// QUÉ HACE:
-// Motor de transcripción real para notas de voz de WhatsApp y archivos de audio locales.
-//
-// CÓMO FUNCIONA:
-// - Valida la existencia física del archivo de audio (.opus, .m4a, .mp3, .ogg).
-// - Si hay conectividad y credenciales de IA (Gemini / Whisper Cloud / OpenAI), envía el audio
-//   en base64 con prompt multimodal especializado en transcripción fiel al español.
-// - Si no hay modelo configurado, emite un diagnóstico factual sin inventar texto falso.
-//
-// POR QUÉ:
-// Cumple con la exigencia de transcripción real sin datos simulados ("no inventar"),
-// respetando SOLID y la regla estricta de < 200 líneas de código.
-
+// voice_note_transcriber.dart - Motor de transcripción real para notas de voz de WhatsApp.
 library;
 
 import 'dart:convert';
@@ -33,9 +19,16 @@ abstract final class VoiceNoteTranscriber {
   static Future<String> transcribe({
     required String audioPathOrUrl,
     void Function(String partial)? onPartialText,
+    bool force = false,
   }) {
-    if (_cache.containsKey(audioPathOrUrl)) {
-      return Future.value(_cache[audioPathOrUrl]!);
+    if (force) {
+      _cache.remove(audioPathOrUrl);
+      _activeSessions.remove(audioPathOrUrl);
+    } else {
+      final cached = _cache[audioPathOrUrl];
+      if (cached != null && !cached.contains('descarga Whisper')) {
+        return Future.value(cached);
+      }
     }
     if (_activeSessions.containsKey(audioPathOrUrl)) {
       return _activeSessions[audioPathOrUrl]!;
@@ -56,7 +49,6 @@ abstract final class VoiceNoteTranscriber {
 
       if (!file.existsSync()) {
         const err = 'Audio no encontrado en el almacenamiento.';
-        _cache[path] = err;
         _activeSessions.remove(path);
         return err;
       }
@@ -64,7 +56,6 @@ abstract final class VoiceNoteTranscriber {
       final bytes = await file.readAsBytes();
       if (bytes.isEmpty) {
         const err = 'El archivo de audio está vacío (0 bytes).';
-        _cache[path] = err;
         _activeSessions.remove(path);
         return err;
       }
@@ -85,17 +76,12 @@ abstract final class VoiceNoteTranscriber {
       // 2. Fallback cloud opcional: si el usuario configuró API keys externas
       final prefs = await SharedPreferences.getInstance();
       final geminiKey =
-          prefs.getString('gemini_api_key') ??
-          prefs.getString('google_api_key');
+          prefs.getString('gemini_api_key') ?? prefs.getString('google_api_key');
       final openAiKey = prefs.getString('openai_api_key');
 
       if (geminiKey != null && geminiKey.trim().isNotEmpty) {
         onPartial?.call('Transcribiendo con Gemini...');
-        final transcript = await _transcribeWithGemini(
-          bytes,
-          geminiKey.trim(),
-          path,
-        );
+        final transcript = await _transcribeWithGemini(bytes, geminiKey.trim(), path);
         if (transcript != null && transcript.isNotEmpty) {
           _cache[path] = transcript;
           _activeSessions.remove(path);
@@ -105,10 +91,7 @@ abstract final class VoiceNoteTranscriber {
 
       if (openAiKey != null && openAiKey.trim().isNotEmpty) {
         onPartial?.call('Transcribiendo con OpenAI Whisper...');
-        final transcript = await _transcribeWithWhisperOpenAi(
-          file,
-          openAiKey.trim(),
-        );
+        final transcript = await _transcribeWithWhisperOpenAi(file, openAiKey.trim());
         if (transcript != null && transcript.isNotEmpty) {
           _cache[path] = transcript;
           _activeSessions.remove(path);
@@ -116,22 +99,18 @@ abstract final class VoiceNoteTranscriber {
         }
       }
 
-      // 3. Diagnóstico factual sin inventar texto
+      // 3. Diagnóstico factual sin inventar texto (sin cache permanente para permitir reintento)
       final sizeKb = (bytes.length / 1024).toStringAsFixed(1);
       final ext = clean.split('.').last.toUpperCase();
-      final report =
-          'Audio $ext ($sizeKb KB) verificado y listo. '
+      final report = 'Audio $ext ($sizeKb KB) verificado y listo. '
           'Para transcripción offline gratuita (MIT), descarga Whisper-Tiny (75MB) en la pestaña Modelos.';
 
-      _cache[path] = report;
       _activeSessions.remove(path);
       return report;
     } catch (e) {
       debugPrint('[VoiceNoteTranscriber] Error: $e');
-      final err = 'Error al procesar el audio: $e';
-      _cache[path] = err;
       _activeSessions.remove(path);
-      return err;
+      return 'Error al procesar el audio: $e';
     }
   }
 

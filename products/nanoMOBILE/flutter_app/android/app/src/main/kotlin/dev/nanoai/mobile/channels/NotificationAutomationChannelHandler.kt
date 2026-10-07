@@ -193,6 +193,10 @@ class NotificationAutomationChannelHandler(
                 val remoteInputKey = call.argument<String>("remoteInputKey").orEmpty()
                 val contextFingerprint = call.argument<String>("contextFingerprint").orEmpty()
                 val postTime = call.argument<Number>("postTime")?.toLong() ?: 0L
+                // Identifica esta pulsación; otra respuesta válida a la misma notificación recibe otro nonce.
+                val attemptNonce = call.argument<String>("attemptNonce")
+                    ?.takeIf { it.length in 8..80 && it.all { char -> char.isLetterOrDigit() || char == '-' || char == '_' } }
+                    ?: java.util.UUID.randomUUID().toString()
                 val reply = service.reply(
                     key,
                     text,
@@ -200,6 +204,7 @@ class NotificationAutomationChannelHandler(
                     expectedRemoteInputKey = remoteInputKey,
                     expectedContextFingerprint = contextFingerprint,
                     expectedPostTime = postTime,
+                    attemptNonce = attemptNonce,
                 )
                 result.success(mapOf("ok" to reply.ok, "code" to reply.code))
             }

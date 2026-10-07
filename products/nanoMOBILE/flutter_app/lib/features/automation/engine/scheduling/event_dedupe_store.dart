@@ -556,7 +556,10 @@ class SqliteEventDedupeStore extends _DedupeCore {
 
   Future<void>? _loading;
   @override
-  Future<void> load() => _loading ??= _load();
+  Future<void> load() => _loading ??= _load().catchError((error) {
+    _loading = null;
+    throw error;
+  });
 
   Future<void> _load() async {
     try {

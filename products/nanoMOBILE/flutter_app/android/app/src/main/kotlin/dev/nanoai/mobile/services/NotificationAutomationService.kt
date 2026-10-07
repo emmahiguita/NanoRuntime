@@ -18,13 +18,18 @@ import java.io.File
 import java.io.FileOutputStream
 
 /**
- * Listener local de notificaciones. WA-PROD-01: persiste SOLO la identidad
- * del evento (package + notificationKey + tiempos) en el DurableInbox; el
- * CONTENIDO nunca se persiste ni se envía por red — se rehidrata de las
- * notificaciones activas que Android ya entregó al proceso al momento de
- * procesar. Responde mediante la acción RemoteInput de la app origen.
+ * Listener local: conserva un historial acotado de texto que Android expone,
+ * dentro de SQLite local. El historial no sale del dispositivo; las respuestas
+ * siguen usando RemoteInput de la aplicación de origen.
  */
 class NotificationAutomationService : NotificationListenerService() {
+    // Android adjunta el contexto después del constructor; crear el capturador antes causaba crash.
+    private lateinit var historyCapture: NotificationHistoryCapture
+
+    override fun onCreate() {
+        super.onCreate()
+        historyCapture = NotificationHistoryCapture(this)
+    }
 
     private val replyAttemptLedger by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         val preferences = getSharedPreferences(REPLY_ATTEMPT_PREFS, Context.MODE_PRIVATE)
@@ -41,6 +46,10 @@ class NotificationAutomationService : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         NotificationAutomationBridge.service = this
+        // Android vuelve a entregar notificaciones activas al conectar el listener; se importan sin inventar chats.
+        (activeNotifications ?: emptyArray())
+            .filter { WhatsAppConversationNotificationClassifier.allows(it) }
+            .forEach(historyCapture::capture)
         val pending = NanoApplication.from(this).durableInbox.pendingCount()
         NotificationEventTrace.lifecycle("connected", pending)
         if (pending > 0 && AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) {
@@ -62,6 +71,7 @@ class NotificationAutomationService : NotificationListenerService() {
     }
 
     override fun onDestroy() {
+        historyCapture.close()
         if (NotificationAutomationBridge.service === this) {
             NotificationAutomationBridge.service = null
         }
@@ -113,6 +123,9 @@ class NotificationAutomationService : NotificationListenerService() {
             )
             return
         }
+
+        // El archivo usa solo datos visibles en la notificación y sigue activo aunque Nano esté cerrada.
+        historyCapture.capture(sbn)
 
         val sink = NotificationAutomationBridge.notificationEventsSink
         val backgroundEnabled = AutomationBackgroundChannelHandler.isBackgroundEnabled(this)
@@ -274,6 +287,7 @@ class NotificationAutomationService : NotificationListenerService() {
         expectedRemoteInputKey: String = "",
         expectedContextFingerprint: String = "",
         expectedPostTime: Long = 0L,
+        attemptNonce: String = java.util.UUID.randomUUID().toString(),
     ): ReplyResult {
         val cleanText = text.trim()
         if (cleanText.isEmpty() || cleanText.length > MAX_REPLY_CHARS) {
@@ -316,15 +330,15 @@ class NotificationAutomationService : NotificationListenerService() {
             return ReplyResult(false, "CONTEXT_CHANGED")
         }
 
-        // The Dart dedupe store protects pipeline admission. This final durable
-        // guard also covers overlapping UI/headless engines and notification
-        // replays: only one RemoteInput dispatch may use a capability revision.
+        // The nonce scopes the durable guard to this send, not the notification:
+        // WhatsApp can keep one notification revision active for several replies.
         val attemptId = replyAttemptId(
             notificationKey = source.key,
             notificationRevision = source.postTime,
             actionIndex = currentActionIndex,
             remoteInputKey = currentRemoteInputKey,
             contextFingerprint = currentFingerprint,
+            attemptNonce = attemptNonce,
         )
         when (replyAttemptLedger.reserve(attemptId)) {
             ReplyAttemptLedger.Reservation.DUPLICATE -> {
@@ -578,6 +592,7 @@ class NotificationAutomationService : NotificationListenerService() {
             "isSelf" to isSelfMessage,
             "imagePath" to (savedImagePath ?: ""),
             "videoPath" to (savedVideoPath ?: ""),
+            "audioPath" to (savedAudioPath ?: ""),
             "pdfPath" to (savedPdfPath ?: ""),
             // Preserve the individual MessagingStyle events on live updates
             // and cold replay. Dart deduplicates each original timestamp.
@@ -593,6 +608,9 @@ class NotificationAutomationService : NotificationListenerService() {
                 if (savedVideoPath != null && !mText.contains("[Video:") && 
                     mText.contains("video", ignoreCase = true)) {
                     mText = "$mText\n[Video: $savedVideoPath]"
+                }
+                if (savedAudioPath != null && !mText.contains("[Audio:")) {
+                    mText = "$mText\n[Audio: $savedAudioPath]"
                 }
                 if (savedPdfPath != null && !mText.contains("[PDF:") &&
                     (message.dataMimeType.equals("application/pdf", ignoreCase = true) ||
@@ -610,6 +628,7 @@ class NotificationAutomationService : NotificationListenerService() {
                     "isSelf" to isSelfSender(message.sender, person, userPerson),
                     "imagePath" to (savedImagePath ?: ""),
                     "videoPath" to (savedVideoPath ?: ""),
+                    "audioPath" to (savedAudioPath ?: ""),
                     "pdfPath" to (savedPdfPath ?: ""),
                 )
             },

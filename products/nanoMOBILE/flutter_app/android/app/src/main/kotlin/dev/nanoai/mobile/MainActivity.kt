@@ -28,19 +28,24 @@ import dev.nanoai.mobile.channels.EngineChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
 import dev.nanoai.mobile.channels.LanguageAssistChannelHandler
 import dev.nanoai.mobile.channels.LiteRtChannelHandler
+import dev.nanoai.mobile.channels.MnnChannelHandler
 import dev.nanoai.mobile.channels.MediaCaptureChannelHandler
 import dev.nanoai.mobile.channels.ModelStorageChannelHandler
 import dev.nanoai.mobile.channels.NanoFloatingChannel
 import dev.nanoai.mobile.channels.NanoNativeAiChannel
 import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
+import dev.nanoai.mobile.channels.PerformanceChannelHandler
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
 import dev.nanoai.mobile.channels.SpeechChannelHandler
 import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
+import dev.nanoai.mobile.performance.NanoPerformanceEngine
+import dev.nanoai.mobile.performance.NanoThermalMonitor
 import dev.nanoai.mobile.services.NotificationAutomationBridge
+import dev.nanoai.mobile.services.NotificationHistoryBridge
 import dev.nanoai.mobile.services.NanoOverlayBridge
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
@@ -49,7 +54,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
-class MainActivity : FlutterActivity() {
+// Comparte el motor Flutter con la sesión multimedia para que la notificación
+// controle el mismo navegador al salir de Nano, sin iniciar otro isolate de UI.
+class MainActivity : AudioServiceActivity() {
 
     /** WA-PROD-01 — runtime compartido en scope de Application: MainActivity
      *  es UI CLIENT, no dueño. RuntimeScope apaga los supervisores solo cuando
@@ -94,6 +101,15 @@ class MainActivity : FlutterActivity() {
     /** Handler de LiteRT-LM (Google AI Edge): inferencia local con modelos .litertlm. */
     private var liteRtChannelHandler: LiteRtChannelHandler? = null
 
+    /** MNN owner is retained for the Activity lifetime and releases native state on destroy. */
+    private var mnnChannelHandler: MnnChannelHandler? = null
+
+    /** ADPF + Thermal engine handler (cerrado en onDestroy). */
+    private var performanceChannelHandler: PerformanceChannelHandler? = null
+
+    /** Handler para el almacén persistente de automatizaciones y conversaciones SQLite. */
+    private var automationStoreHandler: AutomationStoreChannelHandler? = null
+
     /** EventSink vivo de la UI para reenrutar eventos cuando la Activity pasa a foreground. */
     private var currentUiSink: EventChannel.EventSink? = null
 
@@ -105,13 +121,9 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // WA-REG-01 — acquire(UI) SÍNCRONO: cierra la ventana de handoff
-        // headless→UI. Antes el acquire iba dentro del postDelayed de warmup:
-        // si el service headless soltaba AUTOMATION en esos 1500ms, holders
-        // quedaba vacío y RuntimeScope apagaba el runtime completo (engine LLM
-        // incluido, que no podía re-arrancar en el mismo proceso). Acquire es
-        // solo un add a un set sincronizado — no toca disco ni pelea el
-        // primer frame.
+        // WA-REG-01 — registramos la UI sin iniciar procesos nativos. El worker
+        // se crea al primer uso de GGUF, terminal o Desktop; LiteRT no lo usa y
+        // así conserva memoria para el modelo y su caché KV.
         runtimeScope.acquire(RuntimeScope.Holder.UI)
         // Barras del sistema oscuras + inmersión total sticky: ocultar status bar para aprovechar pantalla
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
@@ -123,13 +135,6 @@ class MainActivity : FlutterActivity() {
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
         applyImmersiveMode()
-        // Starting the worker binds a native service and may touch disk. Do it
-        // after initial UI work so cold start can render before runtime warmup.
-        mainHandler.postDelayed({
-            if (!isFinishing && !isDestroyed) {
-                runtimeScope.nativeSupervisor.start()
-            }
-        }, RUNTIME_WARMUP_DELAY_MS)
     }
 
     override fun onAttachedToWindow() {
@@ -233,12 +238,16 @@ class MainActivity : FlutterActivity() {
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         NotificationAutomationBridge.clearSink(SINK_UI)
         currentUiSink = null
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AutomationStoreChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(null)
+        automationStoreHandler = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
     override fun onDestroy() {
         NotificationAutomationBridge.clearSink(SINK_UI)
         currentUiSink = null
+        automationStoreHandler = null
         languageAssistHandler?.close()
         languageAssistHandler = null
         speechChannelHandler?.close()
@@ -251,6 +260,10 @@ class MainActivity : FlutterActivity() {
         nanoNativeAiChannel?.detach()
         nanoNativeAiChannel = null
         liteRtChannelHandler = null
+        mnnChannelHandler?.close()
+        mnnChannelHandler = null
+        performanceChannelHandler?.close()
+        performanceChannelHandler = null
         NanoOverlayBridge.detach() // OVERLAY-03: limpiar puente al engine Flutter.
         ioScope.cancel()
         // Si el diálogo de permisos quedó abierto al destruirse la Activity,
@@ -360,7 +373,29 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun provideFlutterEngine(context: android.content.Context): FlutterEngine? {
+        val flutterEngine = super.provideFlutterEngine(context) ?: return null
+        registerAutomationStoreChannel(flutterEngine, context)
+        return flutterEngine
+    }
+
+    private fun registerAutomationStoreChannel(
+        flutterEngine: FlutterEngine,
+        context: android.content.Context,
+    ) {
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        val handler = AutomationStoreChannelHandler(context.applicationContext).also {
+            automationStoreHandler = it
+        }
+        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(handler)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        // Este canal es usado durante el arranque del Centro de Mensajería.
+        // Registrarlo antes de trabajo de runtime/plugins evita que Dart
+        // solicite las conversaciones mientras el handler aún no existe.
+        registerAutomationStoreChannel(flutterEngine, this)
         runtimeScope.acquire(RuntimeScope.Holder.UI)
         dev.nanoai.mobile.automation.AutomationRuntimeService.onUiEngineAttached()
         super.configureFlutterEngine(flutterEngine)
@@ -416,6 +451,17 @@ class MainActivity : FlutterActivity() {
                 }
             },
         )
+        // Mantiene SQLite observable sin reenviar estos avisos al motor de automatización.
+        EventChannel(messenger, "com.nanoai/notification_history_events").setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    NotificationHistoryBridge.attach(events)
+                }
+                override fun onCancel(arguments: Any?) {
+                    NotificationHistoryBridge.attach(null)
+                }
+            },
+        )
         EventChannel(
             messenger,
             NotificationAutomationChannelHandler.CONFIRMATION_EVENTS_CHANNEL_NAME,
@@ -423,10 +469,6 @@ class MainActivity : FlutterActivity() {
         // WA-PROD-01: estado/config del runtime en segundo plano (solo UI).
         MethodChannel(messenger, AutomationBackgroundChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(AutomationBackgroundChannelHandler(this))
-        // WA-PROD-02: estado durable del pipeline (dedupe/rate/memoria).
-        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME,
-            io.flutter.plugin.common.StandardMethodCodec.INSTANCE, messenger.makeBackgroundTaskQueue())
-            .setMethodCallHandler(AutomationStoreChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)
             .setMethodCallHandler(
@@ -455,13 +497,33 @@ class MainActivity : FlutterActivity() {
                 }
         }
 
-        // LiteRT-LM: Registro del canal nativo para modelos .litertlm
-        val liteRtHandler = LiteRtChannelHandler(this, ioScope, mainHandler)
+        // ADPF + Thermal: Motor de rendimiento adaptativo para inferencia IA
+        val thermalMonitor = NanoThermalMonitor(this).also { it.start() }
+        val performanceEngine = NanoPerformanceEngine(this, thermalMonitor)
+        val perfHandler = PerformanceChannelHandler(performanceEngine, thermalMonitor).also {
+            performanceChannelHandler = it
+        }
+        MethodChannel(messenger, ChannelNames.PERFORMANCE)
+            .setMethodCallHandler(perfHandler)
+        EventChannel(messenger, PerformanceChannelHandler.THERMAL_STREAM_NAME)
+            .setStreamHandler(perfHandler)
+
+        // LiteRT-LM: Registro del canal nativo para modelos .litertlm con ADPF y Thermal
+        val supervisor = NanoApplication.from(this).modelRuntimeSupervisor
+        val liteRtHandler = LiteRtChannelHandler(this, ioScope, mainHandler, supervisor, performanceEngine, thermalMonitor)
         liteRtChannelHandler = liteRtHandler
         MethodChannel(messenger, LiteRtChannelHandler.METHOD_CHANNEL_NAME)
             .setMethodCallHandler(liteRtHandler)
         EventChannel(messenger, LiteRtChannelHandler.STREAM_CHANNEL_NAME)
             .setStreamHandler(liteRtHandler)
+
+        // MNN-LLM is an independent CPU route for the downloaded Omni package.
+        val mnnHandler = MnnChannelHandler(ioScope, mainHandler)
+        mnnChannelHandler = mnnHandler
+        MethodChannel(messenger, MnnChannelHandler.METHOD_CHANNEL_NAME)
+            .setMethodCallHandler(mnnHandler)
+        EventChannel(messenger, MnnChannelHandler.STREAM_CHANNEL_NAME)
+            .setStreamHandler(mnnHandler)
 
         MethodChannel(messenger, ChannelNames.SHARE)
             .setMethodCallHandler(ShareChannelHandler(this))
@@ -584,7 +646,6 @@ class MainActivity : FlutterActivity() {
         var isForeground: Boolean = false
 
         private val SINK_UI = Any()
-        private const val RUNTIME_WARMUP_DELAY_MS = 1_500L
         private const val REQ_STORAGE_PERMISSION = 4101
         private const val REQ_RUNTIME_PERMISSIONS = 4102
     }

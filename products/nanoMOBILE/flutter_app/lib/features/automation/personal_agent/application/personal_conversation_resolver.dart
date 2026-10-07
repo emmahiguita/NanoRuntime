@@ -64,16 +64,21 @@ class PersonalConversationResolver {
       final n = analysis.targetText.toLowerCase();
       if (!n.contains('haces') &&
           !n.contains('haciendo') &&
-          !n.contains('como vas'))
+          !n.contains('como vas')) {
         return null;
+      }
     }
 
     if (analysis.isClarificationRequest &&
         dialogueState?.lastAgentStatement != null &&
         dialogueState!.lastAgentStatement!.trim().isNotEmpty) {
       final prev = dialogueState.lastAgentStatement!.trim();
-      final reply = 'Jajaja, te preguntaba: $prev';
-      final opts = ['Te preguntaba: $prev', 'Que $prev', 'Decía que $prev'];
+      final cleanPrev = prev.replaceFirst(
+        RegExp(r'^(?:Jajaja[,.]?\s*|Te preguntaba:?\s*|Te decía:?\s*)', caseSensitive: false),
+        '',
+      );
+      final reply = 'Te decía: $cleanPrev';
+      final opts = ['Te decía: $cleanPrev', 'Que $cleanPrev', 'Te preguntaba si $cleanPrev'];
       return PersonalTurnReply(
         text: reply,
         understanding: ConversationUnderstanding(

@@ -8,7 +8,7 @@ import java.io.File
 
 // Dueño único de pesos JNI. Texto solamente: no carga visión/audio ni promete esas modalidades.
 @OptIn(ExperimentalApi::class)
-internal class LiteRtEngineOwner(private val context: Context) {
+class LiteRtEngineOwner(private val context: Context) {
     var engine: Engine? = null
         private set
     var modelPath: String? = null
@@ -16,7 +16,7 @@ internal class LiteRtEngineOwner(private val context: Context) {
     var backend: String? = null
         private set
 
-    fun initialize(path: String, requested: String): Map<String, Any> {
+    fun initialize(path: String, requested: String, threadCount: Int = 4): Map<String, Any> {
         val file = File(path).canonicalFile
         require(file.isFile && file.length() > 0 && file.extension == "litertlm") {
             "Se requiere un archivo .litertlm completo"
@@ -32,8 +32,8 @@ internal class LiteRtEngineOwner(private val context: Context) {
         ExperimentalFlags.enableSpeculativeDecoding = false
         val candidate = Engine(EngineConfig(
             modelPath = file.path,
-            backend = if (requested == "gpu") Backend.GPU() else Backend.CPU(threadCount = 4),
-            maxNumTokens = 8192,
+            backend = if (requested == "gpu") Backend.GPU() else Backend.CPU(threadCount = threadCount.coerceIn(1, 8)),
+            // El paquete declara su capacidad KV; LiteRT usa ese límite sin reservar de más.
             cacheDir = File(context.cacheDir, "litert").apply { mkdirs() }.path,
         ))
         try {

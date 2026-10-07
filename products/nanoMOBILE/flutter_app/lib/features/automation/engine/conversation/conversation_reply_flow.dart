@@ -11,23 +11,26 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
     NotificationObject notification, {
     ConversationDecisionContext? decisionContext,
   }) async {
-    final conversationId = resolveConversationIdentity(notification).key.id;
+    final enrichment = await ConversationMediaEnricher.enrich(notification);
+    final effectiveNotification = enrichment.notification;
+
+    final conversationId = resolveConversationIdentity(effectiveNotification).key.id;
     final context =
         decisionContext ??
-        _decisionContext?.call(notification) ??
+        _decisionContext?.call(effectiveNotification) ??
         const ConversationDecisionContext();
     final memory = ConversationContextResolver.resolve(
       store: _memoryStore,
       conversationId: conversationId,
-      notification: notification,
+      notification: effectiveNotification,
     );
     final isBusiness =
-        notification.packageName == MessagingPackage.whatsappBusiness ||
+        effectiveNotification.packageName == MessagingPackage.whatsappBusiness ||
         context.agentId == ConversationAgentId.business ||
         context.agentRole == ConversationAgentRole.sales;
     final dialogueState = _dialogueStateTracker.getState(conversationId);
     final analysis = _turnRouter.analyze(
-      notification: notification,
+      notification: effectiveNotification,
       memory: memory,
       isBusinessChannel: isBusiness,
       dialogueState: dialogueState,
@@ -35,11 +38,11 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
 
     // 0. Deduplicación determinista: descarta ráfagas redundantes de WhatsApp.
     // En chats grupales discrimina por remitente para evitar descartar mensajes válidos entre usuarios.
-    final incomingEvent = IncomingMessage.fromNotification(notification);
-    final groupSender = notification.isGroup
-        ? (notification.senderKey.isNotEmpty
-              ? notification.senderKey
-              : notification.sender)
+    final incomingEvent = IncomingMessage.fromNotification(effectiveNotification);
+    final groupSender = effectiveNotification.isGroup
+        ? (effectiveNotification.senderKey.isNotEmpty
+              ? effectiveNotification.senderKey
+              : effectiveNotification.sender)
         : null;
     if (_deduplicator.isDuplicate(
       conversationId,
@@ -53,6 +56,26 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
         'textChars=${analysis.fullText.length}',
       );
       return null;
+    }
+
+    // 0.1 Guardas honestas ante medios no comprendidos: no responder a ciegas
+    if (enrichment.audioUnprocessed || enrichment.photoUnprocessed) {
+      final isAudio = enrichment.audioUnprocessed;
+      final reply = isAudio
+          ? 'Estoy algo ocupado y no puedo escuchar audios ahorita, ¿qué me decías por fa?'
+          : 'Recibí la foto, en un momento la reviso con calma.';
+      final opts = isAudio
+          ? ['No puedo escuchar audios ahorita, cuéntame por texto', 'Dame un momento y te escucho el audio']
+          : ['Recibí la foto, en un momento la reviso', 'Dame un momento para ver la imagen'];
+      return _packReply(
+        reply,
+        ConversationUnderstanding(reply: reply, intent: isAudio ? 'audio_unprocessed' : 'photo_unprocessed', options: opts),
+        opts,
+        context,
+        conversationId,
+        true,
+        userText: effectiveNotification.text,
+      );
     }
 
     // 1. Canal Comercial: BusinessConversationResolver atiende de forma directa e inmediata (<5ms, 0 tokens)
@@ -98,7 +121,7 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
 
     // 2. Canal Personal: hechos de memoria y estilo aprendido, sin frases prefabricadas.
     final early = await _personalEarlyReply(
-      notification: notification,
+      notification: effectiveNotification,
       analysis: analysis,
       memory: memory,
       context: context,
@@ -116,7 +139,7 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
     }
 
     // 4. Inferencia contextual LLM local (casos complejos / narrativos)
-    final draft = await _draftSource(notification);
+    final draft = await _draftSource(effectiveNotification);
     if (draft != null && draft.hasReply) {
       final businessReviewRequired =
           isBusiness &&

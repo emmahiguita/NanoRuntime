@@ -134,7 +134,7 @@ class _AttachSheet extends StatelessWidget {
                 colors: [Color(0xFDFFFFFF), Color(0xF5EFF5FF)],
               ),
         border: Border.all(
-          color: isDark ? const Color(0x4DFF8C2A) : const Color(0x33FF6D00),
+          color: isDark ? const Color(0x333B82F6) : const Color(0x1F2563EB),
           width: 1,
         ),
         boxShadow: [
@@ -227,25 +227,21 @@ class _AttachSheet extends StatelessWidget {
                     label: 'ChatGPT',
                     command: '@chatgpt ',
                     icon: Icons.smart_toy_rounded,
-                    color: Color(0xFF10B981),
                   ),
                   _AiInjectTile(
                     label: 'Gemini',
                     command: '@gemini ',
                     icon: Icons.auto_awesome_rounded,
-                    color: Color(0xFF0284C7),
                   ),
                   _AiInjectTile(
                     label: 'DeepSeek',
                     command: '@deepseek ',
                     icon: Icons.explore_rounded,
-                    color: Color(0xFFA78BFA),
                   ),
                   _AiInjectTile(
                     label: 'Claude',
                     command: '@claude ',
                     icon: Icons.lightbulb_rounded,
-                    color: Color(0xFFF97316),
                   ),
                 ],
               ),
@@ -267,28 +263,24 @@ class _AttachSheet extends StatelessWidget {
                     subtitle: '@mcp call device.diagnostics',
                     command: '@mcp call device.diagnostics',
                     icon: Icons.phonelink_setup_rounded,
-                    iconColor: Color(0xFF34D399),
                   ),
                   _CommandTile(
                     title: 'Git Status',
                     subtitle: '@git status',
                     command: '@git status',
                     icon: Icons.account_tree_rounded,
-                    iconColor: Color(0xFFF43F5E),
                   ),
                   _CommandTile(
                     title: 'Búsqueda Web',
                     subtitle: '@buscar <consulta>',
                     command: '@buscar ',
                     icon: Icons.travel_explore_rounded,
-                    iconColor: Color(0xFF3B82F6),
                   ),
                   _CommandTile(
                     title: 'Resumen Apps',
                     subtitle: '@mcp call device.app_summary',
                     command: '@mcp call device.app_summary',
                     icon: Icons.apps_rounded,
-                    iconColor: Color(0xFF8B5CF6),
                   ),
                 ],
               ),
@@ -306,7 +298,6 @@ class _AttachSheet extends StatelessWidget {
                   Expanded(
                     child: _FileTile(
                       icon: Icons.photo_camera_outlined,
-                      iconColor: const Color(0xFF10B981),
                       title: 'Cámara',
                       onTap: () =>
                           Navigator.of(context).pop(NanoAttachKind.photo),
@@ -316,7 +307,6 @@ class _AttachSheet extends StatelessWidget {
                   Expanded(
                     child: _FileTile(
                       icon: Icons.audiotrack_outlined,
-                      iconColor: const Color(0xFF60A5FA),
                       title: 'Audio',
                       onTap: () =>
                           Navigator.of(context).pop(NanoAttachKind.audio),
@@ -326,7 +316,6 @@ class _AttachSheet extends StatelessWidget {
                   Expanded(
                     child: _FileTile(
                       icon: Icons.videocam_outlined,
-                      iconColor: const Color(0xFFA78BFA),
                       title: 'Video',
                       onTap: () =>
                           Navigator.of(context).pop(NanoAttachKind.video),
@@ -336,7 +325,6 @@ class _AttachSheet extends StatelessWidget {
                   Expanded(
                     child: _FileTile(
                       icon: Icons.description_outlined,
-                      iconColor: const Color(0xFF34D399),
                       title: 'Documento',
                       onTap: () =>
                           Navigator.of(context).pop(NanoAttachKind.document),
@@ -384,13 +372,11 @@ class _AiInjectTile extends StatelessWidget {
     required this.label,
     required this.command,
     required this.icon,
-    required this.color,
   });
 
   final String label;
   final String command;
   final IconData icon;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -399,28 +385,28 @@ class _AiInjectTile extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.15 : 0.10),
-        borderRadius: BorderRadius.circular(14),
+        color: isDark ? const Color(0x1F3B82F6) : const Color(0x0F1D6FE8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: color.withValues(alpha: isDark ? 0.35 : 0.25),
+          color: isDark ? const Color(0x333B82F6) : const Color(0x1F2563EB),
           width: 0.9,
         ),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () {
             HapticFeedback.selectionClick();
             Navigator.of(context).pop(command);
           },
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(icon, color: color, size: 16),
+                Icon(icon, color: colors.accent, size: 16),
                 const SizedBox(width: 6),
                 Text(
                   label,
@@ -445,14 +431,12 @@ class _CommandTile extends StatelessWidget {
     required this.subtitle,
     required this.command,
     required this.icon,
-    required this.iconColor,
   });
 
   final String title;
   final String subtitle;
   final String command;
   final IconData icon;
-  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -466,22 +450,22 @@ class _CommandTile extends StatelessWidget {
         final itemWidth = (constraints.maxWidth - 8) / 2;
         return Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0x351D3567) : const Color(0x183B82F6),
-            borderRadius: BorderRadius.circular(14),
+            color: isDark ? const Color(0x221E293B) : const Color(0x0A0F172A),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: iconColor.withValues(alpha: isDark ? 0.30 : 0.20),
+              color: isDark ? const Color(0x26334155) : const Color(0x140F172A),
               width: 0.9,
             ),
           ),
           child: Material(
             color: Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             child: InkWell(
               onTap: () {
                 HapticFeedback.selectionClick();
                 Navigator.of(context).pop(command);
               },
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
                 width: itemWidth.clamp(140.0, 300.0),
                 padding: const EdgeInsets.symmetric(
@@ -495,9 +479,9 @@ class _CommandTile extends StatelessWidget {
                       height: 32,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: iconColor.withValues(alpha: isDark ? .20 : .14),
+                        color: colors.accent.withValues(alpha: isDark ? .16 : .10),
                       ),
-                      child: Icon(icon, color: iconColor, size: 16),
+                      child: Icon(icon, color: colors.accent, size: 16),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -543,13 +527,11 @@ class _CommandTile extends StatelessWidget {
 class _FileTile extends StatelessWidget {
   const _FileTile({
     required this.icon,
-    required this.iconColor,
     required this.title,
     required this.onTap,
   });
 
   final IconData icon;
-  final Color iconColor;
   final String title;
   final VoidCallback onTap;
 
@@ -560,22 +542,22 @@ class _FileTile extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0x401D3567) : const Color(0x203B82F6),
-        borderRadius: BorderRadius.circular(14),
+        color: isDark ? const Color(0x221E293B) : const Color(0x0A0F172A),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: colors.accent.withValues(alpha: isDark ? 0.25 : 0.15),
+          color: isDark ? const Color(0x26334155) : const Color(0x140F172A),
           width: 0.8,
         ),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () {
             HapticFeedback.selectionClick();
             onTap();
           },
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
             child: Column(
@@ -586,9 +568,9 @@ class _FileTile extends StatelessWidget {
                   height: 34,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: iconColor.withValues(alpha: isDark ? .22 : .16),
+                    color: colors.accent.withValues(alpha: isDark ? .16 : .10),
                   ),
-                  child: Icon(icon, color: iconColor, size: 18),
+                  child: Icon(icon, color: colors.accent, size: 18),
                 ),
                 const SizedBox(height: 6),
                 Text(

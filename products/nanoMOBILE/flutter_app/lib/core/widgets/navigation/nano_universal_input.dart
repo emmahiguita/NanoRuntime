@@ -152,20 +152,15 @@ class NanoUniversalInputNotifier
     if (scopeId != null) {
       final prev = _byScope[scopeId];
       if (prev != null && _sameData(prev, config)) {
-        // NAV-UI-AUDIT-01 — mismos DATOS: solo refrescar las closures en el
-        // slot (apuntan a notifiers estables) SIN notificar. Antes cada
-        // rebuild del chat reaplicaba la config y reconstruía la barra
-        // entera por cada token de streaming.
+        // NAV-UI-AUDIT-01 — mismos DATOS: refrescar closures sin disparar rebuild innecesario
         _byScope[scopeId] = config;
         return;
       }
       _byScope[scopeId] = config;
     } else {
-      // Equality early-return: los scopes reaplican su config en cada
-      // didUpdateWidget/didChangeDependencies; sin este guard cada
-      // reaplicación notifica y reconstruye la barra entera sin necesidad.
       if (state == config) return;
     }
+    // Asigna state para que Riverpod notifique a los observadores (NanoNavigationPanel)
     state = config;
   }
 

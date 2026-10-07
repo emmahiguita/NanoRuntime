@@ -41,28 +41,34 @@ object WhatsAppAutoSendController {
             Log.d(TAG, "Ventana de WhatsApp no lista o no visible aún")
             return false
         }
-
-        // Step 1.5: Verificación de destinatario (fail-closed) si fue especificado
-        if (!targetContact.isNullOrBlank() || !expectedAlias.isNullOrBlank()) {
+        try {
+            // La identidad exacta se comprueba antes de buscar cualquier botón que pueda enviar.
+            if (targetContact.isNullOrBlank() && expectedAlias.isNullOrBlank()) {
+                Log.w(TAG, "Autoenvío bloqueado: falta identidad explícita del destinatario")
+                return false
+            }
             val recipientOk = WhatsAppMediaVerifier.verifyRecipient(rootNode, targetContact, expectedAlias)
             if (!recipientOk) {
                 Log.d(TAG, "Destinatario aún no coincide en la UI de WhatsApp")
                 return false
             }
+
+            // El click solo acredita la acción de envío; WhatsApp no expone aquí entrega/lectura.
+            val clicked = WhatsAppMediaVerifier.findAndClickSendButton(rootNode)
+            if (!clicked) {
+                Log.d(TAG, "Botón de envío no encontrado o no clickeable en este intento")
+                return false
+            }
+
+            Log.i(TAG, "Acción de envío pulsada; entrega no confirmada por WhatsApp")
+
+            // Regresa a Nano sin conservar el AccessibilityNodeInfo de WhatsApp.
+            scheduleReturnToNano(service)
+            return true
+        } finally {
+            // Las búsquedas se repiten durante el arranque de WhatsApp; liberar el root evita fugas nativas.
+            rootNode.recycle()
         }
-
-        // Step 2: Verificar la presencia del botón de envío y ejecutar clic mediante cascada Dynamic-First
-        val clicked = WhatsAppMediaVerifier.findAndClickSendButton(rootNode)
-        if (!clicked) {
-            Log.d(TAG, "Botón de envío no encontrado o no clickeable en este intento")
-            return false
-        }
-
-        Log.i(TAG, "Envío ejecutado exitosamente. Iniciando retorno automático a Nano AI...")
-
-        // Step 3: Retorno automático a Nano AI (GLOBAL_ACTION_BACK o Re-orden de MainActivity)
-        scheduleReturnToNano(service)
-        return true
     }
 
     /**
