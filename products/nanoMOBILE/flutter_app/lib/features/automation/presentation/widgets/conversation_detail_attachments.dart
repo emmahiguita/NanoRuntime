@@ -1,5 +1,4 @@
 part of 'conversation_detail_sheet.dart';
-
 /// [ConversationDetailAttachments] — Selección y envío de archivos adjuntos (< 200 líneas).
 extension ConversationDetailAttachments on _ConversationDetailSheetState {
   void _showAttachmentMenu() {
@@ -7,7 +6,6 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
     final accentGreen = visual.isDark
         ? const Color(0xFF00FF88)
         : const Color(0xFF059669);
-
     showModalBottomSheet(
       context: context,
       backgroundColor: visual.isDark ? const Color(0xFF0F172A) : Colors.white,
@@ -99,7 +97,6 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
       ),
     );
   }
-
   Widget _attachmentOption(
     BuildContext ctx, {
     required AutomationVisualPalette visual,
@@ -128,7 +125,6 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
       },
     );
   }
-
   Future<void> _attachImage() =>
       _pickAndShareMedia(type: FileType.image, label: 'imagen');
   Future<void> _attachVideo() =>

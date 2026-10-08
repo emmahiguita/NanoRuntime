@@ -13,12 +13,15 @@ class ScheduledWhatsAppAlarmReceiver : BroadcastReceiver() {
         val ruleId = intent.getStringExtra("ruleId") ?: return
         val index = intent.getIntExtra("recipientIndex", -1)
         val batch = ScheduledWhatsAppAlarmScheduler.load(context, ruleId) ?: return
+        val expectedScheduledAtMs = intent.getLongExtra("batchScheduledAtMs", Long.MIN_VALUE)
+        if (expectedScheduledAtMs != batch.scheduledAtMs) return
         if (index !in batch.recipients.indices) return
         if (intent.getBooleanExtra("resultTimeout", false)) {
             if (index in batch.inFlightIndices) {
                 ScheduledWhatsAppAlarmScheduler.onRecipientResult(
                     context, ruleId, index, clickedSend = false, retryable = false,
                     unknownOutcome = true,
+                    expectedScheduledAtMs = expectedScheduledAtMs,
                 )
                 notifyFailure(context, batch.recipients[index].name,
                     "No llegó confirmación de Nano. Revisa WhatsApp antes de intentar enviarlo otra vez.")
@@ -27,7 +30,13 @@ class ScheduledWhatsAppAlarmReceiver : BroadcastReceiver() {
         }
         if (index in batch.completedIndices || index in batch.failedIndices) return
         val recipient = batch.recipients[index]
-        if (!ScheduledWhatsAppAlarmScheduler.markRecipientInFlight(context, ruleId, index)) return
+        if (!ScheduledWhatsAppAlarmScheduler.markRecipientInFlight(
+                context,
+                ruleId,
+                index,
+                expectedScheduledAtMs,
+            )
+        ) return
         val failure = when {
             BuildConfig.PLAY_STORE_BUILD ->
                 "El autoenvío no está disponible en la edición de Google Play."
@@ -43,6 +52,7 @@ class ScheduledWhatsAppAlarmReceiver : BroadcastReceiver() {
                     onAutoSendResult = { clicked, detail ->
                         ScheduledWhatsAppAlarmScheduler.onRecipientResult(
                             context, ruleId, index, clickedSend = clicked, retryable = !clicked,
+                            expectedScheduledAtMs = expectedScheduledAtMs,
                         )
                         if (!clicked) notifyFailure(context, recipient.name, detail)
                     },
@@ -53,10 +63,16 @@ class ScheduledWhatsAppAlarmReceiver : BroadcastReceiver() {
         if (failure != null) {
             ScheduledWhatsAppAlarmScheduler.onRecipientResult(
                 context, ruleId, index, clickedSend = false, retryable = false,
+                expectedScheduledAtMs = expectedScheduledAtMs,
             )
             notifyFailure(context, recipient.name, failure)
         } else {
-            ScheduledWhatsAppAlarmScheduler.scheduleResultTimeout(context, ruleId, index)
+            ScheduledWhatsAppAlarmScheduler.scheduleResultTimeout(
+                context,
+                ruleId,
+                index,
+                expectedScheduledAtMs,
+            )
         }
     }
 

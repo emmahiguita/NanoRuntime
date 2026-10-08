@@ -31,7 +31,14 @@ object ScheduledWhatsAppAlarmScheduler {
             attemptCounts = emptyMap(),
             unknownIndices = emptySet(),
         )
-        save(context, batch)
+        // Reprogramar la misma regla invalida alarmas, timeouts y reintentos
+        // del lote anterior antes de publicar el nuevo estado.
+        load(context, batch.ruleId)?.let { previous ->
+            ScheduledWhatsAppAlarmActions.cancelPending(context, previous)
+        }
+        if (!save(context, batch)) {
+            return NativeScheduleResult(false, false, 0L, "No se pudo guardar la programación de forma durable.")
+        }
         val exact = ScheduledWhatsAppAlarmActions.schedulePending(context, batch)
         return NativeScheduleResult(true, exact, base)
     }
@@ -40,12 +47,18 @@ object ScheduledWhatsAppAlarmScheduler {
         val batch = load(context, ruleId)
         if (batch != null) ScheduledWhatsAppAlarmActions.cancelPending(context, batch)
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().remove("$KEY_PREFIX$ruleId").apply()
+            .edit().remove("$KEY_PREFIX$ruleId").commit()
     }
 
     // Se marca en vuelo antes de abrir WhatsApp; al reiniciar se trata como resultado desconocido.
-    fun markRecipientInFlight(context: Context, ruleId: String, index: Int): Boolean {
+    fun markRecipientInFlight(
+        context: Context,
+        ruleId: String,
+        index: Int,
+        expectedScheduledAtMs: Long,
+    ): Boolean {
         val latest = load(context, ruleId) ?: return false
+        if (latest.scheduledAtMs != expectedScheduledAtMs) return false
         if (index !in latest.recipients.indices || index in latest.completedIndices ||
             index in latest.failedIndices || index in latest.inFlightIndices ||
             index in latest.unknownIndices
@@ -62,8 +75,10 @@ object ScheduledWhatsAppAlarmScheduler {
         clickedSend: Boolean,
         retryable: Boolean,
         unknownOutcome: Boolean = false,
+        expectedScheduledAtMs: Long,
     ) {
         val latest = load(context, ruleId) ?: return
+        if (latest.scheduledAtMs != expectedScheduledAtMs) return
         if (index !in latest.recipients.indices || index !in latest.inFlightIndices ||
             index in latest.completedIndices || index in latest.failedIndices ||
             index in latest.unknownIndices
@@ -161,8 +176,17 @@ object ScheduledWhatsAppAlarmScheduler {
 
 
     // Mantiene el contrato usado por el receptor y delega la alarma de timeout.
-    fun scheduleResultTimeout(context: Context, ruleId: String, index: Int) =
-        ScheduledWhatsAppAlarmActions.scheduleResultTimeout(context, ruleId, index)
+    fun scheduleResultTimeout(
+        context: Context,
+        ruleId: String,
+        index: Int,
+        expectedScheduledAtMs: Long,
+    ) = ScheduledWhatsAppAlarmActions.scheduleResultTimeout(
+        context,
+        ruleId,
+        index,
+        expectedScheduledAtMs,
+    )
 
     fun load(context: Context, ruleId: String): ScheduledWhatsAppBatch? {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -170,10 +194,9 @@ object ScheduledWhatsAppAlarmScheduler {
         return runCatching { ScheduledWhatsAppBatch.fromJson(JSONObject(raw)) }.getOrNull()
     }
 
-    private fun save(context: Context, batch: ScheduledWhatsAppBatch) {
+    private fun save(context: Context, batch: ScheduledWhatsAppBatch): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString("$KEY_PREFIX${batch.ruleId}", batch.toJson().toString()).apply()
-    }
+            .edit().putString("$KEY_PREFIX${batch.ruleId}", batch.toJson().toString()).commit()
 
 
 }

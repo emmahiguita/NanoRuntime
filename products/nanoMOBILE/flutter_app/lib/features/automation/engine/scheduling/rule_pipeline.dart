@@ -312,7 +312,6 @@ class RulePipeline {
             debugPrint('[dedupe] duplicate pre-burst evt=${message.eventId}');
             continue;
           }
-          _supersedeGuard?.bump(message.conversation.key.id);
           accepted.add(event);
         }
         MessagingMetrics.emit();
@@ -868,18 +867,15 @@ class RulePipeline {
     }
     return r;
   }
-
-  /// Estado terminal del evento agregando los outcomes de TODAS las reglas:
-  /// gana el resultado más fuerte (un intento verificado opaca un notify).
   DedupeEventState _terminalState(List<RuleDispatchResult> results) {
     if (results.any((r) => r.outcome == RuleOutcome.replyVerified)) {
       return DedupeEventState.replyVerified;
-    }
+  }
     if (results.any(
       (r) => r.outcome == RuleOutcome.replyDispatchedUnverified,
     )) {
       return DedupeEventState.replyDispatched;
-    }
+  }
     if (results.any((r) => r.outcome == RuleOutcome.outcomeUnknown)) {
       return DedupeEventState.outcomeUnknown;
     }
@@ -893,12 +889,11 @@ class RulePipeline {
       return DedupeEventState.drafted;
     }
     return DedupeEventState.ignored;
-  }
-
+    }
   String _terminalReason(List<RuleDispatchResult> results) {
     for (final r in results) {
       if (r.reason.isNotEmpty) return r.reason;
     }
     return '';
-  }
+    }
 }

@@ -1,6 +1,7 @@
 package dev.nanoai.mobile.services.whatsapp
 
 import android.os.Bundle
+import android.graphics.Rect
 import android.util.Log
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -24,33 +25,47 @@ object WhatsAppMediaVerifier {
         "com.whatsapp.w4b:id/caption_send_button"
     )
 
+    private val HEADER_RESOURCE_IDS = arrayOf(
+        "com.whatsapp:id/conversation_contact_name",
+        "com.whatsapp.w4b:id/conversation_contact_name",
+        "com.whatsapp:id/conversation_contact",
+        "com.whatsapp.w4b:id/conversation_contact"
+    )
+
     /**
      * QUÉ HACE: Verifica que el destinatario en el encabezado coincida con el contacto solicitado.
      * CÓMO FUNCIONA: Busca nodos de texto en la barra superior del chat antes de autorizar la acción.
      * POR QUÉ: Fail-closed honesto: evita enviar fotos a chats equivocados si el Intent abre otro contacto.
      */
     fun verifyRecipient(root: AccessibilityNodeInfo, targetContact: String?, expectedAlias: String? = null): Boolean {
-        if (targetContact.isNullOrBlank() && expectedAlias.isNullOrBlank()) return true // Si no se especifica contacto, intención abierta
+        if (targetContact.isNullOrBlank() && expectedAlias.isNullOrBlank()) return false
 
-        val candidates = mutableListOf<String>()
-        targetContact?.takeIf { it.isNotBlank() }?.let { candidates.add(it.lowercase().trim()) }
-        expectedAlias?.takeIf { it.isNotBlank() }?.let { candidates.add(it.lowercase().trim()) }
+        val candidates = listOfNotNull(targetContact, expectedAlias)
+            .map(String::trim)
+            .filter(String::isNotEmpty)
+            .map(::normalizeIdentity)
+            .distinct()
 
-        for (candidate in candidates) {
-            val nodes = root.findAccessibilityNodeInfosByText(candidate)
-            val expected = normalizeIdentity(candidate)
-            val exactMatch = nodes.orEmpty().any { node ->
-                listOfNotNull(node.text?.toString(), node.contentDescription?.toString())
-                    .any { normalizeIdentity(it) == expected }
-            }
-            nodes.orEmpty().forEach { it.recycle() }
-            if (exactMatch) {
-                Log.i(TAG, "Destinatario verificado con éxito en la UI: '$candidate'")
-                return true
+        // Nunca se usa findAccessibilityNodeInfosByText sobre toda la ventana:
+        // el alias podría aparecer en una burbuja y autorizar el chat equivocado.
+        for (resourceId in HEADER_RESOURCE_IDS) {
+            val nodes = root.findAccessibilityNodeInfosByViewId(resourceId).orEmpty()
+            try {
+                val exactMatch = nodes.any { node ->
+                    listOfNotNull(node.text?.toString(), node.contentDescription?.toString())
+                        .map(::normalizeIdentity)
+                        .any(candidates::contains)
+                }
+                if (exactMatch) {
+                    Log.i(TAG, "Destinatario confirmado en el encabezado de WhatsApp")
+                    return true
+                }
+            } finally {
+                nodes.forEach(AccessibilityNodeInfo::recycle)
             }
         }
 
-        Log.w(TAG, "Fail-closed: No se confirmó el contacto en la UI actual (buscados: $candidates)")
+        Log.w(TAG, "Fail-closed: el encabezado no confirmó la identidad solicitada")
         return false
     }
 
@@ -69,15 +84,14 @@ object WhatsAppMediaVerifier {
     fun verifyMediaPreview(root: AccessibilityNodeInfo): Boolean {
         // En la pantalla de preview de media, el botón de envío tiene ID 'caption_send_button' o 'send'
         for (id in SEND_RESOURCE_IDS) {
-            val found = root.findAccessibilityNodeInfosByViewId(id)
-            if (!found.isNullOrEmpty()) {
-                return true
+            val found = root.findAccessibilityNodeInfosByViewId(id).orEmpty()
+            try {
+                if (found.isNotEmpty()) return true
+            } finally {
+                found.forEach(AccessibilityNodeInfo::recycle)
             }
         }
-        // Búsqueda por descripciones comunes en español e inglés
-        val byDesc = root.findAccessibilityNodeInfosByText("Enviar")
-            ?: root.findAccessibilityNodeInfosByText("Send")
-        return !byDesc.isNullOrEmpty()
+        return hasSafeSendLabel(root)
     }
 
     /**
@@ -88,36 +102,37 @@ object WhatsAppMediaVerifier {
     fun findAndClickSendButton(root: AccessibilityNodeInfo): Boolean {
         // Nivel 1: Por ID de Recurso exacto
         for (id in SEND_RESOURCE_IDS) {
-            val nodes = root.findAccessibilityNodeInfosByViewId(id)
-            if (!nodes.isNullOrEmpty()) {
-                val sendNode = nodes[0]
-                if (performClickOnNode(sendNode)) {
-                    Log.i(TAG, "Envío ejecutado por Resource ID: $id")
-                    return true
-                }
-            }
-        }
-
-        // Nivel 2: Por Content Description o Texto ("Enviar" / "Send")
-        val candidateTexts = listOf("Enviar", "Send")
-        for (text in candidateTexts) {
-            val nodes = root.findAccessibilityNodeInfosByText(text)
-            if (!nodes.isNullOrEmpty()) {
-                for (node in nodes) {
-                    if (performClickOnNode(node)) {
-                        Log.i(TAG, "Envío ejecutado por Texto/ContentDescription: $text")
+            val nodes = root.findAccessibilityNodeInfosByViewId(id).orEmpty()
+            try {
+                for (sendNode in nodes) {
+                    if (performClickOnNode(sendNode)) {
+                        Log.i(TAG, "Envío ejecutado por Resource ID: $id")
                         return true
                     }
                 }
+            } finally {
+                nodes.forEach(AccessibilityNodeInfo::recycle)
             }
         }
 
-        // Nivel 3: Recorrido estructural buscando botón clickeable al final de la pantalla
-        val clicked = searchAndClickSendRecursive(root)
-        if (clicked) {
-            Log.i(TAG, "Envío ejecutado por coincidencia estructural en el árbol")
+        // Nivel 2: descripción accesible exacta y control ubicado en la zona
+        // inferior. El texto visible nunca es prueba: podría ser una burbuja.
+        val candidateTexts = listOf("Enviar", "Send")
+        for (text in candidateTexts) {
+            val nodes = root.findAccessibilityNodeInfosByText(text).orEmpty()
+            try {
+                for (node in nodes) {
+                    if (isSafeSendLabelControl(root, node) && performClickOnNode(node)) {
+                        Log.i(TAG, "Envío ejecutado por descripción accesible: $text")
+                        return true
+                    }
+                }
+            } finally {
+                nodes.forEach(AccessibilityNodeInfo::recycle)
+            }
         }
-        return clicked
+        Log.w(TAG, "Fail-closed: no se encontró un control de envío inequívoco")
+        return false
     }
 
     /**
@@ -129,30 +144,40 @@ object WhatsAppMediaVerifier {
         var current = node
         while (current != null) {
             if (current.isClickable) {
-                return current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                val clicked = current.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                if (current !== node) current.recycle()
+                return clicked
             }
-            current = current.parent
+            val parent = current.parent
+            if (current !== node) current.recycle()
+            current = parent
         }
         return false
     }
 
-    /**
-     * QUÉ HACE: Búsqueda recursiva de respaldo para ubicar el botón de envío por características de nodo.
-     */
-    private fun searchAndClickSendRecursive(node: AccessibilityNodeInfo): Boolean {
-        val desc = node.contentDescription?.toString() ?: ""
-        val text = node.text?.toString() ?: ""
-
-        if (desc.contains("Enviar", ignoreCase = true) || desc.contains("Send", ignoreCase = true) ||
-            text.contains("Enviar", ignoreCase = true) || text.contains("Send", ignoreCase = true)
-        ) {
-            if (performClickOnNode(node)) return true
-        }
-
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i) ?: continue
-            if (searchAndClickSendRecursive(child)) return true
+    private fun hasSafeSendLabel(root: AccessibilityNodeInfo): Boolean {
+        for (label in listOf("Enviar", "Send")) {
+            val nodes = root.findAccessibilityNodeInfosByText(label).orEmpty()
+            try {
+                if (nodes.any { isSafeSendLabelControl(root, it) }) return true
+            } finally {
+                nodes.forEach(AccessibilityNodeInfo::recycle)
+            }
         }
         return false
+    }
+
+    private fun isSafeSendLabelControl(
+        root: AccessibilityNodeInfo,
+        node: AccessibilityNodeInfo,
+    ): Boolean {
+        val description = node.contentDescription?.toString()?.trim()?.lowercase()
+        if (description != "enviar" && description != "send") return false
+        if (node.packageName?.toString() != root.packageName?.toString()) return false
+
+        val rootBounds = Rect().also(root::getBoundsInScreen)
+        val nodeBounds = Rect().also(node::getBoundsInScreen)
+        if (rootBounds.height() <= 0 || nodeBounds.isEmpty) return false
+        return nodeBounds.centerY() >= rootBounds.top + (rootBounds.height() * 0.55f)
     }
 }

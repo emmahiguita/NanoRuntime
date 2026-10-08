@@ -53,6 +53,8 @@ class AgentAccessibilityService : AccessibilityService() {
 
     private val executor = Executors.newSingleThreadExecutor()
     internal val mainThreadHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var accessibilityButtonCallback:
+        android.accessibilityservice.AccessibilityButtonController.AccessibilityButtonCallback? = null
 
     private data class TraversalState(
         var nodeLimitReached: Boolean = false,
@@ -67,6 +69,7 @@ class AgentAccessibilityService : AccessibilityService() {
         // eventTypes, canRetrieveWindowContent) ya viene de
         // res/xml/accessibility_service_config.xml.
         AgentAccessibilityBridge.onConnected(this)
+        NanoAtomicSnapshotter.start()
         Log.i(TAG, "AgentAccessibilityService conectado")
         // U-10: vector resurrección — tras un cached-kill de ColorOS el
         // sistema re-vincula este service él mismo (los accessibility
@@ -90,7 +93,8 @@ class AgentAccessibilityService : AccessibilityService() {
                 serviceInfo = serviceInfo.apply {
                     flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON
                 }
-                accessibilityButtonController.registerAccessibilityButtonCallback(
+                releaseAccessibilityButtonCallback()
+                val callback =
                     object : android.accessibilityservice.AccessibilityButtonController.AccessibilityButtonCallback() {
                         override fun onClicked(controller: android.accessibilityservice.AccessibilityButtonController) {
                             Log.i(TAG, "Botón de accesibilidad presionado — dirigiendo a Nano Everywhere")
@@ -119,7 +123,8 @@ class AgentAccessibilityService : AccessibilityService() {
                             }
                         }
                     }
-                )
+                accessibilityButtonCallback = callback
+                accessibilityButtonController.registerAccessibilityButtonCallback(callback)
             } catch (e: Exception) {
                 Log.w(TAG, "AccessibilityButtonCallback error: ${e.message}")
             }
@@ -137,14 +142,29 @@ class AgentAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         Log.i(TAG, "onUnbind — service se desvincula, bridge null temporal")
+        releaseAccessibilityButtonCallback()
         AgentAccessibilityBridge.onDisconnected()
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
+        releaseAccessibilityButtonCallback()
         AgentAccessibilityBridge.onDisconnected()
+        NanoAtomicSnapshotter.shutdown()
         executor.shutdownNow()
         super.onDestroy()
+    }
+
+    private fun releaseAccessibilityButtonCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val callback = accessibilityButtonCallback ?: return
+        try {
+            accessibilityButtonController.unregisterAccessibilityButtonCallback(callback)
+        } catch (error: Exception) {
+            Log.w(TAG, "No se pudo liberar AccessibilityButtonCallback: ${error.message}")
+        } finally {
+            accessibilityButtonCallback = null
+        }
     }
 
     // ── Lectura del árbol ────────────────────────────────────────────────────

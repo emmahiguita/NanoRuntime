@@ -16,12 +16,18 @@ internal object ScheduledWhatsAppAlarmActions {
     private const val RESULT_TIMEOUT_MS = 20_000L
 
     // Un timeout cierra en estado incierto si Android mata Nano antes del callback accesible.
-    fun scheduleResultTimeout(context: Context, ruleId: String, index: Int) {
+    fun scheduleResultTimeout(
+        context: Context,
+        ruleId: String,
+        index: Int,
+        expectedScheduledAtMs: Long,
+    ) {
         val manager = context.getSystemService(AlarmManager::class.java)
         val intent = Intent(context, ScheduledWhatsAppAlarmReceiver::class.java)
             .putExtra("ruleId", ruleId)
             .putExtra("recipientIndex", index)
             .putExtra("resultTimeout", true)
+            .putExtra("batchScheduledAtMs", expectedScheduledAtMs)
         val operation = PendingIntent.getBroadcast(
             context,
             "${ruleId}:${index}:result-timeout".hashCode(),
@@ -64,7 +70,7 @@ internal object ScheduledWhatsAppAlarmActions {
         }
         if (index != null) {
             val at = batch.scheduledAtMs
-            val operation = pendingIntent(context, batch.ruleId, index)
+            val operation = pendingIntent(context, batch.ruleId, index, batch.scheduledAtMs)
             if (exact) manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, operation)
             else manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, operation)
         }
@@ -75,7 +81,7 @@ internal object ScheduledWhatsAppAlarmActions {
     fun scheduleRetry(context: Context, batch: ScheduledWhatsAppBatch, index: Int) {
         val manager = context.getSystemService(AlarmManager::class.java)
         val at = System.currentTimeMillis() + RETRY_DELAY_MS
-        val operation = pendingIntent(context, batch.ruleId, index)
+        val operation = pendingIntent(context, batch.ruleId, index, batch.scheduledAtMs)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()) {
             manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, operation)
         } else {
@@ -90,7 +96,7 @@ internal object ScheduledWhatsAppAlarmActions {
                 index !in batch.inFlightIndices && index !in batch.unknownIndices
         } ?: return
         val manager = context.getSystemService(AlarmManager::class.java)
-        val operation = pendingIntent(context, batch.ruleId, next)
+        val operation = pendingIntent(context, batch.ruleId, next, batch.scheduledAtMs)
         val at = System.currentTimeMillis() + RECIPIENT_GAP_MS
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()) {
             manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, operation)
@@ -102,15 +108,21 @@ internal object ScheduledWhatsAppAlarmActions {
     fun cancelPending(context: Context, batch: ScheduledWhatsAppBatch) {
         val manager = context.getSystemService(AlarmManager::class.java)
         batch.recipients.indices.forEach { index ->
-            manager.cancel(pendingIntent(context, batch.ruleId, index))
+            manager.cancel(pendingIntent(context, batch.ruleId, index, batch.scheduledAtMs))
             cancelResultTimeout(context, batch.ruleId, index)
         }
     }
 
-    private fun pendingIntent(context: Context, ruleId: String, index: Int): PendingIntent {
+    private fun pendingIntent(
+        context: Context,
+        ruleId: String,
+        index: Int,
+        expectedScheduledAtMs: Long,
+    ): PendingIntent {
         val intent = Intent(context, ScheduledWhatsAppAlarmReceiver::class.java)
             .putExtra("ruleId", ruleId)
             .putExtra("recipientIndex", index)
+            .putExtra("batchScheduledAtMs", expectedScheduledAtMs)
         return PendingIntent.getBroadcast(
             context,
             "$ruleId:$index".hashCode(),

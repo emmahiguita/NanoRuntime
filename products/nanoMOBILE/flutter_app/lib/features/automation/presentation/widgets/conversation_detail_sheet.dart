@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../application/automation_coordinator_provider.dart';
 import '../../engine/agent_dependencies.dart'
     show conversationAssignmentStoreProvider, conversationMemoryStoreProvider;
@@ -37,7 +36,6 @@ import 'conversation_history_resolver.dart';
 import 'conversation_media_bubble.dart';
 import 'conversation_phone_resolver.dart';
 import 'conversation_semantic_badge.dart';
-
 part 'conversation_detail_header_view.dart';
 part 'conversation_detail_empty_view.dart';
 part 'conversation_detail_chat_view.dart';
@@ -46,6 +44,7 @@ part 'conversation_detail_suggestions_view.dart';
 part 'conversation_detail_composer_view.dart';
 part 'conversation_detail_agent_picker.dart';
 part 'conversation_detail_dialogs.dart';
+part 'conversation_detail_form_picker.dart';
 part 'conversation_detail_attachments.dart';
 part 'conversation_detail_library.dart';
 part 'conversation_detail_notifications.dart';
@@ -55,13 +54,10 @@ part 'conversation_detail_controller.dart';
 part 'conversation_detail_sender.dart';
 part 'conversation_detail_style_learning.dart';
 part 'conversation_detail_responsive_body.dart';
-
 class ConversationDetailSheet extends ConsumerStatefulWidget {
   final ConversationSummaryItem item;
   static const List<String> _sfFallback = ['.SF UI Text', 'Inter', 'Roboto'];
-
   const ConversationDetailSheet({super.key, required this.item});
-
   static Future<void> show(
     BuildContext context,
     ConversationSummaryItem item,
@@ -80,12 +76,10 @@ class ConversationDetailSheet extends ConsumerStatefulWidget {
       child: ConversationDetailSheet(item: item),
     ),
   );
-
   @override
   ConsumerState<ConversationDetailSheet> createState() =>
       _ConversationDetailSheetState();
 }
-
 class _ConversationDetailSheetState
     extends ConsumerState<ConversationDetailSheet> {
   final _inputController = TextEditingController();

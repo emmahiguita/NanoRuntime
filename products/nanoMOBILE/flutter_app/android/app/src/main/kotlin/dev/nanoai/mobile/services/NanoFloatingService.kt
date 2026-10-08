@@ -182,7 +182,8 @@ class NanoFloatingService : Service() {
         }
     }
 
-    // onDestroy: orden crítico (animaciones → panel → burbuja → shutdown snapshotter).
+    // onDestroy: orden crítico (animaciones → panel → burbuja).
+    // NanoAtomicSnapshotter pertenece al AccessibilityService, no al overlay.
     override fun onDestroy() {
         isActive = false
         if (::touchHelper.isInitialized) touchHelper.cancel()
@@ -193,7 +194,6 @@ class NanoFloatingService : Service() {
         if (::manager.isInitialized && ::bubble.isInitialized) {
             try { manager.removeView(bubble) } catch (_: IllegalArgumentException) {}
         }
-        NanoAtomicSnapshotter.shutdown()
         super.onDestroy()
     }
 }
