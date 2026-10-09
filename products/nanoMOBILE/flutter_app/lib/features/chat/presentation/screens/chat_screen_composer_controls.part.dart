@@ -1,18 +1,6 @@
 part of 'chat_screen.dart';
 
-// QUÉ HACE:
-// Controles de acción interactivos para la barra de redacción: micrófono y botón de envío/detención.
-//
-// CÓMO FUNCIONA:
-// - Micrófono: detecta escucha activa pulsando en color rojo; en reposo ofrece acceso al reconocedor nativo.
-// - Botón de envío: en generación muestra icono de parada; con texto escrito se ilumina con acento y sombra cristal;
-//   cuando está vacío se atenúa sutilmente sin bloquear el layout.
-//
-// POR QUÉ:
-// Aplica Clean Architecture (SRP), aislando los botones de control de la disposición del campo de texto
-// para mantener los archivos estrictamente por debajo de las 200 líneas de código.
 extension _ChatScreenComposerControls on _ChatScreenState {
-  /// QUÉ HACE: Construye el botón interactivo de dictado por voz.
   Widget _buildComposerMicButton({
     required bool compact,
     required NanoColors colors,
@@ -23,25 +11,21 @@ extension _ChatScreenComposerControls on _ChatScreenState {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(999),
           onTap: _toggleMic,
           child: Container(
-            width: compact ? 34 : 38,
-            height: compact ? 34 : 38,
+            width: compact ? 36 : 40,
+            height: compact ? 36 : 40,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: _listening
-                  ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+                  ? const Color(0xFFEF4444).withValues(alpha: 0.20)
                   : Colors.transparent,
             ),
             child: Icon(
               _listening ? Icons.stop_circle_rounded : Icons.mic_none_rounded,
-              color: _listening
-                  ? const Color(0xFFEF4444)
-                  : (colors is NanoDarkColors
-                      ? colors.onSurface.withValues(alpha: 0.70)
-                      : const Color(0xFF64748B)),
-              size: compact ? 19 : 21,
+              color: _listening ? const Color(0xFFEF4444) : const Color(0xFFA3B8CC),
+              size: compact ? 20 : 22,
             ),
           ),
         ),
@@ -49,7 +33,6 @@ extension _ChatScreenComposerControls on _ChatScreenState {
     );
   }
 
-  /// QUÉ HACE: Construye el botón de envío o detención de generación según el estado.
   Widget _buildComposerSendButton({
     required bool isGenerating,
     required bool hasText,
@@ -59,6 +42,8 @@ extension _ChatScreenComposerControls on _ChatScreenState {
     required VoidCallback onStop,
     required void Function(String text) onSend,
   }) {
+    final size = compact ? 38.0 : 44.0;
+
     if (isGenerating) {
       return Semantics(
         label: 'Detener generación en curso',
@@ -67,16 +52,12 @@ extension _ChatScreenComposerControls on _ChatScreenState {
           color: const Color(0xFFEF4444),
           shape: const CircleBorder(),
           child: InkWell(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(999),
             onTap: onStop,
             child: SizedBox(
-              width: compact ? 34 : 38,
-              height: compact ? 34 : 38,
-              child: const Icon(
-                Icons.stop_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
+              width: size,
+              height: size,
+              child: const Icon(Icons.stop_rounded, color: Colors.white, size: 22),
             ),
           ),
         ),
@@ -86,32 +67,51 @@ extension _ChatScreenComposerControls on _ChatScreenState {
     return Semantics(
       label: 'Enviar mensaje',
       button: true,
-      child: Material(
-        color: hasText
-            ? colors.accent
-            : (isDark ? const Color(0x1AFFFFFF) : const Color(0xFFF1F5F9)),
-        shape: const CircleBorder(),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: hasText
-              ? () {
-                  final text = _textController.text.trim();
-                  onSend(text);
-                  _textController.clear();
-                  setState(() => _dictatedText = '');
-                }
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: hasText
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF4DD7FF), // Bright Cyan
+                    Color(0xFF1475F5), // Accent Blue
+                  ],
+                )
               : null,
-          child: SizedBox(
-            width: compact ? 34 : 38,
-            height: compact ? 34 : 38,
-            child: Icon(
-              Icons.arrow_upward_rounded,
-              color: hasText
-                  ? Colors.white
-                  : (isDark
-                      ? colors.onSurface.withValues(alpha: 0.30)
-                      : const Color(0xFF94A3B8)),
-              size: compact ? 18 : 20,
+          color: hasText ? null : Colors.white.withValues(alpha: 0.08),
+          boxShadow: [
+            if (hasText)
+              BoxShadow(
+                color: const Color(0xFF0099FF).withValues(alpha: 0.40),
+                blurRadius: 16,
+                offset: const Offset(0, 2),
+              ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          shape: const CircleBorder(),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: hasText
+                ? () {
+                    HapticFeedback.mediumImpact();
+                    final text = _textController.text.trim();
+                    onSend(text);
+                    _textController.clear();
+                    setState(() => _dictatedText = '');
+                  }
+                : null,
+            child: Center(
+              child: Icon(
+                Icons.send_rounded,
+                color: hasText ? Colors.white : const Color(0xFF5E758C),
+                size: compact ? 18 : 20,
+              ),
             ),
           ),
         ),

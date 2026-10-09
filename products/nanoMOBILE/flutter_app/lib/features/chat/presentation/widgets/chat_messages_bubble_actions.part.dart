@@ -1,7 +1,18 @@
 part of 'chat_messages.dart';
 
 extension _MessageBubbleAssistantActions on MessageBubble {
-  // QUÉ HACE: renderiza las opciones de continuación sin duplicar la burbuja.
+  IconData _iconForSuggestion(String label) {
+    final lower = label.toLowerCase();
+    if (lower.contains('profundiz') || lower.contains('detalle') || lower.contains('más')) {
+      return Icons.menu_book_rounded;
+    }
+    if (lower.contains('ejemplo') || lower.contains('práctico') || lower.contains('idea')) {
+      return Icons.lightbulb_outline_rounded;
+    }
+    return Icons.navigate_next_rounded;
+  }
+
+  // QUÉ HACE: renderiza las opciones de sugerencia rápida estilo 3D Glass Capsules.
   Widget _buildAssistantSuggestions(
     BuildContext context,
     NanoColors colors,
@@ -11,53 +22,63 @@ extension _MessageBubbleAssistantActions on MessageBubble {
       spacing: 8,
       runSpacing: 8,
       children: suggestions.map((sug) {
-        final pillColor = colors.primary;
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => onSuggestionSelected?.call(sug),
-            borderRadius: BorderRadius.circular(14),
-            splashColor: pillColor.withValues(alpha: 0.20),
-            highlightColor: pillColor.withValues(alpha: 0.10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: pillColor.withValues(alpha: isDark ? 0.12 : 0.08),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: pillColor.withValues(alpha: isDark ? 0.28 : 0.22),
-                  width: 0.8,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: pillColor.withValues(alpha: isDark ? 0.08 : 0.04),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Flexible(
-                    child: Text(
-                      sug,
-                      style: TextStyle(
-                        color: colors.onSurface,
-                        fontFamily: 'Inter',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.1,
-                      ),
+        final icon = _iconForSuggestion(sug);
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onSuggestionSelected?.call(sug);
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF153A4F).withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: const Color(0xFF2ABCFF).withValues(alpha: 0.28),
+                      width: 1.0,
                     ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00A0FF).withValues(alpha: 0.12),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 10,
-                    color: pillColor.withValues(alpha: 0.85),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 15, color: const Color(0xFF58D2FE)),
+                      const SizedBox(width: 7),
+                      Flexible(
+                        child: Text(
+                          sug,
+                          style: const TextStyle(
+                            color: Color(0xFFF0F6FC),
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 11,
+                        color: Color(0xFF58D2FE),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -66,7 +87,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
     );
   }
 
-  // QUÉ HACE: muestra acciones disponibles para la respuesta y su hora.
+  // QUÉ HACE: muestra acciones de feedback y utilidades (copiar, like, dislike, compartir).
   Widget _buildAssistantActions(
     BuildContext context,
     NanoColors colors,
@@ -75,21 +96,12 @@ extension _MessageBubbleAssistantActions on MessageBubble {
     String displayModel,
   ) => Row(
     children: [
-      Text(
-        time,
-        style: TextStyle(
-          color: colors.onSurfaceVariant.withValues(alpha: 0.70),
-          fontSize: 10.5,
-          fontWeight: FontWeight.w500,
-          letterSpacing: -0.1,
-        ),
-      ),
-      const SizedBox(width: 12),
       if (!isError) ...[
         _QuickActionButton(
           icon: Icons.copy_rounded,
           tooltip: 'Copiar respuesta',
           onTap: () async {
+            HapticFeedback.lightImpact();
             await Clipboard.setData(ClipboardData(text: text));
             if (!context.mounted) return;
             ScaffoldMessenger.of(context)
@@ -103,15 +115,23 @@ extension _MessageBubbleAssistantActions on MessageBubble {
               );
           },
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
         _QuickActionButton(
-          icon: Icons.share_rounded,
-          tooltip: 'Compartir',
-          onTap: () => SharePlus.instance.share(
-            ShareParams(text: text, subject: 'Respuesta Nano AI'),
-          ),
+          icon: Icons.thumb_up_alt_outlined,
+          tooltip: 'Me gusta',
+          onTap: () {
+            HapticFeedback.lightImpact();
+          },
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
+        _QuickActionButton(
+          icon: Icons.thumb_down_alt_outlined,
+          tooltip: 'No me gusta',
+          onTap: () {
+            HapticFeedback.lightImpact();
+          },
+        ),
+        const SizedBox(width: 8),
         MessageActions(
           text: text,
           model: displayModel,
@@ -130,22 +150,18 @@ extension _MessageBubbleAssistantActions on MessageBubble {
             child: InkWell(
               onTap: onRetry,
               borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.refresh_rounded,
-                      size: 14,
-                      color: colors.accentCyan,
-                    ),
-                    const SizedBox(width: 4),
+                    Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF42D7FF)),
+                    SizedBox(width: 4),
                     Text(
                       'Reintentar',
                       style: TextStyle(
-                        color: colors.accentCyan,
-                        fontSize: 11,
+                        color: Color(0xFF42D7FF),
+                        fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

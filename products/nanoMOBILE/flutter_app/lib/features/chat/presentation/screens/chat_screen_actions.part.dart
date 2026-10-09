@@ -1,156 +1,132 @@
 part of 'chat_screen.dart';
 
-// QUÉ HACE:
-// Barra de acciones superiores del chat: cápsula de motor/modelo, historial, nuevo chat y opciones.
-//
-// CÓMO FUNCIONA:
-// - Despliega cápsula cristalina interactiva vinculada a la pantalla de modelos.
-// - Evita colores ámbar/naranjas de `onSurfaceVariant` utilizando tonos neutros de cristal esmerilado.
-// - Proporciona accesos directos de un toque para ver el historial y crear nuevas conversaciones.
-// - Elimina tooltips propensos a "No Overlay" y los sustituye por accesibilidad semántica nativa.
-//
-// POR QUÉ:
-// Resuelve directamente los errores visuales de diseño, depura opciones duplicadas y asegura
-// cumplimiento de Clean Architecture y la regla de archivos menores a 200 líneas.
+/// Barra de acciones superiores con acabado 3D Spatial Glass.
 extension _ChatScreenActions on _ChatScreenState {
-  /// QUÉ HACE: Construye las acciones superiores alineadas a la derecha de la barra de título.
   Widget _chatActions(
     ChatState state,
     ChatNotifier notifier,
     NanoColors colors, {
     required bool landscape,
   }) {
-    final isDark = colors is NanoDarkColors;
     final loading = state.connection == ModelConnectionState.loadingModel;
+    final isOnline = state.engineOnline;
 
-    // QUÉ HACE: Paleta limpia neutral sin tintes naranjas o amarillos heredados de colorScheme.
-    final Color engineDotColor;
-    final Color engineBgColor;
-    final Color engineBorderColor;
+    final Color statusColor = loading
+        ? const Color(0xFF22D3EE)
+        : (isOnline ? const Color(0xFF48D9A7) : const Color(0xFF94A3B8));
 
-    if (loading) {
-      engineDotColor = const Color(0xFF22D3EE); // Cian brillante
-      engineBgColor = const Color(0xFF22D3EE).withValues(alpha: 0.12);
-      engineBorderColor = const Color(0xFF22D3EE).withValues(alpha: 0.35);
-    } else if (state.engineOnline) {
-      engineDotColor = colors.primary;
-      engineBgColor = colors.primary.withValues(alpha: 0.12);
-      engineBorderColor = colors.primary.withValues(alpha: 0.32);
-    } else {
-      engineDotColor = isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8); // Slate neutro
-      engineBgColor = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05);
-      engineBorderColor = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.10);
-    }
-
-    final engineLabel = loading
-        ? 'Cargando…'
-        : (state.engineOnline
-              ? (state.activeModel.isNotEmpty ? state.activeModel : 'Activo')
-              : 'Detenido');
+    final String statusLabel = loading
+        ? 'Cargando'
+        : (isOnline ? 'Activo' : 'Detenido');
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 1. Cápsula interactiva del motor/modelo (Estilo Dynamic Island Glass)
-        GestureDetector(
-          onTap: () => context.go('/models'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: engineBgColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: engineBorderColor, width: 0.9),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
+        // 1. Cápsula de Estado 3D Glass "■ Detenido" / "● Activo"
+        ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  context.go('/models');
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  height: 34,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: engineDotColor,
-                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: const Color(0xFF7DB7FF).withValues(alpha: 0.20),
+                      width: 0.9,
+                    ),
                     boxShadow: [
-                      if (state.engineOnline || loading)
-                        BoxShadow(
-                          color: engineDotColor.withValues(alpha: 0.6),
-                          blurRadius: 4,
-                          spreadRadius: 1,
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          shape: isOnline ? BoxShape.circle : BoxShape.rectangle,
+                          borderRadius: isOnline ? null : BorderRadius.circular(1.5),
+                          color: statusColor,
+                          boxShadow: [
+                            if (isOnline || loading)
+                              BoxShadow(
+                                color: statusColor.withValues(alpha: 0.6),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                              ),
+                          ],
                         ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        statusLabel,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFFE2EBF5),
+                          letterSpacing: -0.1,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 5),
-                ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: landscape ? 120 : 76),
-                  child: Text(
-                    engineLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                      color: colors.onSurface.withValues(alpha: 0.88),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 2),
-
-        // 2. Botón de acceso directo al Historial (en Landscape por espacio, en Portrait accesible vía menú)
-        if (landscape)
-          Semantics(
-            label: 'Ver historial de conversaciones',
-            button: true,
-            child: IconButton(
-              key: const ValueKey('chat_history_button'),
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              padding: const EdgeInsets.all(5),
-              icon: Icon(
-                Icons.history_rounded,
-                size: 20,
-                color: colors.onSurface.withValues(alpha: 0.80),
               ),
-              onPressed: _showHistorySheet,
             ),
-          ),
-
-        // 3. Botón directo de Nueva Conversación (guarda la anterior y abre chat fresco)
-        Semantics(
-          label: 'Nueva conversación limpia',
-          button: true,
-          child: IconButton(
-            key: const ValueKey('chat_new_conversation_button'),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            padding: const EdgeInsets.all(5),
-            icon: Icon(
-              Icons.add_comment_outlined,
-              size: 19,
-              color: colors.onSurface.withValues(alpha: 0.80),
-            ),
-            onPressed: state.generating ? null : () => _startNewConversation(notifier),
           ),
         ),
+        const SizedBox(width: 6),
 
-        // 4. Menú de opciones avanzadas (Lectura, Exportación, Limpieza profunda)
-        Semantics(
-          label: 'Más opciones de chat',
-          button: true,
-          child: IconButton(
-            key: const ValueKey('chat_overflow_menu'),
-            padding: const EdgeInsets.all(6),
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            icon: Icon(
-              Icons.more_vert_rounded,
-              color: colors.onSurface.withValues(alpha: 0.75),
-              size: 19,
+        // 2. Botón Nueva Conversación
+        ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.06),
+              child: InkWell(
+                onTap: state.generating ? null : () => _startNewConversation(notifier),
+                child: const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Icon(Icons.add_comment_outlined, size: 17, color: Color(0xFFC8DCF0)),
+                ),
+              ),
             ),
-            onPressed: () => _showChatOptionsMenu(state, notifier),
+          ),
+        ),
+        const SizedBox(width: 4),
+
+        // 3. Menú de opciones avanzadas (3 dots)
+        ClipOval(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Material(
+              color: Colors.white.withValues(alpha: 0.06),
+              child: InkWell(
+                onTap: () => _showChatOptionsMenu(state, notifier),
+                child: const SizedBox(
+                  width: 36,
+                  height: 36,
+                  child: Icon(Icons.more_vert_rounded, size: 18, color: Color(0xFFC8DCF0)),
+                ),
+              ),
+            ),
           ),
         ),
       ],

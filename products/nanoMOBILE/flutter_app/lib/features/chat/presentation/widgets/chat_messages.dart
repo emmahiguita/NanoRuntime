@@ -9,6 +9,8 @@ import 'package:nanoai/core/services/pdf_report_service.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:share_plus/share_plus.dart';
+import 'nano_3d_crystal_icon.dart';
+import 'nano_rich_weather_card.dart';
 
 part 'chat_messages_bubble.part.dart';
 part 'chat_messages_bubble_user.part.dart';

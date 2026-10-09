@@ -14,6 +14,7 @@ import 'package:nanoai/core/widgets/navigation/nano_attach_sheet.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 import '../widgets/chat_messages.dart';
+import '../widgets/nano_active_model_glass_card.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';

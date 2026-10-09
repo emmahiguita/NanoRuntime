@@ -83,7 +83,7 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
 
     // 1. Canal Comercial: NanoBusinessRuntime con Inbox Durable, Estado, Verdad y Políticas
     BusinessFacts? businessFacts;
-    if (isBusiness) {
+    if (isBusiness && (_businessRuntime != null || _factsSource != null)) {
       businessFacts = _factsSource?.call() ?? const BusinessFacts();
       final bResult = await _resolveBusinessTurn(
         notification: effectiveNotification,
@@ -182,7 +182,7 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       result.suggestions,
       context,
       conversationId,
-      true,
+      false,
       userText: notification.text,
     );
   }

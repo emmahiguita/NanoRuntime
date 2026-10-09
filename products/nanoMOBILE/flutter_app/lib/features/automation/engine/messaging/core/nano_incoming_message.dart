@@ -41,6 +41,7 @@ final class NanoIncomingMessage {
     this.metadata = const {},
   });
 
+  MessagingPlatform get channel => platform;
   bool get hasAttachments => attachments.isNotEmpty;
   bool get isAudio => attachments.any((a) => a.endsWith('.opus') || a.endsWith('.wav') || a.endsWith('.m4a'));
   bool get isImage => attachments.any((a) => a.endsWith('.png') || a.endsWith('.jpg') || a.endsWith('.jpeg'));
