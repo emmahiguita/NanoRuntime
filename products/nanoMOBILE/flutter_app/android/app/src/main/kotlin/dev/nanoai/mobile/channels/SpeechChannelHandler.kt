@@ -175,6 +175,38 @@ class SpeechChannelHandler(
         tryInit(0)
     }
 
+    private fun cleanTextForNaturalSpeech(raw: String): String {
+        var clean = raw.trim()
+        if (clean.isEmpty()) return ""
+
+        // 1. Elimina bloques de código Markdown ``` ... ```
+        clean = clean.replace(Regex("```[\\s\\S]*?```"), " ")
+        // 2. Elimina fragmentos inline de código `...`
+        clean = clean.replace(Regex("`([^`]+)`"), "$1")
+        // 3. Elimina negritas y cursivas (**texto**, *texto*, __texto__, _texto_)
+        clean = clean.replace(Regex("\\*\\*([^*]+)\\*\\*"), "$1")
+        clean = clean.replace(Regex("\\*([^*]+)\\*"), "$1")
+        clean = clean.replace(Regex("__([^_]+)__"), "$1")
+        clean = clean.replace(Regex("_([^_]+)_"), "$1")
+        // 4. Encabezados Markdown (# Título -> Título.)
+        clean = clean.replace(Regex("^#+\\s*", RegexOption.MULTILINE), "")
+        // 5. Viñetas y listas numéricas
+        clean = clean.replace(Regex("^[\\*\\-\\•]\\s+", RegexOption.MULTILINE), "")
+        // 6. Enlaces Markdown [texto](url) -> texto
+        clean = clean.replace(Regex("\\[([^\\]]+)\\]\\([^\\)]+\\)"), "$1")
+        // 7. URLs directas -> enlace web
+        clean = clean.replace(Regex("https?://\\S+"), "enlace")
+        // 8. Normaliza saltos y espacios para pausas de respiración naturales
+        clean = clean.replace(Regex("[ \\t]+"), " ")
+        clean = clean.replace(Regex("\\n{2,}"), ". ")
+        clean = clean.replace(Regex("\\n"), ", ")
+        clean = clean.trim()
+        if (clean.isNotEmpty() && !clean.endsWith(".") && !clean.endsWith("?") && !clean.endsWith("!")) {
+            clean += "."
+        }
+        return clean
+    }
+
     private fun configureNaturalVoice(engine: TextToSpeech) {
         try {
             val audioAttributes = AudioAttributes.Builder()
@@ -186,12 +218,11 @@ class SpeechChannelHandler(
             Log.w(TAG, "No se pudo configurar AudioAttributes para TTS: $e")
         }
 
-        // Tono y velocidad naturales (1.0 = frecuencia y prosodia humana natural, sin distorsión robótica)
+        // Tono y velocidad naturales (1.0 = frecuencia fundamental armónica, 0.98 = cadencia humana fluida)
         engine.setPitch(1.0f)
-        engine.setSpeechRate(1.0f)
+        engine.setSpeechRate(0.98f)
 
         try {
-            val targetLocale = Locale("es", "ES")
             val voices = engine.voices ?: emptySet()
             // Filtra voces en español válidas e instaladas
             val spanishVoices = voices.filter { voice ->
@@ -200,20 +231,29 @@ class SpeechChannelHandler(
             }
 
             if (spanishVoices.isNotEmpty()) {
-                // Prioriza voces de máxima calidad (Neural / Wavenet / Very High Quality)
-                val bestVoice = spanishVoices.maxWithOrNull(
-                    compareBy<Voice> { it.quality }
-                        .thenBy { it.locale.country.equals("ES", ignoreCase = true) }
-                        .thenBy { !it.isNetworkConnectionRequired }
-                )
-                if (bestVoice != null) {
+                // Puntuación de naturalidad: prioriza voces neuronales de estudio (WaveNet / Neural / HD)
+                fun voiceScore(v: Voice): Int {
+                    var score = 0
+                    val name = v.name.lowercase(Locale.ROOT)
+                    if (name.contains("neural") || name.contains("wavenet") || name.contains("-x-")) score += 500
+                    if (name.contains("network")) score += 300 // Google neural network HD
+                    if (name.contains("enhanced") || name.contains("premium")) score += 200
+                    if (v.quality == Voice.QUALITY_VERY_HIGH) score += 400
+                    else if (v.quality == Voice.QUALITY_HIGH) score += 250
+                    if (name.contains("compact") || name.contains("low") || name.contains("pico")) score -= 1000
+                    if (v.locale.country.equals("ES", ignoreCase = true)) score += 50
+                    return score
+                }
+
+                val bestVoice = spanishVoices.maxByOrNull { voiceScore(it) }
+                if (bestVoice != null && voiceScore(bestVoice) > 0) {
                     engine.voice = bestVoice
                     engine.language = bestVoice.locale
-                    Log.d(TAG, "TTS: Seleccionada voz natural de alta calidad '${bestVoice.name}' (calidad=${bestVoice.quality})")
+                    Log.d(TAG, "TTS: Seleccionada voz neuronal de estudio '${bestVoice.name}' (score=${voiceScore(bestVoice)})")
                     return
                 }
             }
-            engine.language = targetLocale
+            engine.language = Locale("es", "ES")
         } catch (e: Throwable) {
             Log.w(TAG, "Fallback a configuración estándar de idioma: $e")
             engine.language = Locale("es", "ES")
@@ -221,14 +261,24 @@ class SpeechChannelHandler(
     }
 
     private fun speakNow(engine: TextToSpeech, text: String, result: MethodChannel.Result) {
+        val clean = cleanTextForNaturalSpeech(text)
+        if (clean.isBlank()) {
+            result.success(true)
+            return
+        }
         // Aplica configuración acústica natural y selección de voz de alta fidelidad
         configureNaturalVoice(engine)
         // Android rechaza entradas mayores que getMaxSpeechInputLength(). Una
         // lista real de notificaciones puede superar ese límite, por lo que se
         // divide en frases y se encola manteniendo el orden. El primer bloque
         // reemplaza cualquier locución anterior; los demás se agregan.
-        val chunks = speechChunks(text)
+        val chunks = speechChunks(clean)
         var accepted = true
+        val params = Bundle().apply {
+            putString(TextToSpeech.Engine.KEY_FEATURE_NETWORK_SYNTHESIS, "true")
+            putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+            putFloat(TextToSpeech.Engine.KEY_PARAM_PAN, 0.0f)
+        }
         chunks.forEachIndexed { index, chunk ->
             val queueMode = if (index == 0) {
                 TextToSpeech.QUEUE_FLUSH
@@ -238,7 +288,7 @@ class SpeechChannelHandler(
             val status = engine.speak(
                 chunk,
                 queueMode,
-                null,
+                params,
                 "nano_tts_${System.nanoTime()}_$index",
             )
             if (status == TextToSpeech.ERROR) accepted = false
