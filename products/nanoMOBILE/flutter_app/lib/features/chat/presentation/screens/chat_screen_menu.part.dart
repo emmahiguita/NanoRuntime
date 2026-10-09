@@ -107,7 +107,7 @@ extension _ChatScreenMenu on _ChatScreenState {
                       _divider(colors),
                       _buildCleanOptionTile(
                         icon: Icons.add_comment_rounded,
-                        iconColor: const Color(0xFF10B981),
+                        iconColor: colors.primary,
                         label: 'Nueva conversación',
                         subtitle: 'Inicia un tema guardando el actual',
                         colors: colors,

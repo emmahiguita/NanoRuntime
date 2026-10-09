@@ -36,10 +36,10 @@ class _WhatsAppContactCardState extends ConsumerState<WhatsAppContactCard> {
   bool _pressed = false;
 
   static const _gradients = [
-    [Color(0xFF25D366), Color(0xFF128C7E)],
-    [Color(0xFF00A884), Color(0xFF005C4B)],
-    [Color(0xFF34B7F1), Color(0xFF0B648F)],
-    [Color(0xFF10B981), Color(0xFF047857)],
+    [Color(0xFF1D6FE8), Color(0xFF1E40AF)],
+    [Color(0xFF0284C7), Color(0xFF0369A1)],
+    [Color(0xFF3B82F6), Color(0xFF1D4ED8)],
+    [Color(0xFF6366F1), Color(0xFF4338CA)],
   ];
 
   @override

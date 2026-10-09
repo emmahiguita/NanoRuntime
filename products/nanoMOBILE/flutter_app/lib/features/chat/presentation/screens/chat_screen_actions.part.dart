@@ -33,9 +33,9 @@ extension _ChatScreenActions on _ChatScreenState {
       engineBgColor = const Color(0xFF22D3EE).withValues(alpha: 0.12);
       engineBorderColor = const Color(0xFF22D3EE).withValues(alpha: 0.35);
     } else if (state.engineOnline) {
-      engineDotColor = const Color(0xFF10B981); // Verde esmeralda activo
-      engineBgColor = const Color(0xFF10B981).withValues(alpha: 0.12);
-      engineBorderColor = const Color(0xFF10B981).withValues(alpha: 0.32);
+      engineDotColor = colors.primary;
+      engineBgColor = colors.primary.withValues(alpha: 0.12);
+      engineBorderColor = colors.primary.withValues(alpha: 0.32);
     } else {
       engineDotColor = isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8); // Slate neutro
       engineBgColor = (isDark ? Colors.white : Colors.black).withValues(alpha: 0.05);

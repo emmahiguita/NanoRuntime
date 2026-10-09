@@ -48,9 +48,9 @@ abstract final class AutomationVisual {
         ? (inheritedColors is NanoDarkColors
             ? inheritedColors
             : NanoDarkColors())
-        : (inheritedColors is NanoLightColors
+        : (inheritedColors is! NanoDarkColors
             ? inheritedColors
-            : NanoLightColors());
+            : NanoClassicLightColors());
     final themeExt = NanoThemeExtension.maybeOf(context);
     final glassOpacity = themeExt?.glassOpacity ?? 0.70;
     final glassClarity = themeExt?.glassClarity ?? 0.85;

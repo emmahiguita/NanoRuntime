@@ -210,12 +210,12 @@ class MessagingAppTile extends StatelessWidget {
                       minHeight: 14,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
+                      color: const Color(0xFF1D6FE8),
                       borderRadius: BorderRadius.circular(7),
                       boxShadow: [
                         BoxShadow(
                           color: const Color(
-                            0xFF10B981,
+                            0xFF1D6FE8,
                           ).withValues(alpha: 0.45),
                           blurRadius: 3,
                         ),

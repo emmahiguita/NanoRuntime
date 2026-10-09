@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/features/automation/application/whatsapp_contacts_provider.dart';
 import 'package:nanoai/features/automation/domain/whatsapp_contact.dart';
 import 'package:nanoai/features/automation/presentation/messaging_center/whatsapp_contact_card.dart';
@@ -45,6 +46,8 @@ class _PersonalContactsSelectorSheetState
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = NanoThemeExtension.of(context).colors;
     final allContactsAsync = ref.watch(allWhatsAppContactsProvider);
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
@@ -53,25 +56,31 @@ class _PersonalContactsSelectorSheetState
 
     return Container(
       constraints: BoxConstraints(maxHeight: maxHeight),
-      decoration: const BoxDecoration(
-        color: Color(0xFF141923),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF141923) : colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.white.withValues(alpha: 0.15) : const Color(0xFFE2E8F0),
+            width: 1.0,
+          ),
+        ),
       ),
       child: Column(
         children: [
-          _buildDragHandle(),
-          _buildHeader(),
-          _buildSearchField(),
+          _buildDragHandle(isDark),
+          _buildHeader(colors, isDark),
+          _buildSearchField(colors, isDark),
           Expanded(
             child: allContactsAsync.when(
               data: (contacts) => _buildList(contacts),
-              loading: () => const Center(
-                child: CircularProgressIndicator(color: Color(0xFF00E676)),
+              loading: () => Center(
+                child: CircularProgressIndicator(color: colors.primary),
               ),
               error: (e, _) => Center(
                 child: Text(
                   'Error al cargar contactos: $e',
-                  style: const TextStyle(color: Colors.white70),
+                  style: TextStyle(color: isDark ? Colors.white70 : colors.onSurfaceVariant),
                 ),
               ),
             ),
@@ -81,27 +90,27 @@ class _PersonalContactsSelectorSheetState
     );
   }
 
-  Widget _buildDragHandle() {
+  Widget _buildDragHandle(bool isDark) {
     return Container(
       margin: const EdgeInsets.only(top: 8, bottom: 4),
       width: 36,
       height: 4,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
+        color: isDark ? Colors.white.withValues(alpha: 0.2) : const Color(0xFFCBD5E1),
         borderRadius: BorderRadius.circular(2),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(dynamic colors, bool isDark) {
     final mode = ref.watch(settingsProvider).waTargetContactsMode;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.people_alt_rounded,
-            color: Color(0xFF00E676),
+            color: colors.primary,
             size: 20,
           ),
           const SizedBox(width: 8),
@@ -110,8 +119,8 @@ class _PersonalContactsSelectorSheetState
               mode == 'all'
                   ? 'Contactos de WhatsApp (Modo Global)'
                   : 'Contactos Autorizados (Modo Selectivo)',
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: isDark ? Colors.white : colors.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
@@ -120,9 +129,9 @@ class _PersonalContactsSelectorSheetState
             ),
           ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.close_rounded,
-              color: Colors.white70,
+              color: isDark ? Colors.white70 : colors.onSurfaceVariant,
               size: 20,
             ),
             onPressed: () => Navigator.of(context).pop(),
@@ -132,37 +141,39 @@ class _PersonalContactsSelectorSheetState
     );
   }
 
-  Widget _buildSearchField() {
+  Widget _buildSearchField(dynamic colors, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: TextField(
         controller: _searchController,
         onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
-        style: const TextStyle(color: Colors.white, fontSize: 13),
+        style: TextStyle(color: isDark ? Colors.white : colors.onSurface, fontSize: 13),
         decoration: InputDecoration(
           hintText: 'Buscar por nombre o número...',
           hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.35),
+            color: isDark ? Colors.white.withValues(alpha: 0.35) : colors.onSurfaceVariant,
             fontSize: 13,
           ),
-          prefixIcon: const Icon(
+          prefixIcon: Icon(
             Icons.search_rounded,
-            color: Colors.white54,
+            color: isDark ? Colors.white54 : colors.onSurfaceVariant,
             size: 18,
           ),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.06),
+          fillColor: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF1F5F9),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 8,
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            borderSide: BorderSide(
+              color: isDark ? Colors.white.withValues(alpha: 0.1) : const Color(0xFFE2E8F0),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF00E676), width: 1.2),
+            borderSide: BorderSide(color: colors.primary, width: 1.2),
           ),
         ),
       ),

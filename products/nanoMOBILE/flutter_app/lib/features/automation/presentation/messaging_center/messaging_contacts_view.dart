@@ -55,14 +55,13 @@ class MessagingContactsView extends ConsumerWidget {
         }
 
         if (allContactsAsync.isLoading) {
-          final isDark = Theme.of(context).brightness == Brightness.dark;
           final colors = NanoThemeExtension.of(context).colors;
           return SliverToBoxAdapter(
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: CircularProgressIndicator(
-                  color: isDark ? const Color(0xFF25D366) : colors.primary,
+                  color: colors.primary,
                 ),
               ),
             ),
@@ -82,9 +81,7 @@ class MessagingContactsView extends ConsumerWidget {
           return _buildEmptyContacts(context, ref);
         }
 
-        final isDark = Theme.of(context).brightness == Brightness.dark;
         final colors = NanoThemeExtension.of(context).colors;
-        final brandGreen = isDark ? const Color(0xFF25D366) : colors.primary;
 
         return SliverMainAxisGroup(
           slivers: [
@@ -95,7 +92,7 @@ class MessagingContactsView extends ConsumerWidget {
                   const MessagingContactsPolicyBar(),
                   MessagingSectionLabel(
                     icon: Icons.people_alt_rounded,
-                    iconColor: brandGreen,
+                    iconColor: colors.primary,
                     label: 'Contactos de WhatsApp',
                     count: contacts.length,
                   ),
@@ -111,7 +108,7 @@ class MessagingContactsView extends ConsumerWidget {
         child: Center(
           child: Padding(
             padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(color: Color(0xFF25D366)),
+            child: CircularProgressIndicator(),
           ),
         ),
       ),

@@ -14,7 +14,7 @@ class AutomationGlass360 extends StatefulWidget {
     super.key,
     required this.child,
     this.borderRadius = 28.0,
-    this.accentColor = const Color(0xFF10B981),
+    this.accentColor = const Color(0xFF1D6FE8),
     this.isActionable = false,
   });
 

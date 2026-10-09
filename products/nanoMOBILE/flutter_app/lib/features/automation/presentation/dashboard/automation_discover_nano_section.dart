@@ -87,9 +87,9 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
             const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399)],
+              colors: [Color(0xFF1D6FE8), Color(0xFF2563EB), Color(0xFF38BDF8)],
             ),
-            const Color(0xFF6EE7B7),
+            const Color(0xFF93C5FD),
             onChatTap,
           ),
           (

@@ -1,34 +1,34 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/theme/design_tokens.dart';
 import '../../application/account_providers.dart';
 import 'nano_danger_dialog.dart';
 
-/// Acciones sensibles de cuenta: reutiliza autenticación y espera su resultado.
-/// No navega al acceso si el servidor rechazó la eliminación.
+/// Acciones de sesión y cuenta con estilo iOS Glass.
 class ProfileAccountActions extends ConsumerStatefulWidget {
   final bool disabled;
   const ProfileAccountActions({super.key, this.disabled = false});
 
   @override
-  ConsumerState<ProfileAccountActions> createState() =>
-      _ProfileAccountActionsState();
+  ConsumerState<ProfileAccountActions> createState() => _ProfileAccountActionsState();
 }
 
 class _ProfileAccountActionsState extends ConsumerState<ProfileAccountActions> {
   bool _busy = false;
 
-  /// Bloquea doble pulsación y conserva la pantalla cuando falla una operación.
   Future<void> _execute({required bool delete}) async {
     if (_busy || widget.disabled) return;
+    HapticFeedback.mediumImpact();
     setState(() => _busy = true);
     try {
       if (delete) {
         final confirmed = await NanoDangerDialog.show(
           context: context,
           title: 'Eliminar cuenta',
-          message:
-              'Se eliminará tu cuenta de acceso. Esta acción no se puede deshacer.',
+          message: 'Se eliminará tu cuenta de acceso de forma permanente. Esta acción no se puede deshacer.',
           confirmLabel: 'Eliminar cuenta',
         );
         if (confirmed != true || !mounted) return;
@@ -46,9 +46,7 @@ class _ProfileAccountActionsState extends ConsumerState<ProfileAccountActions> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              delete
-                  ? 'No se pudo eliminar la cuenta. Vuelve a intentarlo.'
-                  : 'No se pudo cerrar la sesión. Vuelve a intentarlo.',
+              delete ? 'No se pudo eliminar la cuenta.' : 'No se pudo cerrar la sesión.',
             ),
           ),
         );
@@ -58,28 +56,97 @@ class _ProfileAccountActionsState extends ConsumerState<ProfileAccountActions> {
     }
   }
 
-  /// Wrap permite que los botones pasen de línea sin desbordar en horizontal.
   @override
   Widget build(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
     final disabled = _busy || widget.disabled;
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 8,
+
+    return Row(
       children: [
-        TextButton.icon(
-          onPressed: disabled ? null : () => _execute(delete: false),
-          icon: const Icon(Icons.logout_rounded, size: 18),
-          label: const Text('Cerrar sesión'),
-        ),
-        TextButton.icon(
-          onPressed: disabled ? null : () => _execute(delete: true),
-          style: TextButton.styleFrom(
-            foregroundColor: Theme.of(context).colorScheme.error,
+        Expanded(
+          child: _GlassActionButton(
+            icon: Icons.logout_rounded,
+            label: 'Cerrar sesión',
+            color: colors.primary,
+            disabled: disabled,
+            onTap: () => _execute(delete: false),
           ),
-          icon: const Icon(Icons.delete_outline_rounded, size: 18),
-          label: const Text('Eliminar cuenta'),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _GlassActionButton(
+            icon: Icons.delete_forever_rounded,
+            label: 'Eliminar cuenta',
+            color: colors.error,
+            disabled: disabled,
+            onTap: () => _execute(delete: true),
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _GlassActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool disabled;
+  final VoidCallback onTap;
+
+  const _GlassActionButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: disabled ? null : onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: color.withValues(alpha: 0.30),
+                  width: 0.85,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -893,7 +893,7 @@ class NanoClassicLightColors implements NanoColors {
 }
 
 /// Paleta de sistema en modo claro: Blanco y Azul iOS (System Blue) de alta fidelidad.
-class NanoSystemLightColors extends NanoLightColors {
+class NanoSystemLightColors extends NanoClassicLightColors {
   @override
   final primary = const Color(0xFF1D6FE8); // Azul iOS profesional
   @override

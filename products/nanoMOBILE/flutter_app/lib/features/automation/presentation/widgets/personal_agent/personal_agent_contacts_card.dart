@@ -44,11 +44,7 @@ class PersonalAgentContactsCard extends ConsumerWidget {
                   (c.name.isNotEmpty
                       ? ownershipStore.ownershipFor(c.name)
                       : null);
-              final isEmm =
-                  c.name.toLowerCase().contains('emm') ||
-                  c.name.toLowerCase().contains('emma');
-              return (ownership?.owner == ConversationOwner.bot) ||
-                  (ownership?.owner != ConversationOwner.human && isEmm);
+              return ownership?.owner == ConversationOwner.bot;
             }).length,
       orElse: () => 0,
     );

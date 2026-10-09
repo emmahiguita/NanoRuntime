@@ -68,7 +68,7 @@ class SettingsRepository {
         waStyleEnabled: m['waStyleEnabled'] as bool? ?? false,
         waStyleText: m['waStyleText'] as String? ?? '',
         waReplyDelaySeconds: (m['waReplyDelaySeconds'] as num?)?.toInt() ?? 0,
-        waTargetContactsMode: m['waTargetContactsMode'] as String? ?? 'all',
+        waTargetContactsMode: m['waTargetContactsMode'] as String? ?? 'selected',
         // QUÉ HACE: Sincroniza waAutonomyMode con el modo de agente autónomo principal.
         // CÓMO: Si agentAutomationMode es 'autonomous' y el canal quedó en 'suggestions', se eleva a 'autonomous'.
         // POR QUÉ: Elimina el bloqueo donde el usuario cree que el bot está activo pero el sub-canal retiene borradores.
@@ -203,7 +203,7 @@ class SettingsState {
     this.waStyleEnabled = false,
     this.waStyleText = '',
     this.waReplyDelaySeconds = 0,
-    this.waTargetContactsMode = 'all',
+    this.waTargetContactsMode = 'selected',
     this.waAutonomyMode = 'autonomous',
     this.glassEnabled = true,
     this.glassOpacity = 0.70,

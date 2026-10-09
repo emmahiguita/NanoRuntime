@@ -52,12 +52,12 @@ void main() {
   });
 
   group('SettingsState Contact Policy', () {
-    test('waTargetContactsMode tiene default all y copyWith respeta cambios', () {
+    test('waTargetContactsMode tiene default selected y copyWith respeta cambios', () {
       const state = SettingsState();
-      expect(state.waTargetContactsMode, 'all');
+      expect(state.waTargetContactsMode, 'selected');
 
-      final selectedState = state.copyWith(waTargetContactsMode: 'selected');
-      expect(selectedState.waTargetContactsMode, 'selected');
+      final allState = state.copyWith(waTargetContactsMode: 'all');
+      expect(allState.waTargetContactsMode, 'all');
     });
 
     test('La selección por teléfono activa el contacto con una clave Android distinta', () {

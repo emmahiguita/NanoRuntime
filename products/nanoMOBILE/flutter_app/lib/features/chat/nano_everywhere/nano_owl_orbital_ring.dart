@@ -139,7 +139,7 @@ class _NanoOwlOrbitalRingState extends State<NanoOwlOrbitalRing>
                       colors: [
                         _glowColor.withValues(alpha: 0.1),
                         _glowColor.withValues(alpha: 0.9),
-                        const Color(0xFF10B981),
+                        _glowColor.withValues(alpha: 0.6),
                         _glowColor.withValues(alpha: 0.1),
                       ],
                       stops: const [0.0, 0.45, 0.75, 1.0],

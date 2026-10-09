@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/design_tokens.dart';
 import 'messaging_center_providers.dart';
 import 'messaging_channel_sheet.dart';
 
@@ -18,6 +19,7 @@ class MessagingCenterHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = NanoThemeExtension.of(context).colors;
     final unreadCount = ref.watch(pendingRepliesCountProvider);
     final canPop = Navigator.of(context).canPop();
 
@@ -88,25 +90,23 @@ class MessagingCenterHeader extends ConsumerWidget {
                         width: 6,
                         height: 6,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
+                          color: colors.primary,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(
-                                0xFF10B981,
-                              ).withValues(alpha: 0.45),
+                              color: colors.primary.withValues(alpha: 0.45),
                               blurRadius: 3,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 4.5),
                       Text(
                         unreadText,
                         style: TextStyle(
                           color: isDark
-                              ? const Color(0xFF34D399)
-                              : const Color(0xFF059669),
+                              ? colors.primary
+                              : colors.onSurfaceVariant,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),

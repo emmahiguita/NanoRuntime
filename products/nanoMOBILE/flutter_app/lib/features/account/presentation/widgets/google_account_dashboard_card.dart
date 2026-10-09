@@ -6,7 +6,7 @@ import '../../../../core/theme/design_tokens.dart';
 import '../google_account_provider.dart';
 import 'google_account_dialog.dart';
 
-/// Card Glassmórfica limpia oficial de Cuenta de Google para el Dashboard de Nano AI.
+/// Card Glassmórfica oficial iOS de Cuenta de Google / Servicios Cloud.
 class GoogleAccountDashboardCard extends ConsumerWidget {
   const GoogleAccountDashboardCard({super.key});
 
@@ -17,70 +17,39 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
     final colors = NanoThemeExtension.of(context).colors;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           decoration: BoxDecoration(
-            color: colors.surface.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: colors.outline.withValues(alpha: 0.22),
-              width: 1.1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: colors.primary.withValues(alpha: 0.08),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            color: colors.surface.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.50), width: 0.9),
+            boxShadow: [BoxShadow(color: colors.primary.withValues(alpha: 0.06), blurRadius: 16, offset: const Offset(0, 4))],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
-                  // Avatar con Borde Cuádruple Oficial de Google
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 42, height: 42,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: SweepGradient(
-                        colors: [
-                          Color(0xFF4285F4),
-                          Color(0xFFEA4335),
-                          Color(0xFFFBBC05),
-                          Color(0xFF34A853),
-                          Color(0xFF4285F4),
-                        ],
-                      ),
+                      gradient: SweepGradient(colors: [
+                        Color(0xFF4285F4), Color(0xFFEA4335), Color(0xFFFBBC05), Color(0xFF34A853), Color(0xFF4285F4),
+                      ]),
                     ),
                     padding: const EdgeInsets.all(2.2),
                     child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colors.surface,
-                      ),
+                      decoration: BoxDecoration(shape: BoxShape.circle, color: colors.surface),
                       alignment: Alignment.center,
-                      child: Text(
-                        profile.initials,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: colors.onSurface,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
+                      child: Text(profile.initials, style: TextStyle(fontFamily: 'Inter', fontSize: 15, fontWeight: FontWeight.w800, color: colors.onSurface)),
                     ),
                   ),
-                  const SizedBox(width: 12),
-
-                  // Nombre y Correo
+                  const SizedBox(width: 11),
                   Expanded(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
@@ -95,152 +64,71 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                           Row(
                             children: [
                               Flexible(
-                                child: Text(
-                                  profile.displayName,
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: colors.onSurface,
-                                    letterSpacing: -0.2,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                child: Text(profile.displayName, style: TextStyle(fontFamily: 'Inter', fontSize: 14.5, fontWeight: FontWeight.w700, color: colors.onSurface, letterSpacing: -0.2), maxLines: 1, overflow: TextOverflow.ellipsis),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: profile.isConnected
-                                      ? colors.success.withValues(alpha: 0.16)
-                                      : colors.error.withValues(alpha: 0.16),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: profile.isConnected
-                                        ? colors.success.withValues(alpha: 0.40)
-                                        : colors.error.withValues(alpha: 0.40),
-                                    width: 0.8,
-                                  ),
+                                  color: profile.isConnected ? colors.success.withValues(alpha: 0.15) : colors.error.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(color: profile.isConnected ? colors.success.withValues(alpha: 0.40) : colors.error.withValues(alpha: 0.40), width: 0.7),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: profile.isConnected
-                                            ? colors.success
-                                            : colors.error,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      profile.isConnected ? 'Google' : 'Offline',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: profile.isConnected
-                                            ? colors.success
-                                            : colors.error,
-                                      ),
-                                    ),
+                                    Container(width: 5, height: 5, decoration: BoxDecoration(shape: BoxShape.circle, color: profile.isConnected ? colors.success : colors.error)),
+                                    const SizedBox(width: 3.5),
+                                    Text(profile.isConnected ? 'Cloud' : 'Offline', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: profile.isConnected ? colors.success : colors.error)),
                                   ],
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            profile.email,
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontSize: 12.5,
-                              color: colors.onSurfaceVariant,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                          Text(profile.email, style: TextStyle(fontFamily: 'Inter', fontSize: 12, color: colors.onSurfaceVariant, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
                         ],
                       ),
                     ),
                   ),
-
-                  // Botón Sincronizar en vivo
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  _HeaderIconButton(
+                    icon: Icons.sync_rounded, colors: colors,
                     onTap: () async {
                       HapticFeedback.lightImpact();
                       await notifier.syncNow();
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colors.primary.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colors.primary.withValues(alpha: 0.20),
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.sync_rounded,
-                        size: 20,
-                        color: notifier.isSyncing
-                            ? colors.primary
-                            : colors.onSurfaceVariant,
-                      ),
-                    ),
                   ),
                   const SizedBox(width: 6),
-
-                  // Botón Ajustes de cuenta
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  _HeaderIconButton(
+                    icon: Icons.tune_rounded, colors: colors,
                     onTap: () {
                       HapticFeedback.lightImpact();
                       GoogleAccountDialog.show(context);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: colors.primary.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colors.primary.withValues(alpha: 0.20),
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.settings_outlined,
-                        size: 20,
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-
-              // Chip de Estado de Sincronización con Google
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: [
-                    _AccountActionChip(
-                      icon: Icons.bolt_rounded,
-                      label: profile.syncStatus,
-                      isActive: profile.isConnected,
-                      colors: colors,
-                      onTap: () async {
-                        HapticFeedback.lightImpact();
-                        await notifier.syncNow();
-                      },
-                    ),
-                  ],
+              const SizedBox(height: 9),
+              GestureDetector(
+                onTap: () async {
+                  HapticFeedback.lightImpact();
+                  await notifier.syncNow();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4.5),
+                  decoration: BoxDecoration(
+                    color: profile.isConnected ? colors.primary.withValues(alpha: 0.10) : colors.surfaceVariant.withValues(alpha: 0.60),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: profile.isConnected ? colors.primary.withValues(alpha: 0.30) : colors.outlineVariant.withValues(alpha: 0.40), width: 0.7),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(profile.isConnected ? Icons.cloud_done_rounded : Icons.cloud_off_rounded, size: 13, color: profile.isConnected ? colors.primary : colors.onSurfaceVariant),
+                      const SizedBox(width: 5),
+                      Text(profile.syncStatus, style: TextStyle(fontFamily: 'Inter', fontSize: 11, fontWeight: FontWeight.w600, color: profile.isConnected ? colors.primary : colors.onSurfaceVariant)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -251,58 +139,26 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
   }
 }
 
-class _AccountActionChip extends StatelessWidget {
+class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final bool isActive;
   final NanoColors colors;
   final VoidCallback onTap;
 
-  const _AccountActionChip({
-    required this.icon,
-    required this.label,
-    required this.isActive,
-    required this.colors,
-    required this.onTap,
-  });
+  const _HeaderIconButton({required this.icon, required this.colors, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = isActive ? colors.primary : colors.onSurfaceVariant;
-
-    return InkWell(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          color: isActive
-              ? colors.primary.withValues(alpha: 0.12)
-              : colors.surfaceVariant.withValues(alpha: 0.60),
+          color: colors.surfaceVariant.withValues(alpha: 0.70),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isActive
-                ? colors.primary.withValues(alpha: 0.35)
-                : colors.outline.withValues(alpha: 0.20),
-            width: 0.9,
-          ),
+          border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.45), width: 0.7),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: effectiveColor),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: effectiveColor,
-              ),
-            ),
-          ],
-        ),
+        child: Icon(icon, size: 18, color: colors.onSurfaceVariant),
       ),
     );
   }
