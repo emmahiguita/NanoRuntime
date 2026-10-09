@@ -19,6 +19,22 @@ object InferenceThermalGuard {
     private fun isSevere(): Boolean = Build.VERSION.SDK_INT >= 29 &&
         (power?.currentThermalStatus ?: -1) >= PowerManager.THERMAL_STATUS_SEVERE
 
+    /**
+     * Conserva la respuesta inmediata en frío normal, pero no mantiene cientos
+     * de MB/GB de pesos acelerados durante cinco minutos cuando Android ya
+     * reporta presión térmica. La inferencia activa solo se aborta en SEVERE;
+     * LIGHT/MODERATE acortan exclusivamente la retención ociosa.
+     */
+    fun warmIdleTimeoutMs(defaultMs: Long): Long {
+        if (Build.VERSION.SDK_INT < 29) return defaultMs
+        return when (power?.currentThermalStatus ?: PowerManager.THERMAL_STATUS_NONE) {
+            in PowerManager.THERMAL_STATUS_SEVERE..Int.MAX_VALUE -> 0L
+            PowerManager.THERMAL_STATUS_MODERATE -> minOf(defaultMs, 30_000L)
+            PowerManager.THERMAL_STATUS_LIGHT -> minOf(defaultMs, 90_000L)
+            else -> defaultMs
+        }
+    }
+
     fun checkAdmission() {
         check(!isSevere()) { "THERMAL_PAUSED: esperando enfriamiento del dispositivo" }
     }

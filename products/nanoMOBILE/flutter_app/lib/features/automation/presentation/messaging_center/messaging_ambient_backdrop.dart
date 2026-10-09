@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -15,33 +15,53 @@ class MessagingAmbientBackdrop extends StatefulWidget {
 }
 
 class _MessagingAmbientBackdropState extends State<MessagingAmbientBackdrop>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _atmosphereController;
+    with WidgetsBindingObserver {
+  static const _frameInterval = Duration(milliseconds: 100);
+  final ValueNotifier<double> _atmospherePhase = ValueNotifier(0.36);
+  Timer? _animationTimer;
+  bool _appVisible = true;
+  bool _animationAllowed = true;
 
   @override
   void initState() {
     super.initState();
-    _atmosphereController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 48),
-    );
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _atmosphereController
-        ..stop()
-        ..value = 0.36;
-    } else if (!_atmosphereController.isAnimating) {
-      _atmosphereController.repeat();
+    _animationAllowed =
+        TickerMode.of(context) && !MediaQuery.disableAnimationsOf(context);
+    _syncAnimation();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appVisible = state == AppLifecycleState.resumed;
+    _syncAnimation();
+  }
+
+  void _syncAnimation() {
+    if (!_appVisible || !_animationAllowed) {
+      _animationTimer?.cancel();
+      _animationTimer = null;
+      return;
     }
+    _animationTimer ??= Timer.periodic(_frameInterval, (_) {
+      // La atmósfera tarda 48 s por ciclo. Para nubes lentas, 10 fps se ve
+      // continuo y evita repintar tres capas a 60 fps sin beneficio visual.
+      _atmospherePhase.value =
+          (_atmospherePhase.value + _frameInterval.inMilliseconds / 48_000) %
+          1.0;
+    });
   }
 
   @override
   void dispose() {
-    _atmosphereController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _animationTimer?.cancel();
+    _atmospherePhase.dispose();
     super.dispose();
   }
 
@@ -82,10 +102,9 @@ class _MessagingAmbientBackdropState extends State<MessagingAmbientBackdrop>
                               : BlendMode.screen,
                         ),
                         AnimatedBuilder(
-                          animation: _atmosphereController,
+                          animation: _atmospherePhase,
                           builder: (context, _) {
-                            final phase =
-                                _atmosphereController.value * math.pi * 2;
+                            final phase = _atmospherePhase.value * math.pi * 2;
                             return Stack(
                               fit: StackFit.expand,
                               children: [
@@ -97,7 +116,6 @@ class _MessagingAmbientBackdropState extends State<MessagingAmbientBackdrop>
                                   verticalTravel: 4,
                                   scale: 1.42,
                                   opacity: widget.isDark ? 0.10 : 0.20,
-                                  blurSigma: 2.2,
                                   alignment: Alignment.topCenter,
                                 ),
                                 _CloudLayer(
@@ -108,7 +126,6 @@ class _MessagingAmbientBackdropState extends State<MessagingAmbientBackdrop>
                                   verticalTravel: 7,
                                   scale: 1.27,
                                   opacity: widget.isDark ? 0.13 : 0.27,
-                                  blurSigma: 0.8,
                                   alignment: const Alignment(0, 0.05),
                                   flipHorizontally: true,
                                 ),
@@ -119,7 +136,6 @@ class _MessagingAmbientBackdropState extends State<MessagingAmbientBackdrop>
                                   verticalTravel: 5,
                                   scale: 1.58,
                                   opacity: widget.isDark ? 0.08 : 0.17,
-                                  blurSigma: 3.6,
                                   alignment: Alignment.bottomCenter,
                                 ),
                               ],
@@ -178,7 +194,6 @@ class _CloudLayer extends StatelessWidget {
   final double verticalTravel;
   final double scale;
   final double opacity;
-  final double blurSigma;
   final Alignment alignment;
   final bool flipHorizontally;
 
@@ -189,7 +204,6 @@ class _CloudLayer extends StatelessWidget {
     required this.verticalTravel,
     required this.scale,
     required this.opacity,
-    required this.blurSigma,
     required this.alignment,
     this.flipHorizontally = false,
   });
@@ -205,19 +219,10 @@ class _CloudLayer extends StatelessWidget {
       'assets/automation/messaging_cloud_overlay.png',
       fit: BoxFit.cover,
       alignment: alignment,
-      filterQuality: FilterQuality.medium,
+      filterQuality: FilterQuality.low,
+      opacity: AlwaysStoppedAnimation(opacity),
+      gaplessPlayback: true,
     );
-
-    if (blurSigma > 0) {
-      cloud = ImageFiltered(
-        imageFilter: ImageFilter.blur(
-          sigmaX: blurSigma,
-          sigmaY: blurSigma,
-          tileMode: TileMode.decal,
-        ),
-        child: cloud,
-      );
-    }
 
     cloud = Transform(
       alignment: Alignment.center,
@@ -231,9 +236,6 @@ class _CloudLayer extends StatelessWidget {
       child: cloud,
     );
 
-    return Transform.translate(
-      offset: Offset(dx, dy),
-      child: Opacity(opacity: opacity, child: cloud),
-    );
+    return Transform.translate(offset: Offset(dx, dy), child: cloud);
   }
 }

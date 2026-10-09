@@ -1,8 +1,12 @@
-// QUÉ: crea o edita un producto real del catálogo comercial.
-// CÓMO: valida identidad y precio, y delega los campos al formulario responsivo.
-// POR QUÉ: mantiene persistencia y presentación separadas en archivos pequeños.
+// product_dialog.dart
+//
+// QUÉ: Crea o edita un producto real del catálogo comercial con foto/video.
+// CÓMO: Valida identidad y precio, y provee selector de archivos multimedia.
+// POR QUÉ: Mantiene persistencia y presentación separadas en archivos < 180 líneas.
+
 library;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../../engine/business/business_facts.dart';
@@ -28,38 +32,39 @@ class _ProductDialogState extends State<ProductDialog> {
   late final TextEditingController _category;
   late final TextEditingController _variants;
   late bool _isAvailable;
+  String? _imagePath;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    final product = widget.initial;
-    _name = TextEditingController(text: product?.name ?? '');
-    _details = TextEditingController(text: product?.details ?? '');
+    final p = widget.initial;
+    _name = TextEditingController(text: p?.name ?? '');
+    _details = TextEditingController(text: p?.details ?? '');
     _price = TextEditingController(
-      text: product != null && product.price > 0 ? '${product.price}' : '',
+      text: p != null && p.price > 0 ? '${p.price}' : '',
     );
-    _stock = TextEditingController(text: product?.stock?.toString() ?? '');
-    _sku = TextEditingController(text: product?.sku ?? '');
-    _category = TextEditingController(text: product?.category ?? '');
-    _variants = TextEditingController(text: product?.variants.join(', ') ?? '');
-    _isAvailable = product?.isAvailable ?? true;
+    _stock = TextEditingController(text: p?.stock?.toString() ?? '');
+    _sku = TextEditingController(text: p?.sku ?? '');
+    _category = TextEditingController(text: p?.category ?? '');
+    _variants = TextEditingController(text: p?.variants.join(', ') ?? '');
+    _isAvailable = p?.isAvailable ?? true;
+    _imagePath = p?.imagePath;
   }
 
   @override
   void dispose() {
-    for (final controller in [
-      _name,
-      _details,
-      _price,
-      _stock,
-      _sku,
-      _category,
-      _variants,
-    ]) {
-      controller.dispose();
+    for (final c in [_name, _details, _price, _stock, _sku, _category, _variants]) {
+      c.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _pickMedia() async {
+    final res = await FilePicker.pickFiles(type: FileType.media);
+    if (res != null && res.files.isNotEmpty && res.files.single.path != null) {
+      setState(() => _imagePath = res.files.single.path);
+    }
   }
 
   void _save() {
@@ -77,9 +82,7 @@ class _ProductDialogState extends State<ProductDialog> {
     final category = _category.text.trim();
     Navigator.of(context).pop(
       BusinessProduct(
-        id:
-            widget.initial?.id ??
-            DateTime.now().microsecondsSinceEpoch.toString(),
+        id: widget.initial?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
         name: name,
         details: _details.text.trim(),
         price: price,
@@ -88,11 +91,11 @@ class _ProductDialogState extends State<ProductDialog> {
         category: category.isEmpty ? null : category,
         variants: _variants.text
             .split(',')
-            .map((value) => value.trim())
-            .where((value) => value.isNotEmpty)
+            .map((v) => v.trim())
+            .where((v) => v.isNotEmpty)
             .toList(),
         isAvailable: _isAvailable,
-        imagePath: widget.initial?.imagePath,
+        imagePath: _imagePath,
         isManualEdit: true,
       ),
     );
@@ -110,19 +113,12 @@ class _ProductDialogState extends State<ProductDialog> {
             padding: const EdgeInsets.fromLTRB(18, 14, 12, 10),
             child: Row(
               children: [
-                Icon(
-                  isEditing ? Icons.edit_note_rounded : Icons.add_business,
-                  color: visual.accent,
-                ),
+                Icon(isEditing ? Icons.edit_note_rounded : Icons.add_business, color: visual.accent),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     isEditing ? 'Editar producto' : 'Nuevo producto / servicio',
-                    style: TextStyle(
-                      color: visual.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: TextStyle(color: visual.text, fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
@@ -139,9 +135,11 @@ class _ProductDialogState extends State<ProductDialog> {
               category: _category,
               variants: _variants,
               isAvailable: _isAvailable,
+              imagePath: _imagePath,
               error: _error,
-              onAvailabilityChanged: (value) =>
-                  setState(() => _isAvailable = value),
+              onAvailabilityChanged: (v) => setState(() => _isAvailable = v),
+              onPickMedia: _pickMedia,
+              onRemoveMedia: () => setState(() => _imagePath = null),
             ),
           ),
           const Divider(height: 1),
@@ -150,15 +148,9 @@ class _ProductDialogState extends State<ProductDialog> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancelar'),
-                ),
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar')),
                 const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _save,
-                  child: Text(isEditing ? 'Actualizar' : 'Guardar'),
-                ),
+                FilledButton(onPressed: _save, child: Text(isEditing ? 'Actualizar' : 'Guardar')),
               ],
             ),
           ),

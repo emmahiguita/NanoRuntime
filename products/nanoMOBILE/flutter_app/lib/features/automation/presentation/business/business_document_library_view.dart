@@ -1,29 +1,45 @@
+// business_document_library_view.dart
+//
+// QUÉ HACE:
+// Vista contenedora principal de la Biblioteca Comercial de Nano.
+// Alterna entre explorador de Archivos/PDFs y el Catálogo/Tienda de productos.
+//
+// CÓMO FUNCIONA:
+// - Despliega un fondo esmerilado translúcido estilo iOS Liquid Glass.
+// - Integra `BusinessLibrarySectionTabs` para cambiar entre Documentos y Tienda.
+//
+// POR QUÉ:
+// Aplica SOLID coordinando subcomponentes especializados (< 160 líneas).
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../engine/business/business_document_library.dart';
+import '../../engine/business/business_product.dart';
 import 'business_library_bottom_bar.dart';
 import 'business_library_category_filters.dart';
 import 'business_library_content.dart';
 import 'business_library_header.dart';
 import 'business_library_load_error.dart';
 import 'business_library_search_bar.dart';
+import 'business_library_section_tabs.dart';
+import 'store/business_store_content.dart';
 
-/// Composición única de la biblioteca: cada control aparece una sola vez.
 final class BusinessDocumentLibraryView extends StatelessWidget {
   final String title, category, query, sortBy, fileType;
   final List<BusinessFolderInfo> folders;
   final List<BusinessDocument> documents;
+  final List<BusinessProduct> products;
+  final BusinessLibrarySection section;
   final int allDocumentsCount, totalSizeBytes;
   final Set<String> selectedPaths;
   final bool isSelectionMode, isGridView, isChatPicker, busy, canGenerate;
   final String? loadError;
-  final ValueChanged<String> onCategory, onQuery, onSortChange;
-  final ValueChanged<String> onFileTypeChange, onRenameFolder, onDeleteFolder;
-  final ValueChanged<BusinessDocument> onSelectDocument, onOpen, onShare;
-  final ValueChanged<BusinessDocument> onRenameDocument, onDeleteDocument;
-  final VoidCallback onToggleSelectionMode, onToggleGridView, onSelectAll;
-  final VoidCallback onSendSelected, onCreateFolder, onImport, onGenerate;
-  final VoidCallback onClose, onRetry, onShowRecent, onShowAll;
+  final ValueChanged<BusinessLibrarySection> onSectionChanged;
+  final ValueChanged<String> onCategory, onQuery, onSortChange, onFileTypeChange, onRenameFolder, onDeleteFolder;
+  final ValueChanged<BusinessDocument> onSelectDocument, onOpen, onShare, onRenameDocument, onDeleteDocument;
+  final ValueChanged<BusinessProduct> onEditProduct, onShareProduct;
+  final VoidCallback onAddProduct, onToggleSelectionMode, onToggleGridView, onSelectAll, onSendSelected;
+  final VoidCallback onCreateFolder, onImport, onGenerate, onClose, onRetry, onShowRecent, onShowAll;
 
   const BusinessDocumentLibraryView({
     super.key,
@@ -34,6 +50,8 @@ final class BusinessDocumentLibraryView extends StatelessWidget {
     required this.fileType,
     required this.folders,
     required this.documents,
+    required this.products,
+    required this.section,
     required this.allDocumentsCount,
     required this.totalSizeBytes,
     required this.selectedPaths,
@@ -43,6 +61,7 @@ final class BusinessDocumentLibraryView extends StatelessWidget {
     required this.busy,
     required this.canGenerate,
     required this.loadError,
+    required this.onSectionChanged,
     required this.onCategory,
     required this.onQuery,
     required this.onSortChange,
@@ -54,6 +73,9 @@ final class BusinessDocumentLibraryView extends StatelessWidget {
     required this.onShare,
     required this.onRenameDocument,
     required this.onDeleteDocument,
+    required this.onEditProduct,
+    required this.onShareProduct,
+    required this.onAddProduct,
     required this.onToggleSelectionMode,
     required this.onToggleGridView,
     required this.onSelectAll,
@@ -69,7 +91,7 @@ final class BusinessDocumentLibraryView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const isDark = true;
+    final isDocs = section == BusinessLibrarySection.documents;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
@@ -82,82 +104,85 @@ final class BusinessDocumentLibraryView extends StatelessWidget {
               colors: [Color(0xF20B1723), Color(0xF2142230)],
             ),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFF5D91B8).withValues(alpha: .45),
-            ),
+            border: Border.all(color: const Color(0x735D91B8)),
           ),
           child: Column(
             children: [
               BusinessLibraryHeader(
-                isDark: isDark,
+                isDark: true,
                 isChatPicker: isChatPicker,
+                isStore: !isDocs,
                 onCreateFolder: onCreateFolder,
                 onImport: onImport,
+                onAddProduct: onAddProduct,
                 onClose: onClose,
               ),
-              BusinessLibrarySearchBar(
-                query: query,
-                isDark: isDark,
-                onQuery: onQuery,
+              BusinessLibrarySectionTabs(
+                currentSection: section,
+                documentsCount: allDocumentsCount,
+                productsCount: products.length,
+                onSectionChanged: onSectionChanged,
               ),
-              BusinessLibraryCategoryFilters(
-                folders: folders,
-                selectedCategory: category,
-                allDocumentsCount: allDocumentsCount,
-                onCategory: onCategory,
-                onShowFolders: onShowAll,
-                onShowRecent: onShowRecent,
-              ),
-              if (busy)
-                const LinearProgressIndicator(
-                  minHeight: 2,
-                  color: Color(0xFF087BFF),
-                ),
+              if (isDocs) ...[
+                BusinessLibrarySearchBar(query: query, isDark: true, onQuery: onQuery),
+                BusinessLibraryCategoryFilters(folders: folders, selectedCategory: category, allDocumentsCount: allDocumentsCount, onCategory: onCategory, onShowFolders: onShowAll, onShowRecent: onShowRecent),
+              ],
+              if (busy) const LinearProgressIndicator(minHeight: 2, color: Color(0xFF087BFF)),
               Expanded(
                 child: loadError != null
                     ? BusinessLibraryLoadError(busy: busy, onRetry: onRetry)
-                    : BusinessLibraryContent(
-                        category: category,
-                        query: query,
-                        sortBy: sortBy,
-                        fileType: fileType,
-                        folders: folders,
-                        documents: documents,
-                        selectedPaths: selectedPaths,
-                        isSelectionMode: isSelectionMode,
-                        isGridView: isGridView,
-                        isChatPicker: isChatPicker,
-                        onCategory: onCategory,
-                        onSortChange: onSortChange,
-                        onFileTypeChange: onFileTypeChange,
-                        onRenameFolder: onRenameFolder,
-                        onDeleteFolder: onDeleteFolder,
-                        onSelectDocument: onSelectDocument,
-                        onOpen: onOpen,
-                        onShare: onShare,
-                        onRenameDocument: onRenameDocument,
-                        onDeleteDocument: onDeleteDocument,
-                        onToggleSelectionMode: onToggleSelectionMode,
-                        onToggleGridView: onToggleGridView,
-                        onShowAll: onShowAll,
-                      ),
+                    : (isDocs ? _docsContent() : _storeContent()),
               ),
-              BusinessLibraryBottomBar(
-                totalCount: allDocumentsCount,
-                totalSizeBytes: totalSizeBytes,
-                selectedCount: selectedPaths.length,
-                isSelectionMode: isSelectionMode,
-                isChatPicker: isChatPicker,
-                isDark: isDark,
-                canGenerate: canGenerate,
-                onSelectAll: onSelectAll,
-                onSendSelected: onSendSelected,
-                onGenerate: onGenerate,
-              ),
+              if (isDocs)
+                BusinessLibraryBottomBar(
+                  totalCount: allDocumentsCount,
+                  totalSizeBytes: totalSizeBytes,
+                  selectedCount: selectedPaths.length,
+                  isSelectionMode: isSelectionMode,
+                  isChatPicker: isChatPicker,
+                  isDark: true,
+                  canGenerate: canGenerate,
+                  onSelectAll: onSelectAll,
+                  onSendSelected: onSendSelected,
+                  onGenerate: onGenerate,
+                ),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _docsContent() => BusinessLibraryContent(
+        category: category,
+        query: query,
+        sortBy: sortBy,
+        fileType: fileType,
+        folders: folders,
+        documents: documents,
+        selectedPaths: selectedPaths,
+        isSelectionMode: isSelectionMode,
+        isGridView: isGridView,
+        isChatPicker: isChatPicker,
+        onCategory: onCategory,
+        onSortChange: onSortChange,
+        onFileTypeChange: onFileTypeChange,
+        onRenameFolder: onRenameFolder,
+        onDeleteFolder: onDeleteFolder,
+        onSelectDocument: onSelectDocument,
+        onOpen: onOpen,
+        onShare: onShare,
+        onRenameDocument: onRenameDocument,
+        onDeleteDocument: onDeleteDocument,
+        onToggleSelectionMode: onToggleSelectionMode,
+        onToggleGridView: onToggleGridView,
+        onShowAll: onShowAll,
+      );
+
+  Widget _storeContent() => BusinessStoreContent(
+        products: products,
+        onAddProduct: onAddProduct,
+        onEditProduct: onEditProduct,
+        onShareProduct: onShareProduct,
+      );
 }

@@ -119,6 +119,10 @@ class MainActivity : AudioServiceActivity() {
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Una apertura visible gana la carrera al consumidor headless antes de
+        // que Flutter inicialice la Activity. configureFlutterEngine lo repite
+        // como red de seguridad cuando los canales ya están disponibles.
+        dev.nanoai.mobile.automation.AutomationRuntimeService.onUiEngineAttached()
         super.onCreate(savedInstanceState)
         // WA-REG-01 — registramos la UI sin iniciar procesos nativos. El worker
         // se crea al primer uso de GGUF, terminal o Desktop; LiteRT no lo usa y

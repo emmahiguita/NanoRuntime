@@ -32,21 +32,26 @@ void _appendInboundMemory(
           false);
   if (duplicateEvent) return;
   final cleanText = _boundConversationText(message.text.trim());
+  final cleanSender = _boundConversationText(message.sender.trim());
   final duplicateText =
       eventId.isEmpty &&
       (store._byConversation[scopeId]?.any(
             (e) =>
                 e.kind == ConversationMemoryEntryKind.inbound &&
-                e.text == cleanText &&
-                (observedAt - e.atMs).abs() <= 1000,
+                e.text.trim().toLowerCase() == cleanText.toLowerCase() &&
+                (e.sender.trim().isEmpty ||
+                    cleanSender.isEmpty ||
+                    e.sender.trim().toLowerCase() ==
+                        cleanSender.toLowerCase()) &&
+                (observedAt - e.atMs).abs() <= 2000,
           ) ??
           false);
   if (duplicateText) return;
 
   final entry = ConversationMemoryEntry(
     kind: ConversationMemoryEntryKind.inbound,
-    text: _boundConversationText(message.text),
-    sender: _boundConversationText(message.sender),
+    text: cleanText,
+    sender: cleanSender,
     atMs: observedAt,
     eventId: eventId,
   );

@@ -118,7 +118,6 @@ class ChatNotifier extends StateNotifier<ChatState>
             activeModelPath: path,
             connection: connection,
           ),
-      onCheckEngine: (m, r) => _checkEngine(model: m, expectedRevision: r),
     );
     final restored = await _msgManager.restoreMessages(
       isMounted: () => mounted,

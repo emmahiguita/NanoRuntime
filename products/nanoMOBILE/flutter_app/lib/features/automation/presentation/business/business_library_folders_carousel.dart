@@ -10,8 +10,10 @@
 // POR QUÉ:
 // Soluciona el error 'BOTTOM OVERFLOWED' garantizando espacio suficiente en cualquier densidad de pantalla (< 140 líneas).
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../engine/business/business_document_library.dart';
+import 'business_library_folder_actions.dart';
 
 class BusinessLibraryFoldersCarousel extends StatelessWidget {
   final List<BusinessFolderInfo> folders;
@@ -34,7 +36,7 @@ class BusinessLibraryFoldersCarousel extends StatelessWidget {
     if (folders.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 88,
+      height: 96,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
@@ -44,11 +46,12 @@ class BusinessLibraryFoldersCarousel extends StatelessWidget {
           final folder = folders[index];
           final color = _folderColor(folder.name);
 
-          return InkWell(
-            onTap: () => onCategory(folder.name),
-            borderRadius: BorderRadius.circular(14),
+          return CupertinoButton(
+            onPressed: () => onCategory(folder.name),
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
             child: Container(
-              width: 92,
+              width: 98,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
               decoration: BoxDecoration(
                 color: const Color(0xB51A2A3B),
@@ -84,47 +87,11 @@ class BusinessLibraryFoldersCarousel extends StatelessWidget {
                           size: 22,
                         ),
                       ),
-                      SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: PopupMenuButton<String>(
-                          padding: EdgeInsets.zero,
-                          splashRadius: 12,
-                          iconSize: 15,
-                          constraints: const BoxConstraints(),
-                          icon: Icon(
-                            Icons.more_horiz_rounded,
-                            size: 15,
-                            color: isDark
-                                ? Colors.white54
-                                : const Color(0xFF94A3B8),
-                          ),
-                          color: isDark
-                              ? const Color(0xFF1E293B)
-                              : Colors.white,
-                          onSelected: (val) {
-                            if (val == 'open') onCategory(folder.name);
-                            if (val == 'rename') onRenameFolder(folder.name);
-                            if (val == 'delete') onDeleteFolder(folder.name);
-                          },
-                          itemBuilder: (ctx) => [
-                            const PopupMenuItem(
-                              value: 'open',
-                              child: Text('Abrir'),
-                            ),
-                            const PopupMenuItem(
-                              value: 'rename',
-                              child: Text('Renombrar'),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Text(
-                                'Eliminar',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
+                      BusinessLibraryFolderActions(
+                        folderName: folder.name,
+                        onOpen: onCategory,
+                        onRename: onRenameFolder,
+                        onDelete: onDeleteFolder,
                       ),
                     ],
                   ),
@@ -136,7 +103,7 @@ class BusinessLibraryFoldersCarousel extends StatelessWidget {
                         _capitalize(folder.name),
                         style: const TextStyle(
                           color: Color(0xFFE8F0F8),
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
                         maxLines: 1,
@@ -147,7 +114,7 @@ class BusinessLibraryFoldersCarousel extends StatelessWidget {
                         '${folder.itemCount} elementos',
                         style: const TextStyle(
                           color: Color(0xFF879DB3),
-                          fontSize: 8.5,
+                          fontSize: 9.5,
                         ),
                       ),
                     ],

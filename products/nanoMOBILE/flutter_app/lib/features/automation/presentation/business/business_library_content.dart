@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../engine/business/business_document_library.dart';
 import 'business_library_file_grid.dart';
@@ -112,7 +113,7 @@ class BusinessLibraryContent extends StatelessWidget {
 
   Widget _section(String text, VoidCallback action) => SliverToBoxAdapter(
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 12, 2),
+      padding: const EdgeInsets.fromLTRB(16, 7, 12, 3),
       child: Row(
         children: [
           Expanded(
@@ -120,20 +121,22 @@ class BusinessLibraryContent extends StatelessWidget {
               text,
               style: const TextStyle(
                 color: Color(0xFFDCE7F4),
-                fontSize: 12,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          TextButton(
+          CupertinoButton(
             onPressed: action,
-            style: TextButton.styleFrom(
-              minimumSize: const Size(0, 28),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-            ),
+            minimumSize: const Size.square(30),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: const Text(
               'Ver todos',
-              style: TextStyle(color: Color(0xFF40A9FF), fontSize: 10),
+              style: TextStyle(
+                color: Color(0xFF4DAEFF),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

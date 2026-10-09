@@ -13,8 +13,6 @@
 /// Cumple con Single Responsibility (SOLID) y la regla de archivos < 200 líneas.
 library;
 
-import 'package:flutter/foundation.dart' show debugPrint;
-
 import '../../engine/messaging/conversation_hub_providers.dart';
 import 'messaging_conversation_identity.dart';
 import 'messaging_summary_merger.dart';
@@ -25,10 +23,13 @@ abstract final class MessagingDedupMerger {
     'com.whatsapp',
     'com.whatsapp.w4b',
     'org.telegram.messenger',
+    'com.telegram.messenger',
     'org.telegram.plus',
     'com.instagram.android',
     'com.facebook.orca',
+    'com.facebook.mlite',
     'com.facebook.katana',
+    'com.facebook.lite',
     'com.slack',
     'com.google.android.gm',
     'com.twitter.android',
@@ -100,21 +101,12 @@ abstract final class MessagingDedupMerger {
   static List<ConversationSummaryItem> deduplicateAndSort(
     List<ConversationSummaryItem> input,
   ) {
-    debugPrint(
-      '[msgcenter:dedup] input=${input.length} '
-      'ids=${input.map((e) => '"${e.conversationId.substring(0, e.conversationId.length.clamp(0, 20))}"').join(',')}',
-    );
-
     final valid = input
         .where(
           (item) =>
               isSupportedMessagingApp(item.packageName) && !_isSpurious(item),
         )
         .toList();
-
-    debugPrint(
-      '[msgcenter:dedup] valid=${valid.length} filtered=${input.length - valid.length}',
-    );
 
     final parents = List<int>.generate(valid.length, (index) => index);
 
@@ -131,11 +123,6 @@ abstract final class MessagingDedupMerger {
       final firstRoot = rootOf(first);
       final secondRoot = rootOf(second);
       if (firstRoot != secondRoot) {
-        debugPrint(
-          '[msgcenter:dedup] merge '
-          '"${valid[first].displayName}"(${valid[first].conversationId.substring(0, valid[first].conversationId.length.clamp(0, 24))}) '
-          '+ "${valid[second].displayName}"(${valid[second].conversationId.substring(0, valid[second].conversationId.length.clamp(0, 24))})',
-        );
         parents[secondRoot] = firstRoot;
       }
     }
@@ -159,11 +146,6 @@ abstract final class MessagingDedupMerger {
 
     final result = grouped.values.toList(growable: false);
     result.sort((a, b) => b.lastAtMs.compareTo(a.lastAtMs));
-
-    debugPrint(
-      '[msgcenter:dedup] result=${result.length} '
-      'names=${result.map((e) => '"${e.displayName}"').join(',')}',
-    );
 
     return result;
   }

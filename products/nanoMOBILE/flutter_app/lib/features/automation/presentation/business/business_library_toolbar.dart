@@ -119,7 +119,7 @@ class BusinessLibraryToolbar extends StatelessWidget {
 
   Widget _viewButton(IconData icon, bool selected) => CupertinoButton(
     onPressed: selected ? null : onToggleGridView,
-    minSize: 32,
+    minimumSize: const Size.square(32),
     padding: EdgeInsets.zero,
     child: AnimatedContainer(
       duration: const Duration(milliseconds: 160),
@@ -140,7 +140,7 @@ class BusinessLibraryToolbar extends StatelessWidget {
   /// Activa selección explícitamente; las filas no esconden selección implícita.
   Widget _selectionButton() => CupertinoButton(
     onPressed: onToggleSelectionMode,
-    minSize: 36,
+    minimumSize: const Size.square(36),
     padding: EdgeInsets.zero,
     child: _labelSurface(
       isSelectionMode
@@ -152,41 +152,38 @@ class BusinessLibraryToolbar extends StatelessWidget {
   );
 
   /// Superficie común mantiene tipografía, alineación y altura coherentes.
-  Widget _labelSurface(
-    IconData icon,
-    String text, {
-    bool active = false,
-  }) => Container(
-    height: 36,
-    padding: const EdgeInsets.symmetric(horizontal: 9),
-    decoration: BoxDecoration(
-      color: active ? const Color(0x332C9CFF) : const Color(0x66101B28),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          icon,
-          size: 15,
-          color: active ? const Color(0xFF55B2FF) : const Color(0xFFA7B8CA),
+  Widget _labelSurface(IconData icon, String text, {bool active = false}) =>
+      Container(
+        height: 36,
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        decoration: BoxDecoration(
+          color: active ? const Color(0x332C9CFF) : const Color(0x66101B28),
+          borderRadius: BorderRadius.circular(10),
         ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: active
-                  ? const Color(0xFF72BEFF)
-                  : const Color(0xFFC2CEDA),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: active ? const Color(0xFF55B2FF) : const Color(0xFFA7B8CA),
             ),
-          ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: active
+                      ? const Color(0xFF72BEFF)
+                      : const Color(0xFFC2CEDA),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 }

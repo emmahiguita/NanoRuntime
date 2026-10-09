@@ -46,54 +46,78 @@ class SpotlightFlipAdCard extends StatefulWidget {
 class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _rotation;
-  Ticker? _turntableTicker;
+  Timer? _turntableTimer;
   Timer? _resumeTurntableTimer;
   static const double _perspective = 0.0012;
   static const double _friction = 0.135;
+  static const Duration _ambientInterval = Duration(seconds: 18);
   bool _opening = false;
+  bool _appResumed = true;
 
   @override
   void initState() {
     super.initState();
     _rotation = AnimationController.unbounded(vsync: this);
-    _startTurntable();
     WidgetsBinding.instance.addObserver(this);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncTurntable();
+  }
+
+  void _syncTurntable() {
+    final canAnimate =
+        _appResumed &&
+        TickerMode.of(context) &&
+        !MediaQuery.disableAnimationsOf(context);
+    if (canAnimate) {
+      _startTurntable();
+    } else {
+      _stopTurntable();
+    }
+  }
+
   void _startTurntable() {
-    _turntableTicker ??= createTicker((_) {
-      if (mounted) _rotation.value += 0.005;
+    if (_turntableTimer?.isActive ?? false) return;
+    // La malla 3D ocupa gran parte de la pantalla y cada frame es costoso.
+    // Una transición breve y espaciada conserva el carácter animado, pero
+    // permite que raster/GPU duerman entre movimientos.
+    _turntableTimer = Timer.periodic(_ambientInterval, (_) {
+      if (!mounted || _rotation.isAnimating) return;
+      _rotation.animateTo(
+        _rotation.value + math.pi,
+        duration: const Duration(milliseconds: 900),
+        curve: Curves.easeInOutCubic,
+      );
     });
-    if (!_turntableTicker!.isActive) _turntableTicker!.start();
   }
 
   void _stopTurntable() {
     _resumeTurntableTimer?.cancel();
-    if (_turntableTicker?.isActive ?? false) _turntableTicker!.stop();
+    _turntableTimer?.cancel();
+    _turntableTimer = null;
   }
 
   void _scheduleTurntableResume() {
     _resumeTurntableTimer?.cancel();
     _resumeTurntableTimer = Timer(const Duration(seconds: 4), () {
-      if (mounted) _startTurntable();
+      if (mounted) _syncTurntable();
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
-    if (s == AppLifecycleState.resumed) {
-      _startTurntable();
-    } else {
-      _stopTurntable();
-      if (_rotation.isAnimating) _rotation.stop();
-    }
+    _appResumed = s == AppLifecycleState.resumed;
+    if (mounted) _syncTurntable();
+    if (!_appResumed && _rotation.isAnimating) _rotation.stop();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _stopTurntable();
-    _turntableTicker?.dispose();
     _rotation.dispose();
     super.dispose();
   }
@@ -110,8 +134,9 @@ class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
   }
 
   void _onDragEnd(DragEndDetails details, double width) {
-    if (_opening || width <= 0 || MediaQuery.of(context).disableAnimations)
+    if (_opening || width <= 0 || MediaQuery.of(context).disableAnimations) {
       return;
+    }
     final vel = details.primaryVelocity ?? 0;
     final angVel = (vel / width) * math.pi * 2;
     if (angVel.abs() < 0.05) {

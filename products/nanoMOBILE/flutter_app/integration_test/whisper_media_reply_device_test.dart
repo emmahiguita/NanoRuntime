@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/main.dart' as app;
 import 'package:nanoai/core/services/whisper_stt_service.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
-import 'package:nanoai/features/automation/presentation/widgets/voice_note_transcriber.dart';
 import 'package:nanoai/features/automation/engine/conversation/conversation_media_enricher.dart';
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';

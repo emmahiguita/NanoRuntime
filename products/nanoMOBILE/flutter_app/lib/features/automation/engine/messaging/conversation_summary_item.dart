@@ -49,8 +49,12 @@ final class ConversationSummaryItem {
   String get appLabel => switch (packageName) {
     'com.whatsapp' => 'WhatsApp',
     'com.whatsapp.w4b' => 'WhatsApp Business',
-    'org.telegram.messenger' => 'Telegram',
+    'com.telegram.messenger' || 'org.telegram.messenger' => 'Telegram',
+    'org.telegram.plus' => 'Telegram',
     'com.instagram.android' => 'Instagram',
+    'com.facebook.orca' || 'com.facebook.mlite' => 'Messenger',
+    'com.facebook.katana' || 'com.facebook.lite' => 'Facebook',
+    'com.Slack' || 'com.slack' => 'Slack',
     _ => 'Mensajería',
   };
 }

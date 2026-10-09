@@ -1,3 +1,15 @@
+// business_document_library_dialog_view.part.dart
+//
+// QUÉ HACE:
+// Conexión visual del diálogo de biblioteca: enlaza el estado con `BusinessDocumentLibraryView`.
+//
+// CÓMO FUNCIONA:
+// - Pasa propiedades reactivas de archivos, carpetas, filtros y catálogo de productos a la vista.
+// - Conecta los callbacks de navegación, selección, tienda y acciones de documento.
+//
+// POR QUÉ:
+// Mantiene dividida la implementación del widget dialog en archivos menores a 140 líneas.
+
 part of 'business_document_library_dialog.dart';
 
 extension _BusinessDocumentLibraryDialogView
@@ -8,6 +20,8 @@ extension _BusinessDocumentLibraryDialogView
     folders: _folders,
     query: _query,
     documents: _visibleDocuments,
+    products: _facts.products,
+    section: _section,
     allDocumentsCount: _allDocuments.length,
     totalSizeBytes: _totalSize,
     selectedPaths: _selectedPaths,
@@ -18,7 +32,8 @@ extension _BusinessDocumentLibraryDialogView
     fileType: _fileType,
     loadError: _loadError,
     busy: _busy,
-    canGenerate: widget.facts.products.isNotEmpty,
+    canGenerate: _facts.products.isNotEmpty,
+    onSectionChanged: (sec) => setState(() => _section = sec),
     onCategory: (value) async {
       setState(() => _category = value);
       await _refresh();
@@ -78,6 +93,9 @@ extension _BusinessDocumentLibraryDialogView
       document: doc,
       onDeleted: _refresh,
     ),
+    onAddProduct: _addProduct,
+    onEditProduct: _editProduct,
+    onShareProduct: _shareProduct,
     onClose: () => Navigator.pop(context),
     onRetry: _refresh,
   );

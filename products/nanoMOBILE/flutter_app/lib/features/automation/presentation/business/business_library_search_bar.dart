@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 
 /// Búsqueda real por nombre y carpeta, con controlador sincronizado.
 class BusinessLibrarySearchBar extends StatefulWidget {
@@ -65,10 +64,7 @@ class _BusinessLibrarySearchBarState extends State<BusinessLibrarySearchBar> {
         color: Color(0xFF8095AB),
       ),
       style: const TextStyle(color: Color(0xFFE6EEF7), fontSize: 13),
-      placeholderStyle: const TextStyle(
-        color: Color(0xFF8095AB),
-        fontSize: 12,
-      ),
+      placeholderStyle: const TextStyle(color: Color(0xFF8095AB), fontSize: 12),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
     ),
   );

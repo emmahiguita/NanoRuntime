@@ -4,55 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../automation_visual_theme.dart';
 
 /// Bloque editorial tipográfico suelto (sin contenedor ni tarjeta) sobre modelos on-device en Nano AI.
-class NanoModelsEditorial extends StatefulWidget {
+class NanoModelsEditorial extends StatelessWidget {
   const NanoModelsEditorial({super.key});
-
-  @override
-  State<NanoModelsEditorial> createState() => _NanoModelsEditorialState();
-}
-
-class _NanoModelsEditorialState extends State<NanoModelsEditorial>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _animCtrl;
-  late final Animation<double> _pulseScale;
-  late final Animation<double> _pulseOpacity;
-
-  @override
-  void initState() {
-    super.initState();
-    _animCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    );
-    _pulseScale = Tween<double>(
-      begin: 0.90,
-      end: 1.15,
-    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut));
-    _pulseOpacity = Tween<double>(
-      begin: 0.65,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final canAnimate =
-        !MediaQuery.disableAnimationsOf(context) && TickerMode.of(context);
-    if (canAnimate && !_animCtrl.isAnimating) {
-      _animCtrl.repeat(reverse: true);
-    } else if (!canAnimate) {
-      _animCtrl
-        ..stop()
-        ..value = 0.5;
-    }
-  }
-
-  @override
-  void dispose() {
-    _animCtrl.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,25 +20,19 @@ class _NanoModelsEditorialState extends State<NanoModelsEditorial>
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ScaleTransition(
-                scale: _pulseScale,
-                child: FadeTransition(
-                  opacity: _pulseOpacity,
-                  child: Container(
-                    width: 7.0,
-                    height: 7.0,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: visual.accent,
-                      boxShadow: [
-                        BoxShadow(
-                          color: visual.accent.withValues(alpha: 0.40),
-                          blurRadius: 4,
-                          spreadRadius: 0.5,
-                        ),
-                      ],
+              Container(
+                width: 7.0,
+                height: 7.0,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: visual.accent,
+                  boxShadow: [
+                    BoxShadow(
+                      color: visual.accent.withValues(alpha: 0.32),
+                      blurRadius: 4,
+                      spreadRadius: 0.5,
                     ),
-                  ),
+                  ],
                 ),
               ),
               const SizedBox(width: 8),

@@ -17,7 +17,8 @@ import java.io.File
 class NanoModelRuntimeSupervisor(
     private val appContext: Context,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
-    private val idleTimeoutMs: Long = 5 * 60 * 1000L,
+    // 90 s cubre turnos consecutivos sin retener ~2 GB de GPU durante 5 min.
+    private val idleTimeoutMs: Long = 90_000L,
 ) {
     enum class State { UNLOADED, LOADING, READY, GENERATING, UNLOADING, FAILED }
     @Volatile private var owner: LiteRtEngineOwner? = null
@@ -149,15 +150,34 @@ class NanoModelRuntimeSupervisor(
     private fun scheduleWarmUnload() {
         cancelScheduledUnload()
         unloadJob = scope.launch {
-            delay(idleTimeoutMs)
-            LocalModelGate.mutex.withLock {
-                if (currentState == State.READY &&
-                    SystemClock.elapsedRealtime() - lastActivityAt >= idleTimeoutMs) {
-                    unloadJob = null
-                    closeLocked()
-                    LocalModelGate.releaseLocked("litert")
-                    Log.i("ModelSupervisor", "LiteRT liberado por inactividad")
+            while (true) {
+                // Reevalúa la presión térmica mientras está ocioso: si el
+                // dispositivo se calienta después del turno no espera los 5 min.
+                val timeoutMs = InferenceThermalGuard.warmIdleTimeoutMs(idleTimeoutMs)
+                val elapsedMs = SystemClock.elapsedRealtime() - lastActivityAt
+                val remainingMs = timeoutMs - elapsedMs
+                if (remainingMs > 0L) {
+                    delay(remainingMs.coerceAtMost(15_000L))
+                    continue
                 }
+
+                var released = false
+                LocalModelGate.mutex.withLock {
+                    val currentTimeoutMs =
+                        InferenceThermalGuard.warmIdleTimeoutMs(idleTimeoutMs)
+                    if (currentState == State.READY &&
+                        SystemClock.elapsedRealtime() - lastActivityAt >= currentTimeoutMs) {
+                        // Evita que closeLocked cancele el job que está cerrando.
+                        unloadJob = null
+                        closeLocked()
+                        LocalModelGate.releaseLocked("litert")
+                        released = true
+                    }
+                }
+                if (released) {
+                    Log.i("ModelSupervisor", "LiteRT liberado por inactividad térmica")
+                }
+                return@launch
             }
         }
     }

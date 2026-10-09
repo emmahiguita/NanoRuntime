@@ -2,7 +2,7 @@
 ///
 /// Extraído de app_providers.dart (SRP). Clases puras sin dependencia de
 /// Riverpod ni persistencia — solo datos e inmutabilidad.
-enum ModelConnectionState { ready, loadingModel, noModel, error }
+enum ModelConnectionState { ready, sleeping, loadingModel, noModel, error }
 
 enum MessageSender { user, ai }
 
@@ -36,6 +36,7 @@ class ChatAttachment {
   final String content;
   final ChatAttachmentKind kind;
   final int sizeBytes;
+
   /// Temporary app-private path retained only while MNN consumes the media.
   final String? mediaPath;
 

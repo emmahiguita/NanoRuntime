@@ -11,14 +11,15 @@ import java.util.Locale
 /** Convierte solo evidencia de conversación Android en filas locales de historial. */
 internal object NotificationHistoryExtractor {
     private val supportedPackages = setOf(
-        "com.whatsapp", "com.whatsapp.w4b", "org.telegram.messenger", "org.telegram.plus",
-        "com.instagram.android", "com.facebook.orca", "com.facebook.katana", "com.slack",
+        "com.whatsapp", "com.whatsapp.w4b", "org.telegram.messenger", "com.telegram.messenger",
+        "org.telegram.plus", "com.instagram.android", "com.facebook.orca", "com.facebook.mlite",
+        "com.facebook.katana", "com.facebook.lite", "com.slack",
         "com.google.android.gm", "com.twitter.android", "com.linkedin.android",
     )
 
     fun extract(source: StatusBarNotification): List<NotificationHistoryEvent> {
         val pkg = source.packageName
-        if (pkg !in supportedPackages) return emptyList()
+        if (pkg.lowercase(Locale.ROOT) !in supportedPackages) return emptyList()
         if (!WhatsAppConversationNotificationClassifier.allows(source)) return emptyList()
         val notification = source.notification
         if (notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return emptyList()

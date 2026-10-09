@@ -14,12 +14,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/runtime_engine.dart';
 
 final engineStatusProvider = FutureProvider<EngineStatus?>((ref) async {
-  final notifier = ref.watch(runtimeEngineProvider);
   final state = ref.watch(runtimeEngineProvider);
+  // Un motor idle no tiene servidor HTTP que consultar. El sondeo anterior
+  // hacía cinco intentos al puerto local en cada arranque del panel y añadía
+  // latencia/CPU aunque el modelo estuviera correctamente dormido.
+  if (!state.isLive) return state;
   try {
     final client = ref.read(runtimeEngineProvider.notifier).client;
-    final online = await client.isOnline();
-    final hasModel = await client.hasModel();
+    final online = await client.isOnline(
+      attempts: 1,
+      requestTimeout: const Duration(seconds: 2),
+    );
+    final hasModel = online && await client.hasModel();
     if (online && hasModel) {
       return EngineStatus(
         port: state.port,
@@ -30,5 +36,5 @@ final engineStatusProvider = FutureProvider<EngineStatus?>((ref) async {
   } catch (_) {
     // endpoint no responde → usar el estado del notifier (honesto).
   }
-  return notifier;
+  return state;
 });

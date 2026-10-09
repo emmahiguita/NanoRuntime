@@ -1,4 +1,6 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'business_library_bottom_actions.dart';
 
 /// Resumen y envío: concentra las acciones secundarias en un único menú.
 class BusinessLibraryBottomBar extends StatelessWidget {
@@ -77,61 +79,45 @@ class BusinessLibraryBottomBar extends StatelessWidget {
               ],
             ),
           ),
-          ElevatedButton.icon(
+          CupertinoButton(
             onPressed: selectedCount > 0 ? onSendSelected : null,
-            icon: const Icon(Icons.send_rounded, size: 15),
-            label: Text(
-              '${isChatPicker ? 'Enviar' : 'Compartir'} ($selectedCount)',
-            ),
-            style: ElevatedButton.styleFrom(
-              disabledBackgroundColor: const Color(
-                0xFF126EE4,
-              ).withValues(alpha: .48),
-              disabledForegroundColor: Colors.white70,
-              backgroundColor: const Color(0xFF087BFF),
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(horizontal: 13),
-              minimumSize: const Size(0, 34),
-              textStyle: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-              ),
-              shape: RoundedRectangleBorder(
+            minimumSize: const Size.square(34),
+            padding: EdgeInsets.zero,
+            child: Container(
+              height: 34,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: selectedCount > 0
+                    ? const Color(0xFF0A84FF)
+                    : const Color(0x7A126EE4),
                 borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    CupertinoIcons.paperplane_fill,
+                    size: 14,
+                    color: Color(0xE6FFFFFF),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${isChatPicker ? 'Enviar' : 'Compartir'} ($selectedCount)',
+                    style: const TextStyle(
+                      color: Color(0xE6FFFFFF),
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          const SizedBox(width: 5),
-          PopupMenuButton<String>(
-            color: const Color(0xFF172638),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            onSelected: (value) {
-              if (value == 'all') onSelectAll();
-              if (value == 'catalog') onGenerate();
-            },
-            itemBuilder: (_) => [
-              PopupMenuItem(
-                value: 'all',
-                child: Text(
-                  selectedCount == totalCount
-                      ? 'Deseleccionar todo'
-                      : 'Seleccionar todo',
-                ),
-              ),
-              if (canGenerate)
-                const PopupMenuItem(
-                  value: 'catalog',
-                  child: Text('Crear catálogo PDF'),
-                ),
-            ],
-            icon: const Icon(
-              Icons.more_horiz_rounded,
-              size: 18,
-              color: Color(0xFFA8B9CA),
-            ),
+          BusinessLibraryBottomActions(
+            allSelected: totalCount > 0 && selectedCount == totalCount,
+            canGenerate: canGenerate,
+            onSelectAll: onSelectAll,
+            onGenerate: onGenerate,
           ),
         ],
       ),

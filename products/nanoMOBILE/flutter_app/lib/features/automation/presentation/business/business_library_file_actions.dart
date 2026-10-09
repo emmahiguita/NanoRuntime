@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import '../../engine/business/business_document_library.dart';
 
 /// Acciones de una fila: primarias visibles y secundarias agrupadas sin solapar.
@@ -28,50 +27,14 @@ class BusinessLibraryFileActions extends StatelessWidget {
         color: const Color(0xFF168BFF),
       ),
       _icon(CupertinoIcons.share, 'Compartir', () => onShare(document)),
-      SizedBox(
-        width: 32,
-        height: 44,
-        child: PopupMenuButton<String>(
-          padding: EdgeInsets.zero,
-          tooltip: 'Más acciones',
-          icon: const Icon(
-            CupertinoIcons.ellipsis,
-            size: 18,
-            color: Color(0xFFA7B8C9),
-          ),
-          color: const Color(0xFF172638),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          onSelected: (value) {
-            if (value == 'rename') onRename(document);
-            if (value == 'delete') onDelete(document);
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: 'rename',
-              child: ListTile(
-                dense: true,
-                leading: Icon(CupertinoIcons.pencil, size: 18),
-                title: Text('Renombrar'),
-              ),
-            ),
-            PopupMenuItem(
-              value: 'delete',
-              child: ListTile(
-                dense: true,
-                leading: Icon(
-                  CupertinoIcons.trash,
-                  size: 18,
-                  color: Colors.redAccent,
-                ),
-                title: Text(
-                  'Eliminar',
-                  style: TextStyle(color: Colors.redAccent),
-                ),
-              ),
-            ),
-          ],
+      CupertinoButton(
+        onPressed: () => _showMore(context),
+        minimumSize: const Size.square(44),
+        padding: const EdgeInsets.symmetric(horizontal: 7),
+        child: const Icon(
+          CupertinoIcons.ellipsis,
+          size: 18,
+          color: Color(0xFFA7B8C9),
         ),
       ),
     ],
@@ -82,12 +45,41 @@ class BusinessLibraryFileActions extends StatelessWidget {
     String tooltip,
     VoidCallback tap, {
     Color color = const Color(0xFFA7B8C9),
-  }) => IconButton(
-    onPressed: tap,
-    tooltip: tooltip,
-    icon: Icon(icon, size: 17, color: color),
-    padding: EdgeInsets.zero,
-    visualDensity: VisualDensity.compact,
-    constraints: const BoxConstraints(minWidth: 32, minHeight: 44),
+  }) => Semantics(
+    label: tooltip,
+    button: true,
+    child: CupertinoButton(
+      onPressed: tap,
+      minimumSize: const Size.square(44),
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      child: Icon(icon, size: 17, color: color),
+    ),
   );
+
+  /// Renombrar y eliminar viven en una hoja iOS para no comprimir la fila.
+  Future<void> _showMore(BuildContext context) async {
+    final action = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: Text(document.name),
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(sheetContext, 'rename'),
+            child: const Text('Renombrar'),
+          ),
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.pop(sheetContext, 'delete'),
+            isDestructiveAction: true,
+            child: const Text('Eliminar'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(sheetContext),
+          child: const Text('Cancelar'),
+        ),
+      ),
+    );
+    if (action == 'rename') onRename(document);
+    if (action == 'delete') onDelete(document);
+  }
 }

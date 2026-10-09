@@ -66,8 +66,11 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
     );
     _api.setEngineStateListener(_onEngineStateEvent);
     WidgetsBinding.instance.addObserver(this);
-    _watchdog.start();
-    unawaited(refresh());
+    // El motor se restaura como selección, no como proceso caliente. Arrancar
+    // aquí el watchdog y consultar /health mantenía un timer de 2 s y cinco
+    // intentos HTTP incluso si el usuario todavía no había enviado un turno.
+    // start() activa el watchdog cuando un GGUF se necesita de verdad.
+    _watchdog.pause();
   }
 
   @override

@@ -1,5 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 
 enum BusinessLibraryMenuKind { sort, filter }
 
@@ -20,12 +19,10 @@ class BusinessLibraryToolbarMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final filtering = kind == BusinessLibraryMenuKind.filter;
     final active = filtering && value != 'all';
-    return PopupMenuButton<String>(
-      initialValue: value,
-      onSelected: onChanged,
-      color: const Color(0xFF172638),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      itemBuilder: (_) => filtering ? _filterItems : _sortItems,
+    return CupertinoButton(
+      onPressed: () => _showOptions(context),
+      minimumSize: const Size.square(36),
+      padding: EdgeInsets.zero,
       child: Container(
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 9),
@@ -41,14 +38,16 @@ class BusinessLibraryToolbarMenu extends StatelessWidget {
                   ? CupertinoIcons.slider_horizontal_3
                   : CupertinoIcons.arrow_up_arrow_down,
               size: 15,
-              color: active
-                  ? const Color(0xFF55B2FF)
-                  : const Color(0xFFA7B8CA),
+              color: active ? const Color(0xFF55B2FF) : const Color(0xFFA7B8CA),
             ),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
-                active ? 'Filtro activo' : filtering ? 'Filtrar' : 'Ordenar',
+                active
+                    ? 'Filtro activo'
+                    : filtering
+                    ? 'Filtrar'
+                    : 'Ordenar',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -72,17 +71,41 @@ class BusinessLibraryToolbarMenu extends StatelessWidget {
     );
   }
 
-  static const _sortItems = <PopupMenuEntry<String>>[
-    PopupMenuItem(value: 'date', child: Text('Más recientes')),
-    PopupMenuItem(value: 'name', child: Text('Nombre (A-Z)')),
-    PopupMenuItem(value: 'size', child: Text('Mayor tamaño')),
-  ];
+  /// Presenta opciones amplias y marca la selección actual sin menú Material.
+  Future<void> _showOptions(BuildContext context) async {
+    final filtering = kind == BusinessLibraryMenuKind.filter;
+    final options = filtering ? _filterOptions : _sortOptions;
+    final selected = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (sheetContext) => CupertinoActionSheet(
+        title: Text(filtering ? 'Filtrar por formato' : 'Ordenar archivos'),
+        actions: [
+          for (final option in options.entries)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(sheetContext, option.key),
+              isDefaultAction: value == option.key,
+              child: Text(option.value),
+            ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.pop(sheetContext),
+          child: const Text('Cancelar'),
+        ),
+      ),
+    );
+    if (selected != null && selected != value) onChanged(selected);
+  }
 
-  static const _filterItems = <PopupMenuEntry<String>>[
-    PopupMenuItem(value: 'all', child: Text('Todos los formatos')),
-    PopupMenuItem(value: 'pdf', child: Text('PDF')),
-    PopupMenuItem(value: 'sheet', child: Text('Hojas de cálculo')),
-    PopupMenuItem(value: 'image', child: Text('Imágenes')),
-    PopupMenuItem(value: 'video', child: Text('Videos')),
-  ];
+  static const _sortOptions = {
+    'date': 'Más recientes',
+    'name': 'Nombre (A-Z)',
+    'size': 'Mayor tamaño',
+  };
+  static const _filterOptions = {
+    'all': 'Todos los formatos',
+    'pdf': 'PDF',
+    'sheet': 'Hojas de cálculo',
+    'image': 'Imágenes',
+    'video': 'Videos',
+  };
 }

@@ -1,3 +1,16 @@
+// business_document_library_dialog_actions.part.dart
+//
+// QUÉ HACE:
+// Acciones operativas del diálogo de biblioteca: abrir, importar, compartir, generar PDF
+// y gestionar productos de la tienda integrada (crear, editar, compartir foto y ficha).
+//
+// CÓMO FUNCIONA:
+// - Persiste transaccionalmente las modificaciones de productos en SQLite vía `BusinessFactsStore`.
+// - Despacha la foto real y la ficha enriquecida hacia WhatsApp, Telegram o el chat de Nano.
+//
+// POR QUÉ:
+// Aplica el principio de responsabilidad única dividiendo la lógica de acciones en < 160 líneas.
+
 part of 'business_document_library_dialog.dart';
 
 extension _BusinessDocumentLibraryDialogActions
@@ -22,11 +35,11 @@ extension _BusinessDocumentLibraryDialogActions
   }
 
   Future<void> _saveCatalog() async {
-    if (widget.facts.products.isEmpty) return;
+    if (_facts.products.isEmpty) return;
     setState(() => _busy = true);
     try {
       final bytes = await CatalogPdfGenerator.generatePdfBytes(
-        facts: widget.facts,
+        facts: _facts,
         businessName: _business,
       );
       await _library.saveBytes(
@@ -88,6 +101,44 @@ extension _BusinessDocumentLibraryDialogActions
       return;
     }
     await BusinessDocumentActions.share(context: context, documents: targets);
+  }
+
+  Future<void> _addProduct() async {
+    final newProduct = await showDialog<BusinessProduct>(
+      context: context,
+      useRootNavigator: true,
+      builder: (_) => const ProductDialog(),
+    );
+    if (newProduct == null || !mounted) return;
+    final updatedList = [..._facts.products, newProduct];
+    final updatedFacts = _facts.copyWith(products: updatedList);
+    await _factsStore.save(updatedFacts);
+    setState(() => _facts = updatedFacts);
+    _msg('Producto agregado al catálogo');
+  }
+
+  Future<void> _editProduct(BusinessProduct product) async {
+    final updated = await showDialog<BusinessProduct>(
+      context: context,
+      useRootNavigator: true,
+      builder: (_) => ProductDialog(initial: product),
+    );
+    if (updated == null || !mounted) return;
+    final updatedList = [
+      for (final p in _facts.products)
+        if (p.id == updated.id) updated else p,
+    ];
+    final updatedFacts = _facts.copyWith(products: updatedList);
+    await _factsStore.save(updatedFacts);
+    setState(() => _facts = updatedFacts);
+    _msg('Producto actualizado');
+  }
+
+  Future<void> _shareProduct(BusinessProduct product) async {
+    await BusinessStoreProductActions.shareProduct(
+      context: context,
+      product: product,
+    );
   }
 
   void _msg(String text) => ScaffoldMessenger.of(context).showSnackBar(
