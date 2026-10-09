@@ -21,75 +21,28 @@ extension _ChatScreenMenu on _ChatScreenState {
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              color: isDark
-                  ? const Color(0xE6182130)
-                  : Colors.white.withValues(alpha: 0.95),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.12)
-                    : Colors.black.withValues(alpha: 0.08),
-                width: 0.8,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
-                  blurRadius: 20,
-                  offset: const Offset(0, 6),
-                ),
-              ],
+              color: isDark ? const Color(0xE6182130) : Colors.white.withValues(alpha: 0.95),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08), width: 0.8),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12), blurRadius: 20, offset: const Offset(0, 6))],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tirador ergonómico
-                Center(
-                  child: Container(
-                    width: 32,
-                    height: 3.5,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    decoration: BoxDecoration(
-                      color: colors.onSurface.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                // Encabezado compacto
+                Center(child: Container(width: 32, height: 3.5, margin: const EdgeInsets.only(bottom: 10), decoration: BoxDecoration(color: colors.onSurface.withValues(alpha: 0.22), borderRadius: BorderRadius.circular(2)))),
                 Row(
                   children: [
-                    Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: colors.primary.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(7),
-                      ),
-                      child: Icon(Icons.tune_rounded, size: 15, color: colors.primary),
-                    ),
+                    Container(width: 26, height: 26, decoration: BoxDecoration(color: colors.primary.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(7)), child: Icon(Icons.tune_rounded, size: 15, color: colors.primary)),
                     const SizedBox(width: 8),
-                    Text(
-                      'Gestión de Chat',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.2,
-                        color: colors.onSurface,
-                      ),
-                    ),
+                    Text('Gestión de Chat', style: TextStyle(fontFamily: 'Inter', fontSize: 13.5, fontWeight: FontWeight.w700, letterSpacing: -0.2, color: colors.onSurface)),
                   ],
                 ),
                 const SizedBox(height: 8),
-
-                // Grupo principal de acciones
                 Container(
                   decoration: BoxDecoration(
                     color: colors.surface.withValues(alpha: isDark ? 0.35 : 0.65),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: colors.outlineVariant.withValues(alpha: 0.20),
-                      width: 0.7,
-                    ),
+                    border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.20), width: 0.7),
                   ),
                   child: Column(
                     children: [
@@ -111,12 +64,10 @@ extension _ChatScreenMenu on _ChatScreenState {
                         label: 'Nueva conversación',
                         subtitle: 'Inicia un tema guardando el actual',
                         colors: colors,
-                        onTap: state.generating
-                            ? null
-                            : () {
-                                Navigator.pop(ctx);
-                                _startNewConversation(notifier);
-                              },
+                        onTap: state.generating ? null : () {
+                          Navigator.pop(ctx);
+                          _startNewConversation(notifier);
+                        },
                       ),
                       _divider(colors),
                       _buildCleanOptionTile(
@@ -133,18 +84,13 @@ extension _ChatScreenMenu on _ChatScreenState {
                     ],
                   ),
                 ),
-
-                // Grupo de utilidades activas con mensajes
                 if (state.messages.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
                     decoration: BoxDecoration(
                       color: colors.surface.withValues(alpha: isDark ? 0.35 : 0.65),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: colors.outlineVariant.withValues(alpha: 0.20),
-                        width: 0.7,
-                      ),
+                      border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.20), width: 0.7),
                     ),
                     child: Column(
                       children: [
@@ -187,15 +133,11 @@ extension _ChatScreenMenu on _ChatScreenState {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // Botón destructivo aislado
                   Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFFEF4444).withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: const Color(0xFFEF4444).withValues(alpha: 0.22),
-                        width: 0.8,
-                      ),
+                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.22), width: 0.8),
                     ),
                     child: _buildCleanOptionTile(
                       icon: Icons.delete_sweep_rounded,
@@ -204,12 +146,10 @@ extension _ChatScreenMenu on _ChatScreenState {
                       subtitle: 'Elimina los mensajes de la pantalla activa',
                       colors: colors,
                       isDestructive: true,
-                      onTap: state.generating
-                          ? null
-                          : () {
-                              Navigator.pop(ctx);
-                              _showClearDialog(notifier);
-                            },
+                      onTap: state.generating ? null : () {
+                        Navigator.pop(ctx);
+                        _showClearDialog(notifier);
+                      },
                     ),
                   ),
                 ],

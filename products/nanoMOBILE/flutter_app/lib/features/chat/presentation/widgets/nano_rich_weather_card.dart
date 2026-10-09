@@ -25,27 +25,20 @@ class NanoRichWeatherCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 125,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      width: 105,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFF132A42),
-            Color(0xFF091422),
-          ],
-        ),
+        borderRadius: BorderRadius.circular(14),
+        color: const Color(0xFF10253D).withValues(alpha: 0.50),
         border: Border.all(
-          color: const Color(0xFF58B4FF).withValues(alpha: 0.25),
-          width: 0.9,
+          color: const Color(0xFF58B4FF).withValues(alpha: 0.20),
+          width: 0.8,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.20),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -53,16 +46,16 @@ class NanoRichWeatherCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Nube y Lluvia 3D con halo
+          // Nube y Lluvia con halo
           Center(
             child: Container(
-              width: 48,
-              height: 48,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    const Color(0xFF38BDF8).withValues(alpha: 0.25),
+                    const Color(0xFF38BDF8).withValues(alpha: 0.20),
                     Colors.transparent,
                   ],
                 ),
@@ -70,15 +63,15 @@ class NanoRichWeatherCard extends StatelessWidget {
               child: const Stack(
                 alignment: Alignment.center,
                 children: [
-                  Icon(Icons.cloud_rounded, size: 28, color: Color(0xFF93C5FD)),
+                  Icon(Icons.cloud_rounded, size: 22, color: Color(0xFF93C5FD)),
                   Positioned(
-                    bottom: 6,
+                    bottom: 4,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.water_drop_rounded, size: 8, color: Color(0xFF38BDF8)),
-                        SizedBox(width: 2),
-                        Icon(Icons.water_drop_rounded, size: 8, color: Color(0xFF38BDF8)),
+                        Icon(Icons.water_drop_rounded, size: 6.5, color: Color(0xFF38BDF8)),
+                        SizedBox(width: 1.5),
+                        Icon(Icons.water_drop_rounded, size: 6.5, color: Color(0xFF38BDF8)),
                       ],
                     ),
                   ),
@@ -86,7 +79,7 @@ class NanoRichWeatherCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 3),
 
           // Temperatura principal
           Center(
@@ -94,26 +87,26 @@ class NanoRichWeatherCard extends StatelessWidget {
               temperature,
               style: const TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 20,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFFF0F6FC),
-                letterSpacing: -0.5,
+                letterSpacing: -0.4,
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
 
           // Condición
           Row(
             children: [
-              const Icon(Icons.water_drop_outlined, size: 10, color: Color(0xFF38BDF8)),
-              const SizedBox(width: 3),
+              const Icon(Icons.water_drop_outlined, size: 9, color: Color(0xFF38BDF8)),
+              const SizedBox(width: 2),
               Expanded(
                 child: Text(
                   condition,
                   style: const TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 9.5,
+                    fontSize: 8.5,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFFB0C4DE),
                   ),
@@ -123,19 +116,19 @@ class NanoRichWeatherCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 1),
 
           // Humedad
           Row(
             children: [
-              const Icon(Icons.opacity_rounded, size: 10, color: Color(0xFF38BDF8)),
-              const SizedBox(width: 3),
+              const Icon(Icons.opacity_rounded, size: 9, color: Color(0xFF38BDF8)),
+              const SizedBox(width: 2),
               Expanded(
                 child: Text(
                   humidity,
                   style: const TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 9,
+                    fontSize: 8.5,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF8FA8C4),
                   ),

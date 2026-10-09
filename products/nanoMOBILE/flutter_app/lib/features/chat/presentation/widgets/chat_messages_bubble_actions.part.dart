@@ -12,20 +12,20 @@ extension _MessageBubbleAssistantActions on MessageBubble {
     return Icons.navigate_next_rounded;
   }
 
-  // QUÉ HACE: renderiza las opciones de sugerencia rápida estilo 3D Glass Capsules.
+  // QUÉ HACE: renderiza las opciones de sugerencia rápida estilo iOS Translucent Glass Capsules.
   Widget _buildAssistantSuggestions(
     BuildContext context,
     NanoColors colors,
     bool isDark,
   ) {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 6,
+      runSpacing: 6,
       children: suggestions.map((sug) {
         final icon = _iconForSuggestion(sug);
 
         return ClipRRect(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Material(
@@ -35,45 +35,45 @@ extension _MessageBubbleAssistantActions on MessageBubble {
                   HapticFeedback.lightImpact();
                   onSuggestionSelected?.call(sug);
                 },
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(14),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF153A4F).withValues(alpha: 0.72),
-                    borderRadius: BorderRadius.circular(18),
+                    color: const Color(0xFF143048).withValues(alpha: 0.40),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFF2ABCFF).withValues(alpha: 0.28),
-                      width: 1.0,
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.22),
+                      width: 0.75,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00A0FF).withValues(alpha: 0.12),
-                        blurRadius: 12,
-                        offset: const Offset(0, 3),
+                        color: const Color(0xFF00A0FF).withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(icon, size: 15, color: const Color(0xFF58D2FE)),
-                      const SizedBox(width: 7),
+                      Icon(icon, size: 13, color: const Color(0xFF58D2FE)),
+                      const SizedBox(width: 5),
                       Flexible(
                         child: Text(
                           sug,
                           style: const TextStyle(
                             color: Color(0xFFF0F6FC),
                             fontFamily: 'Inter',
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.1,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       const Icon(
                         Icons.arrow_forward_ios_rounded,
-                        size: 11,
+                        size: 9.5,
                         color: Color(0xFF58D2FE),
                       ),
                     ],
@@ -115,7 +115,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
               );
           },
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         _QuickActionButton(
           icon: Icons.thumb_up_alt_outlined,
           tooltip: 'Me gusta',
@@ -123,7 +123,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
             HapticFeedback.lightImpact();
           },
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         _QuickActionButton(
           icon: Icons.thumb_down_alt_outlined,
           tooltip: 'No me gusta',
@@ -131,7 +131,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
             HapticFeedback.lightImpact();
           },
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         MessageActions(
           text: text,
           model: displayModel,
@@ -155,13 +155,13 @@ extension _MessageBubbleAssistantActions on MessageBubble {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.refresh_rounded, size: 14, color: Color(0xFF42D7FF)),
+                    Icon(Icons.refresh_rounded, size: 13, color: Color(0xFF42D7FF)),
                     SizedBox(width: 4),
                     Text(
                       'Reintentar',
                       style: TextStyle(
                         color: Color(0xFF42D7FF),
-                        fontSize: 11.5,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

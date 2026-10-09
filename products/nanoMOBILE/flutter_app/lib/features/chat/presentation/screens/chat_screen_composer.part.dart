@@ -1,6 +1,6 @@
 part of 'chat_screen.dart';
 
-/// Barra de redacción 3D Floating Glass Dock de alta fidelidad.
+/// Barra de redacción compacta estilo iOS Translucent Glass Dock.
 extension _ChatScreenComposer on _ChatScreenState {
   Widget _buildComposerBar(
     BuildContext context,
@@ -17,82 +17,77 @@ extension _ChatScreenComposer on _ChatScreenState {
         // Tira de archivos adjuntos
         if (state.attachments.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
             child: _AttachmentPillsStrip(
               attachments: state.attachments,
               onRemove: notifier.removeAttachment,
             ),
           ),
 
-        // 3D Floating Glass Dock
+        // iOS Translucent Glass Dock
         SafeArea(
           top: false,
           child: Padding(
             padding: EdgeInsets.fromLTRB(
-              compact ? 12 : 16,
-              2,
-              compact ? 12 : 16,
-              compact ? 8 : 14,
+              compact ? 8 : 12,
+              1,
+              compact ? 8 : 12,
+              compact ? 6 : 8,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(26),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
+                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                 child: Container(
-                  height: compact ? 54 : 60,
+                  height: compact ? 44 : 48,
                   padding: EdgeInsets.symmetric(
-                    horizontal: compact ? 6 : 8,
-                    vertical: compact ? 4 : 5,
+                    horizontal: compact ? 4 : 6,
+                    vertical: compact ? 3 : 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0B1626).withValues(alpha: 0.82),
-                    borderRadius: BorderRadius.circular(30),
+                    color: const Color(0xFF0F1E2E).withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(26),
                     border: Border.all(
-                      color: const Color(0xFF7DB7FF).withValues(alpha: 0.16),
-                      width: 1.0,
+                      color: Colors.white.withValues(alpha: 0.16),
+                      width: 0.8,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.38),
-                        blurRadius: 36,
-                        offset: const Offset(0, 14),
-                      ),
-                      BoxShadow(
-                        color: const Color(0xFF0099FF).withValues(alpha: 0.08),
-                        blurRadius: 16,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // 1. Botón (+) Circular 3D Glass
+                      // 1. Botón (+) Circular iOS Glass
                       Material(
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(999),
                           onTap: state.generating ? null : _attachFile,
                           child: Container(
-                            width: compact ? 36 : 40,
-                            height: compact ? 36 : 40,
+                            width: compact ? 30 : 34,
+                            height: compact ? 30 : 34,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.06),
+                              color: Colors.white.withValues(alpha: 0.08),
                               border: Border.all(
-                                color: const Color(0xFF6EBEFF).withValues(alpha: 0.18),
-                                width: 0.8,
+                                color: Colors.white.withValues(alpha: 0.15),
+                                width: 0.7,
                               ),
                             ),
                             child: const Icon(
                               Icons.add_rounded,
                               color: Color(0xFFC2D9ED),
-                              size: 20,
+                              size: 18,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
 
                       // 2. Campo de texto limpio
                       Expanded(
@@ -103,7 +98,7 @@ extension _ChatScreenComposer on _ChatScreenState {
                           maxLines: 1,
                           style: const TextStyle(
                             fontFamily: 'Inter',
-                            fontSize: 15,
+                            fontSize: 14,
                             color: Color(0xFFF4F8FC),
                             letterSpacing: -0.1,
                           ),
@@ -112,7 +107,7 @@ extension _ChatScreenComposer on _ChatScreenState {
                             hintText: 'Escribe un mensaje...',
                             hintStyle: TextStyle(
                               fontFamily: 'Inter',
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.w400,
                               color: Color(0xFF7F91A5),
                             ),
@@ -125,7 +120,7 @@ extension _ChatScreenComposer on _ChatScreenState {
                             errorBorder: InputBorder.none,
                             focusedErrorBorder: InputBorder.none,
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                           ),
                           textInputAction: TextInputAction.send,
                           onSubmitted: (text) {
@@ -137,13 +132,13 @@ extension _ChatScreenComposer on _ChatScreenState {
                           },
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 2),
 
                       // 3. Botón Micrófono
                       _buildComposerMicButton(compact: compact, colors: colors),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
 
-                      // 4. Botón 3D Luminous Send Button
+                      // 4. Botón Send Compacto
                       _buildComposerSendButton(
                         isGenerating: state.generating,
                         hasText: hasText,

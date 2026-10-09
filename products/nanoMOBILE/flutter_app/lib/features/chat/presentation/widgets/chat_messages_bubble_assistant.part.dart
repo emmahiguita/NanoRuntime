@@ -9,7 +9,7 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
     final isWeather = NanoRichWeatherCard.hasWeatherData(text);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20, right: 12),
+      padding: const EdgeInsets.only(bottom: 12, right: 8, left: 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -17,44 +17,44 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Icono Avatar de Cristal Poliédrico 3D
+              // 1. Icono Avatar de Cristal Poliédrico 3D Compacto
               Padding(
                 padding: const EdgeInsets.only(top: 2),
                 child: Nano3dCrystalIcon(
-                  size: 32,
+                  size: 28,
                   isGlowing: !isError,
                   primaryColor: isError ? colors.error : const Color(0xFF4DD7FF),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
 
-              // 2. Tarjeta Flotante 3D Frosted Glass de la Respuesta
+              // 2. Tarjeta Flotante iOS Frosted Acrylic Glass de la Respuesta
               Expanded(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(18),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: Container(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                      padding: const EdgeInsets.fromLTRB(13, 9, 13, 9),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Color(0xBA132A42), // Frosted Dark Blue
-                            Color(0xD9091725), // Deep Charcoal Blue
+                            Color(0x73112236), // Frosted Translucent Dark Glass
+                            Color(0x8C091624), // Deep Translucent Acrylic
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: const Color(0xFF87C8FF).withValues(alpha: 0.16),
-                          width: 1.0,
+                          color: Colors.white.withValues(alpha: 0.13),
+                          width: 0.8,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.28),
-                            blurRadius: 28,
-                            offset: const Offset(0, 8),
+                            color: Colors.black.withValues(alpha: 0.20),
+                            blurRadius: 18,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
@@ -62,7 +62,7 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Encabezado interno con timestamp y estado
+                          // Encabezado interno con timestamp
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
@@ -70,14 +70,14 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
                                 time,
                                 style: const TextStyle(
                                   fontFamily: 'Inter',
-                                  fontSize: 10.5,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF75889B),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 1),
 
                           // Cuerpo de la respuesta (Markdown) + Tarjeta Rica si aplica
                           if (isWeather)
@@ -87,16 +87,16 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
                                 Expanded(
                                   child: _buildAiBody(context, text),
                                 ),
-                                const SizedBox(width: 10),
+                                const SizedBox(width: 8),
                                 const NanoRichWeatherCard(),
                               ],
                             )
                           else
                             _buildAiBody(context, text),
 
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 8),
 
-                          // Barra de acciones (Copiar, Thumbs, etc.)
+                          // Barra de acciones compacta (Copiar, Thumbs, etc.)
                           _buildAssistantActions(context, colors, isDark, time, displayModel),
                         ],
                       ),
@@ -109,9 +109,9 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
 
           // 3. Chips de Sugerencia Inteligente debajo de la tarjeta
           if (suggestions.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             Padding(
-              padding: const EdgeInsets.only(left: 42),
+              padding: const EdgeInsets.only(left: 36),
               child: _buildAssistantSuggestions(context, colors, isDark),
             ),
           ],

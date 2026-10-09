@@ -108,15 +108,15 @@ extension _ChatScreenLayout on _ChatScreenState {
                                   child: _messageList(
                                     state,
                                     notifier,
-                                    bottomPadding: 16.0,
-                                    emptyBottomPadding: 24,
-                                    sidePadding: isCompactLandscape ? 10.0 : 16.0,
+                                    bottomPadding: 8.0,
+                                    emptyBottomPadding: 16,
+                                    sidePadding: isCompactLandscape ? 8.0 : 10.0,
                                   ),
                                 ),
                               ),
                             ),
 
-                            // 3D Floating Glass Dock de Composición
+                            // iOS Floating Glass Dock de Composición
                             _buildComposerBar(context, state, notifier, colors),
                           ],
                         ),

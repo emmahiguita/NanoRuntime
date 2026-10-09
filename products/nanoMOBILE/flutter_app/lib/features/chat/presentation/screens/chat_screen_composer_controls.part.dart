@@ -14,8 +14,8 @@ extension _ChatScreenComposerControls on _ChatScreenState {
           borderRadius: BorderRadius.circular(999),
           onTap: _toggleMic,
           child: Container(
-            width: compact ? 36 : 40,
-            height: compact ? 36 : 40,
+            width: compact ? 30 : 34,
+            height: compact ? 30 : 34,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: _listening
@@ -25,7 +25,7 @@ extension _ChatScreenComposerControls on _ChatScreenState {
             child: Icon(
               _listening ? Icons.stop_circle_rounded : Icons.mic_none_rounded,
               color: _listening ? const Color(0xFFEF4444) : const Color(0xFFA3B8CC),
-              size: compact ? 20 : 22,
+              size: compact ? 17 : 19,
             ),
           ),
         ),
@@ -42,7 +42,7 @@ extension _ChatScreenComposerControls on _ChatScreenState {
     required VoidCallback onStop,
     required void Function(String text) onSend,
   }) {
-    final size = compact ? 38.0 : 44.0;
+    final size = compact ? 30.0 : 34.0;
 
     if (isGenerating) {
       return Semantics(
@@ -57,7 +57,7 @@ extension _ChatScreenComposerControls on _ChatScreenState {
             child: SizedBox(
               width: size,
               height: size,
-              child: const Icon(Icons.stop_rounded, color: Colors.white, size: 22),
+              child: const Icon(Icons.stop_rounded, color: Colors.white, size: 18),
             ),
           ),
         ),
@@ -86,8 +86,8 @@ extension _ChatScreenComposerControls on _ChatScreenState {
           boxShadow: [
             if (hasText)
               BoxShadow(
-                color: const Color(0xFF0099FF).withValues(alpha: 0.40),
-                blurRadius: 16,
+                color: const Color(0xFF0099FF).withValues(alpha: 0.35),
+                blurRadius: 12,
                 offset: const Offset(0, 2),
               ),
           ],
@@ -110,7 +110,7 @@ extension _ChatScreenComposerControls on _ChatScreenState {
               child: Icon(
                 Icons.send_rounded,
                 color: hasText ? Colors.white : const Color(0xFF5E758C),
-                size: compact ? 18 : 20,
+                size: compact ? 15 : 17,
               ),
             ),
           ),
