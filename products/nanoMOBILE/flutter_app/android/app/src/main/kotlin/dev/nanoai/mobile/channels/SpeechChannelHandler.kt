@@ -9,10 +9,12 @@ import android.speech.RecognitionService
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.media.AudioAttributes
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.Voice
 import android.util.Log
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -173,13 +175,54 @@ class SpeechChannelHandler(
         tryInit(0)
     }
 
-    private fun speakNow(engine: TextToSpeech, text: String, result: MethodChannel.Result) {
-        // Voz propia de Nano: identidad vocal consistente. Tono ligeramente
-        // más agudo que la voz genérica del sistema + ritmo natural + español
-        // (es-ES) SIEMPRE (sin heurística de acentos que mezclaba locales).
-        engine.setPitch(1.1f)
+    private fun configureNaturalVoice(engine: TextToSpeech) {
+        try {
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANT)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            engine.setAudioAttributes(audioAttributes)
+        } catch (e: Throwable) {
+            Log.w(TAG, "No se pudo configurar AudioAttributes para TTS: $e")
+        }
+
+        // Tono y velocidad naturales (1.0 = frecuencia y prosodia humana natural, sin distorsión robótica)
+        engine.setPitch(1.0f)
         engine.setSpeechRate(1.0f)
-        engine.language = Locale("es", "ES")
+
+        try {
+            val targetLocale = Locale("es", "ES")
+            val voices = engine.voices ?: emptySet()
+            // Filtra voces en español válidas e instaladas
+            val spanishVoices = voices.filter { voice ->
+                voice.locale.language.equals("es", ignoreCase = true) &&
+                !voice.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+            }
+
+            if (spanishVoices.isNotEmpty()) {
+                // Prioriza voces de máxima calidad (Neural / Wavenet / Very High Quality)
+                val bestVoice = spanishVoices.maxWithOrNull(
+                    compareBy<Voice> { it.quality }
+                        .thenBy { it.locale.country.equals("ES", ignoreCase = true) }
+                        .thenBy { !it.isNetworkConnectionRequired }
+                )
+                if (bestVoice != null) {
+                    engine.voice = bestVoice
+                    engine.language = bestVoice.locale
+                    Log.d(TAG, "TTS: Seleccionada voz natural de alta calidad '${bestVoice.name}' (calidad=${bestVoice.quality})")
+                    return
+                }
+            }
+            engine.language = targetLocale
+        } catch (e: Throwable) {
+            Log.w(TAG, "Fallback a configuración estándar de idioma: $e")
+            engine.language = Locale("es", "ES")
+        }
+    }
+
+    private fun speakNow(engine: TextToSpeech, text: String, result: MethodChannel.Result) {
+        // Aplica configuración acústica natural y selección de voz de alta fidelidad
+        configureNaturalVoice(engine)
         // Android rechaza entradas mayores que getMaxSpeechInputLength(). Una
         // lista real de notificaciones puede superar ese límite, por lo que se
         // divide en frases y se encola manteniendo el orden. El primer bloque
