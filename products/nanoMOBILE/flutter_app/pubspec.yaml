@@ -79,3 +79,5 @@ flutter:
     - family: JetBrainsMono
       fonts:
         - asset: assets/fonts/JetBrainsMono-Regular.ttf
+  shaders:
+    - shaders/product_depth_parallax.frag
