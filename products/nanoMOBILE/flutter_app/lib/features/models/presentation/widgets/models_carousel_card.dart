@@ -38,41 +38,29 @@ class ModelsCarouselCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Fila 1: Logo, Título elástico (sin desborde), Badge de Nivel e Icono de Memoria
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // El color pertenece al icono; textos y contorno siguen neutros.
-                  ModelBrandLogo(name: model.title, size: 26),
-                  const SizedBox(width: 8),
+                  ModelBrandLogo(name: model.title, size: 28),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            // CORRECCIÓN BUG OVERFLOW: Flexible previene que títulos largos rompan el ancho
-                            Flexible(
-                              child: Text(
-                                model.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontSize: 13.0,
-                                  fontWeight: FontWeight.w700,
-                                  color: colors.onSurface,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 5),
-                            // Badge compacto de nivel (Predeterminado o Avanzado)
-                            _TierBadge(
-                              isDefault: model.isDefault,
-                              colors: colors,
-                            ),
-                          ],
+                        Text(
+                          model.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 14,
+                            height: 1.12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.15,
+                            color: colors.onSurface,
+                          ),
                         ),
-                        const SizedBox(height: 1),
+                        const SizedBox(height: 3),
                         Text(
                           '${model.params} • ${model.quantization} • ${model.downloadSize}',
                           style: TextStyle(
@@ -86,25 +74,21 @@ class ModelsCarouselCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Icons.memory_rounded,
-                    size: 16,
-                    color: colors.onSurfaceVariant,
-                  ),
                 ],
               ),
               const SizedBox(height: 6),
-              // Descripción de arquitectura y memoria de referencia
-              Text(
-                '${model.description} • ${model.memoryReference}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 10.5,
-                  color: colors.onSurface.withValues(alpha: 0.85),
-                ),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _TierBadge(isDefault: model.isDefault, colors: colors),
+                  _MetaLabel(
+                    icon: Icons.memory_rounded,
+                    label: model.memoryReference,
+                    colors: colors,
+                  ),
+                ],
               ),
               const Spacer(),
               // Fila inferior: Evidencia de hardware en el dispositivo
@@ -137,6 +121,42 @@ class ModelsCarouselCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MetaLabel extends StatelessWidget {
+  const _MetaLabel({
+    required this.icon,
+    required this.label,
+    required this.colors,
+  });
+
+  final IconData icon;
+  final String label;
+  final NanoColors colors;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: 240),
+    child: Row(
+      children: [
+        Icon(icon, size: 13, color: colors.onSurfaceVariant),
+        const SizedBox(width: 3),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 /// QUÉ HACE: Chip visual para indicar si el modelo es interactivo predeterminado o avanzado.

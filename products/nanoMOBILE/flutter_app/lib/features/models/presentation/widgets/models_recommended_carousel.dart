@@ -67,12 +67,17 @@ class _ModelsRecommendedCarouselState extends State<ModelsRecommendedCarousel> {
     final items = ModelsRecommendedCarousel.featuredModels;
     if (items.isEmpty) return const SizedBox.shrink();
 
+    // El alto acompaña Dynamic Type. Una caja fija de 142 px provocaba el
+    // RenderFlex amarillo en móviles estrechos y con texto ampliado.
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final cardHeight = (150 + ((textScale - 1).clamp(0, 1) * 94)).toDouble();
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 142,
+          height: cardHeight,
           child: NotificationListener<UserScrollNotification>(
             onNotification: (_) {
               _startAutoScroll();

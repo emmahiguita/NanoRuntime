@@ -30,50 +30,83 @@ class IosPermissionBanner extends StatelessWidget {
           width: 0.8,
         ),
       ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.sd_storage_rounded,
-            size: 22,
-            color: Color(0xFF6366F1),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Acceso a Tarjeta SD / Almacenamiento',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: colors.onSurface,
-                  ),
-                ),
-                Text(
-                  'Detecta y ejecuta modelos .gguf sin copiarlos a la memoria interna.',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 10.5,
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          IosActionButton(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact =
+              constraints.maxWidth < 350 ||
+              MediaQuery.textScalerOf(context).scale(1) > 1.2;
+          final message = _PermissionMessage(colors: colors);
+          final action = IosActionButton(
             label: 'Permitir',
             icon: Icons.check_circle_outline_rounded,
             color: const Color(0xFF6366F1),
             filled: true,
             onTap: onRequestAccess,
-          ),
-        ],
+          );
+
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                message,
+                const SizedBox(height: 10),
+                Align(alignment: Alignment.centerRight, child: action),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              Expanded(child: message),
+              const SizedBox(width: 12),
+              action,
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+class _PermissionMessage extends StatelessWidget {
+  const _PermissionMessage({required this.colors});
+
+  final NanoColors colors;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Icon(Icons.sd_storage_rounded, size: 22, color: Color(0xFF6366F1)),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Acceso al almacenamiento',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: colors.onSurface,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Detecta modelos GGUF en la tarjeta SD sin copiarlos al teléfono.',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                height: 1.25,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
 }
 
 /// Estado vacío profesional cuando no hay modelos coincidentes
