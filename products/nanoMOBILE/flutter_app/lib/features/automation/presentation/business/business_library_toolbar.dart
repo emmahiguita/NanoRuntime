@@ -1,6 +1,8 @@
+// Barra de herramientas iOS adaptable: nunca fuerza todas las acciones en una fila.
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'business_library_toolbar_menu.dart';
 
-/// Barra única para vista, selección, orden y formato de archivo.
 class BusinessLibraryToolbar extends StatelessWidget {
   final bool isDark, isGridView, isSelectionMode;
   final String sortBy, fileType;
@@ -20,138 +22,170 @@ class BusinessLibraryToolbar extends StatelessWidget {
     required this.onFileTypeChange,
   });
 
+  /// En móvil apila selección y filtros; en ancho grande conserva una fila.
   @override
-  Widget build(BuildContext context) => Container(
-    height: 42,
-    margin: const EdgeInsets.fromLTRB(16, 5, 16, 4),
-    padding: const EdgeInsets.all(4),
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxWidth < 430;
+      return Container(
+        margin: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          color: const Color(0xB2162535),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0x16FFFFFF)),
+        ),
+        child: compact ? _compactLayout() : _wideLayout(),
+      );
+    },
+  );
+
+  /// Dos filas dejan áreas táctiles completas sin abreviar etiquetas.
+  Widget _compactLayout() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Row(
+        children: [
+          _viewControls(),
+          const SizedBox(width: 8),
+          Expanded(child: _selectionButton()),
+        ],
+      ),
+      const SizedBox(height: 5),
+      Row(
+        children: [
+          Expanded(
+            child: BusinessLibraryToolbarMenu(
+              kind: BusinessLibraryMenuKind.sort,
+              value: sortBy,
+              onChanged: onSortChange,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: BusinessLibraryToolbarMenu(
+              kind: BusinessLibraryMenuKind.filter,
+              value: fileType,
+              onChanged: onFileTypeChange,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+
+  /// Una sola fila se reserva para tablets y orientación horizontal holgada.
+  Widget _wideLayout() => Row(
+    children: [
+      _viewControls(),
+      const SizedBox(width: 8),
+      Flexible(child: _selectionButton()),
+      const Spacer(),
+      SizedBox(
+        width: 92,
+        child: BusinessLibraryToolbarMenu(
+          kind: BusinessLibraryMenuKind.sort,
+          value: sortBy,
+          onChanged: onSortChange,
+        ),
+      ),
+      const SizedBox(width: 6),
+      SizedBox(
+        width: 86,
+        child: BusinessLibraryToolbarMenu(
+          kind: BusinessLibraryMenuKind.filter,
+          value: fileType,
+          onChanged: onFileTypeChange,
+        ),
+      ),
+    ],
+  );
+
+  /// Selector visual lista/cuadrícula con apariencia de segmented control.
+  Widget _viewControls() => Container(
+    padding: const EdgeInsets.all(2),
     decoration: BoxDecoration(
-      color: const Color(0x99162535),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.white.withValues(alpha: .08)),
+      color: const Color(0x80101B28),
+      borderRadius: BorderRadius.circular(10),
     ),
     child: Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _viewButton(Icons.view_list_rounded, !isGridView),
-        _viewButton(Icons.grid_view_rounded, isGridView),
-        const VerticalDivider(
-          width: 14,
-          indent: 4,
-          endIndent: 4,
-          color: Color(0x334D6379),
-        ),
-        _action(
-          isSelectionMode
-              ? Icons.check_box_rounded
-              : Icons.check_box_outline_blank_rounded,
-          isSelectionMode ? 'Cancelar' : 'Seleccionar',
-          onToggleSelectionMode,
-          active: isSelectionMode,
-        ),
-        const Spacer(),
-        PopupMenuButton<String>(
-          initialValue: sortBy,
-          onSelected: onSortChange,
-          color: const Color(0xFF172638),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'date', child: Text('Más recientes')),
-            PopupMenuItem(value: 'name', child: Text('Nombre (A-Z)')),
-            PopupMenuItem(value: 'size', child: Text('Mayor tamaño')),
-          ],
-          child: _label(Icons.swap_vert_rounded, 'Ordenar', false),
-        ),
-        const SizedBox(width: 3),
-        PopupMenuButton<String>(
-          initialValue: fileType,
-          onSelected: onFileTypeChange,
-          color: const Color(0xFF172638),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'all', child: Text('Todos los formatos')),
-            PopupMenuItem(value: 'pdf', child: Text('PDF')),
-            PopupMenuItem(value: 'sheet', child: Text('Hojas de cálculo')),
-            PopupMenuItem(value: 'image', child: Text('Imágenes')),
-            PopupMenuItem(value: 'video', child: Text('Videos')),
-          ],
-          child: _label(
-            Icons.filter_alt_outlined,
-            'Filtrar',
-            fileType != 'all',
-          ),
-        ),
+        _viewButton(CupertinoIcons.list_bullet, !isGridView),
+        _viewButton(CupertinoIcons.square_grid_2x2, isGridView),
       ],
     ),
   );
 
-  Widget _viewButton(IconData icon, bool selected) => InkWell(
-    onTap: selected ? null : onToggleGridView,
-    borderRadius: BorderRadius.circular(8),
-    child: Container(
+  Widget _viewButton(IconData icon, bool selected) => CupertinoButton(
+    onPressed: selected ? null : onToggleGridView,
+    minSize: 32,
+    padding: EdgeInsets.zero,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
       width: 34,
       height: 32,
       decoration: BoxDecoration(
-        color: selected ? const Color(0xFF087BFF) : Colors.transparent,
+        color: selected ? const Color(0xFF168BFF) : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
-        boxShadow: selected
-            ? [
-                BoxShadow(
-                  color: const Color(0xFF087BFF).withValues(alpha: .28),
-                  blurRadius: 8,
-                ),
-              ]
-            : null,
       ),
       child: Icon(
         icon,
-        size: 17,
+        size: 16,
         color: selected ? Colors.white : const Color(0xFF8FA5BB),
       ),
     ),
   );
 
-  Widget _action(
-    IconData icon,
-    String text,
-    VoidCallback tap, {
-    bool active = false,
-  }) => InkWell(
-    onTap: tap,
-    borderRadius: BorderRadius.circular(8),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: _label(icon, text, active),
+  /// Activa selección explícitamente; las filas no esconden selección implícita.
+  Widget _selectionButton() => CupertinoButton(
+    onPressed: onToggleSelectionMode,
+    minSize: 36,
+    padding: EdgeInsets.zero,
+    child: _labelSurface(
+      isSelectionMode
+          ? CupertinoIcons.check_mark_circled_solid
+          : CupertinoIcons.check_mark_circled,
+      isSelectionMode ? 'Cancelar selección' : 'Seleccionar archivos',
+      active: isSelectionMode,
     ),
   );
 
-  Widget _label(IconData icon, String text, bool active) => SizedBox(
-    height: 32,
+  /// Superficie común mantiene tipografía, alineación y altura coherentes.
+  Widget _labelSurface(
+    IconData icon,
+    String text, {
+    bool active = false,
+  }) => Container(
+    height: 36,
+    padding: const EdgeInsets.symmetric(horizontal: 9),
+    decoration: BoxDecoration(
+      color: active ? const Color(0x332C9CFF) : const Color(0x66101B28),
+      borderRadius: BorderRadius.circular(10),
+    ),
     child: Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
           icon,
           size: 15,
-          color: active ? const Color(0xFF40A9FF) : const Color(0xFFA7B8CA),
+          color: active ? const Color(0xFF55B2FF) : const Color(0xFFA7B8CA),
         ),
-        const SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(
-            color: active ? const Color(0xFF65B8FF) : const Color(0xFFB9C6D5),
-            fontSize: 10,
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: active
+                  ? const Color(0xFF72BEFF)
+                  : const Color(0xFFC2CEDA),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-        if (text == 'Ordenar' || text == 'Filtrar')
-          const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 14,
-            color: Color(0xFF7E94AA),
-          ),
       ],
     ),
   );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../engine/business/business_document_library.dart';
+import 'business_library_file_actions.dart';
 import 'business_library_file_thumbnail.dart';
 
 /// Lista compacta iOS: datos a la izquierda y acciones reales sin submenús duplicados.
@@ -33,7 +34,7 @@ class BusinessLibraryFileList extends StatelessWidget {
         final doc = documents[index];
         final selected = selectedPaths.contains(doc.file.path);
         return Container(
-          height: 64,
+          constraints: const BoxConstraints(minHeight: 76),
           margin: const EdgeInsets.only(bottom: 6),
           decoration: BoxDecoration(
             color: selected ? const Color(0x45317EDC) : const Color(0xA0162535),
@@ -52,7 +53,7 @@ class BusinessLibraryFileList extends StatelessWidget {
                   : () => onOpen(doc),
               borderRadius: BorderRadius.circular(12),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
                 child: Row(
                   children: [
                     if (isSelectionMode) ...[
@@ -69,10 +70,10 @@ class BusinessLibraryFileList extends StatelessWidget {
                       const SizedBox(width: 4),
                     ],
                     BusinessLibraryFileThumbnail(document: doc),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 9),
                     Expanded(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -81,56 +82,43 @@ class BusinessLibraryFileList extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Color(0xFFE5EDF6),
-                              fontSize: 11.5,
+                              fontSize: 12.5,
+                              height: 1.15,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 3),
                           Text(
                             '${_title(doc.category)}  •  ${_formatSize(doc.sizeBytes)}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Color(0xFF8BA0B5),
-                              fontSize: 9,
+                              fontSize: 10,
+                              height: 1.15,
                             ),
                           ),
                           Text(
                             _formatDate(doc.modifiedAt),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Color(0xFF748A9F),
-                              fontSize: 8.5,
+                              fontSize: 9,
+                              height: 1.15,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    _icon(
-                      Icons.menu_book_outlined,
-                      'Abrir',
-                      () => onOpen(doc),
-                      color: const Color(0xFF168BFF),
-                    ),
-                    _icon(
-                      Icons.share_outlined,
-                      'Compartir',
-                      () => onShare(doc),
-                    ),
-                    _icon(
-                      Icons.edit_outlined,
-                      'Renombrar',
-                      () => onRenameDocument(doc),
-                    ),
-                    _icon(
-                      Icons.delete_outline_rounded,
-                      'Eliminar',
-                      () => onDeleteDocument(doc),
-                    ),
-                    _icon(
-                      Icons.more_vert_rounded,
-                      'Seleccionar',
-                      () => onSelectDocument(doc),
-                    ),
+                    if (!isSelectionMode)
+                      BusinessLibraryFileActions(
+                        document: doc,
+                        onOpen: onOpen,
+                        onShare: onShare,
+                        onRename: onRenameDocument,
+                        onDelete: onDeleteDocument,
+                      ),
                   ],
                 ),
               ),
@@ -139,20 +127,6 @@ class BusinessLibraryFileList extends StatelessWidget {
         );
       },
     ),
-  );
-
-  Widget _icon(
-    IconData icon,
-    String tooltip,
-    VoidCallback tap, {
-    Color color = const Color(0xFFA7B8C9),
-  }) => IconButton(
-    onPressed: tap,
-    tooltip: tooltip,
-    icon: Icon(icon, size: 16, color: color),
-    padding: EdgeInsets.zero,
-    visualDensity: VisualDensity.compact,
-    constraints: const BoxConstraints(minWidth: 27, minHeight: 36),
   );
 
   String _title(String value) =>
