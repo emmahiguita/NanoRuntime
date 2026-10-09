@@ -35,6 +35,7 @@ class QuickAutomationActions extends StatelessWidget {
     this.onRulesTap,
     this.onBusinessTap,
     this.onPersonalAgentTap,
+    this.onMcpTap,
     this.onAiWebTap,
     this.onBrowserTap,
     this.onChatTap,
@@ -53,15 +54,9 @@ class QuickAutomationActions extends StatelessWidget {
   final bool isW4bActive;
   final String modeLabel;
 
-  final VoidCallback? onMessagesTap;
-  final VoidCallback? onSettingsTap;
-  final VoidCallback? onRulesTap;
-  final ValueChanged<BuildContext>? onBusinessTap;
-  final ValueChanged<BuildContext>? onPersonalAgentTap;
-  final VoidCallback? onAiWebTap;
-  final VoidCallback? onBrowserTap;
-  final VoidCallback? onChatTap;
-  final VoidCallback? onTerminalTap;
+  final VoidCallback? onMessagesTap, onSettingsTap, onRulesTap, onMcpTap;
+  final ValueChanged<BuildContext>? onBusinessTap, onPersonalAgentTap;
+  final VoidCallback? onAiWebTap, onBrowserTap, onChatTap, onTerminalTap;
 
   static const _actions = [
     ('Abrir Bluetooth', 'abrir Bluetooth', NanoGlyphType.bluetooth),
@@ -103,6 +98,7 @@ class QuickAutomationActions extends StatelessWidget {
           activeRulesCount: activeRulesCount,
           onRulesTap: onRulesTap ?? () {},
           onSystemTap: onSettingsTap ?? () {},
+          onMcpTap: onMcpTap,
         ),
         const SizedBox(height: 16),
         AutomationSuggestionCarousel(

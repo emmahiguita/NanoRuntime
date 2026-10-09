@@ -166,6 +166,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         onBusinessTap: widget.onBusinessTap,
         onRulesTap: widget.onRulesTap,
         onSettingsTap: widget.onSettingsTap,
+        onMcpTap: () => context.push('/automation/skills-mcp'),
         onAiWebTap: () => AiWebSessionsSheet.show(context),
         onBrowserTap: () => context.push('/browser'),
         onChatTap: () => context.push('/chat'),

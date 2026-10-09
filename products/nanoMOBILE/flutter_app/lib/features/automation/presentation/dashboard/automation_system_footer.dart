@@ -10,6 +10,7 @@ class AutomationSystemFooter extends StatelessWidget {
   final int activeRulesCount;
   final VoidCallback onRulesTap;
   final VoidCallback onSystemTap;
+  final VoidCallback? onMcpTap;
 
   const AutomationSystemFooter({
     super.key,
@@ -17,6 +18,7 @@ class AutomationSystemFooter extends StatelessWidget {
     required this.activeRulesCount,
     required this.onRulesTap,
     required this.onSystemTap,
+    this.onMcpTap,
   });
 
   @override
@@ -28,6 +30,17 @@ class AutomationSystemFooter extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (onMcpTap != null) ...[
+          _SystemGlassRow(
+            icon: Icons.hub_rounded,
+            iconColor: const Color(0xFF8B5CF6),
+            title: 'MCP, Skills y Claves API',
+            subtitle: 'OpenAI, Claude, Gemini, DeepSeek y servidores MCP',
+            trailingLabel: 'Configurar',
+            onTap: onMcpTap!,
+          ),
+          const SizedBox(height: 10),
+        ],
         _SystemGlassRow(
           icon: Icons.auto_mode_rounded,
           iconColor: visual.accent,
@@ -41,7 +54,7 @@ class AutomationSystemFooter extends StatelessWidget {
           icon: Icons.tune_rounded,
           iconColor: visual.textMuted,
           title: 'Sistema y Herramientas',
-          subtitle: 'Modelos IA, MCP, permisos y bots personalizados',
+          subtitle: 'Modelos locales, permisos y opciones del sistema',
           onTap: onSystemTap,
         ),
       ],

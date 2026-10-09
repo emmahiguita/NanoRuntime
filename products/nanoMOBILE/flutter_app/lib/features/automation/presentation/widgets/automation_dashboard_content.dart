@@ -45,6 +45,7 @@ class AutomationDashboardContent extends StatelessWidget {
     this.onBusinessTap,
     this.onRulesTap,
     this.onSettingsTap,
+    this.onMcpTap,
     this.onAiWebTap,
     this.onBrowserTap,
     this.onChatTap,
@@ -72,6 +73,7 @@ class AutomationDashboardContent extends StatelessWidget {
   final ValueChanged<BuildContext>? onBusinessTap;
   final VoidCallback? onRulesTap;
   final VoidCallback? onSettingsTap;
+  final VoidCallback? onMcpTap;
   final VoidCallback? onAiWebTap;
   final VoidCallback? onBrowserTap;
   final VoidCallback? onChatTap;
@@ -118,6 +120,7 @@ class AutomationDashboardContent extends StatelessWidget {
                 onBusinessTap: onBusinessTap,
                 onRulesTap: onRulesTap,
                 onSettingsTap: onSettingsTap,
+                onMcpTap: onMcpTap,
                 onAiWebTap: onAiWebTap,
                 onBrowserTap: onBrowserTap,
                 onChatTap: onChatTap,
