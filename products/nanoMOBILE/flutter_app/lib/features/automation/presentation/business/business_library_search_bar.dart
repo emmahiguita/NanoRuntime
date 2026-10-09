@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 /// Búsqueda real por nombre y carpeta, con controlador sincronizado.
@@ -42,43 +43,33 @@ class _BusinessLibrarySearchBarState extends State<BusinessLibrarySearchBar> {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 3, 16, 2),
-    child: Container(
-      height: 42,
-      decoration: BoxDecoration(
-        color: const Color(0x70101B2A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF6B829B).withValues(alpha: .55),
-        ),
+    padding: const EdgeInsets.fromLTRB(16, 4, 16, 3),
+    child: CupertinoSearchTextField(
+      controller: _controller,
+      onChanged: widget.onQuery,
+      onSuffixTap: () {
+        _controller.clear();
+        widget.onQuery('');
+      },
+      placeholder: 'Buscar documentos',
+      backgroundColor: const Color(0x70101B2A),
+      borderRadius: BorderRadius.circular(12),
+      prefixIcon: const Icon(
+        CupertinoIcons.search,
+        size: 18,
+        color: Color(0xFFA9BDD2),
       ),
-      child: TextField(
-        controller: _controller,
-        onChanged: widget.onQuery,
-        style: const TextStyle(color: Color(0xFFE6EEF7), fontSize: 12),
-        decoration: InputDecoration(
-          hintText: 'Buscar documentos',
-          hintStyle: const TextStyle(color: Color(0xFF8095AB), fontSize: 11),
-          prefixIcon: const Icon(
-            Icons.search_rounded,
-            size: 18,
-            color: Color(0xFFA9BDD2),
-          ),
-          suffixIcon: widget.query.isEmpty
-              ? null
-              : IconButton(
-                  onPressed: () {
-                    _controller.clear();
-                    widget.onQuery('');
-                  },
-                  icon: const Icon(Icons.close_rounded, size: 16),
-                  color: const Color(0xFF8FA5BB),
-                ),
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 11),
-          isDense: true,
-        ),
+      suffixIcon: const Icon(
+        CupertinoIcons.xmark_circle_fill,
+        size: 17,
+        color: Color(0xFF8095AB),
       ),
+      style: const TextStyle(color: Color(0xFFE6EEF7), fontSize: 13),
+      placeholderStyle: const TextStyle(
+        color: Color(0xFF8095AB),
+        fontSize: 12,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
     ),
   );
 }
