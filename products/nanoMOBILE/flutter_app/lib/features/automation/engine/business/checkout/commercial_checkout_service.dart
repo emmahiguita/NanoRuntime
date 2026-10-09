@@ -1,35 +1,32 @@
 // commercial_checkout_service.dart
 //
 // QUÉ HACE:
-// Servicio para generación de resúmenes de pedidos, instrucciones de pago
-// y enlaces dinámicos de cobro (Checkout).
+// Servicio para creación de órdenes de compra y resúmenes de checkout agnósticos al canal.
 //
 // CÓMO FUNCIONA:
-// - Toma los ítems del carrito y las políticas de pago de BusinessFacts.
-// - Genera un código de referencia único (`ORD-XXXXX`).
-// - Produce el mensaje formateado de cobro para enviar por chat al cliente.
+// - Transforma el carrito activo en un `CommercialOrder` inmutable.
+// - Produce un resumen de texto universal (`customerSummary`) sin acoplamiento a WhatsApp u otra app.
+// - Transiciona el estado comercial a `paymentPending` sin realizar envíos directos.
 //
 // POR QUÉ:
-// Formaliza la transición del carrito al pago pendiente en la máquina de estados.
+// Separa estrictamente la creación del checkout (dominio) del despacho por mensajería (adaptadores).
 
 library;
 
 import '../business_facts.dart';
-import '../state/commercial_cart_item.dart';
 import '../state/commercial_conversation_state.dart';
 import '../state/commercial_funnel_stage.dart';
+import 'commercial_order.dart';
 
-final class CheckoutOrderResult {
-  final String orderReference;
-  final double totalAmount;
-  final String checkoutMessage;
-  final CommercialConversationState updatedState;
+final class CommercialCheckoutResult {
+  final CommercialOrder order;
+  final String customerSummary;
+  final CommercialConversationState nextState;
 
-  const CheckoutOrderResult({
-    required this.orderReference,
-    required this.totalAmount,
-    required this.checkoutMessage,
-    required this.updatedState,
+  const CommercialCheckoutResult({
+    required this.order,
+    required this.customerSummary,
+    required this.nextState,
   });
 }
 
@@ -38,41 +35,51 @@ class CommercialCheckoutService {
 
   const CommercialCheckoutService(this.facts);
 
-  /// Genera la orden y el mensaje de checkout con instrucciones de pago.
-  CheckoutOrderResult createCheckout({
+  /// Genera la orden y el resumen de checkout agnóstico al canal.
+  CommercialCheckoutResult createCheckout({
     required CommercialConversationState state,
     String? deliveryAddress,
   }) {
     final orderRef = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
     final total = state.cartTotal;
-    final buffer = StringBuffer('🛒 *Resumen de tu Pedido* ($orderRef)\n\n');
 
+    final order = CommercialOrder(
+      id: 'ord_${DateTime.now().millisecondsSinceEpoch}',
+      orderReference: orderRef,
+      conversationId: state.conversationId,
+      items: List.from(state.cart),
+      totalAmount: total,
+      deliveryAddress: deliveryAddress,
+      status: OrderStatus.pendingPayment,
+      createdAt: DateTime.now(),
+    );
+
+    final buffer = StringBuffer('Resumen del Pedido ($orderRef)\n\n');
     for (final item in state.cart) {
       buffer.writeln('• ${item.quantity}x ${item.productName} - \$${item.subtotal.toStringAsFixed(0)}');
     }
-    buffer.writeln('\n*Total a Pagar:* \$${total.toStringAsFixed(0)}');
+    buffer.writeln('\nTotal a Pagar: \$${total.toStringAsFixed(0)}');
 
     if (deliveryAddress != null && deliveryAddress.trim().isNotEmpty) {
-      buffer.writeln('📍 *Dirección de Entrega:* $deliveryAddress');
+      buffer.writeln('Dirección de Entrega: $deliveryAddress');
     }
 
     if (facts.payments.isNotEmpty) {
-      buffer.writeln('\n💳 *Medios de Pago Disponibles:*\n${facts.payments}');
+      buffer.writeln('\nMétodos de Pago Disponibles:\n${facts.payments}');
     }
 
-    buffer.writeln('\n_Por favor realiza el pago e indícanos el comprobante por este medio para despachar tu orden._');
+    buffer.writeln('\nPor favor comparte el comprobante una vez realizado el pago para confirmar tu orden.');
 
-    final updated = state.copyWith(
+    final updatedState = state.copyWith(
       stage: CommercialFunnelStage.paymentPending,
       pendingSlot: null,
       lastInteraction: DateTime.now(),
     );
 
-    return CheckoutOrderResult(
-      orderReference: orderRef,
-      totalAmount: total,
-      checkoutMessage: buffer.toString().trim(),
-      updatedState: updated,
+    return CommercialCheckoutResult(
+      order: order,
+      customerSummary: buffer.toString().trim(),
+      nextState: updatedState,
     );
   }
 }

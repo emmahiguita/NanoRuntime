@@ -1,23 +1,30 @@
 // business_runtime_production_test.dart
 //
 // QUÉ HACE:
-// Suite de pruebas unitarias y de regresión para las 5 capas de producción de Nano Negocio.
+// Suite de pruebas unitarias y de regresión para las capas de producción de Nano Negocio.
 //
 // CÓMO FUNCIONA:
-// - Valida idempotencia (Durable Inbox).
 // - Valida Truth Boundary (BusinessResponseValidator).
 // - Valida defensa contra Prompt Injection.
-// - Valida aislamiento de propuestas PDF vs BusinessFacts oficiales.
 // - Valida escalamiento humano ante reclamos de pago.
+// - Valida aislamiento de propuestas PDF vs BusinessFacts oficiales.
+// - Valida desacoplamiento agnóstico de canal en Checkout y NanoIncomingMessage.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nanoai/features/automation/domain/messaging_platform.dart';
 import 'package:nanoai/features/automation/engine/business/actions/commercial_structured_action.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts.dart';
+import 'package:nanoai/features/automation/engine/business/checkout/commercial_checkout_service.dart';
 import 'package:nanoai/features/automation/engine/business/policy/commercial_action_policy_engine.dart';
 import 'package:nanoai/features/automation/engine/business/policy/commercial_policy_tier.dart';
 import 'package:nanoai/features/automation/engine/business/proposals/pdf_product_extractor.dart';
+import 'package:nanoai/features/automation/engine/business/state/commercial_cart_item.dart';
+import 'package:nanoai/features/automation/engine/business/state/commercial_conversation_state.dart';
+import 'package:nanoai/features/automation/engine/business/state/commercial_funnel_stage.dart';
 import 'package:nanoai/features/automation/engine/business/validation/business_response_validator.dart';
 import 'package:nanoai/features/automation/engine/business/validation/business_validation_result.dart';
+import 'package:nanoai/features/automation/engine/messaging/core/messaging_capabilities.dart';
+import 'package:nanoai/features/automation/engine/messaging/core/nano_incoming_message.dart';
 
 void main() {
   group('Nano Business Runtime - Production Verification', () {
@@ -41,7 +48,6 @@ void main() {
     test('1. Truth Boundary: Validador bloquea alucinación de precios y responde datos reales', () {
       const validator = BusinessResponseValidator(sampleFacts);
 
-      // Consulta de producto existente
       const validAction = PriceQueryAction(productId: 'prod_cafe_01');
       final result = validator.validate(validAction);
 
@@ -50,7 +56,6 @@ void main() {
       expect(accepted.formattedReply, contains('\$45.000'));
       expect(accepted.verifiedProduct?.name, equals('Café Especial Geisha'));
 
-      // Consulta de producto inexistente (alucinación)
       const hallucinatedAction = PriceQueryAction(productId: 'prod_fantasma_99');
       final rejectedResult = validator.validate(hallucinatedAction);
 
@@ -94,9 +99,51 @@ Molino Manual Cerámico Pro \$120.000
       expect(proposals.length, equals(2));
       expect(proposals[0].suggestedName, contains('Café Borbón Rosado'));
       expect(proposals[0].suggestedPrice, equals(55000));
-
-      // Verificar que sampleFacts permanece inmutable con solo 1 producto
       expect(sampleFacts.products.length, equals(1));
+    });
+
+    test('5. Channel Agnostic Checkout: Crea orden y resumen sin acoplamiento a WhatsApp', () {
+      const checkoutService = CommercialCheckoutService(sampleFacts);
+      final state = CommercialConversationState(
+        conversationId: 'conv_123',
+        cart: const [
+          CommercialCartItem(
+            productId: 'prod_cafe_01',
+            productName: 'Café Especial Geisha',
+            unitPrice: 45000,
+            quantity: 2,
+          ),
+        ],
+        lastInteraction: DateTime.now(),
+      );
+
+      final checkout = checkoutService.createCheckout(
+        state: state,
+        deliveryAddress: 'Calle 10 # 45-20, Medellín',
+      );
+
+      expect(checkout.order.totalAmount, equals(90000));
+      expect(checkout.order.orderReference, startsWith('ORD-'));
+      expect(checkout.nextState.stage, equals(CommercialFunnelStage.paymentPending));
+      expect(checkout.customerSummary, contains('Resumen del Pedido'));
+      expect(checkout.customerSummary, contains('Total a Pagar: \$90000'));
+    });
+
+    test('6. Messaging Core: NanoIncomingMessage estandariza cualquier canal y consulta capacidades', () {
+      final message = NanoIncomingMessage(
+        id: 'msg_001',
+        platform: MessagingPlatform.whatsapp,
+        accountId: 'personal',
+        conversationId: 'conv_wa_456',
+        senderId: '+573001234567',
+        text: '¿Cuánto cuesta el café?',
+        timestamp: DateTime.now(),
+      );
+
+      expect(message.platform, equals(MessagingPlatform.whatsapp));
+      expect(message.accountId, equals('personal'));
+      expect(MessagingCapabilities.androidNotification.canSendImages, isFalse);
+      expect(MessagingCapabilities.androidNotification.canReply, isTrue);
     });
   });
 }

@@ -1,19 +1,19 @@
 // nano_business_runtime.dart
 //
 // QUÉ HACE:
-// Orquestador maestro del runtime comercial de Nano Negocio.
+// Orquestador maestro agnóstico del runtime comercial de Nano Negocio.
 // Conecta en un solo flujo determinista y seguro las 5 capas de producción:
-// Inbox Durable → Estado de Conversación → Validador de Verdad → Motor de Políticas → Outbox Durable.
+// NanoIncomingMessage → Inbox Durable → Estado → Validador de Verdad → Motor de Políticas → NanoOutgoingMessage.
 //
 // CÓMO FUNCIONA:
 // - Desecha mensajes duplicados de forma idempotente con DurableInboxStore.
 // - Carga el estado del embudo comercial (CommercialConversationStateStore).
 // - Detecta y bloquea intentos de prompt injection.
 // - Parsea la acción estructurada y la valida contra BusinessFacts (Truth Boundary).
-// - Encola la respuesta verificada en DurableOutboxQueue y actualiza el estado del embudo.
+// - Emite un NanoOutgoingMessage agnóstico y encola en DurableOutboxQueue.
 //
 // POR QUÉ:
-// Convierte a Nano Negocio en un sistema defendible en producción con cero alucinaciones.
+// Aplica la regla <channel_agnostic_messaging>: el runtime opera sobre modelos universales.
 
 library;
 
@@ -29,6 +29,8 @@ import '../state/commercial_conversation_state_store.dart';
 import '../state/commercial_funnel_stage.dart';
 import '../validation/business_response_validator.dart';
 import '../validation/business_validation_result.dart';
+import '../../messaging/core/nano_incoming_message.dart';
+import '../../messaging/core/nano_outgoing_message.dart';
 import 'nano_business_turn_resolver.dart';
 
 final class NanoBusinessTurnResult {
@@ -37,6 +39,7 @@ final class NanoBusinessTurnResult {
   final String? escalatedReason;
   final List<String> suggestions;
   final CommercialConversationState updatedState;
+  final NanoOutgoingMessage? outgoingMessage;
 
   const NanoBusinessTurnResult({
     required this.replyText,
@@ -44,6 +47,7 @@ final class NanoBusinessTurnResult {
     this.escalatedReason,
     this.suggestions = const [],
     required this.updatedState,
+    this.outgoingMessage,
   });
 }
 
@@ -67,13 +71,25 @@ class NanoBusinessRuntime {
   })  : validator = BusinessResponseValidator(facts),
         policyEngine = CommercialActionPolicyEngine(facts);
 
-  /// Procesa un turno entrante de mensajería comercial.
+  /// Procesa un mensaje entrante universal (NanoIncomingMessage).
+  Future<NanoBusinessTurnResult?> processIncomingMessage(
+    NanoIncomingMessage message, {
+    String? rawModelStructuredOutput,
+  }) => processTurn(
+    eventId: message.id,
+    conversationId: message.conversationId,
+    incomingText: message.text,
+    rawModelStructuredOutput: rawModelStructuredOutput,
+    channel: message.channel.name,
+  );
+
+  /// Procesa un turno de mensajería comercial independiente del canal.
   Future<NanoBusinessTurnResult?> processTurn({
     required String eventId,
     required String conversationId,
     required String incomingText,
     String? rawModelStructuredOutput,
-    String channel = 'whatsapp_direct',
+    String channel = 'generic',
   }) async {
     // 1. Idempotencia en Durable Inbox
     if (await inboxStore.isProcessed(eventId)) return null;
@@ -136,9 +152,14 @@ class NanoBusinessRuntime {
       );
     }
 
-    // 7. Persistir estado y encolar en Durable Outbox
+    // 7. Persistir estado, crear NanoOutgoingMessage y encolar en Outbox
     state = state.copyWith(lastInteraction: DateTime.now());
     await stateStore.save(state);
+    final outgoing = NanoOutgoingMessage(
+      id: 'out_${conversationId}_${DateTime.now().millisecondsSinceEpoch}',
+      conversationId: conversationId,
+      text: finalReply,
+    );
     await _enqueueOutbox(conversationId, finalReply, channel);
 
     return NanoBusinessTurnResult(
@@ -147,6 +168,7 @@ class NanoBusinessRuntime {
       escalatedReason: escalationReason,
       suggestions: suggestions,
       updatedState: state,
+      outgoingMessage: outgoing,
     );
   }
 
