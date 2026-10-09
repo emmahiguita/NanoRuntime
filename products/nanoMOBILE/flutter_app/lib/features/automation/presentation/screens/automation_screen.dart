@@ -51,7 +51,13 @@ class AutomationScreen extends ConsumerWidget {
           }
           return Scaffold(
             resizeToAvoidBottomInset: false,
-            body: NanoShellBarScope(child: dashboardContent),
+            body: NanoShellBarScope(
+              child: SafeArea(
+                top: true,
+                bottom: false,
+                child: dashboardContent,
+              ),
+            ),
           );
         },
       ),

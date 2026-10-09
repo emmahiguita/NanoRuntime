@@ -1,42 +1,42 @@
 part of 'chat_messages.dart';
 
 extension _MessageBubbleUserLayout on MessageBubble {
-  // QUÉ HACE: presenta el mensaje enviado por la persona con adjuntos y hora.
   Widget _buildUserMessage(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final time =
         '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
         constraints: const BoxConstraints(maxWidth: 680),
-        margin: const EdgeInsets.only(bottom: 14, left: 44),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        margin: const EdgeInsets.only(bottom: 12, left: 48),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF064E3B), const Color(0xFF047857)]
-                : [colors.primary, colors.primary.withValues(alpha: 0.88)],
+            colors: [
+              colors.primary,
+              colors.primary.withValues(alpha: 0.88),
+            ],
           ),
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(18),
-            topRight: Radius.circular(18),
-            bottomLeft: Radius.circular(18),
-            bottomRight: Radius.circular(4),
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
+            bottomLeft: Radius.circular(16),
+            bottomRight: Radius.circular(3),
           ),
           border: Border.all(
-            color: Colors.white.withValues(alpha: isDark ? 0.22 : 0.35),
+            color: Colors.white.withValues(alpha: isDark ? 0.18 : 0.28),
             width: 0.8,
           ),
           boxShadow: [
             BoxShadow(
-              color: (isDark ? const Color(0xFF10B981) : colors.primary)
-                  .withValues(alpha: isDark ? 0.22 : 0.15),
-              blurRadius: 14,
-              offset: const Offset(0, 3),
+              color: colors.primary.withValues(alpha: isDark ? 0.25 : 0.18),
+              blurRadius: 12,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -46,33 +46,33 @@ extension _MessageBubbleUserLayout on MessageBubble {
           children: [
             if (attachmentNames.isNotEmpty) ...[
               Wrap(
-                spacing: 6,
-                runSpacing: 6,
+                spacing: 5,
+                runSpacing: 5,
                 children: attachmentNames
                     .map(
                       (name) => Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: 7,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
                               Icons.attach_file_rounded,
-                              size: 12,
+                              size: 11,
                               color: Colors.white,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 3),
                             Text(
                               name,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 11,
+                                fontSize: 10.5,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -82,14 +82,14 @@ extension _MessageBubbleUserLayout on MessageBubble {
                     )
                     .toList(),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
             ],
             MarkdownBody(
               data: text,
               selectable: true,
               styleSheet: _buildChatMarkdownStyleSheet(context, isUser: true),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -97,16 +97,16 @@ extension _MessageBubbleUserLayout on MessageBubble {
                   time,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.75),
-                    fontSize: 10.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.w500,
                     letterSpacing: -0.1,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 3),
                 Icon(
                   Icons.done_all_rounded,
-                  size: 13,
-                  color: isDark ? const Color(0xFF34D399) : Colors.white70,
+                  size: 12,
+                  color: Colors.white.withValues(alpha: 0.85),
                 ),
               ],
             ),

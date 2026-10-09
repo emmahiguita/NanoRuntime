@@ -408,13 +408,16 @@ class AppTheme {
     glassBlur: glassBlur,
   );
 
-  /// Tema claro: paleta blanco y verde esmeralda, superficies limpias de alto contraste.
+  /// Tema claro: paleta blanco y verde esmeralda / frost, superficies limpias de alto contraste.
   static final light = _base(NanoLightColors());
 
-  /// Tema clásico: paleta blanco y azul profesional de alto contraste.
+  /// Tema clásico / azul: paleta blanco y azul profesional de alto contraste.
   static final classic = _base(NanoClassicLightColors());
 
-  /// Tema oscuro: paleta oscura profunda con tipografía blanca nítida.
+  /// Tema opaco / grisáceo: titanio pizarra mate, grafito y acentos metálicos (Space Gray).
+  static final spaceGray = _base(NanoSpaceGrayColors());
+
+  /// Tema oscuro: paleta oscura profunda obsidian con tipografía blanca nítida y azul cósmico.
   static final dark = _base(NanoDarkColors());
 
   static final systemLight = _base(NanoSystemLightColors());

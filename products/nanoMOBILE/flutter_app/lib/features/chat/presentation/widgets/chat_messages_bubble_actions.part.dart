@@ -11,7 +11,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
       spacing: 8,
       runSpacing: 8,
       children: suggestions.map((sug) {
-        final pillColor = isDark ? const Color(0xFF10B981) : colors.accent;
+        final pillColor = colors.primary;
         return Material(
           color: Colors.transparent,
           child: InkWell(
@@ -78,9 +78,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
       Text(
         time,
         style: TextStyle(
-          color: isDark
-              ? colors.onSurface.withValues(alpha: 0.50)
-              : const Color(0xFF64748B),
+          color: colors.onSurfaceVariant.withValues(alpha: 0.70),
           fontSize: 10.5,
           fontWeight: FontWeight.w500,
           letterSpacing: -0.1,

@@ -6,6 +6,27 @@ class ParsedThoughtText {
   const ParsedThoughtText({this.thought, required this.response});
 }
 
+ParsedThoughtText parseThought(String text) {
+  if (text.isEmpty) {
+    return const ParsedThoughtText(response: '');
+  }
+  final thinkRegex = RegExp(r'<(think|thought)>([\s\S]*?)<\/\1>', caseSensitive: false);
+  final match = thinkRegex.firstMatch(text);
+  if (match != null) {
+    final thought = match.group(2)?.trim();
+    final response = (text.substring(0, match.start) + text.substring(match.end)).trim();
+    return ParsedThoughtText(thought: thought, response: response);
+  }
+  final openTagRegex = RegExp(r'<(think|thought)>([\s\S]*)$', caseSensitive: false);
+  final openMatch = openTagRegex.firstMatch(text);
+  if (openMatch != null) {
+    final thought = openMatch.group(2)?.trim();
+    final response = text.substring(0, openMatch.start).trim();
+    return ParsedThoughtText(thought: thought, response: response);
+  }
+  return ParsedThoughtText(response: text);
+}
+
 class ModelReasoningBlock extends StatefulWidget {
   const ModelReasoningBlock({
     super.key,

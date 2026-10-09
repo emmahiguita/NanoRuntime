@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
-/// Centro honesto de permisos: Android siempre conserva la decisión final.
+/// Centro de gestión de permisos del dispositivo estilo iOS.
 class DevicePermissionsSection extends StatefulWidget {
   const DevicePermissionsSection({super.key});
 
@@ -25,16 +26,10 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
 
   static const _labels = <String, (String, IconData)>{
     'microphone': ('Micrófono para dictado', Icons.mic_rounded),
-    'media': ('Fotos, vídeo y audio compartidos', Icons.perm_media_rounded),
-    'accessibility': (
-      'Control asistido de la interfaz',
-      Icons.touch_app_rounded,
-    ),
-    'notificationAccess': (
-      'Lectura y respuesta de notificaciones',
-      Icons.notifications_active_rounded,
-    ),
-    'allFiles': ('Escaneo local de modelos GGUF', Icons.folder_open_rounded),
+    'media': ('Fotos, vídeo y audio', Icons.perm_media_rounded),
+    'accessibility': ('Control asistido de UI', Icons.touch_app_rounded),
+    'notificationAccess': ('Lectura de notificaciones', Icons.notifications_active_rounded),
+    'allFiles': ('Acceso a modelos GGUF', Icons.folder_open_rounded),
   };
 
   @override
@@ -71,11 +66,12 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
 
   Future<void> _grantAll() async {
     if (_busy) return;
+    HapticFeedback.selectionClick();
     setState(() {
       _busy = true;
       _grantFlow = true;
       _attemptedSpecial.clear();
-      _message = 'Android solicitará únicamente los accesos que faltan.';
+      _message = 'Android solicitará los accesos pendientes.';
     });
 
     if (_status['microphone'] != true || _status['media'] != true) {
@@ -98,7 +94,7 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
         _specialPanelOpen = true;
         setState(() {
           _busy = false;
-          _message = 'Activa “${_labels[key]!.$1}” y vuelve a NanoAI.';
+          _message = 'Activa “${_labels[key]!.$1}” y vuelve.';
         });
         final opened = await open();
         if (!opened && mounted) {
@@ -114,12 +110,13 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
     setState(() {
       _busy = false;
       _message = allGranted
-          ? 'Todos los permisos necesarios están concedidos.'
-          : 'Configuración recorrida. Los permisos denegados siguen desactivados.';
+          ? 'Todos los permisos están activos.'
+          : 'Configuración finalizada.';
     });
   }
 
   Future<void> _openSingle(String key) async {
+    HapticFeedback.selectionClick();
     final opened = switch (key) {
       'microphone' || 'media' => await _runtime.requestRuntimePermissions(),
       'accessibility' => await _runtime.openAccessibilitySettings(),
@@ -137,6 +134,7 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final granted = _status.values.where((value) => value).length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -144,42 +142,112 @@ class _DevicePermissionsSectionState extends State<DevicePermissionsSection>
         AutomationSurfaceCard(
           padding: EdgeInsets.zero,
           child: Padding(
-            padding: const EdgeInsets.all(NanoSpacing.md),
+            padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '$granted/${_labels.length} accesos habilitados',
-                  style: NanoType.body(colors.onSurface),
-                ),
-                const SizedBox(height: NanoSpacing.sm),
-                for (final entry in _labels.entries)
-                  ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(entry.value.$2),
-                    title: Text(entry.value.$1),
-                    trailing: Icon(
-                      _status[entry.key] == true
-                          ? Icons.check_circle_rounded
-                          : Icons.chevron_right_rounded,
-                      color: _status[entry.key] == true
-                          ? colors.primary
-                          : colors.onSurfaceVariant,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Accesos del sistema',
+                      style: NanoType.body(colors.onSurface).copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (granted == _labels.length ? colors.success : colors.primary)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '$granted/${_labels.length} activos',
+                        style: NanoType.caption(
+                          granted == _labels.length ? colors.success : colors.primary,
+                        ).copyWith(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                for (final entry in _labels.entries) ...[
+                  InkWell(
                     onTap: _busy ? null : () => _openSingle(entry.key),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+                      child: Row(
+                        children: [
+                          Icon(
+                            entry.value.$2,
+                            size: 16,
+                            color: _status[entry.key] == true ? colors.primary : colors.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              entry.value.$1,
+                              style: NanoType.body(colors.onSurface).copyWith(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: _status[entry.key] == true
+                                  ? colors.success.withValues(alpha: 0.12)
+                                  : colors.outlineVariant.withValues(alpha: 0.20),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              _status[entry.key] == true ? 'Activo' : 'Pendiente',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w600,
+                                color: _status[entry.key] == true ? colors.success : colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            size: 14,
+                            color: colors.onSurfaceVariant.withValues(alpha: 0.6),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                const SizedBox(height: NanoSpacing.sm),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _grantAll,
-                  icon: const Icon(Icons.verified_user_rounded),
-                  label: Text(_busy ? 'Verificando…' : 'Conceder pendientes'),
+                ],
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _busy ? null : _grantAll,
+                    icon: const Icon(Icons.verified_user_rounded, size: 15),
+                    label: Text(
+                      _busy ? 'Verificando…' : 'Conceder permisos pendientes',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
                 ),
                 if (_message != null) ...[
-                  const SizedBox(height: NanoSpacing.sm),
+                  const SizedBox(height: 6),
                   Text(
                     _message!,
-                    style: NanoType.caption(colors.onSurfaceVariant),
+                    style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 10.5),
                   ),
                 ],
               ],

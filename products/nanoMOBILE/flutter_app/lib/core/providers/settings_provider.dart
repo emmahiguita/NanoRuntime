@@ -37,11 +37,11 @@ class SettingsRepository {
     }
     try {
       final m = jsonDecode(json) as Map<String, dynamic>;
-      // TEMA: Carga 'Oscuro', 'Claro' (Blanco y Verde), 'Clásico' (Blanco y Azul) o 'Sistema'.
+      // TEMA: Carga 'Oscuro', 'Grisáceo' (Opaco / Space Gray), 'Claro' (Pure Frost) o 'Sistema'.
       // Default: 'Oscuro' si no hay valor previo configurado.
       final savedTheme = m['themeMode'] as String? ?? 'Oscuro';
-      final validTheme = (savedTheme == 'Claro' || savedTheme == 'Clásico' || savedTheme == 'Sistema')
-          ? savedTheme
+      final validTheme = (savedTheme == 'Claro' || savedTheme == 'Grisáceo' || savedTheme == 'Opaco' || savedTheme == 'Clásico' || savedTheme == 'Sistema')
+          ? (savedTheme == 'Opaco' || savedTheme == 'Clásico' ? 'Grisáceo' : savedTheme)
           : 'Oscuro';
       return SettingsState(
         themeMode: validTheme,
@@ -401,9 +401,11 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
 /// Provider derivado que sincroniza automáticamente el ThemeMode con settings
 final themeModeProvider = Provider<ThemeMode>((ref) {
   final settings = ref.watch(settingsProvider);
-  return settings.themeMode == 'Oscuro'
+  return (settings.themeMode == 'Oscuro' ||
+          settings.themeMode == 'Grisáceo' ||
+          settings.themeMode == 'Opaco')
       ? ThemeMode.dark
-      : (settings.themeMode == 'Claro' || settings.themeMode == 'Clásico')
+      : (settings.themeMode == 'Claro')
           ? ThemeMode.light
           : ThemeMode.system;
 });

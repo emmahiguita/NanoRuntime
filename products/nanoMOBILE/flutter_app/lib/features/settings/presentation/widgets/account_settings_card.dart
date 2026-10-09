@@ -10,9 +10,7 @@ import '../../../account/domain/account_profile.dart';
 import '../../../account/domain/auth_user.dart';
 import '../../../account/presentation/widgets/nano_support_banner.dart';
 
-/// QUÉ HACE: Tarjeta ejecutiva de perfil de usuario para los Ajustes de Nano AI.
-/// CÓMO FUNCIONA: Observa reactivamente [sessionGateProvider]. Adapta a horizontal y vertical.
-/// POR QUÉ: Reemplaza la card básica por un componente corporativo profesional y didáctico.
+/// Tarjeta ejecutiva de perfil de usuario para los Ajustes de Nano AI.
 class AccountSettingsSection extends ConsumerWidget {
   const AccountSettingsSection({super.key});
 
@@ -40,9 +38,6 @@ class AccountSettingsSection extends ConsumerWidget {
   }
 }
 
-/// QUÉ HACE: Vista completa del perfil autenticado con avatar vivo, identidad y chips.
-/// CÓMO FUNCIONA: Soporta rutas de avatar locales y remotas, y navega a `/account` con feedback haptic.
-/// POR QUÉ: Tipado fuerte contra AuthUser y AccountProfile previniendo NoSuchMethodError y crashes de red.
 class _AuthenticatedProfileCard extends StatelessWidget {
   final NanoColors colors;
   final AuthUser user;
@@ -58,25 +53,26 @@ class _AuthenticatedProfileCard extends StatelessWidget {
     final photoUrl = profile.photoUrl ?? user.photoUrl;
 
     return NanoOpticalSurface(
-      borderRadius: NanoRadius.large,
-      padding: const EdgeInsets.all(NanoSpacing.md),
-      margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
+      borderRadius: NanoRadius.medium,
+      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 6),
       onTap: () => context.push('/account'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              // Avatar con halo verde e indicador de actividad viva
               Stack(
                 children: [
                   Container(
-                    width: 48,
-                    height: 48,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(colors: [colors.primary.withValues(alpha: 0.3), colors.primary.withValues(alpha: 0.1)]),
-                      border: Border.all(color: colors.primary.withValues(alpha: 0.4), width: 1.5),
+                      gradient: LinearGradient(
+                        colors: [colors.primary.withValues(alpha: 0.35), colors.primary.withValues(alpha: 0.12)],
+                      ),
+                      border: Border.all(color: colors.primary.withValues(alpha: 0.45), width: 1.5),
                     ),
                     alignment: Alignment.center,
                     child: _renderAvatar(photoUrl, initials),
@@ -85,54 +81,86 @@ class _AuthenticatedProfileCard extends StatelessWidget {
                     right: 0,
                     bottom: 0,
                     child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(color: colors.success, shape: BoxShape.circle, border: Border.all(color: colors.surface, width: 2)),
+                      width: 11,
+                      height: 11,
+                      decoration: BoxDecoration(
+                        color: colors.success,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: colors.surface, width: 2),
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: NanoSpacing.md),
-              // Identidad (evita salto de línea indebido)
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Flexible(child: Text(name, style: NanoType.headline(colors.onSurface).copyWith(fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis)),
-                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: NanoType.headline(colors.onSurface).copyWith(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15.5,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
                         Icon(Icons.verified_rounded, size: 16, color: colors.primary),
                       ],
                     ),
                     const SizedBox(height: 2),
-                    Text(email, style: NanoType.caption(colors.onSurfaceVariant), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      email,
+                      style: NanoType.caption(colors.onSurfaceVariant).copyWith(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: NanoSpacing.xs),
-              NanoBadge(profile.planTier.toUpperCase(), kind: profile.isPro ? BadgeKind.success : BadgeKind.neutral),
+              const SizedBox(width: 6),
+              NanoBadge(
+                profile.planTier.toUpperCase(),
+                kind: profile.isPro ? BadgeKind.success : BadgeKind.neutral,
+              ),
             ],
           ),
           const SizedBox(height: 10),
-          // Chips informativos Material Expressive
           Wrap(
             spacing: 6,
             runSpacing: 4,
             children: [
               _chip(Icons.shield_outlined, 'Local-first'),
               _chip(Icons.lock_outline_rounded, 'E2E Cifrado'),
-              _chip(profile.syncEnabled ? Icons.cloud_done_outlined : Icons.devices_rounded, profile.syncEnabled ? 'Sincronizado' : 'Dispositivo Local'),
+              _chip(
+                profile.syncEnabled ? Icons.cloud_done_outlined : Icons.devices_rounded,
+                profile.syncEnabled ? 'Sincronizado' : 'Dispositivo Local',
+              ),
             ],
           ),
           const SizedBox(height: 10),
           Divider(color: colors.outlineVariant.withValues(alpha: 0.35), height: 1),
           const SizedBox(height: 8),
-          // Pie de acción para navegar al centro de cuenta
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Gestionar cuenta y privacidad', style: NanoType.caption(colors.primary).copyWith(fontWeight: FontWeight.w600)),
+              Text(
+                'Gestionar cuenta y privacidad',
+                style: NanoType.caption(colors.primary).copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                ),
+              ),
               Icon(Icons.arrow_forward_ios_rounded, size: 12, color: colors.primary),
             ],
           ),
@@ -141,39 +169,50 @@ class _AuthenticatedProfileCard extends StatelessWidget {
     );
   }
 
-  /// CÓMO FUNCIONA: Discrimina entre URI web (http/https), archivo local en almacenamiento y fallback de iniciales.
   Widget _renderAvatar(String? path, String initials) {
     if (path == null || path.isEmpty) return _initials(initials);
     final uri = Uri.tryParse(path);
     if (uri?.scheme == 'https' || uri?.scheme == 'http') {
-      return ClipOval(child: Image.network(path, width: 48, height: 48, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initials(initials)));
+      return ClipOval(child: Image.network(path, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initials(initials)));
     }
     final file = File(path);
     if (file.existsSync()) {
-      return ClipOval(child: Image.file(file, width: 48, height: 48, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initials(initials)));
+      return ClipOval(child: Image.file(file, width: 44, height: 44, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _initials(initials)));
     }
     return _initials(initials);
   }
 
-  Widget _initials(String text) => Text(text, style: NanoType.headline(colors.primary).copyWith(fontWeight: FontWeight.w800));
+  Widget _initials(String text) => Text(
+    text,
+    style: NanoType.headline(colors.primary).copyWith(fontWeight: FontWeight.w800, fontSize: 16),
+  );
 
   Widget _chip(IconData icon, String label) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(color: colors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8), border: Border.all(color: colors.primary.withValues(alpha: 0.20))),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+    decoration: BoxDecoration(
+      color: colors.primary.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(7),
+      border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
+    ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 12, color: colors.primary),
         const SizedBox(width: 4),
-        Text(label, style: NanoType.overline(colors.onSurfaceVariant).copyWith(fontWeight: FontWeight.w600, fontSize: 10)),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            color: colors.onSurface,
+            fontWeight: FontWeight.w600,
+            fontSize: 11,
+          ),
+        ),
       ],
     ),
   );
 }
 
-/// QUÉ HACE: Tarjeta accesible para invitar al usuario a iniciar sesión o entrar directamente a su perfil local.
-/// CÓMO FUNCIONA: Ofrece acción principal clara con botones de Iniciar Sesión y Ver Centro de Perfil.
-/// POR QUÉ: Permite navegar sin trabas a los usuarios que usan la app en modo local soberano.
 class _UnauthenticatedProfileCard extends StatelessWidget {
   final NanoColors colors;
   const _UnauthenticatedProfileCard({required this.colors});
@@ -181,9 +220,9 @@ class _UnauthenticatedProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return NanoOpticalSurface(
-      borderRadius: NanoRadius.large,
-      padding: const EdgeInsets.all(NanoSpacing.md),
-      margin: const EdgeInsets.only(bottom: NanoSpacing.sm),
+      borderRadius: NanoRadius.medium,
+      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 6),
       onTap: () => context.push('/account'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,17 +232,34 @@ class _UnauthenticatedProfileCard extends StatelessWidget {
               Container(
                 width: 44,
                 height: 44,
-                decoration: BoxDecoration(color: colors.primary.withValues(alpha: 0.15), shape: BoxShape.circle),
-                child: Icon(Icons.person_outline_rounded, color: colors.primary, size: 24),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: colors.primary.withValues(alpha: 0.30), width: 1.2),
+                ),
+                child: Icon(Icons.person_outline_rounded, color: colors.primary, size: 22),
               ),
-              const SizedBox(width: NanoSpacing.md),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Perfil Soberano Nano', style: NanoType.headline(colors.onSurface).copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      'Perfil Soberano Nano',
+                      style: NanoType.headline(colors.onSurface).copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15.5,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text('Configura tu identidad local y modelos fuera de línea.', style: NanoType.caption(colors.onSurfaceVariant)),
+                    Text(
+                      'Identidad local, privacidad y modelos fuera de línea.',
+                      style: NanoType.caption(colors.onSurfaceVariant).copyWith(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -218,13 +274,27 @@ class _UnauthenticatedProfileCard extends StatelessWidget {
             children: [
               GestureDetector(
                 onTap: () => context.push('/auth/login'),
-                child: Text('¿Tienes cuenta? Inicia sesión aquí', style: NanoType.caption(colors.primary).copyWith(fontWeight: FontWeight.w600)),
+                child: Text(
+                  '¿Tienes cuenta? Inicia sesión aquí',
+                  style: NanoType.caption(colors.primary).copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
               ),
               GestureDetector(
                 onTap: () => context.push('/account'),
                 child: Row(
                   children: [
-                    Text('Abrir Perfil', style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      'Abrir Perfil',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
                     const SizedBox(width: 4),
                     Icon(Icons.arrow_forward_ios_rounded, size: 10, color: colors.onSurfaceVariant),
                   ],

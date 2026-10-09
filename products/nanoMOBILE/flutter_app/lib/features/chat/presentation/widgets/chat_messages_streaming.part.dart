@@ -54,16 +54,41 @@ class StreamingBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header minimalista con Búho en modo thinking y badge seguro contra overflow
+          // Header minimalista con badge de IA y modelo
           Row(
             children: [
-              NanoOwlAvatar(
-                size: 26,
-                state: response.isNotEmpty
-                    ? NanoOwlState.responding
-                    : NanoOwlState.thinking,
-                enableBreathing: true,
-                enableGlow: true,
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colors.glassPrimary.withValues(alpha: 0.90),
+                      colors.glassSurface.withValues(alpha: 0.50),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: colors.accent.withValues(alpha: 0.50),
+                    width: 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.accent.withValues(alpha: 0.20),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    size: 13,
+                    color: colors.accent,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Flexible(

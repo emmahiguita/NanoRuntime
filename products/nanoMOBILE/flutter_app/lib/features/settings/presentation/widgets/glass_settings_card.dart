@@ -6,15 +6,7 @@ import 'package:nanoai/core/widgets/glass_surface.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 import 'settings_slider_tile.dart';
 
-/// QUÉ HACE:
-/// Tarjeta de configuración para el efectos de transparencia (GlassSurface).
-///
-/// CÓMO FUNCIONA:
-/// Permite activar/desactivar los efectos visuales y ajustar en la interfaz
-/// la opacidad, claridad y radio de desenfoque, mostrando una previsualización interactiva.
-///
-/// POR QUÉ:
-/// Ofrece al usuario control táctil granular sobre el rendimiento visual y consumo de GPU.
+/// Configuración para efectos de transparencia óptica (iOS GlassSurface).
 class GlassSettingsCard extends StatelessWidget {
   final SettingsState state;
   final SettingsNotifier notifier;
@@ -43,14 +35,14 @@ class GlassSettingsCard extends StatelessWidget {
               // Fila principal del Switch de activación
               Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: NanoSpacing.md,
-                  vertical: NanoSpacing.sm,
+                  horizontal: 12,
+                  vertical: 8,
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: state.glassEnabled
@@ -59,37 +51,45 @@ class GlassSettingsCard extends StatelessWidget {
                       ),
                       child: Icon(
                         Icons.blur_on_rounded,
-                        size: 20,
+                        size: 18,
                         color: state.glassEnabled
                             ? colors.primary
                             : colors.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(width: NanoSpacing.md),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Transparencia de la interfaz',
-                            style: NanoType.body(colors.onSurface),
+                            style: NanoType.body(colors.onSurface).copyWith(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 1),
                           Text(
                             state.glassEnabled
-                                ? 'Transparencia y desenfoque activos.'
-                                : 'Efectos desactivados.',
-                            style: NanoType.caption(colors.onSurfaceVariant),
+                                ? 'Vidrio translúcido y desenfoque óptico activos.'
+                                : 'Efectos desactivados para máximo rendimiento.',
+                            style: NanoType.caption(colors.onSurfaceVariant).copyWith(
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    Switch(
-                      value: state.glassEnabled,
-                      onChanged: notifier.setGlassEnabled,
-                      activeThumbColor: colors.primary,
-                      inactiveTrackColor: colors.outlineVariant.withValues(
-                        alpha: 0.3,
+                    Transform.scale(
+                      scale: 0.85,
+                      child: Switch(
+                        value: state.glassEnabled,
+                        onChanged: notifier.setGlassEnabled,
+                        activeThumbColor: colors.primary,
+                        inactiveTrackColor: colors.outlineVariant.withValues(
+                          alpha: 0.3,
+                        ),
                       ),
                     ),
                   ],
@@ -97,13 +97,15 @@ class GlassSettingsCard extends StatelessWidget {
               ),
               // Controles avanzados si está activo el motor de vidrio
               if (state.glassEnabled) ...[
-                const Divider(
+                Divider(
                   height: 1,
-                  indent: NanoSpacing.md,
-                  endIndent: NanoSpacing.md,
+                  indent: 12,
+                  endIndent: 12,
+                  color: colors.outlineVariant.withValues(alpha: 0.25),
                 ),
+                const SizedBox(height: 4),
                 SettingsSliderTile(
-                  label: 'Claridad',
+                  label: 'Claridad óptica',
                   value: state.glassClarity,
                   min: 0.0,
                   max: 1.0,
@@ -123,7 +125,7 @@ class GlassSettingsCard extends StatelessWidget {
                   colors: colors,
                 ),
                 SettingsSliderTile(
-                  label: 'Desenfoque',
+                  label: 'Desenfoque (Blur)',
                   value: state.glassBlur,
                   min: 0.0,
                   max: 40.0,
@@ -133,25 +135,22 @@ class GlassSettingsCard extends StatelessWidget {
                   onChanged: notifier.setGlassBlur,
                   colors: colors,
                 ),
-                // Previsualizador dinámico interactivo adaptado para horizontal
+                // Previsualizador dinámico interactivo
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    NanoSpacing.md,
-                    NanoSpacing.xs,
-                    NanoSpacing.md,
-                    NanoSpacing.md,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      height: isLandscape ? 95 : 120,
+                      height: isLandscape ? 70 : 85,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                           colors: [
-                            Color(0xFF007AFF),
-                            Color(0xFF5856D6),
-                            Color(0xFFFF2D55),
-                            Color(0xFFFF9500),
+                            Color(0xFF2563EB),
+                            Color(0xFF6366F1),
+                            Color(0xFFEC4899),
+                            Color(0xFFF97316),
                           ],
                         ),
                       ),
@@ -161,23 +160,26 @@ class GlassSettingsCard extends StatelessWidget {
                           clarity: state.glassClarity,
                           blur: state.glassBlur,
                           interactive: true,
-                          radius: 12,
+                          radius: 10,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                            horizontal: 14,
+                            vertical: 6,
                           ),
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(
                                 Icons.touch_app_rounded,
-                                size: 16,
+                                size: 14,
                                 color: Colors.white,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Text(
-                                'Vista previa',
-                                style: NanoType.caption(Colors.white),
+                                'Vista previa Glass',
+                                style: NanoType.caption(Colors.white).copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
                               ),
                             ],
                           ),

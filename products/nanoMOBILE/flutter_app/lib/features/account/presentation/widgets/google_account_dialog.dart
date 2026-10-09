@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/design_tokens.dart';
 import '../google_account_provider.dart';
 
 /// Diálogo de cuenta Google — sin API Keys, sesión vía navegador integrado.
@@ -41,6 +42,7 @@ class _GoogleAccountDialogState extends ConsumerState<GoogleAccountDialog> {
   Widget build(BuildContext context) {
     final profile = ref.watch(googleAccountProvider);
     final notifier = ref.read(googleAccountProvider.notifier);
+    final colors = NanoThemeExtension.of(context).colors;
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -48,15 +50,15 @@ class _GoogleAccountDialogState extends ConsumerState<GoogleAccountDialog> {
       child: Container(
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.94),
+          color: colors.surface,
           borderRadius: BorderRadius.circular(24),
           border: Border.all(
-            color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+            color: colors.outline.withValues(alpha: 0.25),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.6),
+              color: Colors.black.withValues(alpha: 0.25),
               blurRadius: 32,
               offset: const Offset(0, 8),
             ),
@@ -75,20 +77,15 @@ class _GoogleAccountDialogState extends ConsumerState<GoogleAccountDialog> {
                     height: 44,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF4285F4).withValues(alpha: 0.4),
-                          blurRadius: 10,
-                        ),
-                      ],
+                      color: colors.surfaceVariant,
+                      border: Border.all(color: const Color(0xFF4285F4), width: 1.5),
                     ),
                     alignment: Alignment.center,
                     child: const Text(
                       'G',
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 26,
+                        fontSize: 24,
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF4285F4),
                       ),
@@ -99,13 +96,13 @@ class _GoogleAccountDialogState extends ConsumerState<GoogleAccountDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Cuenta de Google',
                           style: TextStyle(
                             fontFamily: 'Inter',
-                            fontSize: 18,
+                            fontSize: 17,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: colors.onSurface,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -114,86 +111,69 @@ class _GoogleAccountDialogState extends ConsumerState<GoogleAccountDialog> {
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontSize: 12,
-                            color: profile.isConnected
-                                ? const Color(0xFF34D399)
-                                : const Color(0xFFF87171),
+                            fontWeight: FontWeight.w600,
+                            color: profile.isConnected ? colors.success : colors.error,
                           ),
                         ),
                       ],
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                    icon: Icon(Icons.close_rounded, color: colors.onSurfaceVariant),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              const Divider(color: Colors.white12, height: 1),
               const SizedBox(height: 16),
+              Divider(color: colors.outlineVariant.withValues(alpha: 0.30), height: 1),
+              const SizedBox(height: 14),
 
               // Campo: Nombre
-              _fieldLabel('Nombre del titular'),
+              _fieldLabel('Nombre del titular', colors),
               const SizedBox(height: 6),
               _inputField(
                 controller: _nameController,
                 icon: Icons.person_rounded,
-                iconColor: const Color(0xFF38BDF8),
+                iconColor: colors.primary,
+                colors: colors,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
 
               // Campo: Correo
-              _fieldLabel('Correo Gmail / Google Account'),
+              _fieldLabel('Correo Gmail / Google Account', colors),
               const SizedBox(height: 6),
               _inputField(
                 controller: _emailController,
                 icon: Icons.mail_rounded,
                 iconColor: const Color(0xFFEA4335),
+                colors: colors,
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
 
               // Toggles de servicios
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: const Text('Navegador IA Web',
-                    style: TextStyle(color: Colors.white, fontSize: 13)),
-                subtitle: const Text(
-                  'Usa ChatGPT, DeepSeek, Gemini vía sesión de navegador',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
-                ),
-                value: profile.browserAgentEnabled,
-                activeThumbColor: const Color(0xFF38BDF8),
-                onChanged: notifier.toggleBrowserAgent,
+              _switch(
+                'Navegador IA Web',
+                'Usa ChatGPT, DeepSeek, Gemini vía sesión de navegador',
+                profile.browserAgentEnabled,
+                notifier.toggleBrowserAgent,
+                colors,
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: const Text('Búsqueda Web Google',
-                    style: TextStyle(color: Colors.white, fontSize: 13)),
-                subtitle: const Text(
-                  'Consultas enciclopédicas y datos en vivo',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
-                ),
-                value: profile.googleSearchEnabled,
-                activeThumbColor: const Color(0xFF38BDF8),
-                onChanged: notifier.toggleGoogleSearch,
+              _switch(
+                'Búsqueda Web Google',
+                'Consultas enciclopédicas y datos en vivo',
+                profile.googleSearchEnabled,
+                notifier.toggleGoogleSearch,
+                colors,
               ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                title: const Text('Sincronización Cloud',
-                    style: TextStyle(color: Colors.white, fontSize: 13)),
-                subtitle: const Text(
-                  'Mantiene configuración sincronizada',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
-                ),
-                value: profile.cloudSyncEnabled,
-                activeThumbColor: const Color(0xFF38BDF8),
-                onChanged: notifier.toggleCloudSync,
+              _switch(
+                'Sincronización Cloud',
+                'Mantiene configuración sincronizada',
+                profile.cloudSyncEnabled,
+                notifier.toggleCloudSync,
+                colors,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Botones
               Row(
@@ -203,11 +183,10 @@ class _GoogleAccountDialogState extends ConsumerState<GoogleAccountDialog> {
                       icon: const Icon(Icons.sync_rounded, size: 16),
                       label: const Text('Sincronizar'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF38BDF8),
-                        side: const BorderSide(color: Color(0xFF38BDF8)),
+                        foregroundColor: colors.primary,
+                        side: BorderSide(color: colors.primary),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: notifier.syncNow,
                     ),
@@ -218,11 +197,10 @@ class _GoogleAccountDialogState extends ConsumerState<GoogleAccountDialog> {
                       icon: const Icon(Icons.check_rounded, size: 16),
                       label: const Text('Guardar'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
+                        backgroundColor: colors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       onPressed: () async {
                         await notifier.connectAccount(
@@ -242,36 +220,44 @@ class _GoogleAccountDialogState extends ConsumerState<GoogleAccountDialog> {
     );
   }
 
-  Widget _fieldLabel(String text) => Text(
+  Widget _switch(String title, String subtitle, bool value, ValueChanged<bool> onChanged, NanoColors colors) =>
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        dense: true,
+        title: Text(title, style: TextStyle(color: colors.onSurface, fontSize: 13, fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
+        value: value,
+        activeThumbColor: colors.primary,
+        onChanged: onChanged,
+      );
+
+  Widget _fieldLabel(String text, NanoColors colors) => Text(
         text,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
+        style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600),
       );
 
   Widget _inputField({
     required TextEditingController controller,
     required IconData icon,
     required Color iconColor,
+    required NanoColors colors,
     TextInputType? keyboardType,
   }) =>
       TextField(
         controller: controller,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: colors.onSurface, fontSize: 14),
         keyboardType: keyboardType,
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.06),
+          fillColor: colors.surfaceVariant.withValues(alpha: 0.50),
           prefixIcon: Icon(icon, color: iconColor, size: 18),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            borderSide: BorderSide(color: colors.outline.withValues(alpha: 0.20)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF38BDF8)),
+            borderSide: BorderSide(color: colors.primary, width: 1.5),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),

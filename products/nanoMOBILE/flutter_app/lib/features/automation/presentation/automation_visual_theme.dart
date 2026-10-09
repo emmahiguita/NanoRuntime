@@ -393,30 +393,15 @@ class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
 
     // Color de tarjeta y sustrato adaptativo con transparencia y opacidad iOS
     final cardColor = !glassEnabled
-        ? (isDark ? const Color(0xFF0F172A) : Colors.white)
-        : isDark
-        ? Color.fromRGBO(
-            14,
-            24,
-            45,
-            ((0.15 + 0.70 * glassOpacity) * (1.15 - glassClarity * 0.45)).clamp(
-              0.04,
-              0.98,
-            ),
-          )
-        : Colors.white.withValues(
-            alpha: ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35))
-                .clamp(0.08, 0.98),
+        ? visual.resolvedColors.surface
+        : visual.resolvedColors.surface.withValues(
+            alpha: ((isDark ? 0.70 : 0.85) * (glassOpacity / 0.70)).clamp(0.1, 0.98),
           );
 
     final borderColor = !glassEnabled
-        ? (isDark ? Colors.white12 : Colors.black12)
-        : isDark
-        ? Colors.white.withValues(
-            alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
-          )
-        : Colors.black.withValues(
-            alpha: (0.03 + 0.08 * (1.0 - glassClarity)).clamp(0.02, 0.15),
+        ? visual.resolvedColors.outlineVariant
+        : visual.resolvedColors.outlineVariant.withValues(
+            alpha: isDark ? 0.35 : 0.50,
           );
 
     final card = Container(

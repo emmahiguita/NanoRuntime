@@ -48,6 +48,7 @@ class BotSkillsSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     const allSkills = BotSkillsCatalog.allSkills;
 
     return Wrap(
@@ -59,30 +60,34 @@ class BotSkillsSelector extends StatelessWidget {
           selected: isSelected,
           avatar: Icon(
             _iconForCategory(skill.category),
-            size: 16,
+            size: 15,
             color: isSelected
-                ? colorScheme.onPrimary
-                : colorScheme.onSurfaceVariant,
+                ? Colors.white
+                : colorScheme.onSurfaceVariant.withValues(alpha: 0.9),
           ),
           label: Text(
             skill.name,
             style: TextStyle(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected ? colorScheme.onPrimary : colorScheme.onSurface,
+              fontSize: 11.5,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              color: isSelected ? Colors.white : colorScheme.onSurface,
+              fontFamily: 'Inter',
             ),
           ),
           selectedColor: colorScheme.primary,
-          backgroundColor: colorScheme.surfaceContainerHighest.withValues(
-            alpha: 0.5,
-          ),
-          checkmarkColor: colorScheme.onPrimary,
+          backgroundColor: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : Colors.black.withValues(alpha: 0.03),
+          checkmarkColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             side: BorderSide(
               color: isSelected
                   ? colorScheme.primary
-                  : colorScheme.outlineVariant,
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.black.withValues(alpha: 0.07)),
               width: 1,
             ),
           ),

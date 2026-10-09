@@ -2,13 +2,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/design_tokens.dart';
 import '../google_account_provider.dart';
 import 'google_account_dialog.dart';
 
 /// Card Glassmórfica limpia oficial de Cuenta de Google para el Dashboard de Nano AI.
-///
-/// Muestra en tiempo real la identidad del usuario autenticado, estado de conexión viva
-/// y accesos rápidos directos al Navegador Web Real y servicios cloud.
 class GoogleAccountDashboardCard extends ConsumerWidget {
   const GoogleAccountDashboardCard({super.key});
 
@@ -16,24 +14,24 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(googleAccountProvider);
     final notifier = ref.read(googleAccountProvider.notifier);
+    final colors = NanoThemeExtension.of(context).colors;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0D1527).withValues(alpha: 0.65),
-            borderRadius: BorderRadius.circular(22),
+            color: colors.surface.withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
+              color: colors.outline.withValues(alpha: 0.22),
               width: 1.1,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4285F4).withValues(alpha: 0.12),
-                blurRadius: 24,
-                spreadRadius: -2,
+                color: colors.primary.withValues(alpha: 0.08),
+                blurRadius: 20,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -63,18 +61,18 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                     ),
                     padding: const EdgeInsets.all(2.2),
                     child: Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF0F172A),
+                        color: colors.surface,
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         profile.initials,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: colors.onSurface,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -99,12 +97,12 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                               Flexible(
                                 child: Text(
                                   profile.displayName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 15,
+                                    fontSize: 15.5,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.2,
+                                    color: colors.onSurface,
+                                    letterSpacing: -0.2,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -116,17 +114,13 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                                     horizontal: 7, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: profile.isConnected
-                                      ? const Color(0xFF10B981)
-                                          .withValues(alpha: 0.20)
-                                      : const Color(0xFFEF4444)
-                                          .withValues(alpha: 0.20),
+                                      ? colors.success.withValues(alpha: 0.16)
+                                      : colors.error.withValues(alpha: 0.16),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: profile.isConnected
-                                        ? const Color(0xFF10B981)
-                                            .withValues(alpha: 0.5)
-                                        : const Color(0xFFEF4444)
-                                            .withValues(alpha: 0.5),
+                                        ? colors.success.withValues(alpha: 0.40)
+                                        : colors.error.withValues(alpha: 0.40),
                                     width: 0.8,
                                   ),
                                 ),
@@ -139,19 +133,19 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         color: profile.isConnected
-                                            ? const Color(0xFF34D399)
-                                            : const Color(0xFFF87171),
+                                            ? colors.success
+                                            : colors.error,
                                       ),
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       profile.isConnected ? 'Google' : 'Offline',
                                       style: TextStyle(
-                                        fontSize: 10,
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.w700,
                                         color: profile.isConnected
-                                            ? const Color(0xFF34D399)
-                                            : const Color(0xFFF87171),
+                                            ? colors.success
+                                            : colors.error,
                                       ),
                                     ),
                                   ],
@@ -164,9 +158,9 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                             profile.email,
                             style: TextStyle(
                               fontFamily: 'Inter',
-                              fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.72),
-                              fontWeight: FontWeight.w400,
+                              fontSize: 12.5,
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -186,18 +180,18 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: colors.primary.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
+                          color: colors.primary.withValues(alpha: 0.20),
                         ),
                       ),
                       child: Icon(
                         Icons.sync_rounded,
                         size: 20,
                         color: notifier.isSyncing
-                            ? const Color(0xFF38BDF8)
-                            : Colors.white70,
+                            ? colors.primary
+                            : colors.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -213,16 +207,16 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: colors.primary.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
+                          color: colors.primary.withValues(alpha: 0.20),
                         ),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.settings_outlined,
                         size: 20,
-                        color: Colors.white70,
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -240,7 +234,7 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                       icon: Icons.bolt_rounded,
                       label: profile.syncStatus,
                       isActive: profile.isConnected,
-                      activeColor: const Color(0xFFFBBF24),
+                      colors: colors,
                       onTap: () async {
                         HapticFeedback.lightImpact();
                         await notifier.syncNow();
@@ -261,48 +255,48 @@ class _AccountActionChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
-  final Color activeColor;
+  final NanoColors colors;
   final VoidCallback onTap;
 
   const _AccountActionChip({
     required this.icon,
     required this.label,
     required this.isActive,
-    required this.activeColor,
+    required this.colors,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor =
-        isActive ? activeColor : Colors.white.withValues(alpha: 0.45);
+    final effectiveColor = isActive ? colors.primary : colors.onSurfaceVariant;
 
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isActive
-              ? effectiveColor.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.05),
+              ? colors.primary.withValues(alpha: 0.12)
+              : colors.surfaceVariant.withValues(alpha: 0.60),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isActive
-                ? effectiveColor.withValues(alpha: 0.45)
-                : Colors.white.withValues(alpha: 0.10),
-            width: 0.8,
+                ? colors.primary.withValues(alpha: 0.35)
+                : colors.outline.withValues(alpha: 0.20),
+            width: 0.9,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: effectiveColor),
+            Icon(icon, size: 14, color: effectiveColor),
             const SizedBox(width: 5),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontFamily: 'Inter',
+                fontSize: 11.5,
                 fontWeight: FontWeight.w600,
                 color: effectiveColor,
               ),

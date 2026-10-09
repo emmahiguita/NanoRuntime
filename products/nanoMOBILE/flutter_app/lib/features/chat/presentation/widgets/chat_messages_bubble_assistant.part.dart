@@ -4,7 +4,7 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
   // QUÉ HACE: ordena encabezado, cuerpo, opciones y acciones del mensaje de IA.
   Widget _buildAssistantMessage(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final time =
         '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
     final displayModel = source == MessageSource.device
@@ -17,15 +17,38 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header minimalista con avatar del Búho y badge de modelo
+          // Header minimalista con badge de IA y modelo
           Row(
             children: [
-              NanoOwlAvatar(
-                size: 26,
-                state: isError ? NanoOwlState.error : NanoOwlState.idle,
-                enableBreathing: true,
-                enableRandomBlink: true,
-                enableGlow: false,
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colors.glassPrimary.withValues(alpha: 0.90),
+                      colors.glassSurface.withValues(alpha: 0.50),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: isError
+                        ? colors.error.withValues(alpha: 0.60)
+                        : colors.primary.withValues(alpha: 0.35),
+                    width: 0.9,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    isError
+                        ? Icons.error_outline_rounded
+                        : Icons.auto_awesome_rounded,
+                    size: 13,
+                    color: isError ? colors.error : colors.primary,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Flexible(
@@ -65,12 +88,8 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
                   source == MessageSource.device ? 'SISTEMA' : 'LOCAL IA',
                   style: TextStyle(
                     color: source == MessageSource.device
-                        ? (isDark
-                              ? const Color(0xFF67E8F9)
-                              : const Color(0xFF0E7490))
-                        : (isDark
-                              ? const Color(0xFF34D399)
-                              : const Color(0xFF059669)),
+                        ? colors.accentCyan
+                        : colors.primary,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.4,

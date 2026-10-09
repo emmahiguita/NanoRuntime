@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 
 /// BUHO-WALLPAPER-01 — Fondo cósmico del Búho (Shell y Navegación).
@@ -41,27 +42,22 @@ class BuhoWallpaper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()?.colors;
     final dark = Theme.of(context).brightness == Brightness.dark;
 
     if (!useImage) {
+      final topColor = colors?.backgroundPrimary ?? (dark ? const Color(0xFF07080B) : const Color(0xFFF8FAFC));
+      final midColor = colors?.backgroundSecondary ?? (dark ? const Color(0xFF0C0E14) : const Color(0xFFF1F5F9));
+      final botColor = colors?.backgroundElevated ?? (dark ? const Color(0xFF08090D) : const Color(0xFFE2E8F0));
+
       return ColoredBox(
-        color: dark ? const Color(0xFF090A0F) : const Color(0xFFF8FAF9),
+        color: topColor,
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: dark
-                  ? const [
-                      Color(0xFF07080B),
-                      Color(0xFF0C0E14),
-                      Color(0xFF08090D),
-                    ]
-                  : const [
-                      Color(0xFFFFFFFF),
-                      Color(0xFFF7FAF8),
-                      Color(0xFFEFF7F2),
-                    ],
+              colors: [topColor, midColor, botColor],
               stops: const [0.0, 0.45, 1.0],
             ),
           ),

@@ -6,19 +6,10 @@ import 'profile_social_components.dart';
 
 /// Cabecera de perfil tipo red social con cover, avatar flotante y metadatos organizados.
 class ProfileSocialCover extends StatelessWidget {
-  final String displayName;
-  final String username;
-  final String bio;
-  final String? photoPath;
-  final String? coverPath;
-  final String city;
-  final String country;
-  final String language;
-  final String gender;
-  final String planTier;
+  final String displayName, username, bio, city, country, language, gender, planTier;
+  final String? photoPath, coverPath;
   final int? age;
-  final VoidCallback onEditAvatar;
-  final VoidCallback onEditCover;
+  final VoidCallback onEditAvatar, onEditCover;
 
   const ProfileSocialCover({
     super.key,
@@ -46,7 +37,7 @@ class ProfileSocialCover extends StatelessWidget {
   Widget _avatarImage(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     final fallback = Center(
-      child: Text(_initials, style: NanoType.title(colors.primary).copyWith(fontSize: 26, fontWeight: FontWeight.w800)),
+      child: Text(_initials, style: TextStyle(fontFamily: 'Inter', color: colors.primary, fontSize: 26, fontWeight: FontWeight.w800)),
     );
     final path = photoPath;
     if (path == null || path.isEmpty) return fallback;
@@ -164,18 +155,31 @@ class ProfileSocialCover extends StatelessWidget {
             children: [
               Text(
                 displayName.trim().isEmpty ? 'Tu nombre' : displayName.trim(),
-                style: NanoType.title(colors.onSurface).copyWith(fontSize: 20, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: colors.onSurface,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
               if (username.trim().isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Text(username.startsWith('@') ? username : '@${username.trim()}', style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 13)),
+                const SizedBox(height: 3),
+                Text(
+                  username.startsWith('@') ? username : '@${username.trim()}',
+                  style: TextStyle(fontFamily: 'Inter', color: colors.primary, fontWeight: FontWeight.w600, fontSize: 13.5),
+                ),
               ],
               if (bio.trim().isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(bio.trim(), style: NanoType.bodySecondary(colors.onSurface).copyWith(fontSize: 13, height: 1.45, fontStyle: FontStyle.italic), maxLines: 3, overflow: TextOverflow.ellipsis),
+                Text(
+                  bio.trim(),
+                  style: TextStyle(fontFamily: 'Inter', color: colors.onSurfaceVariant, fontSize: 13.5, height: 1.45, fontStyle: FontStyle.italic),
+                  maxLines: 3, overflow: TextOverflow.ellipsis,
+                ),
               ],
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 6, runSpacing: 6,
                 children: [

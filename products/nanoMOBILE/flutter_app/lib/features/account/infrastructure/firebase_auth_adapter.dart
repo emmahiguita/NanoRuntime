@@ -48,10 +48,12 @@ class LocalAuthAdapter implements AuthRepository {
     required String password,
   }) async {
     final clean = email.trim().toLowerCase();
-    if (!clean.contains('@'))
+    if (!clean.contains('@')) {
       throw const InvalidCredentialsException('invalid-email');
-    if (password.length < 6)
+    }
+    if (password.length < 6) {
       throw const InvalidCredentialsException('wrong-password');
+    }
 
     final storedHash = await _secureStorage.read('pwd_$clean');
     final incomingHash = AuthCredentialsHelper.hashPassword(password);

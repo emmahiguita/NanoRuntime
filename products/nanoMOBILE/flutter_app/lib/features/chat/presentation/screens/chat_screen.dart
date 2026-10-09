@@ -25,7 +25,6 @@ import '../../nano_everywhere/nano_floating_wrapper.dart';
 import '../../nano_everywhere/nano_ai_models.dart';
 import 'package:nanoai/features/browser_ai/presentation/sheets/ai_web_sessions_sheet.dart';
 import 'package:nanoai/core/services/chat_history_store.dart';
-import 'package:nanoai/core/widgets/nano_owl_avatar.dart';
 
 /// Pantalla Chat — identidad visual de Inicio (glassmorphism, sin AppBar).
 ///

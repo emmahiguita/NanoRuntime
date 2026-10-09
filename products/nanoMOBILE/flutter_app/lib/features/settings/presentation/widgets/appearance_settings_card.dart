@@ -4,9 +4,11 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
-/// QUÉ HACE: Selector de tema visual para Nano AI (Oscuro, Claro Blanco/Verde, o Sistema).
-/// CÓMO FUNCIONA: Muestra opciones Material Expressive táctiles que disparan [onThemeChanged].
-/// POR QUÉ: Permite al usuario alternar entre Obsidian Esmeralda y el nuevo tema Claro Blanco y Verde.
+/// Selector ejecutivo de tema visual iOS Glassed Metálico:
+/// - Oscuro (Obsidian & Cosmic Blue)
+/// - Grisáceo (Space Gray / Titanio Pizarra Mate)
+/// - Claro (Pure Frost & Ice Silver)
+/// - Sistema (Detección automática del dispositivo)
 class AppearanceSettingsCard extends StatelessWidget {
   final NanoColors colors;
   final String currentThemeMode;
@@ -23,42 +25,57 @@ class AppearanceSettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AutomationSurfaceCard(
       child: Padding(
-        padding: const EdgeInsets.all(NanoSpacing.md),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: colors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.palette_outlined, color: colors.primary, size: 20),
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(Icons.palette_outlined, color: colors.primary, size: 18),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Tema y apariencia', style: NanoType.body(colors.onSurface).copyWith(fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 2),
-                      Text('Alterna entre Oscuro, Claro (Blanco y Verde), Clásico (Blanco y Azul) o Sistema.', style: NanoType.caption(colors.onSurfaceVariant)),
+                      Text(
+                        'Tema y apariencia',
+                        style: NanoType.body(colors.onSurface).copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        'Oscuro Obsidian, Grisáceo Mate, Claro Frost o Sistema.',
+                        style: NanoType.caption(colors.onSurfaceVariant).copyWith(
+                          fontSize: 11,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, constraints) {
                 const options = [
-                  ('Oscuro', 'Obsidian', Icons.dark_mode_rounded),
-                  ('Claro', 'Blanco & Verde', Icons.eco_rounded),
-                  ('Clásico', 'Blanco & Azul', Icons.palette_rounded),
-                  ('Sistema', 'Auto', Icons.brightness_auto_rounded),
+                  ('Oscuro', 'Obsidiana', Icons.dark_mode_rounded),
+                  ('Grisáceo', 'Gris Espacial', Icons.layers_rounded),
+                  ('Claro', 'Blanco & Verde', Icons.wb_sunny_rounded),
+                  ('Sistema', 'Blanco & Azul', Icons.brightness_auto_rounded),
                 ];
 
                 Widget buildTile((String, String, IconData) opt, bool compact) {
-                  final isSelected = currentThemeMode == opt.$1;
+                  final isSelected = currentThemeMode == opt.$1 ||
+                      (opt.$1 == 'Grisáceo' && (currentThemeMode == 'Opaco' || currentThemeMode == 'Clásico'));
                   return _ThemeTile(
                     id: opt.$1,
                     sublabel: opt.$2,
@@ -73,22 +90,22 @@ class AppearanceSettingsCard extends StatelessWidget {
                   );
                 }
 
-                final isNarrow = constraints.maxWidth < 420;
+                final isNarrow = constraints.maxWidth < 380;
                 if (isNarrow) {
                   return Column(
                     children: [
                       Row(
                         children: [
                           Expanded(child: buildTile(options[0], false)),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Expanded(child: buildTile(options[1], false)),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           Expanded(child: buildTile(options[2], false)),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 6),
                           Expanded(child: buildTile(options[3], false)),
                         ],
                       ),
@@ -100,7 +117,7 @@ class AppearanceSettingsCard extends StatelessWidget {
                   children: options.map((opt) {
                     return Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 2.5),
                         child: buildTile(opt, false),
                       ),
                     );
@@ -115,7 +132,7 @@ class AppearanceSettingsCard extends StatelessWidget {
   }
 }
 
-/// QUÉ HACE: Botón interactivo de opción de tema con estilo Material Expressive.
+/// Botón interactivo táctil de opción de tema estilo iOS Titanium Glass.
 class _ThemeTile extends StatelessWidget {
   final String id, sublabel;
   final IconData icon;
@@ -135,44 +152,75 @@ class _ThemeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeBg = colors.primary.withValues(alpha: 0.15);
-    final inactiveBg = colors.surface.withValues(alpha: 0.30);
-    final borderColor = isSelected ? colors.primary : colors.outline.withValues(alpha: 0.40);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeBg = colors.primary.withValues(alpha: isDark ? 0.18 : 0.12);
+    final inactiveBg = isDark
+        ? colors.surfaceVariant.withValues(alpha: 0.45)
+        : colors.backgroundElevated.withValues(alpha: 0.85);
+    final borderColor = isSelected
+        ? colors.primary.withValues(alpha: 0.85)
+        : colors.outlineVariant.withValues(alpha: isDark ? 0.35 : 0.50);
     final tint = isSelected ? colors.primary : colors.onSurfaceVariant;
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? activeBg : inactiveBg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: borderColor, width: isSelected ? 1.6 : 1.0),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 20, color: tint),
-            const SizedBox(height: 5),
-            Text(
-              id,
-              style: NanoType.caption(isSelected ? colors.primary : colors.onSurface).copyWith(fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (!isCompact) ...[
-              const SizedBox(height: 2),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        splashColor: colors.primary.withValues(alpha: 0.1),
+        highlightColor: colors.primary.withValues(alpha: 0.05),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : inactiveBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: borderColor, width: isSelected ? 1.4 : 0.8),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: colors.primary.withValues(alpha: isDark ? 0.15 : 0.08),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: tint),
+              const SizedBox(height: 4),
               Text(
-                sublabel,
-                style: NanoType.overline(colors.onSurfaceVariant).copyWith(fontSize: 9),
+                id,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: isSelected ? colors.primary : colors.onSurface,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 11.5,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
+              if (!isCompact) ...[
+                const SizedBox(height: 1),
+                Text(
+                  sublabel,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: isSelected
+                        ? colors.primary.withValues(alpha: 0.85)
+                        : colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 9.5,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

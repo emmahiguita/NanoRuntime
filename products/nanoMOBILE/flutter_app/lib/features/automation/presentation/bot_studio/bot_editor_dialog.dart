@@ -4,15 +4,7 @@ import '../../domain/bot/bot_role.dart';
 import '../../engine/messaging/tone_profile.dart';
 import 'bot_skills_selector.dart';
 
-/// QUÉ HACE:
-/// Modal interactivo para crear o editar la configuración completa de un bot.
-///
-/// CÓMO FUNCIONA:
-/// Permite modificar el nombre, rol, descripción, tono conversacional y
-/// habilidades asignadas, devolviendo el [BotDefinition] actualizado al guardar.
-///
-/// POR QUÉ:
-/// Ofrece un punto central de gobernanza para cada bot en Bot Studio.
+/// Modal interactivo compacto estilo iOS para configurar agentes.
 class BotEditorDialog extends StatefulWidget {
   final BotDefinition bot;
 
@@ -24,7 +16,7 @@ class BotEditorDialog extends StatefulWidget {
       isScrollControlled: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (_) => BotEditorDialog(bot: bot),
     );
@@ -82,12 +74,13 @@ class _BotEditorDialogState extends State<BotEditorDialog> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: insets.bottom + 20,
+        left: 16,
+        right: 16,
+        top: 14,
+        bottom: insets.bottom + 14,
       ),
       child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -96,80 +89,99 @@ class _BotEditorDialogState extends State<BotEditorDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  widget.bot.id.startsWith("bot_")
-                      ? 'Editar Bot'
-                      : 'Configurar Bot',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  widget.bot.id.startsWith("bot_") ? 'Editar Agente' : 'Configurar Agente',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.3,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nombre del Bot',
-                border: OutlineInputBorder(),
-              ),
-            ),
             const SizedBox(height: 12),
             TextField(
+              controller: _nameController,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                labelText: 'Nombre del Bot',
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
               controller: _descController,
+              style: const TextStyle(fontSize: 12.5),
               decoration: const InputDecoration(
                 labelText: 'Descripción / Propósito',
-                border: OutlineInputBorder(),
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
               ),
               maxLines: 2,
             ),
-            const SizedBox(height: 16),
-            Text('Rol de Operación', style: theme.textTheme.labelLarge),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            Text('Rol de Operación', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 6),
             DropdownButtonFormField<BotRole>(
               initialValue: _selectedRole,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
+              isDense: true,
+              style: TextStyle(fontSize: 12.5, color: theme.colorScheme.onSurface),
+              decoration: const InputDecoration(
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              ),
               items: BotRole.values.map((r) {
-                return DropdownMenuItem(value: r, child: Text(r.label));
+                return DropdownMenuItem(value: r, child: Text(r.label, style: const TextStyle(fontSize: 12.5)));
               }).toList(),
               onChanged: (val) {
                 if (val != null) setState(() => _selectedRole = val);
               },
             ),
-            const SizedBox(height: 16),
-            Text('Calidez del Tono', style: theme.textTheme.labelLarge),
-            const SizedBox(height: 8),
-            SegmentedButton<ToneWarmth>(
-              segments: const [
-                ButtonSegment(
-                  value: ToneWarmth.cercano,
-                  label: Text('Cercano'),
+            const SizedBox(height: 12),
+            Text('Calidez del Tono', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              height: 34,
+              child: SegmentedButton<ToneWarmth>(
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  textStyle: WidgetStateProperty.all(const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                 ),
-                ButtonSegment(value: ToneWarmth.formal, label: Text('Formal')),
-              ],
-              selected: {_warmth},
-              onSelectionChanged: (set) => setState(() => _warmth = set.first),
+                segments: const [
+                  ButtonSegment(value: ToneWarmth.cercano, label: Text('Cercano')),
+                  ButtonSegment(value: ToneWarmth.formal, label: Text('Formal')),
+                ],
+                selected: {_warmth},
+                onSelectionChanged: (set) => setState(() => _warmth = set.first),
+              ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              'Habilidades Activas (Skills)',
-              style: theme.textTheme.labelLarge,
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
+            Text('Habilidades Activas (Skills)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurfaceVariant)),
+            const SizedBox(height: 6),
             BotSkillsSelector(
               selectedSkillIds: _skillIds,
               onChanged: (skills) => setState(() => _skillIds = skills),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
-              height: 48,
+              height: 42,
               child: FilledButton.icon(
-                icon: const Icon(Icons.save_rounded),
-                label: const Text('Guardar Cambios'),
+                icon: const Icon(Icons.save_rounded, size: 16),
+                label: const Text('Guardar Configuración', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
                 onPressed: _onSave,
               ),
             ),

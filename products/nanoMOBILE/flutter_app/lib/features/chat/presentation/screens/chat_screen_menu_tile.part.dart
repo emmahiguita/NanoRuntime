@@ -1,54 +1,43 @@
 part of 'chat_screen.dart';
 
-// QUÉ HACE:
-// Componente de ítem individual para el menú modal de opciones del chat.
-//
-// CÓMO FUNCIONA:
-// - Renderiza un contenedor táctil Material con icono contrastado, título, subtítulo e indicador de flecha.
-// - Aplica micro-interacción y soporte de estados destructivos (rojo de alerta) con esquinas redondeadas suaves.
-//
-// POR QUÉ:
-// Aplica el principio de Responsabilidad Única (SRP) de SOLID, aislando la construcción del widget de ítem
-// para mantener los archivos estrictamente por debajo del umbral de 200 líneas.
+// Componente de ítem individual para el menú modal de opciones del chat estilo iOS.
 extension _ChatScreenMenuTile on _ChatScreenState {
-  /// QUÉ HACE: Construye cada ítem del menú con diseño Material Expressive y respuesta táctil.
   Widget _buildCleanOptionTile({
     required IconData icon,
     required String label,
     required String subtitle,
     required NanoColors colors,
     required VoidCallback? onTap,
+    Color? iconColor,
     bool isDestructive = false,
   }) {
-    final iconBgColor = isDestructive
-        ? const Color(0xFFEF4444).withValues(alpha: 0.12)
-        : colors.onSurface.withValues(alpha: 0.06);
-    final iconColor = isDestructive
+    final effectiveIconColor = isDestructive
         ? const Color(0xFFEF4444)
-        : colors.onSurface.withValues(alpha: 0.82);
+        : (iconColor ?? colors.primary);
+    final iconBgColor = effectiveIconColor.withValues(alpha: 0.12);
     final titleColor = isDestructive
         ? const Color(0xFFEF4444)
-        : colors.onSurface.withValues(alpha: 0.92);
+        : colors.onSurface;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Row(
             children: [
               Container(
-                width: 36,
-                height: 36,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   color: iconBgColor,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: iconColor, size: 19),
+                child: Icon(icon, color: effectiveIconColor, size: 16),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,8 +46,9 @@ extension _ChatScreenMenuTile on _ChatScreenState {
                       label,
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 13.5,
+                        fontSize: 12.5,
                         fontWeight: FontWeight.w600,
+                        letterSpacing: -0.1,
                         color: titleColor,
                       ),
                     ),
@@ -69,8 +59,8 @@ extension _ChatScreenMenuTile on _ChatScreenState {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 11,
-                        color: colors.onSurface.withValues(alpha: 0.50),
+                        fontSize: 10.5,
+                        color: colors.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -78,8 +68,8 @@ extension _ChatScreenMenuTile on _ChatScreenState {
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                size: 18,
-                color: colors.onSurface.withValues(alpha: 0.25),
+                size: 15,
+                color: colors.onSurfaceVariant.withValues(alpha: 0.5),
               ),
             ],
           ),

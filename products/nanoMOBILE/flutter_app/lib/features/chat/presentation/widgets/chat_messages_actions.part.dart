@@ -30,20 +30,17 @@ class MessageActions extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
             child: Container(
               decoration: BoxDecoration(
-                color: isDark
-                    ? const Color(0xF20B131E)
-                    : colors.surface.withValues(alpha: 0.95),
+                color: colors.surface.withValues(alpha: isDark ? 0.94 : 0.96),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(24),
                 ),
                 border: Border.all(
-                  color: (isDark ? const Color(0xFF10B981) : colors.accent)
-                      .withValues(alpha: 0.25),
+                  color: colors.outlineVariant.withValues(alpha: isDark ? 0.35 : 0.45),
                   width: 1,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.4),
+                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
                     blurRadius: 24,
                     offset: const Offset(0, -6),
                   ),
@@ -159,7 +156,6 @@ class MessageActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
     return Semantics(
       label: 'Acciones',
       button: true,
@@ -174,9 +170,7 @@ class MessageActions extends StatelessWidget {
             child: Icon(
               Icons.more_horiz_rounded,
               size: 18,
-              color: isDark
-                  ? colors.onSurface.withValues(alpha: 0.50)
-                  : const Color(0xFF64748B),
+              color: colors.onSurfaceVariant.withValues(alpha: 0.70),
             ),
           ),
         ),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/theme/nano_type.dart';
 import '../../../../core/widgets/nano_components.dart';
-import '../../../../core/widgets/nano_owl_avatar.dart';
 
 
 /// QUÉ HACE:
@@ -64,17 +63,39 @@ class _NanoSupportBannerState extends State<NanoSupportBanner> {
       borderRadius: BorderRadius.circular(NanoRadius.medium),
       child: Row(
         children: [
-          const NanoOwlAvatar(size: 28, state: NanoOwlState.idle),
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.favorite_rounded,
+              size: 14,
+              color: colors.primary,
+            ),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               '¿Nano te está siendo útil?',
-              style: NanoType.body(colors.onSurface),
+              style: TextStyle(
+                fontFamily: 'Inter',
+                color: colors.onSurface,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           Text(
             'Apoyar →',
-            style: NanoType.label(colors.primary),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: colors.primary,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -87,7 +108,19 @@ class _NanoSupportBannerState extends State<NanoSupportBanner> {
       children: [
         Row(
           children: [
-            const NanoOwlAvatar(size: 34, state: NanoOwlState.idle),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.favorite_rounded,
+                size: 16,
+                color: colors.primary,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -95,12 +128,22 @@ class _NanoSupportBannerState extends State<NanoSupportBanner> {
                 children: [
                   Text(
                     'Ayuda a que Nano siga creciendo',
-                    style: NanoType.title(colors.onSurface),
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: colors.onSurface,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Si Nano te es útil, puedes apoyar su desarrollo.',
-                    style: NanoType.caption(colors.onSurfaceVariant),
+                    'Si Nano te es útil, puedes apoyar su desarrollo continuo.',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: colors.onSurfaceVariant,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),

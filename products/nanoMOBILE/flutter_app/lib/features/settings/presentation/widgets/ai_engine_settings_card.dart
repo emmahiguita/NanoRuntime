@@ -5,17 +5,7 @@ import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 import 'settings_slider_tile.dart';
 
-/// QUÉ HACE:
-/// Tarjeta de configuración para los parámetros del motor de inferencia IA
-/// local/remoto (Temperatura, Top-P, Longitud máxima de tokens) y síntesis de voz.
-///
-/// CÓMO FUNCIONA:
-/// Conecta sliders adaptados con [SettingsNotifier] para guardar en tiempo real
-/// las preferencias del modelo sin reiniciar la sesión del chat.
-///
-/// POR QUÉ:
-/// Permite al usuario calibrar el balance entre respuestas deterministas vs creativas,
-/// optimizando el consumo de batería y la velocidad de respuesta.
+/// Parámetros del motor de inferencia IA (Temperatura, Top-P, Longitud máxima) y voz.
 class AiEngineSettingsCard extends StatelessWidget {
   final SettingsState state;
   final SettingsNotifier notifier;
@@ -37,6 +27,7 @@ class AiEngineSettingsCard extends StatelessWidget {
         AutomationSurfaceCard(
           child: Column(
             children: [
+              const SizedBox(height: 4),
               SettingsSliderTile(
                 label: 'Creatividad (Temperature)',
                 value: state.temperature,
@@ -48,7 +39,7 @@ class AiEngineSettingsCard extends StatelessWidget {
                 colors: colors,
               ),
               SettingsSliderTile(
-                label: 'Diversidad de respuesta (Top-P)',
+                label: 'Diversidad (Top-P)',
                 value: state.topP,
                 min: 0.1,
                 max: 1.0,
@@ -58,32 +49,33 @@ class AiEngineSettingsCard extends StatelessWidget {
                 colors: colors,
               ),
               SettingsSliderTile(
-                label: 'Longitud máxima',
+                label: 'Límite de tokens',
                 value: state.maxTokens.toDouble(),
                 min: 64,
                 max: 4096,
                 divisions: 63,
                 fractionDigits: 0,
-                unit: 'tokens',
+                unit: 'tk',
                 onChanged: (v) => notifier.setMaxTokens(v.round()),
                 colors: colors,
               ),
+              const SizedBox(height: 4),
             ],
           ),
         ),
-        const SizedBox(height: NanoSpacing.md),
+        const SizedBox(height: 12),
         const AutomationSectionLabel('Voz y Audio'),
         AutomationSurfaceCard(
           child: Padding(
             padding: const EdgeInsets.symmetric(
-              horizontal: NanoSpacing.md,
-              vertical: NanoSpacing.sm,
+              horizontal: 12,
+              vertical: 8,
             ),
             child: Row(
               children: [
                 Container(
-                  width: 36,
-                  height: 36,
+                  width: 32,
+                  height: 32,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: state.voiceEnabled
@@ -94,36 +86,44 @@ class AiEngineSettingsCard extends StatelessWidget {
                     state.voiceEnabled
                         ? Icons.volume_up_rounded
                         : Icons.volume_off_rounded,
-                    size: 18,
+                    size: 16,
                     color: state.voiceEnabled
                         ? colors.primary
                         : colors.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(width: NanoSpacing.md),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Respuestas de voz',
-                        style: NanoType.body(colors.onSurface),
+                        style: NanoType.body(colors.onSurface).copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         state.voiceEnabled
-                            ? 'Nano habla las respuestas tras un mensaje de audio.'
-                            : 'Solo respuestas en texto.',
-                        style: NanoType.caption(colors.onSurfaceVariant),
+                            ? 'Locución automática de síntesis de voz activa.'
+                            : 'Solo texto en pantalla.',
+                        style: NanoType.caption(colors.onSurfaceVariant).copyWith(
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Switch(
-                  value: state.voiceEnabled,
-                  onChanged: notifier.setVoiceEnabled,
-                  activeThumbColor: colors.primary,
-                  inactiveTrackColor: colors.outlineVariant.withValues(alpha: 0.3),
+                Transform.scale(
+                  scale: 0.85,
+                  child: Switch(
+                    value: state.voiceEnabled,
+                    onChanged: notifier.setVoiceEnabled,
+                    activeThumbColor: colors.primary,
+                    inactiveTrackColor: colors.outlineVariant.withValues(alpha: 0.3),
+                  ),
                 ),
               ],
             ),

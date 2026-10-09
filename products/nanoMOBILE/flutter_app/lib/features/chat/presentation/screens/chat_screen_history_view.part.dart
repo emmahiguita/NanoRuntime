@@ -35,10 +35,31 @@ class _HistoryListView extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const NanoOwlAvatar(
-                size: 64,
-                state: NanoOwlState.idle,
-                enableBreathing: true,
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colors.glassPrimary.withValues(alpha: 0.85),
+                      colors.glassSurface.withValues(alpha: 0.40),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: colors.onSurface.withValues(alpha: 0.15),
+                    width: 1.0,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.history_rounded,
+                    size: 28,
+                    color: colors.onSurface.withValues(alpha: 0.70),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               Text(

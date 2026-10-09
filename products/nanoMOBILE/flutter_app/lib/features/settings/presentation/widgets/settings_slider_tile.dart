@@ -4,7 +4,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 
 /// Previsualiza cada movimiento localmente y persiste solo al terminar el gesto.
-/// Evita escrituras de preferencias y reconstrucciones de toda la pantalla por frame.
+/// Evita escrituras de preferencias y reconstrucciones pesadas por frame.
 class SettingsSliderTile extends StatefulWidget {
   final String label;
   final double value, min, max;
@@ -13,6 +13,7 @@ class SettingsSliderTile extends StatefulWidget {
   final int fractionDigits;
   final ValueChanged<double> onChanged;
   final NanoColors colors;
+
   const SettingsSliderTile({
     super.key,
     required this.label,
@@ -33,7 +34,6 @@ class SettingsSliderTile extends StatefulWidget {
 class _SettingsSliderTileState extends State<SettingsSliderTile> {
   double? _draft;
 
-  /// Durante el arrastre el borrador es local; fuera de él manda el proveedor.
   @override
   Widget build(BuildContext context) {
     final value = (_draft ?? widget.value)
@@ -43,28 +43,49 @@ class _SettingsSliderTileState extends State<SettingsSliderTile> {
         '${value.toStringAsFixed(widget.fractionDigits)}'
         '${widget.unit == null ? '' : ' ${widget.unit}'}';
     final colors = widget.colors;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 4,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(widget.label, style: NanoType.body(colors.onSurface)),
               Text(
-                display,
-                style: NanoType.subtitle(
-                  colors.primary,
-                ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                widget.label,
+                style: NanoType.body(colors.onSurface).copyWith(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  display,
+                  style: NanoType.caption(colors.primary).copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
               ),
             ],
           ),
           SliderTheme(
-            data: SliderTheme.of(
-              context,
-            ).copyWith(showValueIndicator: ShowValueIndicator.never),
+            data: SliderTheme.of(context).copyWith(
+              showValueIndicator: ShowValueIndicator.never,
+              trackHeight: 3.5,
+              activeTrackColor: colors.primary,
+              inactiveTrackColor: colors.outlineVariant.withValues(alpha: 0.35),
+              thumbColor: colors.primary,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            ),
             child: Slider(
               value: value,
               min: widget.min,
@@ -72,7 +93,6 @@ class _SettingsSliderTileState extends State<SettingsSliderTile> {
               divisions: widget.divisions,
               semanticFormatterCallback: (_) => display,
               onChanged: (next) => setState(() => _draft = next),
-              // Una sola notificación y vibración por gesto, sin temporizadores.
               onChangeEnd: (next) {
                 setState(() => _draft = null);
                 if (next != widget.value) {

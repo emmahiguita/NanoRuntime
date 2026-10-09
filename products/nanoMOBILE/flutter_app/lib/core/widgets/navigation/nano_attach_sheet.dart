@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -43,7 +44,7 @@ class NanoAttachResult {
   final int sizeBytes;
 }
 
-/// Hoja flotante de inyección rápida de IAs, MCP y adjuntos de la barra (+).
+/// Hoja flotante de inyección rápida de IAs, MCP y adjuntos (+).
 class NanoAttachSheet {
   const NanoAttachSheet._();
 
@@ -78,7 +79,7 @@ class NanoAttachSheet {
         );
       }
       final type = switch (rawResult) {
-        NanoAttachKind.photo => FileType.image, // Resuelto arriba por cámara.
+        NanoAttachKind.photo => FileType.image,
         NanoAttachKind.video => FileType.video,
         NanoAttachKind.audio => FileType.audio,
         NanoAttachKind.document => FileType.any,
@@ -111,228 +112,239 @@ class _AttachSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
+    final isDark = colors is! NanoLightColors;
     final mediaQuery = MediaQuery.of(context);
     final isLandscape =
         mediaQuery.orientation == Orientation.landscape ||
         mediaQuery.size.height < 520;
     final maxHeight = mediaQuery.size.height * (isLandscape ? 0.85 : 0.75);
 
-    return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        gradient: isDark
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xF50A1838), Color(0xF203091B)],
-              )
-            : const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFDFFFFFF), Color(0xF5EFF5FF)],
-              ),
-        border: Border.all(
-          color: isDark ? const Color(0x333B82F6) : const Color(0x1F2563EB),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.18),
-            blurRadius: 28,
-            offset: const Offset(0, -6),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            18,
-            12,
-            18,
-            mediaQuery.padding.bottom + (isLandscape ? 12 : 18),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: colors.textSecondary.withValues(alpha: .45),
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: colors.accent.withValues(alpha: 0.16),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.add_rounded,
-                      color: colors.accent,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Inyección & Adjuntos (+)',
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: .2,
-                          ),
-                        ),
-                        Text(
-                          'Modelos de IA web, comandos MCP y archivos',
-                          style: TextStyle(
-                            color: colors.textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-
-              // ── SECCIÓN 1: IAs WEB ───────────────────────────────────
-              const _SectionLabel(
-                title: 'Modelos de IA Web (@)',
-                icon: Icons.psychology_rounded,
-              ),
-              const SizedBox(height: 8),
-              const Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _AiInjectTile(
-                    label: 'ChatGPT',
-                    command: '@chatgpt ',
-                    icon: Icons.smart_toy_rounded,
-                  ),
-                  _AiInjectTile(
-                    label: 'Gemini',
-                    command: '@gemini ',
-                    icon: Icons.auto_awesome_rounded,
-                  ),
-                  _AiInjectTile(
-                    label: 'DeepSeek',
-                    command: '@deepseek ',
-                    icon: Icons.explore_rounded,
-                  ),
-                  _AiInjectTile(
-                    label: 'Claude',
-                    command: '@claude ',
-                    icon: Icons.lightbulb_rounded,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // ── SECCIÓN 2: COMANDOS MCP & SISTEMA ───────────────────
-              const _SectionLabel(
-                title: 'Comandos MCP & Sistema',
-                icon: Icons.terminal_rounded,
-              ),
-              const SizedBox(height: 8),
-              const Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _CommandTile(
-                    title: 'Diagnóstico MCP',
-                    subtitle: '@mcp call device.diagnostics',
-                    command: '@mcp call device.diagnostics',
-                    icon: Icons.phonelink_setup_rounded,
-                  ),
-                  _CommandTile(
-                    title: 'Git Status',
-                    subtitle: '@git status',
-                    command: '@git status',
-                    icon: Icons.account_tree_rounded,
-                  ),
-                  _CommandTile(
-                    title: 'Búsqueda Web',
-                    subtitle: '@buscar <consulta>',
-                    command: '@buscar ',
-                    icon: Icons.travel_explore_rounded,
-                  ),
-                  _CommandTile(
-                    title: 'Resumen Apps',
-                    subtitle: '@mcp call device.app_summary',
-                    command: '@mcp call device.app_summary',
-                    icon: Icons.apps_rounded,
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              // ── SECCIÓN 3: ADJUNTOS DE ARCHIVO ──────────────────────
-              const _SectionLabel(
-                title: 'Adjuntar Archivo Local',
-                icon: Icons.attach_file_rounded,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _FileTile(
-                      icon: Icons.photo_camera_outlined,
-                      title: 'Cámara',
-                      onTap: () =>
-                          Navigator.of(context).pop(NanoAttachKind.photo),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _FileTile(
-                      icon: Icons.audiotrack_outlined,
-                      title: 'Audio',
-                      onTap: () =>
-                          Navigator.of(context).pop(NanoAttachKind.audio),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _FileTile(
-                      icon: Icons.videocam_outlined,
-                      title: 'Video',
-                      onTap: () =>
-                          Navigator.of(context).pop(NanoAttachKind.video),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _FileTile(
-                      icon: Icons.description_outlined,
-                      title: 'Documento',
-                      onTap: () =>
-                          Navigator.of(context).pop(NanoAttachKind.document),
-                    ),
-                  ),
-                ],
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xE6182130)
+                : Colors.white.withValues(alpha: 0.95),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08),
+              width: 0.8,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
+                blurRadius: 24,
+                offset: const Offset(0, -6),
               ),
             ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                14,
+                10,
+                14,
+                mediaQuery.padding.bottom + (isLandscape ? 10 : 16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Tirador ergonómico
+                  Center(
+                    child: Container(
+                      width: 32,
+                      height: 3.5,
+                      decoration: BoxDecoration(
+                        color: colors.onSurface.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // Encabezado compacto
+                  Row(
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: BoxDecoration(
+                          color: colors.primary.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Icon(
+                          Icons.add_rounded,
+                          color: colors.primary,
+                          size: 17,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Inyección & Adjuntos (+)',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: colors.onSurface,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
+                              ),
+                            ),
+                            Text(
+                              'Modelos de IA web, comandos MCP y archivos',
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: colors.onSurfaceVariant,
+                                fontSize: 10.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── SECCIÓN 1: IAs WEB ───────────────────────────────────
+                  const _SectionLabel(
+                    title: 'Modelos de IA Web (@)',
+                    icon: Icons.psychology_rounded,
+                  ),
+                  const SizedBox(height: 6),
+                  const Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _AiInjectTile(
+                        label: 'ChatGPT',
+                        command: '@chatgpt ',
+                        icon: Icons.smart_toy_rounded,
+                        accentColor: Color(0xFF10A37F),
+                      ),
+                      _AiInjectTile(
+                        label: 'Gemini',
+                        command: '@gemini ',
+                        icon: Icons.auto_awesome_rounded,
+                        accentColor: Color(0xFF38BDF8),
+                      ),
+                      _AiInjectTile(
+                        label: 'DeepSeek',
+                        command: '@deepseek ',
+                        icon: Icons.explore_rounded,
+                        accentColor: Color(0xFF2563EB),
+                      ),
+                      _AiInjectTile(
+                        label: 'Claude',
+                        command: '@claude ',
+                        icon: Icons.lightbulb_rounded,
+                        accentColor: Color(0xFFD97706),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ── SECCIÓN 2: COMANDOS MCP & SISTEMA ───────────────────
+                  const _SectionLabel(
+                    title: 'Comandos MCP & Sistema',
+                    icon: Icons.terminal_rounded,
+                  ),
+                  const SizedBox(height: 6),
+                  const Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _CommandTile(
+                        title: 'Diagnóstico MCP',
+                        subtitle: '@mcp call device.diagnostics',
+                        command: '@mcp call device.diagnostics',
+                        icon: Icons.phonelink_setup_rounded,
+                      ),
+                      _CommandTile(
+                        title: 'Git Status',
+                        subtitle: '@git status',
+                        command: '@git status',
+                        icon: Icons.account_tree_rounded,
+                      ),
+                      _CommandTile(
+                        title: 'Búsqueda Web',
+                        subtitle: '@buscar <consulta>',
+                        command: '@buscar ',
+                        icon: Icons.travel_explore_rounded,
+                      ),
+                      _CommandTile(
+                        title: 'Resumen Apps',
+                        subtitle: '@mcp call device.app_summary',
+                        command: '@mcp call device.app_summary',
+                        icon: Icons.apps_rounded,
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // ── SECCIÓN 3: ADJUNTOS DE ARCHIVO ──────────────────────
+                  const _SectionLabel(
+                    title: 'Adjuntar Archivo Local',
+                    icon: Icons.attach_file_rounded,
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _FileTile(
+                          icon: Icons.photo_camera_outlined,
+                          title: 'Cámara',
+                          color: const Color(0xFF38BDF8),
+                          onTap: () =>
+                              Navigator.of(context).pop(NanoAttachKind.photo),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _FileTile(
+                          icon: Icons.audiotrack_outlined,
+                          title: 'Audio',
+                          color: const Color(0xFF818CF8),
+                          onTap: () =>
+                              Navigator.of(context).pop(NanoAttachKind.audio),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _FileTile(
+                          icon: Icons.videocam_outlined,
+                          title: 'Video',
+                          color: const Color(0xFFEC4899),
+                          onTap: () =>
+                              Navigator.of(context).pop(NanoAttachKind.video),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _FileTile(
+                          icon: Icons.description_outlined,
+                          title: 'Documento',
+                          color: const Color(0xFF10B981),
+                          onTap: () =>
+                              Navigator.of(context).pop(NanoAttachKind.document),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -351,15 +363,16 @@ class _SectionLabel extends StatelessWidget {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     return Row(
       children: [
-        Icon(icon, size: 14, color: colors.textSecondary),
-        const SizedBox(width: 6),
+        Icon(icon, size: 12, color: colors.onSurfaceVariant),
+        const SizedBox(width: 5),
         Text(
           title,
           style: TextStyle(
-            color: colors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.3,
+            fontFamily: 'Inter',
+            color: colors.onSurfaceVariant,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.2,
           ),
         ),
       ],
@@ -372,52 +385,52 @@ class _AiInjectTile extends StatelessWidget {
     required this.label,
     required this.command,
     required this.icon,
+    required this.accentColor,
   });
 
   final String label;
   final String command;
   final IconData icon;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
+    final isDark = colors is! NanoLightColors;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0x1F3B82F6) : const Color(0x0F1D6FE8),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? const Color(0x333B82F6) : const Color(0x1F2563EB),
-          width: 0.9,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            Navigator.of(context).pop(command);
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: colors.accent, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          Navigator.of(context).pop(command);
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: accentColor.withValues(alpha: isDark ? 0.12 : 0.08),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: accentColor.withValues(alpha: isDark ? 0.28 : 0.22),
+              width: 0.8,
             ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: accentColor, size: 14),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: colors.onSurface,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -441,80 +454,72 @@ class _CommandTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
-    final mediaQuery = MediaQuery.of(context);
-    final isCompact = mediaQuery.size.width < 400;
+    final isDark = colors is! NanoLightColors;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final itemWidth = (constraints.maxWidth - 8) / 2;
-        return Container(
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0x221E293B) : const Color(0x0A0F172A),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark ? const Color(0x26334155) : const Color(0x140F172A),
-              width: 0.9,
-            ),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                Navigator.of(context).pop(command);
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: itemWidth.clamp(140.0, 300.0),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+        final itemWidth = (constraints.maxWidth - 6) / 2;
+
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              Navigator.of(context).pop(command);
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: itemWidth,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              decoration: BoxDecoration(
+                color: colors.surface.withValues(alpha: isDark ? 0.40 : 0.70),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colors.outlineVariant.withValues(alpha: 0.22),
+                  width: 0.7,
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: colors.accent.withValues(alpha: isDark ? .16 : .10),
-                      ),
-                      child: Icon(icon, color: colors.accent, size: 16),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: colors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.textPrimary,
-                              fontSize: isCompact ? 11.5 : 12.5,
-                              fontWeight: FontWeight.w600,
-                            ),
+                    child: Icon(icon, color: colors.primary, size: 14),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            color: colors.onSurface,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                           ),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w400,
-                              fontFamily: 'JetBrainsMono',
-                            ),
+                        ),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'JetBrainsMono',
+                            color: colors.onSurfaceVariant,
+                            fontSize: 8.5,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -528,63 +533,63 @@ class _FileTile extends StatelessWidget {
   const _FileTile({
     required this.icon,
     required this.title,
+    required this.color,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
+  final Color color;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final isDark = colors is NanoDarkColors;
+    final isDark = colors is! NanoLightColors;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0x221E293B) : const Color(0x0A0F172A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? const Color(0x26334155) : const Color(0x140F172A),
-          width: 0.8,
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: colors.accent.withValues(alpha: isDark ? .16 : .10),
-                  ),
-                  child: Icon(icon, color: colors.accent, size: 18),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: colors.surface.withValues(alpha: isDark ? 0.40 : 0.70),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.22),
+              width: 0.7,
             ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 15),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: colors.onSurface,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -150,9 +150,13 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
 
-    final lightColors = settings.themeMode == 'Claro'
-        ? NanoLightColors()
-        : NanoClassicLightColors();
+    final darkColors = (settings.themeMode == 'Grisáceo' || settings.themeMode == 'Opaco')
+        ? NanoSpaceGrayColors()
+        : NanoDarkColors();
+
+    final lightColors = (settings.themeMode == 'Sistema')
+        ? NanoSystemLightColors()
+        : NanoLightColors();
 
     final lightTheme = AppTheme.buildTheme(
       lightColors,
@@ -163,7 +167,7 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
     );
 
     final darkTheme = AppTheme.buildTheme(
-      NanoDarkColors(),
+      darkColors,
       glassEnabled: settings.glassEnabled,
       glassOpacity: settings.glassOpacity,
       glassClarity: settings.glassClarity,

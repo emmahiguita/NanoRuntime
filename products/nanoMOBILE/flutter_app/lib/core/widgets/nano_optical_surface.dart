@@ -448,8 +448,7 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
             ],
     );
 
-    // 3. Sustrato de vidrio blanco translúcido (opacidad escalada por
-    // glassOpacityScale: hero 1.0, laterales reducidas) y modulada universalmente.
+    // 3. Sustrato de vidrio templado translúcido iOS con alta fidelidad óptica
     final opacityScale = widget.glassOpacityScale *
         (glassEnabled ? (glassOpacity / 0.70) : 1.0);
     final glassBodyGradient = isDark
@@ -457,27 +456,17 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              colors.glass100.withValues(alpha: 0.85 * opacityScale),
-              colors.glass200.withValues(alpha: 0.70 * opacityScale),
-              colors.glass300.withValues(alpha: 0.55 * opacityScale),
-              colors.glass400.withValues(alpha: 0.75 * opacityScale),
+              colors.surface.withValues(alpha: (0.75 * opacityScale).clamp(0.1, 0.95)),
+              colors.surfaceVariant.withValues(alpha: (0.65 * opacityScale).clamp(0.1, 0.92)),
             ],
-            stops: const [0.0, 0.32, 0.72, 1.0],
           )
         : LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.white.withValues(alpha: colors.glassOpaque * opacityScale),
-              colors.glassSecondary.withValues(
-                alpha: colors.glassStrong * opacityScale,
-              ),
-              colors.glassGraphite.withValues(
-                alpha: colors.glassMedium * opacityScale,
-              ),
-              Colors.white.withValues(alpha: colors.glassStrong * opacityScale),
+              Colors.white.withValues(alpha: (0.85 * opacityScale).clamp(0.2, 0.98)),
+              const Color(0xFFF8FAFC).withValues(alpha: (0.75 * opacityScale).clamp(0.2, 0.95)),
             ],
-            stops: const [0.0, 0.32, 0.72, 1.0],
           );
 
     final effectiveReflectionController =
@@ -497,95 +486,19 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
           ),
         ),
 
-        // Refracción azul inferior derecha
-        Positioned(
-          right: -85,
-          bottom: -75,
-          child: IgnorePointer(
-            child: Container(
-              width: 180,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    effectiveAccent.withValues(
-                      alpha: (isDark ? 0.22 : 0.16) * widget.reflectionStrength,
-                    ),
-                    colors.accentBlue.withValues(
-                      alpha: (isDark ? 0.12 : 0.08) * widget.reflectionStrength,
-                    ),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Refracción violeta lateral izquierda
-        Positioned(
-          left: -75,
-          top: 60,
-          child: IgnorePointer(
-            child: Container(
-              width: 145,
-              height: 210,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    colors.accentLavender.withValues(
-                      alpha: (isDark ? 0.15 : 0.10) * widget.reflectionStrength,
-                    ),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-
-        // Reflejo metálico blanco superior derecho
-        Positioned(
-          top: -90,
-          right: -70,
-          child: IgnorePointer(
-            child: Container(
-              width: 250,
-              height: 180,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    Colors.white.withValues(
-                      alpha: (isDark ? 0.35 : 0.90) * widget.reflectionStrength,
-                    ),
-                    Colors.white.withValues(
-                      alpha: (isDark ? 0.05 : 0.12) * widget.reflectionStrength,
-                    ),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-
         // Destello especular móvil + curva cáustica (luz líquida)
         if (effectiveReflectionController != null && !reduceMotion)
           Positioned.fill(
             child: _AnimatedReflection(
               controller: effectiveReflectionController,
-              intensity: widget.reflectionStrength,
+              intensity: widget.reflectionStrength * 0.4,
               specularDrift: effectiveSpecularDrift,
               warmColor: colors.warmReflection,
               cyanColor: colors.accentCyan,
             ),
           ),
 
-        // Luz especular local: acompaña el puntero dentro del material sin
-        // alterar texto, iconos o el layout de la pantalla.
+        // Luz especular sutil en interacción de puntero
         if (pointerLight != null)
           Positioned.fill(
             child: IgnorePointer(
@@ -595,8 +508,8 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
                     center: pointerLight,
                     radius: 0.72,
                     colors: [
-                      Colors.white.withValues(alpha: isDark ? 0.14 : 0.26),
-                      effectiveAccent.withValues(alpha: isDark ? 0.055 : 0.035),
+                      Colors.white.withValues(alpha: isDark ? 0.08 : 0.14),
+                      effectiveAccent.withValues(alpha: isDark ? 0.03 : 0.02),
                       Colors.transparent,
                     ],
                     stops: const [0.0, 0.30, 1.0],
@@ -606,7 +519,7 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
             ),
           ),
 
-        // Borde interior de precisión
+        // Borde interior de precisión iOS
         Positioned.fill(
           child: IgnorePointer(
             child: Container(
@@ -614,7 +527,9 @@ class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
                 borderRadius: resolvedRadius,
                 border: Border.all(
                   width: 0.8,
-                  color: Colors.white.withValues(alpha: isDark ? 0.15 : 0.72),
+                  color: isDark
+                      ? colors.outlineVariant.withValues(alpha: 0.35)
+                      : colors.outlineVariant.withValues(alpha: 0.50),
                 ),
               ),
             ),

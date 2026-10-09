@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/theme/nano_type.dart';
 
 /// Componentes y decoraciones auxiliares para la portada y perfil social.
 class ProfileSocialComponents {
@@ -60,18 +59,26 @@ class ProfileInfoChipItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: colors.surfaceVariant.withValues(alpha: 0.70),
+        color: colors.surfaceVariant.withValues(alpha: 0.85),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colors.outline.withValues(alpha: 0.30)),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: colors.onSurfaceVariant),
-          const SizedBox(width: 4),
-          Text(label, style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 11)),
+          Icon(icon, size: 13, color: colors.primary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              color: colors.onSurface,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );

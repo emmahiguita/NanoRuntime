@@ -101,7 +101,6 @@ class QuickAutomationActions extends StatelessWidget {
           activeRulesCount: activeRulesCount,
           onRulesTap: onRulesTap ?? () {},
           onSystemTap: onSettingsTap ?? () {},
-          onMcpTap: onMcpTap,
         ),
         const SizedBox(height: 16),
         AutomationSuggestionCarousel(

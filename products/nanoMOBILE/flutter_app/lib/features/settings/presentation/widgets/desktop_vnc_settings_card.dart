@@ -8,17 +8,7 @@ import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
 import 'package:nanoai/features/automation/presentation/automation_visual_theme.dart';
 
-/// QUÉ HACE:
-/// Tarjeta de configuración para el entorno de Escritorio Linux móvil (Xvnc)
-/// y gestión de permisos de almacenamiento compartido para el gestor de archivos.
-///
-/// CÓMO FUNCIONA:
-/// Permite establecer y persistir la contraseña VNC (máximo 8 bytes UTF-8)
-/// y solicitar en tiempo de ejecución el acceso al almacenamiento local de Android.
-///
-/// POR QUÉ:
-/// Garantiza el control de acceso al escritorio remoto y el ciclo de vida
-/// limpio del controlador de texto evitando procesos zombis o fugas de memoria.
+/// Configuración para el entorno de Escritorio Linux móvil (Xvnc) y almacenamiento.
 class DesktopVncSettingsCard extends ConsumerStatefulWidget {
   const DesktopVncSettingsCard({super.key});
 
@@ -36,7 +26,6 @@ class _DesktopVncSettingsCardState
   @override
   void initState() {
     super.initState();
-    // Inicialización del controlador con el valor persistido actual
     _pwController = TextEditingController(
       text: ref.read(settingsProvider).vncPassword,
     );
@@ -44,12 +33,10 @@ class _DesktopVncSettingsCardState
 
   @override
   void dispose() {
-    // CICLO DE VIDA: Liberación obligatoria para evitar memory leaks
     _pwController.dispose();
     super.dispose();
   }
 
-  /// Recorta al límite estricto de 8 bytes requerido por el protocolo RFB/VNC.
   void _applyPassword(String v) {
     var trimmed = v;
     while (utf8.encode(trimmed).length > 8 && trimmed.isNotEmpty) {
@@ -64,7 +51,6 @@ class _DesktopVncSettingsCardState
     ref.read(settingsProvider.notifier).setVncPassword(trimmed);
   }
 
-  /// Android decide el permiso; un error del canal no deja el botón bloqueado.
   Future<void> _requestStorage() async {
     setState(() {
       _permBusy = true;
@@ -82,8 +68,8 @@ class _DesktopVncSettingsCardState
     setState(() {
       _permBusy = false;
       _permResult = ok
-          ? 'Concedido — pcmanfm verá tus fotos, vídeos y audio'
-          : 'No se pudo conceder (revisa ajustes del sistema Android)';
+          ? 'Concedido — acceso a fotos, vídeos y audio'
+          : 'No se pudo conceder (revisa ajustes)';
     });
   }
 
@@ -101,7 +87,7 @@ class _DesktopVncSettingsCardState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.all(NanoSpacing.md),
+                padding: const EdgeInsets.all(12),
                 child: TextField(
                   controller: _pwController,
                   obscureText: true,
@@ -110,70 +96,83 @@ class _DesktopVncSettingsCardState
                     FilteringTextInputFormatter.allow(RegExp(r'[\x20-\x7E]')),
                   ],
                   onChanged: _applyPassword,
-                  style: NanoType.body(colors.onSurface),
+                  style: NanoType.body(colors.onSurface).copyWith(fontSize: 13),
                   decoration: InputDecoration(
+                    isDense: true,
                     labelText: 'Contraseña de VNC (máx. 8 caracteres)',
-                    labelStyle: NanoType.caption(colors.onSurfaceVariant),
+                    labelStyle: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 11.5),
                     helperText: vncProtected
                         ? 'Protección activa al iniciar Xvnc.'
                         : 'Sin contraseña, VNC inicia abierto.',
                     helperStyle: NanoType.caption(
                       vncProtected ? colors.primary : colors.onSurfaceVariant,
-                    ),
+                    ).copyWith(fontSize: 10.5),
                     counterText: '',
                     filled: true,
-                    fillColor: colors.surface.withValues(alpha: 0.5),
+                    fillColor: colors.surface.withValues(alpha: 0.45),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colors.outlineVariant),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.35)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.35)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: colors.primary, width: 1.5),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: colors.primary, width: 1.2),
                     ),
                   ),
                 ),
               ),
-              Divider(height: 1, color: colors.outlineVariant.withValues(alpha: 0.3)),
+              Divider(height: 1, color: colors.outlineVariant.withValues(alpha: 0.25)),
               Padding(
-                padding: const EdgeInsets.all(NanoSpacing.md),
+                padding: const EdgeInsets.all(12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Almacenamiento compartido',
-                      style: NanoType.body(colors.onSurface),
+                      style: NanoType.body(colors.onSurface).copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Text(
-                      'El gestor de archivos (pcmanfm) de Linux necesita este permiso.',
-                      style: NanoType.caption(colors.onSurfaceVariant),
+                      'El gestor de archivos pcmanfm requiere acceso al almacenamiento.',
+                      style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 11),
                     ),
-                    const SizedBox(height: NanoSpacing.sm),
+                    const SizedBox(height: 8),
                     OutlinedButton.icon(
                       onPressed: _permBusy ? null : _requestStorage,
-                      icon: const Icon(Icons.folder_rounded, size: 18),
+                      icon: const Icon(Icons.folder_rounded, size: 16),
                       label: Text(
                         _permBusy ? 'Solicitando…' : 'Permitir acceso a archivos',
-                        style: NanoType.caption(colors.primary),
+                        style: NanoType.caption(colors.primary).copyWith(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                         foregroundColor: colors.primary,
-                        side: BorderSide(color: colors.primary.withValues(alpha: 0.4)),
+                        side: BorderSide(color: colors.primary.withValues(alpha: 0.35)),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(9),
                         ),
                       ),
                     ),
                     if (_permResult != null) ...[
-                      const SizedBox(height: NanoSpacing.xs),
+                      const SizedBox(height: 6),
                       Text(
                         _permResult!,
                         style: NanoType.caption(
                           _permResult!.startsWith('Concedido')
                               ? colors.primary
                               : colors.error,
-                        ),
+                        ).copyWith(fontSize: 10.5),
                       ),
                     ],
                   ],
