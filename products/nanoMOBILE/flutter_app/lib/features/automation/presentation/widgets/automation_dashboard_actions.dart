@@ -36,6 +36,7 @@ class QuickAutomationActions extends StatelessWidget {
     this.onBusinessTap,
     this.onPersonalAgentTap,
     this.onMcpTap,
+    this.onModelsTap,
     this.onAiWebTap,
     this.onBrowserTap,
     this.onChatTap,
@@ -54,7 +55,7 @@ class QuickAutomationActions extends StatelessWidget {
   final bool isW4bActive;
   final String modeLabel;
 
-  final VoidCallback? onMessagesTap, onSettingsTap, onRulesTap, onMcpTap;
+  final VoidCallback? onMessagesTap, onSettingsTap, onRulesTap, onMcpTap, onModelsTap;
   final ValueChanged<BuildContext>? onBusinessTap, onPersonalAgentTap;
   final VoidCallback? onAiWebTap, onBrowserTap, onChatTap, onTerminalTap;
 
@@ -84,12 +85,14 @@ class QuickAutomationActions extends StatelessWidget {
         const SizedBox(height: 20),
         const NanoModelsEditorial(),
         const SizedBox(height: 18),
-        const AutomationSectionLabel('Descubre más sobre Nano'),
+        const AutomationSectionLabel('Herramientas y Capacidades'),
         AutomationDiscoverNanoSection(
+          onMcpTap: onMcpTap,
           onAiWebTap: onAiWebTap,
           onBrowserTap: onBrowserTap,
           onChatTap: onChatTap,
           onTerminalTap: onTerminalTap,
+          onModelsTap: onModelsTap,
         ),
         const SizedBox(height: 18),
         const AutomationSectionLabel('Control y Sistema'),

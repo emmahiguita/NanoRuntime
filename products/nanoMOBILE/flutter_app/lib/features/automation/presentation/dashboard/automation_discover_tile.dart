@@ -11,8 +11,6 @@
 // Ofrece una presencia visual premium y uniforme en el dashboard de automatización (< 150 líneas).
 library;
 
-import 'dart:ui';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
