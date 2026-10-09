@@ -33998,5 +33998,35 @@
     "mtime": 1791568251.472064,
     "ast_hash": "eb265f732497631bdd44b8c7b1ffa3e2",
     "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/checkout/commercial_checkout_service.dart": {
+    "mtime": 1791578520.1326058,
+    "ast_hash": "09a0d5a11930adefec913f103e042210",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/proposals/pdf_product_extractor.dart": {
+    "mtime": 1791578548.0317643,
+    "ast_hash": "94f5bd7d83db24cd829e39bed70f2d48",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/proposals/pdf_product_proposal.dart": {
+    "mtime": 1791578502.949766,
+    "ast_hash": "0a89bded671376323c8dd3e13b598ab0",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/business/proposals/pdf_product_review_dialog.dart": {
+    "mtime": 1791578597.605745,
+    "ast_hash": "2d3325ae7a024b7c7e5b0798b57df277",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/business/proposals/pdf_product_review_item_tile.dart": {
+    "mtime": 1791578591.1858387,
+    "ast_hash": "b83787de95936113ddfbeabad69ab935",
+    "semantic_hash": ""
+  },
+  "products/nanoMOBILE/flutter_app/test/features/automation/business_runtime_production_test.dart": {
+    "mtime": 1791578604.492062,
+    "ast_hash": "3d9a06d79b6c54054993f6dee57f0bfb",
+    "semantic_hash": ""
   }
 }
