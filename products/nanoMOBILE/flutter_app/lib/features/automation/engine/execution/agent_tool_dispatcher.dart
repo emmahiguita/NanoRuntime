@@ -46,6 +46,7 @@ import 'handlers/notification_tool_handler.dart';
 import 'handlers/semantic_linux_tool_handler.dart';
 import 'handlers/shizuku_tool_handler.dart';
 import 'handlers/ui_tool_handler.dart';
+import 'handlers/universal_messaging_tool_handler.dart';
 import 'handlers/web_tool_handler.dart';
 import 'handlers/whatsapp_tool_handler.dart';
 import 'platform_verification.dart';
@@ -70,6 +71,7 @@ export 'handlers/mcp_tool_handler.dart';
 export 'handlers/notification_tool_handler.dart';
 export 'handlers/shizuku_tool_handler.dart';
 export 'handlers/ui_tool_handler.dart';
+export 'handlers/universal_messaging_tool_handler.dart';
 export 'handlers/web_tool_handler.dart';
 export 'handlers/whatsapp_tool_handler.dart';
 export 'plan_execution_coordinator.dart';
@@ -125,6 +127,7 @@ class AgentToolDispatcher {
     BrowserAgentToolHandler? browserAgentHandler,
     BrowserAiToolAdapter? browserAiAdapter,
     WhatsAppToolHandler? whatsAppHandler,
+    UniversalMessagingToolHandler? universalMessagingHandler,
     AlarmToolHandler? alarmHandler,
     AppInspectorToolHandler? appInspectorHandler,
     SystemDiagnosticsToolHandler? diagnosticsHandler,
@@ -151,6 +154,8 @@ class AgentToolDispatcher {
            browserAgentHandler ?? const BrowserAgentToolHandler(),
        _browserAiAdapter = browserAiAdapter,
        _whatsAppHandler = whatsAppHandler ?? WhatsAppToolHandler(),
+       _universalMessagingHandler =
+           universalMessagingHandler ?? UniversalMessagingToolHandler(),
        _alarmHandler = alarmHandler ?? AlarmToolHandler(),
        _appInspectorHandler =
            appInspectorHandler ??
@@ -275,6 +280,7 @@ class AgentToolDispatcher {
   final BrowserAgentToolHandler _browserAgentHandler;
   final BrowserAiToolAdapter? _browserAiAdapter;
   final WhatsAppToolHandler _whatsAppHandler;
+  final UniversalMessagingToolHandler _universalMessagingHandler;
   final AlarmToolHandler _alarmHandler;
   final AppInspectorToolHandler _appInspectorHandler;
   final SystemDiagnosticsToolHandler _diagnosticsHandler;

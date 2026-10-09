@@ -120,6 +120,9 @@ abstract final class ConversationDecisionGuards {
     'como puedo ayudar',
     'en que puedo ayudarte',
     'en que puedo ayudar',
+    // Borrador real retenido: fórmula de operador, no actividad física observable.
+    'a su disposicion',
+    'a tu disposicion',
   ];
 
   static bool isCallCenterPhrase(String reply) {

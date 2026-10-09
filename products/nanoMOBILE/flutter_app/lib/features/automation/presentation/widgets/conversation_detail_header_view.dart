@@ -60,7 +60,7 @@ extension ConversationDetailHeaderView on _ConversationDetailSheetState {
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
-                        '${widget.item.appLabel}${widget.item.isGroup ? " · Grupo WhatsApp" : ""} · ${_agentId.displayName}',
+                        '${widget.item.appLabel}${widget.item.isGroup ? " · Grupo" : ""} · ${_agentId.displayName}',
                         style: TextStyle(color: visual.textMuted, fontFamily: 'Inter', fontFamilyFallback: ConversationDetailSheet._sfFallback, fontSize: isLandscape ? 11 : 12, letterSpacing: -0.2),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -100,9 +100,19 @@ extension ConversationDetailHeaderView on _ConversationDetailSheetState {
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 4 : 8),
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: visual.isDark ? 0.07 : 0.40),
+        color: visual.isDark ? const Color(0xFF1E293B).withValues(alpha: 0.45) : Colors.white.withValues(alpha: 0.60),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: visual.isDark ? 0.16 : 0.60), width: 1.0),
+        border: Border.all(
+          color: visual.isDark ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.85),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: visual.isDark ? 0.20 : 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -116,28 +126,66 @@ extension ConversationDetailHeaderView on _ConversationDetailSheetState {
 
   Widget _buildControlOption({required bool isBot, required AutomationVisualPalette visual, required bool isLandscape}) {
     final active = isBot ? !_isHumanOwned : _isHumanOwned;
-    final botColor = visual.isDark ? const Color(0xFF00FF88) : const Color(0xFF059669);
-    final color = isBot ? botColor : const Color(0xFF007AFF);
     final icon = isBot ? CupertinoIcons.sparkles : CupertinoIcons.person_fill;
     final label = isBot ? 'IA Activa (Bot)' : 'Control Humano';
+
+    final borderGradient = active
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: visual.isDark
+                ? [const Color(0xFFFFFFFF).withValues(alpha: 0.85), const Color(0xFF38BDF8).withValues(alpha: 0.55), const Color(0xFF818CF8).withValues(alpha: 0.40), const Color(0xFFFFFFFF).withValues(alpha: 0.20)]
+                : [const Color(0xFFFFFFFF), const Color(0xFF38BDF8).withValues(alpha: 0.70), const Color(0xFF94A3B8)],
+          )
+        : null;
+
+    final bgGradient = active
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: visual.isDark
+                ? [const Color(0xFF334155).withValues(alpha: 0.80), const Color(0xFF1E293B).withValues(alpha: 0.90)]
+                : [Colors.white.withValues(alpha: 0.95), const Color(0xFFF1F5F9).withValues(alpha: 0.90)],
+          )
+        : null;
+
+    final activeColor = visual.isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
 
     return GestureDetector(
       onTap: () => _toggleOwnership(!isBot),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: EdgeInsets.symmetric(vertical: isLandscape ? 6 : 8),
+        duration: const Duration(milliseconds: 180),
         decoration: BoxDecoration(
-          gradient: active ? LinearGradient(colors: [color.withValues(alpha: 0.22), color.withValues(alpha: 0.12)]) : null,
           borderRadius: BorderRadius.circular(13),
-          border: active ? Border.all(color: color.withValues(alpha: 0.65), width: 1.2) : null,
+          gradient: borderGradient,
+          boxShadow: active
+              ? [
+                  BoxShadow(color: const Color(0xFF38BDF8).withValues(alpha: visual.isDark ? 0.20 : 0.12), blurRadius: 8, offset: const Offset(0, 1.5)),
+                  BoxShadow(color: Colors.black.withValues(alpha: visual.isDark ? 0.25 : 0.04), blurRadius: 4, offset: const Offset(0, 2)),
+                ]
+              : null,
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 14, color: active ? color : visual.textMuted),
-            const SizedBox(width: 5),
-            Text(label, style: TextStyle(color: active ? color : visual.textMuted, fontFamily: 'Inter', fontFamilyFallback: ConversationDetailSheet._sfFallback, fontSize: isLandscape ? 11.5 : 12.5, fontWeight: active ? FontWeight.w700 : FontWeight.w500)),
-          ],
+        padding: EdgeInsets.all(active ? 1.2 : 0),
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: isLandscape ? 6 : 7.5),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: bgGradient),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14, color: active ? activeColor : visual.textMuted),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: active ? (visual.isDark ? Colors.white : const Color(0xFF0F172A)) : visual.textMuted,
+                  fontFamily: 'Inter',
+                  fontFamilyFallback: ConversationDetailSheet._sfFallback,
+                  fontSize: isLandscape ? 11.5 : 12.5,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

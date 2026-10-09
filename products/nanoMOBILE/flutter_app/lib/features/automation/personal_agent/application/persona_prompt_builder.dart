@@ -5,7 +5,7 @@
 //
 // CÓMO FUNCIONA:
 // - Valida restricciones de estilo del dueño y tono del contacto.
-// - Concatena instrucciones de brevedad y naturalidad ("bien, gracias a Dios", "¿y tú?").
+// - Conserva hechos del dueño/contacto sin imponer frases prefabricadas.
 // - Filtra memorias personales relevantes sin exceder el límite de 3000 caracteres de prompt.
 // - Formatea pares condicionados y ejemplos históricos sin alucinaciones de hechos vivos.
 //
@@ -20,7 +20,6 @@ import '../../engine/messaging/social_context_retriever.dart';
 import '../domain/conversation_agent_role.dart' show isLiveStateQuestion;
 import '../domain/owner_live_fact_guard.dart' show FactualEvidenceLevel;
 import '../domain/personal_memory.dart';
-import '../domain/personal_style_constraints.dart';
 import '../domain/persona_example.dart';
 import '../domain/persona_profile.dart';
 import '../domain/relationship_register.dart';

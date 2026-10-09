@@ -1,50 +1,36 @@
 import 'dart:async';
-import 'dart:collection';
-import 'browser_webview_appearance_sync.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/features/browser/application/browser_credential_notifier.dart';
-import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
-import 'package:nanoai/features/browser/application/browser_webview_registry.dart';
-import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
-import 'package:nanoai/features/browser/infrastructure/browser_scripts.dart';
-import 'package:nanoai/features/browser/infrastructure/browser_security_firewall.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_credential_save_banner.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_error_view.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_gesture_arena.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_keep_alive_wrapper.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_site_theme.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_webview_lifecycle_handler.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_window_card_frame.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_zoom_badge_overlay.dart';
 
-/// Instancia nativa única por pestaña con soporte de rotación fluida portrait/landscape.
+import '../../application/browser_credential_notifier.dart';
+import '../../application/browser_tab_notifier.dart';
+import '../../application/browser_webview_registry.dart';
+import '../../domain/browser_site_profile.dart';
+import '../../domain/browser_tab_model.dart';
+import '../../infrastructure/browser_scripts.dart';
+import 'browser_site_theme.dart';
+import 'browser_web_identity_coordinator.dart';
+import 'browser_webview_lifecycle_handler.dart';
+import 'browser_webview_overlays.dart';
+import 'browser_webview_surface.dart';
+import 'browser_window_card_frame.dart';
+
+part 'single_browser_instance_lifecycle.part.dart';
+part 'single_browser_instance_prompts.part.dart';
+
+/// Instancia nativa única por pestaña y dueña de su estado visual temporal.
 ///
-/// - QUÉ HACE: Renderiza la plataforma InAppWebView conservando sesión de audio y renderizado.
-/// - CÓMO FUNCIONA: En [didChangeDependencies], detecta cambios de orientación y despacha
-///   'resize' en JavaScript manteniendo el hilo nativo de audio/video activo sin destruir el canvas.
-/// - POR QUÉ: Previene la pantalla negra y pérdida de sonido al rotar el dispositivo (<200 líneas).
+/// Mantiene la sesión con `keepAlive`, pero delega render, overlays y ciclo de
+/// vida para que cada componente tenga una responsabilidad mantenible.
 class SingleBrowserInstanceWidget extends ConsumerStatefulWidget {
-  final BrowserTabModel tab;
-  final bool isMaximized,
-      isMinimized,
-      isCurrentActive,
-      fillHeight,
-      showCardHeader,
-      isDesktopMode,
-      isDarkModeWeb;
-  final double currentZoom;
-  final VoidCallback onToggleMinimize, onToggleMaximize, onClose;
-  final VoidCallback? onSelectTab;
-  final ValueChanged<String>? onNavigate;
-  final ValueChanged<InAppWebViewController>? onControllerCreated;
-  final void Function(String url)? onExternalPrompt;
-  final int? dragIndex;
-
   const SingleBrowserInstanceWidget({
     super.key,
     required this.tab,
+    required this.onToggleMinimize,
+    required this.onToggleMaximize,
+    required this.onClose,
     this.isMaximized = false,
     this.isMinimized = false,
     this.isCurrentActive = false,
@@ -53,15 +39,30 @@ class SingleBrowserInstanceWidget extends ConsumerStatefulWidget {
     this.currentZoom = 1.0,
     this.isDesktopMode = false,
     this.isDarkModeWeb = false,
-    required this.onToggleMinimize,
-    required this.onToggleMaximize,
-    required this.onClose,
     this.onSelectTab,
     this.onNavigate,
     this.onControllerCreated,
     this.onExternalPrompt,
     this.dragIndex,
   });
+
+  final BrowserTabModel tab;
+  final bool isMaximized;
+  final bool isMinimized;
+  final bool isCurrentActive;
+  final bool fillHeight;
+  final bool showCardHeader;
+  final bool isDesktopMode;
+  final bool isDarkModeWeb;
+  final double currentZoom;
+  final VoidCallback onToggleMinimize;
+  final VoidCallback onToggleMaximize;
+  final VoidCallback onClose;
+  final VoidCallback? onSelectTab;
+  final ValueChanged<String>? onNavigate;
+  final ValueChanged<InAppWebViewController>? onControllerCreated;
+  final void Function(String url)? onExternalPrompt;
+  final int? dragIndex;
 
   @override
   ConsumerState<SingleBrowserInstanceWidget> createState() =>
@@ -70,297 +71,55 @@ class SingleBrowserInstanceWidget extends ConsumerStatefulWidget {
 
 class _SingleBrowserInstanceWidgetState
     extends ConsumerState<SingleBrowserInstanceWidget>
-    with AutomaticKeepAliveClientMixin<SingleBrowserInstanceWidget> {
-  Timer? _zoomBadgeTimer;
-  bool _showZoomBadge = false, _showSaveBanner = false;
-  double _currentScale = 1.0;
-  String? _pendingDomain, _pendingUser, _pendingPass;
-  Orientation? _lastOrientation;
-  late BrowserWebViewLifecycleHandler _handler;
-  final _appearance = BrowserWebViewAppearanceSync();
-
+    with
+        AutomaticKeepAliveClientMixin<SingleBrowserInstanceWidget>,
+        _BrowserInstancePromptState,
+        _BrowserInstanceLifecycle {
   @override
   bool get wantKeepAlive => true;
 
-  @override
-  void initState() {
-    super.initState();
-    _buildHandler();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final currentOri = MediaQuery.of(context).orientation;
-    if (_lastOrientation != null && _lastOrientation != currentOri) {
-      final ctrl = ref
-          .read(browserWebViewRegistryProvider)
-          .controllerFor(widget.tab.id);
-      if (ctrl != null) {
-        ctrl.evaluateJavascript(
-          source: 'window.dispatchEvent(new Event("resize"));',
-        );
-        if (!widget.isMinimized) ctrl.resume();
-      }
-    }
-    _lastOrientation = currentOri;
-  }
-
-  @override
-  void didUpdateWidget(covariant SingleBrowserInstanceWidget old) {
-    super.didUpdateWidget(old);
-    final registry = ref.read(browserWebViewRegistryProvider);
-    final ctrl = registry.controllerFor(widget.tab.id);
-    if (old.isMinimized != widget.isMinimized) {
-      if (widget.isMinimized) {
-        registry.pauseTab(widget.tab.id);
-      } else {
-        registry.resumeTab(widget.tab.id);
-      }
-    }
-    _handler
-      ..tab = widget.tab
-      ..isDesktopMode = widget.isDesktopMode
-      ..isDarkModeWeb = widget.isDarkModeWeb
-      ..currentZoom = widget.currentZoom;
-    if (widget.tab.url != old.tab.url &&
-        widget.tab.url != _handler.reportedUrl) {
-      ctrl?.loadUrl(urlRequest: URLRequest(url: WebUri(widget.tab.url)));
-    }
-    if (widget.tab.zoomLevel != old.tab.zoomLevel) {
-      ctrl?.evaluateJavascript(
-        source: BrowserScripts.setZoomLevelScript(widget.tab.zoomLevel),
-      );
-    }
-    if (widget.isDarkModeWeb != old.isDarkModeWeb) {
-      ctrl?.evaluateJavascript(source: BrowserScripts.toggleDarkModeWebScript);
-    }
-    if (widget.isDesktopMode != old.isDesktopMode && ctrl != null) {
-      _appearance.apply(
-        ctrl,
-        desktop: widget.isDesktopMode,
-        isAlive: () => mounted,
-      );
-    }
-  }
-
-  void _buildHandler() {
-    _handler = BrowserWebViewLifecycleHandler(
-      getContext: () => context,
-      ref: ref,
-      tab: widget.tab,
-      isDesktopMode: widget.isDesktopMode,
-      isDarkModeWeb: widget.isDarkModeWeb,
-      currentZoom: widget.currentZoom,
-      isAlive: () => mounted,
-      onZoomChanged: (z) => _triggerZoomBadge(z),
-      onPromptSaveCredential: (d, u, p) {
-        if (!mounted || p.isEmpty) return;
-        setState(() {
-          _pendingDomain = d.isNotEmpty
-              ? d
-              : (Uri.tryParse(widget.tab.url)?.host ?? '');
-          _pendingUser = u;
-          _pendingPass = p;
-          _showSaveBanner = true;
-        });
-      },
-      onControllerCreated: widget.onControllerCreated,
-      onExternalPrompt: widget.onExternalPrompt,
-    );
-  }
-
-  @override
-  void dispose() {
-    _zoomBadgeTimer?.cancel();
-    super.dispose();
-  }
-
-  void _triggerZoomBadge(double scale) {
-    if (!mounted) return;
-    _zoomBadgeTimer?.cancel();
-    setState(() {
-      _currentScale = scale;
-      _showZoomBadge = true;
-    });
-    _zoomBadgeTimer = Timer(const Duration(milliseconds: 1200), () {
-      if (mounted) setState(() => _showZoomBadge = false);
-    });
-  }
-
-  void _confirmSave() {
-    if (_pendingDomain != null && _pendingPass != null) {
-      ref
-          .read(browserCredentialProvider.notifier)
-          .saveCredential(
-            domain: _pendingDomain!,
-            username: _pendingUser ?? '',
-            password: _pendingPass!,
-          );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Contraseña guardada'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-    setState(() {
-      _showSaveBanner = false;
-      _pendingDomain = null;
-      _pendingUser = null;
-      _pendingPass = null;
-    });
-  }
-
+  /// Compone la vista nativa y sus capas sin duplicar lógica del controlador.
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final siteColor = BrowserSiteTheme.getSiteColor(widget.tab.url);
     final registry = ref.read(browserWebViewRegistryProvider);
-    final isFull = widget.isMaximized || widget.fillHeight;
-
-    final webViewStack = Stack(
+    final accent = BrowserSiteTheme.getSiteColor(widget.tab.url);
+    final content = Stack(
+      fit: StackFit.expand,
       children: [
-        BrowserKeepAliveWrapper(
-          child: InAppWebView(
-            key: ValueKey('wv_${widget.tab.id}'),
-            keepAlive: registry.keepAliveFor(widget.tab.id),
-            // A keep-alive WebView already owns its document. Re-sending an
-            // initial request while moving it between focused/stack/3D layouts
-            // reloads the page and interrupts media playback.
-            initialUrlRequest: registry.isInitialized(widget.tab.id)
-                ? null
-                : URLRequest(url: WebUri(widget.tab.url)),
-            initialSettings: BrowserSecurityFirewall.createWebViewSettings(
-              isDesktopMode: widget.isDesktopMode,
-              userAgent: widget.isDesktopMode
-                  ? BrowserScripts.desktopUserAgent
-                  : null,
-            ),
-            initialUserScripts: UnmodifiableListView<UserScript>([
-              if (widget.isDesktopMode)
-                BrowserWebViewAppearanceSync.viewportScript(true),
-              UserScript(
-                source: BrowserScripts.pinchZoomEngineScript,
-                injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
-              ),
-              UserScript(
-                source: BrowserScripts.credentialManagerScript,
-                injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
-              ),
-              UserScript(
-                source: BrowserScripts.audioServiceSyncScript,
-                injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START, // Temprano para atrapar media elements rápidos
-              ),
-            ]),
-            gestureRecognizers: BrowserGestureArena.buildGestureRecognizers(
-              isMaximized: isFull,
-              isInteractive: true,
-            ),
-            onWebViewCreated: (ctrl) {
-              _handler.onWebViewCreated(ctrl);
-              if (widget.isMinimized) {
-                registry.pauseTab(widget.tab.id);
-              } else {
-                registry.resumeTab(widget.tab.id);
-              }
-            },
-            onZoomScaleChanged: (ctrl, oldS, newS) => _triggerZoomBadge(newS),
-            onLoadStart: _handler.onLoadStart,
-            onLoadStop: _handler.onLoadStop,
-            onProgressChanged: (ctrl, p) {
-              if (mounted) {
-                ref
-                    .read(browserTabProvider.notifier)
-                    .updateTabById(
-                      widget.tab.id,
-                      progress: p / 100.0,
-                      isLoading: p < 100,
-                    );
-              }
-            },
-            onTitleChanged: (ctrl, t) {
-              if (t?.isNotEmpty == true && mounted) {
-                ref
-                    .read(browserTabProvider.notifier)
-                    .updateTabById(widget.tab.id, title: t);
-              }
-            },
-            shouldOverrideUrlLoading: _handler.shouldOverrideUrlLoading,
-            onReceivedServerTrustAuthRequest:
-                _handler.onReceivedServerTrustAuthRequest,
-            onReceivedHttpAuthRequest: _handler.onReceivedHttpAuthRequest,
-            onPermissionRequest: _handler.onPermissionRequest,
-            onReceivedError: _handler.onReceivedError,
-            onReceivedHttpError: _handler.onReceivedHttpError,
-            onUpdateVisitedHistory: _handler.onUpdateVisitedHistory,
-            onRenderProcessGone: _handler.onRenderProcessGone,
-          ),
+        BrowserWebViewSurface(
+          tab: widget.tab,
+          registry: registry,
+          handler: _handler,
+          generation: _webViewGeneration,
+          isFull: widget.isMaximized || widget.fillHeight,
+          shouldPause: _shouldPause,
+          identity: _identity,
+          onProgress: _updateProgress,
+          onTitle: _updateTitle,
+          onZoomChanged: _triggerZoomBadge,
         ),
-        if (widget.tab.isLoading && widget.tab.progress < 1.0)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: LinearProgressIndicator(
-              value: widget.tab.progress,
-              minHeight: 2.0,
-              backgroundColor: Colors.transparent,
-              valueColor: AlwaysStoppedAnimation<Color>(siteColor),
-            ),
-          ),
-        if (widget.tab.hasError)
-          Positioned.fill(
-            child: BrowserErrorView(
-              url: widget.tab.url,
-              errorMessage: widget.tab.errorMessage,
-              errorCode: widget.tab.errorCode,
-              onRetry: () {
-                final ctrl = registry.controllerFor(widget.tab.id);
-                if (ctrl != null) {
-                  ref.read(browserTabProvider.notifier).updateTabById(
-                    widget.tab.id,
-                    clearError: true,
-                    isLoading: true,
-                    progress: 0.1,
-                  );
-                  ctrl.reload();
-                } else {
-                  widget.onNavigate?.call(widget.tab.url);
-                }
-              },
-              onNavigate: (targetUrl) => widget.onNavigate?.call(targetUrl),
-              onGoHome: () => widget.onNavigate?.call('https://www.google.com'),
-            ),
-          ),
-        if (_showSaveBanner && _pendingDomain != null)
-          Positioned(
-            top: 4,
-            left: 8,
-            right: 8,
-            child: BrowserCredentialSaveBanner(
-              domain: _pendingDomain!,
-              username: _pendingUser ?? '',
-              onSave: _confirmSave,
-              onDismiss: () => setState(() => _showSaveBanner = false),
-            ),
-          ),
-        BrowserZoomBadgeOverlay(
-          visible: _showZoomBadge,
-          scale: _currentScale,
-          accentColor: siteColor,
+        BrowserWebViewOverlays(
+          tab: widget.tab,
+          accentColor: accent,
+          showSaveBanner: _showSaveBanner,
+          pendingDomain: _pendingDomain,
+          pendingUser: _pendingUser,
+          showZoomBadge: _showZoomBadge,
+          currentScale: _currentScale,
+          onRetry: _retryPage,
+          onNavigate: widget.onNavigate,
+          onSaveCredential: _confirmSave,
+          onDismissCredential: _dismissCredential,
         ),
       ],
     );
-
-    if (!widget.showCardHeader) return webViewStack;
+    if (!widget.showCardHeader) return content;
 
     return BrowserWindowCardFrame(
       title: widget.tab.title,
       url: widget.tab.url,
-      siteColor: siteColor,
+      siteColor: accent,
       isMaximized: widget.isMaximized,
       isMinimized: widget.isMinimized,
       isActive: widget.isCurrentActive,
@@ -368,20 +127,14 @@ class _SingleBrowserInstanceWidgetState
       canGoBack: widget.tab.canGoBack,
       canGoForward: widget.tab.canGoForward,
       dragIndex: widget.dragIndex,
-      onReload: () => registry.controllerFor(widget.tab.id)?.reload(),
-      onBack: () async {
-        final c = registry.controllerFor(widget.tab.id);
-        if (c != null && await c.canGoBack()) await c.goBack();
-      },
-      onForward: () async {
-        final c = registry.controllerFor(widget.tab.id);
-        if (c != null && await c.canGoForward()) await c.goForward();
-      },
+      onReload: _reload,
+      onBack: _goBack,
+      onForward: _goForward,
       onToggleMinimize: widget.onToggleMinimize,
       onToggleMaximize: widget.onToggleMaximize,
       onClose: widget.onClose,
       onNavigate: widget.onNavigate,
-      child: webViewStack,
+      child: content,
     );
   }
 }

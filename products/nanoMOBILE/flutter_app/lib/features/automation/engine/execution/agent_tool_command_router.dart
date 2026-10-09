@@ -150,6 +150,18 @@ extension AgentToolCommandRouter on AgentToolDispatcher {
         );
       case 'whatsapp' || 'wpp':
         return _whatsAppHandler.handleCommand(rest);
+      case 'telegram' || 'tg':
+        return _universalMessagingHandler.handleCommand(
+          rest,
+          defaultPackage: 'org.telegram.messenger',
+          appName: 'Telegram',
+        );
+      case 'messenger' || 'fb' || 'facebook':
+        return _universalMessagingHandler.handleCommand(
+          rest,
+          defaultPackage: 'com.facebook.orca',
+          appName: 'Messenger',
+        );
       case 'contactos' || 'contacts':
         return _whatsAppHandler.listContacts(
           ToolCall(tool: 'whatsapp.contacts', args: {'query': rest}),

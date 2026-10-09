@@ -69,6 +69,27 @@ void main() {
       expect((methodCalls.single.arguments as Map)['autoSend'], isTrue);
     });
 
+    test('shareFile forwards exact recipient metadata for native verification', () async {
+      const share = WhatsAppMediaShare();
+      final ok = await share.shareFile(
+        path: '/data/user/0/nano/catalog/video.mp4',
+        contact: 'shortcut:120363413941761410',
+        recipientName: 'AMM',
+        recipientKind: 'group',
+        recipientVerified: true,
+        packageName: 'com.whatsapp',
+        autoSend: true,
+      );
+
+      expect(ok, isTrue);
+      final args = methodCalls.single.arguments as Map;
+      expect(args['contact'], 'shortcut:120363413941761410');
+      expect(args['recipientName'], 'AMM');
+      expect(args['recipientKind'], 'group');
+      expect(args['recipientVerified'], isTrue);
+      expect(args['autoSend'], isTrue);
+    });
+
     test('isAccessibilityEnabled reports correctly when active and inactive', () async {
       const share = WhatsAppMediaShare();
 

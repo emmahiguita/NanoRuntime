@@ -20,6 +20,7 @@ import 'package:nanoai/features/automation/engine/universal/universal_instructio
 
 import '../../browser_ai/application/browser_ai_gateway.dart';
 import 'chat_control_intent.dart';
+import 'chat_messaging_turn_router.dart';
 import 'chat_turn_pipeline_executor.dart';
 import 'web_ai_turn_router.dart';
 import '../domain/chat_context_builder.dart';
@@ -85,6 +86,13 @@ class ChatTurnRouter {
     if (linuxCmd != null) {
       return _pipeline.executeLinux(text: text, linuxCmd: linuxCmd, coordinator: coordinator, lastLinuxFilePath: lastLinuxFilePath);
     }
+
+    // 3.1 Mensajería determinista real (WhatsApp, Telegram, Messenger)
+    final messagingRes = await const ChatMessagingTurnRouter().tryRoute(
+      text: text,
+      coordinator: coordinator,
+    );
+    if (messagingRes != null) return messagingRes;
 
     // 4. Cerebro Universal: Instrucciones compuestas multidominio
     final contract = const UniversalInstructionParser().parse(text: text, lastLinuxFilePath: lastLinuxFilePath);

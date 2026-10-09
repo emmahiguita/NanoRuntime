@@ -1,64 +1,28 @@
 package dev.nanoai.mobile.automation
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
-import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import dev.nanoai.mobile.MainActivity
 import dev.nanoai.mobile.NanoApplication
-import dev.nanoai.mobile.R
 import dev.nanoai.mobile.RuntimeScope
-import dev.nanoai.mobile.channels.AgentChannelHandler
-import dev.nanoai.mobile.channels.AutomationStoreChannelHandler
-import dev.nanoai.mobile.channels.EngineChannelHandler
-import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
-import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.services.NotificationAutomationBridge
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.dart.DartExecutor
-import io.flutter.plugin.common.EventChannel
-import io.flutter.plugin.common.MethodCall
-import io.flutter.plugin.common.MethodChannel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.*
 
-/**
- * WA-PROD-01 — AutomationRuntimeService: runtime de automatización INDEPENDIENTE
- * de la UI (Variante 1 aprobada).
- *
- * El NotificationListener persiste el evento en el DurableInbox y, si nadie
- * escucha (sink null), pide este service. El service arranca UN FlutterEngine
- * headless (mismo proceso main, sin Activity): Dart ejecuta el MISMO main();
- * el canal `com.nanoai/headless` le dice que corra el bootstrap de
- * automatización (barrera de stores → claim/drenado del inbox → RulePipeline
- * intacto → journal), sin runApp.
- *
- * FGS tipo dataSync de vida ACOTADA: solo mientras procesa (Dart pide
- * "finish" al quedar idle; watchdog de seguridad a los 120s). Sin notificación
- * eterna — el trabajo es perceptible mientras existe.
- *
- * Single consumer: nunca hay dos engines con sink de eventos vivo. Si la UI
- * se abre, su engine reemplaza el sink y este service se detiene.
- */
-class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
-
+/** QUÉ: procesa notificaciones con el mismo grafo Flutter cuando no hay pantalla.
+ * CÓMO: arranque bajo demanda, heartbeat, inbox durable y un único consumidor.
+ * POR QUÉ: la vida del trabajo no depende de la Activity ni de mensajes simulados. */
+class AutomationRuntimeService : Service() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val ioScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var engine: FlutterEngine? = null
+    private var channels: AutomationRuntimeChannels? = null
     private val watchdog = Runnable { requestStop("watchdog_no_heartbeat") }
-
-    private var languageHandler: dev.nanoai.mobile.channels.LanguageAssistChannelHandler? = null
 
     private fun refreshWatchdog() {
         mainHandler.removeCallbacks(watchdog)
@@ -69,294 +33,61 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
 
     override fun onCreate() {
         super.onCreate()
-        // Android 14/15 invariant: startForeground MUST be called before stopSelf
-        // whenever the service was started via startForegroundService().
-        startInForeground()
+        AutomationForegroundNotice.start(this)
         if (running || NotificationAutomationBridge.notificationEventsSink != null) {
-            Log.d(TAG, "onCreate: notification consumer is active or service already running, stopping immediately")
             stopSelf()
             return
         }
         instance = this
         running = true
         val app = NanoApplication.from(this)
-        // Recuperación automática: libera leases huérfanos de caídas previas antes de bootear el engine
         val recovered = app.durableInbox.recoverExpiredLeases()
-        if (recovered > 0) {
-            Log.i(TAG, "Recuperados $recovered mensajes huérfanos con lease expirado tras reinicio")
-        }
+        if (recovered > 0) Log.i(TAG, "Leases recuperados=$recovered")
         app.runtimeScope.acquire(RuntimeScope.Holder.AUTOMATION)
-        // El worker :nanoshell se arranca ya: el engine headless puede pedir
-        // el LLM on-demand apenas drene la primera fila (sin latencia extra).
         app.runtimeScope.nativeSupervisor.start()
-        Log.i(TAG, "onCreate: booting headless engine")
         mainHandler.post(this::bootEngine)
         refreshWatchdog()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // El arranque ocurre en onCreate (startForegroundService → onCreate).
-        return START_NOT_STICKY
-    }
-
-    override fun onTimeout(startId: Int, fgsType: Int) {
-        // Tope de plataforma del dataSync FGS (Android 15+): parar limpio.
-        requestStop("timeout")
-    }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_NOT_STICKY
+    override fun onTimeout(startId: Int, fgsType: Int) { requestStop("timeout") }
 
     override fun onDestroy() {
-        super.onDestroy()
         if (instance === this) instance = null
         mainHandler.removeCallbacksAndMessages(null)
+        channels?.close()
+        channels = null
         ioScope.cancel()
-        languageHandler?.close()
-        languageHandler = null
-        val e = engine
+        engine?.destroy()
         engine = null
-        e?.destroy()
         NotificationAutomationBridge.clearSink(SINK_AUTOMATION)
         if (running) {
             running = false
             NanoApplication.from(this).runtimeScope.release(RuntimeScope.Holder.AUTOMATION)
         }
-        Log.i(TAG, "onDestroy")
+        super.onDestroy()
     }
 
     private fun bootEngine() {
         if (engine != null || !running) return
         val e = FlutterEngine(this)
         engine = e
-        registerChannels(e)
+        val control = AutomationRuntimeControl(this, ::refreshWatchdog) {
+            mainHandler.post { requestStop("dart_idle") }
+        }
+        channels = AutomationRuntimeChannels(this, ioScope, mainHandler, SINK_AUTOMATION, control)
+            .also { it.register(e) }
         e.dartExecutor.executeDartEntrypoint(DartExecutor.DartEntrypoint.createDefault())
         Log.i(TAG, "headless engine booted")
     }
 
-    /** Subset de channels que el runtime headless necesita: notificaciones
-     *  (eventos + reply + avisos), engine LLM, agente y runtime. Los handlers
-     *  atados a la Activity (speech/pty/media/permisos) NO se registran. */
-    private fun registerChannels(e: FlutterEngine) {
-        val messenger = e.dartExecutor.binaryMessenger
-        val notificationHandler = NotificationAutomationChannelHandler(this)
-        MethodChannel(messenger, NotificationAutomationChannelHandler.CHANNEL_NAME)
-            .setMethodCallHandler(notificationHandler)
-        EventChannel(messenger, NotificationAutomationChannelHandler.CONFIRMATION_EVENTS_CHANNEL_NAME)
-            .setStreamHandler(notificationHandler)
-        EventChannel(messenger, NOTIFICATION_EVENTS_CHANNEL).setStreamHandler(
-            object : EventChannel.StreamHandler {
-                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                    NotificationAutomationBridge.setSink(SINK_AUTOMATION, events)
-                }
-
-                override fun onCancel(arguments: Any?) {
-                    NotificationAutomationBridge.clearSink(SINK_AUTOMATION)
-                }
-            },
-        )
-
-        val app = NanoApplication.from(this)
-        val engineHandler = EngineChannelHandler(app.runtimeScope.engineSupervisor, ioScope, mainHandler)
-        MethodChannel(messenger, EngineChannelHandler.CHANNEL_NAME).also { channel ->
-            engineHandler.attach(channel)
-            channel.setMethodCallHandler(engineHandler)
-        }
-        MethodChannel(messenger, AgentChannelHandler.CHANNEL_NAME)
-            .setMethodCallHandler(AgentChannelHandler())
-        MethodChannel(messenger, RuntimeChannelHandler.CHANNEL_NAME)
-            .setMethodCallHandler(RuntimeChannelHandler())
-        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)
-            .setMethodCallHandler(AutomationStoreChannelHandler(this.applicationContext))
-        val language = dev.nanoai.mobile.channels.LanguageAssistChannelHandler(this)
-        languageHandler = language
-        MethodChannel(messenger, dev.nanoai.mobile.channels.LanguageAssistChannelHandler.CHANNEL_NAME)
-            .setMethodCallHandler(language)
-        MethodChannel(messenger, dev.nanoai.mobile.channels.ExecBinChannelHandler.CHANNEL_NAME)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "getFilesDir" -> {
-                        val base = java.io.File(filesDir, "nano")
-                        if (!base.exists()) base.mkdirs()
-                        result.success(base.absolutePath)
-                    }
-                    else -> result.notImplemented()
-                }
-            }
-        // FIX-3: device_metrics faltaba en el engine headless. El runtime
-        // lo llama durante cold-start para telemetría RAM/CPU. Sin registro
-        // lanzaba MissingPluginException y el modelo nunca reportaba métricas.
-        MethodChannel(messenger, dev.nanoai.mobile.channels.DeviceMetricsChannelHandler.CHANNEL_NAME)
-            .setMethodCallHandler(
-                dev.nanoai.mobile.channels.DeviceMetricsChannelHandler(
-                    dev.nanoai.mobile.DeviceMetricsProvider(this),
-                ),
-            )
-
-        // WA-PROD-01 / LiteRT Headless: Registramos LiteRtChannelHandler en el engine headless
-        // usando el mismo singleton NanoModelRuntimeSupervisor compartido con la UI.
-        // Esto permite a Qwen3-0.6B generar respuestas automáticas sin duplicar el modelo en RAM.
-        val liteRtSupervisor = app.modelRuntimeSupervisor
-        val liteRtHandler = dev.nanoai.mobile.channels.LiteRtChannelHandler(
-            this,
-            ioScope,
-            mainHandler,
-            liteRtSupervisor
-        )
-        MethodChannel(messenger, dev.nanoai.mobile.channels.LiteRtChannelHandler.METHOD_CHANNEL_NAME)
-            .setMethodCallHandler(liteRtHandler)
-        EventChannel(messenger, dev.nanoai.mobile.channels.LiteRtChannelHandler.STREAM_CHANNEL_NAME)
-            .setStreamHandler(liteRtHandler)
-
-        MethodChannel(messenger, HEADLESS_CHANNEL).setMethodCallHandler(this)
-    }
-
-    // ------------------------------------------------------------------
-    // Canal de control headless (Dart → Kotlin)
-    // ------------------------------------------------------------------
-
-    override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "isHeadless" -> result.success(true)
-            "heartbeat" -> {
-                refreshWatchdog()
-                result.success(null)
-            }
-
-            "claim" -> {
-                if (NotificationAutomationBridge.service == null) {
-                    result.error("SOURCE_UNAVAILABLE", "NotificationListenerService is not connected", null)
-                    return
-                }
-                try {
-                    val limit = call.argument<Number>("limit")?.toInt() ?: CLAIM_LIMIT
-                    result.success(claimInbox(limit))
-                } catch (error: Exception) {
-                    result.error("DB_ERROR", error.message, null)
-                }
-            }
-
-            "complete" -> {
-                val eventId = call.argument<String>("eventId")
-                if (!eventId.isNullOrEmpty()) {
-                    NanoApplication.from(this).durableInbox.complete(eventId)
-                }
-                result.success(true)
-            }
-
-            "markGenerated" -> {
-                val eventId = call.argument<String>("eventId")
-                val text = call.argument<String>("text") ?: ""
-                if (!eventId.isNullOrEmpty()) {
-                    NanoApplication.from(this).durableInbox.markGenerated(eventId, text)
-                }
-                result.success(true)
-            }
-
-            "markSending" -> {
-                val eventId = call.argument<String>("eventId")
-                if (!eventId.isNullOrEmpty()) {
-                    NanoApplication.from(this).durableInbox.markSending(eventId)
-                }
-                result.success(true)
-            }
-
-            "markSent" -> {
-                val eventId = call.argument<String>("eventId")
-                if (!eventId.isNullOrEmpty()) {
-                    NanoApplication.from(this).durableInbox.markSent(eventId)
-                }
-                result.success(true)
-            }
-
-            "recordFailure" -> {
-                val eventId = call.argument<String>("eventId")
-                val category = call.argument<String>("category") ?: "UNKNOWN"
-                val message = call.argument<String>("message")
-                if (!eventId.isNullOrEmpty()) {
-                    NanoApplication.from(this).durableInbox.recordFailure(eventId, category, message)
-                }
-                result.success(true)
-            }
-
-            "isAlreadySent" -> {
-                val eventId = call.argument<String>("eventId")
-                if (!eventId.isNullOrEmpty()) {
-                    result.success(NanoApplication.from(this).durableInbox.isAlreadySent(eventId))
-                } else {
-                    result.success(false)
-                }
-            }
-
-            "pendingCount" -> result.success(NanoApplication.from(this).durableInbox.pendingCount())
-
-            "finish" -> {
-                result.success(true)
-                mainHandler.post { requestStop("dart_idle") }
-            }
-
-            else -> result.notImplemented()
-        }
-    }
-
-    /** Reclama filas del inbox y las rehidrata SOLO desde notificaciones
-     *  activas (nada de contenido persistido). Fila sin notificación activa =
-     *  descarte honesto (SKIP_GONE): sin contenido no hay draft posible. */
-    private fun claimInbox(limit: Int): List<Map<String, Any?>> {
-        val service = NotificationAutomationBridge.service ?: return emptyList()
-        val inbox = NanoApplication.from(this).durableInbox
-        return inbox.claim(limit).mapNotNull { row ->
-            val payload = service.byKey(row.notificationKey)
-            if (payload == null) {
-                // Notificación ya descartada o no activa: completamos la fila
-                // para evitar re-claims huérfanos o loops en headless.
-                inbox.complete(row.eventId)
-                null
-            } else {
-                mapOf("eventId" to row.eventId, "notification" to payload)
-            }
-        }
-    }
-
-    private fun startInForeground() {
-        val manager = getSystemService(NotificationManager::class.java)
-        val channel = NotificationChannel(
-            FGS_CHANNEL_ID,
-            "Automatización",
-            NotificationManager.IMPORTANCE_LOW,
-        ).apply {
-            description = "Procesamiento de mensajes en segundo plano"
-            setShowBadge(false)
-        }
-        manager.createNotificationChannel(channel)
-
-        val openIntent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-        val openPending = PendingIntent.getActivity(
-            this,
-            FGS_NOTIFICATION_ID,
-            openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notification = NotificationCompat.Builder(this, FGS_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_nano_confirmation)
-            .setContentTitle("Nano procesando mensajes")
-            .setContentText("Automatización activa en segundo plano")
-            .setOngoing(true)
-            .setContentIntent(openPending)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(FGS_NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            startForeground(FGS_NOTIFICATION_ID, notification)
-        }
-    }
-
+    // El consumidor cierra sus leases; el supervisor Application conserva un modelo warm válido.
     private fun requestStop(reason: String) {
         if (!running) return
         running = false
         Log.i(TAG, "requestStop: $reason")
-        languageHandler?.close()
-        languageHandler = null
+        channels?.close()
+        channels = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         val e = engine
         engine = null
@@ -371,10 +102,7 @@ class AutomationRuntimeService : Service(), MethodChannel.MethodCallHandler {
         const val HEADLESS_CHANNEL = "com.nanoai/headless"
         const val NOTIFICATION_EVENTS_CHANNEL = "com.nanoai/notification_events"
         private const val ACTION_START = "dev.nanoai.mobile.action.AUTOMATION_RUNTIME_START"
-        private const val FGS_CHANNEL_ID = "nano_automation_fgs"
-        private const val FGS_NOTIFICATION_ID = 0x4E43
         private const val WATCHDOG_MS = 120_000L
-        private const val CLAIM_LIMIT = 10
         private val SINK_AUTOMATION = Any()
 
         /** @Volatile: lectura de estado desde el canal de Ajustes (UI). */

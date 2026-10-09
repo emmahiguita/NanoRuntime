@@ -22,21 +22,11 @@ import 'package:nanoai/features/automation/application/automation_coordinator_pr
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
 import '../engine/scheduling/messaging_metrics.dart';
 
-const _headlessChannel = MethodChannel('com.nanoai/headless');
+// Conserva el acceso usado por main(); la identidad vive en la capa de plataforma.
+export '../../../core/services/automation_engine_context.dart'
+    show isHeadlessAutomationEngine;
 
-/// ¿Este engine es el runtime headless del servicio? El canal solo existe en
-/// el AutomationRuntimeService; en el engine de la UI la invocación falla
-/// (MissingPluginException) y devuelve false.
-Future<bool> isHeadlessAutomationEngine() async {
-  try {
-    return await _headlessChannel
-            .invokeMethod<bool>('isHeadless')
-            .timeout(const Duration(milliseconds: 1500)) ==
-        true;
-  } on Object {
-    return false;
-  }
-}
+const _headlessChannel = MethodChannel('com.nanoai/headless');
 
 /// WA-PROD-01 — punto de entrada headless (ver doc de librería).
 Future<void> runAutomationHeadless() async {

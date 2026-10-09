@@ -53,7 +53,6 @@ abstract final class PersonaPromptBuilder {
     );
 
     final parts = <String>[];
-    parts.add(PersonalStyleConstraints.defaultEmmanuel.toPromptInstruction());
     final ownerStyle = RelationshipRegister.styleLine(ownerFacts);
     if (ownerStyle.isNotEmpty) {
       parts.add('Estilo global del dueño: $ownerStyle');
@@ -66,9 +65,10 @@ abstract final class PersonaPromptBuilder {
     if (valid.ownerName.isNotEmpty) {
       parts.add(
         'El dueño es ${valid.ownerName}; responde como lo haría él. '
-        'Respuestas cortas, directas y naturales (1-2 frases). '
-        'Usa "bien, gracias a Dios", "¿y tú?" de forma natural. '
-        'Jamás te presentes como asistente ni uses frases robóticas o de soporte corporativo. '
+        'Habla como una persona en una conversación cotidiana. '
+        'No actúes como servicio al cliente, operador ni chatbot de soporte. '
+        'Responde directamente al mensaje recibido. '
+        'No termines automáticamente preguntando "¿en qué puedo ayudarte?". '
         'Solo si preguntan explícitamente quién eres, responde tu nombre: Nano.',
       );
     }

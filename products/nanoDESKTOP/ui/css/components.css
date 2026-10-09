@@ -79,15 +79,17 @@
   align-items: center;
   padding: 0 8px;
   border-radius: var(--radius-pill);
-  background: var(--nano-success-soft);
-  color: #15905F;
+  background: var(--nano-surface-soft);
+  color: var(--nano-text-secondary);
+  border: 1px solid var(--nano-border);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 [data-theme="dark"] .nano-model-badge {
-  background: rgba(23, 198, 122, .16);
-  color: #44D27D;
+  background: rgba(255, 255, 255, 0.08);
+  color: #B2C4DD;
+  border-color: rgba(137, 170, 220, 0.2);
 }
 
 .nano-deepthink, .nano-web-button, .nano-chip {

@@ -1,15 +1,11 @@
-// notification_event_router.dart
-//
 // QUÉ HACE:
 // Escucha eventos de notificaciones en tiempo real desde el EventChannel nativo
 // (`com.nanoai/notification_events`) y los enruta de forma controlada hacia el `RulePipeline`.
-//
 // CÓMO FUNCIONA:
 // - Controla la concurrencia mediante `_pendingBatches` y amortigua ráfagas en `BurstTurnGate`.
 // - Filtra difusiones de estados y reacciones a historias con `WhatsAppStatusClassifier`.
 // - Maneja el arranque en frío recuperando eventos no procesados de la cola durable `DurableInbox`.
 // - Invalida callbacks en vuelo por generación y espera el cierre antes de soltar estado.
-//
 // POR QUÉ:
 // Previene que reacciones o difusiones de estados disparen respuestas automáticas erróneas (<200 líneas).
 
@@ -17,6 +13,7 @@ library;
 
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:nanoai/core/services/automation_engine_context.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 import '../notifications/notification_object.dart';
@@ -85,6 +82,9 @@ class NotificationEventRouter {
     required String source,
   }) async {
     if (_sub == null || generation != _generation) return;
+    // No admite trabajo en la UI pausada; el inbox queda para el runtime headless.
+    if (!await canRecoverNotificationBacklog()) return;
+    if (_sub == null || generation != _generation) return;
 
     if (_pendingBatches >= 64) {
       _hasDeferredBatches = true;
@@ -104,8 +104,9 @@ class NotificationEventRouter {
       NotificationEventTrace.batch(source, events.length, validEvents.length);
       if (source != 'active_snapshot') {
         for (final event in validEvents) {
-          if (NotificationEventTrace.isWhatsApp(event))
+          if (NotificationEventTrace.isWhatsApp(event)) {
             NotificationEventTrace.event(event, source, 'admitted');
+          }
         }
       }
       if (validEvents.isEmpty && events.isNotEmpty) {
@@ -121,11 +122,13 @@ class NotificationEventRouter {
       if (g == null) {
         for (final event in validEvents) {
           if (_sub == null || generation != _generation) return;
-          if (NotificationEventTrace.isWhatsApp(event))
+          if (NotificationEventTrace.isWhatsApp(event)) {
             NotificationEventTrace.event(event, source, 'pipeline_started');
+          }
           await pipeline.onNotification(event);
-          if (NotificationEventTrace.isWhatsApp(event))
+          if (NotificationEventTrace.isWhatsApp(event)) {
             NotificationEventTrace.event(event, source, 'pipeline_returned');
+          }
         }
       } else if (validEvents.isNotEmpty) {
         NotificationEventTrace.stage(

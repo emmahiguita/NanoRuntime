@@ -23,8 +23,12 @@ class NanoNavMiniPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final themeColors = Theme.of(context).extension<NanoThemeExtension>()?.colors;
-    final accent = themeColors?.accent ?? (dark ? const Color(0xFF2563EB) : const Color(0xFF1D6FE8));
+    final themeColors = Theme.of(
+      context,
+    ).extension<NanoThemeExtension>()?.colors;
+    final accent =
+        themeColors?.accent ??
+        (dark ? const Color(0xFF2563EB) : const Color(0xFF1D6FE8));
 
     return Semantics(
       button: true,
@@ -48,14 +52,18 @@ class NanoNavMiniPill extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(15),
               child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: Material(
-                  color: dark ? const Color(0xE6050D1A) : const Color(0xF2FFFFFF),
+                  color: dark
+                      ? const Color(0xFF0B1220).withValues(alpha: 0.68)
+                      : Colors.white.withValues(alpha: 0.58),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                     side: BorderSide(
-                      color: accent.withValues(alpha: 0.70),
-                      width: 1.2,
+                      color: dark
+                          ? Colors.white.withValues(alpha: 0.20)
+                          : Colors.white.withValues(alpha: 0.76),
+                      width: 1.0,
                     ),
                   ),
                   child: InkWell(

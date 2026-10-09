@@ -50,6 +50,10 @@ export class OwlStateMachine {
     Object.keys(this.layers).forEach((key) => {
       const layer = this.layers[key];
       if (layer) {
+        if (key === 'blink') {
+          layer.classList.remove('active');
+          return;
+        }
         const isActive = key === newState || (newState === 'idle' && key === 'idle');
         layer.classList.toggle('active', isActive);
       }
@@ -77,12 +81,11 @@ export class OwlStateMachine {
     if (this.isSleeping || this.currentState !== 'idle') return;
     if (!this.layers.blink || !this.layers.idle) return;
 
+    // Capa blink se superpone instantáneamente sobre idle sin ocultar el cuerpo del búho
     this.layers.blink.classList.add('active');
-    this.layers.idle.classList.remove('active');
 
     this.safeTimeout(() => {
-      if (this.currentState === 'idle') {
-        this.layers.idle.classList.add('active');
+      if (this.layers.blink) {
         this.layers.blink.classList.remove('active');
       }
     }, TIMERS.blinkDurationMs);

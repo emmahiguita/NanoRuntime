@@ -54,7 +54,12 @@ export class NanoOwlAvatar {
       <div class="nano-owl-flight-rig state-idle" id="owl-flight-rig">
         <div class="nano-owl-stage" id="owl-stage">
           ${Object.entries(OWL_ASSETS).map(([key, src]) => `
-            <img class="nano-owl-layer layer-${key} ${key === 'idle' ? 'active' : ''}" src="${src}" alt="Nano AI" aria-hidden="${key !== 'idle'}" />
+            <img class="nano-owl-layer layer-${key} ${key === 'idle' ? 'active' : ''}" 
+                 src="${src}" 
+                 alt="Nano AI" 
+                 aria-hidden="${key !== 'idle'}" 
+                 draggable="false"
+                 onerror="this.src='assets/Animaciones/owl_idle.png'" />
           `).join('')}
           <div class="nano-owl-rim-light" id="owl-rim-light" aria-hidden="true"></div>
           <div class="nano-owl-galaxy-eyes-gleam" id="owl-eyes-gleam" aria-hidden="true">
@@ -67,6 +72,12 @@ export class NanoOwlAvatar {
 
     this.container.innerHTML = '';
     this.container.appendChild(this.element);
+
+    // Precarga de todas las capas para transiciones instantáneas sin parpadeo
+    Object.values(OWL_ASSETS).forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
 
     // Mapeo de elementos del DOM
     const flightRig = this.element.querySelector('#owl-flight-rig');
@@ -91,8 +102,9 @@ export class NanoOwlAvatar {
       stage,
       layers,
       onStateChange: (st) => {
-        this.physics.isSleeping = st === 'sleep';
-        this.physics.isThinking = st === 'thinking';
+        if (this.physics) {
+          this.physics.setState(st);
+        }
       },
     });
 
@@ -102,6 +114,12 @@ export class NanoOwlAvatar {
       this.fsm.startAutonomousLoops(this.physics);
       this.resetSleepTimer();
       setTimeout(() => this.performGreeting(), 800);
+    }
+  }
+
+  onClick(e) {
+    if (this.boundClick) {
+      this.boundClick(e);
     }
   }
 
@@ -121,9 +139,15 @@ export class NanoOwlAvatar {
       this.wakeUp();
     };
 
+    let lastClick = 0;
     this.boundClick = (e) => {
-      e?.stopPropagation();
+      e?.stopPropagation?.();
+      const now = Date.now();
+      if (now - lastClick < 250) return;
+      lastClick = now;
+
       this.resetSleepTimer();
+      if (!this.fsm) return;
       if (this.fsm.isSleeping) {
         this.wakeUp();
         return;

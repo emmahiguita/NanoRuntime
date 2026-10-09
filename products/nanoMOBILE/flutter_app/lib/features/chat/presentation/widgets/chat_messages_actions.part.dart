@@ -159,6 +159,7 @@ class MessageActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
     return Semantics(
       label: 'Acciones',
       button: true,
@@ -173,7 +174,9 @@ class MessageActions extends StatelessWidget {
             child: Icon(
               Icons.more_horiz_rounded,
               size: 18,
-              color: colors.onSurface.withValues(alpha: 0.50),
+              color: isDark
+                  ? colors.onSurface.withValues(alpha: 0.50)
+                  : const Color(0xFF64748B),
             ),
           ),
         ),

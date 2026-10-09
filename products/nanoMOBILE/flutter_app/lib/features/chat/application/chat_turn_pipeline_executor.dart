@@ -111,25 +111,29 @@ class ChatTurnPipelineExecutor {
 
     final known = await coordinator.tryKnownFlow(text);
     if (known != null) {
-      return ChatTurnRouteResult.completed(deviceExecutionMessage(known.result));
+      return ChatTurnRouteResult.completed(
+        deviceExecutionMessage(known.result),
+      );
     }
     final crossApp = await coordinator.tryCrossApp(text);
     if (crossApp != null) {
-      return ChatTurnRouteResult.completed(deviceExecutionMessage(crossApp.result));
+      return ChatTurnRouteResult.completed(
+        deviceExecutionMessage(crossApp.result),
+      );
     }
     return null;
   }
 
   ChatMessage deviceExecutionMessage(AutomationResult result) => ChatMessage(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        sender: MessageSender.ai,
-        text:
-            'Ejecutado en el dispositivo:\n${automationUserFacingReason(result.reason)}',
-        timestamp: DateTime.now(),
-        source: MessageSource.device,
-        status: (result.status == AutomationResultStatus.completed ||
-                result.status == AutomationResultStatus.completedUnverified)
-            ? MessageStatus.sent
-            : MessageStatus.error,
-      );
+    id: DateTime.now().microsecondsSinceEpoch.toString(),
+    sender: MessageSender.ai,
+    // Terminar un intento no prueba éxito: los fallos no deben enseñar al LLM
+    // que un código needsMoreEvidence fue una respuesta del asistente.
+    text:
+        '${result.isVerifiedSuccess ? 'Acción verificada' : 'Acción sin verificar'}:\n'
+        '${automationUserFacingReason(result.reason)}',
+    timestamp: DateTime.now(),
+    source: MessageSource.device,
+    status: result.isVerifiedSuccess ? MessageStatus.sent : MessageStatus.error,
+  );
 }

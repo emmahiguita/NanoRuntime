@@ -4,6 +4,7 @@
 library;
 
 import 'dart:async';
+import 'execution_budget.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'engine_status.dart';
@@ -114,12 +115,18 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   }
 
   /// Espera a que el motor esté listo para inferir. Si está idle arranca.
-  Future<bool> ensureReady({String? modelPath, ModelBackendType? backendType}) async {
-    final target = backendType ?? (modelPath == null
-        ? _selectedBackend
-        : NeuralCatalog.backendForPath(modelPath));
+  Future<bool> ensureReady({
+    String? modelPath,
+    ModelBackendType? backendType,
+  }) async {
+    final target =
+        backendType ??
+        (modelPath == null
+            ? _selectedBackend
+            : NeuralCatalog.backendForPath(modelPath));
     if (target != ModelBackendType.gguf) {
-      return (await start(modelPath: modelPath, backendType: target)).phase == EnginePhase.ready;
+      return (await start(modelPath: modelPath, backendType: target)).phase ==
+          EnginePhase.ready;
     }
     var s = state;
     debugPrint('[engine] ensureReady fase=${s.phase.name} model=$modelPath');

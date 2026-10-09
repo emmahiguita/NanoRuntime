@@ -1,19 +1,8 @@
-/// AUTOMATION-SYSTEM-FOOTER — Footer de acceso a Automatización y Sistema.
-///
-/// QUÉ HACE:
-/// Agrupa de forma discreta y elegante las opciones de control operativo:
-/// Nivel de automatización/reglas y Sistema/Ajustes avanzados.
-///
-/// CÓMO FUNCIONA:
-/// Renderiza dos filas limpias estilo Apple/Linear, evitando saturar la
-/// pantalla con tarjetas gigantes o listas de 10 botones técnicos.
-///
-/// POR QUÉ:
-/// Cumple la regla de Divulgación Progresiva: las configuraciones avanzadas
-/// quedan a un toque sin obstruir la vista diaria de agentes y mensajes.
+/// Footer compacto de control con superficies iOS compartidas.
 library;
 
 import 'package:flutter/material.dart';
+
 import '../automation_visual_theme.dart';
 
 class AutomationSystemFooter extends StatelessWidget {
@@ -33,116 +22,121 @@ class AutomationSystemFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
+    final rulesLabel =
+        'Modo $automationModeLabel · $activeRulesCount regla${activeRulesCount == 1 ? '' : 's'} activa${activeRulesCount == 1 ? '' : 's'}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Fila 1: Automatización y Reglas
-        InkWell(
+        _SystemGlassRow(
+          icon: Icons.auto_mode_rounded,
+          iconColor: visual.accent,
+          title: 'Automatización y Reglas',
+          subtitle: rulesLabel,
+          trailingLabel: 'Gestionar',
           onTap: onRulesTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: visual.surface.withValues(alpha: 0.50),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: visual.outline.withValues(alpha: 0.15)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.auto_mode_rounded, size: 20, color: visual.accent),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Automatización y Reglas',
-                        style: TextStyle(
-                          color: visual.text,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Modo $automationModeLabel · $activeRulesCount regla${activeRulesCount == 1 ? '' : 's'} activa${activeRulesCount == 1 ? '' : 's'}',
-                        style: TextStyle(
-                          color: visual.textMuted,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  'Gestionar',
-                  style: TextStyle(
-                    color: visual.accent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: 16,
-                  color: visual.accent,
-                ),
-              ],
-            ),
-          ),
         ),
         const SizedBox(height: 10),
-
-        // Fila 2: Sistema y Configuración Avanzada
-        InkWell(
+        _SystemGlassRow(
+          icon: Icons.tune_rounded,
+          iconColor: visual.textMuted,
+          title: 'Sistema y Herramientas',
+          subtitle: 'Modelos IA, MCP, permisos y bots personalizados',
           onTap: onSystemTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: visual.surface.withValues(alpha: 0.50),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: visual.outline.withValues(alpha: 0.15)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.tune_rounded, size: 20, color: visual.textMuted),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Sistema y Herramientas',
-                        style: TextStyle(
-                          color: visual.text,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Modelos IA, MCP, permisos y bots personalizados',
-                        style: TextStyle(
-                          color: visual.textMuted,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Icon(
-                  Icons.settings_outlined,
-                  size: 18,
-                  color: visual.textMuted.withValues(alpha: 0.7),
-                ),
-              ],
-            ),
-          ),
         ),
       ],
+    );
+  }
+}
+
+class _SystemGlassRow extends StatelessWidget {
+  const _SystemGlassRow({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.trailingLabel,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final String? trailingLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return Semantics(
+      button: true,
+      label: '$title. $subtitle',
+      child: AutomationSurfaceCard(
+        radius: 18,
+        blurSigma: 14,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        onTap: onTap,
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.11),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, size: 19, color: iconColor),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: visual.text,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: visual.textMuted,
+                      fontSize: 11.5,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (trailingLabel != null)
+              Text(
+                trailingLabel!,
+                style: TextStyle(
+                  color: visual.accent,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            const SizedBox(width: 3),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: trailingLabel == null ? visual.textMuted : visual.accent,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

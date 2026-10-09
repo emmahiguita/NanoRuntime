@@ -298,6 +298,80 @@ void main() {
       );
 
       test(
+        'Live State: "Dime qué sucede" es contexto conversacional y no activa bloqueo de telemetría',
+        () {
+          expect(isLiveStateQuestion('Dime qué sucede'), isFalse);
+          expect(classifyLiveStateIntent('Dime qué sucede'), LiveStateIntent.conversationalContext);
+
+          const understanding = ConversationUnderstanding(
+            reply: 'Tranquilo, cuéntame y lo revisamos.',
+            intent: 'contexto',
+            requiresAction: false,
+          );
+          const context = ConversationDecisionContext(
+            userText: 'Dime qué sucede',
+            agentRole: ConversationAgentRole.personal,
+            autonomyMode: ConversationAutonomyMode.autonomous,
+          );
+
+          final decision = engine.decide(
+            understanding: understanding,
+            context: context,
+          );
+
+          expect(decision.disposition, ConversationDisposition.autoSend);
+        },
+      );
+
+      test(
+        'Anti-Callcenter: Variantes como "¿En qué te ayudo?" se reparan a saludo personal y permiten autoSend/repair',
+        () {
+          const understanding = ConversationUnderstanding(
+            reply: '¡Hola! ¿En qué te ayudo?',
+            intent: 'saludo',
+            requiresAction: false,
+          );
+          const context = ConversationDecisionContext(
+            userText: 'Hola',
+            agentRole: ConversationAgentRole.personal,
+            autonomyMode: ConversationAutonomyMode.autonomous,
+          );
+
+          final decision = engine.decide(
+            understanding: understanding,
+            context: context,
+          );
+
+          expect(decision.disposition, ConversationDisposition.qualityRepair);
+          expect(decision.repairedText, isNotNull);
+          expect(decision.repairedText, isNot(contains('te ayudo')));
+        },
+      );
+
+      test(
+        'TurnSupersedeGuard: Incremento y snapshots independientes por conversación',
+        () {
+          final guard = TurnSupersedeGuard();
+          expect(guard.snapshot('conv_juan'), 0);
+          expect(guard.snapshot('conv_pedro'), 0);
+
+          final juanV1 = guard.bump('conv_juan');
+          expect(juanV1, 1);
+          expect(guard.isCurrent('conv_juan', 1), isTrue);
+
+          final pedroV1 = guard.bump('conv_pedro');
+          expect(pedroV1, 1); // Independiente
+          expect(guard.isCurrent('conv_juan', 1), isTrue); // Juan no se altera por Pedro
+
+          final juanV2 = guard.bump('conv_juan');
+          expect(juanV2, 2);
+          expect(guard.isCurrent('conv_juan', 1), isFalse);
+          expect(guard.isCurrent('conv_juan', 2), isTrue);
+          expect(guard.isCurrent('conv_pedro', 1), isTrue);
+        },
+      );
+
+      test(
         'Soberanía Humana: Retiene SIEMPRE si el dueño tiene el control del chat',
         () {
           const understanding = ConversationUnderstanding(

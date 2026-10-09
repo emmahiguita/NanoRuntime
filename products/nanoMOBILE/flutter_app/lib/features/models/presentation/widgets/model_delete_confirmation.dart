@@ -1,5 +1,6 @@
 // model_delete_confirmation.dart — Confirmación única para borrar modelos descargados.
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 
 /// Explica qué archivos se borrarán y muestra si la operación física terminó.
 Future<void> confirmModelDeletion({
@@ -8,20 +9,23 @@ Future<void> confirmModelDeletion({
   required String fileName,
   required Future<bool> Function() delete,
 }) async {
-  final confirmed = await showDialog<bool>(
+  // Confirmación iOS: cancelar es la opción segura y borrar exige aceptación.
+  // La operación física existente se ejecuta solo después de cerrar el diálogo.
+  final confirmed = await showCupertinoDialog<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      icon: const Icon(Icons.delete_outline_rounded),
+    builder: (dialogContext) => CupertinoAlertDialog(
       title: const Text('Eliminar modelo descargado'),
       content: Text(
         '$modelName\n\nSe quitarán el archivo “$fileName”, su verificación y cualquier descarga incompleta. Si está en uso, Nano intentará detenerlo antes de borrarlo.',
       ),
       actions: [
-        TextButton(
+        CupertinoDialogAction(
+          isDefaultAction: true,
           onPressed: () => Navigator.pop(dialogContext, false),
           child: const Text('Cancelar'),
         ),
-        FilledButton.tonal(
+        CupertinoDialogAction(
+          isDestructiveAction: true,
           onPressed: () => Navigator.pop(dialogContext, true),
           child: const Text('Eliminar'),
         ),

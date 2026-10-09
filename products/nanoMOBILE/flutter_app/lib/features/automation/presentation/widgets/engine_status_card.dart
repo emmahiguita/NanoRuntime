@@ -322,27 +322,35 @@ class _SystemReadyMarkState extends State<_SystemReadyMark>
       vsync: this,
       duration: const Duration(milliseconds: 2200),
     );
-    final isTest = WidgetsBinding.instance.runtimeType.toString().contains(
-      'Test',
-    );
-    if (!isTest && widget.ready) {
-      _pulse.repeat(reverse: true);
-    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulse();
   }
 
   @override
   void didUpdateWidget(covariant _SystemReadyMark oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _syncPulse();
+  }
+
+  void _syncPulse() {
     final isTest = WidgetsBinding.instance.runtimeType.toString().contains(
       'Test',
     );
-    if (!isTest) {
-      if (widget.ready && !oldWidget.ready) {
-        _pulse.repeat(reverse: true);
-      } else if (!widget.ready && oldWidget.ready) {
-        _pulse.stop();
-        _pulse.value = 0;
-      }
+    final canAnimate =
+        widget.ready &&
+        !isTest &&
+        !MediaQuery.disableAnimationsOf(context) &&
+        TickerMode.of(context);
+    if (canAnimate && !_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    } else if (!canAnimate) {
+      _pulse
+        ..stop()
+        ..value = widget.ready ? 0.5 : 0;
     }
   }
 

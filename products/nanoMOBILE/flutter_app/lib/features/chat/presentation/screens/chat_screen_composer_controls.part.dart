@@ -38,7 +38,9 @@ extension _ChatScreenComposerControls on _ChatScreenState {
               _listening ? Icons.stop_circle_rounded : Icons.mic_none_rounded,
               color: _listening
                   ? const Color(0xFFEF4444)
-                  : colors.onSurface.withValues(alpha: 0.65),
+                  : (colors is NanoDarkColors
+                      ? colors.onSurface.withValues(alpha: 0.70)
+                      : const Color(0xFF64748B)),
               size: compact ? 19 : 21,
             ),
           ),
@@ -87,7 +89,7 @@ extension _ChatScreenComposerControls on _ChatScreenState {
       child: Material(
         color: hasText
             ? colors.accent
-            : (isDark ? const Color(0x1AFFFFFF) : const Color(0x0F000000)),
+            : (isDark ? const Color(0x1AFFFFFF) : const Color(0xFFF1F5F9)),
         shape: const CircleBorder(),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -106,7 +108,9 @@ extension _ChatScreenComposerControls on _ChatScreenState {
               Icons.arrow_upward_rounded,
               color: hasText
                   ? Colors.white
-                  : colors.onSurface.withValues(alpha: 0.30),
+                  : (isDark
+                      ? colors.onSurface.withValues(alpha: 0.30)
+                      : const Color(0xFF94A3B8)),
               size: compact ? 18 : 20,
             ),
           ),

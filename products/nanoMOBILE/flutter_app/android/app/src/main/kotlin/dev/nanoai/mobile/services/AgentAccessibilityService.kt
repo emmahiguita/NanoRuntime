@@ -906,6 +906,7 @@ object AgentAccessibilityBridge {
             completeAutoSend(false, "Env??o reemplazado por otra solicitud.")
         }
         isAutoSendArmed = true
+        dev.nanoai.mobile.services.whatsapp.WhatsAppAutoSendController.resetSession()
         autoSendDeadlineMs = System.currentTimeMillis() + timeoutMs
         autoSendTargetPkg = targetPkg
         autoSendTargetContact = targetContact
@@ -928,6 +929,12 @@ object AgentAccessibilityBridge {
         autoSendTargetContact = null
         autoSendExpectedAlias = null
         autoSendTargetPkg = null
+        dev.nanoai.mobile.services.whatsapp.WhatsAppAutoSendController.resetSession()
+        if (wasArmed) {
+            val levelMessage = "Autoenvío finalizado: success=$success, detalle=$message"
+            if (success) Log.i("nanoagent_autosend", levelMessage)
+            else Log.w("nanoagent_autosend", levelMessage)
+        }
         if (wasArmed && callback != null) {
             try {
                 callback(success, message)

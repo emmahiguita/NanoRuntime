@@ -1,20 +1,19 @@
 /// Redacción contextual de una respuesta a notificación (A14.7).
-///
-/// Lee el contenido REAL de la notificación y produce un borrador entendido
-/// con el runtime local. El LLM es OPCIONAL y está gateado por política: sin
-/// modelo permitido o sin motor disponible devuelve null (la automatización
-/// NO responde con texto genérico — pediría clarificación al humano). El
-/// contenido de la notificación es dato no confiable; el prompt lo aísla.
+/// Motor opcional: sin inferencia real no fabrica respuestas. Aísla datos no confiables.
 library;
 
 import 'dart:async';
-
+import 'package:nanoai/core/services/execution_budget.dart';
+import '../../personal_agent/application/conversation_decision_guards.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:nanoai/core/models/catalog_models.dart'
     show ModelBackendType, NeuralCatalog;
 import 'package:nanoai/core/services/generative_inference_port.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
 import 'package:nanoai/core/services/nano_identity_context.dart';
+import 'package:nanoai/core/services/personal_language_policy.dart';
+import '../../personal_agent/domain/personal_live_context.dart';
+import '../language/runtime_personal_live_context.dart';
 
 import '../../personal_agent/domain/conversation_agent_role.dart'
     show
@@ -25,7 +24,8 @@ import '../../personal_agent/domain/conversation_agent_role.dart'
         isLiveStateQuestion,
         productMentionedWithoutCommerce;
 import '../messaging/conv_turn_state.dart' show isPureGreeting;
-import '../messaging/conversation_context_resolver.dart';
+import '../conversation/personal_conversation_diagnostic.dart';
+import '../messaging/conversation_durable_context.dart';
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_agent.dart';
 import '../messaging/conversation_memory.dart'
@@ -90,6 +90,7 @@ final class RuntimeNotificationDraftWriter {
     ConversationAgentId Function(String conversationId, String packageName)?
     agentFor,
     ConversationMemoryStore? memory,
+    PersonalLiveContext? liveContext,
     GenerativeInferencePort? cloudInferencePort,
     Future<void> Function({
       required String input,
@@ -112,6 +113,7 @@ final class RuntimeNotificationDraftWriter {
        _routeFor = routeFor,
        _agentFor = agentFor,
        _memory = memory,
+       _liveContext = liveContext ?? RuntimePersonalLiveContext(),
        _externalResponseLearner = externalResponseLearner,
        _externalResponseLearningAllowed = externalResponseLearningAllowed,
        _cloudInferencePort =
@@ -123,31 +125,26 @@ final class RuntimeNotificationDraftWriter {
   final Future<bool> Function(String? modelPath) _ensureReady;
   final String? Function() _modelPath;
 
-  /// WA-PERSONA-01 — estilo declarado por el dueño. Leído EN VIVO en cada
-  /// borrador (closures sobre settingsProvider): cambiar el toggle o el texto
-  /// aplica desde el siguiente mensaje, sin reconstruir el writer.
+  /// WA-PERSONA-01 — estilo declarado por el dueño. Leído EN VIVO en cada borrador (closures sobre
+  /// settingsProvider): cambiar el toggle o el texto aplica desde el siguiente mensaje, sin reconstruir el writer.
   final bool Function() _styleEnabled;
   final String Function() _styleText;
 
-  /// WA-BUSINESS-01/02 — bloque <DATOS DEL NEGOCIO> leído EN VIVO por
-  /// mensaje: el selector determinista elige el subconjunto relevante del
-  /// catálogo (el texto del mensaje decide qué hechos entran al prompt).
+  /// WA-BUSINESS-01/02 — bloque <DATOS DEL NEGOCIO> leído EN VIVO por mensaje: el selector determinista elige el
+  /// subconjunto relevante del catálogo (el texto del mensaje decide qué hechos entran al prompt).
   final String Function(String messageText)? _businessBlock;
 
-  /// WA-NATURAL-01 — bloque <TONO DE RESPUESTA> (frases deterministas del
-  /// perfil; '' si deshabilitado). Leído EN VIVO en cada borrador.
+  /// WA-NATURAL-01 — bloque <TONO DE RESPUESTA> (frases deterministas del perfil; '' si deshabilitado). Leído EN
+  /// VIVO en cada borrador.
   final String Function()? _toneBlock;
 
-  /// WA-STATE-01 + CONTEXT-GATE-01 — recuerdo estructurado de la consulta
-  /// anterior de ESTA conversación, gated por el mensaje actual
-  /// (<CONTEXTO DEL CLIENTE>; '' si no hay nada que recordar o el recuerdo
-  /// no aplica al turno).
+  /// WA-STATE-01 + CONTEXT-GATE-01 — recuerdo estructurado de la consulta anterior de ESTA conversación, gated por
+  /// el mensaje actual (<CONTEXTO DEL CLIENTE>; '' si no hay nada que recordar o el recuerdo no aplica al turno).
   final String Function(String conversationId, String messageText)?
   _clientContextFor;
 
-  /// PERSONA-COMPOSE-08 — bloque <DATOS DE LA PERSONA> (dueño, relación con
-  /// el remitente y ejemplos FTS4). Async: el retriever consulta SQLite por
-  /// mensaje; '' si no hay perfil ni ejemplos. Remitente factual, jamás LLM.
+  /// PERSONA-COMPOSE-08 — bloque <DATOS DE LA PERSONA> (dueño, relación con el remitente y ejemplos FTS4). Async:
+  /// el retriever consulta SQLite por mensaje; '' si no hay perfil ni ejemplos. Remitente factual, jamás LLM.
   final Future<String> Function(
     String conversationId,
     String messageText,
@@ -168,13 +165,14 @@ final class RuntimeNotificationDraftWriter {
   final ConversationAgentId Function(String conversationId, String packageName)?
   _agentFor;
 
-  /// WA-MEM-08/WA-AGENT-09 — memoria factual de la conversación (contexto
-  /// para el borrador). null = el writer conserva el prompt sin historial.
+  /// WA-MEM-08/WA-AGENT-09 — memoria factual de la conversación (contexto para el borrador). null = el writer
+  /// conserva el prompt sin historial.
   final ConversationMemoryStore? _memory;
+  // Reloj/proveedor intercambiables; el redactor consume solo evidencia de dominio.
+  final PersonalLiveContext _liveContext;
 
-  /// QUÉ: recibe candidatas cloud y consulta el consentimiento personal/contacto.
-  /// CÓMO: ambas dependencias se inyectan desde el composition root.
-  /// POR QUÉ: separa persistencia y privacidad del generador de respuestas.
+  /// QUÉ: recibe candidatas cloud y consulta el consentimiento personal/contacto. CÓMO: ambas dependencias se
+  /// inyectan desde el composition root. POR QUÉ: separa persistencia y privacidad del generador de respuestas.
   final Future<void> Function({
     required String input,
     required String response,
@@ -184,8 +182,8 @@ final class RuntimeNotificationDraftWriter {
   final bool Function(String conversationId, String sender)?
   _externalResponseLearningAllowed;
 
-  /// Reutiliza solo el mismo evento lógico; uno nuevo genera su propio borrador.
-  /// La cola serializa el motor y descarta turnos superados sin cruzar respuestas.
+  /// Reutiliza solo el mismo evento lógico; uno nuevo genera su propio borrador. La cola serializa el motor y
+  /// descarta turnos superados sin cruzar respuestas.
   static final Map<String, Future<NotificationDraftResult?>> _inFlight = {};
   static final Map<String, String> _latestFlightKeyByConv = {};
   static Future<void> _draftTail = Future<void>.value();

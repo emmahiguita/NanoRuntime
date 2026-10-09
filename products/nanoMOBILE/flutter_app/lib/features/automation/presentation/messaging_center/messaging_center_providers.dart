@@ -48,10 +48,6 @@ final notificationAccessProvider =
 /// Agrega conversaciones de ambos agentes (personal y negocios) Y notificaciones en vivo.
 final allHubConversationsProvider =
     FutureProvider<List<ConversationSummaryItem>>((ref) async {
-      ref.watch(liveNotificationStreamProvider);
-      ref.watch(conversationHubVersionProvider);
-      ref.watch(notificationHistoryEventsProvider);
-
       final personalList = await ref.watch(
         conversationHubListProvider(ConversationAgentId.personal).future,
       );

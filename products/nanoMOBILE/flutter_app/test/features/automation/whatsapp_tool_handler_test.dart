@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/application/whatsapp_contacts_provider.dart';
 import 'package:nanoai/features/automation/domain/whatsapp_contact.dart';
 import 'package:nanoai/features/automation/engine/execution/handlers/whatsapp_tool_handler.dart';
+import 'package:nanoai/features/automation/engine/business/whatsapp_message_provider.dart';
 import 'package:nanoai/features/automation/engine/execution/tool_call.dart';
 import 'package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart';
 import 'package:nanoai/features/automation/engine/planning/contact_matcher.dart';
@@ -45,6 +46,9 @@ class _FakeMediaShare extends WhatsAppMediaShare {
     String caption = '',
     String? packageName,
     bool autoSend = false,
+    String? recipientName,
+    String recipientKind = 'direct',
+    bool recipientVerified = false,
   }) async {
     lastPath = path;
     lastContact = contact;
@@ -54,7 +58,30 @@ class _FakeMediaShare extends WhatsAppMediaShare {
   }
 }
 
+class _LocalMessageProvider implements WhatsAppMessageProvider {
+  _LocalMessageProvider(this.share);
+
+  final WhatsAppMediaShare share;
+
+  @override
+  Future<bool> cloudSelected() async => false;
+
+  @override
+  Future<WhatsAppSendReceipt> send(String phone, String text) async {
+    final opened = await share.openChat(
+      contact: phone,
+      text: text,
+      autoSend: true,
+    );
+    if (!opened) {
+      throw Exception('No se pudo abrir el flujo local de WhatsApp.');
+    }
+    return const WhatsAppSendReceipt(message: 'local_unverified');
+  }
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   group('ContactMatcher Tests', () {
     final contacts = [
       const WhatsAppContact(
@@ -133,14 +160,18 @@ void main() {
     });
 
     test('parses "busca a pokezuela en whatsapp"', () {
-      final intent = WhatsAppIntentParser.parse('busca a pokezuela en whatsapp');
+      final intent = WhatsAppIntentParser.parse(
+        'busca a pokezuela en whatsapp',
+      );
       expect(intent, isNotNull);
       expect(intent!.action, WhatsAppAction.findContact);
       expect(intent.contact, 'pokezuela');
     });
 
     test('parses "envíale a (Poke Suela) (Hola mundo)"', () {
-      final intent = WhatsAppIntentParser.parse('envíale a (Poke Suela) (Hola mundo)');
+      final intent = WhatsAppIntentParser.parse(
+        'envíale a (Poke Suela) (Hola mundo)',
+      );
       expect(intent, isNotNull);
       expect(intent!.action, WhatsAppAction.sendMessage);
       expect(intent.contact, 'Poke Suela');
@@ -148,7 +179,9 @@ void main() {
     });
 
     test('parses "envíale a (Poke Suela) el archivo /sdcard/doc.pdf"', () {
-      final intent = WhatsAppIntentParser.parse('envíale a (Poke Suela) el archivo /sdcard/doc.pdf');
+      final intent = WhatsAppIntentParser.parse(
+        'envíale a (Poke Suela) el archivo /sdcard/doc.pdf',
+      );
       expect(intent, isNotNull);
       expect(intent!.action, WhatsAppAction.shareFile);
       expect(intent.contact, 'Poke Suela');
@@ -188,21 +221,28 @@ void main() {
     setUp(() {
       contactsService = _FakeContactsService(fakeContacts);
       mediaShare = _FakeMediaShare();
-      handler = WhatsAppToolHandler(share: mediaShare, contacts: contactsService);
-    });
-
-    test('listContacts finds "A Pokevzla" when query is "poke suela"', () async {
-      final res = await handler.listContacts(
-        const ToolCall(
-          tool: 'whatsapp.contacts',
-          args: {'query': 'poke suela'},
-        ),
+      handler = WhatsAppToolHandler(
+        share: mediaShare,
+        contacts: contactsService,
+        messageProvider: _LocalMessageProvider(mediaShare),
       );
-
-      expect(res, contains('1 contacto(s)'));
-      expect(res, contains('A Pokevzla'));
-      expect(res, contains('+573105913746'));
     });
+
+    test(
+      'listContacts finds "A Pokevzla" when query is "poke suela"',
+      () async {
+        final res = await handler.listContacts(
+          const ToolCall(
+            tool: 'whatsapp.contacts',
+            args: {'query': 'poke suela'},
+          ),
+        );
+
+        expect(res, contains('1 contacto(s)'));
+        expect(res, contains('A Pokevzla'));
+        expect(res, contains('+573105913746'));
+      },
+    );
 
     test('sendMessage to "poke suela" resolves to A Pokevzla phone', () async {
       final res = await handler.sendMessage(
@@ -212,7 +252,7 @@ void main() {
         ),
       );
 
-      expect(res, anyOf(contains('Mensaje enviado a "A Pokevzla"'), contains('Chat abierto para "A Pokevzla"')));
+      expect(res, contains('Flujo local abierto para "A Pokevzla"'));
       expect(mediaShare.lastContact, '+573105913746');
       expect(mediaShare.lastText, 'Mensaje de prueba');
     });
@@ -229,7 +269,13 @@ void main() {
         ),
       );
 
-      expect(res, anyOf(contains('Archivo listo para "A Pokevzla"'), contains('Flujo de archivo abierto para "A Pokevzla"')));
+      expect(
+        res,
+        anyOf(
+          contains('Archivo listo para "A Pokevzla"'),
+          contains('Flujo de archivo abierto para "A Pokevzla"'),
+        ),
+      );
       expect(mediaShare.lastContact, '+573105913746');
       expect(mediaShare.lastPath, '/storage/emulated/0/documento.pdf');
       expect(mediaShare.lastCaption, 'Aquí tienes el PDF');
@@ -237,17 +283,17 @@ void main() {
 
     // ── Pruebas solicitadas por el usuario para contacto 'Emm' ─────────────────
 
-    test('1. busca a Emm en whatsapp encuentra su contacto y teléfono', () async {
-      final res = await handler.listContacts(
-        const ToolCall(
-          tool: 'whatsapp.contacts',
-          args: {'query': 'Emm'},
-        ),
-      );
+    test(
+      '1. busca a Emm en whatsapp encuentra su contacto y teléfono',
+      () async {
+        final res = await handler.listContacts(
+          const ToolCall(tool: 'whatsapp.contacts', args: {'query': 'Emm'}),
+        );
 
-      expect(res, contains('Emm'));
-      expect(res, contains('+573203527283'));
-    });
+        expect(res, contains('Emm'));
+        expect(res, contains('+573203527283'));
+      },
+    );
 
     test('2. escríbele a Emm envía mensaje a su número resuelto', () async {
       final res = await handler.sendMessage(
@@ -257,44 +303,68 @@ void main() {
         ),
       );
 
-      expect(res, anyOf(contains('Mensaje enviado a "Emm"'), contains('Chat abierto para "Emm"')));
+      expect(res, contains('Flujo local abierto para "Emm"'));
       expect(mediaShare.lastContact, '+573203527283');
       expect(mediaShare.lastText, 'Hola Emm, esto es una prueba real');
     });
 
-    test('3. envíale un documento a Emm prepara el PDF para su número', () async {
-      final res = await handler.shareFile(
-        const ToolCall(
-          tool: 'whatsapp.share_file',
-          args: {
-            'contact': 'Emm',
-            'path': '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf',
-            'caption': 'Aquí está el documento solicitado',
-          },
-        ),
-      );
+    test(
+      '3. envíale un documento a Emm prepara el PDF para su número',
+      () async {
+        final res = await handler.shareFile(
+          const ToolCall(
+            tool: 'whatsapp.share_file',
+            args: {
+              'contact': 'Emm',
+              'path': '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf',
+              'caption': 'Aquí está el documento solicitado',
+            },
+          ),
+        );
 
-      expect(res, anyOf(contains('Archivo listo para "Emm"'), contains('Flujo de archivo abierto para "Emm"')));
-      expect(mediaShare.lastContact, '+573203527283');
-      expect(mediaShare.lastPath, '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf');
-    });
+        expect(
+          res,
+          anyOf(
+            contains('Archivo listo para "Emm"'),
+            contains('Flujo de archivo abierto para "Emm"'),
+          ),
+        );
+        expect(mediaShare.lastContact, '+573203527283');
+        expect(
+          mediaShare.lastPath,
+          '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf',
+        );
+      },
+    );
 
-    test('4. envíale una foto a Emm prepara la imagen para su número', () async {
-      final res = await handler.shareFile(
-        const ToolCall(
-          tool: 'whatsapp.share_file',
-          args: {
-            'contact': 'Emm',
-            'path': '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png',
-            'caption': 'Foto enviada desde Nano',
-          },
-        ),
-      );
+    test(
+      '4. envíale una foto a Emm prepara la imagen para su número',
+      () async {
+        final res = await handler.shareFile(
+          const ToolCall(
+            tool: 'whatsapp.share_file',
+            args: {
+              'contact': 'Emm',
+              'path':
+                  '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png',
+              'caption': 'Foto enviada desde Nano',
+            },
+          ),
+        );
 
-      expect(res, anyOf(contains('Archivo listo para "Emm"'), contains('Flujo de archivo abierto para "Emm"')));
-      expect(mediaShare.lastContact, '+573203527283');
-      expect(mediaShare.lastPath, '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png');
-    });
+        expect(
+          res,
+          anyOf(
+            contains('Archivo listo para "Emm"'),
+            contains('Flujo de archivo abierto para "Emm"'),
+          ),
+        );
+        expect(mediaShare.lastContact, '+573203527283');
+        expect(
+          mediaShare.lastPath,
+          '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png',
+        );
+      },
+    );
   });
 }
-

@@ -11,15 +11,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <!-- Core FeatherCore Stylesheets (Orden Oficial) -->
-  <link rel="stylesheet" href="css/tokens.css?v=v18" />
-  <link rel="stylesheet" href="css/base.css?v=v18" />
-  <link rel="stylesheet" href="css/layout.css?v=v18" />
-  <link rel="stylesheet" href="css/components.css?v=v18" />
-  <link rel="stylesheet" href="css/chat.css?v=v18" />
-  <link rel="stylesheet" href="css/owl.css?v=v18" />
-  <link rel="stylesheet" href="css/terminal.css?v=v18" />
-  <link rel="stylesheet" href="css/whatsapp.css?v=v18" />
-  <link rel="stylesheet" href="css/system.css?v=v18" />
+  <link rel="stylesheet" href="css/tokens.css?v=v21" />
+  <link rel="stylesheet" href="css/base.css?v=v21" />
+  <link rel="stylesheet" href="css/layout.css?v=v21" />
+  <link rel="stylesheet" href="css/components.css?v=v21" />
+  <link rel="stylesheet" href="css/chat.css?v=v21" />
+  <link rel="stylesheet" href="css/owl.css?v=v21" />
+  <link rel="stylesheet" href="css/terminal.css?v=v21" />
+  <link rel="stylesheet" href="css/whatsapp.css?v=v21" />
+  <link rel="stylesheet" href="css/system.css?v=v21" />
+  <link rel="stylesheet" href="css/files.css?v=v21" />
+  <link rel="stylesheet" href="css/settings.css?v=v21" />
 
   <!-- Restauración Inmediata de Tema FeatherCore -->
   <script>
@@ -136,19 +138,19 @@
           <div class="model-picker-dropdown">
             <button type="button" class="btn-model-selector nano-model-selector" id="btn-model-selector">
               <span data-nano-icon="brain" data-nano-size="18"></span>
-              <strong id="active-model-name">DeepSeek-R1 (Local)</strong>
-              <span class="model-tag-pill nano-model-badge">3.8B Q4_K_M</span>
+              <strong id="active-model-name">Qwen 2.5 1.5B (Local)</strong>
+              <span class="model-tag-pill nano-model-badge">1.5B Q8_0</span>
               <span data-nano-icon="chevronDown" data-nano-size="14"></span>
             </button>
 
             <!-- Menú Desplegable -->
             <div class="model-dropdown-menu" id="model-dropdown-menu">
-              <button type="button" class="model-option-item selected" data-model="deepseek-r1">
+              <button type="button" class="model-option-item selected" data-model="qwen-2.5">
                 <span class="model-opt-title">
-                  <span>DeepSeek-R1-Distill-Qwen</span>
-                  <span class="model-tag-pill nano-model-badge">Recomendado</span>
+                  <span>Qwen 2.5 1.5B (Local)</span>
+                  <span class="model-tag-pill nano-model-badge">Activo</span>
                 </span>
-                <span class="model-opt-desc">Razonamiento profundo nativo • 1.5B/7B/14B GGUF</span>
+                <span class="model-opt-desc">Inferencia Soberana nativa • Q8_0 GGUF nanoRUNTIME</span>
               </button>
               <button type="button" class="model-option-item" data-model="phi-3">
                 <span class="model-opt-title">
@@ -166,14 +168,17 @@
               </button>
             </div>
           </div>
+
+          <!-- Botón de Nuevo Chat Limpio y Accesible -->
+          <button type="button" class="btn-topbar-new-chat" id="btn-new-chat" title="Iniciar nueva conversación (Ctrl+N)">
+            <span data-nano-icon="plus" data-nano-size="14"></span>
+            <span>Nuevo chat</span>
+          </button>
         </div>
 
         <!-- Estado Central de Inferencia -->
         <div class="top-bar-center nano-topbar-group">
-          <div class="nano-topbar-status-chip">
-            <span class="status-indicator-dot"></span>
-            <span>Inferencia Local Soberana</span>
-          </div>
+          <span class="topbar-sovereign-title">Inferencia Local Soberana</span>
         </div>
 
         <!-- Acciones Rápidas Superiores -->
@@ -204,6 +209,12 @@
 
         <!-- Vista 5: Mensajería WhatsApp -->
         <section id="view-whatsapp" class="view-panel" style="display: none;"></section>
+
+        <!-- Vista 6: Biblioteca y Archivos -->
+        <section id="view-files" class="view-panel" style="display: none;"></section>
+
+        <!-- Vista 7: Configuración del Sistema -->
+        <section id="view-settings" class="view-panel" style="display: none;"></section>
       </div>
 
       <!-- Barra de Estado Inferior FeatherCore -->
@@ -223,6 +234,6 @@
   </div>
 
   <!-- Entrypoint Modular -->
-  <script type="module" src="js/app.js?v=v18"></script>
+  <script type="module" src="js/app.js?v=v22"></script>
 </body>
 </html>

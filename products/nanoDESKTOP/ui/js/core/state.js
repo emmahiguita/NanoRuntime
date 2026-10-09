@@ -15,11 +15,11 @@ class StateManager {
           title: 'Nueva conversación',
           createdAt: Date.now(),
           messages: [],
-          activeModel: 'deepseek-r1',
+          activeModel: 'qwen-2.5',
         }
       ],
       currentSessionId: defaultSessionId,
-      currentModel: 'DeepSeek-R1-Distill-Qwen',
+      currentModel: 'Qwen 2.5 1.5B (Local)',
       isGenerating: false,
       telemetry: null,
       models: [],
@@ -181,10 +181,11 @@ class StateManager {
     if (!session || session.messages.length === 0) return;
 
     const lastIdx = session.messages.length - 1;
+    const current = session.messages[lastIdx];
     session.messages[lastIdx] = {
-      ...session.messages[lastIdx],
-      text,
-      meta: meta ? { ...session.messages[lastIdx].meta, ...meta } : session.messages[lastIdx].meta,
+      ...current,
+      text: (text !== null && text !== undefined) ? text : current.text,
+      meta: meta ? { ...current.meta, ...meta } : current.meta,
     };
 
     this.persistSessions();
@@ -193,3 +194,6 @@ class StateManager {
 }
 
 export const appState = new StateManager();
+if (typeof window !== 'undefined') {
+  window.appState = appState;
+}

@@ -5,6 +5,8 @@ part of 'conversation_agent_message_classifier.dart';
 
 /// Identifica saludos sociales puros o con cortesía/vocativo/bienestar.
 bool isGreetingLikeMessage(String messageText) {
+  // Un relato meteorológico no es saludo, aunque empiece por «está».
+  if (WeatherRequest.mentionsWeather(messageText)) return false;
   if (isLiveStateQuestion(messageText)) return false;
   final normalized = normalizeText(messageText);
   final tokens = tokenizeText(normalized);

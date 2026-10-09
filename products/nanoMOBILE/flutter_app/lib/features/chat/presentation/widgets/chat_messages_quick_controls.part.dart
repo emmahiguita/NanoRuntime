@@ -14,6 +14,7 @@ class _QuickActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+    final isDark = colors is NanoDarkColors;
     // Semantics en lugar de Tooltip: Tooltip dispara Overlay.of() que falla
     // dentro de árboles sin Overlay (WebView cards, custom stacks).
     return Semantics(
@@ -30,7 +31,9 @@ class _QuickActionButton extends StatelessWidget {
             child: Icon(
               icon,
               size: 16,
-              color: colors.onSurface.withValues(alpha: 0.50),
+              color: isDark
+                  ? colors.onSurface.withValues(alpha: 0.60)
+                  : const Color(0xFF64748B),
             ),
           ),
         ),

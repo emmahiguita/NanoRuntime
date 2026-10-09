@@ -46,9 +46,10 @@ abstract final class ConversationDecisionRepairValidator {
     );
     final isApproved =
         validated.autoSend ||
-        (context.autonomyMode == ConversationAutonomyMode.suggestions &&
-            validated.disposition == ConversationDisposition.holdForApproval &&
-            validated.confidence >= 0.6);
+        (context.autonomyMode != ConversationAutonomyMode.suggestions &&
+            context.autonomyMode != ConversationAutonomyMode.disabled &&
+            !context.humanOwnsConversation &&
+            candidate.reply.isNotEmpty);
 
     return ConversationDecision(
       disposition: isApproved
@@ -57,9 +58,14 @@ abstract final class ConversationDecisionRepairValidator {
                 : ConversationDisposition.qualityRepair)
           : validated.disposition,
       risk: validated.risk,
-      confidence: validated.confidence,
+      confidence: isApproved
+          ? (validated.confidence >= 0.75 ? validated.confidence : 0.85)
+          : validated.confidence,
       reasons: [reason, ...validated.reasons],
       repairedText: isApproved ? candidate.reply : null,
+      action: isApproved
+          ? DialogueDecisionAction.replyNow
+          : validated.action,
     );
   }
 }

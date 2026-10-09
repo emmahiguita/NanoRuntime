@@ -97,39 +97,56 @@ class MessagingConversationsView extends ConsumerWidget {
 
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
-    // Comparte la misma lógica de tarjeta para lista vertical y cuadrícula horizontal.
-    Widget cardAt(BuildContext itemContext, int index) {
-      final item = itemsToShow[index];
-      final isLive = item.notificationKey?.trim().isNotEmpty == true;
-      final isArchived = isMessagingConversationArchived(item, archivedIds);
-      return MessagingConversationCard(
-        item: item,
-        isLive: isLive,
-        onTap: () => ConversationDetailSheet.show(itemContext, item),
-        onMore: () => showMessagingConversationActions(
-          itemContext,
-          ref,
-          item,
-          isArchived: isArchived,
-          currentAgent: item.agentId,
+
+    if (isLandscape) {
+      return SliverGrid.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisExtent: 72,
+          crossAxisSpacing: 8,
+          mainAxisSpacing: 4,
         ),
+        itemCount: itemsToShow.length,
+        itemBuilder: (itemContext, index) {
+          final item = itemsToShow[index];
+          final isLive = item.notificationKey?.trim().isNotEmpty == true;
+          final isArchived = isMessagingConversationArchived(item, archivedIds);
+          return MessagingConversationCard(
+            item: item,
+            isLive: isLive,
+            onTap: () => ConversationDetailSheet.show(itemContext, item),
+            onMore: () => showMessagingConversationActions(
+              itemContext,
+              ref,
+              item,
+              isArchived: isArchived,
+              currentAgent: item.agentId,
+            ),
+          );
+        },
       );
     }
 
-    return isLandscape
-        ? SliverGrid.builder(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisExtent: 88,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemCount: itemsToShow.length,
-            itemBuilder: cardAt,
-          )
-        : SliverList.builder(
-            itemCount: itemsToShow.length,
-            itemBuilder: cardAt,
-          );
+    // En portrait: Lista fluida directa sin tarjetas ni separadores intermedios
+    return SliverList.builder(
+      itemCount: itemsToShow.length,
+      itemBuilder: (itemContext, index) {
+        final item = itemsToShow[index];
+        final isLive = item.notificationKey?.trim().isNotEmpty == true;
+        final isArchived = isMessagingConversationArchived(item, archivedIds);
+        return MessagingConversationCard(
+          item: item,
+          isLive: isLive,
+          onTap: () => ConversationDetailSheet.show(itemContext, item),
+          onMore: () => showMessagingConversationActions(
+            itemContext,
+            ref,
+            item,
+            isArchived: isArchived,
+            currentAgent: item.agentId,
+          ),
+        );
+      },
+    );
   }
 }

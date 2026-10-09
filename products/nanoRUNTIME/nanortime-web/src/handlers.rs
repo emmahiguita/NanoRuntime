@@ -85,9 +85,50 @@ fn mime_type_for(path: &str) -> &'static str {
     }
 }
 
-pub fn serve_static_file(stream: TcpStream, request_path: &str) {
-    let clean = request_path.trim_start_matches('/');
-    if clean.contains("..") {
+fn percent_decode(input: &str) -> String {
+    let mut bytes = Vec::new();
+    let mut chars = input.as_bytes().iter().copied();
+    while let Some(b) = chars.next() {
+        if b == b'%' {
+            let h1 = match chars.next() {
+                Some(v) => v,
+                None => {
+                    bytes.push(b'%');
+                    break;
+                }
+            };
+            let h2 = match chars.next() {
+                Some(v) => v,
+                None => {
+                    bytes.push(b'%');
+                    bytes.push(h1);
+                    break;
+                }
+            };
+            let hex = [h1, h2];
+            if let Ok(hex_str) = std::str::from_utf8(&hex) {
+                if let Ok(byte) = u8::from_str_radix(hex_str, 16) {
+                    bytes.push(byte);
+                    continue;
+                }
+            }
+            bytes.push(b'%');
+            bytes.push(h1);
+            bytes.push(h2);
+        } else if b == b'+' {
+            bytes.push(b' ');
+        } else {
+            bytes.push(b);
+        }
+    }
+    String::from_utf8_lossy(&bytes).into_owned()
+}
+
+pub fn serve_static_file(stream: TcpStream, request_path: &str, is_head: bool) {
+    let raw = request_path.trim_start_matches('/');
+    let clean = percent_decode(raw);
+    let rel_path = std::path::Path::new(&clean);
+    if rel_path.components().any(|c| c == std::path::Component::ParentDir) {
         send_response(stream, "403 Forbidden", "Acceso denegado", "text/plain");
         return;
     }
@@ -96,13 +137,27 @@ pub fn serve_static_file(stream: TcpStream, request_path: &str) {
     let target = if clean.is_empty() || clean == "index.html" {
         ui_dir.join("index.html")
     } else {
-        ui_dir.join(clean)
+        ui_dir.join(&clean)
     };
 
     if target.is_file() {
+        let mime = mime_type_for(&target.to_string_lossy());
+        if is_head {
+            if let Ok(meta) = std::fs::metadata(&target) {
+                let header = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\nAccess-Control-Allow-Origin: {}\r\nAccess-Control-Allow-Methods: GET, POST, HEAD, OPTIONS\r\nAccess-Control-Allow-Headers: Content-Type, Authorization\r\n\r\n",
+                    mime,
+                    meta.len(),
+                    cors_origin()
+                );
+                let mut s = stream;
+                let _ = s.write_all(header.as_bytes());
+                let _ = s.flush();
+                return;
+            }
+        }
         match std::fs::read(&target) {
             Ok(bytes) => {
-                let mime = mime_type_for(&target.to_string_lossy());
                 send_response_bytes(stream, "200 OK", &bytes, mime);
             }
             Err(_) => {
@@ -272,7 +327,8 @@ pub fn handle_connection(mut stream: TcpStream, state: &Arc<ServerState>) {
                 ),
             }
         }
-        ("GET", _) => serve_static_file(stream, path),
+        ("GET", _) => serve_static_file(stream, path, false),
+        ("HEAD", _) => serve_static_file(stream, path, true),
         _ => send_response(stream, "404 Not Found", "Not found", "text/plain"),
     }
 }

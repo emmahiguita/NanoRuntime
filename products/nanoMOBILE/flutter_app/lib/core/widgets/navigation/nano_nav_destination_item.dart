@@ -1,18 +1,18 @@
-// nano_nav_destination_item.dart — Botón de destino del dock inferior.
-// QUÉ HACE: Renderiza un único icono con selección visible y área táctil segura.
-// CÓMO FUNCIONA: Usa InkResponse para diferenciar un toque de un gesto de arrastre.
-// POR QUÉ: Evita cambios de pantalla accidentales al contraer la barra.
+// QUÉ: destino táctil del dock con lente Liquid Glass para la selección.
+// CÓMO: integra blur, reflejo y escala dentro del mismo botón accesible.
+// POR QUÉ: el activo se percibe como una lupa iOS, no como un botón separado.
 library;
+
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import 'package:nanoai/core/theme/design_tokens.dart';
+
 import 'nano_destination.dart';
 import 'nano_glyph.dart';
 import 'nano_nav_tokens.dart';
 
-/// Icono accesible de uno de los cuatro destinos principales.
 class NanoNavDestinationItem extends StatelessWidget {
   const NanoNavDestinationItem({
     super.key,
@@ -31,18 +31,20 @@ class NanoNavDestinationItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final muted = brightness == Brightness.dark
-        ? const Color(0xFF94A3B8)
-        : const Color(0xFF64748B);
-    final themeColors = Theme.of(context).extension<NanoThemeExtension>()?.colors;
-    final active = themeColors?.accent ?? NanoNavTokens.activeAccent(brightness);
+    final dark = brightness == Brightness.dark;
+    final muted = dark ? const Color(0xFFB4C0D0) : const Color(0xFF536276);
+    final themeColors = Theme.of(
+      context,
+    ).extension<NanoThemeExtension>()?.colors;
+    final active =
+        themeColors?.accent ?? NanoNavTokens.activeAccent(brightness);
+    final lensSize = compact ? 43.0 : 47.0;
 
     return Semantics(
       button: true,
       selected: isSelected,
       label: destination.label,
       child: SizedBox(
-        width: compact ? 50 : 56,
         height: 48,
         child: Material(
           color: Colors.transparent,
@@ -51,78 +53,107 @@ class NanoNavDestinationItem extends StatelessWidget {
               HapticFeedback.lightImpact();
               onSelect(destination);
             },
-            radius: 24,
+            radius: 25,
             containedInkWell: true,
-            highlightShape: BoxShape.rectangle,
+            highlightShape: BoxShape.circle,
             child: Center(
               child: AnimatedScale(
-                scale: isSelected ? 1.04 : 1.0,
-                duration: const Duration(milliseconds: 220),
+                scale: isSelected ? 1.06 : 1,
+                duration: const Duration(milliseconds: 240),
                 curve: Curves.easeOutBack,
                 child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
+                  duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,
-                  width: isSelected ? (compact ? 44 : 48) : (compact ? 38 : 42),
-                  height: 38,
+                  width: isSelected ? lensSize : 39,
+                  height: isSelected ? lensSize : 39,
                   decoration: BoxDecoration(
-                    gradient: isSelected
-                        ? LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              active.withValues(alpha: 0.22),
-                              active.withValues(alpha: 0.08),
-                            ],
-                          )
-                        : null,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected
-                          ? active.withValues(alpha: 0.65)
-                          : Colors.transparent,
-                      width: 1.1,
-                    ),
+                    shape: BoxShape.circle,
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: active.withValues(alpha: 0.32),
-                              blurRadius: 10,
-                              offset: const Offset(0, 2),
-                              spreadRadius: -2,
+                              color: active.withValues(
+                                alpha: dark ? 0.36 : 0.25,
+                              ),
+                              blurRadius: 15,
+                              spreadRadius: -3,
+                              offset: const Offset(0, 4),
+                            ),
+                            BoxShadow(
+                              color: Colors.white.withValues(
+                                alpha: dark ? 0.06 : 0.62,
+                              ),
+                              blurRadius: 3,
+                              offset: const Offset(-1, -2),
                             ),
                           ]
                         : null,
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      NanoGlyph(
-                        type: destination.glyph,
-                        color: isSelected ? active : muted,
-                        size: compact ? 19 : 21,
-                        strokeWidth: isSelected ? 2.2 : 1.8,
-                        glow: isSelected,
+                  child: ClipOval(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: isSelected ? 18 : 0,
+                        sigmaY: isSelected ? 18 : 0,
                       ),
-                      const SizedBox(height: 2),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
-                        curve: Curves.easeOutCubic,
-                        width: isSelected ? 12 : 0,
-                        height: 2.2,
+                      child: DecoratedBox(
                         decoration: BoxDecoration(
-                          color: isSelected ? active : Colors.transparent,
-                          borderRadius: BorderRadius.circular(1.5),
-                          boxShadow: isSelected
-                              ? [
-                                  BoxShadow(
-                                    color: active.withValues(alpha: 0.8),
-                                    blurRadius: 4,
-                                  ),
-                                ]
+                          shape: BoxShape.circle,
+                          gradient: isSelected
+                              ? LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: dark
+                                      ? [
+                                          Colors.white.withValues(alpha: 0.18),
+                                          active.withValues(alpha: 0.24),
+                                          const Color(
+                                            0xFF0B1220,
+                                          ).withValues(alpha: 0.28),
+                                        ]
+                                      : [
+                                          Colors.white.withValues(alpha: 0.82),
+                                          active.withValues(alpha: 0.17),
+                                          Colors.white.withValues(alpha: 0.42),
+                                        ],
+                                )
                               : null,
+                          border: Border.all(
+                            color: isSelected
+                                ? Colors.white.withValues(
+                                    alpha: dark ? 0.34 : 0.78,
+                                  )
+                                : Colors.transparent,
+                            width: 1.1,
+                          ),
+                        ),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (isSelected)
+                              Positioned(
+                                top: 6,
+                                left: 8,
+                                child: Container(
+                                  width: 13,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.50),
+                                    borderRadius: BorderRadius.circular(99),
+                                  ),
+                                ),
+                              ),
+                            Center(
+                              child: NanoGlyph(
+                                type: destination.glyph,
+                                color: isSelected ? active : muted,
+                                size: compact ? 19 : 21,
+                                strokeWidth: isSelected ? 2.2 : 1.8,
+                                glow: false,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

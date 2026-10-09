@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/browser/application/browser_credential_notifier.dart';
+import 'package:nanoai/features/browser/infrastructure/browser_web_compatibility_bridge.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_dialog_helper.dart';
 
 /// Presenta diálogos nativos solo mientras la vista del navegador existe.
@@ -18,6 +19,7 @@ class BrowserWebViewDialogGuard {
   final BuildContext Function() context;
   final WidgetRef ref;
   final bool Function() isAlive;
+  static const _compatibility = BrowserWebCompatibilityBridge();
 
   void showBlocked({required String url, required String reason}) {
     if (!isAlive()) return;
@@ -81,8 +83,19 @@ class BrowserWebViewDialogGuard {
       origin: request.origin.toString(),
       resources: request.resources,
     );
-    return isAlive()
-        ? PermissionResponse(resources: request.resources, action: action)
+    if (!isAlive() || action != PermissionResponseAction.GRANT) {
+      return _deny(request);
+    }
+    final names = request.resources.map((item) => item.toValue()).toSet();
+    final granted = await _compatibility.requestMediaPermissions(
+      camera: names.contains(PermissionResourceType.CAMERA.toValue()),
+      microphone: names.contains(PermissionResourceType.MICROPHONE.toValue()),
+    );
+    return isAlive() && granted
+        ? PermissionResponse(
+            resources: request.resources,
+            action: PermissionResponseAction.GRANT,
+          )
         : _deny(request);
   }
 

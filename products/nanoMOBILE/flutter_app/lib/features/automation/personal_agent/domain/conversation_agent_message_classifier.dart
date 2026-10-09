@@ -16,6 +16,7 @@ library;
 
 import '../../engine/business/fact_selector.dart'
     show normalizeText, tokenizeText;
+import '../../engine/language/weather_request.dart';
 import '../../engine/language/turn_complexity_classifier.dart'
     show turnComplexityClassifier;
 import '../../engine/messaging/conv_turn_state.dart'
@@ -24,6 +25,15 @@ import 'conversation_agent_tokens.dart';
 
 part 'conversation_agent_greeting_classifier.dart';
 part 'conversation_agent_live_state_classifier.dart';
+
+enum LiveStateIntent {
+  none,
+  conversationalContext,
+  currentActivity,
+  currentLocation,
+  currentAvailability,
+  currentCondition,
+}
 
 final RegExp _looseLaughter = RegExp(r'(ja){2,}|(je){2,}|(ji){2,}|(jo){2,}');
 

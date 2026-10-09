@@ -1,0 +1,224 @@
+/* Nano AI — FeatherCore Files & Library Stylesheet */
+
+.nano-files-view {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--nano-bg);
+  overflow-y: auto;
+  padding: 24px 32px;
+  gap: 20px;
+}
+
+.files-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.files-title-group h2 {
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--nano-text-primary);
+  margin: 0;
+}
+
+.files-title-group p {
+  font-size: 13px;
+  color: var(--nano-text-muted);
+  margin: 4px 0 0 0;
+}
+
+.files-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.files-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--nano-surface);
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-10);
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: var(--nano-text-primary);
+  box-shadow: var(--shadow-sm);
+  width: 260px;
+}
+
+.files-search-box input {
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  font-size: 12.5px;
+  color: var(--nano-text-primary);
+}
+
+.files-btn-upload {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--nano-blue-600);
+  color: #FFFFFF;
+  border: none;
+  border-radius: var(--radius-10);
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--motion-fast);
+  box-shadow: 0 2px 8px rgba(23, 105, 255, 0.25);
+}
+
+.files-btn-upload:hover {
+  background: var(--nano-blue-700);
+  transform: translateY(-1px);
+}
+
+/* KPI Cards */
+.files-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.files-metric-card {
+  background: var(--nano-surface);
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-12);
+  padding: 14px 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.files-metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--nano-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.files-metric-value {
+  font-size: 20px;
+  font-weight: 750;
+  color: var(--nano-text-primary);
+  font-family: var(--nano-font-mono);
+}
+
+.files-metric-sub {
+  font-size: 11px;
+  color: var(--nano-text-secondary);
+}
+
+/* Categorías y Filtros */
+.files-nav-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--nano-border-soft);
+  padding-bottom: 10px;
+}
+
+.files-filter-chip {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--nano-text-muted);
+  cursor: pointer;
+  transition: all var(--motion-fast);
+}
+
+.files-filter-chip:hover {
+  color: var(--nano-text-primary);
+  background: var(--nano-surface-hover);
+}
+
+.files-filter-chip.active {
+  background: var(--nano-blue-50);
+  border-color: var(--nano-blue-200);
+  color: var(--nano-blue-600);
+}
+
+/* Tabla de archivos */
+.files-table-container {
+  background: var(--nano-surface);
+  border: 1px solid var(--nano-border);
+  border-radius: var(--radius-14);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.files-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12.5px;
+}
+
+.files-table th {
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--nano-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid var(--nano-border);
+  background: var(--nano-surface-soft);
+}
+
+.files-table td {
+  padding: 12px 16px;
+  color: var(--nano-text-primary);
+  border-bottom: 1px solid var(--nano-border-soft);
+}
+
+.files-table tr:last-child td {
+  border-bottom: none;
+}
+
+.files-table tr:hover td {
+  background: var(--nano-surface-hover);
+}
+
+.file-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.file-icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  background: var(--nano-blue-50);
+  color: var(--nano-blue-600);
+}
+
+.file-tag-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--nano-surface-soft);
+  color: var(--nano-text-secondary);
+  border: 1px solid var(--nano-border-soft);
+}

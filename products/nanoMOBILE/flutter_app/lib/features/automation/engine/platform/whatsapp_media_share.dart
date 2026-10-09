@@ -60,6 +60,9 @@ class WhatsAppMediaShare {
     String caption = '',
     String? packageName,
     bool autoSend = false,
+    String? recipientName,
+    String recipientKind = 'direct',
+    bool recipientVerified = false,
   }) async {
     try {
       final ok = await _channel.invokeMethod<bool>('shareFile', {
@@ -68,6 +71,9 @@ class WhatsAppMediaShare {
         'caption': caption,
         // Abrir el flujo nunca implica autorización para pulsar Enviar.
         'autoSend': autoSend,
+        if (recipientName != null) 'recipientName': recipientName,
+        'recipientKind': recipientKind,
+        'recipientVerified': recipientVerified,
         if (packageName != null) 'packageName': packageName,
       });
       return ok == true;

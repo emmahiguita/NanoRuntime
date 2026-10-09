@@ -19,6 +19,11 @@ void _appendInboundMemory(
     return;
   }
   final convId = message.conversation.key.id;
+  // La hora pertenece al mensaje observado, no al reinicio que lo reprocesa.
+  // Conserva cronología y exclusión del turno actual; sin hora usa recepción.
+  final observedAt = message.messageTimestamp > 0
+      ? message.messageTimestamp
+      : atMs;
   final scopeId = store._scopeFor(convId);
   final eventId = message.eventId.trim();
   final duplicateEvent =
@@ -30,19 +35,19 @@ void _appendInboundMemory(
   final duplicateText =
       eventId.isEmpty &&
       (store._byConversation[scopeId]?.any(
-        (e) =>
-            e.kind == ConversationMemoryEntryKind.inbound &&
-            e.text == cleanText &&
-            (atMs - e.atMs).abs() <= 1000,
-      ) ??
-      false);
+            (e) =>
+                e.kind == ConversationMemoryEntryKind.inbound &&
+                e.text == cleanText &&
+                (observedAt - e.atMs).abs() <= 1000,
+          ) ??
+          false);
   if (duplicateText) return;
 
   final entry = ConversationMemoryEntry(
     kind: ConversationMemoryEntryKind.inbound,
     text: _boundConversationText(message.text),
     sender: _boundConversationText(message.sender),
-    atMs: atMs,
+    atMs: observedAt,
     eventId: eventId,
   );
   store._listFor(convId).add(entry);

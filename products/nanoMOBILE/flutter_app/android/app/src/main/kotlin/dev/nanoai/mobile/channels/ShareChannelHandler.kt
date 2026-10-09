@@ -162,18 +162,27 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         val text = args?.get("text") as? String ?: ""
         val requestedPkg = ((args?.get("package") ?: args?.get("packageName")) as? String)?.takeIf { it.isNotBlank() } ?: "com.whatsapp"
         val autoSend = WhatsAppAutoSendPolicy.isRequested(args)
+        val pm = activity.packageManager
 
+        // Apertura general de la app sin destinatario
         if (contact.isNullOrBlank()) {
-            val pm = activity.packageManager
             val launchIntent = pm.getLaunchIntentForPackage(requestedPkg)
-                ?: pm.getLaunchIntentForPackage("com.whatsapp")
-                ?: pm.getLaunchIntentForPackage("com.whatsapp.w4b")
+                ?: (if (requestedPkg.contains("telegram")) {
+                    pm.getLaunchIntentForPackage("org.telegram.messenger")
+                        ?: pm.getLaunchIntentForPackage("com.telegram.messenger")
+                } else if (requestedPkg.contains("messenger") || requestedPkg.contains("orca")) {
+                    pm.getLaunchIntentForPackage("com.facebook.orca")
+                        ?: pm.getLaunchIntentForPackage("com.facebook.mlite")
+                } else {
+                    pm.getLaunchIntentForPackage("com.whatsapp")
+                        ?: pm.getLaunchIntentForPackage("com.whatsapp.w4b")
+                })
             if (launchIntent != null) {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 activity.startActivity(launchIntent)
                 result.success(true)
             } else {
-                result.error("package_not_found", "No se encontró WhatsApp instalado", null)
+                result.error("package_not_found", "No se encontró la aplicación ($requestedPkg) instalada", null)
             }
             return
         }
@@ -193,10 +202,67 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
                 }
             }
 
+            // 1. Ruta TELEGRAM
+            if (requestedPkg.contains("telegram")) {
+                val uri = if (digits.length >= 7) {
+                    Uri.parse("tg://msg?to=$digits&text=${Uri.encode(text)}")
+                } else {
+                    val username = cleanContact.removePrefix("@").trim()
+                    Uri.parse("https://t.me/$username?text=${Uri.encode(text)}")
+                }
+                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                    setPackage(requestedPkg)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                try {
+                    activity.startActivity(intent)
+                    result.success(true)
+                } catch (e: ActivityNotFoundException) {
+                    try {
+                        intent.setPackage(if (requestedPkg == "org.telegram.messenger") "com.telegram.messenger" else "org.telegram.messenger")
+                        activity.startActivity(intent)
+                        result.success(true)
+                    } catch (_: ActivityNotFoundException) {
+                        intent.setPackage(null)
+                        activity.startActivity(intent)
+                        result.success(true)
+                    }
+                }
+                return
+            }
+
+            // 2. Ruta FACEBOOK MESSENGER
+            if (requestedPkg.contains("orca") || requestedPkg.contains("messenger") || requestedPkg.contains("facebook")) {
+                val uri = Uri.parse("https://m.me/$cleanContact")
+                val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                    setPackage(requestedPkg)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                try {
+                    activity.startActivity(intent)
+                    result.success(true)
+                } catch (e: ActivityNotFoundException) {
+                    intent.setPackage(null)
+                    activity.startActivity(intent)
+                    result.success(true)
+                }
+                return
+            }
+
+            // 3. Ruta SMS / Mensajes
+            if (requestedPkg.contains("messaging") || requestedPkg.contains("mms")) {
+                val uri = Uri.parse("smsto:$digits")
+                val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
+                    putExtra("sms_body", text)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(intent)
+                result.success(true)
+                return
+            }
+
+            // 4. Ruta WHATSAPP
             if (digits.length < 7) {
-                // Fail-closed estricto: sin número de teléfono válido (mínimo 7 dígitos),
-                // JAMÁS lanzar intent genérico ni armar auto-envío por accesibilidad,
-                // porque WhatsApp enviaría el mensaje al chat que esté abierto en primer plano.
                 AgentAccessibilityBridge.disarmAutoSend()
                 result.error(
                     "invalid_phone",
@@ -215,7 +281,6 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
 
             val expectedAlias = resolveContactName(digits) ?: cleanContact.takeIf { it != digits }
 
-            // autoSend no puede caer silenciosamente en “solo abrir”: eso fingía un envío.
             if (autoSend && !armVerifiedAutoSend(requestedPkg, digits, expectedAlias)) {
                 AgentAccessibilityBridge.disarmAutoSend()
                 result.error(
@@ -394,6 +459,9 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         val caption = args?.get("caption") as? String ?: ""
         val requestedPkg = ((args?.get("package") ?: args?.get("packageName")) as? String)?.takeIf { it.isNotBlank() } ?: "com.whatsapp"
         val autoSend = WhatsAppAutoSendPolicy.isRequested(args)
+        val recipientName = args?.get("recipientName")?.toString()?.trim().orEmpty()
+        val recipientKind = args?.get("recipientKind")?.toString()?.trim()?.lowercase() ?: "direct"
+        val recipientVerified = args?.get("recipientVerified") == true
 
         if (path.isNullOrBlank()) {
             result.error("empty_path", "Sin archivo para compartir", null)
@@ -404,12 +472,15 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
             return
         }
 
-        val resolvedPhone = if (!contact.isNullOrBlank()) resolveContactPhone(contact) else null
+        val resolvedPhone = if (recipientKind == "group") null else resolveContactPhone(contact)
         val target = resolvedPhone ?: contact
         val backend = dev.nanoai.mobile.services.whatsapp.WhatsAppShareMediaBackend(activity)
         val success = backend.shareMedia(
             filePath = path,
             targetContact = target,
+            targetAlias = recipientName,
+            recipientKind = recipientKind,
+            recipientVerified = recipientVerified,
             caption = caption,
             requestedPackage = requestedPkg,
             autoSend = autoSend

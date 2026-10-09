@@ -50,7 +50,7 @@ extension _ChatScreenLayout on _ChatScreenState {
 
     return NanoInputScope(
       scopeId: 'chat',
-      hint: 'Escribe un mensaje a Nano AI...',
+      hint: 'Escribe un mensaje…',
       controller: _textController,
       focusNode: _focusNode,
       initialText: _dictatedText.isEmpty ? null : _dictatedText,
@@ -68,6 +68,7 @@ extension _ChatScreenLayout on _ChatScreenState {
       keepDockVisible: true,
       child: NanoScreenShell(
         title: 'Chat',
+        backgroundColor: Theme.of(context).colorScheme.surface,
         hideHeader: _isReadingMode,
         resizeToAvoidBottomInset: true,
         trailing: _isReadingMode

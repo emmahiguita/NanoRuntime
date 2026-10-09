@@ -52,31 +52,38 @@ class NanoMultiUseNavBar extends StatelessWidget {
       compact: true,
       transparent: transparent,
       showHandle: false,
-      radius: 18,
+      radius: 26,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final landscape =
               MediaQuery.orientationOf(context) == Orientation.landscape;
           final inline =
               landscape && constraints.maxWidth >= 580 && !keyboardVisible;
-          // Si la barra está expandida en modo escritura (searchExpanded),
-          // los destinos SOLO se muestran si hay espacio horizontal suficiente (inline).
-          // En modo vertical convencional jamás se apilan debajo del input para evitar
-          // superposiciones visuales grotescas.
-          final showDestinations = inline || !searchExpanded;
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Mantener este lugar en el árbol evita remounts al ocultar el tirador.
-              SizedBox(
-                height: (keyboardVisible && searchExpanded) || (inputConfig?.keepDockVisible == true && searchExpanded) ? 0 : 28,
-                child: (keyboardVisible && searchExpanded) || (inputConfig?.keepDockVisible == true && searchExpanded)
-                    ? null
-                    : _SearchHandle(
-                        expanded: searchExpanded,
-                        onTap: onToggleSearch,
+              if (!searchExpanded)
+                SizedBox(
+                  height: 52,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(top: 4, child: dock),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: _SearchHandle(
+                          expanded: false,
+                          onTap: onToggleSearch,
+                        ),
                       ),
-              ),
+                    ],
+                  ),
+                ),
+              if (searchExpanded &&
+                  !keyboardVisible &&
+                  inputConfig?.keepDockVisible != true)
+                _SearchHandle(expanded: true, onTap: onToggleSearch),
               if (searchExpanded)
                 Row(
                   key: const ValueKey('contextual-editor'),
@@ -97,7 +104,6 @@ class NanoMultiUseNavBar extends StatelessWidget {
                     ],
                   ],
                 ),
-              if (!inline && showDestinations) dock,
             ],
           );
         },
@@ -107,8 +113,8 @@ class NanoMultiUseNavBar extends StatelessWidget {
 }
 
 /// QUÉ HACE: Tirador táctil ergonómico para expandir o contraer la entrada de comandos.
-/// CÓMO FUNCIONA: Ofrece un área táctil mínima accesible de 48px con tirador visual sobrio.
-/// POR QUÉ: Los estándares móviles de accesibilidad exigen mínimo 48x48 para evitar fallos de toque.
+/// CÓMO FUNCIONA: Toda la franja superior abre la escritura; la marca visible es mínima.
+/// POR QUÉ: Conserva el acceso al panel sin aumentar la altura visual del dock.
 class _SearchHandle extends StatelessWidget {
   const _SearchHandle({required this.expanded, required this.onTap});
   final bool expanded;
@@ -124,21 +130,36 @@ class _SearchHandle extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
-        child: SizedBox(
+        child: const SizedBox(
           width: double.infinity,
-          height: 28,
-          child: Center(
-            child: Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
+          height: 22,
+          child: Center(child: _GlassHandle()),
         ),
       ),
     ),
   );
+}
+
+class _GlassHandle extends StatelessWidget {
+  const _GlassHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 32,
+      height: 3,
+      decoration: BoxDecoration(
+        color: (dark ? Colors.white : Colors.black).withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(99),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.white.withValues(alpha: dark ? 0.06 : 0.46),
+            blurRadius: 2,
+            offset: const Offset(0, -1),
+          ),
+        ],
+      ),
+    );
+  }
 }

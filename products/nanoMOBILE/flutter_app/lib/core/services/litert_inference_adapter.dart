@@ -1,6 +1,8 @@
 // Puente de inferencia real. Suscribe eventos antes de generar y correlaciona cada turno.
 // No oculta errores ni reemplaza métricas desconocidas por cifras estimadas.
 import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'execution_budget.dart';
 import 'package:flutter/services.dart';
 import 'generative_inference_port.dart';
 import 'llm_engine_client.dart';
@@ -29,7 +31,7 @@ class LiteRtMetrics {
 final class LiteRtInferenceAdapter implements GenerativeInferencePort {
   static const _channel = MethodChannel('com.nanoai/litert');
   static const _events = EventChannel('com.nanoai/litert_stream');
-  String? _path, _backend, _requestId;
+  String? _path, _requestedPath, _backend, _requestId;
   LiteRtMetrics _metrics = const LiteRtMetrics();
   @override
   String get providerId => 'local_litert_lm';
@@ -45,22 +47,41 @@ final class LiteRtInferenceAdapter implements GenerativeInferencePort {
       await _channel.invokeMapMethod<String, dynamic>('isAvailable') ??
       {'supported': false};
 
+  // Consulta JNI: el supervisor puede haber liberado el modelo por inactividad.
+  Future<bool> isReady() async {
+    final status = await _channel.invokeMapMethod<String, dynamic>('status');
+    // Registra solo identidad/estado, nunca el contenido privado de la conversación.
+    debugPrint(
+      '[LiteRT] loaded=${status?['loaded']} '
+      'samePath=${status?['modelPath'] == _path} '
+      'sameBackend=${status?['backend'] == _backend}',
+    );
+    return status?['loaded'] == true &&
+        status?['modelPath'] == _path &&
+        status?['backend'] == _backend;
+  }
+
   // Solo declara éxito después de que Engine.initialize() haya terminado realmente.
   Future<bool> initialize({
     required String modelPath,
     String backend = 'gpu',
   }) async {
-    if (_path == modelPath && _backend == backend) return true;
+    if (_requestedPath == modelPath && _backend == backend && await isReady()) {
+      return true;
+    }
     _path = null;
+    _requestedPath = null;
     _backend = null;
     final response = await _channel.invokeMapMethod<String, dynamic>(
       'initialize',
       {'modelPath': modelPath, 'backend': backend},
     );
     if (response?['success'] != true) return false;
-    _path = modelPath;
+    // Conserva el alias solicitado, pero readiness compara la identidad real de JNI.
+    _requestedPath = modelPath;
+    _path = response?['modelPath'] as String?;
     _backend = response?['backend'] as String?;
-    return true;
+    return _path != null && _backend != null;
   }
 
   // La cancelación llega a Conversation.cancelProcess(), no solo al receptor visual.
@@ -105,6 +126,7 @@ final class LiteRtInferenceAdapter implements GenerativeInferencePort {
     final ok = await _channel.invokeMethod<bool>('release') ?? false;
     if (ok) {
       _path = null;
+      _requestedPath = null;
       _backend = null;
     }
     return ok;

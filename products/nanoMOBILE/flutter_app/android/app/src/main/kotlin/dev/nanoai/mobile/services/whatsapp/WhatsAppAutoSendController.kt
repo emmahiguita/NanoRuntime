@@ -16,6 +16,18 @@ import dev.nanoai.mobile.MainActivity
 object WhatsAppAutoSendController {
     private const val TAG = "nanoagent_autosend"
 
+    private var sessionKey: String = ""
+    private var pickerSessionDetected = false
+    private var pickerRecipientSelected = false
+    private var pickerAdvanceClicked = false
+
+    fun resetSession() {
+        sessionKey = ""
+        pickerSessionDetected = false
+        pickerRecipientSelected = false
+        pickerAdvanceClicked = false
+    }
+
     /**
      * QUÉ HACE: Intenta encontrar el botón de envío en la ventana interactuable y retornar a Nano.
      * CÓMO FUNCIONA: Utiliza [InteractiveWindowFinder] para evitar ser bloqueado por overlays de Nano,
@@ -42,11 +54,54 @@ object WhatsAppAutoSendController {
             return false
         }
         try {
+            val currentKey = listOf(targetPkg, targetContact, expectedAlias).joinToString("|")
+            if (sessionKey != currentKey) {
+                resetSession()
+                sessionKey = currentKey
+            }
+
             // La identidad exacta se comprueba antes de buscar cualquier botón que pueda enviar.
             if (targetContact.isNullOrBlank() && expectedAlias.isNullOrBlank()) {
                 Log.w(TAG, "Autoenvío bloqueado: falta identidad explícita del destinatario")
                 return false
             }
+            val lastWhatsAppEvent = dev.nanoai.mobile.services.AgentAccessibilityBridge.lastEvent
+                ?.takeIf { event ->
+                    targetPkg.isNullOrBlank() || event.packageName.equals(targetPkg, ignoreCase = true)
+                }
+            val pickerWindow = WhatsAppSharePickerController.isPicker(
+                rootNode,
+                lastWhatsAppEvent?.className,
+            )
+            if (pickerWindow) pickerSessionDetected = true
+            if (pickerSessionDetected && !pickerAdvanceClicked) {
+                if (!pickerRecipientSelected) {
+                    when (
+                        WhatsAppSharePickerController.prepareRecipient(
+                            rootNode,
+                            targetContact,
+                            expectedAlias,
+                            pickerPreviouslyDetected = true,
+                        )
+                    ) {
+                        SharePickerProgress.RECIPIENT_SELECTED -> pickerRecipientSelected = true
+                        SharePickerProgress.AMBIGUOUS -> Log.w(
+                            TAG,
+                            "Autoenvío bloqueado: el selector contiene destinatarios ambiguos",
+                        )
+                        else -> Unit
+                    }
+                    return false
+                }
+                if (!pickerAdvanceClicked && WhatsAppSharePickerController.clickAdvance(rootNode)) {
+                    pickerAdvanceClicked = true
+                    pickerSessionDetected = false
+                }
+                return false
+            }
+            // Tras pulsar Siguiente, esperar a que WhatsApp abandone realmente el selector.
+            if (pickerWindow) return false
+
             val recipientOk = WhatsAppMediaVerifier.verifyRecipient(rootNode, targetContact, expectedAlias)
             if (!recipientOk) {
                 Log.d(TAG, "Destinatario aún no coincide en la UI de WhatsApp")

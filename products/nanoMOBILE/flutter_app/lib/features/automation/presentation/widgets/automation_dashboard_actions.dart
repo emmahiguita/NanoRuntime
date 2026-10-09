@@ -35,15 +35,11 @@ class QuickAutomationActions extends StatelessWidget {
     this.onRulesTap,
     this.onBusinessTap,
     this.onPersonalAgentTap,
-    this.onBotStudioTap,
-    this.onSkillsMcpTap,
-    this.onTimeRuleTap,
     this.onAiWebTap,
     this.onBrowserTap,
     this.onChatTap,
     this.onTerminalTap,
     this.suppressSuggestions = false,
-    this.pendingDraftsCount = 0,
     this.activeRulesCount = 0,
     this.businessProductsCount = 0,
     this.isW4bActive = false,
@@ -52,7 +48,6 @@ class QuickAutomationActions extends StatelessWidget {
 
   final ValueChanged<String> onRun;
   final bool suppressSuggestions;
-  final int pendingDraftsCount;
   final int activeRulesCount;
   final int businessProductsCount;
   final bool isW4bActive;
@@ -63,9 +58,6 @@ class QuickAutomationActions extends StatelessWidget {
   final VoidCallback? onRulesTap;
   final ValueChanged<BuildContext>? onBusinessTap;
   final ValueChanged<BuildContext>? onPersonalAgentTap;
-  final VoidCallback? onBotStudioTap;
-  final VoidCallback? onSkillsMcpTap;
-  final VoidCallback? onTimeRuleTap;
   final VoidCallback? onAiWebTap;
   final VoidCallback? onBrowserTap;
   final VoidCallback? onChatTap;
@@ -93,51 +85,7 @@ class QuickAutomationActions extends StatelessWidget {
           const SizedBox(height: 18),
         ],
         const AutomationSectionLabel('Tus Agentes'),
-        Row(
-          children: [
-            if (onPersonalAgentTap != null)
-              Expanded(
-                child: NanoHeroSource(
-                  tag: nanoPersonalHeroTag,
-                  builder: (origin) => AutomationAgentCard(
-                    title: 'Nano Personal',
-                    subtitle: 'Habla como tú',
-                    isActive: true,
-                    iconWidget: const FeatherCoreIcon(
-                      type: FeatherCoreType.personalAgent,
-                      size: 24,
-                    ),
-                    channels: const ['WhatsApp', 'Telegram'],
-                    metricLabel: 'Estilo & Memoria',
-                    onTap: () => onPersonalAgentTap!(origin),
-                  ),
-                ),
-              ),
-            if (onPersonalAgentTap != null && onBusinessTap != null)
-              const SizedBox(width: 12),
-            if (onBusinessTap != null)
-              Expanded(
-                child: NanoHeroSource(
-                  tag: nanoBusinessHeroTag,
-                  builder: (origin) => AutomationAgentCard(
-                    title: 'Nano Negocio',
-                    showStatus: true,
-                    subtitle: 'Atiende clientes',
-                    isActive: isW4bActive,
-                    iconWidget: const FeatherCoreIcon(
-                      type: FeatherCoreType.whatsappBusiness,
-                      size: 24,
-                    ),
-                    channels: const ['WhatsApp Business', 'Catálogo'],
-                    metricLabel: businessProductsCount > 0
-                        ? '$businessProductsCount prod.'
-                        : 'Catálogo',
-                    onTap: () => onBusinessTap!(origin),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        _buildAgentCards(context),
         const SizedBox(height: 20),
         const NanoModelsEditorial(),
         const SizedBox(height: 18),
@@ -173,6 +121,76 @@ class QuickAutomationActions extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildAgentCards(BuildContext context) {
+    final personal = onPersonalAgentTap == null
+        ? null
+        : NanoHeroSource(
+            tag: nanoPersonalHeroTag,
+            builder: (origin) => AutomationAgentCard(
+              title: 'Nano Personal',
+              subtitle: 'Habla como tú',
+              isActive: true,
+              iconWidget: const FeatherCoreIcon(
+                type: FeatherCoreType.personalAgent,
+                size: 24,
+              ),
+              channels: const ['WhatsApp', 'Telegram'],
+              metricLabel: 'Estilo & Memoria',
+              onTap: () => onPersonalAgentTap!(origin),
+            ),
+          );
+    final business = onBusinessTap == null
+        ? null
+        : NanoHeroSource(
+            tag: nanoBusinessHeroTag,
+            builder: (origin) => AutomationAgentCard(
+              title: 'Nano Negocio',
+              showStatus: true,
+              subtitle: 'Atiende clientes',
+              isActive: isW4bActive,
+              iconWidget: const FeatherCoreIcon(
+                type: FeatherCoreType.whatsappBusiness,
+                size: 24,
+              ),
+              channels: const ['WhatsApp Business', 'Catálogo'],
+              metricLabel: businessProductsCount > 0
+                  ? '$businessProductsCount prod.'
+                  : 'Catálogo',
+              onTap: () => onBusinessTap!(origin),
+            ),
+          );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        final stacked = constraints.maxWidth < 330 || scale > 1.35;
+        final cards = [
+          if (personal != null) personal,
+          if (business != null) business,
+        ];
+        if (stacked) {
+          return Column(
+            children: [
+              for (var index = 0; index < cards.length; index++) ...[
+                SizedBox(width: double.infinity, child: cards[index]),
+                if (index < cards.length - 1) const SizedBox(height: 10),
+              ],
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var index = 0; index < cards.length; index++) ...[
+              Expanded(child: cards[index]),
+              if (index < cards.length - 1) const SizedBox(width: 12),
+            ],
+          ],
+        );
+      },
     );
   }
 }

@@ -101,7 +101,7 @@ class _ModelsRecommendedCarouselState extends State<ModelsRecommendedCarousel> {
               width: isCurrent ? 16 : 5,
               decoration: BoxDecoration(
                 color: isCurrent
-                    ? const Color(0xFF10B981)
+                    ? colors.onSurfaceVariant
                     : colors.outlineVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),

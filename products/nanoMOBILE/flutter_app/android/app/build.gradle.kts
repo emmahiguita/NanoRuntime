@@ -146,6 +146,8 @@ kotlin {
 }
 
 dependencies {
+    // Client Hints de WebView: sincroniza identidad desktop para WhatsApp Web.
+    implementation("androidx.webkit:webkit:1.12.0")
     // Motor real, fijado a una versión reproducible de Google Maven.
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.1")
     testImplementation("junit:junit:4.13.2")

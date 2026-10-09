@@ -27,9 +27,20 @@ export class OwlPhysicsEngine {
     this.eye = { x: 0, y: 0, saccadeX: 0, saccadeY: 0 };
 
     // Modificadores de estado
+    this.currentState = 'idle';
     this.isSleeping = false;
     this.isThinking = false;
+    this.isFlying = false;
+    this.isWaving = false;
     this.isHovered = false;
+  }
+
+  setState(st) {
+    this.currentState = st || 'idle';
+    this.isSleeping = this.currentState === 'sleep';
+    this.isThinking = this.currentState === 'thinking';
+    this.isFlying = this.currentState === 'flying' || this.currentState === 'fly';
+    this.isWaving = this.currentState === 'wave';
   }
 
   start() {
@@ -50,6 +61,7 @@ export class OwlPhysicsEngine {
   }
 
   updateMouse(normX, normY) {
+    if (this.isSleeping) return;
     this.mouse.targetX = Math.max(-1.1, Math.min(1.1, normX));
     this.mouse.targetY = Math.max(-1.1, Math.min(1.1, normY));
   }
@@ -70,23 +82,33 @@ export class OwlPhysicsEngine {
     this.mouse.x += (this.mouse.targetX - this.mouse.x) * CFG.mouseLerp;
     this.mouse.y += (this.mouse.targetY - this.mouse.y) * CFG.mouseLerp;
 
-    // 2. Curva de respiración orgánica (Squash & Stretch)
-    const bSpeed = this.isSleeping ? CFG.sleepBreathSpeed : (this.isThinking ? 2.2 : CFG.breathSpeed);
-    const bAmp = this.isSleeping ? CFG.sleepBreathAmp : CFG.breathAmp;
+    // 2. Curva de respiración orgánica adaptativa
+    let bSpeed = CFG.breathSpeed;
+    let bAmp = CFG.breathAmp;
+    if (this.isSleeping) {
+      bSpeed = CFG.sleepBreathSpeed;
+      bAmp = CFG.sleepBreathAmp;
+    } else if (this.isThinking) {
+      bSpeed = 2.2;
+    } else if (this.isWaving || this.isFlying) {
+      bAmp = 0.008; // Reduce squash en gestos activos para evitar choque con keyframes
+    }
+
     const breathPhase = Math.sin(t * bSpeed);
     const breathCurve = breathPhase * 0.7 + Math.sin(t * bSpeed * 2) * 0.3;
     const squashX = 1.0 - breathCurve * (bAmp * 0.6);
     const stretchY = 1.0 + breathCurve * bAmp;
     const liftY = -breathCurve * (this.isSleeping ? 1.2 : 2.4);
 
-    // 3. Balanceo natural de apoyo (pie a pie)
-    const swayAngle = Math.sin(t * 0.45) * (this.isSleeping ? 0.5 : 1.4);
-    const swayX = Math.sin(t * 0.45) * 1.2;
+    // 3. Balanceo de apoyo pie a pie (solo en reposo en tierra)
+    const canSway = !this.isFlying && !this.isWaving;
+    const swayAngle = canSway ? Math.sin(t * 0.45) * (this.isSleeping ? 0.5 : 1.4) : 0;
+    const swayX = canSway ? Math.sin(t * 0.45) * 1.2 : 0;
 
     // 4. Integración de resortes angulares (Spring-Damper)
-    const targetY = this.mouse.x * (this.isSleeping ? 3 : (this.isThinking ? 10 : CFG.maxYaw));
-    const targetX = -this.mouse.y * (this.isSleeping ? 2 : (this.isThinking ? 7 : CFG.maxPitch));
-    const targetZ = swayAngle - (targetY - this.rotY.current) * 0.16;
+    const targetY = this.isSleeping ? 0 : this.mouse.x * (this.isThinking ? 10 : CFG.maxYaw);
+    const targetX = this.isSleeping ? 0 : -this.mouse.y * (this.isThinking ? 7 : CFG.maxPitch);
+    const targetZ = this.isFlying ? -targetY * 0.35 : (swayAngle - (targetY - this.rotY.current) * 0.16);
 
     const fX = (targetX - this.rotX.current) * CFG.springK - this.rotX.vel * CFG.damper;
     const fY = (targetY - this.rotY.current) * CFG.springK - this.rotY.vel * CFG.damper;

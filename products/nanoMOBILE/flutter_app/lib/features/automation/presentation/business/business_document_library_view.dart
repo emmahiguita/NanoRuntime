@@ -1,196 +1,162 @@
-// Vista de biblioteca: separa el diseño adaptable de las operaciones con archivos.
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../engine/business/business_document_library.dart';
-import 'business_document_card.dart';
+import 'business_library_bottom_bar.dart';
+import 'business_library_category_filters.dart';
+import 'business_library_content.dart';
+import 'business_library_header.dart';
 import 'business_library_load_error.dart';
+import 'business_library_search_bar.dart';
 
-/// Presenta PDFs reales por carpeta con búsqueda, lectura y acciones directas.
+/// Composición única de la biblioteca: cada control aparece una sola vez.
 final class BusinessDocumentLibraryView extends StatelessWidget {
+  final String title, category, query, sortBy, fileType;
+  final List<BusinessFolderInfo> folders;
+  final List<BusinessDocument> documents;
+  final int allDocumentsCount, totalSizeBytes;
+  final Set<String> selectedPaths;
+  final bool isSelectionMode, isGridView, isChatPicker, busy, canGenerate;
+  final String? loadError;
+  final ValueChanged<String> onCategory, onQuery, onSortChange;
+  final ValueChanged<String> onFileTypeChange, onRenameFolder, onDeleteFolder;
+  final ValueChanged<BusinessDocument> onSelectDocument, onOpen, onShare;
+  final ValueChanged<BusinessDocument> onRenameDocument, onDeleteDocument;
+  final VoidCallback onToggleSelectionMode, onToggleGridView, onSelectAll;
+  final VoidCallback onSendSelected, onCreateFolder, onImport, onGenerate;
+  final VoidCallback onClose, onRetry, onShowRecent, onShowAll;
+
   const BusinessDocumentLibraryView({
     super.key,
     required this.title,
     required this.category,
     required this.query,
+    required this.sortBy,
+    required this.fileType,
+    required this.folders,
     required this.documents,
-    required this.loadError,
+    required this.allDocumentsCount,
+    required this.totalSizeBytes,
+    required this.selectedPaths,
+    required this.isSelectionMode,
+    required this.isGridView,
+    required this.isChatPicker,
     required this.busy,
     required this.canGenerate,
+    required this.loadError,
     required this.onCategory,
     required this.onQuery,
-    required this.onImport,
-    required this.onGenerate,
+    required this.onSortChange,
+    required this.onFileTypeChange,
+    required this.onRenameFolder,
+    required this.onDeleteFolder,
+    required this.onSelectDocument,
     required this.onOpen,
     required this.onShare,
-    required this.onDelete,
+    required this.onRenameDocument,
+    required this.onDeleteDocument,
+    required this.onToggleSelectionMode,
+    required this.onToggleGridView,
+    required this.onSelectAll,
+    required this.onSendSelected,
+    required this.onCreateFolder,
+    required this.onImport,
+    required this.onGenerate,
     required this.onClose,
     required this.onRetry,
+    required this.onShowRecent,
+    required this.onShowAll,
   });
 
-  final String title, category, query;
-  final List<BusinessDocument> documents;
-  final String? loadError;
-  final bool busy, canGenerate;
-  final ValueChanged<String> onCategory, onQuery;
-  final VoidCallback onImport, onGenerate, onClose;
-  final VoidCallback onRetry;
-  final ValueChanged<BusinessDocument> onOpen, onShare, onDelete;
-
-  // Construye un lector de biblioteca con controles compactos en orientación estrecha.
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final compact = MediaQuery.sizeOf(context).width < 420;
-    return Material(
-      color: colors.surface,
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 12, 10, 4),
-            child: Row(
-              children: [
-                Icon(Icons.menu_book_rounded, color: colors.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Biblioteca',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Cerrar',
-                  onPressed: onClose,
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
+    const isDark = true;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xF20B1723), Color(0xF2142230)],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF5D91B8).withValues(alpha: .45),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: TextField(
-              onChanged: onQuery,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Buscar documentos',
-                isDense: true,
-                border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.all(12),
+          child: Column(
+            children: [
+              BusinessLibraryHeader(
+                isDark: isDark,
+                isChatPicker: isChatPicker,
+                onCreateFolder: onCreateFolder,
+                onImport: onImport,
+                onClose: onClose,
               ),
-            ),
-          ),
-          SizedBox(
-            height: 42,
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              scrollDirection: Axis.horizontal,
-              children: [
-                for (final folder in [
-                  BusinessDocumentLibrary.allCategory,
-                  ...BusinessDocumentLibrary.categories,
-                ])
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: ChoiceChip(
-                      label: Text(folder),
-                      selected: folder == category,
-                      onSelected: busy ? null : (_) => onCategory(folder),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: busy ? null : onImport,
-                    icon: const Icon(Icons.upload_file_rounded),
-                    label: Text(compact ? 'Importar' : 'Importar PDF'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: busy || !canGenerate ? null : onGenerate,
-                    icon: const Icon(Icons.add_to_drive_rounded),
-                    label: Text(compact ? 'Catálogo' : 'Guardar catálogo'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (!canGenerate)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(18, 0, 18, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Añade servicios y precios reales para generar el catálogo.',
-                  style: TextStyle(fontSize: 12),
-                ),
+              BusinessLibrarySearchBar(
+                query: query,
+                isDark: isDark,
+                onQuery: onQuery,
               ),
-            ),
-          if (busy) const LinearProgressIndicator(minHeight: 2),
-          Expanded(
-            child: loadError != null
-                ? BusinessLibraryLoadError(busy: busy, onRetry: onRetry)
-                : documents.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.folder_open_rounded,
-                            size: 42,
-                            color: colors.outline,
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            query.isEmpty
-                                ? 'Esta carpeta está vacía'
-                                : 'Sin coincidencias',
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Importa un PDF o cambia de carpeta.',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
+              BusinessLibraryCategoryFilters(
+                folders: folders,
+                selectedCategory: category,
+                allDocumentsCount: allDocumentsCount,
+                onCategory: onCategory,
+                onShowFolders: onShowAll,
+                onShowRecent: onShowRecent,
+              ),
+              if (busy)
+                const LinearProgressIndicator(
+                  minHeight: 2,
+                  color: Color(0xFF087BFF),
+                ),
+              Expanded(
+                child: loadError != null
+                    ? BusinessLibraryLoadError(busy: busy, onRetry: onRetry)
+                    : BusinessLibraryContent(
+                        category: category,
+                        query: query,
+                        sortBy: sortBy,
+                        fileType: fileType,
+                        folders: folders,
+                        documents: documents,
+                        selectedPaths: selectedPaths,
+                        isSelectionMode: isSelectionMode,
+                        isGridView: isGridView,
+                        isChatPicker: isChatPicker,
+                        onCategory: onCategory,
+                        onSortChange: onSortChange,
+                        onFileTypeChange: onFileTypeChange,
+                        onRenameFolder: onRenameFolder,
+                        onDeleteFolder: onDeleteFolder,
+                        onSelectDocument: onSelectDocument,
+                        onOpen: onOpen,
+                        onShare: onShare,
+                        onRenameDocument: onRenameDocument,
+                        onDeleteDocument: onDeleteDocument,
+                        onToggleSelectionMode: onToggleSelectionMode,
+                        onToggleGridView: onToggleGridView,
+                        onShowAll: onShowAll,
                       ),
-                    ),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 18),
-                    itemCount: documents.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 4),
-                    itemBuilder: (context, index) {
-                      final doc = documents[index];
-                      return BusinessDocumentCard(
-                        document: doc,
-                        onOpen: () => onOpen(doc),
-                        onShare: () => onShare(doc),
-                        onDelete: () => onDelete(doc),
-                      );
-                    },
-                  ),
+              ),
+              BusinessLibraryBottomBar(
+                totalCount: allDocumentsCount,
+                totalSizeBytes: totalSizeBytes,
+                selectedCount: selectedPaths.length,
+                isSelectionMode: isSelectionMode,
+                isChatPicker: isChatPicker,
+                isDark: isDark,
+                canGenerate: canGenerate,
+                onSelectAll: onSelectAll,
+                onSendSelected: onSendSelected,
+                onGenerate: onGenerate,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

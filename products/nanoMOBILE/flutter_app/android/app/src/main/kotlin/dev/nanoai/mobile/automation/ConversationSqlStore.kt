@@ -148,28 +148,8 @@ internal class ConversationSqlStore(
 
     fun listMessages(scopeId: String, limit: Int): List<Map<String, Any>> {
         if (!validId(scopeId)) return emptyList()
-        val rows = mutableListOf<Map<String, Any>>()
-        readable().query(
-            MESSAGES,
-            arrayOf("event_id", "direction", "delivery_state", "sender", "body", "at_ms", "rule_id"),
-            "scope_id = ?", arrayOf(scopeId), null, null, "at_ms ASC, id ASC",
-            limit.coerceIn(1, 1000).toString(),
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                rows.add(
-                    mapOf(
-                        "eventId" to cursor.getString(0),
-                        "direction" to cursor.getString(1),
-                        "deliveryState" to cursor.getString(2),
-                        "sender" to cursor.getString(3),
-                        "body" to cursor.getString(4),
-                        "atMs" to cursor.getLong(5),
-                        "ruleId" to cursor.getString(6),
-                    ),
-                )
-            }
-        }
-        return rows
+        // Mantiene validación y API; el lector aplica el límite a los más recientes.
+        return ConversationSqlMessageReader.read(readable(), scopeId, limit)
     }
 
     private fun validId(value: String): Boolean = value.isNotBlank() && value.length <= MAX_SCOPE_ID

@@ -46,6 +46,14 @@ class ModelsSearchAndFilter extends StatelessWidget {
           onSubmitted: (_) => FocusScope.of(context).unfocus(),
           style: Theme.of(context).textTheme.bodyMedium,
           decoration: InputDecoration(
+            // El foco sigue visible, pero usa un borde neutro en este módulo.
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                width: 1.5,
+              ),
+            ),
             hintText: 'Buscar modelos',
             filled: true,
             prefixIcon: const Icon(Icons.search_rounded, size: 20),

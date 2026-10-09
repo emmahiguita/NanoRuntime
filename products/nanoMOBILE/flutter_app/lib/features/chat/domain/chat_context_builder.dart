@@ -62,10 +62,7 @@ class ChatContextBuilder {
     for (var i = 0; i + 1 < toolTrace.length; i += 2) {
       orderedResult.add({
         'role': 'assistant',
-        'content': ChatSystemPrompt.promptClip(
-          toolTrace[i],
-          maxToolTraceChars,
-        ),
+        'content': ChatSystemPrompt.promptClip(toolTrace[i], maxToolTraceChars),
       });
       orderedResult.add({
         'role': 'user',
@@ -107,10 +104,18 @@ class ChatContextBuilder {
         .where(
           (m) =>
               !(m.sender == MessageSender.ai &&
-                  m.status == MessageStatus.error),
+                  (m.status == MessageStatus.error || _isTechnicalSummary(m))),
         )
         .toList();
   }
+
+  // QUÉ: excluye resúmenes técnicos legacy presentados erróneamente como charla.
+  // CÓMO: reconoce el formato exacto del orquestador, no palabras conversacionales.
+  // POR QUÉ: el modelo estaba copiando step[n]:estado como si fuera una respuesta humana.
+  static bool _isTechnicalSummary(ChatMessage message) =>
+      (message.source == MessageSource.device ||
+          message.text.startsWith('Ejecutado en el dispositivo:')) &&
+      RegExp(r'step\[\d+\]:').hasMatch(message.text);
 
   /// Construye el texto del prompt combinando adjuntos (si aplica) y texto de usuario.
   String buildPrompt({

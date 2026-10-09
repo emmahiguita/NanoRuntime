@@ -8,11 +8,10 @@ library;
 import '../notifications/notification_object.dart';
 import 'conversation_key.dart' show canonicalConversationId;
 import 'conversation_memory.dart';
+import 'conversation_evidence_window.dart';
 import 'incoming_message.dart';
 
 abstract final class ConversationContextResolver {
-  static const _maxEntries = 60;
-
   /// Devuelve una ventana unificada y cronológica para razonamiento y prompt.
   /// El mensaje actual se excluye porque ya entra separado como input.
   static ConversationMemory? resolve({
@@ -51,28 +50,10 @@ abstract final class ConversationContextResolver {
     }
     if (memories.isEmpty) return null;
 
-    final current = IncomingMessage.fromNotification(notification);
-    final entries = <ConversationMemoryEntry>[];
-    final seenEventIds = <String>{};
-    for (final memory in memories) {
-      for (final entry in memory.entries) {
-        if (_isCurrent(entry, current)) continue;
-        // El identificador real hace la deduplicación O(1); solo el legado sin
-        // eventId usa la comparación temporal, evitando el cuello de botella
-        // O(n²) para historiales persistentes normales.
-        if (entry.eventId.isNotEmpty) {
-          if (seenEventIds.add(entry.eventId)) entries.add(entry);
-          continue;
-        }
-        if (!entries.any((saved) => _sameEvent(saved, entry))) {
-          entries.add(entry);
-        }
-      }
-    }
-    entries.sort((a, b) => a.atMs.compareTo(b.atMs));
-    if (entries.length > _maxEntries) {
-      entries.removeRange(0, entries.length - _maxEntries);
-    }
+    final entries = ConversationEvidenceWindow.resolve(
+      memories.expand((memory) => memory.entries),
+      IncomingMessage.fromNotification(notification),
+    );
 
     final newest = memories.reduce((a, b) => a.lastAtMs >= b.lastAtMs ? a : b);
     final obligations = <String>{
@@ -137,33 +118,5 @@ abstract final class ConversationContextResolver {
       if (value.startsWith(prefix)) return value.substring(prefix.length);
     }
     return value;
-  }
-
-  static bool _isCurrent(
-    ConversationMemoryEntry entry,
-    IncomingMessage current,
-  ) {
-    if (entry.kind != ConversationMemoryEntryKind.inbound) return false;
-    if (entry.eventId.isNotEmpty && entry.eventId == current.eventId) {
-      return true;
-    }
-    final stamp = current.messageTimestamp > 0
-        ? current.messageTimestamp
-        : current.receivedAt;
-    return stamp > 0 &&
-        (entry.atMs - stamp).abs() <= 2000 &&
-        entry.text.trim().toLowerCase() == current.text.trim().toLowerCase();
-  }
-
-  static bool _sameEvent(ConversationMemoryEntry a, ConversationMemoryEntry b) {
-    if (a.eventId.isNotEmpty && b.eventId.isNotEmpty) {
-      return a.eventId == b.eventId;
-    }
-    final sameDirection =
-        (a.kind == ConversationMemoryEntryKind.inbound) ==
-        (b.kind == ConversationMemoryEntryKind.inbound);
-    return sameDirection &&
-        (a.atMs - b.atMs).abs() <= 2000 &&
-        a.text.trim().toLowerCase() == b.text.trim().toLowerCase();
   }
 }

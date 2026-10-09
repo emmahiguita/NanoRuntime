@@ -1,19 +1,7 @@
-// routed_llm_engine_client.dart — Router de inferencia local para los 3 motores.
-//
-// QUÉ HACE:
-// Enruta llamadas generativas (texto, streaming y multimedia) hacia el motor activo:
-// 1. llama.cpp (GGUF vía proceso nativo nanortime y HTTP)
-// 2. LiteRT-LM (Gemma / Qwen vía JNI)
-// 3. MNN-LLM (Qwen2.5-Omni usando el perfil de texto activo en esta app)
-//
-// CÓMO FUNCIONA:
-// Evalúa `useLiteRt()` y `useMnn()` en cada llamada. Cuando un motor local nativo
-// está activo, deriva generación, streaming y cancelación sin sockets HTTP. El paquete
-// MNN carga llm_config.json de texto; por eso el adaptador rechaza multimedia en vez de fingirla.
-//
-// POR QUÉ:
-// Mantiene el contrato estándar de `LLMEngineClient` intacto para el chat y automatizaciones
-// sin alterar historial, prompts ni permisos de herramientas. Mantiene el enrutamiento en un solo lugar.
+// QUÉ: router único de llama.cpp/HTTP, LiteRT/JNI y MNN/JNI para chat y automatización.
+// CÓMO: evalúa el motor activo por llamada y consulta readiness nativo real.
+// POR QUÉ: conserva prompts, historial y permisos sin duplicar transportes.
+// El perfil MNN es texto: rechaza medios no soportados en vez de simularlos.
 
 import 'dart:async';
 import 'package:http/http.dart' as http;
@@ -21,6 +9,7 @@ import 'llm_engine_client.dart';
 import 'litert_inference_adapter.dart';
 import 'mnn_inference_adapter.dart';
 import 'inference_media_input.dart';
+part 'routed_native_generation.dart';
 
 class RoutedLlmEngineClient extends LLMEngineClient {
   final LLMEngineClient llama;
@@ -54,15 +43,15 @@ class RoutedLlmEngineClient extends LLMEngineClient {
     int attempts = 5,
     Duration requestTimeout = const Duration(seconds: 5),
   }) {
-    if (useLiteRt()) return Future.value(liteRt.isConfigured);
-    if (useMnn()) return Future.value(mnn.isConfigured);
+    if (useLiteRt()) return liteRt.isReady();
+    if (useMnn()) return mnn.isReady();
     return llama.isOnline(attempts: attempts, requestTimeout: requestTimeout);
   }
 
   @override
   Future<bool> hasModel() {
-    if (useLiteRt()) return Future.value(liteRt.isConfigured);
-    if (useMnn()) return Future.value(mnn.isConfigured);
+    if (useLiteRt()) return liteRt.isReady();
+    if (useMnn()) return mnn.isReady();
     return llama.hasModel();
   }
 
@@ -133,76 +122,6 @@ class RoutedLlmEngineClient extends LLMEngineClient {
     );
   }
 
-  Future<LLMResult> _generateLiteRt({
-    required String prompt,
-    required double temperature,
-    required int maxTokens,
-    String? sessionId,
-    String? context,
-    List<Map<String, String>>? history,
-    Duration? requestTimeout,
-  }) async {
-    final id = LLMEngineClient.newRequestId();
-    final output = StringBuffer();
-    try {
-      await (() async {
-        await for (final token in liteRt.generateTokens(
-          prompt: prompt,
-          temperature: temperature,
-          maxTokens: maxTokens,
-          sessionId: sessionId,
-          context: context,
-          history: history,
-          requestId: id,
-        )) {
-          if (!token.stop) output.write(token.content);
-        }
-      })().timeout(requestTimeout ?? timeout);
-      return LLMResult(
-        text: output.toString(),
-        tps: liteRt.lastMetrics.tokensPerSec,
-      );
-    } on TimeoutException {
-      await liteRt.cancel(id);
-      throw LLMEngineException('LiteRT excedió el tiempo de respuesta');
-    }
-  }
-
-  Future<LLMResult> _generateMnn({
-    required String prompt,
-    required double temperature,
-    required int maxTokens,
-    String? context,
-    List<Map<String, String>>? history,
-    Duration? requestTimeout,
-    List<InferenceMediaInput> mediaInputs = const [],
-  }) async {
-    final id = LLMEngineClient.newRequestId();
-    final output = StringBuffer();
-    try {
-      await (() async {
-        await for (final token in mnn.generateTokens(
-          prompt: prompt,
-          temperature: temperature,
-          maxTokens: maxTokens,
-          context: context,
-          history: history,
-          mediaInputs: mediaInputs,
-          requestId: id,
-        )) {
-          if (!token.stop) output.write(token.content);
-        }
-      })().timeout(requestTimeout ?? timeout);
-      return LLMResult(
-        text: output.toString(),
-        tps: (mnn.lastMetrics['decode_tok_s'] as num?)?.toDouble(),
-      );
-    } on TimeoutException {
-      await mnn.cancel(id);
-      throw LLMEngineException('MNN excedió el tiempo de respuesta');
-    }
-  }
-
   @override
   ({Stream<LLMStreamToken> stream, http.Client client, String requestId})
   generateStream({
@@ -267,21 +186,5 @@ class RoutedLlmEngineClient extends LLMEngineClient {
   void dispose() {
     llama.dispose();
     super.dispose();
-  }
-}
-
-// Compatibilidad con StreamLease: cerrar este recurso cancela JNI, no crea una conexión HTTP ficticia.
-class _NativeCancellationLease extends http.BaseClient {
-  final Future<bool> Function() cancel;
-  bool _closed = false;
-  _NativeCancellationLease(this.cancel);
-  @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) =>
-      Future.error(StateError('Este lease solo administra cancelación nativa'));
-  @override
-  void close() {
-    if (_closed) return;
-    _closed = true;
-    unawaited(cancel().then<void>((_) {}, onError: (Object _) {}));
   }
 }

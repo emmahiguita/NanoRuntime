@@ -1,11 +1,10 @@
-// QUÉ HACE: mantiene PDFs comerciales en carpetas persistentes privadas de Nano.
-// CÓMO: cada negocio tiene categorías; todos los archivos se guardan con nombre seguro.
-// POR QUÉ: los PDF temporales desaparecen y no sirven como biblioteca reutilizable.
+// QUÉ HACE: mantiene documentos, imágenes y catálogos en carpetas persistentes de Nano.
+// CÓMO: soporte completo CRUD para carpetas y archivos con almacenamiento local real.
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 
-/// Archivo persistido que la interfaz puede previsualizar, compartir o borrar.
+/// Archivo persistido con metadatos reales de tipo, tamaño, fecha y carpeta.
 final class BusinessDocument {
   const BusinessDocument(
     this.file,
@@ -18,48 +17,144 @@ final class BusinessDocument {
   final DateTime modifiedAt;
   final String category;
   String get name => file.uri.pathSegments.last;
+  String get extension => name.contains('.') ? name.split('.').last.toLowerCase() : '';
+  bool get isPdf => extension == 'pdf';
+  bool get isImage => ['png', 'jpg', 'jpeg', 'webp', 'gif'].contains(extension);
+  bool get isVideo => ['mp4', 'mov', 'avi', 'mkv'].contains(extension);
+  bool get isSheet => ['xlsx', 'xls', 'csv'].contains(extension);
 }
 
-/// Encapsula la estructura de carpetas para mantener I/O fuera de la vista.
+/// Metadatos de una carpeta de la biblioteca
+final class BusinessFolderInfo {
+  final String name;
+  final int itemCount;
+  final DateTime modifiedAt;
+
+  const BusinessFolderInfo({
+    required this.name,
+    required this.itemCount,
+    required this.modifiedAt,
+  });
+}
+
+/// Encapsula el almacenamiento y operaciones de carpetas y archivos de la biblioteca.
 final class BusinessDocumentLibrary {
   const BusinessDocumentLibrary();
 
   static const allCategory = 'Todas';
-  static const categories = ['Catálogos', 'Servicios', 'Cotizaciones', 'Otros'];
+  static const defaultCategories = [
+    'Catálogos',
+    'Servicios',
+    'Clientes',
+    'Imágenes',
+    'Cotizaciones',
+    'Otros',
+  ];
 
-  // Escribe en la carpeta real más segura cuando la búsqueda está en "Todas".
-  String destinationCategory(String selected) =>
-      selected == allCategory ? categories.first : selected;
-
-  /// Crea la carpeta elegida bajo documentos persistentes de la app.
-  Future<Directory> folder(String business, String category) async {
+  Future<Directory> _rootDir(String business) async {
     final root = await getApplicationDocumentsDirectory();
     return Directory(
-      '${root.path}/NanoDocumentos/${_safe(business)}/${_safe(category)}',
+      '${root.path}/NanoDocumentos/${_safe(business)}',
     ).create(recursive: true);
   }
 
-  /// Copia bytes generados sin dejar el documento en cache temporal.
+  /// Carpeta física para una categoría
+  Future<Directory> folder(String business, String category) async {
+    final root = await _rootDir(business);
+    return Directory('${root.path}/${_safe(category)}').create(recursive: true);
+  }
+
+  /// Lista todas las carpetas (por defecto + creadas por el usuario)
+  Future<List<BusinessFolderInfo>> listFolders(String business) async {
+    final root = await _rootDir(business);
+    // Asegurar que las carpetas por defecto existan
+    for (final cat in defaultCategories) {
+      await Directory('${root.path}/${_safe(cat)}').create(recursive: true);
+    }
+
+    final entities = await root.list(followLinks: false).toList();
+    final folders = <BusinessFolderInfo>[];
+
+    for (final entity in entities) {
+      if (entity is Directory) {
+        final folderName = entity.uri.pathSegments
+            .where((s) => s.isNotEmpty)
+            .last;
+        final files = await entity
+            .list(followLinks: false)
+            .where((e) => e is File && !e.path.endsWith('.DS_Store'))
+            .length;
+        final stat = await entity.stat();
+        folders.add(
+          BusinessFolderInfo(
+            name: folderName,
+            itemCount: files,
+            modifiedAt: stat.modified,
+          ),
+        );
+      }
+    }
+    return folders;
+  }
+
+  /// Crea una nueva carpeta
+  Future<Directory> createFolder(String business, String folderName) async {
+    final safeName = _safe(folderName);
+    if (safeName.isEmpty) throw ArgumentError('El nombre de la carpeta no es válido');
+    return folder(business, safeName);
+  }
+
+  /// Renombra una carpeta existente
+  Future<void> renameFolder(
+    String business,
+    String oldName,
+    String newName,
+  ) async {
+    final safeOld = _safe(oldName);
+    final safeNew = _safe(newName);
+    if (safeOld == safeNew || safeNew.isEmpty) return;
+
+    final root = await _rootDir(business);
+    final oldDir = Directory('${root.path}/$safeOld');
+    final newDir = Directory('${root.path}/$safeNew');
+
+    if (await oldDir.exists()) {
+      await oldDir.rename(newDir.path);
+    }
+  }
+
+  /// Elimina una carpeta completa
+  Future<void> deleteFolder(String business, String folderName) async {
+    final safeName = _safe(folderName);
+    final root = await _rootDir(business);
+    final dir = Directory('${root.path}/$safeName');
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+    }
+  }
+
+  /// Guarda bytes generados (ej. catálogo)
   Future<File> saveBytes(
     Uint8List bytes,
     String business,
     String category,
     String baseName,
   ) async {
-    final dir = await folder(business, category);
+    final dir = await folder(business, destinationCategory(category));
     final file = File(
       '${dir.path}/${_safe(baseName)}_${DateTime.now().millisecondsSinceEpoch}.pdf',
     );
     return file.writeAsBytes(bytes, flush: true);
   }
 
-  /// Importa un PDF del selector Android a la carpeta administrada por Nano.
-  Future<File> importPdf(
+  /// Importa cualquier archivo al directorio de la biblioteca
+  Future<File> importFile(
     String source,
     String business,
     String category,
   ) async {
-    final dir = await folder(business, category);
+    final targetCategory = destinationCategory(category);
+    final dir = await folder(business, targetCategory);
     final name = source.split(RegExp(r'[/\\]')).last;
     final target = File(
       '${dir.path}/${DateTime.now().millisecondsSinceEpoch}_${_safe(name)}',
@@ -67,11 +162,33 @@ final class BusinessDocumentLibrary {
     return File(source).copy(target.path);
   }
 
-  /// Lista solo PDFs de la categoría abierta y los ordena del más reciente.
+  /// Renombra un archivo
+  Future<BusinessDocument> renameDocument(
+    BusinessDocument document,
+    String newName,
+  ) async {
+    final cleanName = _safe(newName);
+    if (cleanName.isEmpty) return document;
+
+    final parent = document.file.parent.path;
+    final newPath = '$parent/$cleanName';
+    final renamedFile = await document.file.rename(newPath);
+    final stat = await renamedFile.stat();
+
+    return BusinessDocument(
+      renamedFile,
+      stat.size,
+      stat.modified,
+      document.category,
+    );
+  }
+
+  /// Lista archivos de una o todas las categorías
   Future<List<BusinessDocument>> list(String business, String category) async {
     if (category == allCategory) {
+      final folders = await listFolders(business);
       final groups = await Future.wait(
-        categories.map((folder) => _listCategory(business, folder)),
+        folders.map((f) => _listCategory(business, f.name)),
       );
       final documents = groups.expand((items) => items).toList();
       documents.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
@@ -80,21 +197,19 @@ final class BusinessDocumentLibrary {
     return _listCategory(business, category);
   }
 
-  // "Todas" agrega las carpetas físicas sin crear una categoría ficticia.
   Future<List<BusinessDocument>> _listCategory(
     String business,
     String category,
   ) async {
     final dir = await folder(business, category);
+    if (!await dir.exists()) return const [];
+
     final paths = await dir
         .list(followLinks: false)
-        .where(
-          (entry) => entry is File && entry.path.toLowerCase().endsWith('.pdf'),
-        )
+        .where((entry) => entry is File && !entry.path.endsWith('.DS_Store'))
         .cast<File>()
         .toList();
-    // Lee cada metadato una vez en async; statSync dentro del comparador
-    // bloqueaba el hilo de interfaz varias veces por archivo al ordenar.
+
     final documents = await Future.wait(
       paths.map((file) async {
         final stat = await file.stat();
@@ -105,12 +220,14 @@ final class BusinessDocumentLibrary {
     return documents;
   }
 
-  /// Elimina solamente el documento que el usuario quitó desde la biblioteca.
+  /// Elimina un archivo
   Future<void> delete(BusinessDocument document) async {
     if (await document.file.exists()) await document.file.delete();
   }
 
-  /// Normaliza nombres de carpetas y archivos para evitar separadores de ruta.
+  String destinationCategory(String selected) =>
+      selected == allCategory ? defaultCategories.first : selected;
+
   String _safe(String value) => value
       .trim()
       .toLowerCase()

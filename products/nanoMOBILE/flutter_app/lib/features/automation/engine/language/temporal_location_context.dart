@@ -3,7 +3,7 @@
 /// Resuelve de forma factual y determinista:
 /// - Día de la semana, día del mes, mes y año en español
 /// - Hora y minuto local formateados (AM/PM)
-/// - Ciudad y país configurados (Medellín, Colombia por defecto o tomados del perfil del dueño)
+/// - Ciudad y país declarados en el perfil; nunca presupone una ubicación.
 ///
 /// Proporciona bloques para inyección en el prompt del LLM y helpers para PragmaticFastPath.
 library;
@@ -88,7 +88,7 @@ final class TemporalLocationContext {
       final ubicacion = ownerFacts['ubicacion']?.trim();
       if (ubicacion != null && ubicacion.isNotEmpty) return ubicacion;
     }
-    return 'Medellín';
+    return '';
   }
 
   static String resolveCountry({Map<String, String>? ownerFacts}) {
@@ -96,7 +96,7 @@ final class TemporalLocationContext {
       final pais = ownerFacts['pais']?.trim();
       if (pais != null && pais.isNotEmpty) return pais;
     }
-    return 'Colombia';
+    return '';
   }
 
   /// Genera el bloque compacto de anclaje factual para el prompt del modelo local.
@@ -106,12 +106,14 @@ final class TemporalLocationContext {
     final timeStr = formatTime(time);
     final city = resolveCity(ownerFacts: ownerFacts);
     final country = resolveCountry(ownerFacts: ownerFacts);
+    final place = [city, country].where((value) => value.isNotEmpty).join(', ');
 
     return '''
 <CONTEXTO TEMPORAL Y LUGAR>
 Fecha actual: $fullDate
-Hora local: $timeStr
-Ubicación: $city, $country
+Hora local del reloj del dispositivo: $timeStr
+Zona del dispositivo: ${time.timeZoneName}; desfase UTC: ${time.timeZoneOffset.inMinutes} minutos
+${place.isEmpty ? 'Ubicación no declarada; no hay evidencia GPS.' : 'Ubicación declarada en perfil (no GPS): $place'}
 </CONTEXTO TEMPORAL Y LUGAR>''';
   }
 }

@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../domain/local_model.dart';
+import 'model_catalog_surface.dart';
 
 class ModelNewBadgeBanner extends StatefulWidget {
   final List<LocalModel> models;
@@ -91,7 +92,8 @@ class _ModelNewBadgeBannerState extends State<ModelNewBadgeBanner> {
         vertical: isLandscape ? 6 : 10,
       ),
       decoration: BoxDecoration(
-        color: colorScheme.secondaryContainer.withValues(alpha: 0.15),
+        // Aviso neutro: su recuento y persistencia no cambian.
+        color: modelCatalogSurface(context),
         borderRadius: BorderRadius.circular(NanoRadius.medium),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.35),
@@ -104,7 +106,7 @@ class _ModelNewBadgeBannerState extends State<ModelNewBadgeBanner> {
           Icon(
             Icons.auto_awesome_rounded,
             size: isLandscape ? 18 : 22,
-            color: colorScheme.primary,
+            color: colorScheme.onSurfaceVariant,
           ),
           const SizedBox(width: 10),
           Expanded(

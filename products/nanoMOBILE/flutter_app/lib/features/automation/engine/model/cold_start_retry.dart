@@ -10,6 +10,7 @@
 library;
 
 import 'package:flutter/foundation.dart';
+import '../../../../core/services/execution_budget.dart';
 
 import '../../../../core/services/llm_engine_client.dart' show LLMEngineClient;
 
@@ -32,7 +33,7 @@ Future<String> generateWithColdRetry(
     sessionId: sessionId,
     context: context,
     history: history,
-    requestTimeout: requestTimeout,
+    requestTimeout: ExecutionBudget.current?.remaining ?? requestTimeout,
   );
   final firstText = first.text.trim();
   if (firstText.isNotEmpty || stopwatch.elapsed >= threshold) {
@@ -46,7 +47,7 @@ Future<String> generateWithColdRetry(
     sessionId: sessionId,
     context: context,
     history: history,
-    requestTimeout: requestTimeout,
+    requestTimeout: ExecutionBudget.current?.remaining ?? requestTimeout,
   );
   return second.text.trim();
 }

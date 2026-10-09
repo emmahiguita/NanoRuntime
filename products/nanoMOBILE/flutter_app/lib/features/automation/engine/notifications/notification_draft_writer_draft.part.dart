@@ -9,6 +9,15 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
   String conversationId,
 ) async {
   try {
+    // Una notificación vieja no es un turno nuevo en la comparación limpia.
+    // No se borra ni se altera; evita inferencias/envíos durante el arranque.
+    if (PersonalConversationDiagnostic.appliesTo(conversationId) &&
+        !PersonalConversationDiagnostic.includesTimestamp(
+          IncomingMessage.fromNotification(notification).messageTimestamp,
+        )) {
+      debugPrint('[ctx:conversation] diagnostic_old_event=skipped');
+      return null;
+    }
     final hasCloudPort =
         writer._cloudInferencePort != null &&
         writer._cloudInferencePort.isConfigured;
@@ -91,6 +100,7 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
           : null,
     );
     if (raw == null) return null;
+    ExecutionBudget.current?.check();
     prepared.stopwatch.stop();
     debugPrint(
       '[latency:decomp] conv=${_shortId(conversationId)} '
@@ -98,18 +108,35 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
       'promptChars=${prepared.prompt.length} rawChars=${raw.length} '
       'social=${prepared.isSocial}',
     );
-    return _parseDraftOutput(
+    final result = _parseDraftOutput(
       raw,
       notification,
       conversationId,
       // Qwen local puede contestar en lenguaje natural a planes no verificados;
       // el parser solo aceptará esa ruta si expresa incertidumbre explícita.
-      allowPlainText: prepared.isSocial ||
+      allowPlainText:
+          prepared.isSocial ||
           (!hasCloudPort &&
               context.agentId == ConversationAgentId.personal &&
               context.role == ConversationAgentRole.personal &&
               isLiveStateQuestion(notification.text)),
     );
+    // Una consulta meteorológica sin evidencia no puede afirmar condiciones al contacto.
+    // Conserva la salida real como sugerencia pendiente, nunca la repara con una frase fija.
+    if (result != null &&
+        context.liveEvidence.weatherRequested &&
+        !context.liveEvidence.weatherAvailable) {
+      debugPrint('[live-context] weather=unavailable review=required');
+      return NotificationDraftResult(
+        reply: result.reply,
+        understanding: result.understanding.withRequiredAction(),
+      );
+    }
+    debugPrint(
+      '[live-context] weatherRequested=${context.liveEvidence.weatherRequested} '
+      'weatherAvailable=${context.liveEvidence.weatherAvailable}',
+    );
+    return result;
   } on Object catch (e) {
     // Motor local no disponible o falló → sin borrador (honesto).
     // El código de causa se conserva sin volcar respuestas HTTP con posible texto privado.
@@ -130,9 +157,9 @@ Future<bool> _waitForEngineReady(
   // CÓMO: su Future ya representa la carga nativa completa; no la cancela por sondeo.
   // POR QUÉ: repetir ensureReady cada seis segundos encolaba cargas MNN durante JNI.
   final modelPath = writer._modelPath();
+  ExecutionBudget.current?.check();
   final backend = NeuralCatalog.backendForPath(modelPath);
-  if (backend == ModelBackendType.mnn ||
-      backend == ModelBackendType.litertlm) {
+  if (backend == ModelBackendType.mnn || backend == ModelBackendType.litertlm) {
     return writer
         ._ensureReady(modelPath)
         .timeout(maxWait, onTimeout: () => false);
@@ -142,6 +169,7 @@ Future<bool> _waitForEngineReady(
   final deadline = DateTime.now().add(maxWait);
   var delayMs = 500;
   while (DateTime.now().isBefore(deadline)) {
+    ExecutionBudget.current?.check();
     final ready = await writer
         ._ensureReady(modelPath)
         .timeout(const Duration(seconds: 6), onTimeout: () => false);

@@ -19,6 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:nanoai/features/automation/application/whatsapp_contacts_provider.dart';
 import 'package:nanoai/features/automation/domain/whatsapp_contact.dart';
 import 'package:nanoai/features/automation/engine/execution/handlers/whatsapp_tool_handler.dart';
+import 'package:nanoai/features/automation/engine/business/whatsapp_message_provider.dart';
 import 'package:nanoai/features/automation/engine/execution/plan_execution_coordinator.dart';
 import 'package:nanoai/features/automation/engine/execution/tool_call.dart';
 import 'package:nanoai/features/automation/engine/execution/tool_outcome.dart';
@@ -67,12 +68,37 @@ class _RecordingMediaShare extends WhatsAppMediaShare {
     String caption = '',
     String? packageName,
     bool autoSend = true,
+    String? recipientName,
+    String recipientKind = 'direct',
+    bool recipientVerified = false,
   }) async {
     lastSharedPath = path;
     lastSharedContact = contact;
     lastSharedCaption = caption;
     lastAutoSend = autoSend;
     return true;
+  }
+}
+
+class _LocalMessageProvider implements WhatsAppMessageProvider {
+  _LocalMessageProvider(this.share);
+
+  final WhatsAppMediaShare share;
+
+  @override
+  Future<bool> cloudSelected() async => false;
+
+  @override
+  Future<WhatsAppSendReceipt> send(String phone, String text) async {
+    final opened = await share.openChat(
+      contact: phone,
+      text: text,
+      autoSend: true,
+    );
+    if (!opened) {
+      throw Exception('No se pudo abrir el flujo local de WhatsApp.');
+    }
+    return const WhatsAppSendReceipt(message: 'local_unverified');
   }
 }
 
@@ -104,44 +130,56 @@ void main() {
       handler = WhatsAppToolHandler(
         share: mediaShare,
         contacts: _FakeContactsService(deviceContacts),
+        messageProvider: _LocalMessageProvider(mediaShare),
       );
       catalog = defaultDeterministicCatalog;
     });
 
+    test(
+      'Prueba 1: Buscar al contacto Emm y abrir WhatsApp (con y sin paréntesis)',
+      () async {
+        const goals = [
+          'busca a (Emm) en whatsapp',
+          'busca a Emm en whatsapp',
+          'buscar a Emm en whatsapp',
+        ];
 
-    test('Prueba 1: Buscar al contacto Emm y abrir WhatsApp (con y sin paréntesis)', () async {
-      const goals = [
-        'busca a (Emm) en whatsapp',
-        'busca a Emm en whatsapp',
-        'buscar a Emm en whatsapp',
-      ];
+        for (final goal in goals) {
+          final flow = catalog.forGoal(goal);
+          expect(
+            flow,
+            isNotNull,
+            reason: 'El catálogo debe capturar la orden: $goal',
+          );
+          expect(flow!.steps.first.tool, 'whatsapp.open_chat');
 
-      for (final goal in goals) {
-        final flow = catalog.forGoal(goal);
-        expect(flow, isNotNull, reason: 'El catálogo debe capturar la orden: $goal');
-        expect(flow!.steps.first.tool, 'whatsapp.open_chat');
+          final intent = WhatsAppIntentParser.parse(goal);
+          expect(intent, isNotNull);
+          expect(intent!.action, WhatsAppAction.findContact);
+          expect(intent.contact.toLowerCase(), 'emm');
 
-        final intent = WhatsAppIntentParser.parse(goal);
-        expect(intent, isNotNull);
-        expect(intent!.action, WhatsAppAction.findContact);
-        expect(intent.contact.toLowerCase(), 'emm');
+          final result = await handler.openChat(
+            ToolCall(
+              tool: 'whatsapp.open_chat',
+              args: {'contact': intent.contact},
+            ),
+          );
 
-        final result = await handler.openChat(
-          ToolCall(tool: 'whatsapp.open_chat', args: {'contact': intent.contact}),
-        );
-
-        expect(result, contains('Chat abierto con "Emm" (+573203527283)'));
-        expect(mediaShare.lastOpenedContact, '+573203527283');
-        expect(
-          PlanExecutionCoordinator.executionStatusFor(result),
-          ToolExecutionStatus.completed,
-          reason: 'El feedback no debe ser clasificado como fallo por el coordinador',
-        );
-      }
-    });
+          expect(result, contains('Chat abierto con "Emm" (+573203527283)'));
+          expect(mediaShare.lastOpenedContact, '+573203527283');
+          expect(
+            PlanExecutionCoordinator.executionStatusFor(result),
+            ToolExecutionStatus.completed,
+            reason:
+                'El feedback no debe ser clasificado como fallo por el coordinador',
+          );
+        }
+      },
+    );
 
     test('Prueba 2: Escribir y enviar mensaje a Emm', () async {
-      const goal = 'escríbele a (Emm) (Hola Emm, prueba automatizada completada) en whatsapp';
+      const goal =
+          'escríbele a (Emm) (Hola Emm, prueba automatizada completada) en whatsapp';
 
       final flow = catalog.forGoal(goal);
       expect(flow, isNotNull);
@@ -160,19 +198,26 @@ void main() {
         ),
       );
 
-      expect(result, contains('Chat abierto para "Emm" (+573203527283)'));
-      expect(result, contains('el clic y la entrega no están verificados'));
+      expect(
+        result,
+        contains('Flujo local abierto para "Emm" (+573203527283)'),
+      );
+      expect(result, contains('no se verifica clic ni entrega'));
       expect(
         PlanExecutionCoordinator.executionStatusFor(result),
         ToolExecutionStatus.completedUnverified,
       );
       expect(mediaShare.lastOpenedContact, '+573203527283');
-      expect(mediaShare.lastSentText, 'Hola Emm, prueba automatizada completada');
+      expect(
+        mediaShare.lastSentText,
+        'Hola Emm, prueba automatizada completada',
+      );
       expect(mediaShare.lastAutoSend, isTrue);
     });
 
     test('Prueba 3: Enviar documento PDF a Emm', () async {
-      const goal = 'envíale un documento a (Emm) (/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf) en whatsapp';
+      const goal =
+          'envíale un documento a (Emm) (/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf) en whatsapp';
 
       final flow = catalog.forGoal(goal);
       expect(flow, isNotNull);
@@ -182,7 +227,10 @@ void main() {
       expect(intent, isNotNull);
       expect(intent!.action, WhatsAppAction.shareFile);
       expect(intent.contact, 'Emm');
-      expect(intent.filePath, '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf');
+      expect(
+        intent.filePath,
+        '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf',
+      );
 
       final result = await handler.shareFile(
         ToolCall(
@@ -195,18 +243,25 @@ void main() {
         ),
       );
 
-      expect(result, contains('Flujo de archivo abierto para "Emm" (+573203527283)'));
+      expect(
+        result,
+        contains('Flujo de archivo abierto para "Emm" (+573203527283)'),
+      );
       expect(result, contains('el clic y la entrega no están verificados'));
       expect(
         PlanExecutionCoordinator.executionStatusFor(result),
         ToolExecutionStatus.completedUnverified,
       );
       expect(mediaShare.lastSharedContact, '+573203527283');
-      expect(mediaShare.lastSharedPath, '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf');
+      expect(
+        mediaShare.lastSharedPath,
+        '/sdcard/Download/Informe_Ejecutivo_-_Datos_Shell.pdf',
+      );
     });
 
     test('Prueba 4: Enviar foto a Emm', () async {
-      const goal = 'envíale una foto a (Emm) (/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png) en whatsapp';
+      const goal =
+          'envíale una foto a (Emm) (/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png) en whatsapp';
 
       final flow = catalog.forGoal(goal);
       expect(flow, isNotNull);
@@ -216,7 +271,10 @@ void main() {
       expect(intent, isNotNull);
       expect(intent!.action, WhatsAppAction.shareFile);
       expect(intent.contact, 'Emm');
-      expect(intent.filePath, '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png');
+      expect(
+        intent.filePath,
+        '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png',
+      );
 
       final result = await handler.shareFile(
         ToolCall(
@@ -229,120 +287,171 @@ void main() {
         ),
       );
 
-      expect(result, contains('Flujo de archivo abierto para "Emm" (+573203527283)'));
+      expect(
+        result,
+        contains('Flujo de archivo abierto para "Emm" (+573203527283)'),
+      );
       expect(result, contains('el clic y la entrega no están verificados'));
       expect(
         PlanExecutionCoordinator.executionStatusFor(result),
         ToolExecutionStatus.completedUnverified,
       );
       expect(mediaShare.lastSharedContact, '+573203527283');
-      expect(mediaShare.lastSharedPath, '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png');
-    });
-
-    test('Prueba 5: Gobernanza y registro de whatsapp.share_file en ToolRegistry', () {
-      final registry = ToolRegistry.builtin;
-      final tool = registry.lookup('whatsapp.share_file');
-      expect(tool, isNotNull, reason: 'whatsapp.share_file debe estar en ToolRegistry');
-      expect(tool!.name, 'whatsapp.share_file');
-      expect(tool.requiresConfirmation, isTrue);
-
-      final alias = registry.lookup('compartir');
-      expect(alias, isNotNull);
-      expect(alias!.name, 'whatsapp.share_file');
-
-      final policy = PolicyEngine(registry: registry);
-      final decision = policy.decide('whatsapp.share_file', stepsUsed: 0);
-      expect(decision.needsConfirmation, isTrue);
-      expect(decision.denied, isFalse);
-
-      final confirmed = policy.decide(
-        'whatsapp.share_file',
-        stepsUsed: 0,
-        confirmed: true,
-      );
-      expect(confirmed.allowed, isTrue);
-    });
-
-    test('Prueba 6: Desde llamadas busca a (Emm) en whatsapp y envíale un mensaje', () async {
-      const goal = 'desde llamadas en whatsapp busca a (Emm) y entra a su chat y envíale un mensaje (Hola Emm, mensaje desde llamadas)';
-
-      final flow = catalog.forGoal(goal);
-      expect(flow, isNotNull, reason: 'El catálogo debe capturar flujo desde llamadas');
-      expect(flow!.steps.first.tool, 'whatsapp.send_message');
-
-      final intent = WhatsAppIntentParser.parse(goal);
-      expect(intent, isNotNull);
-      expect(intent!.action, WhatsAppAction.sendMessage);
-      expect(intent.contact, 'Emm');
-      expect(intent.message, 'Hola Emm, mensaje desde llamadas');
-
-      final result = await handler.sendMessage(
-        ToolCall(
-          tool: 'whatsapp.send_message',
-          args: {'contact': intent.contact, 'text': intent.message!},
-        ),
-      );
-
-      expect(result, contains('Chat abierto para "Emm" (+573203527283)'));
-      expect(result, contains('el clic y la entrega no están verificados'));
-      expect(mediaShare.lastOpenedContact, '+573203527283');
-      expect(mediaShare.lastSentText, 'Hola Emm, mensaje desde llamadas');
-      expect(mediaShare.lastAutoSend, isTrue);
-    });
-
-    test('Prueba 7: Buscar al contacto por su número (3203527283) y resolver a Emm', () async {
-      const goal = 'busca a (3203527283) en whatsapp';
-
-      final flow = catalog.forGoal(goal);
-      expect(flow, isNotNull, reason: 'El catálogo debe capturar búsqueda por número');
-      expect(flow!.steps.first.tool, 'whatsapp.open_chat');
-
-      final intent = WhatsAppIntentParser.parse(goal);
-      expect(intent, isNotNull);
-      expect(intent!.action, WhatsAppAction.findContact);
-      expect(intent.contact, '3203527283');
-
-      final result = await handler.openChat(
-        ToolCall(tool: 'whatsapp.open_chat', args: {'contact': intent.contact}),
-      );
-
-      expect(result, contains('Chat abierto con "Emm" (+573203527283)'));
-      expect(mediaShare.lastOpenedContact, '+573203527283');
       expect(
-        PlanExecutionCoordinator.executionStatusFor(result),
-        ToolExecutionStatus.completed,
+        mediaShare.lastSharedPath,
+        '/sdcard/Pictures/file_0000000013e481f58825cd146c7e1f06.png',
       );
     });
 
-    test('Prueba 8: Escribirle y enviarle mensaje a número directo (3203527283)', () async {
-      const goal = 'escríbele a (3203527283) (Hola Emm, prueba automatizada buscando por numero) en whatsapp';
+    test(
+      'Prueba 5: Gobernanza y registro de whatsapp.share_file en ToolRegistry',
+      () {
+        final registry = ToolRegistry.builtin;
+        final tool = registry.lookup('whatsapp.share_file');
+        expect(
+          tool,
+          isNotNull,
+          reason: 'whatsapp.share_file debe estar en ToolRegistry',
+        );
+        expect(tool!.name, 'whatsapp.share_file');
+        expect(tool.requiresConfirmation, isTrue);
 
-      final flow = catalog.forGoal(goal);
-      expect(flow, isNotNull, reason: 'El catálogo debe capturar envío por número');
-      expect(flow!.steps.first.tool, 'whatsapp.send_message');
+        final alias = registry.lookup('compartir');
+        expect(alias, isNotNull);
+        expect(alias!.name, 'whatsapp.share_file');
 
-      final intent = WhatsAppIntentParser.parse(goal);
-      expect(intent, isNotNull);
-      expect(intent!.action, WhatsAppAction.sendMessage);
-      expect(intent.contact, '3203527283');
-      expect(intent.message, 'Hola Emm, prueba automatizada buscando por numero');
+        final policy = PolicyEngine(registry: registry);
+        final decision = policy.decide('whatsapp.share_file', stepsUsed: 0);
+        expect(decision.needsConfirmation, isTrue);
+        expect(decision.denied, isFalse);
 
-      final result = await handler.sendMessage(
-        ToolCall(
-          tool: 'whatsapp.send_message',
-          args: {'contact': intent.contact, 'text': intent.message!},
-        ),
-      );
+        final confirmed = policy.decide(
+          'whatsapp.share_file',
+          stepsUsed: 0,
+          confirmed: true,
+        );
+        expect(confirmed.allowed, isTrue);
+      },
+    );
 
-      expect(result, contains('Chat abierto para "Emm" (+573203527283)'));
-      expect(result, contains('el clic y la entrega no están verificados'));
-      expect(mediaShare.lastOpenedContact, '+573203527283');
-      expect(mediaShare.lastSentText, 'Hola Emm, prueba automatizada buscando por numero');
-      expect(mediaShare.lastAutoSend, isTrue);
-      expect(
-        PlanExecutionCoordinator.executionStatusFor(result),
-        ToolExecutionStatus.completedUnverified,
-      );
-    });
+    test(
+      'Prueba 6: Desde llamadas busca a (Emm) en whatsapp y envíale un mensaje',
+      () async {
+        const goal =
+            'desde llamadas en whatsapp busca a (Emm) y entra a su chat y envíale un mensaje (Hola Emm, mensaje desde llamadas)';
+
+        final flow = catalog.forGoal(goal);
+        expect(
+          flow,
+          isNotNull,
+          reason: 'El catálogo debe capturar flujo desde llamadas',
+        );
+        expect(flow!.steps.first.tool, 'whatsapp.send_message');
+
+        final intent = WhatsAppIntentParser.parse(goal);
+        expect(intent, isNotNull);
+        expect(intent!.action, WhatsAppAction.sendMessage);
+        expect(intent.contact, 'Emm');
+        expect(intent.message, 'Hola Emm, mensaje desde llamadas');
+
+        final result = await handler.sendMessage(
+          ToolCall(
+            tool: 'whatsapp.send_message',
+            args: {'contact': intent.contact, 'text': intent.message!},
+          ),
+        );
+
+        expect(
+          result,
+          contains('Flujo local abierto para "Emm" (+573203527283)'),
+        );
+        expect(result, contains('no se verifica clic ni entrega'));
+        expect(mediaShare.lastOpenedContact, '+573203527283');
+        expect(mediaShare.lastSentText, 'Hola Emm, mensaje desde llamadas');
+        expect(mediaShare.lastAutoSend, isTrue);
+      },
+    );
+
+    test(
+      'Prueba 7: Buscar al contacto por su número (3203527283) y resolver a Emm',
+      () async {
+        const goal = 'busca a (3203527283) en whatsapp';
+
+        final flow = catalog.forGoal(goal);
+        expect(
+          flow,
+          isNotNull,
+          reason: 'El catálogo debe capturar búsqueda por número',
+        );
+        expect(flow!.steps.first.tool, 'whatsapp.open_chat');
+
+        final intent = WhatsAppIntentParser.parse(goal);
+        expect(intent, isNotNull);
+        expect(intent!.action, WhatsAppAction.findContact);
+        expect(intent.contact, '3203527283');
+
+        final result = await handler.openChat(
+          ToolCall(
+            tool: 'whatsapp.open_chat',
+            args: {'contact': intent.contact},
+          ),
+        );
+
+        expect(result, contains('Chat abierto con "Emm" (+573203527283)'));
+        expect(mediaShare.lastOpenedContact, '+573203527283');
+        expect(
+          PlanExecutionCoordinator.executionStatusFor(result),
+          ToolExecutionStatus.completed,
+        );
+      },
+    );
+
+    test(
+      'Prueba 8: Escribirle y enviarle mensaje a número directo (3203527283)',
+      () async {
+        const goal =
+            'escríbele a (3203527283) (Hola Emm, prueba automatizada buscando por numero) en whatsapp';
+
+        final flow = catalog.forGoal(goal);
+        expect(
+          flow,
+          isNotNull,
+          reason: 'El catálogo debe capturar envío por número',
+        );
+        expect(flow!.steps.first.tool, 'whatsapp.send_message');
+
+        final intent = WhatsAppIntentParser.parse(goal);
+        expect(intent, isNotNull);
+        expect(intent!.action, WhatsAppAction.sendMessage);
+        expect(intent.contact, '3203527283');
+        expect(
+          intent.message,
+          'Hola Emm, prueba automatizada buscando por numero',
+        );
+
+        final result = await handler.sendMessage(
+          ToolCall(
+            tool: 'whatsapp.send_message',
+            args: {'contact': intent.contact, 'text': intent.message!},
+          ),
+        );
+
+        expect(
+          result,
+          contains('Flujo local abierto para "Emm" (+573203527283)'),
+        );
+        expect(result, contains('no se verifica clic ni entrega'));
+        expect(mediaShare.lastOpenedContact, '+573203527283');
+        expect(
+          mediaShare.lastSentText,
+          'Hola Emm, prueba automatizada buscando por numero',
+        );
+        expect(mediaShare.lastAutoSend, isTrue);
+        expect(
+          PlanExecutionCoordinator.executionStatusFor(result),
+          ToolExecutionStatus.completedUnverified,
+        );
+      },
+    );
   });
 }

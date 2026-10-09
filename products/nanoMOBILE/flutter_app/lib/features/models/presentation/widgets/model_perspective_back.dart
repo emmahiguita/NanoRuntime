@@ -21,16 +21,13 @@ class ModelPerspectiveBack extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final isDark = colors is NanoDarkColors;
 
     return Material(
-      color: isDark ? const Color(0xFF131C30) : colors.surfaceVariant,
+      // Igual que el anverso: la información técnica no necesita otro acento.
+      color: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: colors.primary.withValues(alpha: 0.4),
-          width: 1.2,
-        ),
+        side: BorderSide(color: colors.outlineVariant, width: 0.8),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -39,16 +36,20 @@ class ModelPerspectiveBack extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(Icons.memory_rounded, size: 16, color: colors.primary),
+                Icon(
+                  Icons.memory_rounded,
+                  size: 16,
+                  color: colors.onSurfaceVariant,
+                ),
                 const SizedBox(width: 6),
                 Text(
-                  'DETALLE TÉCNICO',
+                  'Detalle técnico',
                   style: TextStyle(
                     fontFamily: 'Inter',
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.8,
-                    color: colors.primary,
+                    color: colors.onSurfaceVariant,
                   ),
                 ),
                 const Spacer(),

@@ -61,9 +61,9 @@ export class ChatService {
           }
         },
         onDone: (meta) => {
-          appState.updateLastMessage(null, {
+          appState.updateLastMessage(meta.text || null, {
             isStreaming: false,
-            tok_s: meta.tok_s ? meta.tok_s.toFixed(1) : '0.0',
+            tok_s: meta.tok_s ? (typeof meta.tok_s === 'number' ? meta.tok_s.toFixed(1) : meta.tok_s) : '0.0',
             time: meta.time || '0.00s',
             model: meta.model || activeModel,
           });

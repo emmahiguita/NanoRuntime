@@ -6,11 +6,16 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
+import 'model_catalog_surface.dart';
 
 /// Pestaña activa del módulo de modelos.
 enum ModelsCatalogTab {
   explorar('Explorar', Icons.explore_outlined, Icons.explore_rounded),
-  instalados('Instalados', Icons.inventory_2_outlined, Icons.inventory_2_rounded),
+  instalados(
+    'Instalados',
+    Icons.inventory_2_outlined,
+    Icons.inventory_2_rounded,
+  ),
   favoritos('Favoritos', Icons.favorite_border_rounded, Icons.favorite_rounded),
   descargas('Descargas', Icons.download_outlined, Icons.download_rounded);
 
@@ -56,17 +61,19 @@ class ModelsTopNavTabs extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
-                  padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 9,
+                    horizontal: 4,
+                  ),
                   decoration: BoxDecoration(
+                    // La superficie y el peso tipográfico indican selección sin verde.
                     color: isSelected
-                        ? const Color(0xFF0D5E42).withValues(alpha: 0.85)
-                        : colors.surface.withValues(alpha: 0.5),
+                        ? modelCatalogSurface(context)
+                        : colors.surface,
                     borderRadius: BorderRadius.circular(NanoRadius.medium),
                     border: Border.all(
-                      color: isSelected
-                          ? const Color(0xFF10B981)
-                          : colors.outlineVariant.withValues(alpha: 0.25),
-                      width: isSelected ? 1.4 : 1.0,
+                      color: colors.outlineVariant,
+                      width: 0.8,
                     ),
                   ),
                   child: Column(
@@ -79,7 +86,7 @@ class ModelsTopNavTabs extends StatelessWidget {
                             isSelected ? tab.selectedIcon : tab.unselectedIcon,
                             size: 19,
                             color: isSelected
-                                ? const Color(0xFF34D399)
+                                ? colors.onSurface
                                 : colors.onSurfaceVariant,
                           ),
                           if (countBadge > 0 && !isSelected)
@@ -88,8 +95,8 @@ class ModelsTopNavTabs extends StatelessWidget {
                               right: -8,
                               child: Container(
                                 padding: const EdgeInsets.all(2.5),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF10B981),
+                                decoration: BoxDecoration(
+                                  color: modelCatalogSurface(context),
                                   shape: BoxShape.circle,
                                 ),
                                 constraints: const BoxConstraints(
@@ -99,11 +106,11 @@ class ModelsTopNavTabs extends StatelessWidget {
                                 child: Text(
                                   '$countBadge',
                                   textAlign: TextAlign.center,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 8.5,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.black,
+                                    color: colors.onSurface,
                                   ),
                                 ),
                               ),
@@ -118,8 +125,12 @@ class ModelsTopNavTabs extends StatelessWidget {
                         style: TextStyle(
                           fontFamily: 'Inter',
                           fontSize: 11,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected ? Colors.white : colors.onSurfaceVariant,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? colors.onSurface
+                              : colors.onSurfaceVariant,
                         ),
                       ),
                     ],

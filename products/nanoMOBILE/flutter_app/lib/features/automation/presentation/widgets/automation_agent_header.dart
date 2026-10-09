@@ -10,6 +10,8 @@
 /// Centraliza el estado de autonomía sin estorbar el flujo de trabajo del usuario.
 library;
 
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../domain/automation_policy.dart';
 import '../automation_visual_theme.dart';
@@ -100,21 +102,19 @@ class AgentHeaderWidget extends StatelessWidget {
                   child: InkWell(
                     onTap: onModeTap,
                     borderRadius: BorderRadius.circular(99),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: visual.accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        mode.label,
-                        style: TextStyle(
-                          color: visual.accent,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: 34),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 9),
+                        child: Center(
+                          child: Text(
+                            mode.label,
+                            style: TextStyle(
+                              color: visual.accent,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -124,43 +124,33 @@ class AgentHeaderWidget extends StatelessWidget {
             ),
           ),
           if (onVoiceOutputTap != null)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onVoiceOutputTap,
+            _HeaderGlassButton(
+              tooltip: isVoiceOutputEnabled ? 'Silenciar voz' : 'Activar voz',
+              onTap: onVoiceOutputTap!,
               icon: Icon(
                 isVoiceOutputEnabled
                     ? Icons.volume_up_rounded
                     : Icons.volume_off_rounded,
-                color: isVoiceOutputEnabled
-                    ? visual.accent
-                    : visual.textMuted,
+                color: isVoiceOutputEnabled ? visual.accent : visual.textMuted,
                 size: 20,
               ),
             ),
           if (onConversationTap != null)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onConversationTap,
+            _HeaderGlassButton(
+              tooltip: 'Conversación por voz',
+              onTap: onConversationTap!,
               icon: Icon(
                 isConversationActive
                     ? Icons.record_voice_over_rounded
                     : Icons.voice_chat_outlined,
-                color: isConversationActive
-                    ? visual.accent
-                    : visual.textMuted,
+                color: isConversationActive ? visual.accent : visual.textMuted,
                 size: 20,
               ),
             ),
           if (onDevTap != null)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onDevTap,
+            _HeaderGlassButton(
+              tooltip: 'Herramientas técnicas',
+              onTap: onDevTap!,
               icon: Icon(
                 Icons.smart_toy_outlined,
                 color: visual.textMuted,
@@ -168,6 +158,58 @@ class AgentHeaderWidget extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _HeaderGlassButton extends StatelessWidget {
+  const _HeaderGlassButton({
+    required this.tooltip,
+    required this.onTap,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final VoidCallback onTap;
+  final Widget icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Tooltip(
+        message: tooltip,
+        child: Semantics(
+          button: true,
+          label: tooltip,
+          child: SizedBox.square(
+            dimension: 44,
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Material(
+                  color: visual.surface.withValues(
+                    alpha: visual.isDark ? 0.42 : 0.48,
+                  ),
+                  shape: CircleBorder(
+                    side: BorderSide(
+                      color: Colors.white.withValues(
+                        alpha: visual.isDark ? 0.13 : 0.58,
+                      ),
+                    ),
+                  ),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onTap,
+                    child: Center(child: icon),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

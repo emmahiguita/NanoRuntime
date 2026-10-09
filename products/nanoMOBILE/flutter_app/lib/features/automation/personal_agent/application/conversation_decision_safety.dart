@@ -85,7 +85,7 @@ abstract final class ConversationDecisionSafety {
       );
       if (allowRepair &&
           repaired != null &&
-          repaired.trim() != understanding.reply.trim()) {
+          repaired.trim().isNotEmpty) {
         return ConversationDecisionRepairValidator.validate(
           understanding: understanding,
           context: context,

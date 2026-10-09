@@ -7,6 +7,7 @@ Future<NotificationDraftResult?> _enqueueNotificationDraft(
   RuntimeNotificationDraftWriter writer,
   NotificationObject notification,
 ) async {
+  ExecutionBudget.current?.check();
   if (!writer._llmAllowed()) return null;
   final conversationId = resolveConversationIdentity(notification).key.id;
   final flightKey =
@@ -39,6 +40,8 @@ Future<NotificationDraftResult?> _enqueueNotificationDraft(
   final arrivedAt = DateTime.now();
 
   final future = RuntimeNotificationDraftWriter._draftTail.then((_) async {
+    // La espera consume el plazo original; no inicia inferencia tras un timeout exterior.
+    ExecutionBudget.current?.check();
     // AUT-P1-08: Coalescing por conversación — si llegó un mensaje nuevo
     // mientras este esperaba en cola, se descarta el borrador obsoleto.
     if (RuntimeNotificationDraftWriter._latestFlightKeyByConv[conversationId] !=

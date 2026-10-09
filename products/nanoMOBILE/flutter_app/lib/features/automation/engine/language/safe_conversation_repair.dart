@@ -125,7 +125,47 @@ final class SafeConversationRepair {
   static String? _repairCallCenter(String reply, {String? userText}) {
     final phrases = [
       RegExp(
-        r'¿?(?:en qué|en que|cómo|como)\s+(?:te|le|nos)?\s*(?:puedo|podemos|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+hoy)?\??',
+        r'¿?(?:en qué|en que|cómo|como)\s+(?:te|le|nos)?\s*(?:puedo|podemos|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+hoy|\s+en algo)?\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:en qué|en que)\s+(?:te|le)\s+(?:ayudo|colaboro)\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:puedo|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+en algo|\s+hoy)?\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:que|qué)\s+(?:puedo\s+)?hacer\s+por\s+(?:ti|usted|vos)\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'puedo\s+hacer\s+por\s+(?:ti|usted|vos)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'hacer\s+por\s+(?:ti|usted|vos)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:que|qué)\s+necesitas\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:deseas|necesitas)\s+algo\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:en qué|en que)\s+m[aá]s\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?algo\s+m[aá]s\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'a\s+(?:su|tu)\s+disposici[oó]n',
         caseSensitive: false,
       ),
       RegExp(
@@ -136,30 +176,59 @@ final class SafeConversationRepair {
         r'¿?(?:cómo|como)\s+estás\??\s*¿?(?:cómo|como)\s+puedo\s+ayudar(?:te)?(?:\s+hoy)?\??',
         caseSensitive: false,
       ),
+      RegExp(
+        r'¿?(?:en qué|en que|cómo|como)\s+puedo\s+ser(?:te)?\s+[uú]til\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'ser(?:te)?\s+[uú]til',
+        caseSensitive: false,
+      ),
     ];
 
     var cleaned = reply;
     for (final p in phrases) {
       cleaned = cleaned.replaceAll(p, '');
     }
+    for (final phrase in [
+      'puedo ayudarte',
+      'en que te ayudo',
+      'en que mas',
+      'algo mas',
+      'deseas algo',
+      'necesitas algo',
+      'ser util',
+      'que necesitas',
+      'puedo hacer por',
+      'hacer por ti',
+      'hacer por usted',
+      'puedo ayudarte en',
+      'como puedo ayudarte',
+      'como puedo ayudar',
+      'en que puedo ayudarte',
+      'en que puedo ayudar',
+      'a su disposicion',
+      'a tu disposicion',
+      'soy nano',
+    ]) {
+      cleaned = cleaned.replaceAll(
+        RegExp(RegExp.escape(phrase), caseSensitive: false),
+        '',
+      );
+    }
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
     cleaned = cleaned.replaceAll(RegExp(r'[,.\s]+$'), '').trim();
 
     final lower = cleaned.toLowerCase();
-    final u = userText?.trim().toLowerCase() ?? '';
-    if (lower == 'hola' || lower == '¡hola!' || lower == 'hola!') {
+    if (lower == 'hola' ||
+        lower == '¡hola!' ||
+        lower == 'hola!' ||
+        cleaned.isEmpty ||
+        cleaned.length < 2) {
       return _pick(safeRepairCallCenterGreetingOptions, userText);
     }
 
-    if (cleaned.isNotEmpty && cleaned.length >= 2) {
-      return cleaned;
-    }
-
-    if (u.contains('hola') || u.contains('buenas') || u.contains('buenos')) {
-      return _pick(safeRepairCallCenterGreetingOptions, userText);
-    }
-
-    return null;
+    return cleaned;
   }
 }
 

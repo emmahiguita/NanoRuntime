@@ -1,6 +1,5 @@
 package dev.nanoai.mobile
 
-import android.Manifest
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -19,6 +18,7 @@ import dev.nanoai.mobile.appfunctions.AppFunctionChannelHandler
 import dev.nanoai.mobile.channels.AgentChannelHandler
 import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
 import dev.nanoai.mobile.channels.AutomationStoreChannelHandler
+import dev.nanoai.mobile.channels.BrowserCompatibilityChannelHandler
 import dev.nanoai.mobile.channels.ChannelNames
 import dev.nanoai.mobile.channels.ContactsChannelHandler
 import dev.nanoai.mobile.channels.DataStudioChannelHandler
@@ -76,12 +76,11 @@ class MainActivity : AudioServiceActivity() {
     /** Handler de contactos: lectura de WhatsApp y gestión de permisos. */
     private var contactsHandler: ContactsChannelHandler? = null
 
-    /** Result pendiente de requestStoragePermission — resuelto por
-     *  onRequestPermissionsResult cuando el usuario contesta el diálogo. */
-    private var pendingStorageResult: MethodChannel.Result? = null
+    /** Único dueño de los diálogos runtime para evitar resultados huérfanos. */
+    private var runtimePermissions: RuntimePermissionCoordinator? = null
 
-    /** Resultado pendiente del lote micrófono + medios del centro de permisos. */
-    private var pendingRuntimePermissionsResult: MethodChannel.Result? = null
+    /** Puente Android del navegador; se desconecta junto con el engine Flutter. */
+    private var browserCompatibilityHandler: BrowserCompatibilityChannelHandler? = null
 
     /** A03-A06 — coprocesador lingüístico (cerrado en onDestroy, A13). */
     private var languageAssistHandler: LanguageAssistChannelHandler? = null
@@ -241,6 +240,8 @@ class MainActivity : AudioServiceActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AutomationStoreChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(null)
         automationStoreHandler = null
+        browserCompatibilityHandler?.close()
+        browserCompatibilityHandler = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
@@ -266,89 +267,15 @@ class MainActivity : AudioServiceActivity() {
         performanceChannelHandler = null
         NanoOverlayBridge.detach() // OVERLAY-03: limpiar puente al engine Flutter.
         ioScope.cancel()
-        // Si el diálogo de permisos quedó abierto al destruirse la Activity,
-        // resolver el Result pendiente — un Future Dart colgado para siempre.
-        pendingStorageResult?.error(
-            "activity_destroyed", "Activity destruida antes de contestar permisos", null,
-        )
-        pendingStorageResult = null
-        pendingRuntimePermissionsResult?.error(
-            "activity_destroyed", "Activity destruida antes de contestar permisos", null,
-        )
-        pendingRuntimePermissionsResult = null
+        browserCompatibilityHandler?.close()
+        browserCompatibilityHandler = null
+        runtimePermissions?.close()
+        runtimePermissions = null
         // WA-PROD-01: la UI suelta su requestor; el shutdown real ocurre en
         // RuntimeScope solo si automation no sigue activo (orden interno:
         // engine antes que worker).
         runtimeScope.release(RuntimeScope.Holder.UI)
         super.onDestroy()
-    }
-
-    /**
-     * Permisos de lectura de medios compartidos para el gestor de archivos
-     * del escritorio (pcmanfm monta /storage/emulated/0 vía nanoroot).
-     * API 33+: READ_MEDIA_*; API 23-32: READ_EXTERNAL_STORAGE. < 23: concedido
-     * en instalación. Si ya están concedidos responde de inmediato; si no,
-     * guarda el Result y lo resuelve onRequestPermissionsResult.
-     */
-    private fun requestStoragePermission(result: MethodChannel.Result) {
-        val sdk = Build.VERSION.SDK_INT
-        if (sdk < 23) {
-            result.success(true)
-            return
-        }
-        val perms = if (sdk >= 33) {
-            arrayOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO,
-                Manifest.permission.READ_MEDIA_AUDIO,
-            )
-        } else {
-            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
-        val granted = perms.all {
-            checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
-        }
-        if (granted) {
-            result.success(true)
-            return
-        }
-        // El Result se resuelve cuando el usuario contesta el diálogo; si hay
-        // uno previo colgado (raza doble-tap), fallar el viejo primero.
-        pendingStorageResult?.error("permission_pending", "solicitud anterior aún abierta", null)
-        pendingStorageResult = result
-        requestPermissions(perms, REQ_STORAGE_PERMISSION)
-    }
-
-    /** Solicita únicamente permisos runtime usados: micrófono y medios. */
-    private fun requestRuntimePermissions(result: MethodChannel.Result) {
-        if (Build.VERSION.SDK_INT < 23) {
-            result.success(true)
-            return
-        }
-        val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO)
-        if (Build.VERSION.SDK_INT >= 33) {
-            // Notificaciones propias del agente (avisos T3). Sin request runtime
-            // el sistema suprime las notificaciones (POST_NOTIFICATION=ignore).
-            permissions += Manifest.permission.POST_NOTIFICATIONS
-            permissions += Manifest.permission.READ_MEDIA_IMAGES
-            permissions += Manifest.permission.READ_MEDIA_VIDEO
-            permissions += Manifest.permission.READ_MEDIA_AUDIO
-        } else {
-            permissions += Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-        val missing = permissions.filter {
-            checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (missing.isEmpty()) {
-            result.success(true)
-            return
-        }
-        if (pendingStorageResult != null || pendingRuntimePermissionsResult != null) {
-            result.error("permission_pending", "solicitud anterior aún abierta", null)
-            return
-        }
-        pendingRuntimePermissionsResult = result
-        requestPermissions(missing.toTypedArray(), REQ_RUNTIME_PERMISSIONS)
     }
 
     override fun onRequestPermissionsResult(
@@ -360,17 +287,7 @@ class MainActivity : AudioServiceActivity() {
         if (contactsHandler?.onRequestPermissionsResult(requestCode, permissions, grantResults) == true) {
             return
         }
-        if (requestCode == REQ_STORAGE_PERMISSION) {
-            val ok = grantResults.isNotEmpty() &&
-                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-            pendingStorageResult?.success(ok)
-            pendingStorageResult = null
-        } else if (requestCode == REQ_RUNTIME_PERMISSIONS) {
-            val ok = grantResults.isNotEmpty() &&
-                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-            pendingRuntimePermissionsResult?.success(ok)
-            pendingRuntimePermissionsResult = null
-        }
+        runtimePermissions?.onRequestPermissionsResult(requestCode, grantResults)
     }
 
     override fun provideFlutterEngine(context: android.content.Context): FlutterEngine? {
@@ -400,6 +317,9 @@ class MainActivity : AudioServiceActivity() {
         dev.nanoai.mobile.automation.AutomationRuntimeService.onUiEngineAttached()
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        val permissions = runtimePermissions ?: RuntimePermissionCoordinator(this).also {
+            runtimePermissions = it
+        }
 
         val contacts = ContactsChannelHandler(this, ioScope).also { contactsHandler = it }
         MethodChannel(messenger, ContactsChannelHandler.CHANNEL_NAME)
@@ -420,7 +340,7 @@ class MainActivity : AudioServiceActivity() {
                     ioScope = ioScope,
                     mainHandler = mainHandler,
                     nativeSupervisor = runtimeScope.nativeSupervisor,
-                    onRequestStoragePermission = { result -> requestStoragePermission(result) },
+                    onRequestStoragePermission = permissions::requestStorage,
                 ),
             )
 
@@ -473,9 +393,15 @@ class MainActivity : AudioServiceActivity() {
         MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)
             .setMethodCallHandler(
                 DevicePermissionsChannelHandler(this) { result ->
-                    requestRuntimePermissions(result)
+                    permissions.requestDefaults(result)
                 },
             )
+
+        browserCompatibilityHandler?.close()
+        browserCompatibilityHandler = BrowserCompatibilityChannelHandler(
+            flutterEngine = flutterEngine,
+            requestWebMedia = permissions::requestWebMedia,
+        )
 
         val speechHandler = SpeechChannelHandler(this)
         speechChannelHandler = speechHandler
@@ -646,7 +572,5 @@ class MainActivity : AudioServiceActivity() {
         var isForeground: Boolean = false
 
         private val SINK_UI = Any()
-        private const val REQ_STORAGE_PERMISSION = 4101
-        private const val REQ_RUNTIME_PERMISSIONS = 4102
     }
 }

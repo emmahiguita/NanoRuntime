@@ -76,7 +76,7 @@ extension _ChatScreenComposer on _ChatScreenState {
                     ],
                   ),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // 1. Botón circular para adjuntar archivos o fotos
                       Semantics(
@@ -92,7 +92,9 @@ extension _ChatScreenComposer on _ChatScreenState {
                               height: compact ? 34 : 38,
                               child: Icon(
                                 Icons.add_circle_outline_rounded,
-                                color: colors.onSurface.withValues(alpha: 0.65),
+                                color: isDark
+                                    ? colors.onSurface.withValues(alpha: 0.70)
+                                    : const Color(0xFF64748B),
                                 size: compact ? 20 : 22,
                               ),
                             ),
@@ -120,12 +122,14 @@ extension _ChatScreenComposer on _ChatScreenState {
                             decoration: InputDecoration(
                               hintText: state.generating
                                   ? 'Pensando respuesta…'
-                                  : 'Escribe un mensaje a Nano AI…',
+                                  : 'Escribe un mensaje…',
                               hintStyle: TextStyle(
                                 fontFamily: 'Inter',
                                 fontSize: compact ? 13.5 : 14.5,
                                 fontWeight: FontWeight.w400,
-                                color: colors.onSurface.withValues(alpha: 0.40),
+                                color: isDark
+                                    ? colors.onSurface.withValues(alpha: 0.45)
+                                    : const Color(0xFF94A3B8),
                               ),
                               filled: false,
                               fillColor: Colors.transparent,

@@ -3,6 +3,7 @@ import '../../features/automation/engine/execution/tool_registry.dart';
 import '../models/chat_models.dart';
 import 'device_info.dart';
 import 'nano_identity_context.dart';
+import 'personal_language_policy.dart';
 
 /// Construye el contexto estable del modelo local.
 ///
@@ -22,9 +23,11 @@ abstract final class ChatSystemPrompt {
     bool includeTools = true,
     String mcpContext = '',
     String skillContext = '',
+    String ambientContext = '',
   }) {
     final core = <String>[
       'Eres NanoAI. ${NanoIdentityContext.description}',
+      PersonalLanguagePolicy.instructions,
       'Comunícate de forma natural, humana, empática y conversacional, adaptándote al registro del usuario. '
           'Responde cálido y conciso ante saludos, y estructurado y analítico ante consultas extensas o técnicas. '
           'Sigue el hilo de mensajes anteriores y entiende respuestas breves como «bien», «sí» o «esa» por su contexto. '
@@ -34,7 +37,8 @@ abstract final class ChatSystemPrompt {
       'En español usa ortografía completa: tildes, «ñ», signos de apertura (¿ ¡) y puntuación correctos. '
           'Sé claro y directo. No inventes datos ni afirmes una acción sin evidencia de herramienta. '
           'Para MCP usa únicamente el catálogo real adjunto; si no hay herramientas listadas, dilo y no inventes nombres.',
-      'Modelo: $modelName. Fecha local: ${now.toIso8601String()}.',
+      'Modelo: $modelName. Fecha y hora local: ${_formatFriendlyDate(now)} (${now.toIso8601String()}).',
+      if (ambientContext.trim().isNotEmpty) ambientContext.trim(),
       _deviceLine(device),
     ].where((line) => line.isNotEmpty).join('\n');
 
@@ -81,6 +85,37 @@ abstract final class ChatSystemPrompt {
       values.add('temperatura=${temperature.toStringAsFixed(1)} C');
     }
     return values.isEmpty ? '' : 'Dispositivo real: ${values.join(', ')}.';
+  }
+
+  static String _formatFriendlyDate(DateTime dt) {
+    const weekdays = [
+      'Lunes',
+      'Martes',
+      'Miércoles',
+      'Jueves',
+      'Viernes',
+      'Sábado',
+      'Domingo',
+    ];
+    const months = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre',
+    ];
+    final dayName = weekdays[(dt.weekday - 1) % 7];
+    final monthName = months[(dt.month - 1) % 12];
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '$dayName, ${dt.day} de $monthName de ${dt.year} $hour:$minute';
   }
 
   /// Escapa tokens especiales de plantilla (ChatML/Gemma/Llama) para que el

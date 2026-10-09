@@ -86,13 +86,17 @@ abstract final class MessagingSummaryMerger {
     ConversationSummaryItem existing,
     ConversationSummaryItem incoming,
   ) {
-    if (incoming.groupTitle != null &&
-        !ConversationGroupResolver.isGenericTitle(incoming.groupTitle)) {
-      return incoming.groupTitle;
+    final incomingTitle = ConversationGroupResolver.cleanTitle(
+      incoming.groupTitle ?? '',
+    );
+    if (!ConversationGroupResolver.isGenericTitle(incomingTitle)) {
+      return incomingTitle;
     }
-    if (existing.groupTitle != null &&
-        !ConversationGroupResolver.isGenericTitle(existing.groupTitle)) {
-      return existing.groupTitle;
+    final existingTitle = ConversationGroupResolver.cleanTitle(
+      existing.groupTitle ?? '',
+    );
+    if (!ConversationGroupResolver.isGenericTitle(existingTitle)) {
+      return existingTitle;
     }
     return null;
   }

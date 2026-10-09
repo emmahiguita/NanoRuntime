@@ -17,7 +17,14 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
     required bool isBusiness,
     ConversationDialogueState? dialogueState,
   }) async {
-    if (isBusiness) return null;
+    // El canal Business y el modo diagnóstico puro siguen la ruta de modelo.
+    // El agente personal normal sí debe conservar la respuesta determinista:
+    // evita latencia innecesaria y garantiza un fallback cuando el runtime local
+    // todavía no está listo.
+    if (isBusiness ||
+        PersonalConversationDiagnostic.appliesTo(conversationId)) {
+      return null;
+    }
 
     final resolved = await _personalResolver.resolveEarlyTurn(
       notification: notification,
@@ -84,6 +91,12 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
       return null;
     }
 
+    // El diagnóstico puro mide únicamente la salida real del modelo. Fuera de
+    // ese modo, el agente personal conserva memoria, estilo y conocimiento como
+    // recuperación honesta cuando el modelo no entrega un borrador.
+    if (PersonalConversationDiagnostic.appliesTo(conversationId)) {
+      return null;
+    }
     // 2. Canal Personal: delega en PersonalConversationResolver
     final personalFallback = await _personalResolver.resolveFallbackTurn(
       analysis: analysis,
@@ -115,12 +128,35 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
     bool isFast, {
     String userText = '',
   }) {
+    ExecutionBudget.current?.check();
     final act = const DialogueActClassifier().classify(userText).primaryAct;
     final validation = _outputGate.validate(
       userText: userText,
       act: act,
       candidateReply: reply,
     );
+    final personal = context.agentId == ConversationAgentId.personal;
+    // Un match de persona ya pasó por ejemplos habilitados y verificados por el
+    // dueño. Esa voz aprendida es la excepción deliberada a la política neutral;
+    // las salidas generativas continúan rechazando jerga no autorizada.
+    final trustedPersonaStyle = understanding.intent == 'persona_style_match';
+    final languageAccepted =
+        !personal ||
+        trustedPersonaStyle ||
+        PersonalLanguagePolicy.accepts(reply);
+    // Rechazar es obligatorio: una salida no aprobada no se despacha ni se sustituye.
+    if (personal && (!validation.isApproved || !languageAccepted)) {
+      return packConversationDraftResult(
+        reply: '',
+        understanding: understanding.withRequiredAction(),
+        suggestions: const [],
+        context: context,
+        conversationId: conversationId,
+        isFastPath: isFast,
+        decisionEngine: _decisionEngine,
+        allowRepair: false,
+      );
+    }
     final safeReply = validation.isApproved
         ? reply
         : (validation.safeFallbackReply ?? reply);
@@ -129,21 +165,33 @@ extension _ConversationReplyFallbacks on RuntimeConversationReplyComposer {
       act,
       userText: userText,
     );
-    _dialogueStateTracker.recordAgentTurn(
-      conversationId: conversationId,
-      act: isFast ? DialogueAct.acknowledgement : DialogueAct.statement,
-      statement: safeReply,
-      isQuestion: safeReply.contains('?'),
-    );
+    // Un borrador no se registra como enviado: el siguiente turno usa evidencia de memoria.
 
     return packConversationDraftResult(
       reply: safeReply,
+      // Conservar la salida real, pero retenerla si la barrera semántica falla.
       understanding: understanding,
-      suggestions: suggestions,
+      // Las variantes atraviesan la misma barrera que la respuesta principal.
+      suggestions: suggestions
+          .where(
+            (candidate) =>
+                (!personal ||
+                    trustedPersonaStyle ||
+                    PersonalLanguagePolicy.accepts(candidate)) &&
+                _outputGate
+                    .validate(
+                      userText: userText,
+                      act: act,
+                      candidateReply: candidate,
+                    )
+                    .isApproved,
+          )
+          .toList(),
       context: context,
       conversationId: conversationId,
       isFastPath: isFast,
       decisionEngine: _decisionEngine,
+      allowRepair: !personal,
     );
   }
 }

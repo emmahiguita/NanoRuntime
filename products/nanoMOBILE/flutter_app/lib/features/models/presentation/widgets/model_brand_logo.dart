@@ -19,6 +19,8 @@ class ModelBrandLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final info = _resolveBrand(name, isDetected);
+    // Mantiene la paleta original de cada familia, separada de los textos del catálogo.
+    const foreground = Colors.white;
     return Container(
       width: size,
       height: size,
@@ -28,7 +30,9 @@ class ModelBrandLogo extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: info.gradient,
         ),
-        borderRadius: BorderRadius.circular(size * 0.28), // Proporción squircle iOS
+        borderRadius: BorderRadius.circular(
+          size * 0.28,
+        ), // Proporción squircle iOS
         boxShadow: [
           BoxShadow(
             color: info.gradient.first.withValues(alpha: 0.28),
@@ -39,14 +43,14 @@ class ModelBrandLogo extends StatelessWidget {
       ),
       child: Center(
         child: info.icon != null
-            ? Icon(info.icon, size: size * 0.52, color: Colors.white)
+            ? Icon(info.icon, size: size * 0.52, color: foreground)
             : Text(
                 info.letter,
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: size * 0.44,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: foreground,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -113,9 +117,5 @@ class _BrandInfo {
   final IconData? icon;
   final String letter;
 
-  const _BrandInfo({
-    required this.gradient,
-    this.icon,
-    required this.letter,
-  });
+  const _BrandInfo({required this.gradient, this.icon, required this.letter});
 }

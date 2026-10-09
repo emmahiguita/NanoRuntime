@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../services/execution_budget.dart';
 
 import '../domain/executable_tool.dart';
 import '../domain/tool_input.dart';
@@ -13,16 +14,25 @@ final class ToolExecutor {
     required ToolExecutionContext<ToolArguments> context,
   }) async {
     final startedAt = DateTime.now();
+    final budget = ExecutionBudget(tool.definition.timeout);
     try {
-      final result = await tool
-          .execute(context)
-          .timeout(tool.definition.timeout);
+      // Un mismo plazo incluye espera, carga y generación; cancela el decoder al vencer.
+      final result = await budget
+          .run(() => tool.execute(context))
+          .timeout(
+            tool.definition.timeout,
+            onTimeout: () {
+              budget.cancel();
+              throw TimeoutException('Plazo agotado', tool.definition.timeout);
+            },
+          );
       return result.copyWith(
         startedAt: startedAt,
         finishedAt: DateTime.now(),
         executionId: context.executionId,
       );
     } on TimeoutException {
+      budget.cancel();
       final mayHaveEscaped = switch (tool.definition.sideEffect) {
         ToolSideEffect.externalWrite ||
         ToolSideEffect.communication ||

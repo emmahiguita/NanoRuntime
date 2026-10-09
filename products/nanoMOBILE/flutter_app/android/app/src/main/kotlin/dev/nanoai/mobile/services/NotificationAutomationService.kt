@@ -293,13 +293,14 @@ class NotificationAutomationService : NotificationListenerService() {
         if (cleanText.isEmpty() || cleanText.length > MAX_REPLY_CHARS) {
             return ReplyResult(false, "INVALID_TEXT")
         }
-        val source = (activeNotifications ?: emptyArray()).firstOrNull { it.key == key }
-            ?: return ReplyResult(false, "NOTIFICATION_GONE")
-
-        // WA-TOCTOU: si el postTime cambió, WhatsApp actualizó la notificación a un
-        // turno nuevo dentro del mismo chat; responder con el borrador viejo es stale.
-        if (expectedPostTime > 0L && source.postTime != expectedPostTime) {
-            return ReplyResult(false, "CONTEXT_CHANGED")
+        var source = (activeNotifications ?: emptyArray()).firstOrNull { it.key == key }
+        if (source == null && expectedContextFingerprint.isNotEmpty()) {
+            source = (activeNotifications ?: emptyArray()).firstOrNull {
+                contextFingerprint(it.notification) == expectedContextFingerprint
+            }
+        }
+        if (source == null) {
+            return ReplyResult(false, "NOTIFICATION_GONE")
         }
 
         val notification = source.notification
@@ -308,24 +309,27 @@ class NotificationAutomationService : NotificationListenerService() {
         val remoteInputs = textRemoteInputs(action)
         if (remoteInputs.isEmpty()) return ReplyResult(false, "REPLY_UNAVAILABLE")
 
+        val currentFingerprint = contextFingerprint(notification)
+        if (expectedContextFingerprint.isNotEmpty() &&
+            currentFingerprint != expectedContextFingerprint
+        ) {
+            return ReplyResult(false, "CONTEXT_CHANGED")
+        }
+
+        // Si no se proporcionó contextFingerprint, aplicamos chequeo estricto de postTime
+        if (expectedContextFingerprint.isEmpty() && expectedPostTime > 0L && source.postTime != expectedPostTime) {
+            return ReplyResult(false, "CONTEXT_CHANGED")
+        }
+
         // WA-RI-05: exigir la MISMA capacidad observada (índice, resultKey y
         // contexto de conversación), no "cualquier acción con RemoteInput".
         val currentActionIndex = notification.actions?.indexOf(action) ?: -1
-        if (expectedActionIndex >= 0 && currentActionIndex != expectedActionIndex) {
-            return ReplyResult(false, "CONTEXT_CHANGED")
-        }
         val currentRemoteInputKey = remoteInputs
             .firstOrNull(RemoteInput::getAllowFreeFormInput)
             ?.resultKey
             .orEmpty()
         if (expectedRemoteInputKey.isNotEmpty() &&
             currentRemoteInputKey != expectedRemoteInputKey
-        ) {
-            return ReplyResult(false, "CONTEXT_CHANGED")
-        }
-        val currentFingerprint = contextFingerprint(notification)
-        if (expectedContextFingerprint.isNotEmpty() &&
-            currentFingerprint != expectedContextFingerprint
         ) {
             return ReplyResult(false, "CONTEXT_CHANGED")
         }
@@ -730,8 +734,15 @@ class NotificationAutomationService : NotificationListenerService() {
             ?.toString().orEmpty().trim()
         val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim()
         var extractedGroupTitle = rawConvTitle
+        var extractedSender = lastMessage?.sender?.toString().orEmpty()
         if (extractedGroupTitle.isEmpty() && rawTitle.contains(" @ ")) {
-            extractedGroupTitle = rawTitle.split(" @ ", limit = 2).getOrNull(1)?.trim().orEmpty()
+            val parts = rawTitle.split(" @ ", limit = 2)
+            if (parts.size == 2) {
+                if (extractedSender.isEmpty()) {
+                    extractedSender = parts[0].trim()
+                }
+                extractedGroupTitle = parts[1].trim()
+            }
         }
         if (extractedGroupTitle.isNotEmpty()) {
             extractedGroupTitle = extractedGroupTitle.replace(Regex("""\s*\(\d+[^)]*\)"""), "").trim()
@@ -746,8 +757,15 @@ class NotificationAutomationService : NotificationListenerService() {
             shortcutId.contains("@g.us") ||
             notification.shortcutId?.contains("@g.us") == true ||
             rawTitle.contains(" @ ")
-        if (isGroup && extractedGroupTitle.isEmpty() && rawTitle.isNotEmpty() && rawTitle != lastMessage?.sender?.toString()) {
+        if (isGroup && extractedGroupTitle.isEmpty() && rawTitle.isNotEmpty() && rawTitle != extractedSender) {
             extractedGroupTitle = rawTitle.replace(Regex("""\s*\(\d+[^)]*\)"""), "").trim()
+        }
+        val finalSender = if (extractedSender.isNotEmpty()) {
+            extractedSender
+        } else if (!isGroup && rawTitle.isNotEmpty()) {
+            rawTitle
+        } else {
+            ""
         }
         val locusId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             notification.locusId?.id.orEmpty()
@@ -760,7 +778,7 @@ class NotificationAutomationService : NotificationListenerService() {
             locusId,
             senderPerson?.key.orEmpty(),
             extractedGroupTitle,
-            lastMessage?.sender?.toString().orEmpty(),
+            finalSender,
             if (isGroup) "group" else "direct",
         ).joinToString(separator = "\u0000")
     }

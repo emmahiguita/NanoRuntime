@@ -13,12 +13,11 @@ import '../../../../core/services/nano_runtime_api.dart';
 import '../../../../core/widgets/navigation/nano_universal_input.dart';
 import '../../../browser_ai/presentation/sheets/ai_web_sessions_sheet.dart';
 import '../../application/automation_coordinator_provider.dart'
-    show pendingRepliesProvider, ruleRegistryProvider;
+    show ruleRegistryProvider;
 import '../../application/automation_diagnostics.dart';
 import '../../application/automation_engine.dart';
 import '../../application/automation_engine_provider.dart';
 import '../../application/automation_feedback_presenter.dart';
-import '../../application/rule_creator.dart';
 import '../../domain/automation_result.dart';
 import '../../engine/agent_dependencies.dart';
 import '../../engine/execution/agent_tool_dispatcher.dart'
@@ -44,16 +43,13 @@ class AutomationDashboard extends ConsumerStatefulWidget {
     this.onRulesTap,
     this.onBusinessTap,
     this.onPersonalAgentTap,
-    this.onBotStudioTap,
-    this.onSkillsMcpTap,
     this.onDevTap,
   });
 
   final VoidCallback? onSettingsTap, onMessagesTap, onRulesTap;
   // El contexto pertenece a la tarjeta: permite medir su origen, no el dashboard.
   final ValueChanged<BuildContext>? onBusinessTap, onPersonalAgentTap;
-  final VoidCallback? onBotStudioTap;
-  final VoidCallback? onSkillsMcpTap, onDevTap;
+  final VoidCallback? onDevTap;
 
   @override
   ConsumerState<AutomationDashboard> createState() =>
@@ -116,12 +112,6 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
-    final drafts = ref
-        .watch(pendingRepliesProvider)
-        .maybeWhen(
-          data: (list) => list.where((d) => d.isActionable).length,
-          orElse: () => 0,
-        );
     final rules = ref.watch(ruleRegistryProvider);
     final isW4b = rules.isWhatsAppRuleActive(MessagingPackage.whatsappBusiness);
 
@@ -146,7 +136,6 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         lastGoal: _lastGoal,
         lastReason: _lastReason,
         conversationActive: _voiceCtrl.conversationActive,
-        pendingDraftsCount: drafts,
         rulesCount: rules.rules.where((r) => r.enabled).length,
         businessProductsCount: ref
             .watch(businessFactsNotifierProvider)
@@ -177,16 +166,10 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         onBusinessTap: widget.onBusinessTap,
         onRulesTap: widget.onRulesTap,
         onSettingsTap: widget.onSettingsTap,
-        onBotStudioTap: widget.onBotStudioTap,
-        onSkillsMcpTap: widget.onSkillsMcpTap,
         onAiWebTap: () => AiWebSessionsSheet.show(context),
         onBrowserTap: () => context.push('/browser'),
         onChatTap: () => context.push('/chat'),
         onTerminalTap: () => context.push('/terminal'),
-        onTimeRuleTap: () => AutomationDashboardDialogs.createTimeRule(
-          context: context,
-          ruleCreator: ref.read(ruleCreatorProvider),
-        ),
       ),
     );
   }

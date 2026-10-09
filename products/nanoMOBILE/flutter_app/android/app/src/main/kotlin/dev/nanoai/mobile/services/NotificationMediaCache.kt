@@ -29,6 +29,9 @@ object NotificationMediaCache {
     private const val MEDIA_DIR_NAME = "nano_notif_media"
     private const val MAX_CACHE_BYTES = 50L * 1024L * 1024L // 50 MB
     private const val MAX_FILE_AGE_MS = 48L * 3600L * 1000L // 48 horas
+    private const val PURGE_INTERVAL_MS = 5L * 60L * 1000L // 5 minutos entre purgas
+    @Volatile
+    private var lastPurgeTimeMs = 0L
 
     fun getMediaDir(cacheDir: File): File {
         val dir = File(cacheDir, MEDIA_DIR_NAME)
@@ -38,14 +41,19 @@ object NotificationMediaCache {
 
     /**
      * Purga oportunista de archivos viejos o que superen la cuota en caché.
+     * Throttled para evitar I/O masivo en ráfagas de notificaciones.
      */
-    fun purgeMediaCache(cacheDir: File) {
+    fun purgeMediaCache(cacheDir: File, force: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!force && (now - lastPurgeTimeMs < PURGE_INTERVAL_MS)) {
+            return
+        }
+        lastPurgeTimeMs = now
         try {
             val dir = File(cacheDir, MEDIA_DIR_NAME)
             if (!dir.exists() || !dir.isDirectory) return
 
             val files = dir.listFiles() ?: return
-            val now = System.currentTimeMillis()
             var totalBytes = 0L
 
             // 1. Eliminar archivos que superen el TTL de 48h
@@ -94,6 +102,9 @@ object NotificationMediaCache {
                     else -> "jpg"
                 }
                 val file = File(dir, "img_${postTime}.$extension")
+                if (file.exists() && file.length() > 0L) {
+                    return file.absolutePath
+                }
                 contentResolver.openInputStream(imgMsg.dataUri!!)?.use { input ->
                     FileOutputStream(file).use { out -> input.copyTo(out) }
                 } ?: return null
@@ -103,6 +114,9 @@ object NotificationMediaCache {
                     ?: (extras.getParcelable("android.picture") as? Bitmap)
                 if (bitmap == null) return null
                 val file = File(dir, "img_${postTime}.jpg")
+                if (file.exists() && file.length() > 0L) {
+                    return file.absolutePath
+                }
                 FileOutputStream(file).use { out ->
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
                 }
@@ -127,6 +141,9 @@ object NotificationMediaCache {
             } ?: return null
             val dir = getMediaDir(cacheDir)
             val file = File(dir, "vid_${postTime}.mp4")
+            if (file.exists() && file.length() > 0L) {
+                return file.absolutePath
+            }
             contentResolver.openInputStream(vidMsg.dataUri!!)?.use { input ->
                 FileOutputStream(file).use { out -> input.copyTo(out) }
             } ?: return null
@@ -150,6 +167,9 @@ object NotificationMediaCache {
             } ?: return null
             val dir = getMediaDir(cacheDir)
             val file = File(dir, "voice_${postTime}.opus")
+            if (file.exists() && file.length() > 0L) {
+                return file.absolutePath
+            }
             contentResolver.openInputStream(audioMsg.dataUri!!)?.use { input ->
                 FileOutputStream(file).use { out -> input.copyTo(out) }
             } ?: return null
@@ -173,6 +193,9 @@ object NotificationMediaCache {
             } ?: return null
             val dir = getMediaDir(cacheDir)
             val file = File(dir, "document_${postTime}.pdf")
+            if (file.exists() && file.length() > 0L) {
+                return file.absolutePath
+            }
             contentResolver.openInputStream(pdfMsg.dataUri!!)?.use { input ->
                 FileOutputStream(file).use { out -> input.copyTo(out) }
             } ?: return null

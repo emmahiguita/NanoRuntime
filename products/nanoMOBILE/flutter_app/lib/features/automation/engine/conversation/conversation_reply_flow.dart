@@ -11,23 +11,29 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
     NotificationObject notification, {
     ConversationDecisionContext? decisionContext,
   }) async {
+    ExecutionBudget.current?.check();
     final enrichment = await ConversationMediaEnricher.enrich(notification);
+    ExecutionBudget.current?.check();
     final effectiveNotification = enrichment.notification;
 
-    final conversationId = resolveConversationIdentity(effectiveNotification).key.id;
+    final conversationId = resolveConversationIdentity(
+      effectiveNotification,
+    ).key.id;
     final context =
         decisionContext ??
         _decisionContext?.call(effectiveNotification) ??
         const ConversationDecisionContext();
-    final memory = ConversationContextResolver.resolve(
+    final memory = await ConversationDurableContext.resolve(
       store: _memoryStore,
       conversationId: conversationId,
       notification: effectiveNotification,
     );
     final isBusiness =
-        effectiveNotification.packageName == MessagingPackage.whatsappBusiness ||
+        effectiveNotification.packageName ==
+            MessagingPackage.whatsappBusiness ||
         context.agentId == ConversationAgentId.business ||
         context.agentRole == ConversationAgentRole.sales;
+    _syncDialogueEvidence(conversationId, memory);
     final dialogueState = _dialogueStateTracker.getState(conversationId);
     final analysis = _turnRouter.analyze(
       notification: effectiveNotification,
@@ -38,7 +44,9 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
 
     // 0. Deduplicación determinista: descarta ráfagas redundantes de WhatsApp.
     // En chats grupales discrimina por remitente para evitar descartar mensajes válidos entre usuarios.
-    final incomingEvent = IncomingMessage.fromNotification(effectiveNotification);
+    final incomingEvent = IncomingMessage.fromNotification(
+      effectiveNotification,
+    );
     final groupSender = effectiveNotification.isGroup
         ? (effectiveNotification.senderKey.isNotEmpty
               ? effectiveNotification.senderKey
@@ -62,14 +70,16 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
     if (enrichment.audioUnprocessed || enrichment.photoUnprocessed) {
       final isAudio = enrichment.audioUnprocessed;
       final reply = isAudio
-          ? 'Estoy algo ocupado y no puedo escuchar audios ahorita, ¿qué me decías por fa?'
-          : 'Recibí la foto, en un momento la reviso con calma.';
-      final opts = isAudio
-          ? ['No puedo escuchar audios ahorita, cuéntame por texto', 'Dame un momento y te escucho el audio']
-          : ['Recibí la foto, en un momento la reviso', 'Dame un momento para ver la imagen'];
+          ? '¿Me cuentas por texto lo que dice el audio?'
+          : '¿Me cuentas qué quieres mostrarme en la foto?';
+      final opts = [reply];
       return _packReply(
         reply,
-        ConversationUnderstanding(reply: reply, intent: isAudio ? 'audio_unprocessed' : 'photo_unprocessed', options: opts),
+        ConversationUnderstanding(
+          reply: reply,
+          intent: isAudio ? 'audio_unprocessed' : 'photo_unprocessed',
+          options: opts,
+        ),
         opts,
         context,
         conversationId,
@@ -133,7 +143,7 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
 
     // 3. Control térmico: evita bloquear el dispositivo con inferencia pesada.
     final thermal = await _thermalStatus?.call();
-    if (thermal != null && thermal >= 4) {
+    if (thermal != null && thermal >= 3) {
       debugPrint('[conversation-compose] thermal $thermal: suprimido');
       return null;
     }

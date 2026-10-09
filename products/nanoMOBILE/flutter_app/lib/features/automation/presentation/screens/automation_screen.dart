@@ -13,9 +13,7 @@ import '../system/nano_system_screen.dart';
 import '../widgets/automation_dashboard.dart';
 import 'automation_dev_screen.dart';
 import 'automation_rules_screen.dart';
-import 'mcp_skills_hub_screen.dart';
 import '../personal/nano_personal_screen.dart';
-import '../bot_studio/bot_studio_screen.dart';
 
 /// El centro de control operativo de NanoAutomation.
 ///
@@ -39,8 +37,6 @@ class AutomationScreen extends ConsumerWidget {
       onRulesTap: () => _openRules(context),
       onBusinessTap: _openBusiness,
       onPersonalAgentTap: _openPersonalAgent,
-      onBotStudioTap: () => _openBotStudio(context),
-      onSkillsMcpTap: () => _openSkillsMcp(context),
       onDevTap: () => _openDev(context),
     );
 
@@ -74,12 +70,6 @@ class AutomationScreen extends ConsumerWidget {
     );
   }
 
-  static void _openSkillsMcp(BuildContext context) {
-    Navigator.of(context).push(
-      nanoGlassPageRoute<void>(builder: (_) => const McpSkillsHubScreen()),
-    );
-  }
-
   static void _openRules(BuildContext context) {
     Navigator.of(context).push(
       nanoGlassPageRoute<void>(builder: (_) => const AutomationRulesScreen()),
@@ -104,11 +94,5 @@ class AutomationScreen extends ConsumerWidget {
         builder: (_) => const NanoPersonalScreen(),
       ),
     );
-  }
-
-  static void _openBotStudio(BuildContext context) {
-    Navigator.of(
-      context,
-    ).push(nanoGlassPageRoute<void>(builder: (_) => const BotStudioScreen()));
   }
 }

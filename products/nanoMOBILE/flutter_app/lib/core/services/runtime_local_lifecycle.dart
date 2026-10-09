@@ -17,7 +17,11 @@ mixin _RuntimeLocalLifecycle
   bool get _usesLocalRuntime => _usesLiteRt || _usesMnn;
 
   Future<T> _serialize<T>(Future<T> Function() action) {
-    final result = _lifecycleTail.then((_) => action());
+    final result = _lifecycleTail.then((_) {
+      // No comienza una carga cuyo solicitante ya agotó el plazo en la cola.
+      ExecutionBudget.current?.check();
+      return action();
+    });
     _lifecycleTail = result.then<void>(
       (_) {},
       onError: (Object _, StackTrace __) {},
@@ -25,11 +29,16 @@ mixin _RuntimeLocalLifecycle
     return result;
   }
 
-  Future<EngineStatus> start({String? modelPath, ModelBackendType? backendType}) => _serialize(() async {
+  Future<EngineStatus> start({
+    String? modelPath,
+    ModelBackendType? backendType,
+  }) => _serialize(() async {
     final path = modelPath ?? _selectedPath ?? state.modelPath;
-    final target = backendType ?? (modelPath == null
-        ? _selectedBackend
-        : NeuralCatalog.backendForPath(modelPath));
+    final target =
+        backendType ??
+        (modelPath == null
+            ? _selectedBackend
+            : NeuralCatalog.backendForPath(modelPath));
     _selectedBackend = target;
     if (target == ModelBackendType.gguf) {
       if (liteRt.isConfigured && !await liteRt.release()) {
@@ -42,13 +51,18 @@ mixin _RuntimeLocalLifecycle
       _watchdog.start();
       return _startGguf(modelPath: path);
     }
-    if (target == ModelBackendType.litertlm && _selectedPath == path &&
+    if (target == ModelBackendType.litertlm &&
+        _selectedPath == path &&
         liteRt.isConfigured &&
-        state.phase == EnginePhase.ready) {
+        state.phase == EnginePhase.ready &&
+        await liteRt.isReady()) {
       return state;
     }
-    if (target == ModelBackendType.mnn && _selectedPath == path &&
-        mnn.isConfigured && state.phase == EnginePhase.ready) {
+    if (target == ModelBackendType.mnn &&
+        _selectedPath == path &&
+        mnn.isConfigured &&
+        state.phase == EnginePhase.ready &&
+        await mnn.isReady()) {
       return state;
     }
     _watchdog.pause();

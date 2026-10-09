@@ -21,8 +21,10 @@ import '../../../../core/widgets/navigation/nano_nav_constants.dart';
 import '../../domain/messaging_platform.dart';
 import '../../engine/business/business_facts_providers.dart';
 import '../business/business_document_library_dialog.dart';
+import 'messaging_ambient_backdrop.dart';
 import 'messaging_apps_bar.dart';
 import 'messaging_center_banners.dart';
+import 'messaging_control_deck.dart';
 import 'messaging_center_header.dart';
 import 'messaging_error_card.dart';
 import 'messaging_center_providers.dart';
@@ -69,97 +71,114 @@ class _MessagingCenterViewState extends ConsumerState<MessagingCenterView>
     final accessAsync = ref.watch(notificationAccessProvider);
     final currentTab = ref.watch(selectedCategoryTabProvider);
     final businessFacts = ref.watch(businessFactsNotifierProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
-    final bottomReserve =
-        isLandscape
-            ? kNanoBarScrollReserveLandscape
-            : kNanoBarScrollReserve;
+    final bottomReserve = isLandscape
+        ? kNanoBarScrollReserveLandscape
+        : kNanoBarScrollReserve;
 
-    return CustomScrollView(
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      slivers: [
-        SliverPadding(
-          padding: EdgeInsets.fromLTRB(
-            NanoSpacing.md,
-            isLandscape ? NanoSpacing.xs : NanoSpacing.md,
-            NanoSpacing.md,
-            0,
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ColoredBox(
+            color: isDark ? const Color(0xFF09111F) : const Color(0xFFF8FAFC),
           ),
-          sliver: SliverList(
-            delegate: SliverChildListDelegate([
-              // 1. Header principal estilizado
-              MessagingCenterHeader(
-                onOpenLibrary:
-                    () => BusinessDocumentLibraryDialog.show(
+        ),
+        // El paisaje y su neblina terminan antes de la primera conversación.
+        MessagingAmbientBackdrop(isDark: isDark),
+        CustomScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                NanoSpacing.md,
+                isLandscape ? 2 : 6,
+                NanoSpacing.md,
+                0,
+              ),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // 1. Encabezado iOS Glassed compacto
+                  MessagingCenterHeader(
+                    onOpenLibrary: () => BusinessDocumentLibraryDialog.show(
                       context,
                       businessFacts,
                     ),
-              ),
-              const SizedBox(height: NanoSpacing.md),
-
-              // 2. Fila horizontal de selección de apps
-              const MessagingAppsBar(),
-              const SizedBox(height: NanoSpacing.sm),
-
-              // 3. Barra de búsqueda rápida
-              const MessagingSearchBar(),
-              const SizedBox(height: NanoSpacing.sm),
-
-              // 4. Banner de estado de conexión del listener de notificaciones
-              accessAsync.when(
-                data: (status) {
-                  if (!status.accessGranted) {
-                    return MessagingPermissionBanner(
-                      icon: Icons.notifications_off_rounded,
-                      color: const Color(0xFFFF6B35),
-                      title: 'Permiso de Notificaciones requerido',
-                      subtitle:
-                          'NanoAI necesita acceso para leer y responder mensajes en segundo plano.',
-                      actionLabel: 'Conceder permiso',
-                      onAction: () async {
-                        await NanoRuntimeApi.instance
-                            .openNotificationAccessSettings();
-                        ref.invalidate(notificationAccessProvider);
-                      },
-                    );
-                  }
-                  if (!status.connected) {
-                    return MessagingPermissionBanner(
-                      icon: Icons.link_off_rounded,
-                      color: const Color(0xFFFFBB00),
-                      title: 'Listener desconectado',
-                      subtitle:
-                          'El servicio de captura de notificaciones está inactivo.',
-                      actionLabel: 'Reconectar',
-                      onAction: () async {
-                        await NanoRuntimeApi.instance
-                            .openNotificationAccessSettings();
-                        ref.invalidate(notificationAccessProvider);
-                      },
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-                loading: () => const SizedBox.shrink(),
-                error:
-                    (error, _) => MessagingErrorCard(
-                      error: error,
-                      onRetry:
-                          () => ref.invalidate(notificationAccessProvider),
+                  ),
+                  const SizedBox(height: 10),
+                  MessagingControlDeck(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const MessagingAppsBar(),
+                        const SizedBox(height: 10),
+                        const MessagingSearchBar(),
+                        accessAsync.when(
+                          data: (status) {
+                            if (!status.accessGranted) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 9),
+                                child: MessagingPermissionBanner(
+                                  icon: Icons.notifications_off_rounded,
+                                  color: const Color(0xFFFF6B35),
+                                  title: 'Permiso de Notificaciones requerido',
+                                  subtitle:
+                                      'NanoAI necesita acceso para leer y responder mensajes en segundo plano.',
+                                  actionLabel: 'Conceder permiso',
+                                  onAction: () async {
+                                    await NanoRuntimeApi.instance
+                                        .openNotificationAccessSettings();
+                                    ref.invalidate(notificationAccessProvider);
+                                  },
+                                ),
+                              );
+                            }
+                            if (!status.connected) {
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 9),
+                                child: MessagingPermissionBanner(
+                                  icon: Icons.link_off_rounded,
+                                  color: const Color(0xFFFFBB00),
+                                  title: 'Listener desconectado',
+                                  subtitle:
+                                      'El servicio de captura de notificaciones está inactivo.',
+                                  actionLabel: 'Reconectar',
+                                  onAction: () async {
+                                    await NanoRuntimeApi.instance
+                                        .openNotificationAccessSettings();
+                                    ref.invalidate(notificationAccessProvider);
+                                  },
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                          loading: () => const SizedBox.shrink(),
+                          error: (error, _) => Padding(
+                            padding: const EdgeInsets.only(top: 9),
+                            child: MessagingErrorCard(
+                              error: error,
+                              onRetry: () =>
+                                  ref.invalidate(notificationAccessProvider),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        const MessagingFilterChips(),
+                      ],
                     ),
+                  ),
+                  const SizedBox(height: 8),
+                ]),
               ),
-
-              // 5. Filtros de categorías (Todos, No leídos, Personal, Negocios, Contactos)
-              const MessagingFilterChips(),
-              const SizedBox(height: NanoSpacing.sm),
-            ]),
-          ),
+            ),
+            currentTab == MessagingCategoryFilter.contacts
+                ? const MessagingContactsView()
+                : const MessagingConversationsView(),
+            SliverToBoxAdapter(child: SizedBox(height: bottomReserve)),
+          ],
         ),
-        currentTab == MessagingCategoryFilter.contacts
-            ? const MessagingContactsView()
-            : const MessagingConversationsView(),
-        SliverToBoxAdapter(child: SizedBox(height: bottomReserve)),
       ],
     );
   }

@@ -65,6 +65,28 @@ object WhatsAppMediaVerifier {
             }
         }
 
+        // WhatsApp ofusca IDs en algunas versiones. Como respaldo solo se acepta
+        // coincidencia exacta dentro del tercio superior, nunca texto del cuerpo.
+        val rootBounds = Rect().also(root::getBoundsInScreen)
+        for (candidate in listOfNotNull(expectedAlias, targetContact)) {
+            val expected = normalizeIdentity(candidate)
+            val nodes = root.findAccessibilityNodeInfosByText(candidate).orEmpty()
+            try {
+                if (nodes.any { node ->
+                        val bounds = Rect().also(node::getBoundsInScreen)
+                        !node.isEditable && rootBounds.height() > 0 &&
+                            bounds.centerY() <= rootBounds.top + (rootBounds.height() * 0.35f) &&
+                            listOfNotNull(node.text?.toString(), node.contentDescription?.toString())
+                                .any { normalizeIdentity(it) == expected }
+                    }) {
+                    Log.i(TAG, "Destinatario confirmado en el área de encabezado de WhatsApp")
+                    return true
+                }
+            } finally {
+                nodes.forEach(AccessibilityNodeInfo::recycle)
+            }
+        }
+
         Log.w(TAG, "Fail-closed: el encabezado no confirmó la identidad solicitada")
         return false
     }

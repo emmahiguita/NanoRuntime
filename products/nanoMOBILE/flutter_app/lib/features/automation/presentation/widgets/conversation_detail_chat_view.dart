@@ -5,25 +5,35 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
   Widget _buildCapabilityBadge(AutomationVisualPalette visual) {
     final cap = WhatsAppCapabilityResolver.resolve(_activeNotification);
     final isBg = cap.text == WhatsAppSendCapability.backgroundSupported;
-    final color = isBg ? const Color(0xFF25D366) : Colors.amber;
+    final color = isBg ? (visual.isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)) : const Color(0xFFF59E0B);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 4, 16, 6),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: isBg ? 0.10 : 0.08),
+        color: visual.isDark ? const Color(0xFF1E293B).withValues(alpha: 0.45) : Colors.white.withValues(alpha: 0.70),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: isBg ? 0.30 : 0.25), width: 0.8),
+        border: Border.all(
+          color: visual.isDark ? Colors.white.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.85),
+          width: 0.9,
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(isBg ? Icons.bolt_rounded : Icons.info_outline_rounded, size: 13, color: color),
-          const SizedBox(width: 5),
+          const SizedBox(width: 6),
           Expanded(
             child: Text(
-              isBg ? 'Texto / Link ✓ En segundo plano · Nano permanece en pantalla' : 'Sin notificación activa · El envío requiere interacción',
-              style: TextStyle(color: color, fontFamily: 'Inter', fontFamilyFallback: ConversationDetailSheet._sfFallback, fontSize: 11, fontWeight: FontWeight.w600),
+              isBg ? 'En segundo plano · Nano permanece en pantalla' : 'Sin notificación activa · Requiere interacción',
+              style: TextStyle(
+                color: color,
+                fontFamily: 'Inter',
+                fontFamilyFallback: ConversationDetailSheet._sfFallback,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

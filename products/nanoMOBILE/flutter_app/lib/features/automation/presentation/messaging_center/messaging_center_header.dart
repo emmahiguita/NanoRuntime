@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/theme/nano_type.dart';
+import 'messaging_center_providers.dart';
 import 'messaging_channel_sheet.dart';
 
-/// Encabezado principal del Centro de Mensajería con título y botón de conexión.
+/// Encabezado principal del Centro de Mensajería con estilo iOS Glassed,
+/// título tipográfico limpio, indicador de cuentas/no leídos y botones de acción translúcidos.
 class MessagingCenterHeader extends ConsumerWidget {
   final VoidCallback? onConnectApp;
   final VoidCallback? onOpenLibrary;
@@ -17,11 +17,11 @@ class MessagingCenterHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colors = NanoThemeExtension.of(context).colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accentColor = isDark ? const Color(0xFF00FF88) : colors.primary;
+    final unreadCount = ref.watch(pendingRepliesCountProvider);
     final canPop = Navigator.of(context).canPop();
-    final compact = MediaQuery.sizeOf(context).width < 390;
+
+    final unreadText = unreadCount > 0 ? '$unreadCount sin leer' : 'Al día';
 
     return Hero(
       tag: 'nano_messaging_hero',
@@ -34,120 +34,106 @@ class MessagingCenterHeader extends ConsumerWidget {
               Semantics(
                 label: 'Volver',
                 button: true,
-                child: IconButton(
-                  visualDensity: VisualDensity.compact,
-                  icon: Icon(Icons.arrow_back_rounded, color: colors.onSurface),
-                  onPressed: () {
-                    Navigator.of(context).maybePop();
-                  },
+                child: _IosGlassIconButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  size: 38,
+                  iconSize: 18,
+                  onTap: () => Navigator.of(context).maybePop(),
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 8),
             ],
-            // Identidad visual compacta del centro.
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: isDark ? 0.15 : 0.10),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: accentColor.withValues(alpha: isDark ? 0.35 : 0.40),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: accentColor.withValues(alpha: isDark ? 0.25 : 0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Icon(Icons.forum_rounded, color: accentColor, size: 19),
-              ),
-            ),
-            const SizedBox(width: NanoSpacing.sm + 4),
-            // Título y subtítulo descriptivo
+            // Título principal y estado de no leídos estilo iOS
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  Text(
+                    'Mensajes',
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontSize: 27,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.7,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 1.5),
                   Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          'Centro de Mensajería',
-                          overflow: TextOverflow.ellipsis,
-                          style: NanoType.title(colors.onSurface).copyWith(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                            letterSpacing: -0.25,
-                          ),
+                      Text(
+                        'Todas tus cuentas',
+                        style: TextStyle(
+                          color: isDark
+                              ? Colors.white60
+                              : const Color(0xFF64748B),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      if (!compact) ...[
-                        const SizedBox(width: 7),
-                        _PrivateStatusPill(color: accentColor),
-                      ],
+                      const SizedBox(width: 5),
+                      Text(
+                        '·',
+                        style: TextStyle(
+                          color: isDark
+                              ? Colors.white38
+                              : const Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF10B981,
+                              ).withValues(alpha: 0.45),
+                              blurRadius: 3,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        unreadText,
+                        style: TextStyle(
+                          color: isDark
+                              ? const Color(0xFF34D399)
+                              : const Color(0xFF059669),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    'Conversaciones reales · datos locales',
-                    style: NanoType.caption(
-                      colors.onSurfaceVariant,
-                    ).copyWith(fontSize: 10.5),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: NanoSpacing.xs),
-            // Acceso directo a PDFs guardados: evita buscarlos en otro módulo.
-            if (onOpenLibrary != null)
-              IconButton(
+            // Botones de acción translúcidos iOS Frosted Glass compactos
+            if (onOpenLibrary != null) ...[
+              _IosGlassIconButton(
+                icon: Icons.folder_open_rounded,
+                size: 34,
+                iconSize: 17,
                 tooltip: 'Biblioteca PDF',
-                visualDensity: VisualDensity.compact,
-                onPressed: onOpenLibrary,
-                icon: Icon(Icons.folder_open_rounded, color: accentColor),
+                onTap: onOpenLibrary!,
               ),
-            // Abre controles reales; en ancho compacto conserva una zona táctil amplia.
-            InkWell(
+              const SizedBox(width: 6),
+            ],
+            _IosGlassIconButton(
+              icon: Icons.edit_square,
+              size: 34,
+              iconSize: 16,
+              tooltip: 'Gestionar Canales',
               onTap:
                   onConnectApp ?? () => showMessagingChannelSheet(context, ref),
-              customBorder: const CircleBorder(),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: compact ? 9 : 10,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: isDark ? 0.12 : 0.10),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: accentColor.withValues(alpha: isDark ? 0.30 : 0.40),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.add_rounded, size: 14, color: accentColor),
-                    if (!compact) ...[
-                      const SizedBox(width: 4),
-                      Text(
-                        'Canales',
-                        style: TextStyle(
-                          color: accentColor,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
             ),
           ],
         ),
@@ -156,35 +142,63 @@ class MessagingCenterHeader extends ConsumerWidget {
   }
 }
 
-class _PrivateStatusPill extends StatelessWidget {
-  final Color color;
-  const _PrivateStatusPill({required this.color});
+/// Botón circular con efecto iOS Frosted Glass, borde translúcido y feedback táctil suave.
+class _IosGlassIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final String? tooltip;
+  final double size;
+  final double iconSize;
+
+  const _IosGlassIconButton({
+    required this.icon,
+    required this.onTap,
+    this.tooltip,
+    this.size = 34,
+    this.iconSize = 17,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.lock_outline_rounded, size: 8, color: color),
-          const SizedBox(width: 3),
-          Text(
-            'PRIVADO',
-            style: TextStyle(
-              color: color,
-              fontSize: 7.5,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.35,
-            ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final glassBg = isDark
+        ? const Color(0xFF1E293B).withValues(alpha: 0.48)
+        : Colors.white.withValues(alpha: 0.45);
+    final glassBorder = isDark
+        ? Colors.white.withValues(alpha: 0.15)
+        : Colors.white.withValues(alpha: 0.66);
+    final iconColor = isDark ? Colors.white70 : const Color(0xFF334155);
+
+    final button = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(size / 2),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: glassBg,
+            shape: BoxShape.circle,
+            border: Border.all(color: glassBorder, width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
-        ],
+          child: Center(
+            child: Icon(icon, size: iconSize, color: iconColor),
+          ),
+        ),
       ),
     );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip!, child: button);
+    }
+    return button;
   }
 }

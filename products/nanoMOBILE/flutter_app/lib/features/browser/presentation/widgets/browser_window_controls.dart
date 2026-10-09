@@ -1,11 +1,16 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// Agrupa acciones secundarias de ventana sin llenar la barra de botones.
-/// Cada opción conserva su callback existente; no hay entradas sin acción.
+/// Acciones secundarias de ventana compactas sin sobrecargar la barra.
+///
+/// - QUÉ HACE: Despliega el menú emergente de opciones secundarias con ancho controlado.
+/// - CÓMO FUNCIONA: Usa un botón PopupMenu de 34x34 con icono de 18px.
+/// - POR QUÉ: Optimiza el espacio disponible para el campo de dirección web (<200 líneas).
 class BrowserWindowControls extends StatelessWidget {
   final VoidCallback? onOptions, onMinimize, onMaximize, onClose;
   final VoidCallback? onBack, onForward, onReload;
   final bool canGoBack, canGoForward, minimized, maximized;
+
   const BrowserWindowControls({
     super.key,
     this.onOptions,
@@ -21,61 +26,51 @@ class BrowserWindowControls extends StatelessWidget {
     this.maximized = false,
   });
 
-  /// Las acciones del historial aparecen deshabilitadas si no hay destino.
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final actions = <String, (String, IconData, VoidCallback?)>{
       if (onOptions != null)
-        'options': ('Opciones de página', Icons.tune_rounded, onOptions),
+        'options': ('Opciones de página', CupertinoIcons.slider_horizontal_3, onOptions),
       if (onBack != null)
-        'back': (
-          'Página anterior',
-          Icons.arrow_back_rounded,
-          canGoBack ? onBack : null,
-        ),
+        'back': ('Página anterior', CupertinoIcons.arrow_left, canGoBack ? onBack : null),
       if (onForward != null)
-        'forward': (
-          'Página siguiente',
-          Icons.arrow_forward_rounded,
-          canGoForward ? onForward : null,
-        ),
+        'forward': ('Página siguiente', CupertinoIcons.arrow_right, canGoForward ? onForward : null),
       if (onReload != null)
-        'reload': ('Recargar página', Icons.refresh_rounded, onReload),
+        'reload': ('Recargar página', CupertinoIcons.arrow_clockwise, onReload),
       if (onMinimize != null)
-        'minimize': (
-          minimized ? 'Restaurar ventana' : 'Minimizar ventana',
-          Icons.minimize_rounded,
-          onMinimize,
-        ),
+        'minimize': (minimized ? 'Restaurar ventana' : 'Minimizar ventana', CupertinoIcons.minus, onMinimize),
       if (onMaximize != null)
-        'maximize': (
-          maximized ? 'Restaurar tamaño' : 'Ampliar ventana',
-          Icons.open_in_full_rounded,
-          onMaximize,
-        ),
+        'maximize': (maximized ? 'Restaurar tamaño' : 'Ampliar ventana', CupertinoIcons.arrow_up_left_arrow_down_right, onMaximize),
       if (onClose != null)
-        'close': ('Cerrar pestaña', Icons.close_rounded, onClose),
+        'close': ('Cerrar pestaña', CupertinoIcons.xmark, onClose),
     };
-    return PopupMenuButton<String>(
-      tooltip: 'Acciones del navegador',
-      useRootNavigator: true,
-      icon: const Icon(Icons.more_vert_rounded, size: 20),
-      constraints: const BoxConstraints(minWidth: 220, maxWidth: 320),
-      onSelected: (action) => actions[action]?.$3?.call(),
-      itemBuilder: (_) => [
-        for (final entry in actions.entries)
-          PopupMenuItem(
-            value: entry.key,
-            enabled: entry.value.$3 != null,
-            child: Row(
-              children: [
-                Icon(entry.value.$2, size: 20),
-                const SizedBox(width: 12),
-                Expanded(child: Text(entry.value.$1)),
-              ],
+
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: PopupMenuButton<String>(
+        tooltip: 'Acciones del navegador',
+        useRootNavigator: true,
+        padding: EdgeInsets.zero,
+        icon: Icon(CupertinoIcons.ellipsis_vertical, size: 17, color: isDark ? Colors.white70 : Colors.black87),
+        constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
+        onSelected: (action) => actions[action]?.$3?.call(),
+        itemBuilder: (_) => [
+          for (final entry in actions.entries)
+            PopupMenuItem(
+              value: entry.key,
+              enabled: entry.value.$3 != null,
+              child: Row(
+                children: [
+                  Icon(entry.value.$2, size: 17),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(entry.value.$1, style: const TextStyle(fontSize: 13.5))),
+                ],
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

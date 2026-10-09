@@ -59,8 +59,9 @@ _PreparedDraftPrompt _prepareDraftPrompt(
   // FASE 8: El tono comercial (ToneProfile) entra ÚNICAMENTE en turnos
   // de venta. En turnos personales NUNCA entra el tono de ventas.
   final tone = isCommercial ? writer._toneBlock?.call() : null;
-  final turnSession =
-      '$conversationId|${RuntimeNotificationDraftWriter._flightFingerprint(notification)}';
+  // La sesión pertenece al chat/agente; el eventId identifica solo el request.
+  // Así LiteRT puede reutilizar KV cuando historial y configuración coinciden.
+  final turnSession = '${agentId.name}|$conversationId';
   // Diagnóstico seguro previo al modelo: conserva longitudes y flags, nunca texto privado.
   debugPrint(
     '[ctx:prompt] conv=${_shortId(conversationId)} '
@@ -71,12 +72,7 @@ _PreparedDraftPrompt _prepareDraftPrompt(
     'businessChars=${business.length} '
     'session=${_shortId(turnSession)}',
   );
-  // P0-PERSONA-BASE — saludo puro: prompt SOCIAL mínimo (sin JSON ni
-  // reglas largas) + maxTokens 128. Evidencia física: con el prompt
-  // completo el 1.5B devuelve operador aunque la regla dura lo prohíba;
-  // el guard lo retiene, pero el objetivo es respuesta cotidiana. El
-  // social prompt no necesita estructura: el escalón legacy del parser
-  // toma el texto tras "Respuesta:".
+  // Charla natural admite texto; ventas y estado del dueño conservan JSON/guardas.
   // La ruta personal usa instrucciones compactas para bajar el prefill móvil;
   // ventas, producto mezclado y estado vivo conservan el prompt estructurado.
   final hasProductContext =
@@ -114,8 +110,24 @@ _PreparedDraftPrompt _prepareDraftPrompt(
     if (identity.isNotEmpty) identity,
   ].join('\n');
   final genSw = Stopwatch()..start();
-  final prompt = localConversation
-      ? _personalTurnPrompt(msgText, persona, identity)
+  // Charla personal real para todos los chats; identidad/acciones conservan contrato.
+  // El define diagnóstico solo acota el historial autorizado, no habilita lógica ficticia.
+  final pure = localConversation && personalReply && identity.isEmpty;
+  debugPrint('[ctx:conversation] mode=${pure ? 'native_minimal' : 'standard'}');
+  final prompt = pure
+      ? _personalTurnPrompt(
+          msgText,
+          _needsPersonalFacts(msgText) ? persona : '',
+          '',
+          liveFacts: context.liveEvidence.block,
+        )
+      : localConversation
+      ? _personalTurnPrompt(
+          msgText,
+          persona,
+          identity,
+          liveFacts: context.liveEvidence.block,
+        )
       : personalReply
       ? conversationSocialPromptFor(
           text: msgText,
@@ -123,7 +135,10 @@ _PreparedDraftPrompt _prepareDraftPrompt(
           persona: includePersonaInPrompt ? persona : null,
           tone: tone,
           history: formatConversationHistory(socialEntries),
-          temporalContext: temporalBlock,
+          temporalContext: [
+            temporalBlock,
+            context.liveEvidence.block,
+          ].join('\n'),
           agentContract: agentContract,
         )
       : conversationAgentPromptFor(
@@ -134,7 +149,10 @@ _PreparedDraftPrompt _prepareDraftPrompt(
           tone: tone,
           persona: includePersonaInPrompt ? persona : null,
           clientContext: clientContext,
-          temporalContext: temporalBlock,
+          temporalContext: [
+            temporalBlock,
+            context.liveEvidence.block,
+          ].join('\n'),
           agentContract: agentContract,
         );
 
@@ -144,8 +162,18 @@ _PreparedDraftPrompt _prepareDraftPrompt(
     sessionId: turnSession,
     isSocial: personalReply,
     persona: persona,
-    history: localConversation ? _personalTurnHistory(context) : null,
-    systemContext: localConversation
+    history: localConversation
+        ? _personalTurnHistory(
+            context,
+            nativeWindow: pure,
+            diagnosticWindow: PersonalConversationDiagnostic.appliesTo(
+              conversationId,
+            ),
+          )
+        : null,
+    systemContext: pure
+        ? _nativePersonalSystem()
+        : localConversation
         ? _personalSystemContext(
             contract: contract,
             identity: identity,

@@ -100,6 +100,8 @@ class ScaffoldShell extends ConsumerWidget {
               // como capa superior dentro del stack de navegación.
               // En el navegador web se desactiva para mantener el área 100% limpia.
               child: NanoFloatingWrapper(
+                // El panel flotante sigue disponible en el dashboard; ocultarlo
+                // rompería la entrada rápida, la voz y la ventana contextual.
                 enabled: !isBrowser,
                 webProviders: webProviders,
                 actions: actionPort,

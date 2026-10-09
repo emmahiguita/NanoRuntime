@@ -1,37 +1,33 @@
-import 'dart:convert';
+import 'dart:async';
+import 'dart:ui' show Offset, Size;
 
-import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/main.dart' show audioHandler;
 
 import '../domain/browser_pip_model.dart';
 import '../infrastructure/browser_scripts.dart';
+import 'browser_media_transfer_reader.dart';
+import 'browser_system_pip_bridge.dart';
 
 /// Coordina una transferencia explícita entre el WebView de la pestaña y el
 /// reproductor PiP visible. La fuente se pausa antes de montar el destino para
 /// impedir audio duplicado y nunca se falsea la visibilidad de la página.
 class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
   BrowserPipNotifier() : super(const BrowserPipState()) {
-    _systemPipChannel.setMethodCallHandler(_handleNativeCallback);
+    _systemPip = BrowserSystemPipBridge(
+      onModeChanged: (active) => state = state.copyWith(isSystemPip: active),
+      onUserLeaveHint: () {
+        if (state.isActive && !state.isSystemPip) {
+          unawaited(enterSystemPictureInPicture());
+        }
+      },
+    );
   }
 
-  static const MethodChannel _systemPipChannel = MethodChannel(
-    'com.nanoai/browser_pip',
-  );
-
+  late final BrowserSystemPipBridge _systemPip;
   InAppWebViewController? _sourceController;
   InAppWebViewController? _pipController;
-
-  Future<void> _handleNativeCallback(MethodCall call) async {
-    if (call.method == 'pipModeChanged') {
-      state = state.copyWith(isSystemPip: call.arguments == true);
-    } else if (call.method == 'onUserLeaveHint' &&
-        state.isActive &&
-        !state.isSystemPip) {
-      enterSystemPictureInPicture();
-    }
-  }
 
   /// Registra la pestaña fuente actualmente visible.
   void attachController(InAppWebViewController? controller) =>
@@ -53,7 +49,7 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
     InAppWebViewController? controller,
   }) async {
     _sourceController = controller ?? _sourceController;
-    final media = await _readMediaState(_sourceController);
+    final media = await BrowserMediaTransferReader.read(_sourceController);
     if (media != null) {
       try {
         await _sourceController?.evaluateJavascript(
@@ -179,52 +175,15 @@ class BrowserPipNotifier extends StateNotifier<BrowserPipState> {
   /// una ventana 16:9; no es reproducción oculta ni un servicio de extracción.
   Future<bool> enterSystemPictureInPicture() async {
     if (!state.isActive) return false;
-    try {
-      return await _systemPipChannel.invokeMethod<bool>('enterSystemPip') ??
-          false;
-    } on PlatformException {
-      return false;
-    }
-  }
-
-  Future<_MediaTransfer?> _readMediaState(
-    InAppWebViewController? controller,
-  ) async {
-    if (controller == null) return null;
-    try {
-      final raw = await controller.evaluateJavascript(
-        source: BrowserScripts.readMediaStateScript,
-      );
-      if (raw == null) return null;
-      final decoded = raw is String ? jsonDecode(raw) : raw;
-      if (decoded is! Map) return null;
-      final position = (decoded['currentTime'] as num?)?.toDouble() ?? 0;
-      final wasPlaying = decoded['wasPlaying'] == true;
-      return _MediaTransfer(
-        positionSeconds: position.isFinite ? position : 0,
-        wasPlaying: wasPlaying,
-      );
-    } catch (_) {
-      return null;
-    }
+    return _systemPip.enter();
   }
 
   @override
   void dispose() {
     audioHandler.detachSource('browser-pip');
-    _systemPipChannel.setMethodCallHandler(null);
+    _systemPip.dispose();
     super.dispose();
   }
-}
-
-class _MediaTransfer {
-  const _MediaTransfer({
-    required this.positionSeconds,
-    required this.wasPlaying,
-  });
-
-  final double positionSeconds;
-  final bool wasPlaying;
 }
 
 final browserPipProvider =

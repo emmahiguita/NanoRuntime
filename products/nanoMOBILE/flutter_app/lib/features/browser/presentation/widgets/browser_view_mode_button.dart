@@ -1,10 +1,12 @@
-// QUÉ: selector compacto para página, ventanas y carrusel.
-// CÓMO: un menú Material muestra la vista activa y conserva las tres opciones.
-// POR QUÉ: organiza modos avanzados sin quitar ancho a la dirección web.
-
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'browser_display_mode.dart';
 
+/// Selector compacto de modos de visualización (Página, Ventanas, Carrusel 3D).
+///
+/// - QUÉ HACE: Despliega el conmutador de pestañas/vistas con badge numérico sin ocupar espacio excesivo.
+/// - CÓMO FUNCIONA: Usa un botón cuadrado de 34x34 con insignia de pestañas abiertas.
+/// - POR QUÉ: Permite maximizar el ancho útil de la barra de dirección (<200 líneas).
 class BrowserViewModeButton extends StatelessWidget {
   final BrowserDisplayMode mode;
   final int tabCount;
@@ -18,38 +20,61 @@ class BrowserViewModeButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => PopupMenuButton<BrowserDisplayMode>(
-    tooltip: 'Cambiar vista · $tabCount pestañas',
-    useRootNavigator: true,
-    initialValue: mode,
-    onSelected: onSelected,
-    icon: Badge(label: Text('$tabCount'), child: Icon(_icon(mode), size: 20)),
-    constraints: const BoxConstraints(minWidth: 224, maxWidth: 300),
-    itemBuilder: (_) => [
-      _item(BrowserDisplayMode.focused, 'Página activa'),
-      _item(BrowserDisplayMode.verticalStack, 'Ventanas y paneles'),
-      _item(BrowserDisplayMode.carousel3D, 'Carrusel de pestañas'),
-    ],
-  );
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: PopupMenuButton<BrowserDisplayMode>(
+        tooltip: 'Vistas · $tabCount pestañas',
+        useRootNavigator: true,
+        initialValue: mode,
+        padding: EdgeInsets.zero,
+        onSelected: onSelected,
+        icon: Container(
+          width: 22,
+          height: 22,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF2563EB),
+              width: 1.2,
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            '$tabCount',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF2563EB),
+            ),
+          ),
+        ),
+        constraints: const BoxConstraints(minWidth: 200, maxWidth: 280),
+        itemBuilder: (_) => [
+          _item(BrowserDisplayMode.focused, 'Página activa', CupertinoIcons.device_phone_portrait),
+          _item(BrowserDisplayMode.verticalStack, 'Ventanas y paneles', CupertinoIcons.square_stack_3d_down_right),
+          _item(BrowserDisplayMode.carousel3D, 'Carrusel de pestañas', CupertinoIcons.square_stack_3d_up_fill),
+        ],
+      ),
+    );
+  }
 
   PopupMenuItem<BrowserDisplayMode> _item(
     BrowserDisplayMode value,
     String label,
+    IconData icon,
   ) => PopupMenuItem(
     value: value,
     child: Row(
       children: [
-        Icon(_icon(value), size: 20),
-        const SizedBox(width: 12),
-        Expanded(child: Text(label)),
-        if (mode == value) const Icon(Icons.check_rounded, size: 18),
+        Icon(icon, size: 17),
+        const SizedBox(width: 10),
+        Expanded(child: Text(label, style: const TextStyle(fontSize: 13.5))),
+        if (mode == value) const Icon(CupertinoIcons.checkmark_alt, size: 16),
       ],
     ),
   );
-
-  static IconData _icon(BrowserDisplayMode value) => switch (value) {
-    BrowserDisplayMode.focused => Icons.web_asset_rounded,
-    BrowserDisplayMode.verticalStack => Icons.view_agenda_outlined,
-    BrowserDisplayMode.carousel3D => Icons.view_carousel_outlined,
-  };
 }

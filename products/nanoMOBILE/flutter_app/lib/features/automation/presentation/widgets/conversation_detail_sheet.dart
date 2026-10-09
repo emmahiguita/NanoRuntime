@@ -3,39 +3,39 @@ import 'dart:ui';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/automation_coordinator_provider.dart';
-import '../../engine/agent_dependencies.dart'
-    show conversationAssignmentStoreProvider, conversationMemoryStoreProvider;
-import '../../engine/messaging/conversation_hub_providers.dart';
-import '../../engine/messaging/conversation_memory.dart';
-import '../../engine/messaging/conversation_agent.dart';
-import '../../engine/messaging/messaging_package.dart';
+import '../../application/whatsapp_contacts_provider.dart' show allWhatsAppContactsProvider;
+import '../../engine/agent_dependencies.dart' show conversationAssignmentStoreProvider, conversationMemoryStoreProvider;
+import '../../engine/business/business_document_library.dart';
+import '../../engine/business/business_facts_providers.dart';
 import '../../engine/language/conversation_semantic_tag.dart';
-import '../../engine/messaging/conversation_key.dart'
-    show canonicalConversationId, resolveConversationIdentity;
-import '../../personal_agent/application/persona_context.dart'
-    show personaContextProvider;
+import '../../engine/language/dynamic_reply_generator.dart';
+import '../../engine/messaging/conversation_agent.dart';
+import '../../engine/messaging/conversation_group_resolver.dart';
+import '../../engine/messaging/conversation_hub_providers.dart';
+import '../../engine/messaging/conversation_key.dart' show canonicalConversationId, resolveConversationIdentity;
+import '../../engine/messaging/conversation_memory.dart';
+import '../../engine/messaging/messaging_package.dart';
+import '../../engine/messaging/whatsapp_capability_resolver.dart';
 import '../../engine/notifications/notification_object.dart';
 import '../../engine/platform/whatsapp_media_share.dart';
 import '../../executors/notification_executor.dart' show DeviceNotification;
 import '../../executors/notification_executor_provider.dart';
-import '../../personal_agent/domain/conversation_owner.dart';
+import '../../personal_agent/application/persona_context.dart' show personaContextProvider;
 import '../../personal_agent/application/personal_reply_learning_service.dart';
-import '../../engine/business/business_facts_providers.dart';
-import '../../engine/language/dynamic_reply_generator.dart';
-import '../../engine/messaging/whatsapp_capability_resolver.dart';
-import '../messaging_center/notification_history_provider.dart'
-    show notificationHistoryClientProvider;
-import '../../application/whatsapp_contacts_provider.dart'
-    show allWhatsAppContactsProvider;
-import '../messaging_center/messaging_center_providers.dart'
-    show allHubConversationsProvider, liveNotificationStreamProvider;
+import '../../personal_agent/domain/conversation_owner.dart';
 import '../automation_visual_theme.dart';
+import '../business/business_document_library_dialog.dart';
+import '../messaging_center/messaging_center_providers.dart' show allHubConversationsProvider, liveNotificationStreamProvider;
+import '../messaging_center/notification_history_provider.dart' show notificationHistoryClientProvider;
 import 'conversation_history_resolver.dart';
 import 'conversation_media_bubble.dart';
 import 'conversation_phone_resolver.dart';
 import 'conversation_semantic_badge.dart';
+import 'nano_glass_dialog.dart';
+import 'nano_metallic_button.dart';
 part 'conversation_detail_header_view.dart';
 part 'conversation_detail_empty_view.dart';
 part 'conversation_detail_chat_view.dart';
@@ -54,32 +54,32 @@ part 'conversation_detail_controller.dart';
 part 'conversation_detail_sender.dart';
 part 'conversation_detail_style_learning.dart';
 part 'conversation_detail_responsive_body.dart';
+
 class ConversationDetailSheet extends ConsumerStatefulWidget {
   final ConversationSummaryItem item;
   static const List<String> _sfFallback = ['.SF UI Text', 'Inter', 'Roboto'];
   const ConversationDetailSheet({super.key, required this.item});
-  static Future<void> show(
-    BuildContext context,
-    ConversationSummaryItem item,
-  ) => showModalBottomSheet(
-    context: context,
-    useRootNavigator: true,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    barrierColor: Colors.black.withValues(alpha: 0.38),
-    builder: (sheetContext) => AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-      ),
-      child: ConversationDetailSheet(item: item),
-    ),
-  );
+  static Future<void> show(BuildContext context, ConversationSummaryItem item) =>
+      showModalBottomSheet(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.black.withValues(alpha: 0.38),
+        builder: (sheetContext) => AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: ConversationDetailSheet(item: item),
+        ),
+      );
   @override
   ConsumerState<ConversationDetailSheet> createState() =>
       _ConversationDetailSheetState();
 }
+
 class _ConversationDetailSheetState
     extends ConsumerState<ConversationDetailSheet> {
   final _inputController = TextEditingController();

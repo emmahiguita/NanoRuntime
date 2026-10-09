@@ -23,13 +23,29 @@ class _NanoModelsEditorialState extends State<NanoModelsEditorial>
     _animCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2200),
-    )..repeat(reverse: true);
-    _pulseScale = Tween<double>(begin: 0.90, end: 1.15).animate(
-      CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
     );
-    _pulseOpacity = Tween<double>(begin: 0.65, end: 1.0).animate(
-      CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
-    );
+    _pulseScale = Tween<double>(
+      begin: 0.90,
+      end: 1.15,
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut));
+    _pulseOpacity = Tween<double>(
+      begin: 0.65,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final canAnimate =
+        !MediaQuery.disableAnimationsOf(context) && TickerMode.of(context);
+    if (canAnimate && !_animCtrl.isAnimating) {
+      _animCtrl.repeat(reverse: true);
+    } else if (!canAnimate) {
+      _animCtrl
+        ..stop()
+        ..value = 0.5;
+    }
   }
 
   @override
@@ -112,7 +128,8 @@ class _NanoModelsEditorialState extends State<NanoModelsEditorial>
               ),
               children: [
                 const TextSpan(
-                  text: 'Descubre el poder de la IA integrada con aceleración local sin servidores externos. Ejecuta ',
+                  text:
+                      'Descubre el poder de la IA integrada con aceleración local sin servidores externos. Ejecuta ',
                 ),
                 TextSpan(
                   text: 'Qwen',
@@ -130,7 +147,8 @@ class _NanoModelsEditorialState extends State<NanoModelsEditorial>
                   ),
                 ),
                 const TextSpan(
-                  text: ' en el Chat de IA, los Agentes Autónomos o en las herramientas de sistema.',
+                  text:
+                      ' en el Chat de IA, los Agentes Autónomos o en las herramientas de sistema.',
                 ),
               ],
             ),

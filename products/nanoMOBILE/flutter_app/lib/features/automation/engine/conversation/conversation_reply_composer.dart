@@ -15,12 +15,14 @@
 library;
 
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:nanoai/core/services/execution_budget.dart';
+import 'package:nanoai/core/services/personal_language_policy.dart';
 import '../business/business_conversation_resolver.dart';
 import '../business/business_facts.dart';
 import '../language/pragmatic_fast_path.dart';
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_memory.dart';
-import '../messaging/conversation_context_resolver.dart';
+import '../messaging/conversation_durable_context.dart';
 import '../messaging/conversation_agent.dart';
 import '../messaging/incoming_message.dart';
 import '../messaging/messaging_package.dart';
@@ -42,11 +44,13 @@ import 'persona_style_resolver.dart';
 import 'turn_context_router.dart';
 import 'conversation_media_enricher.dart';
 import 'turn_knowledge_router.dart';
+import 'personal_conversation_diagnostic.dart';
 
 export 'conversation_reply_composer_models.dart';
 
 part 'conversation_reply_flow.dart';
 part 'conversation_reply_fallbacks.dart';
+part 'conversation_dialogue_evidence.dart';
 
 final class RuntimeConversationReplyComposer
     implements ConversationReplyComposer {
@@ -70,9 +74,9 @@ final class RuntimeConversationReplyComposer
   }) : _draftSource = draftSource,
        _personalResolver =
            personalResolver ??
-            PersonalConversationResolver(
-              fastPath: fastPath ?? const PragmaticFastPath(),
-              styleResolver: styleResolver,
+           PersonalConversationResolver(
+             fastPath: fastPath ?? const PragmaticFastPath(),
+             styleResolver: styleResolver,
              knowledgeRouter: knowledgeRouter,
              styleFormatter: styleFormatter,
            ),

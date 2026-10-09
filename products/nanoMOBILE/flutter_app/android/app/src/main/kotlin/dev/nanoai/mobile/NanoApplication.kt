@@ -13,6 +13,12 @@ import dev.nanoai.mobile.automation.DurableInbox
  * automatización); el inbox y el store son dueños únicos de escritura.
  */
 class NanoApplication : Application() {
+    // La protección térmica usa Application, también cuando no existe Activity.
+    override fun onCreate() {
+        super.onCreate()
+        dev.nanoai.mobile.runtime.InferenceThermalGuard.configure(this)
+    }
+
     val runtimeScope: RuntimeScope by lazy { RuntimeScope(this) }
     val durableInbox: DurableInbox by lazy { DurableInbox(this) }
     val automationStoreDb: AutomationStoreDb by lazy { AutomationStoreDb(this) }

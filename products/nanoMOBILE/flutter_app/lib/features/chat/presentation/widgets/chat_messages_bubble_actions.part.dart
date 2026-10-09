@@ -78,7 +78,9 @@ extension _MessageBubbleAssistantActions on MessageBubble {
       Text(
         time,
         style: TextStyle(
-          color: colors.onSurface.withValues(alpha: 0.45),
+          color: isDark
+              ? colors.onSurface.withValues(alpha: 0.50)
+              : const Color(0xFF64748B),
           fontSize: 10.5,
           fontWeight: FontWeight.w500,
           letterSpacing: -0.1,

@@ -26,7 +26,8 @@ class LiteRtGeneration(private val owner: LiteRtEngineOwner) {
     @Volatile var metrics: Map<String, Any?> = emptyMap()
         private set
 
-    suspend fun generate(args: Map<*, *>, emit: (Map<String, Any?>) -> Unit): Map<String, Any?> {
+    suspend fun generate(args: Map<*, *>, emit: (Map<String, Any?>) -> Unit,
+        onStarted: () -> Unit = {}): Map<String, Any?> {
         val engine = checkNotNull(owner.engine) { "LiteRT no está inicializado" }
         val id = args["requestId"] as? String ?: error("Falta requestId")
         val prompt = args["prompt"] as? String ?: error("Falta prompt")
@@ -53,6 +54,9 @@ class LiteRtGeneration(private val owner: LiteRtEngineOwner) {
         val text = StringBuilder()
         var completed = false
         try {
+            // Cierra la carrera entre cancelar una petición en cola y activar JNI.
+            onStarted()
+            check(!activeCancelled) { "LiteRT request cancelado antes del prefill" }
             coroutineScope {
                 // Latido de progreso real durante un prefill largo; no altera el timeout total.
                 val heartbeat = launch {
@@ -72,6 +76,7 @@ class LiteRtGeneration(private val owner: LiteRtEngineOwner) {
                     }
                 } finally { heartbeat.cancelAndJoin() }
             }
+            check(!activeCancelled) { "LiteRT generación cancelada" }
             check(text.isNotBlank()) { "El modelo terminó sin emitir texto" }
             val benchmark = runCatching { current.getBenchmarkInfo() }.getOrNull()
             metrics = mapOf(

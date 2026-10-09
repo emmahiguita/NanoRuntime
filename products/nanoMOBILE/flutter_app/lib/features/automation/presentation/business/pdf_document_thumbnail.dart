@@ -52,8 +52,14 @@ abstract final class PdfDocumentThumbnailCache {
 
 /// Estado de carga independiente por fila; el tap de la fila sigue abriendo el PDF.
 final class PdfDocumentThumbnail extends StatefulWidget {
-  const PdfDocumentThumbnail({super.key, required this.document});
+  const PdfDocumentThumbnail({
+    super.key,
+    required this.document,
+    this.width = 46,
+    this.height = 62,
+  });
   final BusinessDocument document;
+  final double width, height;
 
   @override
   State<PdfDocumentThumbnail> createState() => _PdfDocumentThumbnailState();
@@ -81,8 +87,8 @@ final class _PdfDocumentThumbnailState extends State<PdfDocumentThumbnail> {
   // Muestra el PDF real; deja un icono neutro si la primera página está dañada.
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 46,
-    height: 62,
+    width: widget.width,
+    height: widget.height,
     child: ClipRRect(
       borderRadius: BorderRadius.circular(6),
       child: FutureBuilder<Uint8List?>(

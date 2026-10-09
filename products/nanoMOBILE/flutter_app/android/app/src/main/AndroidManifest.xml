@@ -30,6 +30,9 @@
     <!-- Dictado por voz en el Chat (speech_to_text): runtime grant al primer
          uso del micrófono; sin él el reconocimiento falla con permiso. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Videollamadas/cámara de sitios aprobados: el navegador solicita este
+         permiso solo después del consentimiento visible del usuario. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
     <!-- WA-PROD-01: FGS dataSync del runtime de automatización en segundo
          plano: procesa mensajes con la UI cerrada. Vida acotada — idle →
          stopSelf; nunca notificación eterna. -->

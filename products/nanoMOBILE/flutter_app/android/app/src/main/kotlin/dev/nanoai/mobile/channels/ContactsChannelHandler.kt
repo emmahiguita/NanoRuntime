@@ -98,6 +98,7 @@ class ContactsChannelHandler(
             ContactsContract.Data.DISPLAY_NAME,
             ContactsContract.Data.DATA1,
             ContactsContract.Data.MIMETYPE,
+            ContactsContract.RawContacts.ACCOUNT_TYPE,
         )
 
         val selection = "${ContactsContract.Data.MIMETYPE} IN (?, ?)"
@@ -119,6 +120,7 @@ class ContactsChannelHandler(
                 val nameIdx = c.getColumnIndex(ContactsContract.Data.DISPLAY_NAME)
                 val data1Idx = c.getColumnIndex(ContactsContract.Data.DATA1)
                 val mimeIdx = c.getColumnIndex(ContactsContract.Data.MIMETYPE)
+                val accountTypeIdx = c.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_TYPE)
 
                 while (c.moveToNext()) {
                     val id = if (idIdx >= 0) c.getString(idIdx) else ""
@@ -126,21 +128,26 @@ class ContactsChannelHandler(
                     val name = (if (nameIdx >= 0) c.getString(nameIdx) else null)?.trim() ?: "Sin nombre"
                     val data1 = (if (data1Idx >= 0) c.getString(data1Idx) else null)?.trim() ?: ""
                     val mime = if (mimeIdx >= 0) c.getString(mimeIdx) ?: "" else ""
+                    val accountType = if (accountTypeIdx >= 0) c.getString(accountTypeIdx) ?: "" else ""
                     val isBusiness = mime.contains("w4b")
 
-                    val jid = if (data1.contains("@s.whatsapp.net") || data1.contains("@g.us")) {
-                        data1
-                    } else {
-                        val digits = data1.filter { it.isDigit() }
-                        if (digits.isNotBlank()) "$digits@s.whatsapp.net" else if (data1.isNotBlank()) "$data1@s.whatsapp.net" else ""
-                    }
+                    // El MIME prueba que WhatsApp publicó la fila. DATA1, en cambio, no tiene
+                    // un contrato público que garantice un JID: solo lo conservamos si ya viene
+                    // tipado por WhatsApp. Nunca fabricamos @s.whatsapp.net desde un teléfono.
+                    val jid = data1.takeIf {
+                        it.endsWith("@s.whatsapp.net", ignoreCase = true) ||
+                            it.endsWith("@g.us", ignoreCase = true)
+                    }.orEmpty()
+                    val cleanNumber = (jid.ifBlank { data1 })
+                        .substringBefore("@")
+                        .filter(Char::isDigit)
+                    val identityKey = jid.ifBlank { "$mime:$cleanNumber" }
 
-                    if (jid.isBlank() || !seenJids.add(jid)) {
+                    if (cleanNumber.length < 7 || !seenJids.add(identityKey)) {
                         continue
                     }
 
-                    val cleanNumber = jid.substringBefore("@")
-                    seenNumbers.add(cleanNumber.filter(Char::isDigit))
+                    seenNumbers.add(cleanNumber)
 
                     contacts.add(
                         mapOf(
@@ -149,7 +156,11 @@ class ContactsChannelHandler(
                             "number" to cleanNumber,
                             "jid" to jid,
                             "isBusiness" to isBusiness,
-                            // Los registros MIME de WhatsApp son la única fuente confirmada de la cuenta.
+                            "isGroup" to jid.endsWith("@g.us", ignoreCase = true),
+                            "packageName" to if (isBusiness) "com.whatsapp.w4b" else "com.whatsapp",
+                            "accountType" to accountType,
+                            "verificationSource" to "contacts_provider_whatsapp_mime",
+                            // La fila MIME confirma asociación local; no implica entrega ni disponibilidad remota actual.
                             "isWhatsAppVerified" to true,
                         ),
                     )
@@ -201,6 +212,10 @@ class ContactsChannelHandler(
                             // Un teléfono guardado permite preparar un envío manual, pero no prueba que use WhatsApp.
                             "jid" to "",
                             "isBusiness" to false,
+                            "isGroup" to false,
+                            "packageName" to "",
+                            "accountType" to "",
+                            "verificationSource" to "phonebook",
                             "isWhatsAppVerified" to false,
                         )
                     )

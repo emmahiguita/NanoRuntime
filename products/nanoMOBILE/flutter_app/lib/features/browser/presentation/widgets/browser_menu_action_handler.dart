@@ -12,11 +12,11 @@ import 'package:nanoai/features/browser/presentation/widgets/browser_dialog_help
 import 'package:nanoai/features/browser/presentation/widgets/browser_history_bookmarks_dialog.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_zoom_sheet.dart';
 
-/// Despachador de acciones del menú de opciones del navegador.
+/// Despachador de acciones del menú de opciones del navegador con feedback flotante.
 ///
-/// - ¿Qué hace?: Ejecuta las operaciones seleccionadas por el usuario en `BrowserOptionsSheet`.
-/// - ¿Cómo funciona?: Mapea la acción textual a llamadas directas sobre Riverpod, WebViews y diálogos.
-/// - ¿Por qué?: Desacopla la lógica de ejecución del menú de la vista principal del navegador (SRP).
+/// - QUÉ HACE: Ejecuta las operaciones seleccionadas con feedback visual inmediato (snackbars flotantes).
+/// - CÓMO FUNCIONA: Mapea acciones a Riverpod, WebViews y portapapeles del sistema.
+/// - POR QUÉ: Asegura que acciones como favoritos o copiar respondan 100% al usuario (<200 líneas).
 class BrowserMenuActionHandler {
   final BuildContext context;
   final WidgetRef ref;
@@ -48,44 +48,44 @@ class BrowserMenuActionHandler {
     required this.onFindInPage,
   });
 
-  /// Captura fallos nativos y evita usar una ruta que ya fue cerrada.
+  void _showFeedback(String message) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).removeCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xE60F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        duration: const Duration(milliseconds: 1800),
+      ),
+    );
+  }
+
   Future<void> handleAction(String action) async {
     if (!context.mounted) return;
     try {
       await _executeAction(action);
     } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo completar la acción. Intenta de nuevo.'),
-          ),
-        );
-      }
+      _showFeedback('No se pudo completar la acción.');
     }
   }
 
-  /// Despacha las mismas operaciones; no agrega proveedores ni lógica simulada.
   Future<void> _executeAction(String action) async {
     switch (action) {
       case 'toggle_carousel':
         onToggleCarousel();
         break;
       case 'show_bookmarks':
-        BrowserHistoryBookmarksDialog.show(
-          context: context,
-          initialTabIndex: 0,
-          onSelectUrl: onNavigate,
-        );
+        BrowserHistoryBookmarksDialog.show(context: context, initialTabIndex: 0, onSelectUrl: onNavigate);
         break;
       case 'show_history':
-        BrowserHistoryBookmarksDialog.show(
-          context: context,
-          initialTabIndex: 1,
-          onSelectUrl: onNavigate,
-        );
+        BrowserHistoryBookmarksDialog.show(context: context, initialTabIndex: 1, onSelectUrl: onNavigate);
         break;
       case 'new_tab':
         ref.read(browserTabProvider.notifier).addTab();
+        _showFeedback('Nueva pestaña abierta');
         break;
       case 'show_zoom_sheet':
         BrowserZoomSheet.show(
@@ -98,54 +98,35 @@ class BrowserMenuActionHandler {
         break;
       case 'toggle_desktop_mode':
         onToggleDesktopMode();
+        _showFeedback(isDesktopMode ? 'Modo móvil activado' : 'Modo escritorio activado');
         break;
       case 'toggle_dark_web':
         onToggleDarkModeWeb();
+        _showFeedback(isDarkModeWeb ? 'Modo oscuro web desactivado' : 'Modo oscuro web activado');
         break;
       case 'toggle_bookmark':
         final wasBm = ref.read(browserHistoryProvider).isBookmarked(tab.url);
-        ref
-            .read(browserHistoryProvider.notifier)
-            .toggleBookmark(tab.url, tab.title);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(!wasBm ? 'Marcador guardado' : 'Marcador eliminado'),
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        ref.read(browserHistoryProvider.notifier).toggleBookmark(tab.url, tab.title);
+        _showFeedback(!wasBm ? '⭐ Marcador guardado en Favoritos' : 'Marcador eliminado');
         break;
       case 'find_in_page':
         onFindInPage();
         break;
       case 'pip_mode':
-        final ok = await ref
-            .read(browserPipProvider.notifier)
-            .activatePip(
-              tabId: tab.id,
-              url: tab.url,
-              title: tab.title,
-              controller: controller,
-            );
+        final ok = await ref.read(browserPipProvider.notifier).activatePip(
+          tabId: tab.id,
+          url: tab.url,
+          title: tab.title,
+          controller: controller,
+        );
         if (!ok && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No se detectó video HTML5 para PiP')),
-          );
+          _showFeedback('No se detectó video HTML5 en reproducción');
         }
         break;
       case 'share':
       case 'copy_url':
         await Clipboard.setData(ClipboardData(text: tab.url));
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                action == 'share'
-                    ? 'Enlace copiado para compartir'
-                    : 'URL copiada al portapapeles',
-              ),
-            ),
-          );
-        }
+        _showFeedback('📋 Enlace copiado al portapapeles');
         break;
       case 'show_ssl':
         BrowserDialogHelper.showSslDialog(context, tab);
@@ -163,11 +144,7 @@ class BrowserMenuActionHandler {
         break;
       case 'clear_cache':
         await InAppWebViewController.clearAllCache();
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Caché limpiada con éxito.')),
-          );
-        }
+        _showFeedback('Caché del navegador eliminada');
         break;
     }
   }

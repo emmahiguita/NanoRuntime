@@ -31,7 +31,6 @@ class AutomationDashboardContent extends StatelessWidget {
     required this.lastGoal,
     required this.lastReason,
     required this.conversationActive,
-    required this.pendingDraftsCount,
     required this.rulesCount,
     required this.businessProductsCount,
     required this.isW4bActive,
@@ -46,9 +45,6 @@ class AutomationDashboardContent extends StatelessWidget {
     this.onBusinessTap,
     this.onRulesTap,
     this.onSettingsTap,
-    this.onBotStudioTap,
-    this.onSkillsMcpTap,
-    this.onTimeRuleTap,
     this.onAiWebTap,
     this.onBrowserTap,
     this.onChatTap,
@@ -61,7 +57,6 @@ class AutomationDashboardContent extends StatelessWidget {
   final String lastGoal;
   final String lastReason;
   final bool conversationActive;
-  final int pendingDraftsCount;
   final int rulesCount;
   final int businessProductsCount;
   final bool isW4bActive;
@@ -77,9 +72,6 @@ class AutomationDashboardContent extends StatelessWidget {
   final ValueChanged<BuildContext>? onBusinessTap;
   final VoidCallback? onRulesTap;
   final VoidCallback? onSettingsTap;
-  final VoidCallback? onBotStudioTap;
-  final VoidCallback? onSkillsMcpTap;
-  final VoidCallback? onTimeRuleTap;
   final VoidCallback? onAiWebTap;
   final VoidCallback? onBrowserTap;
   final VoidCallback? onChatTap;
@@ -126,14 +118,10 @@ class AutomationDashboardContent extends StatelessWidget {
                 onBusinessTap: onBusinessTap,
                 onRulesTap: onRulesTap,
                 onSettingsTap: onSettingsTap,
-                onBotStudioTap: onBotStudioTap,
-                onSkillsMcpTap: onSkillsMcpTap,
-                onTimeRuleTap: onTimeRuleTap,
                 onAiWebTap: onAiWebTap,
                 onBrowserTap: onBrowserTap,
                 onChatTap: onChatTap,
                 onTerminalTap: onTerminalTap,
-                pendingDraftsCount: pendingDraftsCount,
                 activeRulesCount: rulesCount,
                 businessProductsCount: businessProductsCount,
                 isW4bActive: isW4bActive,

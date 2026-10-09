@@ -39,7 +39,9 @@ NotificationDraftResult? _parseDraftOutput(
   final canUsePlain =
       allowPlainText &&
       !RegExp(r'[{}]|"(?:reply|intent|requiresAction)"\s*:').hasMatch(plain) &&
-      (!isLiveStateQuestion(notification.text) || liveUnknown || liveReciprocal);
+      (!isLiveStateQuestion(notification.text) ||
+          liveUnknown ||
+          liveReciprocal);
   final understanding =
       parsed ??
       (canUsePlain
@@ -83,6 +85,11 @@ NotificationDraftResult? _parseDraftOutput(
     debugPrint('[draft] sin reply parseable; rawChars=${raw.length}');
   }
   if (draft.isEmpty || understanding == null) return null;
+  // La comprensión del lenguaje recibido no permite emitir los regionalismos prohibidos.
+  if (!PersonalLanguagePolicy.accepts(draft)) {
+    debugPrint('[draft] output rejected: non-neutral language');
+    return null;
+  }
   if (draft.length > 2000) {
     debugPrint('[draft] output rejected: exceeds reply length limit');
     return null;

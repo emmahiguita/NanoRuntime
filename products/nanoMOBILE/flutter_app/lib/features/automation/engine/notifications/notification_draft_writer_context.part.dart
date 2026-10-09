@@ -13,6 +13,7 @@ final class _ResolvedDraftContext {
     required this.agentId,
     required this.role,
     required this.persona,
+    required this.liveEvidence,
   });
 
   final String messageText;
@@ -23,6 +24,7 @@ final class _ResolvedDraftContext {
   final ConversationAgentId agentId;
   final ConversationAgentRole role;
   final String persona;
+  final PersonalLiveEvidence liveEvidence;
 }
 
 Future<_ResolvedDraftContext> _resolveDraftContext(
@@ -38,7 +40,7 @@ Future<_ResolvedDraftContext> _resolveDraftContext(
   // La identidad visible y el shortcut/JID pueden variar para el mismo
   // chat. El resolver une únicamente memoria factual observada por Nano y
   // quita el mensaje actual, que ya entra por separado en el prompt.
-  final resolvedMemory = ConversationContextResolver.resolve(
+  final resolvedMemory = await ConversationDurableContext.resolve(
     store: writer._memory,
     conversationId: conversationId,
     notification: notification,
@@ -109,7 +111,12 @@ Future<_ResolvedDraftContext> _resolveDraftContext(
   // PERSONA-COMPOSE-08 — bloque persona antes del prompt (FTS4 local,
   // no consume turno del motor). Sin perfil ni ejemplos: cadena vacía y
   // el prompt queda idéntico al de WA-CTX-01.
-  final persona = agentId == ConversationAgentId.personal
+  // Perfil/recuperador solo ante hechos personales o proveedor cloud; evita FTS en saludos.
+  final needsPersona =
+      isLiveStateQuestion(msgText) ||
+      _needsPersonalFacts(msgText) ||
+      writer._cloudInferencePort?.isConfigured == true;
+  final persona = agentId == ConversationAgentId.personal && needsPersona
       ? await writer._personaBlock?.call(
               conversationId,
               msgText,
@@ -118,6 +125,20 @@ Future<_ResolvedDraftContext> _resolveDraftContext(
             ) ??
             ''
       : '';
+
+  // Se consulta una vez por turno; nunca comparte ubicación ni texto entre chats.
+  final liveEvidence = agentId == ConversationAgentId.personal
+      ? await writer._liveContext.resolve(
+          msgText,
+          historyEntries
+              .where(
+                (entry) => entry.kind == ConversationMemoryEntryKind.inbound,
+              )
+              .map((entry) => entry.text)
+              .toList(),
+          scopeId: conversationId,
+        )
+      : const PersonalLiveEvidence();
 
   return _ResolvedDraftContext(
     messageText: msgText,
@@ -128,5 +149,6 @@ Future<_ResolvedDraftContext> _resolveDraftContext(
     agentId: agentId,
     role: role,
     persona: persona,
+    liveEvidence: liveEvidence,
   );
 }

@@ -7,6 +7,7 @@ extension ConversationDetailNotifications on _ConversationDetailSheetState {
   }
 
   String _cleanName(String raw) {
+    raw = ConversationGroupResolver.cleanTitle(raw);
     if (raw.contains('|')) raw = raw.split('|').first;
     if (raw.contains('@g.us') ||
         widget.item.conversationId.contains('@g.us') ||

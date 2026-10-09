@@ -27,7 +27,7 @@ export class ChatMessageRenderer {
       return `
         <div class="chat-msg-row user">
           <div class="msg-body">
-            <div class="msg-bubble">${this.escapeHtml(msg.text)}</div>
+            <div class="msg-bubble chat-bubble-user">${this.escapeHtml(msg.text)}</div>
           </div>
         </div>
       `;
@@ -61,15 +61,16 @@ export class ChatMessageRenderer {
     return `
       <div class="chat-msg-row assistant">
         <div class="chat-msg-avatar assistant" title="Nano AI Sovereign Assistant">
-          <img src="assets/nano_owl.png" alt="Nano Owl" />
+          <img src="assets/brand/nano-logo-mark.svg" alt="Nano AI" class="assistant-avatar-svg" />
         </div>
         <div class="msg-body">
           ${thinkingHtml}
-          ${formattedContent ? `<div class="msg-bubble">${formattedContent}${msg.meta?.isStreaming ? ' <span class="streaming-cursor">▊</span>' : ''}</div>` : ''}
+          ${formattedContent ? `<div class="msg-bubble chat-bubble-assistant">${formattedContent}${msg.meta?.isStreaming ? ' <span class="streaming-cursor">▊</span>' : ''}</div>` : ''}
           ${metaHtml}
           <div class="msg-actions-row">
             <button type="button" class="btn-msg-action btn-copy-msg" data-text="${this.escapeHtml(mainText)}" title="Copiar respuesta">
               ${NanoIcon.get('copy', 13)}
+              <span>Copiar</span>
             </button>
           </div>
         </div>
@@ -96,28 +97,57 @@ export class ChatMessageRenderer {
     if (!meta) return '';
     if (meta.error) {
       return `
-        <div class="msg-telemetry-bar" style="color: var(--accent-error);">
-          <span>⚠️ Error en inferencia local</span>
+        <div class="msg-error-card">
+          <span class="msg-error-dot"></span>
+          <span>Inferencia no disponible en este turno</span>
         </div>
       `;
     }
+    const tokS = meta.tok_s || '18.4';
+    const time = meta.time || '1.2s';
+    const model = meta.model || 'Qwen 2.5 1.5B (Local)';
+
     return `
       <div class="msg-telemetry-bar">
-        <span>⚡ ${meta.tok_s || '22.4'} tok/s</span>
-        <span>⏱ ${meta.time || '1.8s'}</span>
-        <span>📦 ${meta.model || 'DeepSeek-R1'}</span>
-        <span>🔒 100% Local</span>
+        <span class="telemetry-item"><span class="telemetry-live-dot"></span>100% Local</span>
+        <span class="telemetry-dot">•</span>
+        <span class="telemetry-item">${model}</span>
+        <span class="telemetry-dot">•</span>
+        <span class="telemetry-item">${tokS} tok/s</span>
+        <span class="telemetry-dot">•</span>
+        <span class="telemetry-item">${time}</span>
       </div>
     `;
   }
 
+  /**
+   * Formatea Markdown estilo GPT/Gemini: encabezados, listas, citas y código.
+   * @param {string} text Texto crudo con sintaxis Markdown.
+   * @returns {string} HTML renderizado y sanitizado.
+   */
   static formatMarkdown(text) {
     if (!text) return '';
     let html = this.escapeHtml(text);
-    html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, __, code) => `<pre class="code-block"><code>${code.trim()}</code></pre>`);
+    // 1. Bloques de código con sintaxis pre
+    html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_, lang, code) => 
+      `<div class="code-block-wrap"><div class="code-lang-label">${lang || 'code'}</div><pre class="code-block"><code>${code.trim()}</code></pre></div>`);
+    // 2. Código inline
     html = html.replace(/`([^`]+)`/g, '<code class="nano-inline-code">$1</code>');
+    // 3. Encabezados jerárquicos (###, ##, #)
+    html = html.replace(/^### (.*$)/gim, '<h4 class="md-heading-3">$1</h4>');
+    html = html.replace(/^## (.*$)/gim, '<h3 class="md-heading-2">$1</h3>');
+    html = html.replace(/^# (.*$)/gim, '<h2 class="md-heading-1">$1</h2>');
+    // 4. Citas en bloque (>)
+    html = html.replace(/^> (.*$)/gim, '<blockquote class="md-blockquote">$1</blockquote>');
+    // 5. Negritas e itálicas
     html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/^\* (.*$)/gim, '• $1');
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    // 6. Listas numeradas y con viñetas
+    html = html.replace(/^(\d+)\. (.*$)/gim, '<div class="md-list-item-num"><span class="md-num-badge">$1</span><span>$2</span></div>');
+    html = html.replace(/^[•\-\*] (.*$)/gim, '<div class="md-list-item"><span class="md-bullet">•</span><span>$1</span></div>');
+    // 7. Párrafos y saltos
+    html = html.replace(/\n\n/g, '<div class="chat-paragraph-gap"></div>');
+    html = html.replace(/\n/g, '<br />');
     return html;
   }
 

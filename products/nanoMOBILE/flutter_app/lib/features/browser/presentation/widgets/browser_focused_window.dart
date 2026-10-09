@@ -57,9 +57,6 @@ class BrowserFocusedWindow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final registry = ref.read(browserWebViewRegistryProvider);
     final active = tabState.activeTab;
-    final activeIndex = tabState.tabs
-        .indexWhere((tab) => tab.id == tabState.activeTabId)
-        .clamp(0, tabState.tabs.length - 1);
     final carousel = displayMode == BrowserDisplayMode.carousel3D;
     final radius = isEmbedded ? 16.0 : 0.0;
     return Container(
@@ -106,13 +103,9 @@ class BrowserFocusedWindow extends ConsumerWidget {
             Expanded(
               child: carousel
                   ? _carousel(context, ref)
-                  : IndexedStack(
-                      index: activeIndex,
-                      children: [
-                        for (final tab in tabState.tabs)
-                          _page(context, ref, tab),
-                      ],
-                    ),
+                  // El keep-alive conserva cada sesión; montar solo la activa
+                  // evita cinco PlatformViews, timers y páginas en paralelo.
+                  : _page(context, ref, active),
             ),
           ],
         ),

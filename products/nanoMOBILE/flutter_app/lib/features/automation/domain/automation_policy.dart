@@ -61,8 +61,8 @@ class AutomationPolicy {
     return switch (mode) {
       AgentAutomationMode.manual =>
         definition.risk != SemanticActionRisk.observation,
-      AgentAutomationMode.assisted ||
-      AgentAutomationMode.autonomous => definition.requiresConfirmation,
+      AgentAutomationMode.assisted => definition.requiresConfirmation,
+      AgentAutomationMode.autonomous => false,
     };
   }
 

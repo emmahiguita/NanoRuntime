@@ -6,7 +6,6 @@ library;
 
 import 'package:flutter/material.dart';
 import '../../../../core/services/whisper_stt_service.dart';
-import '../../../../core/theme/design_tokens.dart';
 import '../../application/models_notifier.dart';
 import 'model_action_components.dart';
 import 'model_delete_confirmation.dart';
@@ -47,10 +46,7 @@ class ModelsListSection extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ModelsSectionDivider(
-            label: '$activeFilter • ${items.length}'.toUpperCase(),
-            color: NanoThemeExtension.of(context).colors.primary,
-          ),
+          ModelsSectionDivider(label: '$activeFilter · ${items.length}'),
           ...items.map((item) => _buildCard(context, item)),
         ],
       );
@@ -65,8 +61,7 @@ class ModelsListSection extends StatelessWidget {
     if (installed.isNotEmpty) {
       children.add(
         ModelsSectionDivider(
-          label: 'INSTALADOS EN EL DISPOSITIVO • ${installed.length}',
-          color: const Color(0xFF10B981),
+          label: 'Instalados en el dispositivo · ${installed.length}',
         ),
       );
       children.addAll(installed.map((item) => _buildCard(context, item)));
@@ -77,10 +72,7 @@ class ModelsListSection extends StatelessWidget {
     if (recommended.isNotEmpty) {
       if (children.isNotEmpty) children.add(const SizedBox(height: 8));
       children.add(
-        ModelsSectionDivider(
-          label: 'RECOMENDADOS PARA MÓVIL',
-          color: NanoThemeExtension.of(context).colors.primary,
-        ),
+        const ModelsSectionDivider(label: 'Recomendados para móvil'),
       );
       children.addAll(recommended.map((item) => _buildCard(context, item)));
     }
@@ -91,12 +83,7 @@ class ModelsListSection extends StatelessWidget {
         .toList();
     if (specialized.isNotEmpty) {
       if (children.isNotEmpty) children.add(const SizedBox(height: 8));
-      children.add(
-        ModelsSectionDivider(
-          label: '🎙️ HERRAMIENTAS & FUNCIONES (VOZ / VISIÓN / CÓDIGO)',
-          color: NanoThemeExtension.of(context).colors.primary,
-        ),
-      );
+      children.add(const ModelsSectionDivider(label: 'Voz, visión y código'));
       children.addAll(specialized.map((item) => _buildCard(context, item)));
     }
 
@@ -106,12 +93,7 @@ class ModelsListSection extends StatelessWidget {
         .toList();
     if (general.isNotEmpty) {
       if (children.isNotEmpty) children.add(const SizedBox(height: 8));
-      children.add(
-        const ModelsSectionDivider(
-          label: 'CATÁLOGO GENERAL DE MODELOS',
-          color: null,
-        ),
-      );
+      children.add(const ModelsSectionDivider(label: 'Catálogo de modelos'));
       final grouped = <String, List<UnifiedModelItem>>{};
       for (final it in general) {
         grouped.putIfAbsent(it.sectionTitle, () => []).add(it);
@@ -137,9 +119,9 @@ class ModelsListSection extends StatelessWidget {
     final isActive = isVoice
         ? (WhisperSttService.instance.activeModelFile == item.fileName)
         : (chatModel.isNotEmpty &&
-            (chatModel.toLowerCase() == item.name.toLowerCase() ||
-             item.name.toLowerCase().contains(chatModel.toLowerCase()) ||
-             chatModel.toLowerCase().contains(item.name.toLowerCase())));
+              (chatModel.toLowerCase() == item.name.toLowerCase() ||
+                  item.name.toLowerCase().contains(chatModel.toLowerCase()) ||
+                  chatModel.toLowerCase().contains(item.name.toLowerCase())));
     final status = isActive
         ? ModelUiStatus.active
         : (item.isDownloading
@@ -157,8 +139,8 @@ class ModelsListSection extends StatelessWidget {
       onUse: () => isActive
           ? (isVoice ? notifier.unloadVoiceModel() : notifier.unloadModel())
           : (item.isCatalog
-              ? notifier.loadModel(item.catalog!.id)
-              : notifier.useDetected(item.detected!)),
+                ? notifier.loadModel(item.catalog!.id)
+                : notifier.useDetected(item.detected!)),
       onDownload: item.isCatalog
           ? () => notifier.downloadModel(item.catalog!.id)
           : null,

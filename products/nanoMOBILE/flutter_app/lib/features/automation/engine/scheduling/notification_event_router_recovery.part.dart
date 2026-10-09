@@ -14,6 +14,9 @@ extension NotificationEventRouterRecovery on NotificationEventRouter {
     _isDrainingBacklog = true;
     try {
       if (_sub == null || generation != _generation) return;
+      // Reclama el mutex antes del await: dos pulsos no pueden drenar en paralelo.
+      if (!await canRecoverNotificationBacklog()) return;
+      if (_sub == null || generation != _generation) return;
       final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 16);
       if (_sub == null || generation != _generation) return;
       for (final event in inboxEvents) {
@@ -24,6 +27,7 @@ extension NotificationEventRouterRecovery on NotificationEventRouter {
       // El inbox conserva identidad; el contenido se rehidrata de Android.
       final active = await NanoRuntimeApi.instance.listNotifications();
       if (_sub == null || generation != _generation) return;
+      if (!await canRecoverNotificationBacklog()) return;
       for (final event in active) {
         if (_sub == null || generation != _generation) break;
         final decoded = NotificationObject.eventsFromMap(event);
@@ -51,6 +55,7 @@ extension NotificationEventRouterRecovery on NotificationEventRouter {
     for (var attempt = 0; attempt < 3; attempt++) {
       await Future<void>.delayed(Duration(seconds: attempt == 0 ? 2 : 5));
       if (_sub == null || generation != _generation) return;
+      if (!await canRecoverNotificationBacklog()) continue;
       final inboxEvents = await NanoRuntimeApi.instance.claimInbox(limit: 32);
       if (_sub == null || generation != _generation) return;
       for (final event in inboxEvents) {

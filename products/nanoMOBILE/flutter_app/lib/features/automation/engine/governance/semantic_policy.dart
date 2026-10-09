@@ -151,6 +151,43 @@ const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
     requiresContextLock: true,
     requiresConfirmation: true,
   ),
+  'telegram.contacts': SemanticActionDefinition(
+    risk: SemanticActionRisk.observation,
+  ),
+  'telegram.open_chat': SemanticActionDefinition(
+    risk: SemanticActionRisk.navigation,
+  ),
+  'telegram.send_message': SemanticActionDefinition(
+    requiredInputs: ['contact', 'text'],
+    risk: SemanticActionRisk.irreversibleCommit,
+    irreversible: true,
+    requiresContextLock: true,
+    requiresConfirmation: true,
+  ),
+  'telegram.share_file': SemanticActionDefinition(
+    requiredInputs: ['contact', 'path'],
+    risk: SemanticActionRisk.irreversibleCommit,
+    irreversible: true,
+    requiresContextLock: true,
+    requiresConfirmation: true,
+  ),
+  'messenger.open_chat': SemanticActionDefinition(
+    risk: SemanticActionRisk.navigation,
+  ),
+  'messenger.send_message': SemanticActionDefinition(
+    requiredInputs: ['contact', 'text'],
+    risk: SemanticActionRisk.irreversibleCommit,
+    irreversible: true,
+    requiresContextLock: true,
+    requiresConfirmation: true,
+  ),
+  'messenger.share_file': SemanticActionDefinition(
+    requiredInputs: ['contact', 'path'],
+    risk: SemanticActionRisk.irreversibleCommit,
+    irreversible: true,
+    requiresContextLock: true,
+    requiresConfirmation: true,
+  ),
   'linux.writeFile': SemanticActionDefinition(
     requiredInputs: ['path', 'content'],
     risk: SemanticActionRisk.reversibleWrite,

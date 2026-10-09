@@ -9,6 +9,8 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.*
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * LiteRtChannelHandler — Puente MethodChannel y EventChannel entre Dart y LiteRT.
@@ -32,7 +34,8 @@ class LiteRtChannelHandler(
         const val STREAM_CHANNEL_NAME = "com.nanoai/litert_stream"
     }
 
-    private var sink: EventChannel.EventSink? = null
+    @Volatile private var sink: EventChannel.EventSink? = null
+    private val requests = ConcurrentHashMap<String, AtomicBoolean>()
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -45,7 +48,15 @@ class LiteRtChannelHandler(
             )
             "cancel" -> cancelAsync(call.argument<String>("requestId"), result)
             "getMetrics" -> result.success(supervisor.getMetrics())
+            "status" -> result.success(supervisor.status())
             "initialize", "release", "generate" -> {
+                // Registra antes de despachar IO: cancelar también alcanza la espera inicial.
+                val requestId = if (call.method == "generate") call.argument<String>("requestId") else null
+                val cancelled = AtomicBoolean(false)
+                if (requestId != null && requests.putIfAbsent(requestId, cancelled) != null) {
+                    result.error("duplicate_request", "requestId LiteRT repetido", null)
+                    return
+                }
                 ioScope.launch(Dispatchers.IO) {
                     try {
                         val response = when (call.method) {
@@ -57,8 +68,9 @@ class LiteRtChannelHandler(
                                 val modelPath = call.argument<String>("modelPath") ?: error("Falta modelPath")
                                 val backend = call.argument<String>("backend") ?: "cpu"
                                 
-                                supervisor.ensureReady(modelPath, backend, effectiveThreads)
-                                mapOf("success" to true, "backend" to backend, "modelPath" to modelPath)
+                                // Devuelve la identidad cargada, no el alias recibido desde Flutter.
+                                val (owner, _) = supervisor.ensureReady(modelPath, backend, effectiveThreads)
+                                mapOf("success" to true, "backend" to owner.backend, "modelPath" to owner.modelPath)
                             }
                             "release" -> {
                                 supervisor.unload()
@@ -69,7 +81,7 @@ class LiteRtChannelHandler(
                                 performanceEngine?.registerWorkerThreads(intArrayOf(android.os.Process.myTid()))
                                 performanceEngine?.setMode(dev.nanoai.mobile.performance.NanoPerformanceEngine.MODE_TURBO)
                                 try {
-                                    supervisor.generate(call.arguments as? Map<*, *> ?: emptyMap<Any, Any>()) { event ->
+                                    supervisor.generate(call.arguments as? Map<*, *> ?: emptyMap<Any, Any>(), cancelled) { event ->
                                         mainHandler.post { sink?.success(event) }
                                     }
                                 } finally {
@@ -89,6 +101,8 @@ class LiteRtChannelHandler(
                             }
                             result.error("litert_failed", error.message, null)
                         }
+                    } finally {
+                        if (requestId != null) requests.remove(requestId, cancelled)
                     }
                 }
             }
@@ -101,14 +115,26 @@ class LiteRtChannelHandler(
     }
 
     override fun onCancel(arguments: Any?) {
+        close()
+    }
+
+    // Liberar el receptor cancela únicamente sus requests; conserva los pesos Application.
+    fun close() {
         sink = null
-        cancelAsync(null)
+        for ((id, cancelled) in requests) {
+            cancelled.set(true)
+            supervisor.cancelInference(id)
+        }
+        requests.clear()
     }
 
     private fun cancelAsync(id: String?, result: MethodChannel.Result? = null) {
-        ioScope.launch(Dispatchers.IO) {
-            val cancelled = supervisor.cancelInference(id)
-            if (result != null) mainHandler.post { result.success(cancelled) }
+        var found = false
+        for ((key, flag) in requests) if (id == null || key == id) {
+            flag.set(true)
+            supervisor.cancelInference(key)
+            found = true
         }
+        result?.success(found)
     }
 }

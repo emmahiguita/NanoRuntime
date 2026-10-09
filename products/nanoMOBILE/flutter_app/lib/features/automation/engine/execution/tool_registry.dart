@@ -140,6 +140,11 @@ class ToolRegistry {
       'browser_ai': 'browser_ai_query',
       'mcp': 'mcp.read',
       'whatsapp': 'whatsapp.open_chat',
+      'telegram': 'telegram.open_chat',
+      'tg': 'telegram.open_chat',
+      'messenger': 'messenger.open_chat',
+      'fb': 'messenger.open_chat',
+      'facebook': 'messenger.open_chat',
       'contactos': 'whatsapp.contacts',
       'compartir': 'whatsapp.share_file',
       'enviar_archivo': 'whatsapp.share_file',
@@ -241,6 +246,55 @@ class ToolRegistry {
       description: 'Compartir un documento, archivo, foto o video por WhatsApp',
       promptSyntax:
           '{"tool":"whatsapp.share_file","contact":"<contacto_o_numero>","path":"<ruta_archivo>","caption":"<texto_opcional>"}',
+    ),
+    // ── Telegram & Messenger ───────────────────────────────────────────────
+    ToolDefinition(
+      name: 'telegram.open_chat',
+      timeout: Duration(seconds: 15),
+      description: 'Abrir un chat de Telegram con un contacto, usuario o número',
+      promptSyntax:
+          '{"tool":"telegram.open_chat","contact":"<contacto_o_usuario>","text":"<texto_opcional>"}',
+    ),
+    ToolDefinition(
+      name: 'telegram.send_message',
+      timeout: Duration(seconds: 20),
+      description: 'Enviar un mensaje por Telegram a un contacto o usuario',
+      promptSyntax:
+          '{"tool":"telegram.send_message","contact":"<contacto_o_usuario>","text":"<texto>"}',
+    ),
+    ToolDefinition(
+      name: 'telegram.contacts',
+      timeout: Duration(seconds: 15),
+      description: 'Consultar o buscar contactos para Telegram en el dispositivo',
+      promptSyntax: '{"tool":"telegram.contacts","query":"<nombre_o_numero>"}',
+    ),
+    ToolDefinition(
+      name: 'telegram.share_file',
+      timeout: Duration(seconds: 25),
+      description: 'Compartir un archivo, documento o foto por Telegram',
+      promptSyntax:
+          '{"tool":"telegram.share_file","contact":"<contacto_o_usuario>","path":"<ruta_archivo>","caption":"<texto_opcional>"}',
+    ),
+    ToolDefinition(
+      name: 'messenger.open_chat',
+      timeout: Duration(seconds: 15),
+      description: 'Abrir un chat de Facebook Messenger con un contacto o usuario',
+      promptSyntax:
+          '{"tool":"messenger.open_chat","contact":"<contacto_o_usuario>","text":"<texto_opcional>"}',
+    ),
+    ToolDefinition(
+      name: 'messenger.send_message',
+      timeout: Duration(seconds: 20),
+      description: 'Enviar un mensaje por Facebook Messenger a un contacto',
+      promptSyntax:
+          '{"tool":"messenger.send_message","contact":"<contacto_o_usuario>","text":"<texto>"}',
+    ),
+    ToolDefinition(
+      name: 'messenger.share_file',
+      timeout: Duration(seconds: 25),
+      description: 'Compartir un archivo por Facebook Messenger',
+      promptSyntax:
+          '{"tool":"messenger.share_file","contact":"<contacto_o_usuario>","path":"<ruta_archivo>","caption":"<texto_opcional>"}',
     ),
     // ── Subsistema Linux (C9) — acceso estructurado, nunca bash libre sin
     // política. Los writes piden confirmación; run es device (puede ser

@@ -144,11 +144,28 @@ class LanguageAssistService {
   static String safeCleanOutput(String draft) {
     var out = draft.trim();
     if (out.isEmpty) return out;
-    out = out.replaceAll(RegExp(r'\?{2,}'), '?');
-    out = out.replaceAll(RegExp(r'!{2,}'), '!');
+    // Los modelos pequeños pueden filtrar el nombre del campo o del rol aun
+    // cuando el contenido sea válido. Es metadato del protocolo, no parte del
+    // mensaje que debe ver la persona.
+    out = out.replaceFirst(
+      RegExp(
+        r'^(?:respuesta|reply|assistant|asistente)\s*:\s*',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    // Una sola marca terminal conserva la intención sin enviar "????" o
+    // mezclas como "?!?!!", frecuentes en salidas truncadas/reintentadas.
+    out = out.replaceAllMapped(
+      RegExp(r'([!?])[!?]+'),
+      (match) => match.group(1)!,
+    );
     out = out.replaceAll(RegExp(r',{2,}'), ',');
+    out = out.replaceAll(RegExp(r';{2,}'), ';');
+    out = out.replaceAll(RegExp(r':{2,}'), ':');
     out = out.replaceAll(RegExp(r'\.{3,}'), '...');
     out = out.replaceAll(RegExp(r'\s+([,.;:!?])'), r'$1');
+    out = out.replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '');
     out = out.replaceAll(RegExp(r' {2,}'), ' ');
     return out.trim();
   }

@@ -70,6 +70,7 @@ ConversationDraftResult packConversationDraftResult({
   required String conversationId,
   required bool isFastPath,
   required ConversationDecisionEngine decisionEngine,
+  bool allowRepair = true,
 }) {
   final cleaned = LanguageAssistService.safeCleanOutput(reply).trim();
   final candidateUnderstanding = understanding.reply.trim() == cleaned
@@ -87,6 +88,8 @@ ConversationDraftResult packConversationDraftResult({
   final decision = decisionEngine.decide(
     understanding: candidateUnderstanding,
     context: context,
+    // Retener sigue permitido; solo se evita sustituir palabras en diagnóstico.
+    allowRepair: allowRepair,
   );
   final isRepaired =
       decision.repairedText != null && decision.repairedText!.trim().isNotEmpty;

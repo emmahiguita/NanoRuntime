@@ -23,6 +23,8 @@ enum _ActionIntent {
   directCommand,   // Empieza con '@' — despacho sin clasificación
   readScreen,      // Leer/analizar la pantalla activa
   whatsApp,        // Enviar o abrir chat en WhatsApp
+  telegram,        // Enviar o abrir chat en Telegram
+  messenger,       // Enviar o abrir chat en Facebook Messenger
   navBack,         // Acción global: atrás
   navHome,         // Acción global: inicio/home
   navRecents,      // Acción global: apps abiertas
@@ -69,9 +71,10 @@ final class NanoActionIntentResolver {
     final hasScreenObj = _containsToken(lower, const ['pantalla', 'screen']);
     if (hasReadVerb && hasScreenObj) return _ActionIntent.readScreen;
 
-    // 5. WhatsApp: requiere marca explícita O patrón de envío claro.
-    //    "mensaje de error" NO activa esto porque "error" no es contacto ni intención de envío.
-    if (lower.contains('whatsapp')) return _ActionIntent.whatsApp;
+    // 5. Mensajería Universal: Telegram, Messenger, WhatsApp
+    if (lower.contains('telegram') || lower.contains(' tg ')) return _ActionIntent.telegram;
+    if (lower.contains('messenger') || lower.contains('facebook') || lower.contains(' fb ')) return _ActionIntent.messenger;
+    if (lower.contains('whatsapp') || lower.contains(' wpp ')) return _ActionIntent.whatsApp;
     final hasSendVerb = _containsToken(lower, const ['envía', 'envia', 'manda', 'mandame', 'enviar']);
     final hasMessageObj = lower.contains('a ') && (lower.contains(' que ') || lower.contains(': ') || lower.contains(' diciendo'));
     if (hasSendVerb && hasMessageObj) return _ActionIntent.whatsApp;
@@ -131,8 +134,10 @@ class NanoActionPortAdapter implements NanoActionPort {
         // Leer pantalla — snapshot semántico de la UI activa.
         _ActionIntent.readScreen => await _dispatcher.runCommand('@leer_pantalla'),
 
-        // WhatsApp — extrae contacto y mensaje del lenguaje natural.
-        _ActionIntent.whatsApp => await _resolveWhatsApp(clean),
+        // Mensajería Universal — extrae contacto y mensaje del lenguaje natural.
+        _ActionIntent.whatsApp  => await _resolveMessaging(clean, 'whatsapp', r'envía|envia|enviar|manda|whatsapp|wpp'),
+        _ActionIntent.telegram  => await _resolveMessaging(clean, 'telegram', r'envía|envia|enviar|manda|telegram|tg'),
+        _ActionIntent.messenger => await _resolveMessaging(clean, 'messenger', r'envía|envia|enviar|manda|messenger|facebook|fb'),
 
         // Tocar elemento — extrae el texto objetivo tras el verbo.
         _ActionIntent.tapElement => () {
@@ -160,12 +165,10 @@ class NanoActionPortAdapter implements NanoActionPort {
     }
   }
 
-  // QUÉ: Extrae contacto y mensaje de un intent de WhatsApp en lenguaje natural.
-  // CÓMO: Patrón regex estructurado. Si no coincide, pasa el texto completo al dispatcher.
-  // POR QUÉ: El dispatcher tiene su propio parser de WhatsApp con lógica de contacto.
-  Future<String> _resolveWhatsApp(String text) async {
+  // QUÉ: Extrae contacto y mensaje de un intent de mensajería en lenguaje natural.
+  Future<String> _resolveMessaging(String text, String command, String verbs) async {
     final match = RegExp(
-      r'(?:envía|envia|enviar|manda|whatsapp)\s+(?:a\s+)?([a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+?)(?:\s+(?:que|diciendo|:)\s+(.+))?$',
+      '(?:$verbs)\\s+(?:a\\s+)?([a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ\\s@]+?)(?:\\s+(?:que|diciendo|:)\\s+(.+))?\$',
       caseSensitive: false,
     ).firstMatch(text);
 
@@ -173,10 +176,10 @@ class NanoActionPortAdapter implements NanoActionPort {
       final contact = match.group(1)?.trim() ?? '';
       final message = match.group(2)?.trim() ?? '';
       if (contact.isNotEmpty && message.isNotEmpty) {
-        return await _dispatcher.runCommand('@whatsapp $contact $message');
+        return await _dispatcher.runCommand('@$command $contact $message');
       }
     }
-    return await _dispatcher.runCommand('@whatsapp $text');
+    return await _dispatcher.runCommand('@$command $text');
   }
 }
 

@@ -48,7 +48,10 @@ abstract final class ConversationPhoneResolver {
         deviceContacts.isNotEmpty &&
         displayName.trim().isNotEmpty) {
       final best = ContactMatcher.findBest(displayName, deviceContacts);
-      if (best != null && best.number.isNotEmpty) {
+      if (best != null &&
+          best.isWhatsAppVerified &&
+          !best.isGroup &&
+          best.number.isNotEmpty) {
         final digits = _extractValidDigits(best.number);
         if (digits != null) return digits;
       }
@@ -84,14 +87,21 @@ abstract final class ConversationPhoneResolver {
   static String? _extractValidDigits(String raw) {
     if (raw.isEmpty) return null;
     final clean = raw.trim();
-    // Excluir claves de atajos sintéticos de Android
-    if (clean.startsWith('shortcut:24314') || clean.startsWith('243142846')) {
+    final lower = clean.toLowerCase();
+    // Ningún identificador de conversación o grupo puede convertirse en teléfono.
+    if (lower.startsWith('shortcut:') ||
+        lower.startsWith('history:') ||
+        lower.startsWith('live:') ||
+        lower.startsWith('group:') ||
+        lower.contains('@g.us')) {
       return null;
     }
-    final match = RegExp(r'\d{7,15}').firstMatch(clean);
-    final digits = match?.group(0);
-    if (digits != null && digits.length >= 7) {
-      return digits;
+    // Ignora corridas de más de 15 dígitos en lugar de truncarlas silenciosamente.
+    for (final match in RegExp(r'\d+').allMatches(clean)) {
+      final digits = match.group(0);
+      if (digits != null && digits.length >= 7 && digits.length <= 15) {
+        return digits;
+      }
     }
     return null;
   }

@@ -34,13 +34,16 @@ final class WhatsAppContactResolver {
       }).firstOrNull;
       if (saved != null) return saved;
 
-      // Un número explícito es una identidad válida aunque no esté en agenda.
+      // Un número explícito sirve para una apertura manual, pero no prueba que
+      // WhatsApp haya publicado una cuenta ni autoriza autoenvío verificado.
       return WhatsAppContact(
         id: digits,
         name: query,
         number: digits,
-        jid: '$digits@s.whatsapp.net',
+        jid: '',
         isBusiness: false,
+        verificationSource: 'explicit_phone',
+        isWhatsAppVerified: false,
       );
     }
 

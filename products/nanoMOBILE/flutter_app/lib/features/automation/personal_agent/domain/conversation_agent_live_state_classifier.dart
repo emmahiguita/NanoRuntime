@@ -1,19 +1,27 @@
-// QUÉ: identifica consultas que requieren hechos actuales del dueño.
-// CÓMO: conserva reglas previas y reconoce la invitación observada a salir.
-// POR QUÉ: el estilo conversacional no demuestra voluntad ni disponibilidad.
 part of 'conversation_agent_message_classifier.dart';
 
-/// Detecta preguntas que requieren estado actual o percepción real del dueño.
-bool isLiveStateQuestion(String messageText) {
+/// Clasifica la intención semántica de estado vivo del mensaje.
+LiveStateIntent classifyLiveStateIntent(String messageText) {
+  if (WeatherRequest.isSourceQuestion(messageText)) return LiveStateIntent.none;
   final normalized = normalizeText(messageText);
   final tokens = tokenizeText(normalized);
-  if (tokens.isEmpty) return false;
+  if (tokens.isEmpty) return LiveStateIntent.none;
 
-  // Una invitación directa requiere la voluntad actual del dueño, no su estilo.
-  // Activa el contrato estructurado y las barreras ya existentes de hechos vivos.
-  if (tokens.contains('quieres') && tokens.contains('salir')) return true;
+  // 1. Preguntas de contexto conversacional / aclaración / seguimiento ("Dime qué sucede", "¿Qué pasó?"):
+  // No piden la ubicación ni la actividad física del dueño.
+  final isConversational =
+      normalized.contains('que sucede') ||
+      normalized.contains('que pasa') ||
+      normalized.contains('que paso') ||
+      normalized.contains('que ocurre') ||
+      normalized.contains('como asi') ||
+      normalized.contains('cuentame') ||
+      normalized.contains('que quieres decir') ||
+      normalized.contains('por que dices') ||
+      normalized.contains('dime que');
+  if (isConversational) return LiveStateIntent.conversationalContext;
 
-  // Bienestar cotidiano no es consulta de telemetría/estado vivo
+  // 2. Bienestar cotidiano no es consulta de telemetría/estado vivo
   final isWellbeing =
       normalized.contains('como vas') ||
       normalized.contains('que tal') ||
@@ -22,7 +30,31 @@ bool isLiveStateQuestion(String messageText) {
   if (isWellbeing &&
       !normalized.contains('vas a') &&
       !tokens.contains('donde')) {
-    return false;
+    return LiveStateIntent.none;
+  }
+
+  // 3. Disponibilidad actual
+  final isAvailability =
+      normalized.contains('estas ocupado') ||
+      normalized.contains('estas ocupada') ||
+      normalized.contains('tienes tiempo') ||
+      normalized.contains('estas libre') ||
+      normalized.contains('puedes hablar') ||
+      normalized.contains('te puedo llamar') ||
+      normalized.contains('puedo llamar');
+  if (isAvailability) return LiveStateIntent.currentAvailability;
+
+  // 4. Ubicación actual
+  final isLocation =
+      (tokens.any((t) => t == 'donde' || t == 'ahi') &&
+          (tokens.contains('vas') || tokens.any(presenceVerbs.contains))) ||
+      normalized.contains('estas en casa') ||
+      normalized.contains('estas en la casa');
+  if (isLocation) return LiveStateIntent.currentLocation;
+
+  // 5. Actividad o planes presentes
+  if (tokens.contains('quieres') && tokens.contains('salir')) {
+    return LiveStateIntent.currentActivity;
   }
 
   const activityVerbs = {
@@ -36,48 +68,48 @@ bool isLiveStateQuestion(String messageText) {
     'entrenas',
   };
   final hasActivity = tokens.any(activityVerbs.contains);
-  if (tokens.contains('que') && hasActivity) return true;
-  if (tokens.contains('hoy') && hasActivity) return true;
-  if (tokens.any((t) => t == 'donde' || t == 'ahi') &&
-      (tokens.contains('vas') || tokens.any(presenceVerbs.contains))) {
-    return true;
+  if (tokens.contains('que') && hasActivity) {
+    return LiveStateIntent.currentActivity;
+  }
+  if (tokens.contains('hoy') && hasActivity) {
+    return LiveStateIntent.currentActivity;
   }
   if (normalized.contains('vas a') ||
       normalized.contains('iras a') ||
       tokens.contains('planeas') ||
       (tokens.contains('vas') && tokens.contains('ir'))) {
-    return true;
+    return LiveStateIntent.currentActivity;
   }
 
   const contextSensitive = [
     'como va tu dia',
     'que tal tu dia',
-    'estas ocupado',
-    'estas ocupada',
-    'tienes tiempo',
-    'estas libre',
-    'puedes hablar',
     'ya comiste',
     'almorzaste',
     'cenaste',
     'desayunaste',
     'tienes hambre',
-    'estas en casa',
-    'estas en la casa',
     'como esta tu familia',
     'como estan todos',
     'vas a dormir',
     'sigues despierto',
     'que musica',
     'estas escuchando',
-    'como esta el clima',
-    'esta lloviendo',
-    'hace frio',
-    'hace calor',
-    'te puedo llamar',
-    'puedo llamar',
     'que opinas',
     'como lo ves',
   ];
-  return contextSensitive.any(normalized.contains);
+  if (contextSensitive.any(normalized.contains)) {
+    return LiveStateIntent.currentCondition;
+  }
+
+  return LiveStateIntent.none;
+}
+
+/// Detecta preguntas que requieren estado actual o percepción real del dueño.
+bool isLiveStateQuestion(String messageText) {
+  final intent = classifyLiveStateIntent(messageText);
+  return intent == LiveStateIntent.currentActivity ||
+      intent == LiveStateIntent.currentLocation ||
+      intent == LiveStateIntent.currentAvailability ||
+      intent == LiveStateIntent.currentCondition;
 }

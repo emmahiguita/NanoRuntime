@@ -77,9 +77,7 @@ class NanoBottomDock extends StatelessWidget {
       0.0,
       double.infinity,
     );
-    final desired = searchExpanded
-        ? (landscape ? 700.0 : 480.0)
-        : (landscape ? 224.0 : 248.0);
+    final desired = searchExpanded ? (landscape ? 700.0 : 480.0) : 220.0;
     final width = desired.clamp(0.0, available).toDouble();
     return Listener(
       key: const ValueKey('expanded'),

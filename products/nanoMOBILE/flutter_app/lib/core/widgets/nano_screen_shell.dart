@@ -16,6 +16,7 @@ class NanoScreenShell extends StatelessWidget {
     this.hideHeader = false,
     this.showBack,
     this.resizeToAvoidBottomInset = false,
+    this.backgroundColor,
   });
 
   final String title;
@@ -23,6 +24,9 @@ class NanoScreenShell extends StatelessWidget {
   final Widget? trailing;
   final bool hideHeaderInPortrait;
   final bool hideHeader;
+
+  /// Color de fondo del Scaffold. Si es null, por defecto es transparente.
+  final Color? backgroundColor;
 
   /// Muestra botón de retroceso. Por defecto (null): automático — visible
   /// solo si hay una ruta a la que volver (`Navigator.canPop`). Las rutas
@@ -49,7 +53,7 @@ class NanoScreenShell extends StatelessWidget {
     final back = showBack ?? Navigator.of(context).canPop();
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: backgroundColor ?? Colors.transparent,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

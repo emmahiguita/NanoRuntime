@@ -15,9 +15,12 @@ extension LiteRtStreaming on LiteRtInferenceAdapter {
     StreamSubscription<dynamic>? subscription;
     late StreamController<LLMStreamToken> controller;
     var finished = false;
+    final budget = ExecutionBudget.current;
+    void Function()? detachBudget;
     Future<void> finish([Object? error]) async {
       if (finished) return;
       finished = true;
+      detachBudget?.call();
       if (error != null && !controller.isClosed) controller.addError(error);
       await subscription?.cancel();
       if (_requestId == requestId) _requestId = null;
@@ -67,6 +70,10 @@ extension LiteRtStreaming on LiteRtInferenceAdapter {
               if (stop) unawaited(finish());
             }, onError: (Object error) => unawaited(finish(error)));
         try {
+          // La cancelación conserva el requestId: no afecta otro chat o motor.
+          detachBudget = budget?.register(() {
+            unawaited(cancel(requestId).catchError((Object _) => false));
+          });
           await LiteRtInferenceAdapter._channel.invokeMethod('generate', {
             'requestId': requestId,
             'prompt': prompt,
@@ -87,6 +94,8 @@ extension LiteRtStreaming on LiteRtInferenceAdapter {
         }
       },
       onCancel: () async {
+        detachBudget?.call();
+        finished = true;
         await cancel(requestId);
         await subscription?.cancel();
         if (_requestId == requestId) _requestId = null;

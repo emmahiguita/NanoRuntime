@@ -27,7 +27,9 @@ final notificationHistoryConversationsProvider =
           .conversations();
       return rows
           .where((row) {
-            final convId = '${row['conversationId'] ?? ''}'.trim().toLowerCase();
+            final convId = '${row['conversationId'] ?? ''}'
+                .trim()
+                .toLowerCase();
             final name = '${row['displayName'] ?? ''}'.trim().toLowerCase();
             final lastMsg = '${row['lastMessage'] ?? ''}'.trim().toLowerCase();
             if (convId == '0' || name == '0' || name.isEmpty) return false;
@@ -62,12 +64,13 @@ ConversationSummaryItem _summaryFromStoredNotification(
   final packageName = '${row['packageName'] ?? ''}'.trim();
   final isBusiness = packageName == 'com.whatsapp.w4b';
   final rawName = '${row['displayName'] ?? ''}'.trim();
+  final cleanName = ConversationGroupResolver.cleanTitle(rawName);
   final convId = '${row['conversationId'] ?? ''}'.trim();
-  final name = ConversationGroupResolver.isGenericTitle(rawName)
+  final name = ConversationGroupResolver.isGenericTitle(cleanName)
       ? (convId.isNotEmpty && !ConversationGroupResolver.isGenericTitle(convId)
-          ? convId
-          : 'Conversación')
-      : rawName;
+            ? convId
+            : 'Conversación')
+      : cleanName;
   return ConversationSummaryItem(
     conversationId: 'history:$historyId',
     conversationAliases: ['notification-history:$historyId'],

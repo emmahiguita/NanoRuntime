@@ -24,10 +24,12 @@ final class ConversationDecisionEngine {
   ConversationDecision decide({
     required ConversationUnderstanding understanding,
     ConversationDecisionContext context = const ConversationDecisionContext(),
+    bool allowRepair = true,
   }) => _decide(
     understanding: understanding,
     context: context,
-    allowRepair: true,
+    // El modo diagnóstico conserva todas las barreras sin respuestas reparadas.
+    allowRepair: allowRepair,
   );
 
   ConversationDecision _decide({
