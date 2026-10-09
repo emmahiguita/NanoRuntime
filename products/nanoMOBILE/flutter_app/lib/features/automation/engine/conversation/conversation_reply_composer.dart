@@ -32,6 +32,7 @@ import '../../personal_agent/domain/conversation_agent_role.dart';
 import '../notifications/conversation_understanding.dart';
 import '../notifications/notification_draft_writer.dart';
 import '../notifications/notification_object.dart';
+import '../business/runtime/nano_business_runtime.dart';
 import '../../personal_agent/application/conversation_decision_engine.dart';
 import '../../personal_agent/domain/conversation_decision.dart';
 import 'conversation_reply_composer_models.dart';
@@ -61,6 +62,7 @@ final class RuntimeConversationReplyComposer
     PersonaStyleResolver? styleResolver,
     TurnKnowledgeRouter? knowledgeRouter,
     BusinessConversationResolver? businessResolver,
+    NanoBusinessRuntime? businessRuntime,
     BusinessFacts Function()? factsSource,
     ToneProfile Function()? toneSource,
     PersonalStyleFormatter styleFormatter =
@@ -81,6 +83,7 @@ final class RuntimeConversationReplyComposer
              styleFormatter: styleFormatter,
            ),
        _businessResolver = businessResolver,
+       _businessRuntime = businessRuntime,
        _factsSource = factsSource,
        _toneSource = toneSource,
        _turnRouter = turnRouter,
@@ -92,6 +95,7 @@ final class RuntimeConversationReplyComposer
   final NotificationDraftSource _draftSource;
   final PersonalConversationResolver _personalResolver;
   final BusinessConversationResolver? _businessResolver;
+  final NanoBusinessRuntime? _businessRuntime;
   final BusinessFacts Function()? _factsSource;
   final ToneProfile Function()? _toneSource;
   final TurnContextRouter _turnRouter;

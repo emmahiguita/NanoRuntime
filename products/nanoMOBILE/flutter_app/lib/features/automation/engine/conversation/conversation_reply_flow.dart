@@ -42,15 +42,12 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       dialogueState: dialogueState,
     );
 
-    // 0. Deduplicación determinista: descarta ráfagas redundantes de WhatsApp.
-    // En chats grupales discrimina por remitente para evitar descartar mensajes válidos entre usuarios.
-    final incomingEvent = IncomingMessage.fromNotification(
-      effectiveNotification,
-    );
+    // 0. Deduplicación determinista: descarta ráfagas redundantes.
+    final incomingEvent = IncomingMessage.fromNotification(effectiveNotification);
     final groupSender = effectiveNotification.isGroup
         ? (effectiveNotification.senderKey.isNotEmpty
-              ? effectiveNotification.senderKey
-              : effectiveNotification.sender)
+            ? effectiveNotification.senderKey
+            : effectiveNotification.sender)
         : null;
     if (_deduplicator.isDuplicate(
       conversationId,
@@ -58,11 +55,7 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       senderKey: groupSender,
       eventId: incomingEvent.eventId,
     )) {
-      final eventTag = incomingEvent.eventId.substring(0, 8);
-      debugPrint(
-        '[conv:dedup] duplicate event=$eventTag '
-        'textChars=${analysis.fullText.length}',
-      );
+      debugPrint('[conv:dedup] duplicate event=${incomingEvent.eventId.substring(0, 8)}');
       return null;
     }
 
@@ -88,45 +81,18 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       );
     }
 
-    // 1. Canal Comercial: BusinessConversationResolver atiende de forma directa e inmediata (<5ms, 0 tokens)
-    // estrictamente cuando hay intención comercial real (producto, servicio, hechos del negocio).
-    // Un saludo aislado ("Hola") no activa el resolutor de ventas para no forzar venta ni catálogo.
+    // 1. Canal Comercial: NanoBusinessRuntime con Inbox Durable, Estado, Verdad y Políticas
     BusinessFacts? businessFacts;
-    if (isBusiness && _businessResolver != null) {
+    if (isBusiness) {
       businessFacts = _factsSource?.call() ?? const BusinessFacts();
-      final commercialAnalysis = _businessResolver.analyzer.analyze(
-        analysis.fullText,
-        businessFacts,
+      final bResult = await _resolveBusinessTurn(
+        notification: effectiveNotification,
+        conversationId: conversationId,
+        fullText: analysis.fullText,
+        facts: businessFacts,
+        context: context,
       );
-      if (commercialAnalysis.hasCommercialIntent ||
-          commercialAnalysis.isGreeting ||
-          commercialAnalysis.isHumanRequest) {
-        final tone = _toneSource?.call() ?? const ToneProfile();
-        final bReply = _businessResolver.resolve(
-          message: analysis.fullText,
-          facts: businessFacts,
-          tone: tone,
-          businessName: businessFacts.businessName,
-        );
-        if (bReply != null && bReply.text.isNotEmpty) {
-          final understanding = ConversationUnderstanding(
-            reply: bReply.text,
-            intent: 'business_commercial',
-            requiresAction: bReply.needsHuman,
-            missingFacts: bReply.missingFacts,
-            options: bReply.suggestions,
-          );
-          return _packReply(
-            bReply.text,
-            understanding,
-            bReply.suggestions,
-            context,
-            conversationId,
-            true,
-            userText: analysis.targetText,
-          );
-        }
-      }
+      if (bResult != null) return bResult;
     }
 
     // 2. Canal Personal: hechos de memoria y estilo aprendido, sin frases prefabricadas.
@@ -185,5 +151,39 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       );
     }
     return fallback;
+  }
+
+  Future<ConversationDraftResult?> _resolveBusinessTurn({
+    required NotificationObject notification,
+    required String conversationId,
+    required String fullText,
+    required BusinessFacts facts,
+    required ConversationDecisionContext context,
+  }) async {
+    final runtime = _businessRuntime ?? NanoBusinessRuntime(facts: facts);
+    final result = await runtime.processTurn(
+      eventId: notification.key,
+      conversationId: conversationId,
+      incomingText: fullText,
+      channel: notification.packageName.contains('w4b')
+          ? 'whatsapp_business'
+          : 'whatsapp',
+    );
+    if (result == null || result.replyText.isEmpty) return null;
+    final understanding = ConversationUnderstanding(
+      reply: result.replyText,
+      intent: 'business_commercial',
+      requiresAction: result.isEscalatedToHuman,
+      options: result.suggestions,
+    );
+    return _packReply(
+      result.replyText,
+      understanding,
+      result.suggestions,
+      context,
+      conversationId,
+      true,
+      userText: notification.text,
+    );
   }
 }
