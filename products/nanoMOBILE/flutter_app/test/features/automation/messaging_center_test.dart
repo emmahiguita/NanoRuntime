@@ -13,6 +13,7 @@ import 'package:nanoai/features/automation/presentation/messaging_center/messagi
 import 'package:nanoai/features/automation/presentation/widgets/conversation_media_bubble.dart';
 import 'package:nanoai/features/automation/presentation/widgets/link_metadata_service.dart';
 import 'package:nanoai/features/automation/presentation/widgets/floating_video_overlay.dart';
+import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -441,6 +442,31 @@ void main() {
         ownership: ownershipAfterResume,
       );
       expect(isBotActive, isTrue); // Bot activo
+    });
+  });
+
+  group('RuleRegistry Multi-Channel Support', () {
+    test('Identifica y enruta reglas de WhatsApp, Telegram e Instagram', () {
+      expect(
+        RuleRegistry.ruleIdForPackage('com.whatsapp'),
+        equals(RuleRegistry.universalWhatsAppRuleId),
+      );
+      expect(
+        RuleRegistry.ruleIdForPackage('com.whatsapp.w4b'),
+        equals(RuleRegistry.universalWhatsAppBusinessRuleId),
+      );
+      expect(
+        RuleRegistry.ruleIdForPackage('org.telegram.messenger'),
+        equals('telegram_universal_conversation'),
+      );
+      expect(
+        RuleRegistry.ruleIdForPackage('org.telegram.plus'),
+        equals('telegram_universal_conversation'),
+      );
+      expect(
+        RuleRegistry.ruleIdForPackage('com.instagram.android'),
+        equals('instagram_universal_conversation'),
+      );
     });
   });
 

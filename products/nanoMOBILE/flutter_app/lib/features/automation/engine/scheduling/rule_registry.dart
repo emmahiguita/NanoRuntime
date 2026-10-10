@@ -60,14 +60,24 @@ class RuleRegistry with ChangeNotifier {
     notifyListeners();
   }
 
-  /// WA-CONSENT-01 — siembra la regla universal de WhatsApp para el paquete.
-  static String ruleIdForPackage(String packageName) =>
-      packageName == MessagingPackage.whatsappBusiness
-      ? universalWhatsAppBusinessRuleId
-      : universalWhatsAppRuleId;
+  /// UNI-CONSENT — siembra la regla universal para el paquete dado.
+  static String ruleIdForPackage(String packageName) {
+    if (packageName == MessagingPackage.whatsappBusiness) {
+      return universalWhatsAppBusinessRuleId;
+    }
+    if (packageName == MessagingPackage.telegram ||
+        packageName == MessagingPackage.telegramOrg ||
+        packageName == 'org.telegram.plus') {
+      return 'telegram_universal_conversation';
+    }
+    if (packageName == MessagingPackage.instagram) {
+      return 'instagram_universal_conversation';
+    }
+    return universalWhatsAppRuleId;
+  }
 
-  /// WA-CONSENT-01 — siembra o reactiva la regla universal de WhatsApp para el paquete.
-  void seedWhatsAppRule(String packageName, {String? senderMatch}) {
+  /// Siembra o reactiva la regla universal de mensajería para el paquete.
+  void seedChannelRule(String packageName, {String? senderMatch}) {
     final id = ruleIdForPackage(packageName);
     final matches = _rules.where((r) => r.id == id).toList();
     if (matches.isNotEmpty) {
@@ -97,21 +107,22 @@ class RuleRegistry with ChangeNotifier {
       createdByUser: true,
     );
     _rules.add(rule);
-    debugPrint('[rules] seed WhatsApp rule id=$id pkg=$packageName');
+    debugPrint('[rules] seed channel rule id=$id pkg=$packageName');
     _persist();
   }
 
-  /// WA-CONSENT-01 — elimina la regla universal de WhatsApp para el paquete.
-  void removeWhatsAppRule(String packageName) {
-    remove(ruleIdForPackage(packageName));
-  }
+  void removeChannelRule(String packageName) => remove(ruleIdForPackage(packageName));
 
-  /// WA-CONSENT-01 — true si la regla universal de [packageName] existe y
-  /// está habilitada. Usado por la UI para reflejar el estado del toggle.
-  bool isWhatsAppRuleActive(String packageName) {
+  bool isChannelRuleActive(String packageName) {
     final id = ruleIdForPackage(packageName);
     return _rules.any((r) => r.id == id && r.enabled);
   }
+
+  // Aliases retrocompatibles para WhatsApp
+  void seedWhatsAppRule(String packageName, {String? senderMatch}) =>
+      seedChannelRule(packageName, senderMatch: senderMatch);
+  void removeWhatsAppRule(String packageName) => removeChannelRule(packageName);
+  bool isWhatsAppRuleActive(String packageName) => isChannelRuleActive(packageName);
 
   void add(ScheduledRule rule) {
     final index = _rules.indexWhere((r) => r.id == rule.id);

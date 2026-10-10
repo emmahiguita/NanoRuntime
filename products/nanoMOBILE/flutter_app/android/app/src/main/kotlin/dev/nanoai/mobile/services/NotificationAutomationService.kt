@@ -232,7 +232,8 @@ class NotificationAutomationService : NotificationListenerService() {
             val raw = prefs.getString("flutter.automation.eligible_packages", null)
             if (raw == null) {
                 pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" ||
-                    pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger"
+                    pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger" ||
+                    pkg == "org.telegram.plus" || pkg == "com.instagram.android"
             } else if (raw == "*" || raw.contains("*")) {
                 true
             } else {
@@ -241,7 +242,8 @@ class NotificationAutomationService : NotificationListenerService() {
             }
         } catch (e: Exception) {
             pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" ||
-                pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger"
+                pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger" ||
+                pkg == "org.telegram.plus" || pkg == "com.instagram.android"
         }
     }
 

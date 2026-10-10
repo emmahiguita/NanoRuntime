@@ -38,7 +38,7 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
 
         void setChannel(String packageName, bool enabled) {
           HapticFeedback.lightImpact();
-          enabled ? registry.seedWhatsAppRule(packageName) : registry.removeWhatsAppRule(packageName);
+          enabled ? registry.seedChannelRule(packageName) : registry.removeChannelRule(packageName);
         }
 
         return Padding(
@@ -80,16 +80,35 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
                             _ChannelSwitch(
                               title: 'WhatsApp',
                               subtitle: 'Mensajes personales y contactos',
-                              value: registry.isWhatsAppRuleActive(MessagingPackage.whatsapp),
+                              value: registry.isChannelRuleActive(MessagingPackage.whatsapp),
                               onChanged: (val) => setChannel(MessagingPackage.whatsapp, val),
                               isDark: isDark,
                             ),
                             Divider(height: 1, indent: 16, endIndent: 16, color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06)),
                             _ChannelSwitch(
                               title: 'WhatsApp Business',
-                              subtitle: 'Mensajes de clientes y cuentas comerciales',
-                              value: registry.isWhatsAppRuleActive(MessagingPackage.whatsappBusiness),
+                              subtitle: 'Mensajes de clientes y comercio',
+                              value: registry.isChannelRuleActive(MessagingPackage.whatsappBusiness),
                               onChanged: (val) => setChannel(MessagingPackage.whatsappBusiness, val),
+                              isDark: isDark,
+                            ),
+                            Divider(height: 1, indent: 16, endIndent: 16, color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06)),
+                            _ChannelSwitch(
+                              title: 'Telegram',
+                              subtitle: 'Mensajes directos y grupos',
+                              value: registry.isChannelRuleActive(MessagingPackage.telegramOrg) || registry.isChannelRuleActive(MessagingPackage.telegram),
+                              onChanged: (val) {
+                                setChannel(MessagingPackage.telegramOrg, val);
+                                setChannel(MessagingPackage.telegram, val);
+                              },
+                              isDark: isDark,
+                            ),
+                            Divider(height: 1, indent: 16, endIndent: 16, color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06)),
+                            _ChannelSwitch(
+                              title: 'Instagram',
+                              subtitle: 'Mensajes directos (DMs)',
+                              value: registry.isChannelRuleActive(MessagingPackage.instagram),
+                              onChanged: (val) => setChannel(MessagingPackage.instagram, val),
                               isDark: isDark,
                             ),
                           ],
