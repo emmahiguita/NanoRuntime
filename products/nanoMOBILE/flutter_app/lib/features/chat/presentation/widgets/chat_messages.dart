@@ -6,11 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/models/chat_models.dart';
 import 'package:nanoai/core/providers/chat_provider.dart';
 import 'package:nanoai/core/services/pdf_report_service.dart';
+import 'package:nanoai/core/services/ambient_context_service.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:share_plus/share_plus.dart';
 import 'nano_3d_crystal_icon.dart';
 import 'nano_rich_weather_card.dart';
+import 'nano_siata_radar_card.dart';
 
 part 'chat_messages_bubble.part.dart';
 part 'chat_messages_bubble_user.part.dart';
@@ -70,7 +72,9 @@ MarkdownStyleSheet _buildChatMarkdownStyleSheet(
       fontFamily: 'Inter',
     ),
     em: TextStyle(
-      color: isUser ? Colors.white.withValues(alpha: 0.9) : colors.onSurface.withValues(alpha: 0.9),
+      color: isUser
+          ? Colors.white.withValues(alpha: 0.9)
+          : colors.onSurface.withValues(alpha: 0.9),
       fontStyle: FontStyle.italic,
       fontFamily: 'Inter',
     ),
@@ -80,9 +84,7 @@ MarkdownStyleSheet _buildChatMarkdownStyleSheet(
       fontFamily: 'Inter',
     ),
     code: TextStyle(
-      backgroundColor: colors.primary.withValues(
-        alpha: isDark ? 0.16 : 0.10,
-      ),
+      backgroundColor: colors.primary.withValues(alpha: isDark ? 0.16 : 0.10),
       color: isDark ? colors.primary : colors.primary,
       fontFamily: 'JetBrainsMono',
       fontSize: 12.5,
@@ -90,7 +92,9 @@ MarkdownStyleSheet _buildChatMarkdownStyleSheet(
     ),
     codeblockPadding: const EdgeInsets.all(12),
     codeblockDecoration: BoxDecoration(
-      color: isDark ? colors.surface.withValues(alpha: 0.8) : colors.codeBlockBg,
+      color: isDark
+          ? colors.surface.withValues(alpha: 0.8)
+          : colors.codeBlockBg,
       borderRadius: BorderRadius.circular(10),
       border: Border.all(
         color: colors.outlineVariant.withValues(alpha: 0.35),

@@ -5,6 +5,10 @@
     <!-- Consulta factual del estado real de red y WiFi para el agente (@dispositivo) -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <!-- Clima local solicitado desde Chat. Solo foreground; no se declara
+         ACCESS_BACKGROUND_LOCATION. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <!-- Lectura de contactos de WhatsApp para el Centro de Notificaciones y Mensajería -->

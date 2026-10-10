@@ -93,6 +93,7 @@ ACCEDER A ARCHIVOS PRIVADOS NI ALTERAR LA CONFIGURACIÓN DEL SISTEMA.
   static InAppWebViewSettings createWebViewSettings({
     bool isDesktopMode = false,
     String? userAgent,
+    bool enableGeolocation = false,
   }) {
     return InAppWebViewSettings(
       useShouldOverrideUrlLoading: true,
@@ -105,6 +106,7 @@ ACCEDER A ARCHIVOS PRIVADOS NI ALTERAR LA CONFIGURACIÓN DEL SISTEMA.
       allowFileAccessFromFileURLs: false,
       allowUniversalAccessFromFileURLs: false,
       javaScriptEnabled: true,
+      geolocationEnabled: enableGeolocation,
       javaScriptCanOpenWindowsAutomatically: false,
       supportMultipleWindows: false,
       // Zoom completo nativo y gestos fluidos

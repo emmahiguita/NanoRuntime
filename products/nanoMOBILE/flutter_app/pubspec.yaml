@@ -31,6 +31,8 @@ dependencies:
   audio_service: ^0.18.19
   audio_session: ^0.2.4
   google_sign_in: 7.2.0
+  # Ubicación puntual para clima local; nunca se solicita en segundo plano.
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:

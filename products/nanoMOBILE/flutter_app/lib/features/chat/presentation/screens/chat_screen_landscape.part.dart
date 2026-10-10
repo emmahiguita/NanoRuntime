@@ -122,6 +122,7 @@ extension _ChatScreenLandscape on _ChatScreenState {
               attachmentNames: message.attachmentNames,
               suggestions: message.suggestions,
               tps: message.tps,
+              isLatest: index == state.messages.length - 1,
               onRetry: isError && !state.generating
                   ? () => notifier.retry(message.id)
                   : null,

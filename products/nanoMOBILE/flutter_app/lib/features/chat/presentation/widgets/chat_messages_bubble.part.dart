@@ -12,6 +12,7 @@ class MessageBubble extends StatelessWidget {
     this.attachmentNames = const [],
     this.suggestions = const [],
     this.tps,
+    this.isLatest = false,
     this.onRetry,
     this.onDelete,
     this.onSuggestionSelected,
@@ -24,6 +25,7 @@ class MessageBubble extends StatelessWidget {
   final MessageSource source;
   final bool isError;
   final double? tps;
+  final bool isLatest;
   final VoidCallback? onRetry;
   final VoidCallback? onDelete;
   final List<String> attachmentNames;

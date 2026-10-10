@@ -10,11 +10,16 @@ final class RuntimePersonalLiveContext implements PersonalLiveContext {
   RuntimePersonalLiveContext({
     DateTime Function()? clock,
     Future<AmbientContext?> Function(String city)? weatherFor,
+    Future<AmbientContext?> Function()? deviceWeatherFor,
   }) : _clock = clock ?? DateTime.now,
-       _weatherFor = weatherFor ?? _fetchWeather;
+       _weatherFor = weatherFor ?? _fetchWeather,
+       _deviceWeatherFor =
+           deviceWeatherFor ??
+           AmbientContextService.instance.getOrFetchForDevice;
 
   final DateTime Function() _clock;
   final Future<AmbientContext?> Function(String city) _weatherFor;
+  final Future<AmbientContext?> Function() _deviceWeatherFor;
   // Solo evidencia obtenida realmente, acotada y aislada por chat. No es entrenamiento.
   // Tras reiniciar no se inventa la procedencia de respuestas anteriores.
   static final _weatherByScope = <String, AmbientContext>{};
@@ -89,8 +94,11 @@ final class RuntimePersonalLiveContext implements PersonalLiveContext {
       r'\b(?:mañana|manana|ayer|antier|anoche|la\s+otra\s+semana|el\s+fin\s+de\s+semana)\b',
       caseSensitive: false,
     ).hasMatch(message);
-    final weather =
-        historicalOrFuture ? null : await _weatherFor(city ?? '');
+    final weather = historicalOrFuture
+        ? null
+        : city == null
+        ? await _deviceWeatherFor()
+        : await _weatherFor(city);
     final available =
         weather != null && !weather.isEmpty && weather.isFresh(_clock());
     if (scopeId.isNotEmpty) {
@@ -109,6 +117,18 @@ final class RuntimePersonalLiveContext implements PersonalLiveContext {
           ? 'Sin pronóstico histórico/futuro: el adaptador solo consulta condiciones actuales reportadas en tiempo real.'
           : 'Clima sin evidencia: consulta no disponible o conexión fallida; no afirmar condiciones inventadas.',
     );
+    final normalizedCity = (city ?? '').toLowerCase();
+    if (normalizedCity.contains('medellín') ||
+        normalizedCity.contains('medellin')) {
+      blocks.add(
+        'Para lluvia por sectores de Medellín, la interfaz ofrece el radar oficial '
+        'SIATA (https://geoportal.siata.gov.co/). No deducir barrios o sectores '
+        'afectados desde la condición general de la ciudad; indicar que el mapa '
+        'interactivo muestra precipitación actual e intensidad. La aplicación '
+        'sí puede mostrar ese mapa dentro del chat: nunca afirmes que no puedes '
+        'mostrar mapas, imágenes o visualizaciones SIATA.',
+      );
+    }
     return PersonalLiveEvidence(
       block: blocks.join('\n'),
       weatherRequested: true,

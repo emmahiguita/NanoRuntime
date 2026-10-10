@@ -4,9 +4,27 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
   Widget _buildAssistantMessage(BuildContext context) {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final time = '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
-    final displayModel = source == MessageSource.device ? 'Nano Asistente' : (model.isEmpty ? 'Nano AI' : model);
-    final isWeather = NanoRichWeatherCard.hasWeatherData(text);
+    final time =
+        '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    final displayModel = source == MessageSource.device
+        ? 'Nano Asistente'
+        : (model.isEmpty ? 'Nano AI' : model);
+    final liveWeather = isLatest
+        ? AmbientContextService.instance.latestForUi
+        : null;
+    final weather = liveWeather == null
+        ? NanoRichWeatherCard.parse(text)
+        : NanoWeatherData.fromAmbient(liveWeather);
+    final liveArea =
+        '${liveWeather?.providerArea ?? ''} ${liveWeather?.location ?? ''}'
+            .toLowerCase();
+    final showSiata =
+        NanoSiataRadarCard.shouldShow(text) ||
+        (weather != null &&
+            (liveArea.contains('medellín') ||
+                liveArea.contains('medellin') ||
+                liveArea.contains('valle de aburrá') ||
+                liveArea.contains('valle de aburra')));
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, right: 8, left: 2),
@@ -23,7 +41,9 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
                 child: Nano3dCrystalIcon(
                   size: 28,
                   isGlowing: !isError,
-                  primaryColor: isError ? colors.error : const Color(0xFF4DD7FF),
+                  primaryColor: isError
+                      ? colors.error
+                      : const Color(0xFF4DD7FF),
                 ),
               ),
               const SizedBox(width: 8),
@@ -79,25 +99,29 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
                           ),
                           const SizedBox(height: 1),
 
-                          // Cuerpo de la respuesta (Markdown) + Tarjeta Rica si aplica
-                          if (isWeather)
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: _buildAiBody(context, text),
-                                ),
-                                const SizedBox(width: 8),
-                                const NanoRichWeatherCard(),
-                              ],
-                            )
-                          else
-                            _buildAiBody(context, text),
+                          // El texto conserva todo el ancho. Las tarjetas
+                          // enriquecidas viven debajo; nunca compiten con la
+                          // lectura ni forman una columna estrecha.
+                          _buildAiBody(context, text),
+                          if (weather != null) ...[
+                            const SizedBox(height: 10),
+                            NanoRichWeatherCard(data: weather),
+                          ],
+                          if (showSiata) ...[
+                            const SizedBox(height: 10),
+                            const NanoSiataRadarCard(),
+                          ],
 
                           const SizedBox(height: 8),
 
                           // Barra de acciones compacta (Copiar, Thumbs, etc.)
-                          _buildAssistantActions(context, colors, isDark, time, displayModel),
+                          _buildAssistantActions(
+                            context,
+                            colors,
+                            isDark,
+                            time,
+                            displayModel,
+                          ),
                         ],
                       ),
                     ),

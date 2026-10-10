@@ -35,6 +35,8 @@ import '../notifications/notification_object.dart';
 import '../business/runtime/nano_business_runtime.dart';
 import '../../personal_agent/application/conversation_decision_engine.dart';
 import '../../personal_agent/domain/conversation_decision.dart';
+import '../../personal_agent/domain/personal_action_policy.dart';
+import '../../personal_agent/domain/personal_conversation_analyzer.dart';
 import 'conversation_reply_composer_models.dart';
 import '../language/dialogue_act_classifier.dart';
 import '../messaging/inbound_deduplicator.dart';

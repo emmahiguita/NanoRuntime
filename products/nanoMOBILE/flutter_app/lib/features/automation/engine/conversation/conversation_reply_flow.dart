@@ -81,6 +81,28 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       );
     }
 
+    // 0.2 Políticas Nano Personal: Silencio Inteligente ante Emojis/Stickers & Escalamiento
+    if (!isBusiness) {
+      final personalDecision = PersonalConversationAnalyzer.analyze(
+        notification: effectiveNotification,
+        dialogueState: dialogueState,
+      );
+
+      if (personalDecision.isSilent) {
+        debugPrint('[personal-policy] SILENT: ${personalDecision.reason}');
+        return null;
+      }
+
+      if (personalDecision.isRequireHuman) {
+        debugPrint('[personal-policy] REQUIRE_HUMAN (${personalDecision.domain.name}): ${personalDecision.reason}');
+        if (personalDecision.recruitmentEvent != null) {
+          final ev = personalDecision.recruitmentEvent!;
+          debugPrint('[recruitment] ${ev.platform} | ${ev.position} | ${ev.stage} | URL: ${ev.url}');
+        }
+        return null;
+      }
+    }
+
     // 1. Canal Comercial: NanoBusinessRuntime con Inbox Durable, Estado, Verdad y Políticas
     BusinessFacts? businessFacts;
     if (isBusiness && (_businessRuntime != null || _factsSource != null)) {
