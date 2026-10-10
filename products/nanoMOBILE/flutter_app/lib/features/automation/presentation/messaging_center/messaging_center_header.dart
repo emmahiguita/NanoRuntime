@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/design_tokens.dart';
 import 'messaging_center_providers.dart';
 import 'messaging_channel_sheet.dart';
+import '../whatsapp_web/whatsapp_web_screen.dart';
 
 /// Encabezado principal del Centro de Mensajería con estilo iOS Glassed,
 /// título tipográfico limpio, indicador de cuentas/no leídos y botones de acción translúcidos.
@@ -117,6 +118,14 @@ class MessagingCenterHeader extends ConsumerWidget {
               ),
             ),
             // Botones de acción translúcidos iOS Frosted Glass compactos
+            _IosGlassIconButton(
+              icon: Icons.public_rounded,
+              size: 34,
+              iconSize: 18,
+              tooltip: 'WhatsApp Web Mobile',
+              onTap: () => WhatsAppWebScreen.navigateTo(context),
+            ),
+            const SizedBox(width: 6),
             if (onOpenLibrary != null) ...[
               _IosGlassIconButton(
                 icon: Icons.folder_open_rounded,

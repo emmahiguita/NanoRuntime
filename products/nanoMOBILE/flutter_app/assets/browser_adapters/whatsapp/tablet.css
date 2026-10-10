@@ -1,0 +1,29 @@
+/* assets/browser_adapters/whatsapp/tablet.css */
+/* Adaptación responsive de WhatsApp Web para modo horizontal / tablet (Landscape Master-Detail). */
+
+/* 1. Mantiene el esquema master-detail equilibrado:
+   Chat list (#side): 35% del ancho útil.
+   Conversación (#main): 65% del ancho útil. */
+#side {
+  width: 35vw !important;
+  max-width: 35vw !important;
+  min-width: 300px !important;
+  flex: 0 0 35% !important;
+  display: flex !important;
+  visibility: visible !important;
+}
+
+#main {
+  width: 65vw !important;
+  max-width: 65vw !important;
+  flex: 1 1 65% !important;
+  display: flex !important;
+  visibility: visible !important;
+}
+
+/* 2. Forzar que ambos paneles convivan sin desbordamiento */
+body.nano-view-chat #side,
+body.nano-view-list #main {
+  display: flex !important;
+  visibility: visible !important;
+}

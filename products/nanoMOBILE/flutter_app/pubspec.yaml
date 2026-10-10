@@ -74,6 +74,7 @@ flutter:
     - assets/buho/horizontal/
     - assets/automation/
     - assets/automation/icons/
+    - assets/browser_adapters/whatsapp/
   fonts:
     - family: Inter
       fonts:
