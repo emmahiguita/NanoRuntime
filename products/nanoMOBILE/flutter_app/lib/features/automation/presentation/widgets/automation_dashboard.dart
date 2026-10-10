@@ -12,6 +12,7 @@ import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/services/nano_runtime_api.dart';
 import '../../../../core/widgets/navigation/nano_universal_input.dart';
 import '../../../browser_ai/presentation/sheets/ai_web_sessions_sheet.dart';
+import '../whatsapp_web/whatsapp_web_screen.dart';
 import '../../application/automation_coordinator_provider.dart'
     show ruleRegistryProvider;
 import '../../application/automation_diagnostics.dart';
@@ -172,6 +173,7 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
         onBrowserTap: () => context.push('/browser'),
         onChatTap: () => context.push('/chat'),
         onTerminalTap: () => context.push('/terminal'),
+        onWhatsAppWebTap: () => WhatsAppWebScreen.navigateTo(context),
       ),
     );
   }

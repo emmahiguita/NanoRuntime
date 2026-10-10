@@ -51,6 +51,7 @@ class AutomationDashboardContent extends StatelessWidget {
     this.onBrowserTap,
     this.onChatTap,
     this.onTerminalTap,
+    this.onWhatsAppWebTap,
   });
 
   final SettingsState settings;
@@ -80,6 +81,7 @@ class AutomationDashboardContent extends StatelessWidget {
   final VoidCallback? onBrowserTap;
   final VoidCallback? onChatTap;
   final VoidCallback? onTerminalTap;
+  final VoidCallback? onWhatsAppWebTap;
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +130,7 @@ class AutomationDashboardContent extends StatelessWidget {
                 onBrowserTap: onBrowserTap,
                 onChatTap: onChatTap,
                 onTerminalTap: onTerminalTap,
+                onWhatsAppWebTap: onWhatsAppWebTap,
                 activeRulesCount: rulesCount,
                 businessProductsCount: businessProductsCount,
                 isW4bActive: isW4bActive,

@@ -41,6 +41,7 @@ class QuickAutomationActions extends StatelessWidget {
     this.onBrowserTap,
     this.onChatTap,
     this.onTerminalTap,
+    this.onWhatsAppWebTap,
     this.suppressSuggestions = false,
     this.activeRulesCount = 0,
     this.businessProductsCount = 0,
@@ -57,7 +58,7 @@ class QuickAutomationActions extends StatelessWidget {
 
   final VoidCallback? onMessagesTap, onSettingsTap, onRulesTap, onMcpTap, onModelsTap;
   final ValueChanged<BuildContext>? onBusinessTap, onPersonalAgentTap;
-  final VoidCallback? onAiWebTap, onBrowserTap, onChatTap, onTerminalTap;
+  final VoidCallback? onAiWebTap, onBrowserTap, onChatTap, onTerminalTap, onWhatsAppWebTap;
 
   static const _actions = [
     ('Abrir Bluetooth', 'abrir Bluetooth', NanoGlyphType.bluetooth),
@@ -93,6 +94,7 @@ class QuickAutomationActions extends StatelessWidget {
           onChatTap: onChatTap,
           onTerminalTap: onTerminalTap,
           onModelsTap: onModelsTap,
+          onWhatsAppWebTap: onWhatsAppWebTap,
         ),
         const SizedBox(height: 18),
         const AutomationSectionLabel('Control y Sistema'),

@@ -29,6 +29,7 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
   final VoidCallback? onTerminalTap;
   final VoidCallback? onMcpTap;
   final VoidCallback? onModelsTap;
+  final VoidCallback? onWhatsAppWebTap;
 
   const AutomationDiscoverNanoSection({
     super.key,
@@ -38,6 +39,7 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
     this.onTerminalTap,
     this.onMcpTap,
     this.onModelsTap,
+    this.onWhatsAppWebTap,
   });
 
   @override
@@ -91,6 +93,19 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
             ),
             const Color(0xFF93C5FD),
             onChatTap,
+          ),
+          (
+            'WhatsApp Web',
+            'WA Web Móvil',
+            'Versión web adaptada a móvil con sesión real',
+            Icons.chat_bubble_rounded,
+            const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF059669), Color(0xFF10B981), Color(0xFF34D399)],
+            ),
+            const Color(0xFF34D399),
+            onWhatsAppWebTap,
           ),
           (
             'Navegación Asistida',
