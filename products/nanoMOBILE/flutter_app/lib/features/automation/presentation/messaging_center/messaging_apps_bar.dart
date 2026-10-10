@@ -16,6 +16,8 @@ import '../../domain/messaging_platform.dart';
 import 'messaging_app_tile.dart';
 import 'messaging_center_providers.dart';
 
+import '../whatsapp_web/whatsapp_web_screen.dart';
+
 class MessagingAppsBar extends ConsumerWidget {
   const MessagingAppsBar({super.key});
 
@@ -42,7 +44,7 @@ class MessagingAppsBar extends ConsumerWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: _displayedPlatforms.length + 1,
+        itemCount: _displayedPlatforms.length + 2,
         separatorBuilder: (_, __) => const SizedBox(width: 7),
         itemBuilder: (context, index) {
           if (index == 0) {
@@ -54,7 +56,17 @@ class MessagingAppsBar extends ConsumerWidget {
             );
           }
 
-          final platform = _displayedPlatforms[index - 1];
+          if (index == 1) {
+            return MessagingAppTile(
+              platform: MessagingPlatform.whatsapp,
+              label: 'WA Web',
+              isSelected: false,
+              unreadCount: 0,
+              onTap: () => WhatsAppWebScreen.navigateTo(context),
+            );
+          }
+
+          final platform = _displayedPlatforms[index - 2];
           final isSelected = selected == platform;
           final unread = unreadCounts[platform] ?? 0;
           final isMore = platform == MessagingPlatform.other;
