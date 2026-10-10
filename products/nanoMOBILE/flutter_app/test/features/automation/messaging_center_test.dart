@@ -1,8 +1,13 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/domain/messaging_platform.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_agent.dart';
 import 'package:nanoai/features/automation/engine/messaging/conversation_hub_providers.dart';
+import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_policy.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart';
+import 'package:nanoai/features/automation/presentation/messaging_center/conversation_hub_action_controller.dart';
 import 'package:nanoai/features/automation/presentation/messaging_center/messaging_center_providers.dart';
 import 'package:nanoai/features/automation/presentation/messaging_center/messaging_dedup_merger.dart';
 import 'package:nanoai/features/automation/presentation/widgets/conversation_media_bubble.dart';
@@ -10,6 +15,30 @@ import 'package:nanoai/features/automation/presentation/widgets/link_metadata_se
 import 'package:nanoai/features/automation/presentation/widgets/floating_video_overlay.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('com.nanoai/automation_store'),
+          (MethodCall call) async {
+            if (call.method == 'put') return true;
+            if (call.method == 'loadAll') return <String, String>{};
+            return null;
+          },
+        );
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('com.nanoai/notifications'),
+          (MethodCall call) async {
+            if (call.method == 'status') {
+              return {'listenerConnected': true, 'permissionGranted': true};
+            }
+            if (call.method == 'getActiveNotifications') return <dynamic>[];
+            return null;
+          },
+        );
+  });
   group('Messaging Center Domain & Platform Mapping', () {
     test('Identifica WhatsApp correctamente por packageName', () {
       expect(
@@ -367,6 +396,54 @@ void main() {
     });
   });
 
+  group('ConversationHubActionController Ownership Toggle', () {
+    test('setOwnership actualiza el ownership store para todas las claves del chat', () async {
+      final container = ProviderContainer(
+        overrides: [
+          liveNotificationsProvider.overrideWith(_MockLiveNotificationsNotifier.new),
+        ],
+      );
+      final ctrl = container.read(conversationHubActionControllerProvider);
+      final store = container.read(conversationOwnershipStoreProvider);
+
+      const item = ConversationSummaryItem(
+        conversationId: 'whatsapp/+573001234567',
+        displayName: 'Juan Perez',
+        lastMessage: 'Hola',
+        lastAtMs: 1700000000000,
+        packageName: 'com.whatsapp',
+        agentId: ConversationAgentId.personal,
+        hasPendingReply: false,
+        isGroup: false,
+        conversationAliases: ['+573001234567@s.whatsapp.net'],
+      );
+
+      // 1. Pausar (humano toma el control)
+      await ctrl.setOwnership(item, ConversationOwner.human);
+      final ownershipAfterPause = store.ownershipFor('whatsapp/+573001234567');
+      expect(ownershipAfterPause?.owner, equals(ConversationOwner.human));
+      expect(ownershipAfterPause?.humanOwns, isTrue);
+
+      final isHumanOwned = ConversationOwnershipPolicy.humanOwns(
+        targetContactsMode: 'all',
+        ownership: ownershipAfterPause,
+      );
+      expect(isHumanOwned, isTrue); // Bot pausado
+
+      // 2. Reanudar (devolver a IA / bot)
+      await ctrl.setOwnership(item, ConversationOwner.bot);
+      final ownershipAfterResume = store.ownershipFor('whatsapp/+573001234567');
+      expect(ownershipAfterResume?.owner, equals(ConversationOwner.bot));
+      expect(ownershipAfterResume?.humanOwns, isFalse);
+
+      final isBotActive = !ConversationOwnershipPolicy.humanOwns(
+        targetContactsMode: 'all',
+        ownership: ownershipAfterResume,
+      );
+      expect(isBotActive, isTrue); // Bot activo
+    });
+  });
+
   group('FloatingVideoController State Management', () {
     test('Ciclo de vida de FloatingVideoController (show / hide)', () {
       final controller = FloatingVideoController.instance;
@@ -377,4 +454,11 @@ void main() {
       expect(controller.isPlaying, isFalse);
     });
   });
+}
+
+class _MockLiveNotificationsNotifier
+    extends AutoDisposeAsyncNotifier<List<ConversationSummaryItem>>
+    implements LiveNotificationsNotifier {
+  @override
+  Future<List<ConversationSummaryItem>> build() async => const [];
 }

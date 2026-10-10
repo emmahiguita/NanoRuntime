@@ -16,13 +16,17 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/providers/settings_provider.dart';
+import '../../application/automation_coordinator_provider.dart';
 import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
+import '../../personal_agent/application/conversation_ownership_policy.dart';
+import '../../personal_agent/domain/conversation_owner.dart';
 import '../widgets/nano_glass_dialog.dart';
 import '../widgets/nano_metallic_button.dart';
 import 'conversation_hub_action_controller.dart';
 
-enum _ConversationAction { archive, unarchive, clearMemory, remove, transferAgent }
+enum _ConversationAction { toggleBot, archive, unarchive, clearMemory, remove, transferAgent }
 
 Future<void> showMessagingConversationActions(
   BuildContext context, WidgetRef ref, ConversationSummaryItem item, {
@@ -30,6 +34,19 @@ Future<void> showMessagingConversationActions(
 }) async {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final target = currentAgent == ConversationAgentId.business ? ConversationAgentId.personal : ConversationAgentId.business;
+
+  final targetMode = ref.read(settingsProvider).waTargetContactsMode;
+  final ownershipStore = ref.read(conversationOwnershipStoreProvider);
+  final ownership = ConversationOwnershipPolicy.ownershipForConversation(
+    store: ownershipStore,
+    conversationId: item.conversationId,
+    packageName: item.packageName,
+    isGroup: item.isGroup,
+  );
+  final isBotActive = !ConversationOwnershipPolicy.humanOwns(
+    targetContactsMode: targetMode,
+    ownership: ownership,
+  );
 
   final action = await showModalBottomSheet<_ConversationAction>(
     context: context, backgroundColor: Colors.transparent, isScrollControlled: true,
@@ -56,6 +73,15 @@ Future<void> showMessagingConversationActions(
                   child: Text(item.displayName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: isDark ? Colors.white70 : const Color(0xFF475569), fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
                 const Divider(height: 1),
+                _tile(
+                  icon: isBotActive ? Icons.pause_circle_outline_rounded : Icons.smart_toy_rounded,
+                  color: isBotActive ? const Color(0xFFF59E0B) : const Color(0xFF10B981),
+                  title: isBotActive ? 'Pausar Nano en este chat' : 'Activar Nano en este chat',
+                  subtitle: isBotActive ? 'Pasa el control al usuario; no auto-responderá.' : 'Nano responderá según la política activa.',
+                  isDark: isDark,
+                  onTap: () => Navigator.pop(ctx, _ConversationAction.toggleBot),
+                ),
+                _div(isDark),
                 _tile(icon: Icons.swap_horiz_rounded, color: const Color(0xFF38BDF8), title: 'Agente: ${currentAgent?.displayName ?? "Personal"}', subtitle: 'Cambiar a → ${target.displayName}', isDark: isDark, onTap: () => Navigator.pop(ctx, _ConversationAction.transferAgent)),
                 _div(isDark),
                 _tile(icon: isArchived ? Icons.unarchive_rounded : Icons.archive_rounded, color: const Color(0xFF818CF8), title: isArchived ? 'Desarchivar en Nano' : 'Archivar en Nano', subtitle: 'Organiza la lista local; no cambia WhatsApp.', isDark: isDark, onTap: () => Navigator.pop(ctx, isArchived ? _ConversationAction.unarchive : _ConversationAction.archive)),
@@ -81,6 +107,7 @@ Future<void> showMessagingConversationActions(
   final ctrl = ref.read(conversationHubActionControllerProvider);
   try {
     final msg = switch (action) {
+      _ConversationAction.toggleBot => ctrl.setOwnership(item, isBotActive ? ConversationOwner.human : ConversationOwner.bot).then((_) => isBotActive ? 'Nano pausado en ${item.displayName}.' : 'Nano activado en ${item.displayName}.'),
       _ConversationAction.archive => ctrl.setArchived(item, archived: true).then((_) => 'Conversación archivada en Nano.'),
       _ConversationAction.unarchive => ctrl.setArchived(item, archived: false).then((_) => 'Conversación desarchivada.'),
       _ConversationAction.clearMemory => ctrl.clearNanoMemory(item).then((_) => 'Memoria local eliminada.'),

@@ -12,6 +12,7 @@ import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_key.dart';
 import '../../engine/platform/notification_dismiss_client.dart';
+import '../../personal_agent/domain/conversation_owner.dart';
 import 'messaging_center_providers.dart';
 import 'messaging_conversation_keys.dart';
 
@@ -24,6 +25,21 @@ final class ConversationHubActionController {
   ConversationHubActionController(this._ref);
 
   final Ref _ref;
+
+  Future<void> setOwnership(
+    ConversationSummaryItem item,
+    ConversationOwner owner,
+  ) async {
+    final keys = messagingConversationKeys(item);
+    final store = _ref.read(conversationOwnershipStoreProvider);
+    for (final key in keys) {
+      await store.setOwner(key, owner);
+    }
+    if (item.conversationId.isNotEmpty) {
+      await store.setOwner(item.conversationId, owner);
+    }
+    _refresh();
+  }
 
   Future<void> setArchived(
     ConversationSummaryItem item, {
