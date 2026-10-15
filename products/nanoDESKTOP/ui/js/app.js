@@ -14,7 +14,8 @@
  * de los detalles de implementación de cada vista de negocio.
  */
 
-import { appState } from './core/state.js?v=v21';
+// Una URL canónica evita crear dos singletons distintos por parámetros de versión.
+import { appState } from './core/state.js';
 import { escapeHtml } from './core/utils.js?v=v21';
 import { NanoIcon } from './components/nano_icon.js?v=v21';
 import { NanoTopBar } from './components/nano_top_bar.js?v=v21';
@@ -47,6 +48,16 @@ class App {
     });
 
     appState.subscribe(() => this.renderHistoryList());
+
+    const initialView = window.location.hash.replace('#', '') || 'chat';
+    if (initialView && this.views[initialView]) {
+      this.switchView(initialView);
+    }
+
+    window.addEventListener('hashchange', () => {
+      const v = window.location.hash.replace('#', '');
+      if (v && this.views[v]) this.switchView(v);
+    });
   }
 
   setupViews() {
@@ -105,9 +116,15 @@ class App {
     const brandLogo = document.querySelector('.sidebar-header.nano-brand');
 
     brandLogo?.addEventListener('click', () => this.startNewChat());
-    toggleBtn?.addEventListener('click', () => {
+    toggleBtn?.addEventListener('click', (event) => {
+      // El botón está dentro de la marca: no debe disparar también un nuevo chat.
+      event.stopPropagation();
       this.sidebarCollapsed = !this.sidebarCollapsed;
       sidebar?.classList.toggle('collapsed', this.sidebarCollapsed);
+      // La grilla también debe contraerse; ocultar solo el menú dejaba un hueco vacío.
+      document.getElementById('app-container')?.classList.toggle('sidebar-is-collapsed', this.sidebarCollapsed);
+      toggleBtn.title = this.sidebarCollapsed ? 'Expandir menú lateral' : 'Colapsar menú lateral';
+      toggleBtn.setAttribute('aria-expanded', String(!this.sidebarCollapsed));
     });
     newChatBtn?.addEventListener('click', () => this.startNewChat());
   }

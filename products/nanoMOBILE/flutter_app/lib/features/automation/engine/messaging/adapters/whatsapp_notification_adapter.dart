@@ -15,7 +15,10 @@
 
 library;
 
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import '../../../domain/messaging_platform.dart';
+import '../conversation_key.dart';
 import '../../notifications/notification_object.dart';
 import '../../orchestration/commit_guard.dart';
 import '../core/channel_adapter.dart';
@@ -33,39 +36,59 @@ class WhatsAppNotificationAdapter implements ChannelAdapter {
   const WhatsAppNotificationAdapter({
     required ReplyTransport transport,
     bool Function()? availabilityChecker,
-  })  : _transport = transport,
-        _availabilityChecker = availabilityChecker;
+  }) : _transport = transport,
+       _availabilityChecker = availabilityChecker;
 
   @override
   MessagingPlatform get platform => MessagingPlatform.whatsapp;
 
   @override
-  MessagingCapabilities get capabilities => MessagingCapabilities.androidNotification;
+  MessagingCapabilities get capabilities =>
+      MessagingCapabilities.androidNotification;
 
   @override
   Future<bool> isAvailable() async {
     final checker = _availabilityChecker;
     if (checker != null) return checker();
-    return true;
+    // Sin consulta real al receptor Android, disponibilidad es desconocida.
+    return false;
   }
 
   /// Traduce una notificación Android de WhatsApp a un mensaje universal entrante.
   NanoIncomingMessage fromNotification(NotificationObject notification) {
+    final identity = resolveConversationIdentity(notification).key;
+    final at = notification.messageTimestamp > 0
+        ? notification.messageTimestamp
+        : notification.postTime;
+    // Una notificación se actualiza con muchos mensajes: su key no es el ID
+    // del mensaje. El hash conserva cuenta, origen y evidencia individual.
+    final eventId = sha256
+        .convert(
+          utf8.encode(
+            jsonEncode([
+              identity.id,
+              notification.key,
+              at,
+              notification.senderKey,
+              notification.interpretableText,
+            ]),
+          ),
+        )
+        .toString();
     return NanoIncomingMessage(
-      id: notification.key,
+      id: eventId,
       platform: notification.packageName.contains('w4b')
           ? MessagingPlatform.whatsappBusiness
           : MessagingPlatform.whatsapp,
-      accountId: 'personal',
-      conversationId: notification.conversationId.isNotEmpty
-          ? notification.conversationId
-          : notification.key,
+      accountId:
+          '${identity.appPackage}/${identity.accountFingerprint.isEmpty ? '-' : identity.accountFingerprint}',
+      conversationId: identity.id.isNotEmpty ? identity.id : notification.key,
       senderId: notification.senderKey.isNotEmpty
           ? notification.senderKey
           : notification.sender,
       senderDisplayName: notification.sender,
-      text: notification.text,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(notification.postTime),
+      text: notification.interpretableText,
+      timestamp: DateTime.fromMillisecondsSinceEpoch(at),
       metadata: {
         'packageName': notification.packageName,
         'isGroup': notification.isGroup,
@@ -79,16 +102,30 @@ class WhatsAppNotificationAdapter implements ChannelAdapter {
     NanoOutgoingMessage message, {
     ReplyCapabilityRef? capability,
   }) async {
+    final targetPlatform = capability?.packageName == 'com.whatsapp.w4b'
+        ? MessagingPlatform.whatsappBusiness
+        : platform;
     // 1. Verificación de Capacidades: RemoteInput solo soporta texto
-    var effectiveText = message.text;
-    if (message.attachments.isNotEmpty && !capabilities.canSendImages) {
-      effectiveText = '$effectiveText\n\n[Nota: Para ver imágenes adjuntas, abre la conversación en WhatsApp]';
+    final effectiveText = message.text.trim();
+    // RemoteInput no adjunta archivos. No afirmamos que imágenes no enviadas
+    // están disponibles en WhatsApp ni degradamos el mensaje silenciosamente.
+    if (message.attachments.isNotEmpty || effectiveText.isEmpty) {
+      return DeliveryResult.failed(
+        platform: targetPlatform,
+        error: 'RemoteInput admite únicamente texto no vacío',
+      );
     }
 
-    if (capability == null || !capability.isUsable) {
+    if (capability == null ||
+        !capability.isUsable ||
+        capability.conversationId.isEmpty ||
+        capability.conversationId != message.conversationId ||
+        (capability.packageName != 'com.whatsapp' &&
+            capability.packageName != 'com.whatsapp.w4b')) {
       return DeliveryResult.failed(
-        platform: platform,
-        error: 'Capacidad RemoteInput no disponible o expirada para este mensaje',
+        platform: targetPlatform,
+        error:
+            'Capacidad RemoteInput no disponible o expirada para este mensaje',
         retryable: false,
       );
     }
@@ -104,25 +141,33 @@ class WhatsAppNotificationAdapter implements ChannelAdapter {
 
     // 3. Mapeo honesto de evidencia a DeliveryResult
     return switch (evidence.status) {
-      SendEvidenceStatus.dispatchedUnverified ||
-      SendEvidenceStatus.localSendVerified =>
-        DeliveryResult.ok(
-          messageId: capability.notificationKey,
-          platform: platform,
-        ),
+      SendEvidenceStatus.dispatchedUnverified => DeliveryResult.observed(
+        state: DeliveryState.dispatchedUnverified,
+        error: evidence.reason,
+        platform: targetPlatform,
+      ),
+      SendEvidenceStatus.localSendVerified => DeliveryResult.observed(
+        state: DeliveryState.localSendVerified,
+        error: evidence.reason,
+        platform: targetPlatform,
+      ),
       SendEvidenceStatus.notExecuted => DeliveryResult.failed(
-          platform: platform,
-          error: evidence.reason,
-          retryable: false,
-        ),
+        platform: targetPlatform,
+        error: evidence.reason,
+        retryable: false,
+      ),
       SendEvidenceStatus.outcomeUnknown ||
       SendEvidenceStatus.contextChanged ||
-      SendEvidenceStatus.incompleteEvidence =>
-        DeliveryResult.failed(
-          platform: platform,
-          error: evidence.reason,
-          retryable: true,
-        ),
+      SendEvidenceStatus.incompleteEvidence => DeliveryResult.observed(
+        state: switch (evidence.status) {
+          SendEvidenceStatus.contextChanged => DeliveryState.contextChanged,
+          SendEvidenceStatus.incompleteEvidence =>
+            DeliveryState.incompleteEvidence,
+          _ => DeliveryState.outcomeUnknown,
+        },
+        platform: targetPlatform,
+        error: evidence.reason,
+      ),
     };
   }
 }

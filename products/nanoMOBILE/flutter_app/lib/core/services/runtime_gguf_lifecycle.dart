@@ -4,11 +4,39 @@ part of 'runtime_engine.dart';
 mixin _RuntimeGgufLifecycle on StateNotifier<EngineStatus> {
   NanoRuntimeApi get _api;
   LLMEngineClient get _client;
+  bool get isRemoteInference;
   Future<EngineStatus> refresh();
   static const startTimeout = RuntimeEngineNotifier.startTimeout;
 
-  /// Arranca el motor (spawn vía supervisor Kotlin) y espera hasta un estado terminal.
+  /// Arranca el motor (spawn vía supervisor Kotlin o validación de socket PC) y espera hasta un estado terminal.
   Future<EngineStatus> _startGguf({String? modelPath}) async {
+    if (isRemoteInference) {
+      debugPrint('[engine] Modo remoto PC activo (${_client.baseUrl})');
+      state = state.copyWith(
+        phase: EnginePhase.starting,
+        modelPath: modelPath ?? state.modelPath ?? 'PC Server',
+        clearReason: true,
+      );
+      final online = await _client.isOnline(
+        attempts: 2,
+        requestTimeout: const Duration(seconds: 4),
+      );
+      if (!online) {
+        state = state.copyWith(
+          phase: EnginePhase.failed,
+          reason: 'No se pudo conectar al servidor PC (${_client.baseUrl})',
+        );
+        return state;
+      }
+      final hasModel = await _client.hasModel();
+      state = state.copyWith(
+        phase: hasModel ? EnginePhase.ready : EnginePhase.degraded,
+        modelPath: modelPath ?? state.modelPath ?? 'PC Remote Model',
+        clearReason: true,
+      );
+      return state;
+    }
+
     if (state.phase == EnginePhase.ready ||
         state.phase == EnginePhase.degraded) {
       if (modelPath == null || state.modelPath == modelPath) return state;
@@ -61,8 +89,12 @@ mixin _RuntimeGgufLifecycle on StateNotifier<EngineStatus> {
     return state;
   }
 
-  /// Detiene el motor (kill limpio SIGTERM→SIGKILL en el supervisor).
+  /// Detiene el motor (kill limpio SIGTERM→SIGKILL en el supervisor o reseteo de estado en remoto).
   Future<bool> _stopGguf() async {
+    if (isRemoteInference) {
+      state = EngineStatus(port: state.port);
+      return true;
+    }
     final ok = await _api.engineStop();
     if (ok) state = EngineStatus(port: state.port);
     return ok;
@@ -76,8 +108,10 @@ mixin _RuntimeGgufLifecycle on StateNotifier<EngineStatus> {
       )) {
         return true;
       }
-      final health = await _api.engineHealth();
-      if (health?['status'] == 'ok') return true;
+      if (!isRemoteInference) {
+        final health = await _api.engineHealth();
+        if (health?['status'] == 'ok') return true;
+      }
       await Future<void>.delayed(Duration(milliseconds: 350 * (attempt + 1)));
     }
     return false;

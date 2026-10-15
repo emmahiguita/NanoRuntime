@@ -60,20 +60,20 @@ extension _BusinessDocumentLibraryDialogView
     onCreateFolder: () => BusinessFolderActions.createFolder(
       context: context,
       library: _library,
-      business: _business,
+      business: _storageBusiness,
       onCreated: _refresh,
     ),
     onRenameFolder: (name) => BusinessFolderActions.renameFolder(
       context: context,
       library: _library,
-      business: _business,
+      business: _storageBusiness,
       oldName: name,
       onRenamed: () => _folderChanged(name),
     ),
     onDeleteFolder: (name) => BusinessFolderActions.deleteFolder(
       context: context,
       library: _library,
-      business: _business,
+      business: _storageBusiness,
       folderName: name,
       onDeleted: () => _folderChanged(name),
     ),
@@ -81,6 +81,7 @@ extension _BusinessDocumentLibraryDialogView
     onGenerate: _saveCatalog,
     onOpen: _open,
     onShare: _share,
+    onAnalyzeDocument: (doc) => _reviewPdfProducts(doc.file),
     onRenameDocument: (doc) => BusinessDocumentActions.rename(
       context: context,
       library: _library,

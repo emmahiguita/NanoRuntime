@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../application/browser_external_app_behavior.dart';
 import '../../application/browser_history_notifier.dart';
 import '../../application/browser_webview_registry.dart';
 import '../../domain/browser_tab_model.dart';
@@ -48,6 +49,8 @@ abstract final class BrowserOptionsLauncher {
       isBookmarked: ref.read(browserHistoryProvider).isBookmarked(tab.url),
       isDesktopMode: isDesktopMode,
       isDarkModeWeb: isDarkModeWeb,
+      externalAppModeLabel:
+          ref.read(browserExternalAppBehaviorProvider).label,
       onAction: handler.handleAction,
     );
   }

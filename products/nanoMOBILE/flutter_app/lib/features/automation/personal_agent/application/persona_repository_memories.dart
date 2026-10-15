@@ -74,6 +74,30 @@ extension PersonaRepositoryMemories on PersonaRepository {
     }
   }
 
+  /// Lee el estado interno de un chat sin mezclarlo con memorias editables.
+  Future<PersonalMemory?> loadPersonalTurnState(String scopeKey) async {
+    final row = await PersonaRepository._channel
+        .invokeMapMethod<dynamic, dynamic>('personalTurnStateGet', {
+          'scopeKey': scopeKey,
+        })
+        .timeout(const Duration(seconds: 10));
+    return row == null ? null : PersonalMemory.fromRow(row);
+  }
+
+  /// Upsert nativo atómico: exactamente una fila de estado por conversación.
+  Future<void> savePersonalTurnState(PersonalMemory memory) async {
+    final id = await PersonaRepository._channel
+        .invokeMethod<num>('personalTurnStateUpsert', {
+          'scopeKey': memory.scopeKey,
+          'value': memory.value,
+          'observedAt': memory.observedAt,
+        })
+        .timeout(const Duration(seconds: 10));
+    if (id == null || id < 0) {
+      throw StateError('No se pudo guardar el estado conversacional.');
+    }
+  }
+
   Future<void> deletePersonalMemory(int id) async {
     if (await PersonaRepository._channel
             .invokeMethod<bool>('personalMemoryDelete', {'id': id})

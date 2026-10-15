@@ -8,8 +8,11 @@ import '../../application/browser_credential_notifier.dart';
 import '../../application/browser_tab_notifier.dart';
 import '../../application/browser_webview_registry.dart';
 import '../../domain/browser_site_profile.dart';
+import '../../domain/browser_navigation_policy.dart';
 import '../../domain/browser_tab_model.dart';
 import '../../infrastructure/browser_scripts.dart';
+import '../../infrastructure/browser_security_firewall.dart';
+import 'browser_oauth_popup_layer.dart';
 import 'browser_site_theme.dart';
 import 'browser_web_identity_coordinator.dart';
 import 'browser_webview_lifecycle_handler.dart';
@@ -69,6 +72,13 @@ class SingleBrowserInstanceWidget extends ConsumerStatefulWidget {
       _SingleBrowserInstanceWidgetState();
 }
 
+/// Popup OAuth activo para esta instancia de pestaña. Solo uno a la vez.
+class _PendingPopup {
+  const _PendingPopup({required this.action});
+
+  final CreateWindowAction action;
+}
+
 class _SingleBrowserInstanceWidgetState
     extends ConsumerState<SingleBrowserInstanceWidget>
     with
@@ -77,6 +87,66 @@ class _SingleBrowserInstanceWidgetState
         _BrowserInstanceLifecycle {
   @override
   bool get wantKeepAlive => true;
+
+  _PendingPopup? _pendingPopup;
+
+  /// Decide si un `window.open` del WebView puede materializarse como popup.
+  ///
+  /// Solo proveedores OAuth federados (y popups en blanco con gesto, que usa
+  /// Google Identity Services) pasan el firewall; todo lo demás se niega.
+  /// Para conservar el comportamiento legado de `target=_blank` en enlaces
+  /// normales, esos destinos se recargan en el marco principal.
+  Future<bool?> _handleCreateWindow(
+    InAppWebViewController controller,
+    CreateWindowAction action,
+  ) async {
+    final uri = action.request.url?.uriValue;
+    final evaluation = BrowserSecurityFirewall.evaluatePopupUri(
+      uri,
+      hasUserGesture: action.hasGesture ?? false,
+    );
+
+    debugPrint(
+      '[NanoBrowser] popup=${evaluation.isAllowed ? 'ALLOWED' : 'DENIED'} '
+      'url=${uri?.origin ?? 'null'} reason=${evaluation.reason ?? evaluation.code.code}',
+    );
+
+    if (!evaluation.isAllowed) {
+      // target=_blank de páginas comunes: replicar el comportamiento previo
+      // de WebView (mismo marco) para no romper enlaces normales.
+      if (uri != null &&
+          BrowserSecurityFirewall.evaluateUri(uri).isAllowed &&
+          BrowserNavigationPolicy.classifyUri(uri) ==
+              NavigationTargetType.web) {
+        controller.loadUrl(urlRequest: action.request);
+      }
+      return false;
+    }
+
+    if (!mounted || _pendingPopup != null) return false;
+
+    setState(() {
+      _pendingPopup = _PendingPopup(action: action);
+    });
+    return true;
+  }
+
+  /// El popup terminó (`window.close()` o cierre manual del usuario).
+  ///
+  /// [completedByPage] indica que la página cerró el popup tras completar el
+  /// login; entonces se recarga el marco principal para que aplique la sesión
+  /// recién fijada en las cookies compartidas del WebView.
+  void _onPopupClosed({bool completedByPage = false}) {
+    debugPrint(
+      '[NanoBrowser] popup layer retirada (completado=$completedByPage).',
+    );
+    final controller = _registry.controllerFor(widget.tab.id);
+    if (completedByPage && controller != null) {
+      controller.reload();
+    }
+    if (!mounted) return;
+    setState(() => _pendingPopup = null);
+  }
 
   /// Compone la vista nativa y sus capas sin duplicar lógica del controlador.
   @override
@@ -98,6 +168,8 @@ class _SingleBrowserInstanceWidgetState
           onProgress: _updateProgress,
           onTitle: _updateTitle,
           onZoomChanged: _triggerZoomBadge,
+          onCreateWindow: _handleCreateWindow,
+          onCloseWindow: _onPopupClosed,
         ),
         BrowserWebViewOverlays(
           tab: widget.tab,
@@ -112,6 +184,13 @@ class _SingleBrowserInstanceWidgetState
           onSaveCredential: _confirmSave,
           onDismissCredential: _dismissCredential,
         ),
+        if (_pendingPopup != null)
+          BrowserOAuthPopupLayer(
+            windowId: _pendingPopup!.action.windowId,
+            initialRequest: _pendingPopup!.action.request,
+            onPopupClosed: () => _onPopupClosed(),
+            onPopupCompleted: () => _onPopupClosed(completedByPage: true),
+          ),
       ],
     );
     if (!widget.showCardHeader) return content;

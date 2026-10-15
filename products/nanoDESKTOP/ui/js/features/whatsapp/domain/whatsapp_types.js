@@ -63,7 +63,8 @@ export class WhatsAppContact {
     this.avatar = avatar;
     this.isBusiness = Boolean(isBusiness);
     this.verified = Boolean(verified);
-    this.lastSeen = lastSeen || new Date().toISOString();
+    // Sin una observación real no se inventa la última conexión del contacto.
+    this.lastSeen = lastSeen;
   }
 }
 
@@ -86,7 +87,8 @@ export class WhatsAppMessage {
     this.conversationId = conversationId;
     this.direction = direction;
     this.text = text;
-    this.timestamp = timestamp || new Date().toISOString();
+    // La lectura de registros antiguos debe conservar fechas desconocidas.
+    this.timestamp = timestamp;
     this.status = status;
     this.isAiGenerated = Boolean(isAiGenerated);
     this.attachments = attachments || [];
@@ -106,6 +108,7 @@ export class ConversationThread {
     draft = '',
     lastMessage = null,
     autoReply = false,
+    tags = [],
   }) {
     this.id = id;
     this.contact = contact instanceof WhatsAppContact ? contact : new WhatsAppContact(contact || {});
@@ -114,6 +117,8 @@ export class ConversationThread {
     this.draft = draft || '';
     this.lastMessage = lastMessage ? (lastMessage instanceof WhatsAppMessage ? lastMessage : new WhatsAppMessage(lastMessage)) : null;
     this.autoReply = Boolean(autoReply);
+    // Conserva etiquetas locales al hidratar; antes se perdían en cada lectura.
+    this.tags = Array.isArray(tags) ? tags.map(String) : [];
   }
 }
 

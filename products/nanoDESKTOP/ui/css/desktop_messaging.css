@@ -1,0 +1,133 @@
+/* Tokens locales reutilizan Nano: colores, espaciado y radios no duplican el tema. */
+@import url('./desktop_messaging_adaptive.css');
+.wa-workspace {
+  --wa-list-width: 310px;
+  --wa-details-width: 300px;
+  --wa-toolbar-height: 56px;
+  --wa-motion: 200ms;
+  --wa-ease: cubic-bezier(.22, 1, .36, 1);
+  --wa-caption: var(--nano-text-secondary);
+  container: messaging / inline-size;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--nano-bg);
+}
+/* Una fila acotada evita que el panel contextual empuje el compositor fuera. */
+.wa-workspace .wa-container-three-col {
+  grid-template-columns: var(--wa-list-width) minmax(0, 1fr) var(--wa-details-width);
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+}
+.wa-workspace :is(.wa-col-sidebar, .wa-col-conversation, .wa-col-context) { min-width: 0; min-height: 0; height: auto; }
+.wa-workspace .wa-col-sidebar { background: var(--nano-bg-elevated); }
+.wa-workspace .wa-col-conversation { background: var(--nano-bg); overflow: hidden; }
+.wa-workspace .wa-col-context { background: var(--nano-surface); overflow: hidden; }
+.wa-workspace .wa-conversation-stream { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.wa-workspace .wa-messages-body { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-6); }
+/* La conexión es un control de estado; no un anuncio permanente en el chat. */
+.wa-workspace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--wa-toolbar-height);
+  height: var(--wa-toolbar-height);
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-5);
+  border-bottom: 1px solid var(--nano-border);
+  background: var(--nano-surface);
+}
+.wa-workspace-heading { min-width: 0; flex: 1; }
+.wa-workspace-heading strong { font-size: 16px; font-weight: 600; }
+.wa-source-label { margin-left: var(--space-3); font-size: 12px; color: var(--wa-caption); }
+.wa-back-list, .wa-toggle-details { display: none; }
+.wa-connection-status { display: inline-flex; align-items: center; gap: var(--space-2); }
+.wa-connection-status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--nano-text-muted); }
+.wa-workspace .wa-btn-new-chat { min-height: 40px; border-radius: var(--radius-10); font-size: 12px; box-shadow: none; background: var(--nano-surface); }
+/* Lista continua: hover y selección conservan geometría y posición de lectura. */
+.wa-workspace .wa-sidebar-header { padding: var(--space-5) var(--space-4) var(--space-4); gap: var(--space-3); }
+.wa-workspace .wa-title-text { font-size: 15px; font-weight: 600; }
+.wa-workspace .wa-brand-icon { color: var(--nano-whatsapp); }
+.wa-workspace .wa-search-box { min-height: 40px; border-radius: var(--radius-12); }
+.wa-workspace .wa-search-input { font: inherit; font-size: 13px; }
+.wa-workspace .wa-search-box:focus-within { border-color: var(--nano-blue-600); box-shadow: 0 0 0 2px var(--nano-blue-50); }
+.wa-workspace .wa-filter-tabs { flex-wrap: wrap; gap: var(--space-2); overflow: visible; }
+.wa-workspace .wa-tab-pill { min-height: 40px; padding: 0 var(--space-3); font-size: 12px; }
+.wa-workspace .wa-tab-pill.active { color: var(--nano-blue-700); background: var(--nano-blue-50); border-color: var(--nano-border-active); }
+.wa-workspace .wa-chat-list { min-height: 0; padding: var(--space-2) 0; gap: 0; }
+.wa-workspace .wa-chat-item { width: 100%; min-height: 72px; border: 0; border-left: 3px solid transparent; border-radius: 0; padding: var(--space-3); text-align: left; font: inherit; }
+.wa-workspace .wa-chat-item.active { background: var(--nano-blue-50); border-left-color: var(--nano-blue-600); }
+.wa-workspace :is(.wa-avatar, .wa-profile-avatar) { background: var(--nano-blue-50); color: var(--nano-blue-700); font-weight: 600; }
+.wa-workspace :is(.wa-chat-info, .wa-conv-header-meta, .wa-conv-header-left) { min-width: 0; }
+.wa-workspace .wa-chat-top-row { gap: var(--space-2); }
+.wa-workspace .wa-chat-name { font-size: 14px; font-weight: 600; }
+.wa-workspace .wa-chat-time { flex-shrink: 0; color: var(--wa-caption); font-variant-numeric: tabular-nums; }
+.wa-workspace .wa-chat-preview { display: block; color: var(--wa-caption); }
+.wa-workspace .wa-empty-list-notice { padding: var(--space-6) var(--space-4); font-size: 13px; color: var(--wa-caption); line-height: 1.6; }
+/* El vacío orienta; la información técnica se consulta en Conexión. */
+.wa-workspace .wa-empty-chat-state { margin: auto; padding: var(--space-6); max-width: 400px; text-align: center; }
+.wa-empty-owl { width: 64px; height: 64px; opacity: .9; margin-bottom: var(--space-4); }
+.wa-workspace .wa-empty-chat-state h2 { font-size: 21px; font-weight: 600; letter-spacing: -.02em; margin: 0 0 var(--space-2); }
+.wa-workspace .wa-empty-chat-state p { color: var(--wa-caption); font-size: 14px; line-height: 1.6; margin: 0; }
+.wa-workspace .wa-conversation-header { min-height: 72px; height: auto; padding: var(--space-3) var(--space-5); background: var(--nano-surface); backdrop-filter: none; }
+.wa-workspace .wa-conv-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wa-workspace .wa-conv-subline { color: var(--wa-caption); font-size: 12px; }
+.wa-workspace .wa-bubble { max-width: 70%; border-radius: var(--radius-16); box-shadow: var(--shadow-xs); }
+.wa-workspace .wa-bubble.inbound { background: var(--nano-surface); color: var(--nano-text-primary); border-color: var(--nano-border); }
+.wa-workspace .wa-bubble.outbound { background: var(--nano-blue-700); color: #FFFFFF; border-color: transparent; }
+.wa-workspace .wa-bubble.outbound .wa-bubble-footer { color: #FFFFFF; opacity: .9; }
+.wa-workspace .wa-bubble-text { overflow-wrap: anywhere; font-size: 14px; line-height: 1.6; }
+.wa-workspace .wa-bubble-footer { color: var(--wa-caption); font-variant-numeric: tabular-nums; }
+.wa-thread-enter { animation: wa-thread-enter var(--wa-motion) var(--wa-ease); }
+@keyframes wa-thread-enter { from { opacity: .7; transform: translateX(5px); } to { opacity: 1; transform: none; } }
+/* IA junto al borrador: solo acciones integradas, sin adjuntos ni envío ficticios. */
+.wa-workspace .wa-composer-wrapper { flex: 0 0 auto; padding: var(--space-3) var(--space-5); background: var(--nano-surface); backdrop-filter: none; }
+.wa-assist-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-2); }
+.wa-assist-action { display: inline-flex; align-items: center; gap: var(--space-2); min-height: 40px; padding: 0 var(--space-3); border: 1px solid var(--nano-border); border-radius: var(--radius-10); background: var(--nano-surface-soft); color: var(--nano-text-primary); font: inherit; font-size: 12px; cursor: pointer; }
+.wa-ai-feedback { color: var(--wa-caption); font-size: 12px; margin: 0; overflow-wrap: anywhere; }
+.wa-workspace .wa-composer-bar { gap: var(--space-3); align-items: flex-end; }
+.wa-workspace textarea.wa-composer-input { height: auto; min-height: 60px; max-height: 160px; resize: none; font: inherit; font-size: 14px; line-height: 1.5; padding: var(--space-3); border-radius: var(--radius-12); }
+.wa-workspace .wa-btn-send { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: var(--radius-12); flex-shrink: 0; background: var(--nano-blue-700); box-shadow: none; }
+.wa-composer-note { color: var(--wa-caption); font-size: 12px; line-height: 1.5; margin: var(--space-2) 0 0; }
+/* Información y asistencia son secciones del mismo panel, no tarjetas duplicadas. */
+.wa-context-tabs { display: flex; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--nano-border); flex-shrink: 0; }
+.wa-context-tab { flex: 1; min-height: 40px; padding: var(--space-2); border: 0; border-radius: var(--radius-10); background: transparent; color: var(--wa-caption); font: inherit; font-size: 12px; cursor: pointer; }
+.wa-context-tab[aria-selected="true"] { color: var(--nano-blue-700); background: var(--nano-blue-50); }
+.wa-context-content { flex: 1; min-height: 0; overflow-y: auto; padding: var(--space-5); }
+.wa-context-section { padding-bottom: var(--space-5); margin-bottom: var(--space-5); border-bottom: 1px solid var(--nano-border); }
+.wa-context-section:last-child { margin-bottom: 0; border-bottom: 0; }
+.wa-workspace .wa-card-title { margin: 0 0 var(--space-3); font-size: 13px; font-weight: 600; }
+.wa-workspace .wa-profile-name { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.wa-workspace .wa-profile-phone { margin-top: var(--space-1); color: var(--wa-caption); }
+.wa-workspace .wa-tag-pill { background: var(--nano-surface-soft); color: var(--wa-caption); }
+.wa-detail-copy { color: var(--wa-caption); font-size: 13px; line-height: 1.6; margin: var(--space-3) 0 0; overflow-wrap: anywhere; }
+.wa-workspace [hidden] { display: none !important; }
+/* Nuevo chat crea una sesión de IA, no un contacto de WhatsApp: se muestra en su módulo. */
+.nano-desktop-refined:has(#nav-whatsapp.active) .btn-topbar-new-chat { display: none; }
+/* Interacción discreta, foco visible y barras de desplazamiento propias de cada zona. */
+.wa-workspace button { transition: background 150ms var(--wa-ease), color 150ms var(--wa-ease); }
+.wa-workspace button:not(:disabled):hover { background: var(--nano-surface-hover); }
+.wa-workspace .wa-btn-send:not(:disabled):hover { background: var(--nano-blue-800); }
+.wa-workspace button:not(:disabled):active { transform: scale(.98); }
+.wa-workspace button:disabled { opacity: .45; cursor: not-allowed; }
+.wa-workspace :is(button, textarea, input):focus-visible { outline: 2px solid var(--nano-blue-600); outline-offset: 2px; }
+.wa-workspace :is(.wa-chat-list, .wa-messages-body, .wa-context-content) { scrollbar-width: thin; scrollbar-color: var(--nano-border) transparent; }
+.wa-workspace ::-webkit-scrollbar { width: 6px; }
+.wa-workspace ::-webkit-scrollbar-thumb { background: var(--nano-border); border-radius: var(--radius-pill); }
+.wa-connection-guide { font-size: 14px; line-height: 1.65; color: var(--nano-text-secondary); }
+.wa-connection-guide ol { padding-left: var(--space-6); }
+.wa-connection-guide li { margin-bottom: var(--space-3); }
+.wa-connection-guide code { overflow-wrap: anywhere; }
+/* El único control interactivo de la guía es cerrar; el contenido puede desplazarse. */
+.wa-connection-modal { width: min(580px, calc(100vw - 32px)); border-radius: var(--radius-18); }
+.wa-connection-modal .nano-overlay-body { max-height: 65vh; overflow-y: auto; }
+.wa-connection-modal .nano-overlay-btn-close { min-width: 40px; min-height: 40px; }
+body:has(.wa-connection-modal) .nano-overlay-backdrop { backdrop-filter: none; }
+@media (prefers-reduced-motion: reduce) { .wa-thread-enter { animation: none; } .wa-workspace button { transition: none; } }

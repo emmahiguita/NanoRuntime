@@ -7,16 +7,22 @@
 // CÓMO FUNCIONA:
 // - Despliega un modal bottom sheet con BackdropFilter blur al estilo iOS Liquid Glass.
 // - Conecta BusinessDocumentLibrary con las acciones de archivos, carpetas y catálogo de tienda.
-// - Inicializa productos demo con fotografía de alta definición y video cinematográfico.
+// - Mantiene sincronizados los productos reales con el contexto del agente.
 //
 // POR QUÉ:
 // Aplica Clean Architecture separando el control de flujo de la vista de renderizado (< 180 líneas).
 
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../engine/business/business_document_library.dart';
 import '../../engine/business/business_facts.dart';
+import '../../engine/business/business_facts_providers.dart';
 import '../../engine/business/catalog_pdf_generator.dart';
+import '../../engine/business/proposals/pdf_product_extractor.dart';
+import '../../engine/business/proposals/pdf_text_extraction_service.dart';
 import '../widgets/dialogs/product_dialog.dart';
 import 'business_document_actions.dart';
 import 'business_folder_actions.dart';
@@ -24,11 +30,12 @@ import 'business_library_section_tabs.dart';
 import 'store/business_store_product_actions.dart';
 import '../widgets/conversation_pdf_viewer.dart';
 import 'business_document_library_view.dart';
+import 'proposals/pdf_product_review_dialog.dart';
 
 part 'business_document_library_dialog_view.part.dart';
 part 'business_document_library_dialog_actions.part.dart';
 
-final class BusinessDocumentLibraryDialog extends StatefulWidget {
+final class BusinessDocumentLibraryDialog extends ConsumerStatefulWidget {
   final BusinessFacts facts;
   final ValueChanged<List<BusinessDocument>>? onSendToChat;
 
@@ -61,54 +68,17 @@ final class BusinessDocumentLibraryDialog extends StatefulWidget {
   );
 
   @override
-  State<BusinessDocumentLibraryDialog> createState() =>
+  ConsumerState<BusinessDocumentLibraryDialog> createState() =>
       _BusinessDocumentLibraryDialogState();
 }
 
 final class _BusinessDocumentLibraryDialogState
-    extends State<BusinessDocumentLibraryDialog> {
-  static const demoProducts = [
-    BusinessProduct(
-      id: 'demo_mbp_m3',
-      name: 'MacBook Pro M3 Max 16"',
-      details: 'Chip M3 Max, 36GB RAM unificada, 1TB SSD, pantalla Liquid Retina XDR',
-      price: 3499000,
-      stock: 5,
-      sku: 'MBP-M3M-16',
-      category: 'Tecnología',
-      variants: ['Space Black', 'Silver'],
-      imagePath: 'assets/promo/ad1.jpg',
-      isAvailable: true,
-    ),
-    BusinessProduct(
-      id: 'demo_airpods_max',
-      name: 'AirPods Max Midnight',
-      details: 'Cancelación activa de ruido Pro, audio espacial personalizado y almohadillas transpirables',
-      price: 649000,
-      stock: 12,
-      sku: 'APM-MID-01',
-      category: 'Audio',
-      variants: ['Midnight', 'Starlight', 'Silver'],
-      imagePath: 'assets/promo/ad2.jpg',
-      isAvailable: true,
-    ),
-    BusinessProduct(
-      id: 'demo_sony_cinema',
-      name: 'Sony Cinema Line 4K FX3',
-      details: 'Cámara cinematográfica Full-Frame 4K 120p, sensor retroiluminado y perfil S-Cinetone',
-      price: 4290000,
-      stock: 3,
-      sku: 'SNY-FX3-4K',
-      category: 'Video & Foto',
-      variants: ['Kit Cine 24-70mm GM', 'Solo Cuerpo'],
-      imagePath: 'assets/promo/ad3.jpg',
-      isAvailable: true,
-    ),
-  ];
-
+    extends ConsumerState<BusinessDocumentLibraryDialog> {
   final _library = const BusinessDocumentLibrary();
-  final _factsStore = const BusinessFactsStore();
+  static const _pdfText = PdfTextExtractionService();
+  static const _pdfProducts = PdfProductExtractor();
   late BusinessFacts _facts;
+  late String _storageBusiness;
   BusinessLibrarySection _section = BusinessLibrarySection.documents;
   String _category = BusinessDocumentLibrary.allCategory,
       _sortBy = 'date',
@@ -131,7 +101,10 @@ final class _BusinessDocumentLibraryDialogState
   List<BusinessDocument> get _visibleDocuments {
     var list = _documents.where((d) {
       final q = _query.toLowerCase().trim();
-      final mQ = q.isEmpty || d.name.toLowerCase().contains(q) || d.category.toLowerCase().contains(q);
+      final mQ =
+          q.isEmpty ||
+          d.name.toLowerCase().contains(q) ||
+          d.category.toLowerCase().contains(q);
       final mT = switch (_fileType) {
         'pdf' => d.isPdf,
         'sheet' => d.isSheet,
@@ -142,9 +115,18 @@ final class _BusinessDocumentLibraryDialogState
       return mQ && mT;
     }).toList();
     switch (_sortBy) {
-      case 'name': list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase())); break;
-      case 'size': list.sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes)); break;
-      case 'date': default: list.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt)); break;
+      case 'name':
+        list.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
+        break;
+      case 'size':
+        list.sort((a, b) => b.sizeBytes.compareTo(a.sizeBytes));
+        break;
+      case 'date':
+      default:
+        list.sort((a, b) => b.modifiedAt.compareTo(a.modifiedAt));
+        break;
     }
     return list;
   }
@@ -152,29 +134,35 @@ final class _BusinessDocumentLibraryDialogState
   @override
   void initState() {
     super.initState();
-    _facts = (widget.facts.products.isEmpty || widget.facts.products.every((p) => p.imagePath == null))
-        ? widget.facts.copyWith(products: demoProducts)
-        : widget.facts;
+    _facts = widget.facts;
+    _storageBusiness = _business;
     _refresh();
   }
 
   Future<void> _refresh() async {
     final rev = ++_loadRevision;
     try {
-      final f = await _library.listFolders(_business);
-      final d = await _library.list(_business, _category);
+      final storageBusiness = await _library.resolveStorageBusiness(_business);
+      final f = await _library.listFolders(storageBusiness);
+      final d = await _library.list(storageBusiness, _category);
       final all = _category == BusinessDocumentLibrary.allCategory
           ? d
-          : await _library.list(_business, BusinessDocumentLibrary.allCategory);
+          : await _library.list(
+              storageBusiness,
+              BusinessDocumentLibrary.allCategory,
+            );
       if (mounted && rev == _loadRevision) {
         setState(() {
+          _storageBusiness = storageBusiness;
           _folders = f;
           _documents = d;
           _allDocuments = all;
           _loadError = null;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('BusinessDocumentLibrary: no se pudo cargar: $e');
+      debugPrintStack(stackTrace: stackTrace);
       if (mounted && rev == _loadRevision) {
         setState(() => _loadError = e.toString());
       }
@@ -182,5 +170,13 @@ final class _BusinessDocumentLibraryDialogState
   }
 
   @override
-  Widget build(BuildContext context) => _buildLibrary(context);
+  Widget build(BuildContext context) {
+    ref.listen<BusinessFacts>(businessFactsNotifierProvider, (previous, next) {
+      final businessChanged = previous?.businessName != next.businessName;
+      if (!mounted) return;
+      setState(() => _facts = next);
+      if (businessChanged) _refresh();
+    });
+    return _buildLibrary(context);
+  }
 }

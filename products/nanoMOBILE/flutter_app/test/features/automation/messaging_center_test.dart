@@ -129,7 +129,7 @@ void main() {
 
     test('Fusiona notificación viva con conversación previa de SQLite sin duplicar', () {
       const existing = ConversationSummaryItem(
-        conversationId: 'whatsapp/com.whatsapp/-/Emm',
+        conversationId: 'whatsapp/com.whatsapp/-/person:Emm',
         displayName: 'Emm',
         packageName: 'com.whatsapp',
         lastMessage: 'Hola, ¿cómo estás?',
@@ -138,7 +138,7 @@ void main() {
       );
 
       const incomingLive = ConversationSummaryItem(
-        conversationId: 'live:com.whatsapp:Emm',
+        conversationId: 'whatsapp/com.whatsapp/-/person:Emm',
         displayName: 'Emm',
         packageName: 'com.whatsapp',
         lastMessage: 'Todo bien por acá',
@@ -478,6 +478,26 @@ void main() {
 
       controller.hide();
       expect(controller.isPlaying, isFalse);
+    });
+
+    test('Identifica TikTok por paquetes zhiliaoapp/musically/trill', () {
+      expect(
+        MessagingPlatform.fromPackageName('com.zhiliaoapp.musically'),
+        equals(MessagingPlatform.tiktok),
+      );
+      expect(
+        MessagingPlatform.fromPackageName('com.ss.android.ugc.trill'),
+        equals(MessagingPlatform.tiktok),
+      );
+      expect(
+        MessagingPlatform.fromPackageName('com.tiktok.android'),
+        equals(MessagingPlatform.tiktok),
+      );
+      // La regla de TikTok no secuestra plataformas ya conocidas
+      expect(
+        MessagingPlatform.fromPackageName('com.whatsapp'),
+        equals(MessagingPlatform.whatsapp),
+      );
     });
   });
 }

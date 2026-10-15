@@ -4,13 +4,18 @@ import '../../engine/business/business_document_library.dart';
 /// Menú compacto de la cuadrícula con acciones reales en una hoja iOS.
 class BusinessLibraryGridActions extends StatelessWidget {
   final BusinessDocument document;
-  final ValueChanged<BusinessDocument> onOpen, onShare, onRename, onDelete;
+  final ValueChanged<BusinessDocument> onOpen,
+      onShare,
+      onAnalyze,
+      onRename,
+      onDelete;
 
   const BusinessLibraryGridActions({
     super.key,
     required this.document,
     required this.onOpen,
     required this.onShare,
+    required this.onAnalyze,
     required this.onRename,
     required this.onDelete,
   });
@@ -36,6 +41,8 @@ class BusinessLibraryGridActions extends StatelessWidget {
         actions: [
           _action(sheetContext, 'open', 'Abrir'),
           _action(sheetContext, 'share', 'Compartir'),
+          if (document.isPdf)
+            _action(sheetContext, 'analyze', 'Analizar productos para Nano'),
           _action(sheetContext, 'rename', 'Renombrar'),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(sheetContext, 'delete'),
@@ -51,6 +58,7 @@ class BusinessLibraryGridActions extends StatelessWidget {
     );
     if (action == 'open') onOpen(document);
     if (action == 'share') onShare(document);
+    if (action == 'analyze') onAnalyze(document);
     if (action == 'rename') onRename(document);
     if (action == 'delete') onDelete(document);
   }

@@ -89,6 +89,28 @@ internal class AutomationRuntimeControl(
 
             "pendingCount" -> result.success(NanoApplication.from(context).durableInbox.pendingCount())
 
+            // LOOP-2-BURST-DURABILITY — rehidrata contenido SOLO de notificaciones
+            // activas por key (mismo `byKey` del claim). Devuelve payloads reales;
+            // keys sin notificación activa se omiten (degradación honesta).
+            "rehydrateKeys" -> {
+                if (NotificationAutomationBridge.service == null) {
+                    result.error("SOURCE_UNAVAILABLE", "NotificationListenerService is not connected", null)
+                    return
+                }
+                try {
+                    val bridgeService = NotificationAutomationBridge.service
+                    if (bridgeService == null) {
+                        result.error("SOURCE_UNAVAILABLE", "NotificationListenerService is not connected", null)
+                        return
+                    }
+                    val keys = call.argument<List<String>>("keys") ?: emptyList()
+                    val payloads = keys.mapNotNull { key -> bridgeService.byKey(key) }
+                    result.success(payloads)
+                } catch (error: Exception) {
+                    result.error("REHYDRATE_ERROR", error.message, null)
+                }
+            }
+
             "finish" -> {
                 result.success(true)
                 finish()

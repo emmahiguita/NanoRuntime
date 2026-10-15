@@ -23,7 +23,8 @@ internal data class WhatsAppConversationEvidence(
  * adicional para variantes de reacciones que WhatsApp no identifica por JID.
  */
 internal object WhatsAppConversationNotificationClassifier {
-    private val packages = setOf("com.whatsapp", "com.whatsapp.w4b")
+    private val whatsappPackages = setOf("com.whatsapp", "com.whatsapp.w4b")
+    private val telegramPackages = setOf("com.telegram.messenger", "org.telegram.messenger")
     private val statusReaction = Regex(
         """((reaccion[oó]|respondi[oó]|le gusta|dio me gusta|le gust[oó]|liked|reacted|replied).{0,48}(tu estado|your status|seu status)|(tu estado|your status|seu status).{0,48}(le gusta|liked|reacted))""",
         setOf(RegexOption.IGNORE_CASE),
@@ -37,7 +38,9 @@ internal object WhatsAppConversationNotificationClassifier {
     fun inspect(source: StatusBarNotification): WhatsAppConversationEvidence {
         val notification = source.notification
         val category = notification.category.orEmpty()
-        val applies = source.packageName in packages
+        val isWhatsApp = source.packageName in whatsappPackages
+        val isTelegram = source.packageName in telegramPackages
+        val applies = isWhatsApp || isTelegram
         val messages = MessagingStyle.Message.getMessagesFromBundleArray(
             messageBundles(notification),
         ).orEmpty()
@@ -49,6 +52,9 @@ internal object WhatsAppConversationNotificationClassifier {
         val hasContent = hasMessagingStyle || hasTextMessage
 
         if (!applies) {
+            // Las apps sociales requieren conversación real; tener texto no demuestra un DM.
+            SocialConversationNotificationClassifier.inspect(source, hasMessagingStyle, hasContent)
+                ?.let { return it }
             return WhatsAppConversationEvidence(
                 applies = false,
                 isConversationEvent = hasContent,
@@ -62,21 +68,33 @@ internal object WhatsAppConversationNotificationClassifier {
             return rejected(hasMessagingStyle, category, "group_summary")
         }
         if (source.isOngoing) return rejected(hasMessagingStyle, category, "ongoing")
-        if (hasStatusOrSystemSignal(source)) {
+        if (isWhatsApp && hasStatusOrSystemSignal(source)) {
             return rejected(hasMessagingStyle, category, "status_or_service")
         }
 
         val hasIdentity = hasStableConversationIdentity(source, messages)
-        val admitted = hasContent && hasIdentity
+        // Un título (incluido un aviso de inicio de sesión) no demuestra un chat.
+        val hasReply = notification.actions.orEmpty().any { action ->
+            action.actionIntent != null && action.remoteInputs.orEmpty().any {
+                it.allowFreeFormInput && it.resultKey.isNotBlank()
+            }
+        }
+        val technicalPeer = isWhatsApp &&
+            listOf("@s.whatsapp.net", "@c.us", "@g.us", "@lid")
+                .any { it in "${source.key} ${source.tag.orEmpty()}" }
+        val messageEvidence = hasMessagingStyle || technicalPeer ||
+            (category == Notification.CATEGORY_MESSAGE && hasReply)
+        val admitted = hasContent && hasIdentity && messageEvidence
         val reason = when {
             !hasContent -> "missing_message_content"
             !hasIdentity -> "missing_stable_identity"
-            else -> "conversation"
+            !messageEvidence -> "service_without_message_evidence"
+            else -> if (isTelegram) "telegram_conversation" else "conversation"
         }
         return WhatsAppConversationEvidence(true, admitted, hasMessagingStyle, category, reason)
     }
 
-    /** Permite apps ajenas a WhatsApp; su política continúa en Flutter. */
+    /** Comparte admisión entre captura, lista activa y envío; las demás apps no cambian. */
     fun allows(source: StatusBarNotification): Boolean {
         val evidence = inspect(source)
         return !evidence.applies || evidence.isConversationEvent
@@ -155,7 +173,11 @@ internal object WhatsAppConversationNotificationClassifier {
             extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString().orEmpty(),
         ).joinToString(" ").lowercase(Locale.ROOT)
         if ("status@broadcast" in searchable || "@newsletter" in searchable) return true
-        if (statusReaction.containsMatchIn(searchable) || systemNotice.containsMatchIn(searchable)) return true
+        if (statusReaction.containsMatchIn(searchable)) return true
+        // Un DM puede mencionar WhatsApp Web o una copia de seguridad. El
+        // texto de mantenimiento solo veta avisos sin estructura de mensaje.
+        val messages = MessagingStyle.Message.getMessagesFromBundleArray(messageBundles(notification))
+        if (messages.isNullOrEmpty() && systemNotice.containsMatchIn(searchable)) return true
         return false
     }
 

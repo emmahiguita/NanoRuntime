@@ -77,6 +77,26 @@ class McpStoreCatalog {
       tags: ['android', 'local'],
     ),
     McpStoreItem(
+      id: 'meta.whatsapp_business_tools',
+      name: 'WhatsApp Business Tools',
+      author: 'Meta',
+      category: McpStoreCategory.productivity,
+      description:
+          'Servidor MCP oficial para administrar WhatsApp Business. Requiere OAuth de una cuenta de desarrollador Meta y está en beta.',
+      repositoryUrl:
+          'https://developers.facebook.com/documentation/mcp/whatsapp-business-tools-mcp',
+      defaultEndpoint: 'https://mcp.facebook.com/whatsapp_business_tools',
+      transport: McpTransportKind.streamableHttp,
+      isVerified: true,
+      tags: ['whatsapp', 'business', 'meta', 'oauth', 'official'],
+      sampleTools: [
+        'whatsapp_biz_businesses',
+        'whatsapp_biz_list_templates',
+        'whatsapp_biz_send_message',
+        'whatsapp_biz_configure_webhooks',
+      ],
+    ),
+    McpStoreItem(
       id: 'mcp.remote.streamable_http',
       name: 'Servidor MCP remoto propio',
       author: 'Endpoint configurable',

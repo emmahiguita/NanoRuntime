@@ -20,6 +20,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart';
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
+import 'package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart'
+    show BurstTurnGate;
 import '../engine/scheduling/messaging_metrics.dart';
 
 // Conserva el acceso usado por main(); la identidad vive en la capa de plataforma.
@@ -52,6 +54,11 @@ Future<void> runAutomationHeadless() async {
 
     final pipeline = container.read(rulePipelineProvider);
     final gate = container.read(burstTurnGateProvider);
+
+    // LOOP-2 — recuperar ráfagas SETTLING cuya ventana expiró en un proceso
+    // anterior (kill durante 800ms-3s). Rehidrata SOLO de notificaciones
+    // activas; fragmentos sin contenido se pierden honestamente.
+    await _recoverStaleBursts(gate, container);
 
     // Drenado: claim (Kotlin reserva + rehidrata desde notificaciones
     // ACTIVAS; contenido jamás persistido) → BurstTurnGate (ráfagas por
@@ -166,5 +173,61 @@ Future<_ClaimResult> _claimRows() async {
   } on Object catch (error) {
     debugPrint('[headless] claim falló inesperado: $error');
     return _ClaimFailure(code: 'UNKNOWN', message: error.toString());
+  }
+}
+
+/// LOOP-2 — recuperación de ráfagas interrumpidas por kill del proceso.
+///
+/// Cada StaleBurst SETTLING con ventana expirada se rehidrata desde
+/// notificaciones ACTIVAS (`rehydrateKeys` nativo = mismo `byKey` del
+/// claim). Los fragmentos sin notificación activa se pierden honestamente
+/// (métrica + discard); NUNCA se reconstruye contenido. Los fragmentos
+/// recuperados entran al gate como tanda normal (agregación + dedupe por
+/// eventId intactos).
+Future<void> _recoverStaleBursts(
+  BurstTurnGate gate,
+  ProviderContainer container,
+) async {
+  final shadow = container.read(burstShadowStoreProvider);
+  final pipeline = container.read(rulePipelineProvider);
+  final stale = await shadow.recoverStale(gate.maxWait);
+  for (final burst in stale) {
+    try {
+      final raw = await _headlessChannel.invokeListMethod<dynamic>(
+        'rehydrateKeys',
+        {'keys': burst.notificationKeys},
+      );
+      final notifications = <NotificationObject>[];
+      for (final payload in raw ?? const []) {
+        if (payload is Map) {
+          notifications.addAll(
+            NotificationObject.eventsFromMap(
+              Map<dynamic, dynamic>.from(payload),
+            ),
+          );
+        }
+      }
+      if (notifications.isEmpty) {
+        // Degradación honesta: nada rehidratable, el turno se pierde.
+        MessagingMetrics.increment('burstRecoveryLost');
+        await shadow.discard(burst.conversationId);
+        debugPrint(
+          '[burst-recovery] conv=${burst.conversationId.substring(0, 8)} '
+          'sin notificaciones activas — ráfaga perdida honestamente',
+        );
+        continue;
+      }
+      MessagingMetrics.increment('burstRecoveryRehydrated');
+      debugPrint(
+        '[burst-recovery] conv=${burst.conversationId.substring(0, 8)} '
+        'keys=${burst.notificationKeys.length} '
+        'rehidratados=$notifications.length',
+      );
+      await pipeline.submitNotifications(notifications, gate);
+      await pipeline.drain(gate);
+    } on Object catch (error) {
+      // El gate conserva la ráfaga SETTLING: el próximo wake reintenta.
+      debugPrint('[burst-recovery] falló y se reintentará: $error');
+    }
   }
 }

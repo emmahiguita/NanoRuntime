@@ -6,6 +6,7 @@ class BusinessLibraryFileActions extends StatelessWidget {
   final BusinessDocument document;
   final ValueChanged<BusinessDocument> onOpen, onShare;
   final ValueChanged<BusinessDocument> onRename, onDelete;
+  final ValueChanged<BusinessDocument> onAnalyze;
 
   const BusinessLibraryFileActions({
     super.key,
@@ -14,6 +15,7 @@ class BusinessLibraryFileActions extends StatelessWidget {
     required this.onShare,
     required this.onRename,
     required this.onDelete,
+    required this.onAnalyze,
   });
 
   @override
@@ -63,6 +65,11 @@ class BusinessLibraryFileActions extends StatelessWidget {
       builder: (sheetContext) => CupertinoActionSheet(
         title: Text(document.name),
         actions: [
+          if (document.isPdf)
+            CupertinoActionSheetAction(
+              onPressed: () => Navigator.pop(sheetContext, 'analyze'),
+              child: const Text('Analizar productos para Nano'),
+            ),
           CupertinoActionSheetAction(
             onPressed: () => Navigator.pop(sheetContext, 'rename'),
             child: const Text('Renombrar'),
@@ -80,6 +87,7 @@ class BusinessLibraryFileActions extends StatelessWidget {
       ),
     );
     if (action == 'rename') onRename(document);
+    if (action == 'analyze') onAnalyze(document);
     if (action == 'delete') onDelete(document);
   }
 }

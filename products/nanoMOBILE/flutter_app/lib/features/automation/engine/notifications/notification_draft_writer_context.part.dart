@@ -14,6 +14,7 @@ final class _ResolvedDraftContext {
     required this.role,
     required this.persona,
     required this.liveEvidence,
+    required this.activeTopic,
   });
 
   final String messageText;
@@ -25,6 +26,10 @@ final class _ResolvedDraftContext {
   final ConversationAgentRole role;
   final String persona;
   final PersonalLiveEvidence liveEvidence;
+
+  /// LOOP-3 — tema activo resuelto de la memoria conversacional (metadata
+  /// compacta; alimenta el estado personal sin persistir transcripciones).
+  final String activeTopic;
 }
 
 Future<_ResolvedDraftContext> _resolveDraftContext(
@@ -150,5 +155,6 @@ Future<_ResolvedDraftContext> _resolveDraftContext(
     role: role,
     persona: persona,
     liveEvidence: liveEvidence,
+    activeTopic: resolvedMemory?.activeTopic ?? '',
   );
 }

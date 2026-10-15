@@ -9,6 +9,7 @@ class BusinessLibraryFileList extends StatelessWidget {
   final Set<String> selectedPaths;
   final bool isSelectionMode, isChatPicker, isDark;
   final ValueChanged<BusinessDocument> onSelectDocument, onOpen, onShare;
+  final ValueChanged<BusinessDocument> onAnalyzeDocument;
   final ValueChanged<BusinessDocument> onRenameDocument, onDeleteDocument;
 
   const BusinessLibraryFileList({
@@ -21,6 +22,7 @@ class BusinessLibraryFileList extends StatelessWidget {
     required this.onSelectDocument,
     required this.onOpen,
     required this.onShare,
+    required this.onAnalyzeDocument,
     required this.onRenameDocument,
     required this.onDeleteDocument,
   });
@@ -116,6 +118,7 @@ class BusinessLibraryFileList extends StatelessWidget {
                         document: doc,
                         onOpen: onOpen,
                         onShare: onShare,
+                        onAnalyze: onAnalyzeDocument,
                         onRename: onRenameDocument,
                         onDelete: onDeleteDocument,
                       ),

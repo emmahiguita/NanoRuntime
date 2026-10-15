@@ -50,6 +50,7 @@ Future<NotificationDraftResult?> _enqueueNotificationDraft(
         '[draft:coalesce] superseded conv=${_shortId(conversationId)} '
         'inputChars=${notification.text.length}',
       );
+      InferenceTelemetry.markSuperseded('');
       return null;
     }
     // AUT-P1-08: Deadline de frescura — si pasaron más de 45s esperando en cola,
@@ -60,7 +61,12 @@ Future<NotificationDraftResult?> _enqueueNotificationDraft(
       );
       return null;
     }
-    return _buildNotificationDraft(writer, notification, conversationId);
+    return _buildNotificationDraft(
+      writer,
+      notification,
+      conversationId,
+      queuedAtMs: arrivedAt.millisecondsSinceEpoch,
+    );
   });
   RuntimeNotificationDraftWriter._draftTail = future.then<void>(
     (_) {},

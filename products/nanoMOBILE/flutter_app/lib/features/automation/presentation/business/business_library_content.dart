@@ -16,6 +16,7 @@ class BusinessLibraryContent extends StatelessWidget {
   final ValueChanged<String> onCategory, onSortChange, onFileTypeChange;
   final ValueChanged<String> onRenameFolder, onDeleteFolder;
   final ValueChanged<BusinessDocument> onSelectDocument, onOpen, onShare;
+  final ValueChanged<BusinessDocument> onAnalyzeDocument;
   final ValueChanged<BusinessDocument> onRenameDocument, onDeleteDocument;
   final VoidCallback onToggleSelectionMode, onToggleGridView, onShowAll;
 
@@ -39,6 +40,7 @@ class BusinessLibraryContent extends StatelessWidget {
     required this.onSelectDocument,
     required this.onOpen,
     required this.onShare,
+    required this.onAnalyzeDocument,
     required this.onRenameDocument,
     required this.onDeleteDocument,
     required this.onToggleSelectionMode,
@@ -91,6 +93,7 @@ class BusinessLibraryContent extends StatelessWidget {
           onSelectDocument: onSelectDocument,
           onOpen: onOpen,
           onShare: onShare,
+          onAnalyzeDocument: onAnalyzeDocument,
           onRenameDocument: onRenameDocument,
           onDeleteDocument: onDeleteDocument,
         )
@@ -104,6 +107,7 @@ class BusinessLibraryContent extends StatelessWidget {
           onSelectDocument: onSelectDocument,
           onOpen: onOpen,
           onShare: onShare,
+          onAnalyzeDocument: onAnalyzeDocument,
           onRenameDocument: onRenameDocument,
           onDeleteDocument: onDeleteDocument,
         ),

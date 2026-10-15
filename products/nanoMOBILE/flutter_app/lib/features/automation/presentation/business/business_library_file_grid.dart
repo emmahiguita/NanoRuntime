@@ -8,6 +8,7 @@ class BusinessLibraryFileGrid extends StatelessWidget {
   final Set<String> selectedPaths;
   final bool isSelectionMode, isDark;
   final ValueChanged<BusinessDocument> onSelectDocument, onOpen, onShare;
+  final ValueChanged<BusinessDocument> onAnalyzeDocument;
   final ValueChanged<BusinessDocument> onRenameDocument, onDeleteDocument;
 
   const BusinessLibraryFileGrid({
@@ -19,6 +20,7 @@ class BusinessLibraryFileGrid extends StatelessWidget {
     required this.onSelectDocument,
     required this.onOpen,
     required this.onShare,
+    required this.onAnalyzeDocument,
     required this.onRenameDocument,
     required this.onDeleteDocument,
   });
@@ -45,6 +47,7 @@ class BusinessLibraryFileGrid extends StatelessWidget {
           onSelect: onSelectDocument,
           onOpen: onOpen,
           onShare: onShare,
+          onAnalyze: onAnalyzeDocument,
           onRename: onRenameDocument,
           onDelete: onDeleteDocument,
         );

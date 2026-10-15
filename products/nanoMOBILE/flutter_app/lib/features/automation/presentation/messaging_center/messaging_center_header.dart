@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/design_tokens.dart';
 import 'messaging_center_providers.dart';
 import 'messaging_channel_sheet.dart';
+import 'tiktok_shortcut_button.dart';
 import '../whatsapp_web/whatsapp_web_screen.dart';
 
 /// Encabezado principal del Centro de Mensajería con estilo iOS Glassed,
@@ -102,14 +103,18 @@ class MessagingCenterHeader extends ConsumerWidget {
                         ),
                       ),
                       const SizedBox(width: 4.5),
-                      Text(
-                        unreadText,
-                        style: TextStyle(
-                          color: isDark
-                              ? colors.primary
-                              : colors.onSurfaceVariant,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          unreadText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark
+                                ? colors.primary
+                                : colors.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -125,6 +130,10 @@ class MessagingCenterHeader extends ConsumerWidget {
               tooltip: 'WhatsApp Web Mobile',
               onTap: () => WhatsAppWebScreen.navigateTo(context),
             ),
+            const SizedBox(width: 6),
+            // Acceso directo dedicado a TikTok: abre los DMs con la sesión
+            // ya iniciada en el navegador integrado.
+            const TikTokShortcutButton(),
             const SizedBox(width: 6),
             if (onOpenLibrary != null) ...[
               _IosGlassIconButton(

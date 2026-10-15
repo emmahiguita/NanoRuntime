@@ -1,0 +1,37 @@
+/* Compositor glass: conserva edición, guardado por hilo y envío bloqueado sin transporte. */
+.wa-workspace .wa-composer-wrapper {
+  padding: 10px 16px 12px; background: var(--ng-glass);
+  border-top: 1px solid var(--ng-border);
+}
+.wa-workspace .wa-assist-bar { gap: 8px; margin-bottom: 6px; }
+.wa-workspace .wa-assist-action {
+  min-height: 28px; height: 28px; padding: 0 10px; gap: 5px;
+  border: 1px solid var(--ng-border); border-radius: 8px;
+  color: var(--ng-muted); background: transparent; font-size: 11.5px;
+}
+.wa-workspace .wa-ai-feedback { color: var(--ng-muted); font-size: 11px; }
+/* La señal busy procede del generador real; no se inventa un indicador de escritura del contacto. */
+.wa-workspace .wa-assist-action[aria-busy="true"] { background: var(--ng-selected); color: var(--ng-text); }
+.wa-workspace .wa-composer-bar {
+  min-height: 50px; padding: 7px 7px 7px 12px; gap: 8px; align-items: center;
+  background: var(--ng-glass); border: 1px solid var(--ng-border);
+  border-radius: 17px; box-shadow: var(--ng-shadow);
+}
+/* El código lee estos límites: una línea ocupa 34 px y los párrafos crecen hasta 120 px. */
+.wa-workspace textarea.wa-composer-input {
+  min-height: 34px; max-height: 120px; flex: 1; padding: 7px 0;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none;
+  color: var(--ng-text); font-size: 13px; line-height: 20px; resize: none;
+}
+.wa-workspace textarea.wa-composer-input::placeholder { color: var(--ng-muted); }
+.wa-workspace .wa-btn-send {
+  width: 34px; min-width: 34px; height: 34px; border: 0; border-radius: 50%;
+  background: var(--ng-accent); color: var(--ng-bg); box-shadow: none;
+}
+.wa-workspace .wa-btn-send:not(:disabled):hover { background: var(--ng-accent); color: var(--ng-bg); }
+.wa-workspace .wa-composer-note { margin: 5px 0 0; padding: 0 4px; color: var(--ng-muted); font-size: 11px; }
+/* En ventanas estrechas la barra se reduce sin quitar controles ni alterar el borrador. */
+@media (max-width: 899px) {
+  .wa-workspace .wa-composer-wrapper { padding: 8px 12px; }
+  .wa-workspace .wa-messages-body { padding: 12px; }
+}

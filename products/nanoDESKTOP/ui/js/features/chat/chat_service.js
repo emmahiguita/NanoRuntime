@@ -11,7 +11,7 @@ export class ChatService {
   }
 
   /**
-   * Envía un mensaje del usuario e invoca la inferencia con streaming en tiempo real.
+   * Invoca inferencia real; IPC transmite tokens y REST entrega una respuesta completa.
    */
   async sendMessage(text, attachedFiles = [], options = {}) {
     const trimmed = text.trim();
@@ -19,6 +19,11 @@ export class ChatService {
 
     const webEnabled = Boolean(options.web);
     const deepThinkEnabled = options.deepThink !== false;
+    // Conserva turnos verificados y sus roles, sin incluir borradores o errores como memoria.
+    const before = appState.getState();
+    const sessionId = before.currentSessionId;
+    const history = before.messages.filter((m) => !m.meta?.error && !m.meta?.isStreaming && m.text?.trim())
+      .slice(-12).map((m) => ({ role: m.role, content: m.text }));
 
     // 1. Agregar mensaje del usuario a la sesión activa
     appState.addMessage('user', trimmed);
@@ -30,14 +35,14 @@ export class ChatService {
     }
 
     // 3. Agregar burbuja de respuesta inicial del asistente
-    appState.addMessage('assistant', 'Pensando...', {
+    const pending = appState.addMessage('assistant', 'Pensando...', {
       isStreaming: true,
       startTime: Date.now(),
       model: appState.getState().currentModel,
     });
 
-    // Obtiene el modelo activo del estado global o usa el fallback por defecto
-    const activeModel = appState.getState().currentModel || 'qwen.gguf';
+    // Solo usa una ruta seleccionada; no inventa un nombre de archivo como fallback.
+    const activeModel = appState.getState().currentModel || transport.selectedModelPath;
 
     try {
       // Iniciar estado thinking en el búho
@@ -45,7 +50,7 @@ export class ChatService {
         this.owlInstance.setState('thinking');
       }
 
-      // Invoca el transporte hacia el backend (Tauri IPC o REST) transmitiendo tokens en tiempo real
+      // Mantiene roles y sesión tanto en IPC como en REST, sin mezclar conversaciones.
       await transport.chatPromptStream({
         prompt: trimmed,
         model: activeModel,
@@ -53,8 +58,9 @@ export class ChatService {
         webSearch: webEnabled,
         deepThink: deepThinkEnabled,
         attachedFiles,
+        history, sessionId,
         onToken: (chunk, meta) => {
-          appState.appendStreamToken(chunk);
+          appState.appendStreamToken(chunk, sessionId, pending.id);
           // Transición suave a responding durante la generación continua
           if (this.owlInstance && this.owlInstance.currentState !== 'responding') {
             this.owlInstance.setState('responding');
@@ -63,10 +69,11 @@ export class ChatService {
         onDone: (meta) => {
           appState.updateLastMessage(meta.text || null, {
             isStreaming: false,
-            tok_s: meta.tok_s ? (typeof meta.tok_s === 'number' ? meta.tok_s.toFixed(1) : meta.tok_s) : '0.0',
-            time: meta.time || '0.00s',
+            tok_s: Number.isFinite(meta.tok_s) && meta.tok_s > 0 ? meta.tok_s.toFixed(1) : null,
+            time: meta.time || null,
             model: meta.model || activeModel,
-          });
+            buffered: meta.buffered === true,
+          }, sessionId, pending.id);
 
           // Notificar al búho éxito: despliegue de alas y júbilo (owl_fly)
           if (this.owlInstance) {
@@ -77,7 +84,7 @@ export class ChatService {
           appState.updateLastMessage(`[Error Runtime] No se pudo completar la inferencia: ${err.message}`, {
             error: true,
             isStreaming: false,
-          });
+          }, sessionId, pending.id);
 
           if (this.owlInstance) {
             this.owlInstance.setState('error');
@@ -88,7 +95,7 @@ export class ChatService {
       appState.updateLastMessage(`[Error Inesperado] ${err.message}`, {
         error: true,
         isStreaming: false,
-      });
+      }, sessionId, pending.id);
 
       if (this.owlInstance) {
         this.owlInstance.setState('error');

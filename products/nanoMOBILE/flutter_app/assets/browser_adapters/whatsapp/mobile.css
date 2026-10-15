@@ -1,89 +1,356 @@
-/* assets/browser_adapters/whatsapp/mobile.css */
-/* Adaptación responsive conservadora de WhatsApp Web para modo vertical (Portrait). */
-/* Objetivo: Ancho 100%, eliminar columnas vacías de escritorio y dar prioridad al panel activo. */
-
+/* Nano · WhatsApp Web mobile: 100% responsive móvil, adaptado ergonómicamente */
 :root {
-  --nano-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nano-wa-height: 100vh;
+  --nano-wa-touch: 44px;
 }
 
-/* 1. Ajuste del viewport base y eliminación de márgenes sobrantes de desktop */
-html, body, #app {
+@supports (height: 100dvh) {
+  :root { --nano-wa-height: 100dvh; }
+}
+
+html.nano-wa-mobile-shell,
+html.nano-wa-mobile-shell body,
+html.nano-wa-mobile-shell #app,
+html.nano-wa-mobile-shell .app-wrapper-web,
+html.nano-wa-mobile-shell .two {
   width: 100% !important;
-  max-width: 100vw !important;
-  overflow-x: hidden !important;
-  padding: 0 !important;
+  height: var(--nano-wa-height) !important;
+  max-width: 100% !important;
+  max-height: var(--nano-wa-height) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
   margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: pan-x pan-y pinch-zoom !important;
+  -webkit-text-size-adjust: 100% !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-/* 2. Pantalla de Landing / Login / QR */
-div[data-ref] {
+html.nano-wa-mobile-shell *,
+html.nano-wa-mobile-shell *::before,
+html.nano-wa-mobile-shell *::after {
+  box-sizing: border-box !important;
+}
+
+/* Ocultar barra lateral de escritorio, drawers secundarios, overlays y banners */
+html.nano-wa-mobile-shell .two > header,
+html.nano-wa-mobile-shell header:has([data-icon="status-v3-unread"]),
+html.nano-wa-mobile-shell header:has([data-icon="community"]),
+html.nano-wa-mobile-shell header:has([data-icon="newsletter"]),
+html.nano-wa-mobile-shell header:has([data-icon="chats-filled"]),
+html.nano-wa-mobile-shell [role="navigation"],
+html.nano-wa-mobile-shell .two > div:not(:has(#side)):not(:has(#main)):not([data-testid="drawer-fullscreen"]):not(#wds-toast-container),
+html.nano-wa-mobile-shell [data-testid="drawer-right"]:not(:has(header)),
+html.nano-wa-mobile-shell [data-testid="drawer-right"]:empty,
+html.nano-wa-mobile-shell [data-testid="drawer-right"]:has(> span:only-child),
+html.nano-wa-mobile-shell .two > div:not(.nano-wa-list-host):not(.nano-wa-conversation-host):not(:has(#side)):not(:has(#main)):not(#wds-toast-container),
+html.nano-wa-mobile-shell [data-testid="chatlist-header"],
+html.nano-wa-mobile-shell [data-testid="drawer-left"],
+html.nano-wa-mobile-shell [data-testid="drawer-middle"],
+html.nano-wa-mobile-shell [data-testid="download-windows-banner"],
+html.nano-wa-mobile-shell #side > div[role="button"][data-tab="4"],
+html.nano-wa-mobile-shell #side > div:has(span[data-icon="windows"]),
+html.nano-wa-mobile-shell #side > div:has(span[data-icon="apple-logo"]),
+html.nano-wa-mobile-shell div:has(> a[href*="whatsapp.com/download"]),
+html.nano-wa-mobile-shell .nano-wa-rail-host {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Contenedor principal de dos columnas en WhatsApp Web */
+html.nano-wa-mobile-shell .two {
+  display: block !important;
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Normalización de hosts y paneles para ocupar 100% del ancho y alto sin divisiones */
+html.nano-wa-mobile-shell .two > div:has(#side),
+html.nano-wa-mobile-shell .nano-wa-list-host,
+html.nano-wa-mobile-shell #side,
+html.nano-wa-mobile-shell .two > div:has(#main),
+html.nano-wa-mobile-shell .nano-wa-conversation-host,
+html.nano-wa-mobile-shell #main {
+  position: absolute !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  transform: none !important;
+  flex: none !important;
+  border: 0 !important;
+  border-inline: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Eliminación total de líneas verticales divisorias y pseudo-elementos */
+html.nano-wa-mobile-shell .two::before,
+html.nano-wa-mobile-shell .two::after,
+html.nano-wa-mobile-shell .nano-wa-list-host::before,
+html.nano-wa-mobile-shell .nano-wa-list-host::after,
+html.nano-wa-mobile-shell #side::before,
+html.nano-wa-mobile-shell #side::after,
+html.nano-wa-mobile-shell #main::before,
+html.nano-wa-mobile-shell #main::after {
+  display: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  width: 0 !important;
+}
+
+/* Alternancia maestro-detalle: Lista vs Conversación */
+/* 1. Vista Lista (por defecto o cuando nano-view-list está activo) */
+html.nano-wa-mobile-shell .two > div:has(#side),
+html.nano-wa-mobile-shell .nano-wa-list-host,
+html.nano-wa-mobile-shell body.nano-view-list .two > div:has(#side),
+html.nano-wa-mobile-shell body.nano-view-list .nano-wa-list-host,
+html.nano-wa-mobile-shell body:not(.nano-view-chat) .two > div:has(#side),
+html.nano-wa-mobile-shell body:not(.nano-view-chat) .nano-wa-list-host {
+  display: flex !important;
+  visibility: visible !important;
+  z-index: 10 !important;
+}
+
+html.nano-wa-mobile-shell .two > div:has(#main),
+html.nano-wa-mobile-shell .nano-wa-conversation-host,
+html.nano-wa-mobile-shell .two > div:has([data-testid="intro-panel"]),
+html.nano-wa-mobile-shell body.nano-view-list .two > div:has(#main),
+html.nano-wa-mobile-shell body.nano-view-list .nano-wa-conversation-host,
+html.nano-wa-mobile-shell body:not(.nano-view-chat) .two > div:has(#main),
+html.nano-wa-mobile-shell body:not(.nano-view-chat) .nano-wa-conversation-host {
+  display: none !important;
+  visibility: hidden !important;
+  z-index: 1 !important;
+}
+
+/* 2. Vista Chat (únicamente cuando nano-view-chat está activo Y #main existe) */
+html.nano-wa-mobile-shell body.nano-view-chat:has(#main) .two > div:has(#side),
+html.nano-wa-mobile-shell body.nano-view-chat:has(#main) .nano-wa-list-host {
+  display: none !important;
+  visibility: hidden !important;
+  z-index: 1 !important;
+}
+
+html.nano-wa-mobile-shell body.nano-view-chat .two > div:has(#main),
+html.nano-wa-mobile-shell body.nano-view-chat .nano-wa-conversation-host {
+  display: flex !important;
+  visibility: visible !important;
+  z-index: 10 !important;
+}
+
+/* Panel de lista de chats (#side) */
+html.nano-wa-mobile-shell #side {
   display: flex !important;
   flex-direction: column !important;
-  justify-content: center !important;
-  align-items: center !important;
-  padding: 16px !important;
-  margin: 0 auto !important;
+  overflow: hidden !important;
 }
 
-div[data-ref] canvas {
+html.nano-wa-mobile-shell #side > header {
+  position: relative !important;
+  width: 100% !important;
+  min-height: 56px !important;
+  flex: 0 0 auto !important;
+}
+
+html.nano-wa-mobile-shell #pane-side,
+html.nano-wa-mobile-shell [data-testid="chat-list"] {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+}
+
+html.nano-wa-mobile-shell #pane-side *,
+html.nano-wa-mobile-shell [data-testid="chat-list"] * {
+  touch-action: pan-y !important;
+}
+
+html.nano-wa-mobile-shell #pane-side [role="listitem"],
+html.nano-wa-mobile-shell #pane-side [role="row"] {
+  min-height: 64px !important;
+}
+
+html.nano-wa-mobile-shell #pane-side img {
+  max-width: 48px !important;
+  max-height: 48px !important;
+}
+
+/* Panel de conversación activa (#main) */
+html.nano-wa-mobile-shell #main {
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+html.nano-wa-mobile-shell #main > header {
+  position: relative !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  min-height: 56px !important;
+  max-height: 64px !important;
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 4px !important;
+  z-index: 20 !important;
+}
+
+html.nano-wa-mobile-shell #nano-wa-header-back-btn {
+  flex: 0 0 40px !important;
+  width: 40px !important;
+  height: 40px !important;
+  margin-right: 2px !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: inherit !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  touch-action: manipulation !important;
+  z-index: 30 !important;
+}
+
+/* Contenedor del contacto (avatar + nombre) */
+html.nano-wa-mobile-shell #main > header > div:nth-child(2) {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+html.nano-wa-mobile-shell #main > header > div:nth-child(2) * {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Contenedor de acciones a la derecha compacto */
+html.nano-wa-mobile-shell #main > header > div:last-child {
+  flex: 0 0 auto !important;
+}
+
+html.nano-wa-mobile-shell #main > div[tabindex="-1"],
+html.nano-wa-mobile-shell #main [data-testid="conversation-panel-messages"] {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  min-width: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Burbujas y tarjetas de mensajes adaptadas ergonómicamente al ancho móvil */
+html.nano-wa-mobile-shell #main div[role="row"] {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+
+html.nano-wa-mobile-shell #main .focusable-list-item {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  box-sizing: border-box !important;
+}
+
+html.nano-wa-mobile-shell #main .focusable-list-item > div {
+  max-width: calc(100vw - 24px) !important;
+  box-sizing: border-box !important;
+}
+
+html.nano-wa-mobile-shell #main .focusable-list-item div.x121pien {
+  width: 276px !important;
+  max-width: calc(100vw - 44px) !important;
+  box-sizing: border-box !important;
+}
+
+html.nano-wa-mobile-shell #main .focusable-list-item div.x121pien > div,
+html.nano-wa-mobile-shell #main .focusable-list-item div.x15zctf7,
+html.nano-wa-mobile-shell #main .focusable-list-item div.x2fvf9 {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* Barra inferior de escritura (composer) adaptativa al teclado */
+html.nano-wa-mobile-shell #main > footer {
+  position: relative !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  z-index: 30 !important;
+  padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+html.nano-wa-mobile-shell #side > header button,
+html.nano-wa-mobile-shell #side > header [role="button"],
+html.nano-wa-mobile-shell #main > header button,
+html.nano-wa-mobile-shell #main > header [role="button"],
+html.nano-wa-mobile-shell #main > footer button,
+html.nano-wa-mobile-shell #main > footer [role="button"] {
+  min-width: var(--nano-wa-touch);
+  min-height: var(--nano-wa-touch);
+}
+
+html.nano-wa-mobile-shell #main [contenteditable="true"] {
+  max-height: min(132px, 30vh) !important;
+  overflow-y: auto !important;
+  scroll-margin-bottom: 12px !important;
+}
+
+/* Pantalla de login / Código QR adaptativo */
+html.nano-wa-mobile-shell #app div[data-ref]:has(canvas) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 100% !important;
+  padding: 16px !important;
+}
+
+html.nano-wa-mobile-shell #app div[data-ref]:has(canvas) canvas {
   max-width: 85vw !important;
   height: auto !important;
-  margin: 0 auto !important;
-  border-radius: 12px !important;
 }
 
-/* 3. Contenedor principal de dos paneles (side + main) */
-#main {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  min-width: 100vw !important;
-  flex: 1 1 100% !important;
-}
-
-#side {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  min-width: 100vw !important;
-  flex: 1 1 100% !important;
-}
-
-/* 4. Estado de navegación:
-   Cuando el usuario tiene una conversación abierta (modo chat fullscreen),
-   se oculta la lista de chats lateral (#side).
-   Cuando no hay chat abierto o se pulsa atrás, se muestra la lista y se oculta #main. */
-body.nano-view-chat #side {
-  display: none !important;
-}
-
-body.nano-view-chat #main {
-  display: flex !important;
-  visibility: visible !important;
-}
-
-body.nano-view-list #main {
-  display: none !important;
-}
-
-body.nano-view-list #side {
-  display: flex !important;
-  visibility: visible !important;
-}
-
-/* 5. Optimización táctil de elementos de lista */
-div[role="listitem"] {
-  min-height: 64px !important;
-  padding-top: 6px !important;
-  padding-bottom: 6px !important;
-}
-
-/* 6. Barra de composición de mensajes (Composer) */
-footer {
-  padding-bottom: max(6px, var(--nano-safe-bottom)) !important;
-}
-
-/* 7. Eliminar decoraciones de desktop innecesarias */
-header span[data-icon="window-minimize"],
-header span[data-icon="window-maximize"],
-header span[data-icon="window-close"] {
-  display: none !important;
+@media (prefers-reduced-motion: reduce) {
+  html.nano-wa-mobile-shell * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

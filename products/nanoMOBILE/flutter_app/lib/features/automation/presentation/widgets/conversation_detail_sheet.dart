@@ -29,7 +29,10 @@ import '../../personal_agent/domain/conversation_owner.dart';
 import '../automation_visual_theme.dart';
 import '../business/business_document_library_dialog.dart';
 import '../messaging_center/messaging_center_providers.dart' show allHubConversationsProvider, liveNotificationStreamProvider;
-import '../messaging_center/notification_history_provider.dart' show notificationHistoryClientProvider;
+import '../messaging_center/whatsapp_web_history_view.dart';
+import '../messaging_center/conversation_hub_action_controller.dart';
+import '../messaging_center/notification_history_view.dart';
+import '../whatsapp_web/whatsapp_web_session_ownership.dart';
 import 'conversation_history_resolver.dart';
 import 'conversation_media_bubble.dart';
 import 'conversation_phone_resolver.dart';
@@ -59,40 +62,39 @@ class ConversationDetailSheet extends ConsumerStatefulWidget {
   final ConversationSummaryItem item;
   static const List<String> _sfFallback = ['.SF UI Text', 'Inter', 'Roboto'];
   const ConversationDetailSheet({super.key, required this.item});
-  static Future<void> show(BuildContext context, ConversationSummaryItem item) =>
-      showModalBottomSheet(
-        context: context,
-        useRootNavigator: true,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        barrierColor: Colors.black.withValues(alpha: 0.38),
+
+  static Future<void> show(BuildContext context, ConversationSummaryItem item) async {
+    final isWeb = {item.conversationId, ...item.conversationAliases}.any((id) => id.startsWith('waweb:'));
+    if (isWeb) WhatsAppWebSessionOwnership.foreground.value = true;
+    try {
+      await showModalBottomSheet(
+        context: context, useRootNavigator: true, isScrollControlled: true,
+        backgroundColor: Colors.transparent, barrierColor: Colors.black.withValues(alpha: 0.38),
         builder: (sheetContext) => AnimatedPadding(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
+          duration: const Duration(milliseconds: 180), curve: Curves.easeOutCubic,
+          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(sheetContext).bottom),
           child: ConversationDetailSheet(item: item),
         ),
       );
+    } finally {
+      if (isWeb) WhatsAppWebSessionOwnership.foreground.value = false;
+    }
+  }
+
   @override
-  ConsumerState<ConversationDetailSheet> createState() =>
-      _ConversationDetailSheetState();
+  ConsumerState<ConversationDetailSheet> createState() => _ConversationDetailSheetState();
 }
 
-class _ConversationDetailSheetState
-    extends ConsumerState<ConversationDetailSheet> {
+class _ConversationDetailSheetState extends ConsumerState<ConversationDetailSheet> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
-  bool _isHumanOwned = false;
-  bool _busy = false;
+  bool _isHumanOwned = false, _busy = false;
   String? _statusText;
   List<String> _suggestions = const [];
   late ConversationAgentId _agentId;
   DeviceNotification? _activeNotification;
   List<ConversationMemoryEntry> _liveEntries = const [];
-  bool _historyLoadInProgress = false;
-  bool _historyReloadRequested = false;
+  bool _historyLoadInProgress = false, _historyReloadRequested = false;
 
   void _safeSetState(VoidCallback fn) {
     if (mounted) setState(fn);
@@ -123,14 +125,8 @@ class _ConversationDetailSheetState
   @override
   Widget build(BuildContext context) {
     ref.watch(conversationHubVersionProvider);
-    ref.listen(
-      liveNotificationStreamProvider,
-      (_, __) => _loadLiveHistoryAndCapabilities(),
-    );
-    ref.listen(
-      conversationHubVersionProvider,
-      (_, __) => _loadLiveHistoryAndCapabilities(),
-    );
+    ref.listen(liveNotificationStreamProvider, (_, __) => _loadLiveHistoryAndCapabilities());
+    ref.listen(conversationHubVersionProvider, (_, __) => _loadLiveHistoryAndCapabilities());
 
     final visual = AutomationVisual.of(context);
     final memoryStore = ref.watch(conversationMemoryStoreProvider);
@@ -138,33 +134,25 @@ class _ConversationDetailSheetState
     final isLandscape = media.orientation == Orientation.landscape;
 
     final entries = ConversationHistoryResolver.resolve(
-      item: widget.item,
-      store: memoryStore,
-      liveEntries: _liveEntries,
+      item: widget.item, store: memoryStore, liveEntries: _liveEntries,
     );
+
+    final height = (media.size.height - media.viewInsets.bottom) * (isLandscape ? 0.98 : 0.90);
 
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       child: Container(
-        height:
-            (media.size.height - media.viewInsets.bottom) *
-            (isLandscape ? 0.98 : 0.90),
+        height: height,
         decoration: BoxDecoration(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
           border: Border.all(
-            color: visual.isDark
-                ? Colors.white.withValues(alpha: 0.22)
-                : Colors.white.withValues(alpha: 0.70),
+            color: visual.isDark ? Colors.white.withValues(alpha: 0.22) : Colors.white.withValues(alpha: 0.70),
             width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(
-                alpha: visual.isDark ? 0.55 : 0.20,
-              ),
-              blurRadius: 35,
-              spreadRadius: -5,
-              offset: const Offset(0, -10),
+              color: Colors.black.withValues(alpha: visual.isDark ? 0.55 : 0.20),
+              blurRadius: 35, spreadRadius: -5, offset: const Offset(0, -10),
             ),
           ],
         ),
@@ -178,14 +166,10 @@ class _ConversationDetailSheetState
                 child: Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
                       colors: visual.isDark
                           ? [const Color(0xD90A0F1D), const Color(0xEB060A14)]
-                          : [
-                              Colors.white.withValues(alpha: 0.88),
-                              Colors.white.withValues(alpha: 0.94),
-                            ],
+                          : [Colors.white.withValues(alpha: 0.88), Colors.white.withValues(alpha: 0.94)],
                     ),
                   ),
                 ),

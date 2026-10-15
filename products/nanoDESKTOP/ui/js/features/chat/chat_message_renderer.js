@@ -39,8 +39,8 @@ export class ChatMessageRenderer {
 
     if (isThinking) {
       thinkingHtml = this._buildThinkingBox(
-        'Pensando con DeepThink...',
-        'Analizando el contexto, procesando tokens y formulando la respuesta óptima...',
+        'Generando respuesta local…',
+        'Esperando al modelo seleccionado. La primera carga puede tardar más.',
         false
       );
       mainText = '';
@@ -103,17 +103,19 @@ export class ChatMessageRenderer {
         </div>
       `;
     }
-    const tokS = meta.tok_s || '18.4';
-    const time = meta.time || '1.2s';
-    const model = meta.model || 'Qwen 2.5 1.5B (Local)';
+    // Las métricas ausentes se muestran como tales; no son valores de demostración.
+    if (meta.isStreaming) return '';
+    const tokS = Number(meta.tok_s) > 0 ? `${Number(meta.tok_s).toFixed(1)} tok/s` : 'Velocidad no disponible';
+    const time = this.escapeHtml(String(meta.time || 'Tiempo no disponible'));
+    const model = this.escapeHtml(String(meta.model || 'Modelo no identificado').split(/[\\/]/).pop());
 
     return `
       <div class="msg-telemetry-bar">
-        <span class="telemetry-item"><span class="telemetry-live-dot"></span>100% Local</span>
+        <span class="telemetry-item"><span class="telemetry-live-dot"></span>Local${meta.buffered ? ' · Respuesta completa' : ''}</span>
         <span class="telemetry-dot">•</span>
         <span class="telemetry-item">${model}</span>
         <span class="telemetry-dot">•</span>
-        <span class="telemetry-item">${tokS} tok/s</span>
+        <span class="telemetry-item">${tokS}</span>
         <span class="telemetry-dot">•</span>
         <span class="telemetry-item">${time}</span>
       </div>

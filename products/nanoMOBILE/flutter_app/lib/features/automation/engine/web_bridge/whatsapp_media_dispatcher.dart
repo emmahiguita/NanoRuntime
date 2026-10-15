@@ -1,17 +1,6 @@
-/// WA-MEDIA-DISPATCHER-01 — Despachador híbrido de mensajes y multimedia para WhatsApp.
-///
-/// **QUÉ HACE:**
-/// Determina el canal de transporte óptimo (notificación nativa RemoteInput para texto,
-/// o WhatsAppWebBridgeController para fotos, videos y documentos).
-///
-/// **CÓMO FUNCIONA:**
-/// Recibe peticiones de envío desde el agente de automatización o la interfaz de Nano.
-/// Si hay archivos binarios adjuntos, los enruta al puente web; si es texto y no hay puente,
-/// recurre al servicio de notificaciones Android.
-///
-/// **POR QUÉ:**
-/// Abstrae la heterogeneidad de los canales de salida, proporcionando un punto
-/// único de entrada para enviar cualquier tipo de contenido sin salir de Nano.
+/// Fachada compatible de solicitudes multimedia; no anuncia entregas ficticias.
+/// El transporte Web está deshabilitado hasta verificar destino, preview y commit.
+/// No existe fallback a notificaciones para archivos: RemoteInput solo admite texto.
 library;
 
 import 'dart:io';
@@ -24,15 +13,16 @@ final class WhatsAppMediaDispatcher {
   WhatsAppMediaDispatcher({WhatsAppWebBridgeController? bridge})
     : _bridge = bridge ?? whatsAppWebBridgeController;
 
-  /// Estado de disponibilidad del canal multimedia.
-  bool get canSendMedia => _bridge.currentSession.isConnected;
+  /// Conectado no significa que exista un envío multimedia verificable.
+  bool get canSendMedia => false;
 
-  /// Envía una fotografía o imagen (JPEG/PNG) directamente a un destinatario.
+  /// Valida el archivo solicitado; false indica que el canal no admite el envío.
   Future<bool> sendPhoto({
     required String filePath,
     String? caption,
     required String recipientPhone,
   }) async {
+    if (!canSendMedia) return false;
     final file = File(filePath);
     if (!await file.exists()) return false;
 
@@ -49,12 +39,13 @@ final class WhatsAppMediaDispatcher {
     return _bridge.sendMedia(payload, recipientPhone: recipientPhone);
   }
 
-  /// Envía un video (MP4) directamente a un destinatario sin salir de Nano.
+  /// Solicita un video sin prometer entrega ni cambiar a otro transporte.
   Future<bool> sendVideo({
     required String filePath,
     String? caption,
     required String recipientPhone,
   }) async {
+    if (!canSendMedia) return false;
     final file = File(filePath);
     if (!await file.exists()) return false;
 
@@ -70,12 +61,13 @@ final class WhatsAppMediaDispatcher {
     return _bridge.sendMedia(payload, recipientPhone: recipientPhone);
   }
 
-  /// Envía un documento (PDF, etc.) directamente al chat de WhatsApp.
+  /// Conserva la solicitud de documentos; no la confunde con un envío confirmado.
   Future<bool> sendDocument({
     required String filePath,
     String? caption,
     required String recipientPhone,
   }) async {
+    if (!canSendMedia) return false;
     final file = File(filePath);
     if (!await file.exists()) return false;
 

@@ -33,7 +33,7 @@ class MessagingConversationCard extends ConsumerWidget {
     final targetMode = ref.watch(settingsProvider).waTargetContactsMode;
     final ownershipStore = ref.watch(conversationOwnershipStoreProvider);
     final ownership = ConversationOwnershipPolicy.ownershipForConversation(
-      store: ownershipStore, conversationId: item.conversationId, packageName: item.packageName, isGroup: item.isGroup,
+      store: ownershipStore, conversationId: item.conversationId, packageName: item.packageName, isGroup: item.isGroup, aliases: item.conversationAliases,
     );
     final isBotActive = !ConversationOwnershipPolicy.humanOwns(targetContactsMode: targetMode, ownership: ownership);
 
@@ -117,7 +117,12 @@ class MessagingConversationCard extends ConsumerWidget {
         onTap: () async {
           HapticFeedback.lightImpact();
           final newOwner = isBotActive ? ConversationOwner.human : ConversationOwner.bot;
-          await ref.read(conversationHubActionControllerProvider).setOwnership(item, newOwner);
+          // El fallo de persistencia es visible y no provoca una excepción sin manejar.
+          try {
+            await ref.read(conversationHubActionControllerProvider).setOwnership(item, newOwner);
+          } catch (_) {
+            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No se pudo guardar el cambio. La pausa permanece activa.')));
+          }
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),

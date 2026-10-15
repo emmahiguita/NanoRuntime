@@ -13,6 +13,7 @@ import 'browser_options_content.dart';
 class BrowserOptionsSheet extends StatelessWidget {
   final BrowserTabModel tab;
   final bool isBookmarked, isDesktopMode, isDarkModeWeb;
+  final String externalAppModeLabel;
   final ValueChanged<String> onAction;
 
   const BrowserOptionsSheet({
@@ -21,6 +22,7 @@ class BrowserOptionsSheet extends StatelessWidget {
     required this.isBookmarked,
     required this.isDesktopMode,
     required this.isDarkModeWeb,
+    required this.externalAppModeLabel,
     required this.onAction,
   });
 
@@ -30,6 +32,7 @@ class BrowserOptionsSheet extends StatelessWidget {
     required bool isBookmarked,
     required bool isDesktopMode,
     required bool isDarkModeWeb,
+    required String externalAppModeLabel,
     required ValueChanged<String> onAction,
   }) => showGeneralDialog<void>(
     context: context,
@@ -44,6 +47,7 @@ class BrowserOptionsSheet extends StatelessWidget {
         isBookmarked: isBookmarked,
         isDesktopMode: isDesktopMode,
         isDarkModeWeb: isDarkModeWeb,
+        externalAppModeLabel: externalAppModeLabel,
         onAction: onAction,
       ),
     ),
@@ -116,6 +120,7 @@ class BrowserOptionsSheet extends StatelessWidget {
                         isBookmarked: isBookmarked,
                         isDesktopMode: isDesktopMode,
                         isDarkModeWeb: isDarkModeWeb,
+                        externalAppModeLabel: externalAppModeLabel,
                         onAction: (action) => _trigger(context, action),
                       ),
                     ),

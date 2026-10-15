@@ -87,6 +87,9 @@ class RoutedLlmEngineClient extends LLMEngineClient {
     List<Map<String, String>>? history,
     Duration? requestTimeout,
     List<InferenceMediaInput> mediaInputs = const [],
+    // LOOP-1-TELEMETRY — correlación opcional del turno (sin contenido).
+    String? requestId,
+    int? queuedAtMs,
   }) async {
     if (useLiteRt()) {
       return _generateLiteRt(
@@ -118,6 +121,8 @@ class RoutedLlmEngineClient extends LLMEngineClient {
       context: context,
       history: history,
       requestTimeout: requestTimeout,
+      requestId: requestId,
+      queuedAtMs: queuedAtMs,
       mediaInputs: mediaInputs,
     );
   }

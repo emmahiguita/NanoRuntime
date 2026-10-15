@@ -1,59 +1,30 @@
-// nano_business_runtime.dart
-//
-// QUÉ HACE:
-// Orquestador maestro agnóstico del runtime comercial de Nano Negocio.
-// Conecta en un solo flujo determinista y seguro las 5 capas de producción:
-// NanoIncomingMessage → Inbox Durable → Estado → Validador de Verdad → Motor de Políticas → NanoOutgoingMessage.
-//
-// CÓMO FUNCIONA:
-// - Desecha mensajes duplicados de forma idempotente con DurableInboxStore.
-// - Carga el estado del embudo comercial (CommercialConversationStateStore).
-// - Detecta y bloquea intentos de prompt injection.
-// - Parsea la acción estructurada y la valida contra BusinessFacts (Truth Boundary).
-// - Emite un NanoOutgoingMessage agnóstico y encola en DurableOutboxQueue.
-//
-// POR QUÉ:
-// Aplica la regla <channel_agnostic_messaging>: el runtime opera sobre modelos universales.
-
+// Orquesta respuestas verificadas y conserva el estado antes de devolverlas.
+// El envío pertenece al dispatcher existente: no crea una segunda cola sin consumidor.
 library;
 
 import '../actions/commercial_action_parser.dart';
+import '../actions/commercial_structured_action.dart';
+import '../business_conversation_models.dart';
 import '../business_facts.dart';
 import '../policy/commercial_action_policy_engine.dart';
 import '../policy/commercial_policy_tier.dart';
 import '../queue/durable_inbox_store.dart';
-import '../queue/durable_outbox_message.dart';
 import '../queue/durable_outbox_queue.dart';
-import '../state/commercial_conversation_state.dart';
 import '../state/commercial_conversation_state_store.dart';
 import '../state/commercial_funnel_stage.dart';
 import '../validation/business_response_validator.dart';
 import '../validation/business_validation_result.dart';
 import '../../messaging/core/nano_incoming_message.dart';
 import '../../messaging/core/nano_outgoing_message.dart';
+import 'nano_business_turn_result.dart';
+export 'nano_business_turn_result.dart';
 import 'nano_business_turn_resolver.dart';
-
-final class NanoBusinessTurnResult {
-  final String replyText;
-  final bool isEscalatedToHuman;
-  final String? escalatedReason;
-  final List<String> suggestions;
-  final CommercialConversationState updatedState;
-  final NanoOutgoingMessage? outgoingMessage;
-
-  const NanoBusinessTurnResult({
-    required this.replyText,
-    this.isEscalatedToHuman = false,
-    this.escalatedReason,
-    this.suggestions = const [],
-    required this.updatedState,
-    this.outgoingMessage,
-  });
-}
+import 'business_turn_serial_queue.dart';
 
 class NanoBusinessRuntime {
   final BusinessFacts facts;
   final DurableInboxStore inboxStore;
+  // Compatibilidad de inyección: no se encola hasta tener un consumidor conectado.
   final DurableOutboxQueue outboxQueue;
   final CommercialConversationStateStore stateStore;
   final CommercialActionParser actionParser;
@@ -68,10 +39,10 @@ class NanoBusinessRuntime {
     this.stateStore = const CommercialConversationStateStore(),
     this.actionParser = const CommercialActionParser(),
     this.turnResolver = const NanoBusinessTurnResolver(),
-  })  : validator = BusinessResponseValidator(facts),
-        policyEngine = CommercialActionPolicyEngine(facts);
+  }) : validator = BusinessResponseValidator(facts),
+       policyEngine = CommercialActionPolicyEngine(facts);
 
-  /// Procesa un mensaje entrante universal (NanoIncomingMessage).
+  /// Conserva la identidad universal del mensaje, no la del contenedor Android.
   Future<NanoBusinessTurnResult?> processIncomingMessage(
     NanoIncomingMessage message, {
     String? rawModelStructuredOutput,
@@ -83,103 +54,127 @@ class NanoBusinessRuntime {
     channel: message.channel.name,
   );
 
-  /// Procesa un turno de mensajería comercial independiente del canal.
+  /// Serializa lecturas/escrituras del inbox compartido dentro de este isolate.
   Future<NanoBusinessTurnResult?> processTurn({
     required String eventId,
     required String conversationId,
     required String incomingText,
     String? rawModelStructuredOutput,
+    BusinessTurnReply? factualReply,
     String channel = 'generic',
-  }) async {
-    // 1. Idempotencia en Durable Inbox
-    if (await inboxStore.isProcessed(eventId)) return null;
+  }) => BusinessTurnSerialQueue.run(
+    () => _resolveTurn(
+      eventId,
+      conversationId,
+      incomingText,
+      rawModelStructuredOutput,
+      factualReply,
+    ),
+  );
+
+  Future<NanoBusinessTurnResult?> _resolveTurn(
+    String eventId,
+    String conversationId,
+    String incomingText,
+    String? modelOutput,
+    BusinessTurnReply? factualReply,
+  ) async {
+    if (eventId.isEmpty || conversationId.isEmpty) {
+      throw ArgumentError(
+        'El turno requiere identidad de mensaje y conversación.',
+      );
+    }
+    var state = await stateStore.load(conversationId);
+    if (await inboxStore.isProcessed(eventId)) {
+      return NanoBusinessTurnResult(
+        replyText: '',
+        updatedState: state,
+        isDuplicate: true,
+      );
+    }
+    final injection = policyEngine.detectPromptInjection(incomingText);
+    final action = modelOutput != null && modelOutput.isNotEmpty
+        ? actionParser.parse(modelOutput)
+        : turnResolver.resolveHeuristicAction(incomingText, facts, state);
+    if (!injection && action == null && factualReply == null) return null;
+
+    var reply = factualReply?.text ?? '';
+    var suggestions = factualReply?.suggestions ?? const <String>[];
+    var human = factualReply?.needsHuman == true;
+    var confirmation = false;
+    String? reason;
+    if (injection) {
+      reply =
+          'No puedo modificar precios ni políticas del catálogo por un mensaje.';
+      human = true;
+      reason = 'Solicitud de cambio no autorizado';
+    } else if (action != null) {
+      final policy = policyEngine.evaluate(action);
+      final validation = validator.validate(action);
+      // Las consultas informativas usan el resolver con frases editables.
+      final editableQuery =
+          action is PriceQueryAction ||
+          action is CatalogQueryAction ||
+          action is PolicyQueryAction;
+      switch (validation) {
+        case AcceptedBusinessValidation accepted:
+          if (!editableQuery || reply.isEmpty) {
+            reply = accepted.formattedReply;
+            suggestions = accepted.suggestions;
+          }
+          confirmation = policy.tier == CommercialPolicyTier.needsConfirmation;
+          // Una propuesta no altera carrito ni estado de compra sin confirmación.
+          if (policy.allowed && !confirmation && !human) {
+            state = turnResolver.updateStateOnSuccess(state, action, accepted);
+          }
+        case RejectedBusinessValidation rejected:
+          if (!editableQuery || reply.isEmpty) reply = rejected.fallbackReply;
+        case EscalatedBusinessValidation escalated:
+          reply =
+              action is EscalateToHumanAction &&
+                  factualReply?.needsHuman == true
+              ? factualReply!.text
+              : escalated.noticeToCustomer;
+          human = true;
+          reason = escalated.reason;
+      }
+      human =
+          human ||
+          policy.tier == CommercialPolicyTier.needsHuman ||
+          policy.tier == CommercialPolicyTier.blocked ||
+          !policy.allowed;
+      reason ??= human ? policy.reason : null;
+    }
+    if (reply.trim().isEmpty) return null;
+    if (human) {
+      state = state.copyWith(
+        stage: CommercialFunnelStage.escalatedHuman,
+        isHumanEscalated: true,
+        escalationReason: reason,
+      );
+    }
+    state = state.copyWith(lastInteraction: DateTime.now());
+    // No devuelve éxito si la base de datos rechazó la escritura.
+    if (!await stateStore.save(state)) {
+      throw StateError('No se pudo guardar el estado comercial.');
+    }
     await inboxStore.markProcessed(
       eventId: eventId,
       conversationId: conversationId,
       content: incomingText,
     );
-
-    // 2. Cargar estado de la conversación
-    var state = await stateStore.load(conversationId);
-
-    // 3. Filtro contra Prompt Injection
-    if (policyEngine.detectPromptInjection(incomingText)) {
-      const blocked = 'No es posible modificar políticas ni precios del catálogo. ¿Deseas consultar productos oficiales?';
-      await _enqueueOutbox(conversationId, blocked, channel);
-      return NanoBusinessTurnResult(replyText: blocked, updatedState: state);
-    }
-
-    // 4. Obtener acción estructurada (SLM o Heurística)
-    final action = rawModelStructuredOutput != null && rawModelStructuredOutput.isNotEmpty
-        ? actionParser.parse(rawModelStructuredOutput)
-        : turnResolver.resolveHeuristicAction(incomingText, facts, state);
-
-    // 5. Evaluación de Políticas y Verdad
-    final policyResult = policyEngine.evaluate(action);
-    final validation = validator.validate(action);
-
-    // 6. Resolver respuesta y transición de estados
-    String finalReply;
-    bool isEscalated = false;
-    String? escalationReason;
-    List<String> suggestions = [];
-
-    switch (validation) {
-      case AcceptedBusinessValidation accepted:
-        finalReply = accepted.formattedReply;
-        suggestions = accepted.suggestions;
-        state = turnResolver.updateStateOnSuccess(state, action, accepted);
-      case RejectedBusinessValidation rejected:
-        finalReply = rejected.fallbackReply;
-      case EscalatedBusinessValidation escalated:
-        finalReply = escalated.noticeToCustomer;
-        isEscalated = true;
-        escalationReason = escalated.reason;
-        state = state.copyWith(
-          stage: CommercialFunnelStage.escalatedHuman,
-          isHumanEscalated: true,
-          escalationReason: escalated.reason,
-        );
-    }
-
-    if (policyResult.tier == CommercialPolicyTier.needsHuman && !isEscalated) {
-      isEscalated = true;
-      escalationReason = policyResult.reason;
-      state = state.copyWith(
-        stage: CommercialFunnelStage.escalatedHuman,
-        isHumanEscalated: true,
-        escalationReason: policyResult.reason,
-      );
-    }
-
-    // 7. Persistir estado, crear NanoOutgoingMessage y encolar en Outbox
-    state = state.copyWith(lastInteraction: DateTime.now());
-    await stateStore.save(state);
-    final outgoing = NanoOutgoingMessage(
-      id: 'out_${conversationId}_${DateTime.now().millisecondsSinceEpoch}',
-      conversationId: conversationId,
-      text: finalReply,
-    );
-    await _enqueueOutbox(conversationId, finalReply, channel);
-
     return NanoBusinessTurnResult(
-      replyText: finalReply,
-      isEscalatedToHuman: isEscalated,
-      escalatedReason: escalationReason,
+      replyText: reply,
+      isEscalatedToHuman: human,
+      requiresConfirmation: confirmation,
+      escalatedReason: reason,
       suggestions: suggestions,
       updatedState: state,
-      outgoingMessage: outgoing,
+      outgoingMessage: NanoOutgoingMessage(
+        id: 'out_$eventId',
+        conversationId: conversationId,
+        text: reply,
+      ),
     );
-  }
-
-  Future<void> _enqueueOutbox(String conversationId, String text, String channel) async {
-    final message = DurableOutboxMessage(
-      id: '${conversationId}_${DateTime.now().millisecondsSinceEpoch}',
-      conversationId: conversationId,
-      channel: channel,
-      text: text,
-      nextAttemptAt: DateTime.now(),
-    );
-    await outboxQueue.enqueue(message);
   }
 }

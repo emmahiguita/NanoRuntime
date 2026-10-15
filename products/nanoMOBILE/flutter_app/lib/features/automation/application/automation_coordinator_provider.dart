@@ -50,6 +50,8 @@ import 'package:nanoai/features/automation/personal_agent/domain/conversation_de
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart';
+import 'package:nanoai/features/automation/engine/scheduling/burst_durability.dart'
+    show BurstShadowStore;
 import 'package:nanoai/features/automation/engine/scheduling/notification_event_router.dart';
 import 'package:nanoai/features/automation/engine/scheduling/turn_supersede_guard.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
@@ -709,6 +711,9 @@ final conversationOwnershipStoreProvider =
 /// turnos por chat. La usa el router de eventos vivos Y el drenado headless.
 final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
   final gate = BurstTurnGate(
+    // LOOP-2 — sombra durable metadata-first: un kill durante la ventana de
+    // asentamiento no pierde la identidad de la ráfaga (sin texto).
+    durability: ref.watch(burstShadowStoreProvider),
     // WA-CONV-03: cada mensaje REAL (incluido el que llega mientras un turno
     // corre) incrementa la versión → supersede del draft en curso.
     onInbound: (conversationId) =>
@@ -736,6 +741,12 @@ final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
   );
   ref.onDispose(gate.dispose);
   return gate;
+});
+
+/// LOOP-2 — sombra durable de ráfagas en ventana (metadata-first, sin texto).
+/// Reutiliza el MISMO AutomationDbStoreClient que inbox/reglas/dedupe.
+final burstShadowStoreProvider = Provider<BurstShadowStore>((ref) {
+  return BurstShadowStore(db: AutomationDbStoreClient.instance);
 });
 
 /// Router de eventos en vivo de notificación (T3.2): EventChannel nativo →

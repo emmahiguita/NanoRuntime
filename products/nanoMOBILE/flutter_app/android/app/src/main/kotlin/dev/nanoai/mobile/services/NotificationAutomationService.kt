@@ -43,11 +43,27 @@ class NotificationAutomationService : NotificationListenerService() {
         )
     }
 
+    // QUÉ HACE: Lee activeNotifications capturando SecurityException y excepciones del sistema.
+    // CÓMO FUNCIONA: En reconexiones rápidas, el binder del NotificationListenerService puede no estar 
+    //               listo, lanzando SecurityException. Retornar emptyArray() previene el crash de la app.
+    // POR QUÉ: Evita cierres de la app en segundo plano y tormentas de reconexión cíclica.
+    private fun getSafeActiveNotifications(): Array<StatusBarNotification> {
+        return try {
+            activeNotifications ?: emptyArray()
+        } catch (e: SecurityException) {
+            android.util.Log.w("NanoNotifications", "SecurityException reading activeNotifications: ${e.message}")
+            emptyArray()
+        } catch (e: Exception) {
+            android.util.Log.w("NanoNotifications", "Error reading activeNotifications: ${e.message}")
+            emptyArray()
+        }
+    }
+
     override fun onListenerConnected() {
         super.onListenerConnected()
         NotificationAutomationBridge.service = this
         // Android vuelve a entregar notificaciones activas al conectar el listener; se importan sin inventar chats.
-        (activeNotifications ?: emptyArray())
+        getSafeActiveNotifications()
             .filter { WhatsAppConversationNotificationClassifier.allows(it) }
             .forEach(historyCapture::capture)
         val pending = NanoApplication.from(this).durableInbox.pendingCount()
@@ -59,15 +75,18 @@ class NotificationAutomationService : NotificationListenerService() {
 
     // QUÉ: Limpia el bridge y solicita reconexión al sistema.
     // CÓMO: super.onListenerDisconnected() PRIMERO para completar el lifecycle del sistema.
-    //       Luego nulificar el bridge y pedir rebind.
+    //       Luego nulificar el bridge y pedir rebind protegido contra excepciones del sistema.
     // POR QUÉ (BUG-06): requestRebind antes de super puede fallar porque el
     //       NotificationListenerService no ha completado su desconexión interna.
-    //       Android puede ignorar el rebind o lanzar IllegalStateException.
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         NotificationAutomationBridge.service = null
         NotificationEventTrace.lifecycle("disconnected")
-        requestRebind(ComponentName(this, NotificationAutomationService::class.java))
+        try {
+            requestRebind(ComponentName(this, NotificationAutomationService::class.java))
+        } catch (e: Exception) {
+            android.util.Log.w("NanoNotifications", "requestRebind safely caught: ${e.message}")
+        }
     }
 
     override fun onDestroy() {
@@ -91,10 +110,14 @@ class NotificationAutomationService : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
         if (sbn.packageName == packageName) return
-        val whatsappPackage = sbn.packageName == "com.whatsapp" ||
-            sbn.packageName == "com.whatsapp.w4b"
+        val conversationalPackage = sbn.packageName in setOf(
+            "com.whatsapp",
+            "com.whatsapp.w4b",
+            "com.telegram.messenger",
+            "org.telegram.messenger",
+        )
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
-            if (whatsappPackage) {
+            if (conversationalPackage) {
                 NotificationEventTrace.event(
                     "admission", sbn.packageName, sbn.postTime, "rejected", "group_summary",
                 )
@@ -105,7 +128,7 @@ class NotificationAutomationService : NotificationListenerService() {
         // WA-ADMISSION-01: estados, reacciones y avisos de servicio mueren
         // antes del inbox durable; así nunca despiertan ni crean un chat.
         val conversationEvidence = WhatsAppConversationNotificationClassifier.inspect(sbn)
-        val traceEvent = whatsappPackage || conversationEvidence.applies
+        val traceEvent = conversationalPackage || conversationEvidence.applies
         if (traceEvent) {
             NotificationEventTrace.event(
                 "callback", sbn.packageName, sbn.postTime, "received",
@@ -119,7 +142,7 @@ class NotificationAutomationService : NotificationListenerService() {
             )
             android.util.Log.d(
                 "NanoNotifications",
-                "WhatsApp event rejected: ${conversationEvidence.reason}",
+                "Conversation event rejected: ${conversationEvidence.reason}",
             )
             return
         }
@@ -248,7 +271,7 @@ class NotificationAutomationService : NotificationListenerService() {
     }
 
     fun snapshot(limit: Int = 30): List<Map<String, Any?>> =
-        (activeNotifications ?: emptyArray())
+        getSafeActiveNotifications()
             .asSequence()
             .filter { it.packageName != packageName }
             .filterNot { it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0 }
@@ -262,7 +285,7 @@ class NotificationAutomationService : NotificationListenerService() {
      *  el mapa del evento SOLO si la notificación sigue activa (sin contenido
      *  persistido no hay otra fuente honesta). */
     fun byKey(key: String): Map<String, Any?>? =
-        (activeNotifications ?: emptyArray())
+        getSafeActiveNotifications()
             .firstOrNull {
                 it.key == key && WhatsAppConversationNotificationClassifier.allows(it)
             }
@@ -295,9 +318,10 @@ class NotificationAutomationService : NotificationListenerService() {
         if (cleanText.isEmpty() || cleanText.length > MAX_REPLY_CHARS) {
             return ReplyResult(false, "INVALID_TEXT")
         }
-        var source = (activeNotifications ?: emptyArray()).firstOrNull { it.key == key }
+        val safeActive = getSafeActiveNotifications()
+        var source = safeActive.firstOrNull { it.key == key }
         if (source == null && expectedContextFingerprint.isNotEmpty()) {
-            source = (activeNotifications ?: emptyArray()).firstOrNull {
+            source = safeActive.firstOrNull {
                 contextFingerprint(it.notification) == expectedContextFingerprint
             }
         }

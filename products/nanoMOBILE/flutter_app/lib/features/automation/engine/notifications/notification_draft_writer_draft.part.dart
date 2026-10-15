@@ -6,8 +6,10 @@ part of 'notification_draft_writer.dart';
 Future<NotificationDraftResult?> _buildNotificationDraft(
   RuntimeNotificationDraftWriter writer,
   NotificationObject notification,
-  String conversationId,
-) async {
+  String conversationId, {
+  // LOOP-1-TELEMETRY — momento de encolado del turno (sin contenido).
+  int queuedAtMs = 0,
+}) async {
   try {
     // Una notificación vieja no es un turno nuevo en la comparación limpia.
     // No se borra ni se altera; evita inferencias/envíos durante el arranque.
@@ -46,6 +48,19 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
       notification,
       conversationId,
     );
+    // LOOP-3/LOOP-4 — observación del estado personal compacto UNA vez por
+    // turno personal real (nunca transcripciones; best-effort, no altera el
+    // turno). Los compromisos detectados son HIPÓTESIS léxicas, no hechos.
+    if (context.agentId == ConversationAgentId.personal) {
+      await PersonalTurnStateAccess().merge(
+        conversationId,
+        currentTopic: context.activeTopic,
+        openLoops: OpenLoopDetector.detect(
+          context.messageText,
+          nowMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    }
     final prepared = _prepareDraftPrompt(
       writer,
       notification,
@@ -79,6 +94,8 @@ Future<NotificationDraftResult?> _buildNotificationDraft(
       writer,
       prepared,
       localReady,
+      conversationId: conversationId,
+      queuedAtMs: queuedAtMs,
       onCloudResponse: canLearnExternal
           ? (response) async {
               final provider = writer._cloudInferencePort?.providerId;

@@ -15,6 +15,7 @@
 library;
 
 import '../notifications/notification_object.dart';
+import 'notification_message_admission.dart';
 
 abstract final class WhatsAppStatusClassifier {
   static final _statusReactionRegex = RegExp(
@@ -111,6 +112,8 @@ abstract final class WhatsAppStatusClassifier {
 
   /// Verificación unificada para decidir si una notificación debe descartarse del flujo de chats.
   static bool shouldIgnoreFromChatHub(NotificationObject notif) {
+    // También cubre replay/headless y el panel: la evidencia no se pierde en IPC.
+    if (!NotificationMessageAdmission.allows(notif)) return true;
     if (!_isWhatsApp(notif.packageName)) return false;
 
     if (isStatusOrBroadcast(
@@ -133,10 +136,11 @@ abstract final class WhatsAppStatusClassifier {
     }
 
     if (isSystemMaintenance(
-      packageName: notif.packageName,
-      title: notif.title,
-      text: notif.text,
-    )) {
+          packageName: notif.packageName,
+          title: notif.title,
+          text: notif.text,
+        ) &&
+        !notif.hasMessagingStyle) {
       return true;
     }
 

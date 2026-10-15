@@ -34,6 +34,11 @@ import '../messaging/conversation_memory.dart'
         ConversationMemoryEntryKind,
         ConversationMemoryStore;
 import '../model/cold_start_retry.dart';
+import '../model/inference_telemetry.dart' show InferenceTelemetry;
+import '../../personal_agent/application/personal_turn_state_access.dart'
+    show PersonalTurnStateAccess;
+import '../../personal_agent/domain/open_loop_detector.dart'
+    show OpenLoopDetector;
 import '../scheduling/messaging_metrics.dart';
 import '../messaging/incoming_message.dart';
 import '../scheduling/event_dedupe_store.dart' show normalizeDedupeText;

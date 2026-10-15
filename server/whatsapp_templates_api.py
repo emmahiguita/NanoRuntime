@@ -1,33 +1,43 @@
-"""API separada para administrar plantillas reales de WhatsApp Cloud."""
+"""Gateway oficial: plantillas, texto saliente y bandeja firmada de WhatsApp."""
 
 import asyncio
-import hmac
-import json
 import os
 import re
 from typing import Any
-from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, Header, HTTPException, Query
 
-app = FastAPI(title="Nano WhatsApp Templates API", version="1.0.0")
+from .whatsapp_webhook_api import router as webhook_router
+from .whatsapp_gateway_health import router as health_router
+from .whatsapp_gateway_auth import authorize_gateway
+from .whatsapp_history_api import router as history_router
+from .whatsapp_gateway_boundary import GatewayBoundary
+from .whatsapp_graph_transport import _graph_request
+from .whatsapp_mcp import MCP_PATH, McpGatewayEndpoint, gateway_lifespan
+
+# Reutiliza el gateway existente; la entrada oficial no crea otro servicio/agente.
+app = FastAPI(title="Nano WhatsApp Templates API", version="1.0.0",
+              lifespan=gateway_lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app.add_middleware(GatewayBoundary)
+app.include_router(webhook_router)
+app.include_router(health_router)
+app.include_router(history_router)
+# Ruta en el mismo gateway; el SDK no abre puertos ni lanza servidores auxiliares.
+app.router.add_route(MCP_PATH, McpGatewayEndpoint(), methods=["GET", "POST", "DELETE"])
 _TEMPLATE_NAME = re.compile(r"^[a-z0-9_]{1,512}$")
 _GRAPH_VERSION = re.compile(r"^v[0-9]+\.[0-9]+$")
 _FIELDS = "id,name,status,category,language,components"
 
 
-def _settings(api_key: str | None) -> tuple[str, str, str]:
+def _settings(api_key: str | None, permission: str = "read") -> tuple[str, str, str]:
     """Valida secretos del servidor y autentica cada llamada de Nano."""
-    expected = os.environ.get("NANO_WHATSAPP_API_KEY", "")
+    authorize_gateway(api_key, permission)
     token = os.environ.get("META_WHATSAPP_ACCESS_TOKEN", "")
     waba = os.environ.get("META_WHATSAPP_WABA_ID", "")
     version = os.environ.get("META_GRAPH_API_VERSION", "")
-    if len(expected) < 32 or not token or not waba or not _GRAPH_VERSION.fullmatch(version):
+    if not token or not waba or not _GRAPH_VERSION.fullmatch(version):
         raise HTTPException(503, "Cloud API no está configurada en el servidor")
-    if not api_key or not hmac.compare_digest(api_key, expected):
-        raise HTTPException(401, "Credencial de Nano no válida")
     return token, waba, version
 
 
@@ -37,26 +47,6 @@ def _phone_number_id() -> str:
     if not value.isdigit():
         raise HTTPException(503, "Cloud API requiere META_WHATSAPP_PHONE_NUMBER_ID")
     return value
-
-
-def _graph_request(method: str, url: str, token: str, body: dict | None = None) -> dict:
-    """Llama Graph API fuera del event loop y devuelve solo su respuesta real."""
-    payload = json.dumps(body).encode("utf-8") if body is not None else None
-    request = Request(url, data=payload, method=method, headers={
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    })
-    try:
-        with urlopen(request, timeout=20) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except HTTPError as error:
-        details = error.read(4096).decode("utf-8", errors="replace")
-        raise HTTPException(502, f"Meta respondió HTTP {error.code}: {details}") from error
-    except (URLError, TimeoutError) as error:
-        raise HTTPException(502, "No se pudo conectar con Meta Graph API") from error
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise HTTPException(502, "Meta devolvió una respuesta ilegible") from error
 
 
 def _template_payload(payload: dict[str, Any], editing: bool = False) -> dict:
@@ -85,7 +75,7 @@ async def list_templates(api_key: str | None = Header(default=None, alias="X-Nan
 @app.post("/api/v1/whatsapp/templates")
 async def create_template(payload: dict[str, Any], api_key: str | None = Header(default=None, alias="X-Nano-API-Key")):
     """Envía una plantilla nueva a Meta; su respuesta conserva estado real."""
-    token, waba, version = _settings(api_key)
+    token, waba, version = _settings(api_key, "admin")
     data = _template_payload(payload)
     url = f"https://graph.facebook.com/{version}/{waba}/message_templates"
     return await asyncio.to_thread(_graph_request, "POST", url, token, data)
@@ -94,7 +84,7 @@ async def create_template(payload: dict[str, Any], api_key: str | None = Header(
 @app.put("/api/v1/whatsapp/templates/{template_id}")
 async def update_template(template_id: str, payload: dict[str, Any], api_key: str | None = Header(default=None, alias="X-Nano-API-Key")):
     """Actualiza el recurso remoto solicitado usando su ID de Meta."""
-    token, _, version = _settings(api_key)
+    token, _, version = _settings(api_key, "admin")
     if not template_id.isdigit():
         raise HTTPException(422, "El ID de plantilla de Meta no es válido")
     data = _template_payload(payload, editing=True)
@@ -107,7 +97,7 @@ async def update_template(template_id: str, payload: dict[str, Any], api_key: st
 @app.delete("/api/v1/whatsapp/templates/{template_id}")
 async def delete_template(template_id: str, name: str = Query(min_length=1), api_key: str | None = Header(default=None, alias="X-Nano-API-Key")):
     """Elimina en Meta por ID y nombre, como requiere el endpoint oficial."""
-    token, waba, version = _settings(api_key)
+    token, waba, version = _settings(api_key, "admin")
     if not template_id.isdigit() or not _TEMPLATE_NAME.fullmatch(name):
         raise HTTPException(422, "El ID o nombre de plantilla no es válido")
     query = urlencode({"hsm_id": template_id, "name": name})
@@ -118,7 +108,7 @@ async def delete_template(template_id: str, name: str = Query(min_length=1), api
 @app.post("/api/v1/whatsapp/messages")
 async def send_message(payload: dict[str, Any], api_key: str | None = Header(default=None, alias="X-Nano-API-Key")):
     """Envía texto real; Meta aplica consentimiento y ventana de atención."""
-    token, _, version = _settings(api_key)
+    token, _, version = _settings(api_key, "send")
     phone_id = _phone_number_id()
     recipient = re.sub(r"\D", "", str(payload.get("to", "")))
     text = str(payload.get("text", "")).strip()

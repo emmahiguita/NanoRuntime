@@ -16,6 +16,8 @@ class AutomationStoreChannelHandler(
 
     private val db = NanoApplication.from(context).automationStoreDb
     private val conversationMemory = AutomationConversationStoreHandler(db)
+    private val webHistory = WebHistoryStoreHandler(context, db)
+    private val notificationHistory = NotificationHistoryChannelHandler(db, context)
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         try {
@@ -28,6 +30,8 @@ class AutomationStoreChannelHandler(
     }
 
     private fun handle(call: MethodCall, result: MethodChannel.Result) {
+        if (webHistory.handle(call, result)) return
+        if (notificationHistory.handle(call, result)) return
         // La persistencia conversacional se delega a un único dueño para aislar sus rutas.
         if (conversationMemory.handle(call, result)) return
         when (call.method) {
@@ -40,24 +44,6 @@ class AutomationStoreChannelHandler(
                     return
                 }
                 result.success(db.section(key))
-            }
-
-            // Lecturas del historial local real; el cliente solo envía límites e identificadores opacos.
-            "notificationHistoryList" -> result.success(
-                db.listNotificationConversations(call.argument<Number>("limit")?.toInt() ?: 100),
-            )
-            "notificationHistoryMessages" -> {
-                val historyId = call.argument<String>("historyId").orEmpty()
-                if (historyId.isBlank()) {
-                    result.error("BAD_ARG", "historyId requerido", null)
-                    return
-                }
-                result.success(
-                    db.listNotificationMessages(
-                        historyId,
-                        call.argument<Number>("limit")?.toInt() ?: 500,
-                    ),
-                )
             }
 
             "put" -> {
@@ -148,6 +134,17 @@ class AutomationStoreChannelHandler(
             "personalMemoryDelete" -> result.success(db.deletePersonalMemory(call.argument<Number>("id")?.toLong() ?: -1))
             "personalMemoryList" -> result.success(db.listPersonalMemories(call.argument<String>("scopeKey"),
                 call.argument<Number>("limit")?.toInt() ?: 100, call.argument<Number>("offset")?.toInt() ?: 0))
+            "personalTurnStateGet" -> result.success(
+                db.getPersonalTurnState(call.argument<String>("scopeKey").orEmpty()),
+            )
+            "personalTurnStateUpsert" -> result.success(
+                db.upsertPersonalTurnState(
+                    call.argument<String>("scopeKey").orEmpty(),
+                    call.argument<String>("value").orEmpty(),
+                    call.argument<Number>("observedAt")?.toLong()
+                        ?: System.currentTimeMillis(),
+                ),
+            )
             "exampleUpdate" -> result.success(db.updateExample(call.argument<Number>("id")?.toLong() ?: -1,
                 call.argument<String>("body").orEmpty(), call.argument<String>("incomingText").orEmpty(), call.argument<String>("toneJson") ?: "{}", call.argument<String>("scopeKey")))
 

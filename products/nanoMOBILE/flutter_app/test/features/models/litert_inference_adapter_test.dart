@@ -60,6 +60,7 @@ void main() {
             return {
               'success': true,
               'message': 'Loaded',
+              'modelPath': (methodCall.arguments as Map)['modelPath'] ?? '/path/test.litertlm',
               'backend': (methodCall.arguments as Map)['backend'] ?? 'gpu',
             };
           case 'release':
@@ -123,6 +124,7 @@ void main() {
           case 'initialize':
             return {
               'success': true,
+              'modelPath': (methodCall.arguments as Map)['modelPath'] ?? '/path/test.litertlm',
               'backend': (methodCall.arguments as Map)['backend'] ?? 'gpu',
             };
           case 'release':

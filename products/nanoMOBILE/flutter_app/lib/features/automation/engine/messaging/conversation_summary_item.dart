@@ -24,6 +24,12 @@ final class ConversationSummaryItem {
   final String? lastSender;
   final List<String> conversationAliases;
 
+  /// Cuenta observada por el transporte; vacío indica que no se conoce.
+  final String accountFingerprint;
+
+  /// Evidencia recibida del transporte; el prefijo live/history no la sustituye.
+  final bool messageVerified;
+
   const ConversationSummaryItem({
     required this.conversationId,
     required this.displayName,
@@ -44,6 +50,8 @@ final class ConversationSummaryItem {
     this.groupTitle,
     this.lastSender,
     this.conversationAliases = const [],
+    this.accountFingerprint = '',
+    this.messageVerified = false,
   });
 
   String get appLabel => switch (packageName) {
@@ -57,4 +65,32 @@ final class ConversationSummaryItem {
     'com.Slack' || 'com.slack' => 'Slack',
     _ => 'Mensajería',
   };
+
+  /// Actualiza solo el control visible; conserva identidad, fuente y mensajes reales.
+  ConversationSummaryItem withHumanOwnership(
+    bool paused, {
+    ConversationAgentId? assignedAgent,
+  }) => ConversationSummaryItem(
+    conversationId: conversationId,
+    displayName: displayName,
+    packageName: packageName,
+    lastMessage: lastMessage,
+    lastAtMs: lastAtMs,
+    hasPendingReply: hasPendingReply,
+    pendingReplyId: pendingReplyId,
+    pendingReplyText: pendingReplyText,
+    pendingSuggestions: pendingSuggestions,
+    humanOwns: paused,
+    activeRole: activeRole,
+    agentId: assignedAgent ?? agentId,
+    activeProductName: activeProductName,
+    entryCount: entryCount,
+    notificationKey: notificationKey,
+    isGroup: isGroup,
+    groupTitle: groupTitle,
+    lastSender: lastSender,
+    conversationAliases: conversationAliases,
+    accountFingerprint: accountFingerprint,
+    messageVerified: messageVerified,
+  );
 }

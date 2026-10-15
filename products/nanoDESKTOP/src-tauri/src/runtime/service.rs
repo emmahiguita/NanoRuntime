@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tokio::sync::{mpsc, oneshot};
 
 use super::supervisor::RuntimeSupervisor;
-use nanortime_core::{Response, UserRequest};
+use nanortime_core::{ChatMessage, Response, UserRequest};
 
 pub struct RuntimeService {
     supervisor: Arc<RuntimeSupervisor>,
@@ -39,17 +39,30 @@ impl RuntimeService {
         prompt: &str,
         max_tokens: usize,
         temperature: Option<f32>,
+        history: Option<Vec<ChatMessage>>,
+        session_id: Option<String>,
     ) -> Result<(oneshot::Receiver<Result<Response, String>>, mpsc::Receiver<(String, f32)>), String> {
         let trimmed = prompt.trim();
         if trimmed.is_empty() {
             return Err("El prompt proporcionado no puede estar vacío".to_string());
         }
+        // Evita archivos inexistentes y entradas ilimitadas antes de reservar el motor.
+        if !std::path::Path::new(model_path).is_file() || !(1..=4096).contains(&max_tokens) {
+            return Err("Modelo o límite de tokens inválido".into());
+        }
+        if history.as_ref().is_some_and(|items| items.len() > 24 || items.iter().any(|m|
+            !matches!(m.role.as_str(), "user" | "assistant") || m.content.trim().is_empty())) {
+            return Err("Historial inválido".into());
+        }
+        if session_id.as_ref().is_some_and(|id| id.is_empty() || id.len() > 128) {
+            return Err("Identidad de conversación inválida".into());
+        }
 
         let request = UserRequest {
             prompt: trimmed.to_string(),
             context: None,
-            history: None,
-            session_id: Some("desktop-chat-session".to_string()),
+            history,
+            session_id,
             max_tokens: Some(max_tokens),
             temperature,
         };

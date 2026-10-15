@@ -1,7 +1,16 @@
-/// Fusiona resúmenes cuya equivalencia ya fue demostrada.
+/// MESSAGING-SUMMARY-MERGER — Fusión de resúmenes de conversación comprobados.
 ///
-/// No decide identidad: conserva datos recientes, nombres legibles y aliases
-/// probados. Separar responsabilidades evita inferencias accidentales.
+/// **QUÉ HACE:**
+/// Combina dos instancias de [ConversationSummaryItem] cuya equivalencia fue validada
+/// por [MessagingConversationIdentity], priorizando identificadores canónicos de SQLite.
+///
+/// **CÓMO FUNCIONA:**
+/// Prioriza IDs persistentes sobre temporales (waweb:/live:), conserva el mensaje y hora más
+/// reciente, preserva nombres limpios e integra la unión de todos los alias y claves de notificación.
+///
+/// **POR QUÉ:**
+/// Garantiza que al abrir o responder un chat se use el canal nativo comprobable,
+/// previniendo desincronizaciones y respetando la regla de código < 200 líneas.
 library;
 
 import 'dart:math' as math;
@@ -34,7 +43,6 @@ abstract final class MessagingSummaryMerger {
     );
 
     if (isGroup && groupTitle != null) {
-      // El cache recibe el título solo después de probar identidad.
       ConversationGroupResolver.cacheGroupTitle(
         existing.conversationId,
         groupTitle,
@@ -52,10 +60,35 @@ abstract final class MessagingSummaryMerger {
       incoming.conversationId,
     }.where((id) => id.trim().isNotEmpty).toList(growable: false);
 
+    // Priorizar identificador canónico persistente sobre fuentes transitorias (waweb: o live:)
+    final existingTransient = MessagingConversationIdentity.isTransientId(
+      existing.conversationId,
+    );
+    final incomingTransient = MessagingConversationIdentity.isTransientId(
+      incoming.conversationId,
+    );
+    String resolvedId;
+    if (existingTransient && !incomingTransient) {
+      resolvedId = incoming.conversationId;
+    } else if (existing.conversationId.startsWith('waweb:') &&
+        !incoming.conversationId.startsWith('waweb:')) {
+      resolvedId = incoming.conversationId;
+    } else {
+      resolvedId = existing.conversationId;
+    }
+
+    final activeRole =
+        (existing.activeRole != 'WhatsApp Web' &&
+            existing.activeRole.isNotEmpty)
+        ? existing.activeRole
+        : incoming.activeRole;
+
+    final notifKey = (existing.notificationKey?.isNotEmpty ?? false)
+        ? existing.notificationKey
+        : incoming.notificationKey;
+
     return ConversationSummaryItem(
-      conversationId: existing.conversationId.startsWith('live:')
-          ? incoming.conversationId
-          : existing.conversationId,
+      conversationId: resolvedId,
       displayName: displayName,
       packageName: existing.packageName,
       lastMessage: latestMessage,
@@ -67,18 +100,22 @@ abstract final class MessagingSummaryMerger {
           ? incoming.pendingSuggestions
           : existing.pendingSuggestions,
       humanOwns: existing.humanOwns || incoming.humanOwns,
-      activeRole: existing.activeRole,
+      activeRole: activeRole,
       agentId: existing.agentId,
       activeProductName:
           existing.activeProductName ?? incoming.activeProductName,
       entryCount: math.max(existing.entryCount, incoming.entryCount),
-      notificationKey: incoming.notificationKey ?? existing.notificationKey,
+      notificationKey: notifKey,
       isGroup: isGroup,
       groupTitle: groupTitle,
       lastSender: useIncoming
           ? (incoming.lastSender ?? existing.lastSender)
           : (existing.lastSender ?? incoming.lastSender),
       conversationAliases: aliases,
+      accountFingerprint: existing.accountFingerprint.isNotEmpty
+          ? existing.accountFingerprint
+          : incoming.accountFingerprint,
+      messageVerified: existing.messageVerified || incoming.messageVerified,
     );
   }
 
@@ -86,17 +123,15 @@ abstract final class MessagingSummaryMerger {
     ConversationSummaryItem existing,
     ConversationSummaryItem incoming,
   ) {
-    final incomingTitle = ConversationGroupResolver.cleanTitle(
+    final incTitle = ConversationGroupResolver.cleanTitle(
       incoming.groupTitle ?? '',
     );
-    if (!ConversationGroupResolver.isGenericTitle(incomingTitle)) {
-      return incomingTitle;
-    }
-    final existingTitle = ConversationGroupResolver.cleanTitle(
+    if (!ConversationGroupResolver.isGenericTitle(incTitle)) return incTitle;
+    final existTitle = ConversationGroupResolver.cleanTitle(
       existing.groupTitle ?? '',
     );
-    if (!ConversationGroupResolver.isGenericTitle(existingTitle)) {
-      return existingTitle;
+    if (!ConversationGroupResolver.isGenericTitle(existTitle)) {
+      return existTitle;
     }
     return null;
   }
@@ -125,6 +160,17 @@ abstract final class MessagingSummaryMerger {
         !MessagingConversationIdentity.isTechnicalName(incoming.displayName)) {
       return incoming.displayName;
     }
+
+    final cleanExisting = ConversationGroupResolver.cleanTitle(
+      existing.displayName,
+    );
+    final cleanIncoming = ConversationGroupResolver.cleanTitle(
+      incoming.displayName,
+    );
+    if (cleanIncoming.isNotEmpty && cleanIncoming == cleanExisting) {
+      return cleanIncoming;
+    }
+
     return useIncoming ? incoming.displayName : existing.displayName;
   }
 }

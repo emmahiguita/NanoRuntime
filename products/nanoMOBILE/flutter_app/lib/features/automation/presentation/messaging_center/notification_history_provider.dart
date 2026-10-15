@@ -3,6 +3,7 @@ import '../../../../core/services/nano_runtime_api.dart';
 import '../../application/notification_history_client.dart';
 import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/messaging/conversation_group_resolver.dart';
+import 'notification_history_identity.dart';
 import '../../engine/messaging/conversation_hub_providers.dart'
     show ConversationSummaryItem;
 
@@ -61,6 +62,7 @@ ConversationSummaryItem _summaryFromStoredNotification(
   Map<String, dynamic> row,
 ) {
   final historyId = '${row['historyId'] ?? ''}'.trim();
+  final identity = notificationHistoryIdentity(row);
   final packageName = '${row['packageName'] ?? ''}'.trim();
   final isBusiness = packageName == 'com.whatsapp.w4b';
   final rawName = '${row['displayName'] ?? ''}'.trim();
@@ -72,8 +74,16 @@ ConversationSummaryItem _summaryFromStoredNotification(
             : 'Conversación')
       : cleanName;
   return ConversationSummaryItem(
-    conversationId: 'history:$historyId',
-    conversationAliases: ['notification-history:$historyId'],
+    conversationId: identity.key.id.isEmpty
+        ? 'history:$historyId'
+        : identity.key.id,
+    conversationAliases: [
+      'history:$historyId',
+      'notification-history:$historyId',
+      notificationHistoryEventAlias(row),
+    ],
+    accountFingerprint: identity.key.accountFingerprint,
+    messageVerified: row['messageVerified'] == true,
     displayName: name,
     packageName: packageName,
     lastMessage: '${row['lastMessage'] ?? ''}',

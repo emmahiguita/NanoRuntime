@@ -1,34 +1,64 @@
 // whatsapp_web_screen.dart
 //
 // QUÉ HACE:
-// Pantalla mobile nativa de WhatsApp Web adaptado dentro de la suite Nano.
+// Pantalla de ejecución para WhatsApp Web dentro de Nano Mobile con
+// ciclo de vida persistente (KeepAlive), navegación nativa y teclado adaptativo.
 //
 // CÓMO FUNCIONA:
-// - Integra InAppWebView con hardware acceleration, cookies persistentes y desktop UA legítimo.
-// - Orquesta WhatsAppWebAdapter para aplicar el layout responsive móvil/tablet.
-// - PopScope inteligente: Si está en conversación, 'Atrás' regresa a la lista de chats;
-//   si está en lista de chats, 'Atrás' cierra la pantalla y regresa al Centro de Mensajería.
-// - Permite alternar entre la Vista Móvil Nano y la Vista Web Original con 1 tap.
+// - Mantiene viva la sesión de WhatsApp entre cambios de pantalla sin recargar la página.
+// - Coordina PopScope para interceptar el botón atrás físico y retornar a la lista de chats.
+// - Emplea WhatsAppWebAppBar y WhatsAppWebViewContainer como componentes desacoplados.
+// - Adapta los insets del teclado virtual para prevenir solapamiento con la barra de redacción.
 //
 // POR QUÉ:
-// Ofrece una experiencia WhatsApp Web perfectamente ergonómica en móviles sin emular UI ni inventar datos.
+// Aplica Clean Architecture y principios SOLID dividiendo responsabilidades en widgets
+// independientes, cada uno estrictamente menor a 200 líneas de código y altamente mantenible.
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../domain/whatsapp_media_payload.dart';
 import '../../engine/web_bridge/whatsapp_web_bridge_controller.dart';
-import '../../engine/web_bridge/whatsapp_web_js_bridge.dart';
 import 'whatsapp_web_adapter.dart';
+import 'whatsapp_web_session_ownership.dart';
+import 'whatsapp_web_chat_request.dart';
+
+import 'widgets/whatsapp_web_app_bar.dart';
+import 'widgets/whatsapp_web_view_container.dart';
+
+part 'whatsapp_web_screen_layout.dart';
+part 'whatsapp_web_requested_chat.dart';
 
 class WhatsAppWebScreen extends ConsumerStatefulWidget {
-  const WhatsAppWebScreen({super.key});
+  final String? chatTitle, chatAlias;
+  const WhatsAppWebScreen({super.key, this.chatTitle, this.chatAlias});
 
-  static Future<void> navigateTo(BuildContext context) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const WhatsAppWebScreen()),
-    );
+  static final WhatsAppWebAdapter _persistentAdapter = WhatsAppWebAdapter();
+
+  /// Cede el WebView del panel antes de montar la ruta; nunca hay dos dueños.
+  static Future<void> navigateTo(
+    BuildContext context, {
+    String? chatTitle,
+    String? chatAlias,
+  }) async {
+    if (WhatsAppWebSessionOwnership.foreground.value) return;
+    WhatsAppWebSessionOwnership.foreground.value = true;
+    try {
+      await WidgetsBinding.instance.endOfFrame;
+      if (!context.mounted) return;
+      final route = MaterialPageRoute<void>(
+        builder: (_) =>
+            WhatsAppWebScreen(chatTitle: chatTitle, chatAlias: chatAlias),
+      );
+      await Navigator.of(context).push(route);
+      // Pop completa antes de retirar el overlay; espera la disposición real.
+      await route.completed;
+    } finally {
+      WhatsAppWebSessionOwnership.foreground.value = false;
+    }
   }
 
   @override
@@ -36,213 +66,101 @@ class WhatsAppWebScreen extends ConsumerStatefulWidget {
 }
 
 class _WhatsAppWebScreenState extends ConsumerState<WhatsAppWebScreen> {
-  final _adapter = WhatsAppWebAdapter();
+  final _adapter = WhatsAppWebScreen._persistentAdapter;
   InAppWebViewController? _webViewController;
   double _progress = 0.0;
   bool _isOriginalMode = false;
+  bool _openingRequestedChat = false, _requestedChatReady = false;
+  String? _requestedChatError;
+  late WhatsAppWebSessionInfo _session;
+  StreamSubscription<WhatsAppWebSessionInfo>? _sessionSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _session = whatsAppWebBridgeController.currentSession;
+    _sessionSubscription = whatsAppWebBridgeController.sessionStream.listen((
+      session,
+    ) {
+      if (mounted) setState(() => _session = session);
+    });
+  }
 
   @override
   void dispose() {
+    _sessionSubscription?.cancel();
+    unawaited(_adapter.suspendDomObserver());
     _adapter.detachController();
     super.dispose();
   }
 
   Future<void> _handlePop() async {
+    // Un chat abierto desde el panel retorna al panel, no a otra conversación Web.
+    if (widget.chatTitle != null) {
+      Navigator.of(context).pop();
+      return;
+    }
     final handledByWeb = await _adapter.handleBackPress();
     if (!handledByWeb && mounted) {
       Navigator.of(context).pop();
+    } else if (mounted) {
+      setState(() {});
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
+  Future<void> _toggleDisplayMode({required bool useTabletLayout}) async {
+    HapticFeedback.selectionClick();
+    if (_isOriginalMode) {
+      await _adapter.applyResponsiveCss(useTabletLayout: useTabletLayout);
+      if (!mounted) return;
+      setState(() => _isOriginalMode = false);
+      await _adapter.setupDomObserver(
+        onNavChanged: (_) {
+          if (mounted) setState(() {});
+        },
+      );
+    } else {
+      await _adapter.restoreOriginalMode();
+      if (!mounted) return;
+      setState(() => _isOriginalMode = true);
+    }
+  }
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _handlePop();
+  Future<void> _synchronizeAttachedView({required bool useTabletLayout}) async {
+    if (_isOriginalMode) {
+      await _adapter.restoreOriginalMode();
+      return;
+    }
+    await _adapter.applyResponsiveCss(useTabletLayout: useTabletLayout);
+    await _adapter.setupDomObserver(
+      onNavChanged: (_) {
+        if (mounted) setState(() {});
       },
-      child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: _buildHeader(context, isDark, isLandscape),
-        ),
-        body: Column(
-          children: [
-            if (_progress < 1.0)
-              LinearProgressIndicator(
-                value: _progress,
-                minHeight: 2.5,
-                backgroundColor: Colors.transparent,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
-                ),
-              ),
-            Expanded(
-              child: InAppWebView(
-                initialUrlRequest: URLRequest(url: WebUri(WhatsAppWebAdapter.entryUrl)),
-                initialSettings: InAppWebViewSettings(
-                  userAgent: WhatsAppWebJsBridge.desktopUserAgent,
-                  javaScriptEnabled: true,
-                  domStorageEnabled: true,
-                  cacheEnabled: true,
-                  databaseEnabled: true,
-                  useHybridComposition: true,
-                  hardwareAcceleration: true,
-                  thirdPartyCookiesEnabled: true,
-                  supportZoom: true,
-                  builtInZoomControls: true,
-                  displayZoomControls: false,
-                  useWideViewPort: true,
-                  loadWithOverviewMode: true,
-                  safeBrowsingEnabled: true,
-                  mixedContentMode: MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
-                  preferredContentMode: UserPreferredContentMode.DESKTOP,
-                ),
-                onWebViewCreated: (c) {
-                  _webViewController = c;
-                  _adapter.attachController(c);
-                  whatsAppWebBridgeController.attachController(c);
-                },
-                onLoadStop: (c, url) async {
-                  final urlStr = url?.toString() ?? '';
-                  if (WhatsAppWebAdapter.isAllowedUrl(urlStr)) {
-                    await whatsAppWebBridgeController.onPageFinished(urlStr);
-                    if (!_isOriginalMode) {
-                      await _adapter.applyResponsiveCss(isLandscape: isLandscape);
-                      await _adapter.setupDomObserver(
-                        onNavChanged: (_) {
-                          if (mounted) setState(() {});
-                        },
-                      );
-                    }
-                  }
-                },
-                onProgressChanged: (_, p) {
-                  if (mounted) setState(() => _progress = p / 100);
-                },
-                shouldOverrideUrlLoading: (c, action) async {
-                  final navUrl = action.request.url?.toString() ?? '';
-                  if (WhatsAppWebAdapter.isAllowedUrl(navUrl)) {
-                    return NavigationActionPolicy.ALLOW;
-                  }
-                  // Si el link sale a un sitio web externo, se rechaza para seguridad
-                  return NavigationActionPolicy.CANCEL;
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
     );
+    await _openRequestedChat();
   }
 
-  Widget _buildHeader(BuildContext context, bool isDark, bool isLandscape) {
-    return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.paddingOf(context).top,
-        left: 8,
-        right: 12,
-      ),
-      color: isDark ? const Color(0xFF1E293B).withValues(alpha: 0.92) : Colors.white.withValues(alpha: 0.95),
-      child: Row(
-        children: [
-          IconButton(
-            icon: Icon(
-              _adapter.isConversationActive ? Icons.arrow_back : Icons.arrow_back_ios_new_rounded,
-              size: 20,
-              color: isDark ? Colors.white70 : const Color(0xFF334155),
-            ),
-            tooltip: _adapter.isConversationActive ? 'Volver a chats' : 'Volver a Nano',
-            onPressed: _handlePop,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _adapter.isConversationActive ? 'WhatsApp Chat' : 'WhatsApp Web',
-                  style: TextStyle(
-                    color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                StreamBuilder<WhatsAppWebSessionInfo>(
-                  stream: whatsAppWebBridgeController.sessionStream,
-                  initialData: whatsAppWebBridgeController.currentSession,
-                  builder: (_, snap) {
-                    final isOk = snap.data?.status == WhatsAppWebSessionStatus.connected;
-                    return Row(
-                      children: [
-                        Container(
-                          width: 6,
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: isOk ? Colors.green : Colors.amber,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          isOk ? 'Sesión conectada' : 'Esperando vinculación',
-                          style: TextStyle(
-                            color: isDark ? Colors.white54 : const Color(0xFF64748B),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-          // Botón switch entre Vista Móvil Nano y Web Original
-          TextButton.icon(
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              backgroundColor: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            icon: Icon(
-              _isOriginalMode ? Icons.desktop_windows_outlined : Icons.phone_android_rounded,
-              size: 15,
-              color: isDark ? Colors.white70 : const Color(0xFF334155),
-            ),
-            label: Text(
-              _isOriginalMode ? 'Web Original' : 'Vista Móvil',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-              ),
-            ),
-            onPressed: () async {
-              HapticFeedback.selectionClick();
-              if (_isOriginalMode) {
-                await _adapter.applyResponsiveCss(isLandscape: isLandscape);
-                setState(() => _isOriginalMode = false);
-              } else {
-                await _adapter.restoreOriginalMode();
-                setState(() => _isOriginalMode = true);
-              }
-            },
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 20),
-            tooltip: 'Recargar',
-            onPressed: () => _webViewController?.reload(),
-          ),
-        ],
-      ),
-    );
+  Future<void> _restorePersistentView({required bool useTabletLayout}) async {
+    final controller = _webViewController;
+    if (controller == null) return;
+
+    final currentUrl = (await controller.getUrl())?.toString() ?? '';
+    if (!WhatsAppWebAdapter.isAllowedUrl(currentUrl)) {
+      await controller.loadUrl(
+        urlRequest: URLRequest(url: WebUri(WhatsAppWebAdapter.entryUrl)),
+      );
+      return;
+    }
+
+    await whatsAppWebBridgeController.onPageFinished(currentUrl);
+    await _synchronizeAttachedView(useTabletLayout: useTabletLayout);
   }
+
+  bool _usesTablet(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    return size.shortestSide >= 600 && size.width >= 700;
+  }
+
+  @override
+  Widget build(BuildContext context) => _buildLayout(context);
 }

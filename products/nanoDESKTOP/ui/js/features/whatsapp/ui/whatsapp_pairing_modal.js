@@ -1,118 +1,40 @@
-/**
- * whatsapp_pairing_modal.js — Modal de Vinculación de WhatsApp Desktop
- * 
- * QUÉ HACE:
- * Presenta el diálogo de enlace de WhatsApp mediante código QR visual o código
- * de 8 dígitos de vinculación telefónica, montado sobre `NanoOverlay`.
- * 
- * CÓMO FUNCIONA:
- * Invoca `NanoOverlay.open()` garantizando un árbol DOM válido sin errores de contexto.
- * Escucha eventos de `whatsAppBus` para actualizar el token o código en tiempo real.
- * 
- * POR QUÉ:
- * Erradica definitivamente el fallo "No Overlay" y asegura que al cerrar la ventana
- * se detengan los temporizadores, previniendo fugas de memoria y procesos zombi.
- */
-
+/** Informa cómo conectar Meta; no presenta códigos ni confirmaciones ficticias. */
 import { NanoOverlay } from '../../../components/nano_overlay.js';
-import { whatsAppSessionManager } from '../services/whatsapp_session_manager.js';
-import { whatsAppBus, WhatsAppEvents } from '../domain/whatsapp_events.js';
 
 export class WhatsAppPairingModal {
-  /**
-   * Abre la ventana modal de emparejamiento.
-   */
+  /** Reutiliza el modal existente sin leer secretos ni activar cuentas externas. */
   static show() {
-    let mode = 'qr';
-    whatsAppSessionManager.startPairing('qr');
-
-    const contentEl = document.createElement('div');
-    contentEl.style.display = 'flex';
-    contentEl.style.flexDirection = 'column';
-    contentEl.style.alignItems = 'center';
-    contentEl.style.gap = '14px';
-
-    const renderModeContent = () => {
-      if (mode === 'qr') {
-        contentEl.innerHTML = `
-          <div style="text-align: center; font-size: 12.5px; color: var(--text-secondary);">
-            Abre WhatsApp en tu teléfono, ve a <strong>Dispositivos Vinculados</strong> y escanea este código:
-          </div>
-          <div style="width: 190px; height: 190px; background: #fff; padding: 12px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); border: 2px solid #25D366;" id="wa-qr-box">
-            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; width: 100%; height: 100%;">
-              ${Array.from({ length: 49 }, (_, i) => `<div style="background: ${(i * 7 + 3) % 2 === 0 ? '#000' : '#fff'}; border-radius: 2px;"></div>`).join('')}
-            </div>
-          </div>
-          <div style="display: flex; gap: 8px; width: 100%;">
-            <button type="button" class="wa-pill-btn" style="flex: 1; justify-content: center;" id="wa-btn-switch-code">
-              Vincular con número telefónico
-            </button>
-            <button type="button" class="wa-btn-send" style="flex: 1; justify-content: center;" id="wa-btn-confirm-link">
-              Confirmar Escaneo
-            </button>
-          </div>
-        `;
-      } else {
-        const code = whatsAppSessionManager.pairingCode || '9X4B-7K2M';
-        contentEl.innerHTML = `
-          <div style="text-align: center; font-size: 12.5px; color: var(--text-secondary);">
-            Ingresa este código de 8 dígitos en WhatsApp en tu teléfono:
-          </div>
-          <div style="font-family: var(--font-mono); font-size: 26px; font-weight: 800; letter-spacing: 4px; color: #25D366; background: rgba(37,211,102,0.1); padding: 14px 24px; border-radius: 12px; border: 1px dashed rgba(37,211,102,0.4);">
-            ${code}
-          </div>
-          <div style="display: flex; gap: 8px; width: 100%;">
-            <button type="button" class="wa-pill-btn" style="flex: 1; justify-content: center;" id="wa-btn-switch-qr">
-              Volver a Código QR
-            </button>
-            <button type="button" class="wa-btn-send" style="flex: 1; justify-content: center;" id="wa-btn-confirm-link">
-              Confirmar Enlace
-            </button>
-          </div>
-        `;
-      }
-
-      // Re-vincular eventos internos del modal
-      const btnSwitchCode = contentEl.querySelector('#wa-btn-switch-code');
-      if (btnSwitchCode) {
-        btnSwitchCode.addEventListener('click', () => {
-          mode = 'code';
-          whatsAppSessionManager.startPairing('code');
-          renderModeContent();
-        });
-      }
-
-      const btnSwitchQr = contentEl.querySelector('#wa-btn-switch-qr');
-      if (btnSwitchQr) {
-        btnSwitchQr.addEventListener('click', () => {
-          mode = 'qr';
-          whatsAppSessionManager.startPairing('qr');
-          renderModeContent();
-        });
-      }
-
-      const btnConfirm = contentEl.querySelector('#wa-btn-confirm-link');
-      if (btnConfirm) {
-        btnConfirm.addEventListener('click', () => {
-          whatsAppSessionManager.confirmConnection();
-          overlayRef.close();
-        });
-      }
-    };
-
-    renderModeContent();
-
-    const overlayRef = NanoOverlay.open({
-      title: 'Vincular WhatsApp Desktop',
-      content: contentEl,
-      onClose: () => {
-        // Al cerrar el modal, si no se confirmó la conexión, detener los timers zombi
-        if (whatsAppSessionManager.status === 'pairing') {
-          whatsAppSessionManager.stopTimers();
-        }
-      },
+    const previousFocus = document.activeElement;
+    const modal = NanoOverlay.open({
+      title: 'Conexión oficial de WhatsApp',
+      extraClass: 'wa-connection-modal',
+      onClose: () => { if (!NanoOverlay.activeInstance && previousFocus?.isConnected) previousFocus.focus(); },
+      content: `<div class="wa-connection-guide">
+        <p>La conexión oficial pasa por el servidor de Nano. Escritorio y móvil consultan la misma bandeja; WhatsApp Web es otra conexión.</p>
+        <ol>
+          <li><strong>Servidor del PC:</strong> abre «Nano Negocios · Servidor WhatsApp», inicia y comprueba Meta y MCP. Son verificaciones independientes.</li>
+          <li><strong>Recepción:</strong> guarda el App Secret en ese panel privado. No es el token temporal ni el token de verificación.</li>
+          <li><strong>Meta:</strong> configura un callback HTTPS terminado en <code>/api/v1/whatsapp/webhook</code>, verifica y suscribe el campo <code>messages</code> y la cuenta WABA.</li>
+          <li><strong>Bandeja:</strong> conectar un lector autenticado al historial del servidor. Este adaptador de escritorio todavía está pendiente.</li>
+          <li><strong>IA local:</strong> selecciona un modelo en la cabecera; «Sugerir respuesta» crea un borrador con el historial seleccionado, sin enviarlo.</li>
+        </ol>
+        <p>El panel auxiliar del PC ya permite configurar el servidor.
+          Su dirección local es <code>127.0.0.1:8010</code>.</p>
+        <p>El envío necesita su permiso separado, persistencia saliente y estados reales. MCP ofrece lecturas, no autorización para enviar.</p>
+        <p>No introduzcas el token de Meta ni el App Secret en esta vista. Permanecen cifrados en el PC; los registros locales no equivalen a mensajes oficiales.</p>
+      </div>`,
     });
-
-    return overlayRef;
+    // La guía usa el overlay común; solo agrega semántica y contención del foco.
+    const title = modal.element.querySelector('.nano-overlay-title');
+    title.id = 'wa-connection-dialog-title-' + crypto.randomUUID();
+    modal.element.setAttribute('role', 'dialog');
+    modal.element.setAttribute('aria-modal', 'true');
+    modal.element.setAttribute('aria-labelledby', title.id);
+    const close = modal.element.querySelector('.nano-overlay-btn-close');
+    close.focus();
+    modal.element.addEventListener('keydown', event => {
+      if (event.key === 'Tab') { event.preventDefault(); close.focus(); }
+    });
+    return modal;
   }
 }

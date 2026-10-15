@@ -6,9 +6,11 @@ extension ConversationDetailController on _ConversationDetailSheetState {
   // Repara al reabrir la conversación el vínculo Bot → regla de notificación.
   void _restoreWhatsAppAutomation() {
     if (_isHumanOwned) return;
-    unawaited(_ensureWhatsAppRule().catchError((Object error) {
-      if (mounted) setState(() => _statusText = 'IA no activada: $error');
-    }));
+    unawaited(
+      _ensureWhatsAppRule().catchError((Object error) {
+        if (mounted) setState(() => _statusText = 'IA no activada: $error');
+      }),
+    );
   }
 
   Future<void> _toggleOwnership(bool human) async {
@@ -20,24 +22,13 @@ extension ConversationDetailController on _ConversationDetailSheetState {
           : 'Devolviendo el control a Nano...';
     });
     try {
-      final store = ref.read(conversationOwnershipStoreProvider);
-      await store.load();
       final newOwner = human ? ConversationOwner.human : ConversationOwner.bot;
-      // El merger conserva únicamente aliases cuya equivalencia técnica ya
-      // fue demostrada. Persistirlos evita que Android cambie de shortcut y
-      // vuelva a dejar el chat como no seleccionado.
-      final conversationIds = <String>{
-        canonicalConversationId(widget.item.conversationId),
-        ...widget.item.conversationAliases.map(canonicalConversationId),
-      }..removeWhere((id) => id.isEmpty);
-      if (conversationIds.isEmpty) {
-        throw StateError('La conversación no tiene identidad técnica');
-      }
       // Evita guardar ownership Bot si no pudo quedar activo su disparador.
       if (!human) await _ensureWhatsAppRule();
-      for (final conversationId in conversationIds) {
-        await store.setOwner(conversationId, newOwner);
-      }
+      // Lista y detalle comparten bloqueo, aliases, invalidación y persistencia.
+      await ref
+          .read(conversationHubActionControllerProvider)
+          .setOwnership(widget.item, newOwner);
       if (!mounted) return;
       setState(() {
         _statusText = human
@@ -49,7 +40,8 @@ extension ConversationDetailController on _ConversationDetailSheetState {
     } on Object catch (error) {
       if (!mounted) return;
       setState(() {
-        _isHumanOwned = previous;
+        // Al fallar una escritura, el store deja el chat cerrado al bot.
+        _isHumanOwned = human || previous;
         _statusText = 'No se pudo cambiar el control: $error';
       });
     }

@@ -27,6 +27,8 @@ class BrowserWebViewSurface extends StatelessWidget {
     required this.onProgress,
     required this.onTitle,
     required this.onZoomChanged,
+    this.onCreateWindow,
+    this.onCloseWindow,
   });
 
   final BrowserTabModel tab;
@@ -40,11 +42,25 @@ class BrowserWebViewSurface extends StatelessWidget {
   final ValueChanged<String?> onTitle;
   final ValueChanged<double> onZoomChanged;
 
+  /// Petición nativa de nueva ventana (`window.open`). El dueño decide si la
+  /// maneja (true: renderizará el popup vinculado por windowId) o la niega.
+  final Future<bool?> Function(
+    InAppWebViewController controller,
+    CreateWindowAction action,
+  )?
+  onCreateWindow;
+
+  /// Notificación de que el popup llamó `window.close()`.
+  final VoidCallback? onCloseWindow;
+
   /// Mantiene la sesión al cambiar de layout y recrea solo tras perder renderer.
   @override
   Widget build(BuildContext context) {
     final initialized = registry.isInitialized(tab.id);
     final desktop = identity.usesDesktop(tab.url);
+    final forceMobile = identity.requiresMobile(tab.url);
+    final adaptiveDesktop = identity.usesAdaptiveDesktop(tab.url);
+    final deviceWidth = identity.usesDeviceWidth(tab.url);
     final prepareInitial = identity.mustPrepareInitial(
       tab.url,
       initialized: initialized,
@@ -60,10 +76,18 @@ class BrowserWebViewSurface extends StatelessWidget {
             : URLRequest(url: WebUri(tab.url)),
         initialSettings: BrowserSecurityFirewall.createWebViewSettings(
           isDesktopMode: desktop,
+          forceMobileLayout: deviceWidth,
           userAgent: desktop ? BrowserScripts.desktopUserAgent : null,
+          // Multi-ventana activa solo cuando el dueño provee el gateo de popups;
+          // sin onCreateWindow el soporte queda deshabilitado por defecto.
+          enableOAuthPopups: onCreateWindow != null,
         ),
         initialUserScripts: UnmodifiableListView<UserScript>([
-          if (desktop) BrowserWebIdentityCoordinator.viewportScript,
+          if (desktop && !adaptiveDesktop)
+            BrowserWebIdentityCoordinator.viewportScript,
+          if (adaptiveDesktop)
+            BrowserWebIdentityCoordinator.adaptiveDesktopViewportScript,
+          if (forceMobile) BrowserWebIdentityCoordinator.mobileViewportScript,
           UserScript(
             source: BrowserScripts.pinchZoomEngineScript,
             injectionTime: UserScriptInjectionTime.AT_DOCUMENT_END,
@@ -101,6 +125,8 @@ class BrowserWebViewSurface extends StatelessWidget {
         onReceivedHttpError: handler.onReceivedHttpError,
         onUpdateVisitedHistory: handler.onUpdateVisitedHistory,
         onRenderProcessGone: handler.onRenderProcessGone,
+        onCreateWindow: onCreateWindow,
+        onCloseWindow: (controller) => onCloseWindow?.call(),
       ),
     );
   }

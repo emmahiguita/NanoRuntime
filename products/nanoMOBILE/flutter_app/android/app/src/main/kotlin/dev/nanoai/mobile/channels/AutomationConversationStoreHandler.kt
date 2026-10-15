@@ -57,6 +57,27 @@ internal class AutomationConversationStoreHandler(private val db: AutomationStor
                     limit = call.argument<Number>("limit")?.toInt() ?: 200,
                 ),
             )
+            "canonicalMessageUpsert" -> result.success(
+                db.upsertCanonicalMessage(call.arguments<Map<String, Any?>>().orEmpty()),
+            )
+            "canonicalMessageList" -> result.success(
+                db.listCanonicalMessages(
+                    conversationId = call.argument<String>("conversationId").orEmpty(),
+                    limit = call.argument<Number>("limit")?.toInt() ?: 200,
+                ),
+            )
+            "conversationCoverageRecord" -> result.success(
+                db.recordConversationCoverage(
+                    conversationId = call.argument<String>("conversationId").orEmpty(),
+                    provider = call.argument<String>("provider").orEmpty(),
+                    fromMs = call.argument<Number>("fromMs")?.toLong() ?: 0L,
+                    toMs = call.argument<Number>("toMs")?.toLong() ?: 0L,
+                    gapBefore = call.argument<Boolean>("gapBefore") ?: true,
+                ),
+            )
+            "conversationCoverageList" -> result.success(
+                db.listConversationCoverage(call.argument<String>("conversationId").orEmpty()),
+            )
             "appendEvent" -> {
                 val convId = call.argument<String>("convId").orEmpty()
                 val kind = call.argument<String>("kind").orEmpty()

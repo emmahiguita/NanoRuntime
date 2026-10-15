@@ -1,74 +1,81 @@
 /**
  * automation_defaults.js — Datos por Defecto del Módulo de Automatización
  *
- * QUÉ HACE: Provee los agentes y logs predeterminados al primer arranque del sistema.
- * CÓMO FUNCIONA: Funciones puras que retornan arrays de objetos.
- *   Se importan en AgentService solo cuando localStorage está vacío.
- * POR QUÉ: Separar datos de la lógica de servicio reduce agent_service.js
- *   y facilita cambiar los defaults sin tocar el motor de ejecución (SRP).
+ * QUÉ HACE: Provee los agentes y logs iniciales SOLO cuando localStorage está
+ *   vacío (primer arranque real del sistema).
+ * CÓMO FUNCIONA: Funciones puras que retornan arrays de objetos; no tocan DOM
+ *   ni storage — eso es responsabilidad de AgentService (SRP).
+ * POR QUÉ: Los contadores históricos nacen en cero (executions: 0, successCount: 0,
+ *   errorCount: 0) y lastRunTimestamp en null sin simular actividad inexistente.
  */
 
 /**
  * Agentes del sistema incluidos en la instalación por defecto.
- * Representan los 4 agentes soberanos del NanoRuntime local.
+ * Representan los 4 agentes soberanos del NanoRuntime local, todos con
+ * historial limpio (executions: 0, successCount: 0, errorCount: 0, lastRun: 'Nunca').
  * @returns {Object[]}
  */
 export function getDefaultAgents() {
-  const now = Date.now();
   return [
     {
       id: 'agent-memory-guardian',
       name: 'Memory Guardian & Auto-Eviction',
-      role: 'Monitorea la presión de VRAM y aplica políticas TTL de descarga automática tras inactividad.',
+      role: 'Consulta la memoria RAM real del sistema; no ejecuta descargas automáticas.',
       category: 'Sistema Core',
       model: 'DeepSeek-R1 (Local)',
       trigger: 'Cada 1 minuto',
       triggerType: 'interval',
       intervalSeconds: 60,
-      lastRunTimestamp: now - 120000,
+      lastRunTimestamp: null,
       governance: 'autonomous',
-      tools: ['Hardware Watcher', 'VRAM Optimizer'],
-      status: 'active',
+      tools: ['Hardware Watcher'],
+      searchQuery: '',
+      status: 'paused',
       isSystem: true,
-      executions: 248,
-      successRate: '100%',
-      lastRun: 'Hace 2m',
+      executions: 0,
+      successCount: 0,
+      errorCount: 0,
+      lastRun: 'Nunca',
     },
     {
       id: 'agent-event-router',
       name: 'Enrutador de Eventos & Notificaciones',
-      role: 'Escucha eventos entrantes del sistema y despacha respuestas asistidas con aprobación humana.',
+      role: 'Configuración pendiente: requiere conectar un productor real de notificaciones.',
       category: 'Gobernanza',
       model: 'Phi-3-mini',
       trigger: 'Al recibir notificación',
       triggerType: 'event',
       intervalSeconds: null,
-      lastRunTimestamp: now - 720000,
+      lastRunTimestamp: null,
       governance: 'approval',
       tools: ['RemoteInput', 'Shizuku Hook'],
-      status: 'active',
+      searchQuery: '',
+      status: 'paused',
       isSystem: true,
-      executions: 84,
-      successRate: '98.8%',
-      lastRun: 'Hace 12m',
+      executions: 0,
+      successCount: 0,
+      errorCount: 0,
+      lastRun: 'Nunca',
     },
     {
       id: 'agent-mcp-dispatcher',
       name: 'Servidor de Herramientas MCP Soberano',
-      role: 'Expone capacidades soberanas para inspección de archivos, terminal sandboxed y consulta web en vivo.',
+      role: 'Consulta web conectada; archivos y terminal aún requieren un adaptador ejecutable.',
       category: 'Herramientas MCP',
       model: 'DeepSeek-R1-Distill-Qwen',
       trigger: 'Manual bajo demanda',
       triggerType: 'demand',
       intervalSeconds: null,
-      lastRunTimestamp: now - 240000,
+      lastRunTimestamp: null,
       governance: 'autonomous',
       tools: ['DuckDuckGo API', 'Filesystem RAG', 'Terminal'],
-      status: 'active',
+      searchQuery: '',
+      status: 'paused',
       isSystem: true,
-      executions: 412,
-      successRate: '99.5%',
-      lastRun: 'Hace 4m',
+      executions: 0,
+      successCount: 0,
+      errorCount: 0,
+      lastRun: 'Nunca',
     },
     {
       id: 'agent-code-auditor',
@@ -79,63 +86,21 @@ export function getDefaultAgents() {
       trigger: 'Cada 15 minutos',
       triggerType: 'interval',
       intervalSeconds: 900,
-      lastRunTimestamp: now - 3600000,
+      lastRunTimestamp: null,
       governance: 'approval',
       tools: ['Git Status', 'AST Parser', 'Changelog'],
+      searchQuery: '',
       status: 'paused',
       isSystem: false,
-      executions: 36,
-      successRate: '100%',
-      lastRun: 'Hace 1h',
+      executions: 0,
+      successCount: 0,
+      errorCount: 0,
+      lastRun: 'Nunca',
     },
   ];
 }
 
-/**
- * Logs de ejecución de demostración para el primer arranque.
- * @returns {Object[]}
- */
+/** Sin ejecuciones observadas, el historial inicial está vacío. */
 export function getDefaultLogs() {
-  const now = Date.now();
-  return [
-    {
-      id: 'log-default-1',
-      timestamp: now - 120000,
-      time: 'Hace 2m',
-      agentName: 'Memory Guardian',
-      agentId: 'agent-memory-guardian',
-      model: 'DeepSeek-R1 (Local)',
-      action: 'Comprobación de VRAM: 4.2 GB usados, 11.8 GB libres (26.3%). Sin desalojo.',
-      output: 'Telemetría VRAM nominal. Política BALANCED (TTL 15m). Pesos de DeepSeek-R1 conservados en VRAM.',
-      status: 'ok',
-      statusText: 'Éxito',
-      duration: '14ms',
-    },
-    {
-      id: 'log-default-2',
-      timestamp: now - 240000,
-      time: 'Hace 4m',
-      agentName: 'MCP Dispatcher',
-      agentId: 'agent-mcp-dispatcher',
-      model: 'DeepSeek-R1-Distill-Qwen',
-      action: 'Búsqueda web en vivo (DuckDuckGo API): "Rust async runtimes"',
-      output: 'Resultados encontrados: Tokio, async-std, smol. Contexto inyectado en prompt soberano.',
-      status: 'ok',
-      statusText: 'Éxito',
-      duration: '340ms',
-    },
-    {
-      id: 'log-default-3',
-      timestamp: now - 720000,
-      time: 'Hace 12m',
-      agentName: 'Event Router',
-      agentId: 'agent-event-router',
-      model: 'Phi-3-mini',
-      action: 'Hook entrante: Petición de lectura remota de logs',
-      output: 'Acción de seguridad en espera de confirmación humana determinista.',
-      status: 'pending',
-      statusText: 'Requiere Aprobación',
-      duration: 'En espera',
-    },
-  ];
+  return [];
 }

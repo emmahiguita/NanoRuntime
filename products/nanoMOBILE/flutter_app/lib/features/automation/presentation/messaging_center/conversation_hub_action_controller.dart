@@ -32,13 +32,19 @@ final class ConversationHubActionController {
   ) async {
     final keys = messagingConversationKeys(item);
     final store = _ref.read(conversationOwnershipStoreProvider);
+    await store.load();
+    // Bloquea todos los aliases en memoria antes de esperar SQLite, sin apagar
+    // el modelo compartido. Un turno ya en vuelo pierde su autorización.
+    final writes = [for (final key in keys) store.setOwner(key, owner)];
     for (final key in keys) {
-      await store.setOwner(key, owner);
+      _ref.read(turnSupersedeGuardProvider).bump(key);
     }
-    if (item.conversationId.isNotEmpty) {
-      await store.setOwner(item.conversationId, owner);
+    try {
+      await Future.wait(writes);
+      if (owner == ConversationOwner.human) await _dismissPendingReplies(keys);
+    } finally {
+      _refresh(); // También muestra el cierre seguro si una escritura falla.
     }
-    _refresh();
   }
 
   Future<void> setArchived(
@@ -97,11 +103,7 @@ final class ConversationHubActionController {
     final keys = messagingConversationKeys(item);
     final store = _ref.read(conversationAssignmentStoreProvider);
     for (final conversationId in keys) {
-      await store.transfer(
-        conversationId,
-        target,
-        reason: 'manual-ui',
-      );
+      await store.transfer(conversationId, target, reason: 'manual-ui');
     }
     _refresh();
   }

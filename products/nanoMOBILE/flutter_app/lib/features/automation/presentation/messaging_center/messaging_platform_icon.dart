@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../domain/messaging_platform.dart';
+import 'tiktok_note_logo.dart';
 
 /// Renderiza el logo/icono oficial y nítido de la plataforma de mensajería
 /// con precisión vectorial, relieves, gradientes auténticos y sombras de marca.
@@ -213,6 +214,9 @@ class MessagingPlatformIcon extends StatelessWidget {
             height: 1.0,
           ),
         );
+
+      case MessagingPlatform.tiktok:
+        return TikTokNoteLogo(size: s * 0.62);
 
       case MessagingPlatform.other:
         return Icon(

@@ -17,6 +17,13 @@ extension ConversationDetailLiveHistory on _ConversationDetailSheetState {
       } while (_historyReloadRequested && mounted);
     } catch (error) {
       debugPrint('[conversation-detail] historial no disponible: $error');
+      // Un fallo de SQLite/IPC no se presenta como si el chat estuviera vacío.
+      if (mounted) {
+        setState(
+          () => _statusText =
+              'No se pudo leer el historial local. Reintenta al abrir el chat.',
+        );
+      }
     } finally {
       _historyLoadInProgress = false;
     }
@@ -92,39 +99,25 @@ extension ConversationDetailLiveHistory on _ConversationDetailSheetState {
       }
     }
 
-    // Los alias estables enlazan el resumen del centro con mensajes guardados
-    // por Android, incluso después de descartar la notificación original.
-    final historyId = _historyIdForConversation();
-    if (historyId != null) {
-      final storedRows = await ref
-          .read(notificationHistoryClientProvider)
-          .messages(historyId);
-      for (final row in storedRows) {
-        final text = '${row['body'] ?? ''}'.trim();
-        if (text.isEmpty) continue;
-        final isSelf = row['isSelf'] == true;
-        final atMs = (row['atMs'] as num?)?.toInt() ?? 0;
-        if (!seen.add('${atMs}_${isSelf ? 'out' : 'in'}_$text')) continue;
-        entries.add(
-          ConversationMemoryEntry(
-            kind: isSelf
-                ? ConversationMemoryEntryKind.outboundObservedManual
-                : ConversationMemoryEntryKind.inbound,
-            text: text,
-            sender: '${row['sender'] ?? ''}'.trim().isNotEmpty
-                ? '${row['sender']}'.trim()
-                : (isSelf ? 'Tú' : widget.item.displayName),
-            atMs: atMs,
-            eventId: '${row['eventId'] ?? ''}',
-          ),
-        );
-      }
-    }
+    // NotificationHistoryView es el único lector paginado del archivo Android.
 
     final itemLastMsg = widget.item.lastMessage.trim();
     final isPhone = RegExp(r'^\+?[0-9\s\-]+$').hasMatch(itemLastMsg);
     final itemKey = '${widget.item.lastAtMs}_$itemLastMsg';
-    if (itemLastMsg.isNotEmpty && !isPhone && seen.add(itemKey)) {
+    // Web entrega resúmenes, no evidencia de emisor/fecha para una burbuja.
+    final isWeb = {
+      widget.item.conversationId,
+      ...widget.item.conversationAliases,
+    }.any((id) => id.startsWith('waweb:'));
+    final alreadyObserved = entries.any(
+      (entry) =>
+          entry.atMs == widget.item.lastAtMs && entry.text == itemLastMsg,
+    );
+    if (!isWeb &&
+        !alreadyObserved &&
+        itemLastMsg.isNotEmpty &&
+        !isPhone &&
+        seen.add(itemKey)) {
       entries.add(
         ConversationMemoryEntry(
           // El emisor del resumen evita pintar como ajeno un mensaje de "Tú".

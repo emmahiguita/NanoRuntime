@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/features/browser/application/browser_external_app_behavior.dart';
 import 'package:nanoai/features/browser/application/browser_history_notifier.dart';
 import 'package:nanoai/features/browser/application/browser_pip_notifier.dart';
 import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
@@ -141,6 +142,11 @@ class BrowserMenuActionHandler {
             source: BrowserScripts.buildAutofillScript(u, p),
           ),
         );
+        break;
+      case 'cycle_external_app_mode':
+        await ref.read(browserExternalAppBehaviorProvider.notifier).cycle();
+        final mode = ref.read(browserExternalAppBehaviorProvider);
+        _showFeedback('Enlaces a apps: ${mode.label}');
         break;
       case 'clear_cache':
         await InAppWebViewController.clearAllCache();

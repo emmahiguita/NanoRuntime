@@ -1,0 +1,119 @@
+/* Única entrada iOS/glass: reutiliza la vista y separa lista y compositor para mantenimiento. */
+@import url('./nano_glass_list.css');
+@import url('./nano_glass_controls.css');
+
+/* Tokens locales: no cambian la identidad Nano ni los colores de otros módulos. */
+.wa-workspace {
+  --wa-list-width: 295px;
+  --wa-toolbar-height: 52px;
+  --wa-caption: var(--ng-muted);
+  --ng-bg: #f3f6fa;
+  --ng-chat: #f6f8fb;
+  --ng-glass: rgba(255, 255, 255, .74);
+  --ng-field: rgba(107, 126, 152, .08);
+  --ng-text: #142033;
+  --ng-muted: #5f6e82;
+  --ng-border: rgba(100, 120, 150, .14);
+  --ng-accent: #3266a8;
+  --ng-selected: #e7edf6;
+  --ng-outbound: #dce8f6;
+  --ng-shadow: 0 8px 26px rgba(30, 50, 80, .06);
+  --ng-motion: 150ms cubic-bezier(.2, .8, .2, 1);
+  background: var(--ng-bg);
+  color: var(--ng-text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", sans-serif;
+}
+/* Oscuro cambia todos los tokens juntos: evita texto oscuro sobre superficies oscuras. */
+[data-theme="dark"] .wa-workspace {
+  --ng-bg: #101923;
+  --ng-chat: #131e2b;
+  --ng-glass: rgba(24, 36, 51, .92);
+  --ng-field: rgba(171, 190, 215, .10);
+  --ng-text: #eef4fc;
+  --ng-muted: #b0bfd2;
+  --ng-border: rgba(185, 204, 228, .16);
+  --ng-accent: #a9cbff;
+  --ng-selected: #26374e;
+  --ng-outbound: #28415f;
+  --ng-shadow: 0 8px 26px rgba(0, 0, 0, .18);
+}
+/* Cabeceras comparten la altura real con el panel Detalles adaptativo. */
+.wa-workspace .wa-workspace-toolbar {
+  min-height: var(--wa-toolbar-height); height: var(--wa-toolbar-height);
+  padding: 0 16px; background: var(--ng-glass); border-color: var(--ng-border);
+}
+.wa-workspace .wa-workspace-heading strong { font-size: 16px; letter-spacing: -.025em; color: var(--ng-text); }
+.wa-workspace .wa-source-label { margin-left: 8px; font-size: 11px; color: var(--ng-muted); }
+.wa-workspace .wa-btn-new-chat {
+  min-height: 28px; height: 28px; padding: 0 10px; border-radius: 9px;
+  background: var(--ng-glass); border: 1px solid var(--ng-border); color: var(--ng-muted); font-size: 11.5px;
+}
+/* El indicador sigue mostrando el estado real, no presume una conexión Meta. */
+.wa-workspace .wa-connection-status { border-radius: 20px; gap: 6px; }
+.wa-workspace .wa-connection-status::before { width: 6px; height: 6px; background: var(--ng-muted); }
+.wa-workspace .wa-col-conversation { background: var(--ng-chat); border: 0; }
+.wa-workspace .wa-conversation-header {
+  min-height: 54px; height: 54px; padding: 0 16px;
+  background: var(--ng-glass); border-bottom: 1px solid var(--ng-border);
+}
+.wa-workspace .wa-conv-name { color: var(--ng-text); font-size: 14px; }
+.wa-workspace .wa-conv-subline { color: var(--ng-muted); font-size: 11px; }
+.wa-workspace .wa-messages-body { padding: 16px 20px; gap: 10px; }
+/* Burbujas suaves y legibles; sin blur por mensaje ni animaciones que reinicien al actualizar. */
+.wa-workspace .wa-bubble {
+  max-width: 66%; padding: 10px 12px; border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(20, 32, 51, .04); backdrop-filter: none;
+}
+.wa-workspace .wa-bubble.inbound {
+  background: var(--ng-glass); color: var(--ng-text); border: 1px solid var(--ng-border);
+  border-bottom-left-radius: 5px;
+}
+.wa-workspace .wa-bubble.outbound {
+  background: var(--ng-outbound); color: var(--ng-text); border: 1px solid transparent;
+  border-bottom-right-radius: 5px;
+}
+.wa-workspace .wa-bubble-text { font-size: 13px; line-height: 1.55; }
+.wa-workspace .wa-bubble .wa-bubble-footer { color: var(--ng-muted); opacity: 1; font-size: 10.5px; margin-top: 4px; }
+.wa-workspace .wa-bubble.outbound .wa-bubble-footer { color: var(--ng-text); opacity: 1; }
+.wa-workspace .wa-date-divider span { background: var(--ng-field); color: var(--ng-muted); font-size: 11px; padding: 3px 12px; }
+/* Un solo scroll por zona mantiene el compositor visible y evita paneles anidados. */
+.wa-workspace .wa-col-context { background: var(--ng-glass); border: 0; border-left: 1px solid var(--ng-border); overflow: hidden; }
+.wa-workspace .wa-context-tabs { padding: 10px 12px 8px; gap: 2px; border-color: var(--ng-border); }
+.wa-workspace .wa-context-tab {
+  min-height: 28px; height: 28px; padding: 0 10px; border-radius: 8px;
+  color: var(--ng-muted); background: transparent; font-size: 11.5px;
+}
+.wa-workspace .wa-context-tab[aria-selected="true"] { color: var(--ng-text); background: var(--ng-field); }
+.wa-workspace .wa-context-content { padding: 14px; }
+.wa-workspace .wa-context-section { padding-bottom: 14px; margin-bottom: 14px; border-color: var(--ng-border); }
+.wa-workspace .wa-card-title { color: var(--ng-muted); font-size: 11px; letter-spacing: .04em; }
+.wa-workspace .wa-profile-name { color: var(--ng-text); font-size: 14px; }
+.wa-workspace :is(.wa-profile-phone, .wa-detail-copy) { color: var(--ng-muted); font-size: 12px; }
+.wa-workspace .wa-tag-pill { background: var(--ng-field); color: var(--ng-muted); font-size: 11px; }
+.wa-workspace .wa-empty-chat-state { max-width: 340px; }
+.wa-workspace .wa-empty-chat-state h2 { color: var(--ng-text); font-size: 18px; }
+.wa-workspace .wa-empty-chat-state p { color: var(--ng-muted); font-size: 13px; }
+.wa-workspace .wa-empty-owl { width: 48px; height: 48px; opacity: .8; }
+/* Glass se limita a cuatro superficies estables; no añade textura SVG ni trabajo por mensaje. */
+@supports (backdrop-filter: blur(1px)) {
+  .wa-workspace :is(.wa-workspace-toolbar, .wa-col-sidebar, .wa-conversation-header, .wa-composer-wrapper) {
+    backdrop-filter: blur(16px) saturate(110%);
+  }
+}
+/* Foco, estados y scroll usan los mismos tokens para conservar contraste en ambos temas. */
+.wa-workspace button { transition: background var(--ng-motion), color var(--ng-motion); }
+.wa-workspace button:not(:disabled):hover { background: var(--ng-field); color: var(--ng-text); }
+.wa-workspace :is(button, input, textarea):focus-visible { outline: 2px solid var(--ng-accent); outline-offset: 2px; }
+.wa-workspace button:disabled { opacity: 1; color: var(--ng-muted); background: var(--ng-field); box-shadow: none; }
+.wa-workspace :is(.wa-chat-list, .wa-messages-body, .wa-context-content) { scrollbar-color: var(--ng-border) transparent; }
+.wa-workspace ::-webkit-scrollbar-thumb { background: var(--ng-border); }
+/* Menú 234 px solo en escritorio amplio; no pisa el rail adaptativo existente. */
+@media (min-width: 1200px) {
+  body.nano-desktop-refined:has(#nav-whatsapp.active) { --nano-sidebar-width: 234px; }
+  .nano-desktop-refined:has(#nav-whatsapp.active) #sidebar { padding: 20px 14px; }
+  .nano-desktop-refined:has(#nav-whatsapp.active) .sidebar-nav-item { min-height: 40px; height: 40px; font-size: 14px; }
+}
+/* Respeta accesibilidad del sistema y conserva la única animación al cambiar de hilo. */
+@media (prefers-reduced-motion: reduce) {
+  .wa-workspace *, .wa-thread-enter { animation: none !important; transition: none !important; }
+}

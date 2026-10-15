@@ -1,0 +1,92 @@
+/* Bienvenida inspirada en la referencia: tipografía editorial y mascota existente, no una pantalla nueva. */
+.nano-desktop-refined .chat-wrapper-clean { background: var(--nano-bg); }
+.nano-desktop-refined .nano-home-view { background: var(--nano-bg-elevated); padding: 0; }
+.nano-desktop-refined .nano-hero {
+  max-width: 1380px;
+  grid-template-columns: minmax(0, 1.2fr) minmax(240px, .8fr);
+  gap: clamp(24px, 3vw, 64px);
+  padding: 32px clamp(28px, 4vw, 72px);
+  position: relative;
+  isolation: isolate;
+}
+.nano-desktop-refined .nano-hero-title { font-size: clamp(36px, 3.8vw, 62px); line-height: 1.09; letter-spacing: -.045em; font-weight: 700; margin-bottom: 20px; }
+.nano-desktop-refined .nano-hero-subtitle { font-size: clamp(14px, 1.1vw, 18px); line-height: 1.65; max-width: 520px; margin-bottom: 20px; }
+.nano-desktop-refined .nano-hero-chips { gap: 7px; margin-bottom: 28px; }
+.nano-desktop-refined .nano-hero-chips .nano-chip { font-size: 11px; height: 28px; padding: 0 10px; box-shadow: none; }
+
+/* Tarjetas con alturas estables y texto completo; los iconos originales permanecen intactos. */
+.nano-desktop-refined .nano-home-grid { gap: 12px; }
+.nano-desktop-refined .nano-feature-card { grid-template-columns: 38px minmax(0, 1fr); gap: 12px; padding: 16px; min-height: 104px; border-radius: 14px; background: var(--nano-surface); box-shadow: var(--shadow-xs); }
+.nano-desktop-refined .nano-feature-card .nano-icon-tile { width: 38px; height: 42px; border-radius: 10px; border: 0; background: var(--nano-surface-soft); box-shadow: none; }
+.nano-desktop-refined .nano-feature-card-title { white-space: normal; font-size: 13px; line-height: 1.4; font-weight: 600; }
+.nano-desktop-refined .nano-feature-card-description { display: block; font-size: 11.5px; line-height: 1.55; margin-top: 5px; color: var(--nano-text-muted); }
+.nano-desktop-refined .nano-feature-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+
+/* Identidad de marca como decoración: no muestra estados de conexión o rendimiento ficticios. */
+.nano-desktop-refined .nano-hero-right { min-width: 0; align-self: stretch; justify-content: center; }
+.nano-desktop-refined .nano-hero-right::before {
+  content: "";
+  position: absolute;
+  inset: 12% -20% 0;
+  background: url('../assets/brand/nano-feather.svg') right center / contain no-repeat;
+  opacity: .14;
+  z-index: -1;
+  pointer-events: none;
+}
+.nano-desktop-refined .nano-hero-owl-wrap { width: min(100%, 390px); height: auto; aspect-ratio: 1; margin: 0; }
+.nano-desktop-refined .nano-hero-owl-wrap::before { width: 100%; height: 100%; background: radial-gradient(circle, rgba(23, 105, 255, .06), transparent 70%); }
+.nano-desktop-refined .nano-hero-owl-wrap .nano-owl-wrapper { width: 100%; height: 100%; }
+.nano-desktop-refined .nano-brand-quote { margin-bottom: 20px; text-align: center; color: var(--nano-text-secondary); }
+.nano-desktop-refined .nano-brand-quote p { font-family: var(--nano-font-signature); font-size: 24px; line-height: 1.2; }
+.nano-desktop-refined .nano-brand-quote small { display: block; font-size: 11px; margin-top: 8px; }
+
+/* El compositor se mantiene en una fila independiente: nunca tapa el contenido ni el pie. */
+.nano-desktop-refined .nano-composer-wrap { padding: 12px clamp(28px, 4vw, 72px) 24px; flex-shrink: 0; }
+.nano-desktop-refined .nano-composer-box { width: min(100%, 1180px); padding: 14px 18px 10px; background: var(--nano-surface); border-radius: 22px; box-shadow: var(--shadow-sm); backdrop-filter: none; }
+.nano-desktop-refined .composer-textarea { font-size: 14px; min-width: 0; min-height: 44px; }
+.nano-desktop-refined .composer-textarea::placeholder { color: var(--nano-text-muted); }
+.nano-desktop-refined .composer-actions-row { border-color: var(--nano-border-soft); padding-top: 10px; }
+.nano-desktop-refined .btn-composer-pill { background: var(--nano-surface); border-color: var(--nano-border); font-weight: 500; }
+.nano-desktop-refined .btn-composer-pill.active { background: var(--nano-surface-soft); border-color: var(--nano-border-active); color: var(--nano-blue-600); }
+.nano-desktop-refined .chat-stream-container.thread-mode { max-width: 1000px; padding: 32px 28px; }
+.nano-desktop-refined .chat-bubble-user { background: var(--nano-blue-600); box-shadow: none; }
+.nano-desktop-refined .msg-telemetry-bar { background: transparent; box-shadow: none; border: 0; gap: 8px; flex-wrap: wrap; color: var(--nano-text-muted); }
+
+/* Ajustes de densidad por ventana, no por dispositivo: conserva el trabajo en modo horizontal. */
+@media (max-width: 1200px) {
+  .nano-desktop-refined .nano-hero { padding: 24px 28px; gap: 24px; grid-template-columns: minmax(0, 1.3fr) minmax(220px, .7fr); }
+  .nano-desktop-refined .nano-hero-title { font-size: 38px; }
+  .nano-desktop-refined .nano-hero-subtitle { font-size: 14px; }
+  .nano-desktop-refined .nano-feature-card { padding: 12px; gap: 9px; }
+}
+@media (max-height: 740px) {
+  .nano-desktop-refined .nano-hero { padding-top: 20px; padding-bottom: 20px; }
+  .nano-desktop-refined .nano-hero-title { font-size: 36px; margin-bottom: 14px; }
+  .nano-desktop-refined .nano-hero-chips { margin-bottom: 20px; }
+  .nano-desktop-refined .nano-feature-card { min-height: 90px; }
+  .nano-desktop-refined .nano-composer-wrap { padding-bottom: 16px; }
+}
+@media (max-width: 900px), (max-height: 620px) {
+  .nano-desktop-refined .nano-hero { grid-template-columns: minmax(0, 1fr) 210px; gap: 18px; }
+  .nano-desktop-refined .nano-hero-owl-wrap { max-width: 210px; }
+  .nano-desktop-refined .nano-brand-quote { margin-bottom: 8px; }
+  .nano-desktop-refined .nano-brand-quote p { font-size: 19px; }
+  .nano-desktop-refined .nano-feature-card { grid-template-columns: 30px minmax(0, 1fr); min-height: 84px; }
+  .nano-desktop-refined .nano-feature-card .nano-icon-tile { width: 30px; height: 34px; }
+  .nano-desktop-refined .nano-hero-title { font-size: 32px; }
+}
+/* En ventanas bajas se reduce densidad sin esconder el campo de escritura o las acciones. */
+@media (max-height: 620px) {
+  .nano-desktop-refined .nano-hero { padding-top: 8px; padding-bottom: 8px; }
+  .nano-desktop-refined .nano-hero-title { font-size: 28px; margin-bottom: 12px; }
+  .nano-desktop-refined .nano-hero-subtitle { font-size: 13px; line-height: 1.55; margin-bottom: 12px; }
+  .nano-desktop-refined .nano-hero-chips { margin-bottom: 10px; }
+  .nano-desktop-refined .nano-home-grid { gap: 8px; }
+  .nano-desktop-refined .nano-feature-card { min-height: 70px; padding: 8px; }
+  .nano-desktop-refined .nano-composer-wrap { padding: 8px 28px 12px; }
+  .nano-desktop-refined .nano-composer-box { padding: 10px 14px 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nano-desktop-refined .nano-feature-card { transition: none; }
+  .nano-desktop-refined .nano-feature-card:hover { transform: none; }
+}

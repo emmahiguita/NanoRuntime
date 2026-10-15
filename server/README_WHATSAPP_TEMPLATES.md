@@ -1,6 +1,6 @@
 # Nano · gestor de plantillas oficiales de WhatsApp
 
-Este servicio independiente consulta y administra plantillas de un WABA mediante la WhatsApp Business Platform Cloud API. No activa OpenWA, no simula respuestas y no marca una plantilla como aprobada por cuenta propia.
+Este servicio independiente consulta y administra plantillas de un WABA mediante la WhatsApp Business Platform Cloud API. Incluye entrada oficial por webhook con persistencia duradera. No activa OpenWA, no simula respuestas y no marca una plantilla como aprobada por cuenta propia.
 
 ## Requisitos reales
 
@@ -11,6 +11,8 @@ Este servicio independiente consulta y administra plantillas de un WABA mediante
 - Servicio accesible mediante HTTPS. En producción, terminar TLS en un proxy o plataforma administrada; no exponer Uvicorn HTTP directamente a Internet.
 
 ## Arranque
+
+En Windows con Nano Desktop, usa primero el [panel local con guardado cifrado y control de ciclo de vida](README_WHATSAPP_LOCAL.md). No requiere escribir el token en comandos ni reconstruir la APK. Este panel es auxiliar: no está integrado todavía en el ejecutable Tauri instalado.
 
 Desde la raíz del repositorio, con el entorno Python que ya ejecuta FastAPI:
 
@@ -34,13 +36,17 @@ Publica el servicio detrás de HTTPS y configura en Nano Negocio la URL base HTT
 | PUT | `/api/v1/whatsapp/templates/{id}` | Envía a Meta la edición de categoría/componentes |
 | DELETE | `/api/v1/whatsapp/templates/{id}?name=...` | Elimina la plantilla remota mediante ID y nombre |
 | POST | `/api/v1/whatsapp/messages` | Envía texto por el número registrado en Cloud API |
+| GET | `/api/v1/whatsapp/webhook` | Verifica la suscripción con token propio y challenge de Meta |
+| POST | `/api/v1/whatsapp/webhook` | Verifica firma, normaliza lotes y persiste antes del ACK |
 
-Todas requieren `X-Nano-API-Key`. Meta conserva la autoridad sobre componentes admitidos, elegibilidad, aprobación y estado final; los errores remotos se devuelven como error, no como éxito local. El editor usa `components` JSON para no limitar encabezados, medios, botones ni formatos soportados por la versión activa de Meta.
+Las rutas de plantillas y envío requieren `X-Nano-API-Key`. El webhook no usa esa llave: GET exige el token de verificación y POST exige `X-Hub-Signature-256` con el secreto de aplicación. Meta conserva la autoridad sobre componentes admitidos, elegibilidad, aprobación y estado final; los errores remotos se devuelven como error, no como éxito local. El editor usa `components` JSON para no limitar encabezados, medios, botones ni formatos soportados por la versión activa de Meta.
 
 En el diálogo de conexión del Agente Negocios se puede conservar el canal de WhatsApp instalado o seleccionar Meta Cloud. La selección Cloud envía texto real por el gateway y muestra el ID de Meta; no hace fallback al canal local. Meta puede rechazar el envío si falta consentimiento, el destinatario/activo no es válido o se requiere una plantilla aprobada fuera de la ventana de atención. El canal de app instalada no confirma entrega.
 
 ## Límite de alcance
 
-Este módulo administra plantillas y envío de texto saliente; todavía no recibe conversaciones por webhook ni convierte respuestas libres en plantillas aprobadas. Cloud requiere configuración real de Meta, HTTPS público y reglas de consentimiento/ventana; sin esos datos, las llamadas devuelven error y no simulan éxito. El canal instalado conserva su comportamiento original.
+Este módulo administra plantillas, texto saliente y una bandeja de recepción firmada. Todavía no conecta esa bandeja al panel móvil/agente, no ejecuta respuestas automáticas Cloud y no convierte respuestas libres en plantillas aprobadas. Cloud requiere configuración real de Meta, HTTPS público y reglas de consentimiento/ventana; sin esos datos, las llamadas devuelven error y no simulan éxito. El canal instalado conserva su comportamiento original.
+
+Consulta [configuración, persistencia y comprobación manual del webhook](README_WHATSAPP_WEBHOOK.md). La recepción no importa el archivo anterior de WhatsApp ni equivale a entrega de mensajes salientes.
 
 Las instrucciones de tarifa, límites y elegibilidad cambian con el tiempo; consulta los documentos oficiales de Meta antes de configurar producción. No se copian valores de precio o throughput desde los informes adjuntos.

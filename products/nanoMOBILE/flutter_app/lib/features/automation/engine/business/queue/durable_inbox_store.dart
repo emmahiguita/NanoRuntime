@@ -8,7 +8,7 @@
 // - Registra los nuevos eventos con retención de 48 horas (TTL).
 //
 // POR QUÉ:
-// Asegura idempotencia estricta que sobrevive a reinicios del sistema y reenvíos de la red.
+// Conserva identidades procesadas; no acredita entrega al contacto.
 
 library;
 
@@ -33,8 +33,9 @@ class DurableInboxStore {
           DurableInboxEntry.fromJson((v as Map).cast<String, dynamic>()),
         ),
       );
-    } catch (_) {
-      return {};
+    } catch (error) {
+      // Fallar cerrado evita sobrescribir un inbox corrupto como si estuviera vacío.
+      throw StateError('No se pudo leer el inbox comercial: $error');
     }
   }
 
@@ -72,7 +73,7 @@ class DurableInboxStore {
     required String conversationId,
     required String content,
   }) async {
-    if (eventId.isEmpty) return;
+    if (eventId.isEmpty) throw ArgumentError('Falta la identidad del mensaje.');
     final all = await _loadAll();
 
     // Limpieza de entradas viejas
@@ -86,6 +87,9 @@ class DurableInboxStore {
       receivedAt: now,
     );
 
-    await _saveAll(all);
+    // El runtime registra el evento solo después de resolver y guardar el estado.
+    if (!await _saveAll(all)) {
+      throw StateError('No se pudo guardar el inbox comercial.');
+    }
   }
 }

@@ -30,6 +30,12 @@ class AutomationStoreDb(context: Context) {
             writable = { helper.writableDatabase },
         )
     }
+    private val canonicalMessages by lazy {
+        CanonicalMessageSqlStore(
+            readable = { helper.readableDatabase },
+            writable = { helper.writableDatabase },
+        )
+    }
     // Este archivo separa el historial observado de la memoria de decisiones del agente.
     private val notificationHistory by lazy {
         NotificationHistorySqlStore(
@@ -184,6 +190,64 @@ class AutomationStoreDb(context: Context) {
     @Synchronized
     fun listConversationMessages(scopeId: String, limit: Int): List<Map<String, Any>> =
         conversations.listMessages(scopeId, limit)
+
+    @Synchronized
+    fun upsertCanonicalMessage(row: Map<String, Any?>): Boolean = canonicalMessages.upsert(row)
+
+    @Synchronized
+    fun listCanonicalMessages(conversationId: String, limit: Int): List<Map<String, Any>> =
+        canonicalMessages.list(conversationId, limit)
+
+    @Synchronized
+    fun recordConversationCoverage(conversationId: String, provider: String, fromMs: Long, toMs: Long, gapBefore: Boolean): Boolean =
+        canonicalMessages.recordCoverage(conversationId, provider, fromMs, toMs, gapBefore)
+
+    @Synchronized
+    fun listConversationCoverage(conversationId: String): List<Map<String, Any>> =
+        canonicalMessages.coverage(conversationId)
+
+    @Synchronized
+    fun appendWebCanonicalMessages(account: String, chat: String, alias: String, rows: List<Map<String, Any?>>) {
+        val targetConvId = alias.ifBlank { chat }
+        rows.forEach { row ->
+            val eventId = row["eventId"] as? String ?: return@forEach
+            val body = row["body"] as? String ?: return@forEach
+            val time = (row["atMs"] as? Number)?.toLong() ?: System.currentTimeMillis()
+            val isSelf = row["isSelf"] == true
+            val sender = (row["sender"] as? String).orEmpty()
+            val canonicalRow = mapOf(
+                "id" to "waweb:$account/$chat:$eventId",
+                "conversationId" to targetConvId,
+                "provider" to "whatsapp_web",
+                "providerMessageId" to eventId,
+                "direction" to if (isSelf) "outbound" else "inbound",
+                "sender" to sender,
+                "body" to body,
+                "mediaType" to "",
+                "mediaUri" to "",
+                "occurredAtMs" to time,
+                "observedAtMs" to System.currentTimeMillis(),
+                "deliveryState" to "observed",
+                "fingerprint" to eventId,
+                "rawMetadata" to "{\"account\":\"$account\",\"chat\":\"$chat\",\"alias\":\"$alias\"}"
+            )
+            canonicalMessages.upsert(canonicalRow)
+        }
+    }
+
+    @Synchronized
+    fun pageCanonicalMessages(
+        conversationIds: List<String>,
+        provider: String?,
+        beforeMs: Long?,
+        beforeId: String?,
+        limit: Int = 200,
+    ): Map<String, Any> = canonicalMessages.page(conversationIds, provider, beforeMs, beforeId, limit)
+
+    @Synchronized
+    fun migrateWebHistory(context: Context) {
+        canonicalMessages.migrateFromWebHistoryDb(context, helper.writableDatabase)
+    }
 
     /** Persiste mensajes reales expuestos por notificaciones, solo en el dispositivo. */
     @Synchronized
@@ -484,6 +548,98 @@ class AutomationStoreDb(context: Context) {
         } else db.insertOrThrow("conversation_episodes", null, cv)
     }
 
+    /**
+     * Estado conversacional interno de Nano Personal.
+     *
+     * Vive en conversation_episodes para reutilizar backup y lifecycle, pero
+     * no forma parte de MEMORY_KINDS: así no aparece como memoria editable en
+     * Personalization Studio. La clave lógica (scope + turnState + kind) se
+     * compacta en una única fila dentro de la misma transacción.
+     */
+    @Synchronized
+    fun upsertPersonalTurnState(scope: String, value: String, observedAt: Long): Long {
+        require(scope.length in 1..200)
+        require(value.isNotBlank() && value.length <= 12_000)
+        require(observedAt > 0)
+        val db = helper.writableDatabase
+        db.beginTransaction()
+        try {
+            val existingIds = buildList {
+                db.query(
+                    "conversation_episodes",
+                    arrayOf("id"),
+                    "conv_id = ? AND sender = ? AND intent = ?",
+                    arrayOf(scope, PERSONAL_TURN_STATE_KEY, PERSONAL_TURN_STATE_KIND),
+                    null,
+                    null,
+                    "at_ms DESC, id DESC",
+                ).use { cursor ->
+                    while (cursor.moveToNext()) add(cursor.getLong(0))
+                }
+            }
+            val values = android.content.ContentValues().apply {
+                put("conv_id", scope)
+                put("sender", PERSONAL_TURN_STATE_KEY)
+                put("body", value)
+                put("at_ms", observedAt)
+                put("intent", PERSONAL_TURN_STATE_KIND)
+                put("summary", "{}")
+            }
+            val canonicalId = existingIds.firstOrNull()?.also { id ->
+                require(
+                    db.update(
+                        "conversation_episodes",
+                        values,
+                        "id = ?",
+                        arrayOf(id.toString()),
+                    ) == 1,
+                )
+            } ?: db.insertOrThrow("conversation_episodes", null, values)
+            if (existingIds.size > 1) {
+                db.delete(
+                    "conversation_episodes",
+                    "conv_id = ? AND sender = ? AND intent = ? AND id != ?",
+                    arrayOf(
+                        scope,
+                        PERSONAL_TURN_STATE_KEY,
+                        PERSONAL_TURN_STATE_KIND,
+                        canonicalId.toString(),
+                    ),
+                )
+            }
+            db.setTransactionSuccessful()
+            return canonicalId
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    @Synchronized
+    fun getPersonalTurnState(scope: String): Map<String, Any?>? {
+        if (scope.isBlank() || scope.length > 200) return null
+        return helper.readableDatabase.query(
+            "conversation_episodes",
+            arrayOf("id", "conv_id", "sender", "body", "at_ms", "intent", "summary"),
+            "conv_id = ? AND sender = ? AND intent = ?",
+            arrayOf(scope, PERSONAL_TURN_STATE_KEY, PERSONAL_TURN_STATE_KIND),
+            null,
+            null,
+            "at_ms DESC, id DESC",
+            "1",
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            mapOf(
+                "id" to cursor.getLong(0),
+                "scopeKey" to cursor.getString(1),
+                "key" to cursor.getString(2),
+                "value" to cursor.getString(3),
+                "observedAt" to cursor.getLong(4),
+                "kind" to cursor.getString(5),
+                "metadata" to cursor.getString(6),
+            )
+        }
+    }
+
     @Synchronized
     fun listPersonalMemories(scopeKey: String?, limit: Int, offset: Int): List<Map<String, Any?>> {
         return helper.readableDatabase.query("conversation_episodes",
@@ -736,6 +892,7 @@ class AutomationStoreDb(context: Context) {
             db.execSQL(OCCURRENCES_DDL)
             for (ddl in PERSONA_DDL_STATEMENTS) db.execSQL(ddl)
             ConversationSqlStore.ensureSchema(db)
+            CanonicalMessageSqlStore.ensureSchema(db)
             NotificationHistorySqlStore.ensureSchema(db)
             ensureFts(db)
         }
@@ -746,6 +903,7 @@ class AutomationStoreDb(context: Context) {
             db.execSQL(OCCURRENCES_DDL)
             for (ddl in PERSONA_DDL_STATEMENTS) db.execSQL(ddl)
             ConversationSqlStore.ensureSchema(db)
+            CanonicalMessageSqlStore.ensureSchema(db)
             NotificationHistorySqlStore.ensureSchema(db)
             db.execSQL(FTS_DDL)
         }
@@ -755,6 +913,7 @@ class AutomationStoreDb(context: Context) {
             if (oldVersion < 2) db.execSQL(EVENTS_DDL)
             if (oldVersion < 8) db.execSQL(OCCURRENCES_DDL)
             if (oldVersion < 9) ConversationSqlStore.ensureSchema(db)
+            CanonicalMessageSqlStore.ensureSchema(db)
             // Create missing base tables before ALTER: historical v3/v4 installs
             // could contain only a subset. SQLiteOpenHelper rolls back a failed
             // migration instead of marking an incomplete schema as upgraded.
@@ -814,6 +973,8 @@ class AutomationStoreDb(context: Context) {
 
         /** PERSONA-DATASET-06 — límite del body de un ejemplo de estilo. */
         private const val MAX_EXAMPLE_CHARS = 2_000
+        private const val PERSONAL_TURN_STATE_KIND = "personalTurnState"
+        private const val PERSONAL_TURN_STATE_KEY = "turnState"
         private val MEMORY_KINDS = setOf("stablePreference", "stableRelationshipFact", "businessFact", "episodicMemory", "temporaryFact", "stylePreference")
         private val MEMORY_KIND_SQL = MEMORY_KINDS.joinToString(",") { "'$it'" }
         // Filter before LIMIT so disabled/unverified records do not hide usable
@@ -930,6 +1091,9 @@ class AutomationStoreDb(context: Context) {
             "automation.pending_replies",
             // Estado reversible de conversaciones archivadas en el hub de Nano.
             "conversation_hub_state",
+            // Inbox/outbox comerciales: idempotencia, backpressure y reintentos.
+            "business_durable_inbox",
+            "business_durable_outbox",
         )
 
         /** Kinds de bitácora aceptados (espejo Dart, whitelist explícita). */

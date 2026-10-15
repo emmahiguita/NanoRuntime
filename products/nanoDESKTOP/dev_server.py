@@ -4,6 +4,7 @@ import urllib.request
 import urllib.error
 import sys
 import os
+from local_model_routes import bridge, handle_local_route
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 3001
 DIRECTORY = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'ui')
@@ -40,12 +41,18 @@ class ProxyAndStaticHandler(http.server.SimpleHTTPRequestHandler):
         )
 
     def do_GET(self):
+        # El catálogo y el estado pertenecen al adaptador Desktop, no a una lista demo.
+        if handle_local_route(self, 'GET'):
+            return
         if self._is_backend_route():
             self._proxy_request('GET')
         else:
             super().do_GET()
 
     def do_POST(self):
+        # La selección y el chat verifican ruta real y no reemplazan motores ajenos.
+        if handle_local_route(self, 'POST'):
+            return
         if self._is_backend_route():
             self._proxy_request('POST')
         else:
@@ -93,7 +100,11 @@ class ProxyAndStaticHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(err_body)
 
 if __name__ == '__main__':
+    HOST = os.environ.get("NANO_HOST", "0.0.0.0")
     socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("", PORT), ProxyAndStaticHandler) as httpd:
-        print(f"Serving nanoDESKTOP on port {PORT} with backend proxy to {BACKEND_URL}")
-        httpd.serve_forever()
+    with socketserver.ThreadingTCPServer((HOST, PORT), ProxyAndStaticHandler) as httpd:
+        print(f"Serving nanoDESKTOP on {HOST}:{PORT} with backend proxy to {BACKEND_URL}")
+        try:
+            httpd.serve_forever()
+        finally:
+            bridge.close()

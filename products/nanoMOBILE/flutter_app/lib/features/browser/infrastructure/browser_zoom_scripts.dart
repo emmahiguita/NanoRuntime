@@ -51,15 +51,31 @@ class BrowserZoomScripts {
   /// El modo móvil restaura el viewport; no fuerza anchos en html ni body.
   static const mobileViewportAdapterScript = """
   (function() {
-    let vp = document.querySelector('meta[name="viewport"]');
-    if (!vp) {
-      vp = document.createElement('meta');
-      vp.name = 'viewport';
-      (document.head || document.documentElement).appendChild(vp);
-    }
-    vp.content = 'width=device-width, initial-scale=1, user-scalable=yes';
+    const content = 'width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover';
+    const applyViewport = function() {
+      const head = document.head;
+      if (!head) return false;
+      const viewports = document.querySelectorAll('meta[name="viewport"]');
+      let vp = viewports.length ? viewports[0] : null;
+      if (!vp) {
+        vp = document.createElement('meta');
+        vp.name = 'viewport';
+        head.prepend(vp);
+      }
+      vp.setAttribute('content', content);
+      for (let i = 1; i < viewports.length; i++) viewports[i].remove();
+      return true;
+    };
+    applyViewport();
+    document.addEventListener('DOMContentLoaded', applyViewport, { once: true });
+    window.addEventListener('pageshow', applyViewport, { once: true });
   })();
   """;
+
+  /// Mantiene las funciones de la web desktop, pero deja que sus breakpoints
+  /// responsivos trabajen con el ancho real del dispositivo.
+  static const adaptiveDesktopViewportAdapterScript =
+      mobileViewportAdapterScript;
 
   /// El motor nativo calcula el overview de escritorio según el ancho real.
   static const desktopViewportAdapterScript = """

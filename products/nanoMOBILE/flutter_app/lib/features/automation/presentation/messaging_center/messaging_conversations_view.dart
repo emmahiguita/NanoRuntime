@@ -42,8 +42,13 @@ class MessagingConversationsView extends ConsumerWidget {
     final accentColor = isDark ? const Color(0xFF00FF88) : colors.primary;
 
     // 1. Carga inicial
-    if ((allHubAsync.isLoading && liveAsync.isLoading) ||
-        filteredAsync.isLoading) {
+    // Durante un refresco conserva la última lista visible. Mostrar un spinner
+    // completo en cada evento Web/notificación hacía parecer lento el panel y
+    // permitía que una fila cambiara de posición antes del toque del usuario.
+    final hasVisibleSnapshot = filteredAsync.hasValue;
+    if (!hasVisibleSnapshot &&
+        ((allHubAsync.isLoading && liveAsync.isLoading) ||
+            filteredAsync.isLoading)) {
       return SliverToBoxAdapter(
         child: Center(
           child: Padding(

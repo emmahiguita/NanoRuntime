@@ -17,6 +17,8 @@ import 'commercial_cart_item.dart';
 import 'commercial_funnel_stage.dart';
 
 final class CommercialConversationState {
+  // Distingue «no cambiar» de null explícito para poder limpiar foco y campos pendientes.
+  static const _unchanged = Object();
   final String conversationId;
   final CommercialFunnelStage stage;
   final String? focusedProductId;
@@ -39,31 +41,35 @@ final class CommercialConversationState {
     this.escalationReason,
   });
 
-  double get cartTotal =>
-      cart.fold(0.0, (sum, item) => sum + item.subtotal);
+  double get cartTotal => cart.fold(0.0, (sum, item) => sum + item.subtotal);
 
-  int get cartItemsCount =>
-      cart.fold(0, (sum, item) => sum + item.quantity);
+  int get cartItemsCount => cart.fold(0, (sum, item) => sum + item.quantity);
 
   CommercialConversationState copyWith({
     CommercialFunnelStage? stage,
-    String? focusedProductId,
-    String? pendingSlot,
+    Object? focusedProductId = _unchanged,
+    Object? pendingSlot = _unchanged,
     List<CommercialCartItem>? cart,
     DateTime? lastInteraction,
     int? factsVersion,
     bool? isHumanEscalated,
-    String? escalationReason,
+    Object? escalationReason = _unchanged,
   }) => CommercialConversationState(
     conversationId: conversationId,
     stage: stage ?? this.stage,
-    focusedProductId: focusedProductId ?? this.focusedProductId,
-    pendingSlot: pendingSlot ?? this.pendingSlot,
+    focusedProductId: identical(focusedProductId, _unchanged)
+        ? this.focusedProductId
+        : focusedProductId as String?,
+    pendingSlot: identical(pendingSlot, _unchanged)
+        ? this.pendingSlot
+        : pendingSlot as String?,
     cart: cart ?? this.cart,
     lastInteraction: lastInteraction ?? this.lastInteraction,
     factsVersion: factsVersion ?? this.factsVersion,
     isHumanEscalated: isHumanEscalated ?? this.isHumanEscalated,
-    escalationReason: escalationReason ?? this.escalationReason,
+    escalationReason: identical(escalationReason, _unchanged)
+        ? this.escalationReason
+        : escalationReason as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -86,9 +92,11 @@ final class CommercialConversationState {
         pendingSlot: json['pendingSlot'] as String?,
         cart: [
           for (final item in (json['cart'] as List?) ?? const [])
-            if (item is Map) CommercialCartItem.fromJson(item.cast<String, dynamic>()),
+            if (item is Map)
+              CommercialCartItem.fromJson(item.cast<String, dynamic>()),
         ],
-        lastInteraction: DateTime.tryParse((json['lastInteraction'] as String?) ?? '') ??
+        lastInteraction:
+            DateTime.tryParse((json['lastInteraction'] as String?) ?? '') ??
             DateTime.now(),
         factsVersion: (json['factsVersion'] as num?)?.toInt() ?? 1,
         isHumanEscalated: (json['isHumanEscalated'] as bool?) ?? false,

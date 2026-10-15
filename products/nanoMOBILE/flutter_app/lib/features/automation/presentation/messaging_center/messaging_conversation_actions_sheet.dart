@@ -42,6 +42,7 @@ Future<void> showMessagingConversationActions(
     conversationId: item.conversationId,
     packageName: item.packageName,
     isGroup: item.isGroup,
+    aliases: item.conversationAliases,
   );
   final isBotActive = !ConversationOwnershipPolicy.humanOwns(
     targetContactsMode: targetMode,

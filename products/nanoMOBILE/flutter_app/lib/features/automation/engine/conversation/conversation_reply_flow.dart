@@ -43,11 +43,13 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
     );
 
     // 0. Deduplicación determinista: descarta ráfagas redundantes.
-    final incomingEvent = IncomingMessage.fromNotification(effectiveNotification);
+    final incomingEvent = IncomingMessage.fromNotification(
+      effectiveNotification,
+    );
     final groupSender = effectiveNotification.isGroup
         ? (effectiveNotification.senderKey.isNotEmpty
-            ? effectiveNotification.senderKey
-            : effectiveNotification.sender)
+              ? effectiveNotification.senderKey
+              : effectiveNotification.sender)
         : null;
     if (_deduplicator.isDuplicate(
       conversationId,
@@ -55,7 +57,9 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       senderKey: groupSender,
       eventId: incomingEvent.eventId,
     )) {
-      debugPrint('[conv:dedup] duplicate event=${incomingEvent.eventId.substring(0, 8)}');
+      debugPrint(
+        '[conv:dedup] duplicate event=${incomingEvent.eventId.substring(0, 8)}',
+      );
       return null;
     }
 
@@ -94,10 +98,14 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       }
 
       if (personalDecision.isRequireHuman) {
-        debugPrint('[personal-policy] REQUIRE_HUMAN (${personalDecision.domain.name}): ${personalDecision.reason}');
+        debugPrint(
+          '[personal-policy] REQUIRE_HUMAN (${personalDecision.domain.name}): ${personalDecision.reason}',
+        );
         if (personalDecision.recruitmentEvent != null) {
           final ev = personalDecision.recruitmentEvent!;
-          debugPrint('[recruitment] ${ev.platform} | ${ev.position} | ${ev.stage} | URL: ${ev.url}');
+          debugPrint(
+            '[recruitment] ${ev.platform} | ${ev.position} | ${ev.stage} | URL: ${ev.url}',
+          );
         }
         return null;
       }
@@ -106,15 +114,19 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
     // 1. Canal Comercial: NanoBusinessRuntime con Inbox Durable, Estado, Verdad y Políticas
     BusinessFacts? businessFacts;
     if (isBusiness && (_businessRuntime != null || _factsSource != null)) {
-      businessFacts = _factsSource?.call() ?? const BusinessFacts();
+      businessFacts =
+          _factsSource?.call() ??
+          _businessRuntime?.facts ??
+          const BusinessFacts();
       final bResult = await _resolveBusinessTurn(
         notification: effectiveNotification,
         conversationId: conversationId,
         fullText: analysis.fullText,
+        eventId: incomingEvent.eventId,
         facts: businessFacts,
         context: context,
       );
-      if (bResult != null) return bResult;
+      if (bResult.handled) return bResult.draft;
     }
 
     // 2. Canal Personal: hechos de memoria y estilo aprendido, sin frases prefabricadas.
@@ -173,39 +185,5 @@ extension _ConversationReplyFlow on RuntimeConversationReplyComposer {
       );
     }
     return fallback;
-  }
-
-  Future<ConversationDraftResult?> _resolveBusinessTurn({
-    required NotificationObject notification,
-    required String conversationId,
-    required String fullText,
-    required BusinessFacts facts,
-    required ConversationDecisionContext context,
-  }) async {
-    final runtime = _businessRuntime ?? NanoBusinessRuntime(facts: facts);
-    final result = await runtime.processTurn(
-      eventId: notification.key,
-      conversationId: conversationId,
-      incomingText: fullText,
-      channel: notification.packageName.contains('w4b')
-          ? 'whatsapp_business'
-          : 'whatsapp',
-    );
-    if (result == null || result.replyText.isEmpty) return null;
-    final understanding = ConversationUnderstanding(
-      reply: result.replyText,
-      intent: 'business_commercial',
-      requiresAction: result.isEscalatedToHuman,
-      options: result.suggestions,
-    );
-    return _packReply(
-      result.replyText,
-      understanding,
-      result.suggestions,
-      context,
-      conversationId,
-      false,
-      userText: notification.text,
-    );
   }
 }

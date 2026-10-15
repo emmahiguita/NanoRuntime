@@ -43,31 +43,25 @@ extension ConversationDetailChatView on _ConversationDetailSheetState {
     );
   }
 
+  /// Una preview no demuestra dirección/fecha y un borrador no está enviado.
+  /// Se informa como texto neutral, nunca como burbujas de historial confirmado.
   Widget _buildFallbackLastMessage(AutomationVisualPalette visual) {
-    final lastMsg = widget.item.lastMessage.trim();
-    final isPhoneNumber = RegExp(r'^\+?[0-9\s\-]+$').hasMatch(lastMsg);
-    if (lastMsg.isEmpty || isPhoneNumber) return _buildNewChatEmptyState(visual);
-
-    return ListView(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      children: [
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: visual.isDark ? 0.08 : 0.45),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: visual.isDark ? 0.15 : 0.60), width: 0.8),
-            ),
-            child: Text('Historial reciente de mensajes', style: TextStyle(color: visual.textMuted, fontFamily: 'Inter', fontFamilyFallback: ConversationDetailSheet._sfFallback, fontSize: 11, fontWeight: FontWeight.w500)),
-          ),
+    final preview = widget.item.lastMessage.trim();
+    if (preview.isEmpty) return _buildNewChatEmptyState(visual);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Historial aún no recuperado', style: TextStyle(color: visual.textMuted)),
+            const SizedBox(height: 12),
+            Text('Última vista previa: $preview', textAlign: TextAlign.center),
+            if (widget.item.hasPendingReply)
+              const Text('Hay un borrador pendiente de envío.'),
+          ],
         ),
-        const SizedBox(height: 14),
-        _buildChatBubble(widget.item.lastMessage, true, visual, sender: widget.item.lastSender, timestampMs: widget.item.lastAtMs),
-        if (widget.item.hasPendingReply && widget.item.pendingReplyText != null)
-          _buildChatBubble(widget.item.pendingReplyText!, false, visual, timestampMs: widget.item.lastAtMs),
-      ],
+      ),
     );
   }
 

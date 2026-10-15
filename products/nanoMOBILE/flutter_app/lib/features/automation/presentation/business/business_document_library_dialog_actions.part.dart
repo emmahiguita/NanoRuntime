@@ -44,7 +44,7 @@ extension _BusinessDocumentLibraryDialogActions
       );
       await _library.saveBytes(
         bytes,
-        _business,
+        _storageBusiness,
         _library.destinationCategory(_category),
         'catalogo_comercial',
       );
@@ -57,6 +57,7 @@ extension _BusinessDocumentLibraryDialogActions
   }
 
   Future<void> _importFile() async {
+    final importedPdfs = <File>[];
     setState(() => _busy = true);
     try {
       final picked = await FilePicker.pickFiles(
@@ -66,11 +67,14 @@ extension _BusinessDocumentLibraryDialogActions
       if (picked == null || picked.files.isEmpty) return;
       for (final file in picked.files) {
         if (file.path != null) {
-          await _library.importFile(
+          final imported = await _library.importFile(
             file.path!,
-            _business,
+            _storageBusiness,
             _library.destinationCategory(_category),
           );
+          if (imported.path.toLowerCase().endsWith('.pdf')) {
+            importedPdfs.add(imported);
+          }
         }
       }
       await _refresh();
@@ -78,6 +82,52 @@ extension _BusinessDocumentLibraryDialogActions
       if (mounted) _msg('No se pudo importar el archivo');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+    for (final pdf in importedPdfs) {
+      if (!mounted) return;
+      await _reviewPdfProducts(pdf);
+    }
+  }
+
+  /// Extrae candidatos y exige aprobación antes de inyectarlos al agente.
+  Future<void> _reviewPdfProducts(File pdf) async {
+    try {
+      final pages = await _BusinessDocumentLibraryDialogState._pdfText
+          .extractPages(pdf.path);
+      final proposals = [
+        for (final page in pages)
+          ..._BusinessDocumentLibraryDialogState._pdfProducts.extractFromText(
+            documentName: pdf.uri.pathSegments.last,
+            textContent: page.text,
+            pageNumber: page.page,
+          ),
+      ];
+      if (!mounted) return;
+      if (proposals.isEmpty) {
+        _msg('PDF guardado; no se detectaron productos con precio');
+        return;
+      }
+      await PdfProductReviewDialog.show(
+        context,
+        documentTitle: pdf.uri.pathSegments.last,
+        proposals: proposals,
+        facts: _facts,
+        onCommit: (approved) async {
+          final ok = await ref
+              .read(businessFactsNotifierProvider.notifier)
+              .importProducts(approved);
+          if (!ok || !mounted) {
+            if (mounted) _msg('No se pudieron guardar los productos aprobados');
+            return;
+          }
+          setState(() {
+            _facts = ref.read(businessFactsNotifierProvider);
+          });
+          _msg('${approved.length} productos disponibles para Nano Negocio');
+        },
+      );
+    } on Object {
+      if (mounted) _msg('PDF guardado, pero no se pudo analizar su texto');
     }
   }
 
@@ -110,10 +160,11 @@ extension _BusinessDocumentLibraryDialogActions
       builder: (_) => const ProductDialog(),
     );
     if (newProduct == null || !mounted) return;
-    final updatedList = [..._facts.products, newProduct];
-    final updatedFacts = _facts.copyWith(products: updatedList);
-    await _factsStore.save(updatedFacts);
-    setState(() => _facts = updatedFacts);
+    final ok = await ref
+        .read(businessFactsNotifierProvider.notifier)
+        .upsertProduct(newProduct);
+    if (!ok || !mounted) return;
+    setState(() => _facts = ref.read(businessFactsNotifierProvider));
     _msg('Producto agregado al catálogo');
   }
 
@@ -124,13 +175,11 @@ extension _BusinessDocumentLibraryDialogActions
       builder: (_) => ProductDialog(initial: product),
     );
     if (updated == null || !mounted) return;
-    final updatedList = [
-      for (final p in _facts.products)
-        if (p.id == updated.id) updated else p,
-    ];
-    final updatedFacts = _facts.copyWith(products: updatedList);
-    await _factsStore.save(updatedFacts);
-    setState(() => _facts = updatedFacts);
+    final ok = await ref
+        .read(businessFactsNotifierProvider.notifier)
+        .upsertProduct(updated);
+    if (!ok || !mounted) return;
+    setState(() => _facts = ref.read(businessFactsNotifierProvider));
     _msg('Producto actualizado');
   }
 

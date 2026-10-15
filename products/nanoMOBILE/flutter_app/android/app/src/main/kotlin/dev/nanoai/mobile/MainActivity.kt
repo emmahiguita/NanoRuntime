@@ -35,6 +35,7 @@ import dev.nanoai.mobile.channels.NanoFloatingChannel
 import dev.nanoai.mobile.channels.NanoNativeAiChannel
 import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
 import dev.nanoai.mobile.channels.PerformanceChannelHandler
+import dev.nanoai.mobile.channels.PdfTextExtractionChannelHandler
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
@@ -457,6 +458,14 @@ class MainActivity : AudioServiceActivity() {
 
         MethodChannel(messenger, ChannelNames.SHARE)
             .setMethodCallHandler(ShareChannelHandler(this))
+
+        // Solo la UI importa documentos; se ejecuta fuera del hilo principal.
+        MethodChannel(
+            messenger,
+            ChannelNames.PDF_TEXT,
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            messenger.makeBackgroundTaskQueue(),
+        ).setMethodCallHandler(PdfTextExtractionChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.SYSTEM)
             .setMethodCallHandler(SystemInventoryChannelHandler(this))

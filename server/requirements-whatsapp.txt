@@ -1,0 +1,5 @@
+# Versiones ya instaladas y verificadas en este PC; no instala otro runtime de IA.
+fastapi==0.139.0
+uvicorn==0.50.0
+# SDK oficial ya instalado; se fija v1 para no migrar silenciosamente a v2.
+mcp==1.28.1

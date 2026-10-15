@@ -8,20 +8,45 @@ Future<String?> _generateDraftReply(
   _PreparedDraftPrompt prepared,
   bool localReady, {
   Future<void> Function(String response)? onCloudResponse,
+  // LOOP-1-TELEMETRY — correlación del turno (sin contenido).
+  String conversationId = '',
+  int queuedAtMs = 0,
 }) async {
   ExecutionBudget.current?.check();
-  final hasCloudPort =
-      writer._cloudInferencePort != null &&
-      writer._cloudInferencePort.isConfigured;
+  final cloudPort = writer._cloudInferencePort;
+  final hasCloudPort = cloudPort != null && cloudPort.isConfigured;
   String? cloudRaw;
   if (hasCloudPort) {
     // Cuenta solo una llamada configurada que realmente va a iniciarse.
     MessagingMetrics.increment('semanticLlmCalls');
-    cloudRaw = await writer._cloudInferencePort.generate(
-      prompt: prepared.prompt,
-      temperature: 0.3,
-      maxTokens: prepared.maxTokens,
+    final cloudRequestId = LLMEngineClient.newRequestId();
+    final cloudQueuedAt = queuedAtMs > 0
+        ? queuedAtMs
+        : DateTime.now().millisecondsSinceEpoch;
+    InferenceTelemetry.begin(
+      conversationId: conversationId,
+      requestId: cloudRequestId,
+      promptChars: prepared.prompt.length,
+      historyEntries: prepared.history?.length ?? 0,
+      queuedAtMs: cloudQueuedAt,
     );
+    try {
+      cloudRaw = await cloudPort.generate(
+        prompt: prepared.prompt,
+        temperature: 0.3,
+        maxTokens: prepared.maxTokens,
+      );
+      InferenceTelemetry.complete(requestId: cloudRequestId);
+      if (cloudRaw != null && cloudRaw.trim().isNotEmpty) {
+        InferenceTelemetry.markUsed(cloudRequestId);
+      } else {
+        InferenceTelemetry.markDiscarded(cloudRequestId);
+      }
+    } on Object {
+      InferenceTelemetry.complete(requestId: cloudRequestId);
+      InferenceTelemetry.markDiscarded(cloudRequestId);
+      rethrow;
+    }
   }
   if (cloudRaw != null && cloudRaw.trim().isNotEmpty) {
     ExecutionBudget.current?.check();
@@ -43,6 +68,11 @@ Future<String?> _generateDraftReply(
   // CÓMO: conserva el cliente, sampler, sesión e historial real de este chat.
   // POR QUÉ: corregir estilo no debe dejar trabajo nativo sin límite ni mezclar chats.
   Duration remaining() => budget.remaining;
+  // LOOP-1-TELEMETRY — el request_id del TURNO correlaciona la primera
+  // llamada local; retries (frío/estilo) conservan ids propios del cliente.
+  final turnRequestId = LLMEngineClient.newRequestId();
+  var turnRequestIdUsed = false;
+  var lastRequestId = turnRequestId;
   Future<String> generate(String system) {
     ExecutionBudget.current?.check();
     final timeout = remaining();
@@ -50,6 +80,12 @@ Future<String?> _generateDraftReply(
       throw TimeoutException('Plazo de redacción local agotado');
     }
     MessagingMetrics.increment('semanticLlmCalls');
+    final reqId = turnRequestIdUsed
+        ? LLMEngineClient.newRequestId()
+        : turnRequestId;
+    final wait = turnRequestIdUsed ? 0 : queuedAtMs;
+    turnRequestIdUsed = true;
+    lastRequestId = reqId;
     // La zona también limita el retry de arranque frío y registra su cancelación.
     return budget.run(
       () => generateWithColdRetry(
@@ -61,6 +97,8 @@ Future<String?> _generateDraftReply(
         context: system.isNotEmpty ? system : null,
         history: prepared.history,
         requestTimeout: timeout,
+        requestId: reqId,
+        queuedAtMs: wait,
       ),
     );
   }
@@ -74,6 +112,11 @@ Future<String?> _generateDraftReply(
       !prepared.isSocial ||
       !ConversationDecisionGuards.isCallCenterPhrase(raw) ||
       remaining() <= Duration.zero) {
+    if (raw.trim().isNotEmpty) {
+      InferenceTelemetry.markUsed(turnRequestId);
+    } else {
+      InferenceTelemetry.markDiscarded(turnRequestId);
+    }
     return raw;
   }
   debugPrint('[draft:quality] callcenter=detected retry=1');
@@ -90,9 +133,17 @@ Future<String?> _generateDraftReply(
       'callcenter=${ConversationDecisionGuards.isCallCenterPhrase(revised)}',
     );
     // El parser y todas las guardas de envío siguen validando la salida nueva.
-    return revised.trim().isEmpty ? raw : revised;
+    if (revised.trim().isEmpty) {
+      InferenceTelemetry.markDiscarded(lastRequestId);
+      InferenceTelemetry.markUsed(turnRequestId);
+      return raw;
+    }
+    InferenceTelemetry.markDiscarded(turnRequestId);
+    InferenceTelemetry.markUsed(lastRequestId);
+    return revised;
   } on Object catch (error) {
     budget.check();
+    if (raw.trim().isNotEmpty) InferenceTelemetry.markUsed(turnRequestId);
     debugPrint(
       '[draft:quality] retry=failed cause=${_draftFailureCode(error)}',
     );

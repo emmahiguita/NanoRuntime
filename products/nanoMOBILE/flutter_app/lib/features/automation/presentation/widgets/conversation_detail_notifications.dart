@@ -38,83 +38,22 @@ extension ConversationDetailNotifications on _ConversationDetailSheetState {
     if (requireCanReply && !n.canReply) return false;
     if (n.packageName != widget.item.packageName) return false;
 
-    final convId = _cleanConvId;
-    final displayName = widget.item.displayName.trim().toLowerCase();
-    final notifKey = widget.item.notificationKey?.trim();
-
-    if (notifKey != null && notifKey.isNotEmpty && n.key == notifKey) {
-      return true;
-    }
-
-    if (convId.isNotEmpty) {
-      final nIdentity = resolveConversationIdentity(n.toNotificationObject());
-      if (nIdentity.key.id.isNotEmpty &&
-          (nIdentity.key.id == convId ||
-              nIdentity.key.id.endsWith(convId) ||
-              convId.endsWith(nIdentity.key.id))) {
-        return true;
-      }
-      if (n.shortcutId.isNotEmpty &&
-          (convId == n.shortcutId ||
-              convId.contains(n.shortcutId) ||
-              n.shortcutId.contains(convId))) {
-        return true;
-      }
-      if (n.senderKey.isNotEmpty &&
-          (convId == n.senderKey ||
-              convId.contains(n.senderKey) ||
-              n.senderKey.contains(convId))) {
-        return true;
-      }
-      if (n.conversationId.isNotEmpty &&
-          (convId == n.conversationId ||
-              convId.contains(n.conversationId) ||
-              n.conversationId.contains(convId))) {
-        return true;
-      }
-    }
-
-    final targetDigits =
-        RegExp(r'\d{7,15}').firstMatch(convId)?.group(0) ??
-        RegExp(r'\d{7,15}').firstMatch(displayName)?.group(0);
-
-    if (targetDigits != null && targetDigits.length >= 7) {
-      for (final candidate in [
-        n.conversationId,
-        n.senderKey,
-        n.shortcutId,
-        n.title,
-      ]) {
-        final nDigits = RegExp(r'\d{7,15}').firstMatch(candidate)?.group(0);
-        if (nDigits != null && nDigits.length >= 7) {
-          if (targetDigits == nDigits ||
-              targetDigits.endsWith(nDigits) ||
-              nDigits.endsWith(targetDigits)) {
-            return true;
-          }
-        }
-      }
-    }
-
-    final isGeneric =
-        displayName.isEmpty ||
-        displayName.startsWith('contacto whatsapp') ||
-        displayName.startsWith('chat de whatsapp') ||
-        displayName == 'whatsapp' ||
-        displayName.length < 3;
-
-    if (!isGeneric) {
-      final nTitle = n.title.trim().toLowerCase();
-      final nSender = n.sender.trim().toLowerCase();
-      final nConvTitle = n.conversationTitle.trim().toLowerCase();
-      if (nTitle == displayName ||
-          (nSender.isNotEmpty && nSender == displayName) ||
-          (nConvTitle.isNotEmpty && nConvTitle == displayName)) {
-        return true;
-      }
-    }
-
-    return false;
+    final value = n.toNotificationObject();
+    final key = resolveConversationIdentity(value).key;
+    if (key.id.isEmpty) return false;
+    // Ni nombres ni sufijos numéricos autorizan usar otra notificación.
+    final observed = ConversationSummaryItem(
+      conversationId: key.id,
+      accountFingerprint: key.accountFingerprint,
+      packageName: value.packageName,
+      displayName: value.sender,
+      lastMessage: value.interpretableText,
+      lastAtMs: value.postTime,
+      agentId: widget.item.agentId,
+      isGroup: value.isGroup,
+      notificationKey: value.key,
+    );
+    return ConversationHistoryResolver.belongsTo(widget.item, observed);
   }
 
   DeviceNotification? _findMatchingNotification(

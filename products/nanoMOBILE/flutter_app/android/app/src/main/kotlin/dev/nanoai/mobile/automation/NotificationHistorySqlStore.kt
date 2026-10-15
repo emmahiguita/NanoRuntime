@@ -6,8 +6,8 @@ import java.security.MessageDigest
 
 /**
  * Guarda eventos de conversación entregados por Android en SQLite local.
- * Retiene hasta 5.000 mensajes o 90 días para que cerrar una notificación no
- * borre el historial visible; nunca envía el texto a un servidor.
+ * Conserva el historial recibido sin purgas automáticas por edad o cantidad;
+ * cerrar una notificación no borra los mensajes guardados.
  */
 internal class NotificationHistorySqlStore(
     private val readable: () -> SQLiteDatabase,
@@ -22,6 +22,7 @@ internal class NotificationHistorySqlStore(
                 if (event.body.isBlank() || event.conversationId.isBlank()) return@forEach
                 val historyId = digest("${event.packageName}\u0000${event.conversationId}")
                 val eventId = digest("$historyId\u0000${event.atMs}\u0000${event.sender}\u0000${event.body}")
+                val verification = SocialHistoryAdmission.verification(event.packageName, event.verifiedMessage)
                 val row = ContentValues().apply {
                     put("history_id", historyId)
                     put("event_id", eventId)
@@ -30,15 +31,24 @@ internal class NotificationHistorySqlStore(
                     put("display_name", event.displayName.take(MAX_FIELD))
                     put("notification_key", event.notificationKey.take(MAX_FIELD))
                     put("sender", event.sender.take(MAX_FIELD))
-                    put("body", event.body.take(MAX_BODY))
+                    put("body", event.body)
                     put("at_ms", event.atMs)
                     put("is_group", if (event.isGroup) 1 else 0)
                     put("is_self", if (event.isSelf) 1 else 0)
+                    put("message_verified", verification)
+                    put("identity_json", event.identityJson)
                 }
                 db.insertWithOnConflict(TABLE, null, row, SQLiteDatabase.CONFLICT_IGNORE)
+                // Una recaptura real verifica el registro anterior sin duplicar ni cambiar su cuerpo.
+                if (event.verifiedMessage) db.update(
+                    TABLE, ContentValues().apply {
+                        put("message_verified", verification)
+                        if (event.identityJson.isNotBlank()) put("identity_json", event.identityJson)
+                    }, "event_id = ?", arrayOf(eventId),
+                )
             }
-            db.delete(TABLE, "at_ms < ?", arrayOf((System.currentTimeMillis() - RETENTION_MS).toString()))
-            db.execSQL("DELETE FROM $TABLE WHERE id NOT IN (SELECT id FROM $TABLE ORDER BY at_ms DESC, id DESC LIMIT $MAX_ROWS)")
+            // La retención es historial, no una ventana del modelo. No se purga
+            // por límite de lectura ni porque los mensajes hayan envejecido.
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -47,11 +57,12 @@ internal class NotificationHistorySqlStore(
 
     fun listConversations(limit: Int): List<Map<String, Any?>> = readable().rawQuery(
         """SELECT h.history_id, h.package_name, h.conversation_id,
-            COALESCE((SELECT d.display_name FROM $TABLE d WHERE d.history_id = h.history_id AND d.display_name NOT IN ('Tú', 'Tu', '0', '') ORDER BY d.at_ms DESC LIMIT 1), h.display_name),
+            COALESCE((SELECT d.display_name FROM $TABLE d WHERE d.history_id = h.history_id AND ${SocialHistoryAdmission.predicate("d")} AND d.display_name NOT IN ('Tú', 'Tu', '0', '') ORDER BY d.at_ms DESC LIMIT 1), h.display_name),
             h.notification_key, h.sender, h.body, h.at_ms, h.is_group,
-            (SELECT COUNT(*) FROM $TABLE c WHERE c.history_id = h.history_id)
-            FROM $TABLE h WHERE h.id = (SELECT x.id FROM $TABLE x
-            WHERE x.history_id = h.history_id ORDER BY x.at_ms DESC, x.id DESC LIMIT 1)
+            (SELECT COUNT(*) FROM $TABLE c WHERE c.history_id = h.history_id AND ${SocialHistoryAdmission.predicate("c")}),
+            h.identity_json, h.message_verified
+            FROM $TABLE h WHERE ${SocialHistoryAdmission.predicate("h")} AND h.id = (SELECT x.id FROM $TABLE x
+            WHERE x.history_id = h.history_id AND ${SocialHistoryAdmission.predicate("x")} ORDER BY x.at_ms DESC, x.id DESC LIMIT 1)
             ORDER BY h.at_ms DESC LIMIT ?""",
         arrayOf(limit.coerceIn(1, 200).toString()),
     ).use { cursor ->
@@ -62,6 +73,7 @@ internal class NotificationHistorySqlStore(
                 "notificationKey" to cursor.getString(4), "lastSender" to cursor.getString(5),
                 "lastMessage" to cursor.getString(6), "lastAtMs" to cursor.getLong(7),
                 "isGroup" to (cursor.getInt(8) != 0), "entryCount" to cursor.getInt(9),
+                "identityJson" to cursor.getString(10), "messageVerified" to (cursor.getInt(11) > 0),
             ))
         }
     }
@@ -70,7 +82,7 @@ internal class NotificationHistorySqlStore(
         if (historyId.isBlank() || historyId.length > 64) return emptyList()
         val rows = readable().query(
             TABLE, arrayOf("event_id", "sender", "body", "at_ms", "is_self"),
-            "history_id = ?", arrayOf(historyId), null, null, "at_ms DESC, id DESC",
+            "history_id = ? AND ${SocialHistoryAdmission.predicate()}", arrayOf(historyId), null, null, "at_ms DESC, id DESC",
             limit.coerceIn(1, 1000).toString(),
         ).use { cursor -> buildList {
             while (cursor.moveToNext()) add(mapOf(
@@ -85,20 +97,50 @@ internal class NotificationHistorySqlStore(
     private fun digest(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray()).joinToString("") { "%02x".format(it) }
 
+    /** Cursor estable por fecha + ID: permite recorrer TODO lo guardado sin OFFSET ni purgas. */
+    fun pageMessages(historyId: String, limit: Int, beforeMs: Long?, beforeId: String?): Map<String, Any> {
+        require(Regex("^[a-f0-9]{64}$").matches(historyId)) { "historyId inválido" }
+        require((beforeMs == null) == (beforeId == null)) { "Cursor incompleto" }
+        if (beforeId != null) require(Regex("^[a-f0-9]{64}$").matches(beforeId)) { "Cursor inválido" }
+        val count = limit.coerceIn(1, 200)
+        val older = if (beforeMs == null) "" else " AND (at_ms < ? OR (at_ms = ? AND event_id < ?))"
+        val args = if (beforeMs == null) arrayOf(historyId) else
+            arrayOf(historyId, beforeMs.toString(), beforeMs.toString(), beforeId.orEmpty())
+        val rows = readable().query(TABLE,
+            arrayOf("event_id", "sender", "body", "at_ms", "is_self"),
+            "history_id = ? AND ${SocialHistoryAdmission.predicate()}$older", args,
+            null, null, "at_ms DESC, event_id DESC", (count + 1).toString(),
+        ).use { cursor -> buildList {
+            while (cursor.moveToNext()) add(mapOf(
+                "eventId" to cursor.getString(0), "sender" to cursor.getString(1),
+                "body" to cursor.getString(2), "atMs" to cursor.getLong(3),
+                "isSelf" to (cursor.getInt(4) != 0),
+            ))
+        } }
+        return mapOf("rows" to rows.take(count), "hasMore" to (rows.size > count))
+    }
+
     companion object {
         private const val TABLE = "notification_conversation_history"
-        private const val MAX_ROWS = 5_000
         private const val MAX_BATCH = 30
         private const val MAX_FIELD = 500
-        private const val MAX_BODY = 4_000
-        private const val RETENTION_MS = 90L * 24 * 60 * 60 * 1_000
 
         /** DDL idempotente para instalaciones existentes sin recrear la base. */
         fun ensureSchema(db: SQLiteDatabase) {
             db.execSQL("CREATE TABLE IF NOT EXISTS $TABLE (id INTEGER PRIMARY KEY AUTOINCREMENT, history_id TEXT NOT NULL, event_id TEXT NOT NULL UNIQUE, package_name TEXT NOT NULL, conversation_id TEXT NOT NULL, display_name TEXT NOT NULL, notification_key TEXT NOT NULL, sender TEXT NOT NULL, body TEXT NOT NULL, at_ms INTEGER NOT NULL, is_group INTEGER NOT NULL, is_self INTEGER NOT NULL)")
             db.execSQL("CREATE INDEX IF NOT EXISTS notification_history_by_time ON $TABLE(history_id, at_ms DESC)")
-            // Purga entradas espurias de estado, comprobaciones del sistema o fallback "0"
-            db.execSQL("DELETE FROM $TABLE WHERE conversation_id = '0' OR display_name = '0' OR conversation_id LIKE '%status@broadcast%' OR conversation_id LIKE '%@newsletter%' OR body LIKE '%le gustó tu estado%' OR body LIKE '%comprobando si hay%' OR body LIKE '%buscando mensajes nuevos%'")
+            db.execSQL("CREATE INDEX IF NOT EXISTS notification_history_by_cursor ON $TABLE(history_id, at_ms DESC, event_id DESC)")
+            SocialHistoryAdmission.ensureSchema(db, TABLE)
+            // Migración aditiva: no borra ni inventa identidad para filas antiguas.
+            val hasIdentity = db.rawQuery("PRAGMA table_info($TABLE)", null).use { cursor ->
+                val name = cursor.getColumnIndexOrThrow("name")
+                var found = false
+                while (cursor.moveToNext()) if (cursor.getString(name) == "identity_json") found = true
+                found
+            }
+            if (!hasIdentity) db.execSQL("ALTER TABLE $TABLE ADD COLUMN identity_json TEXT NOT NULL DEFAULT ''")
+            // Los avisos se filtran al leer; no borres texto humano que contenga
+            // una frase parecida a un aviso durante una apertura de la base.
             db.execSQL("UPDATE $TABLE SET display_name = (SELECT d.display_name FROM $TABLE d WHERE d.history_id = $TABLE.history_id AND d.display_name NOT IN ('Tú', 'Tu', '0', '') ORDER BY d.at_ms DESC LIMIT 1) WHERE display_name IN ('Tú', 'Tu') AND EXISTS (SELECT 1 FROM $TABLE d WHERE d.history_id = $TABLE.history_id AND d.display_name NOT IN ('Tú', 'Tu', '0', ''))")
         }
     }
@@ -115,4 +157,7 @@ internal data class NotificationHistoryEvent(
     val atMs: Long,
     val isGroup: Boolean,
     val isSelf: Boolean,
+    // Solo el extractor que ha pasado la admisión nativa puede verificar un evento nuevo.
+    val verifiedMessage: Boolean = false,
+    val identityJson: String = "",
 )

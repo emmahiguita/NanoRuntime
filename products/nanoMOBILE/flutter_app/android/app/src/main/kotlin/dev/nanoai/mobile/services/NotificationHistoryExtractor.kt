@@ -27,6 +27,7 @@ internal object NotificationHistoryExtractor {
         val rawMessages = MessagingStyle.Message.getMessagesFromBundleArray(
             extras.getParcelableArray(Notification.EXTRA_MESSAGES),
         ).takeLast(MAX_MESSAGES)
+        val identityJson = NotificationHistoryIdentity.capture(source, rawMessages)
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim()
         val conversationTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)
             ?.toString().orEmpty().trim()
@@ -73,6 +74,8 @@ internal object NotificationHistoryExtractor {
                 isGroup = group,
                 // Usa datos MessagingStyle del autor y el usuario que Android expone.
                 isSelf = isSelfSender(message.sender, senderPerson, userPerson),
+                verifiedMessage = true,
+                identityJson = identityJson,
             )
         }
         if (events.isNotEmpty()) return events
@@ -85,7 +88,8 @@ internal object NotificationHistoryExtractor {
             packageName = pkg, conversationId = conversationId,
             displayName = displayName, notificationKey = source.key,
             sender = if (group) "" else title, body = body,
-            atMs = source.postTime, isGroup = group, isSelf = false,
+            atMs = source.postTime, isGroup = group, isSelf = false, verifiedMessage = true,
+            identityJson = identityJson,
         ))
     }
 

@@ -1,16 +1,16 @@
-# Graph Report - flutter_app  (2026-10-09)
+# Graph Report - flutter_app  (2026-10-14)
 
 ## Corpus Check
-- 2137 files · ~2,158,712 words
+- 2263 files · ~2,211,220 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 26689 nodes · 37679 edges · 971 communities (928 shown, 43 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 233 edges (avg confidence: 0.8)
+- 28169 nodes · 39686 edges · 1041 communities (998 shown, 43 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 236 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `245f1e4f`
+- Built from commit: `011b359e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -436,7 +436,6 @@
 - conversation_agent.dart
 - google_account_provider.dart
 - encoding_types.h
-- atk.h
 - smpdtfmt.h
 - NanoshellWorkerService
 - web_knowledge_service.dart
@@ -853,19 +852,19 @@
 - model_brand_logo.dart
 - whatsapp_web_js_bridge.dart
 - voice_note_transcriber.dart
-- linux_init.dart
+- deepseek_provider.dart
 - Qwen3.5-2B: evaluación real en Nano Mobile
 - Conversación móvil: diagnóstico con dispositivo real
 - conversation_group_resolver.dart
 - candidate_selection.dart
 - browser_readability_extractor.dart
-- detected_model.dart
+- gemini_provider.dart
 - StoreDb
 - LiteRtChannelHandler
 - LiteRtGeneration
-- business_connector_actions.dart
+- whatsapp_web_js_bridge.dart
 - business_data_source_adapters.dart
-- shared_preferences_tool_audit_trail.dart
+- conversation_prompt_templates.dart
 - tool_approval_result.dart
 - business_dialogue.dart
 - .initialize
@@ -881,11 +880,11 @@
 - Java_dev_nanoai_mobile_NanoshellBridge_dataStatistics
 - bot_execution_context.dart
 - sql_projection.dart
-- shared_preferences_metadata_cache.dart
+- approved_skill_candidate_provider.dart
 - UTransPosition
 - whatsapp_media_dispatcher.dart
 - sql_row_processor.dart
-- browser_readability_extractor.dart
+- model_card_action_button.dart
 - nano_media_downloader.dart
 - _SingleInputDialog
 - _WhatsAppContactPickerDialog
@@ -900,14 +899,14 @@
 - @usuario
 - Uri
 - nano_search_dispatcher.dart
+- model_detail_general_info.dart
 - conversational_system_resolvers.dart
-- agent_tool_protocol.dart
 - .installPackages
 - inference_media_input.dart
 - nano_keyboard_dock_gate.dart
 - csv_tsv_parser.dart
-- NanoApplication
-- nano_floating_system.dart
+- task_step_vocabulary.dart
+- verified_skill.dart
 - LocalModelGate
 - browser_context_extractor.dart
 - nano_identity_context.dart
@@ -918,66 +917,131 @@
 - NanoClassicLightColors
 - payment_methods_guided_view.dart
 - typedef
-- .readLimited
-- nano_sensitive_data_policy.dart
+- payment_methods_guided_view.dart
+- NanoApplication
 - package:url_launcher/url_launcher.dart
-- AppFunctionChannelHandler
-- browser_ai_sanitizer.dart
+- data_statistics_preparer.dart
+- UParseError
 - AutomationStoreChannelHandler
 - .failure
 - .onBind
 - NotificationHistoryBridge
 - UTransPosition
 - i_model_metadata_repository.dart
-- @Deprecated
+- report_section.dart
 - browser_audio_service_initializer.dart
 - convert_valid
-- USerializedSet
+- InboxDb
 - _VncScreenState
-- AnsiTerminalView
-- personal_style_learning_test.dart
+- LocaleDisplayNames::createInstance
+- UTransPosition
 - _BusinessProfileEditDialogState
 - pdf_product_extractor.dart
-- _AppsSheetContent
-- _CommandsSheetContent
-- _ZoomSheetContent
+- _BusinessProfileEditDialogState
+- unirepl.h
+- whatsapp_web_app_bar.dart
 - @operador
-- conversation_video_sheet.dart
+- .claimInbox
 - automation_dashboard_runner.dart
-- conversational_system_resolvers.dart
-- conversation_media_source.dart
+- bot_agent_dispatcher.dart
+- conversation_decision_guards.dart
 - chat_action_listener.dart
 - nano_media_sheet.dart
-- terminal_session_controller.dart
+- listformatter.h
 - shared_preferences_tool_audit_trail.dart
 - UIDNAInfo
-- verified_skill.dart
-- business_library_file_actions.dart
+- recruitment_event.dart
+- models_state.dart
 - terminal_output_view.dart
-- nano_identity_context.dart
+- conversational_intent_catalog.dart
 - conversation_autonomy_mode.dart
 - business_library_grid_actions.dart
-- browser_ai_custom_provider_model.dart
+- device_location_service.dart
 - data_statistics_preparer.dart
-- i_model_metadata_repository.dart
-- html_report_builder.dart
-- ../../domain/automation_result.dart
+- stability_gate.dart
+- conversation_group_resolver.dart
+- candidate_selection.dart
 - commercial_action_parser.dart
-- package:url_launcher/url_launcher.dart
-- donation_repository.dart
-- _DedupeCore
-- convert_valid
-- latin1.h
+- browser_readability_extractor.dart
+- conversation_video_sheet.dart
+- nano_search_dispatcher.dart
+- browser_readability_extractor.dart
 - AnsiTerminalView
+- mobile_hardware_benchmark.dart
+- browser_readability_extractor.dart
+- nano_search_dispatcher.dart
+- mcp_server_persistence_test.dart
+- utfstring.h
+- _DedupeCore
+- personal_style_constraints.dart
+- weather_request_test.dart
+- @Deprecated
+- tool_permission.dart
+- _BusinessProfileEditDialogState
+- whatsapp_web_touch_scripts.dart
+- dtintrv.h
+- _ImportReview
+- depth_asset_cache.dart
+- .onListen
+- commercial_funnel_stage.dart
+- convert_valid
+- _PersonalizationStudioDiagram
+- _SingleInputDialog
+- browser_keep_alive_wrapper.dart
+- _DedupeCore
+- whatsapp_media_resolver.dart
+- _ExampleEditDialogState
+- _ImportReview
+- app_boot_profile.dart
+- _PersonaExampleCard
+- _PersonalizationStudioDiagram
+- _SingleInputDialog
+- JSONObject
+- rep.h
+- _WhatsAppContactPickerDialog
+- usetiter.h
+- SocialHistoryAdmission
+- .handle
+- .handle
+- PersonaImportPipeline
+- business_library_file_actions.dart
+- typedef
+- tool_permission.dart
+- payment_methods_guided_view.dart
+- conversation_inapp_player.dart
+- nano_identity_context.dart
+- tiktok_note_logo.dart
+- inbound_deduplicator.dart
+- NanoVoiceCapture
+- NotificationHistoryCapture
+- NanoClassicLightColors
+- UParseError
+- bot_role.dart
+- pdf_text_extraction_service.dart
+- personal_reply_variants.dart
+- chat_vision_adapter.dart
+- i_model_metadata_repository.dart
+- _VncScreenState
+- commercial_action_parser.dart
+- UTransPosition
+- tool_loop_detector.dart
+- personal_style_learning_test.dart
+- report_section.dart
+- PdfTextExtractionChannelHandler
+- _NanoOpticalSurfaceState
+- @Deprecated
+- convert_valid
+- USerializedSet
+- .onBind
 
 ## God Nodes (most connected - your core abstractions)
-1. `State` - 126 edges
-2. `settingsProvider` - 65 edges
+1. `State` - 134 edges
+2. `settingsProvider` - 67 edges
 3. `DesktopSessionManager` - 52 edges
-4. `NanoColors` - 45 edges
-5. `MainActivity` - 41 edges
-6. `NANO AI — Ronda 4: Motor de Conversación Humana — Informe Final` - 39 edges
-7. `AutomationStoreDb` - 38 edges
+4. `NanoColors` - 46 edges
+5. `AutomationStoreDb` - 44 edges
+6. `MainActivity` - 41 edges
+7. `NANO AI — Ronda 4: Motor de Conversación Humana — Informe Final` - 39 edges
 8. `AgentAccessibilityService` - 35 edges
 9. `_AtkObject` - 34 edges
 10. `Pruebas manuales pendientes — sprints de automatización` - 28 edges
@@ -997,7 +1061,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (971 total, 43 thin omitted)
+## Communities (1041 total, 43 thin omitted)
 
 ### Community 0 - "vnc_screen.dart"
 Cohesion: 0.02
@@ -1020,16 +1084,16 @@ Cohesion: 0.02
 Nodes (129): _, agent, agentClickTarget, agentDumpAtomicSnapshot, agentDumpScreen, agentDumpSnapshot, agentGlobalAction, agentInputText (+121 more)
 
 ### Community 5 - "NativeRuntimeSupervisor"
-Cohesion: 0.03
-Nodes (94): ../../application/automation_coordinator_provider.dart, ../automation_visual_theme.dart, business_document_library_dialog.dart, business_sales_messages_editor.dart, _confirmDelete, _createRuleFromText, _editRule, _refresh (+86 more)
+Cohesion: 0.02
+Nodes (95): ../agent_console_section.dart, automation_dev_screen.dart, ../automation_layout.dart, automation_rules_screen.dart, ../automation_visual_theme.dart, ../bot_studio/bot_studio_screen.dart, ../business/nano_business_screen.dart, ../../../../core/theme/nano_transitions.dart (+87 more)
 
 ### Community 6 - "ansi_terminal.dart"
 Cohesion: 0.03
-Nodes (61): ansi_parser.dart, int rows,, AnsiMetrics, _base16, baseStyle, _blink, build, _buildPalette (+53 more)
+Nodes (63): ansi_parser.dart, int rows,, AnsiMetrics, AnsiTerminalView, _AnsiTerminalViewState, _base16, baseStyle, _blink (+55 more)
 
 ### Community 7 - "settings_screen.dart"
-Cohesion: 0.06
-Nodes (30): ../actions/commercial_action_parser.dart, actionParser, _enqueueOutbox, escalatedReason, facts, inboxStore, isEscalatedToHuman, NanoBusinessRuntime (+22 more)
+Cohesion: 0.07
+Nodes (31): ../actions/commercial_action_parser.dart, ../actions/commercial_structured_action.dart, business_turn_serial_queue.dart, actionParser, facts, inboxStore, NanoBusinessRuntime, outboxQueue (+23 more)
 
 ### Community 8 - "design_tokens.dart"
 Cohesion: 0.01
@@ -1040,28 +1104,28 @@ Cohesion: 0.14
 Nodes (13): InternalXvncBackend, Boolean, Int, java, Long, Map, Pair, String (+5 more)
 
 ### Community 10 - "desktop_audit_screen.dart"
-Cohesion: 0.05
-Nodes (32): _, AppBuildInfo, appVersion, deviceModel, gitCommit, buildSendMediaScript, checkInterval, desktopUserAgent (+24 more)
+Cohesion: 0.03
+Nodes (71): Color, GlobalKey, actionLabel, badgeColor, badgeText, build, description, icon (+63 more)
 
 ### Community 11 - "dashboard_screen.dart"
 Cohesion: 0.02
-Nodes (118): PolicyAllowed, PolicyDenied, PolicyRequiresApproval, MapToolArguments, ToolArguments, ClassifyConversationArguments, compose, ComposePersonalReplyArguments (+110 more)
+Nodes (118): MapToolArguments, ToolArguments, ClassifyConversationArguments, compose, ComposePersonalReplyArguments, composeSuggestions, ConversationActions, ConversationClassificationSnapshot (+110 more)
 
 ### Community 12 - "models_screen.dart"
 Cohesion: 0.50
 Nodes (3): ModelViability, ratio, viabilityFor
 
 ### Community 13 - "chat_screen.dart"
-Cohesion: 0.06
-Nodes (36): _RuntimeGgufLifecycle, _RuntimeLocalLifecycle, generative_inference_port.dart, GenerativeInferencePort get, inference_benchmark_runner.dart, EngineStatus, RuntimeStatus, activePort (+28 more)
+Cohesion: 0.03
+Nodes (63): BorderSide?, EdgeInsetsGeometry, border, borderRadius, build, child, NanoMetalFxContainer, padding (+55 more)
 
 ### Community 14 - "real_fs_shell.dart"
 Cohesion: 0.04
 Nodes (51): Directory, _activeProcess, _basenameDirname, _binCache, _cat, _cd, _cp, cwd (+43 more)
 
 ### Community 15 - "boot_orchestrator.dart"
-Cohesion: 0.20
-Nodes (9): durable_inbox_entry.dart, DurableInboxStore, isProcessed, _loadAll, markProcessed, _retention, _saveAll, _section (+1 more)
+Cohesion: 0.13
+Nodes (14): _buildTextField, BusinessDocumentActions, delete, rename, share, _showError, _buildTextField, BusinessFolderActions (+6 more)
 
 ### Community 16 - "EngineSupervisor"
 Cohesion: 0.21
@@ -1069,11 +1133,11 @@ Nodes (8): EngineHandle, EngineSupervisor, Boolean, File, Int, Long, Pair, Strin
 
 ### Community 17 - "docker_manager.dart"
 Cohesion: 0.05
-Nodes (39): _checkInit, cmd, config, _Container, _containers, _containersDir, created, dispose (+31 more)
+Nodes (42): bool isBookmarked, isDesktopMode,, browser_credential_save_banner.dart, browser_error_view.dart, browser_options_content.dart, browser_zoom_badge_overlay.dart, BrowserTabModel, action, BrowserOptionsContent (+34 more)
 
 ### Community 18 - "desktop_launch_screen.dart"
 Cohesion: 0.04
-Nodes (52): _PersonalMemoryCoreference, _PersonalMemoryPlans, _resolveAppointmentOrProject, _resolveCoreference, ../domain/conversation_agent_message_classifier.dart, ../../engine/conversation/dialogue_state_tracker.dart, ../../engine/conversation/knowledge_need_gate.dart, ../../engine/conversation/persona_style_resolver.dart (+44 more)
+Nodes (59): _PersonalMemoryCoreference, _PersonalMemoryPlans, _resolveAppointmentOrProject, _resolveCoreference, ../domain/conversation_agent_message_classifier.dart, ../../engine/conversation/dialogue_state_tracker.dart, ../../engine/conversation/knowledge_need_gate.dart, ../../engine/conversation/persona_style_resolver.dart (+51 more)
 
 ### Community 19 - "settings_provider.dart"
 Cohesion: 0.03
@@ -1084,8 +1148,8 @@ Cohesion: 0.03
 Nodes (65): ../../core/linux/linux_distribution.dart, ../../core/services/docker_manager.dart, ../../core/services/proot_manager.dart, docker_manager.dart, DockerManager? get, IBinExecutor? get, kali_manager.dart, KaliManager? get (+57 more)
 
 ### Community 21 - "DebInstaller"
-Cohesion: 0.13
-Nodes (16): Boolean, List, String, PackageInstallController, bytesToHex(), DebInstaller, Boolean, ByteArray (+8 more)
+Cohesion: 0.19
+Nodes (12): bytesToHex(), DebInstaller, Boolean, ByteArray, File, List, Map, Set (+4 more)
 
 ### Community 22 - "AgentAccessibilityService"
 Cohesion: 0.16
@@ -1100,8 +1164,8 @@ Cohesion: 0.06
 Nodes (34): b1, b2, blockInt, bytes, c, d, _desBlock, desEncryptBlock (+26 more)
 
 ### Community 25 - "chat_models_screens_test.dart"
-Cohesion: 0.08
-Nodes (26): class, ../../engine/business/business_response_templates.dart, pendingRepliesProvider, _api, status, build, BusinessSalesMessagesEditor, _BusinessSalesMessagesEditorState (+18 more)
+Cohesion: 0.09
+Nodes (19): package:nanoai/core/models/chat_models.dart, package:nanoai/core/theme/app_theme.dart, package:nanoai/features/chat/domain/chat_memory_tools.dart, package:nanoai/features/chat/domain/chat_social_reply_resolver.dart, package:nanoai/features/chat/presentation/widgets/chat_messages.dart, package:nanoai/features/chat/presentation/widgets/nano_rich_weather_card.dart, package:nanoai/features/chat/presentation/widgets/nano_siata_radar_card.dart, package:nanoai/features/models/presentation/widgets/model_info_button.dart (+11 more)
 
 ### Community 26 - "Auditoría Técnica Integral — Plataforma nanoMOBILE"
 Cohesion: 0.06
@@ -1124,21 +1188,20 @@ Cohesion: 0.18
 Nodes (7): ExecBinChannelHandler, File, Int, java, MethodCall, MethodChannel, String
 
 ### Community 31 - "pty_manager.dart"
-Cohesion: 0.02
-Nodes (99): int? messageTimestamp,
-  String, main, main, assignedAgent, effectiveHumanOwns, effectiveRole, entry, hasActiveProduct (+91 more)
+Cohesion: 0.05
+Nodes (41): browser_display_mode.dart, browser_icon_button.dart, browser_view_mode_button.dart, browser_window_controls.dart, browser_window_omnibox.dart, BrowserDisplayMode, BrowserViewModeButton, build (+33 more)
 
 ### Community 32 - "shell_executor.dart"
 Cohesion: 0.05
 Nodes (40): ../../features/terminal/terminal_types.dart, _assetBinDir, _baseDir, bash, bashStream, binDir, exec, _execBusyBox (+32 more)
 
 ### Community 33 - "models_notifier.dart"
-Cohesion: 0.04
-Nodes (43): custom_model_picker_service.dart, ../data/catalog_local_model_repository.dart, ../data/channel_model_storage_repository.dart, ../domain/local_model_repository.dart, _applyScan, cancelDownload, deleteDetectedModel, deleteModel (+35 more)
+Cohesion: 0.05
+Nodes (39): custom_model_picker_service.dart, ../data/catalog_local_model_repository.dart, ../data/channel_model_storage_repository.dart, ../domain/local_model_repository.dart, _applyScan, cancelDownload, deleteDetectedModel, deleteModel (+31 more)
 
 ### Community 34 - "InternalXvncBackend"
 Cohesion: 0.02
-Nodes (104): agent_tool_protocol.dart, AgentLoop get, AgentVerifier get, AgentToolCommandRouter, AgentToolExecutionRouter, _dispatchCommandVerb, _executeTool, _handleLaunchApp (+96 more)
+Nodes (88): agent_tool_protocol.dart, AgentLoop get, AgentVerifier get, AgentToolCommandRouter, AgentToolExecutionRouter, _dispatchCommandVerb, _executeTool, _handleLaunchApp (+80 more)
 
 ### Community 35 - "Informe — Visor VNC: animación de carga, handshake, tiempo de carga y compatibilidad"
 Cohesion: 0.07
@@ -1146,7 +1209,7 @@ Nodes (27): 10. Plan de corrección (solo descripción; nada aplicado), 11. Crit
 
 ### Community 36 - "runtime_engine.dart"
 Cohesion: 0.04
-Nodes (47): _applyStateMap, _initializeLiteRt, _isOnlineWithNativeFallback, start, _startGguf, stop, _stopGguf, _usesLiteRt (+39 more)
+Nodes (51): _applyStateMap, _initializeLiteRt, _isOnlineWithNativeFallback, start, _startGguf, stop, _stopGguf, _usesLiteRt (+43 more)
 
 ### Community 37 - "Auditoría integral — NanoAI Mobile (flutter_app)"
 Cohesion: 0.07
@@ -1161,8 +1224,8 @@ Cohesion: 0.08
 Nodes (25): apps, desktopConfigCurrent, DesktopStatus, failed, fromMap, getDesktopStatus, graphicalExtras, installed (+17 more)
 
 ### Community 40 - "StatelessWidget"
-Cohesion: 0.04
-Nodes (49): ../../../../core/services/device_metrics.dart, _catalog, execute, _formatSituationReport, handleCommand, inspect, _situationSource, supportedTools (+41 more)
+Cohesion: 0.03
+Nodes (65): ../../agent_tools/registry/tool_registry.dart, ../../benchmark/automation_benchmark_runner.dart, ../../executors/linux/linux_automation_port.dart, AutomationBenchmarkReport, AutomationBenchmarkRunner, averageStepLatencyMs, batteryPct, cpuTempC (+57 more)
 
 ### Community 41 - "command_dispatcher.dart"
 Cohesion: 0.03
@@ -1186,27 +1249,27 @@ Nodes (24): 0. Estado del repositorio, 10. Mapa final, 11. Guardas permanentes, 
 
 ### Community 46 - "llm_engine_client.dart"
 Cohesion: 0.04
-Nodes (45): _activeStreamRequests, assessModelViability, baseUrl, cancelRequest, canRun, _client, content, contextSize (+37 more)
+Nodes (51): ../../features/automation/engine/model/inference_telemetry.dart, _activeStreamRequests, apiKey, assessModelViability, _authHeaders, baseUrl, cancelRequest, canRun (+43 more)
 
 ### Community 47 - "Sprints"
 Cohesion: 0.08
 Nodes (23): CH-1 — channel startDesktop: cast bool→Map (CONFIRMADO, fix HOY), Clasificación consolidada, Closure gates activos, CONFIRMED (lectura directa del código, sin ambigüedad), DISCARDED, HYPOTHESIS_TO_VALIDATE, INFORMATIONAL, Plan de sprints de corrección — auditoría integral 2026-08-12 (+15 more)
 
 ### Community 48 - "device_info.dart"
-Cohesion: 0.06
-Nodes (34): _archFromCpuInfo, cpuCores, cpuHardware, cpuTempC, DeviceInfo, gid, groups, hostname (+26 more)
+Cohesion: 0.05
+Nodes (40): _archFromCpuInfo, cpuCores, cpuHardware, cpuTempC, DeviceInfo, gid, groups, hostname (+32 more)
 
 ### Community 49 - "package_service.dart"
 Cohesion: 0.03
-Nodes (73): _, accentColor, _AiInjectTile, attachment, _AttachSheet, build, color, command (+65 more)
+Nodes (59): bool isLandscape,, browser_address_field.dart, browser_window_card_header.dart, browser_window_resize_handle.dart, browser_window_url_editor.dart, _begin, build, createState (+51 more)
 
 ### Community 50 - "ansi_parser.dart"
-Cohesion: 0.08
-Nodes (23): AnsiParser, _at, consume, _csi, _csiState, _decMode, _dispatch, _esc (+15 more)
+Cohesion: 0.09
+Nodes (22): AnsiParser, _at, consume, _csi, _csiState, _decMode, _dispatch, _esc (+14 more)
 
 ### Community 51 - "command_executor.dart"
-Cohesion: 0.15
-Nodes (12): design_tokens.dart, AppTheme, _base, buildTheme, classic, dark, light, spaceGray (+4 more)
+Cohesion: 0.09
+Nodes (25): main, main, main, main, main, build, _sections, SettingsScreen (+17 more)
 
 ### Community 52 - "main.dart"
 Cohesion: 0.03
@@ -1221,20 +1284,20 @@ Cohesion: 0.27
 Nodes (10): Boolean, ByteArray, Exception, File, Int, java, Long, String (+2 more)
 
 ### Community 55 - "live_animations.dart"
-Cohesion: 0.04
-Nodes (52): _toggleOwnership, ../../../core/providers/settings_provider.dart, settingsProvider, conversationOwnershipStoreProvider, buildConversationDecisionContext, conversationStateNotifierProvider, build, MessagingContactsPolicyBar (+44 more)
+Cohesion: 0.20
+Nodes (9): availableFeatures, description, displayName, isFullyConfigured, missingPrerequisites, NanoOperatingTier, OperatingTierDescriptor, satisfies (+1 more)
 
 ### Community 56 - "nano_screen_shell.dart"
-Cohesion: 0.02
-Nodes (105): ../execution/handlers/semantic_linux_tool_handler.dart, ../execution/tool_call.dart, HttpMcpClient, callTool, connect, descriptor, disconnect, _executor (+97 more)
+Cohesion: 0.05
+Nodes (38): CharacterIterator::setToEnd(), CharacterIterator::setToStart(), ForwardCharacterIterator(), ForwardCharacterIterator::operator!=(), U_NAMESPACE_BEGIN, UObject(), U_NAMESPACE_BEGIN, UCharCharacterIterator() (+30 more)
 
 ### Community 57 - "terminalservices.dart"
 Cohesion: 0.02
 Nodes (102): accent, activeColor, _autoHideTimer, _bottomDockVisible, build, busy, _chromeHidden, colors (+94 more)
 
 ### Community 58 - "local_model.dart"
-Cohesion: 0.09
-Nodes (22): conversation_topic.dart, conversation_topic_extractor.dart, _classifyDomain, ConversationTopicExtractor, _extractSalientEntities, extractTopic, _generateLabel, _healthWords (+14 more)
+Cohesion: 0.03
+Nodes (81): ../../application/automation_coordinator_provider.dart, business_document_library_dialog.dart, business_sales_messages_editor.dart, _addProduct, _editProduct, _reviewPdfProducts, _showNanoLibrary, catalog_pdf_preview_dialog.dart (+73 more)
 
 ### Community 59 - "nanoshell.c"
 Cohesion: 0.02
@@ -1254,27 +1317,27 @@ Nodes (8): Array, Boolean, ByteArray, Int, Long, String, NanoshellBridge, Double
 
 ### Community 63 - "proc_fs.dart"
 Cohesion: 0.01
-Nodes (237): ../application/persona_context.dart, ../application/persona_import.dart, ../application/persona_repository.dart, ../application/persona_training_dataset_exporter.dart, ../application/personal_style_seed.dart, bool learn, enabled,, bool verified, enabled,, _addResponseToExample (+229 more)
+Nodes (240): ../application/persona_context.dart, ../application/persona_import.dart, ../application/persona_repository.dart, ../application/persona_training_dataset_exporter.dart, ../application/personal_style_seed.dart, bool learn, enabled,, bool verified, enabled,, _addResponseToExample (+232 more)
 
 ### Community 64 - "terminal_screen.dart"
 Cohesion: 0.04
-Nodes (59): main, prevOnError, NanoSnapshot, package:nanoai/features/automation/engine/execution/action_verifier.dart, package:nanoai/features/automation/engine/execution/agent_executor.dart, package:nanoai/features/automation/engine/execution/agent_result.dart, package:nanoai/features/automation/engine/execution/capability_router.dart, package:nanoai/features/automation/engine/execution/handlers/mcp_tool_handler.dart (+51 more)
+Nodes (57): main, prevOnError, VerificationOutcome, NanoSnapshot, package:nanoai/features/automation/engine/execution/action_verifier.dart, package:nanoai/features/automation/engine/execution/agent_executor.dart, package:nanoai/features/automation/engine/execution/agent_result.dart, package:nanoai/features/automation/engine/execution/capability_router.dart (+49 more)
 
 ### Community 65 - "Java_dev_nanoai_mobile_NanoshellBridge_workerSpawnDetached"
-Cohesion: 0.01
-Nodes (167): ../../agent_tools/registry/tool_registry.dart, ../../benchmark/automation_benchmark_runner.dart, ../../../core/services/shell_executor_linux_backend.dart, execution/action_path_router.dart, execution/capability_router_provider.dart, execution/nano_flow.dart, execution/platform_verification_router.dart, execution/stability_gate.dart (+159 more)
+Cohesion: 0.02
+Nodes (113): ../../../core/services/shell_executor_linux_backend.dart, execution/action_path_router.dart, execution/capability_router_provider.dart, execution/nano_flow.dart, execution/platform_verification_router.dart, execution/stability_gate.dart, governance/intent_firewall.dart, governance/pre_action_critic.dart (+105 more)
 
 ### Community 66 - "dashboard_provider.dart"
-Cohesion: 0.02
-Nodes (93): bool isDark, isGridView,, browser_load_error_description.dart, business_library_toolbar_menu.dart, ../../../engine/business/proposals/pdf_product_proposal.dart, build, _choosePhoto, onPhotoChanged, _photo (+85 more)
+Cohesion: 0.05
+Nodes (39): _checkInit, cmd, config, _Container, _containers, _containersDir, created, dispose (+31 more)
 
 ### Community 67 - "package:flutter/material.dart"
-Cohesion: 0.02
-Nodes (98): ../deterministic_catalog.dart, _adapter, id, McpCandidateProvider, provide, _registry, McpToolProjection, projectAll (+90 more)
+Cohesion: 0.07
+Nodes (28): actionLabel, _automationStatus, _ChecklistTile, createState, didChangeAppLifecycleState, dispose, icon, initState (+20 more)
 
 ### Community 68 - "catalog_models.dart"
-Cohesion: 0.01
-Nodes (149): bool isSelected,, double value, min,, ../../engine/system/capability_availability.dart, ../../engine/system/device_permission_requester.dart, ../../engine/system/system_capability.dart, guided_fact_dialog_header.dart, SettingsNotifier, SettingsState (+141 more)
+Cohesion: 0.02
+Nodes (125): BackdropFilter, bool isSelected,, double value, min,, ../../engine/system/capability_availability.dart, ../../engine/system/device_permission_requester.dart, ../../engine/system/system_capability.dart, SettingsNotifier, SettingsState (+117 more)
 
 ### Community 69 - "dart:async"
 Cohesion: 0.01
@@ -1289,8 +1352,8 @@ Cohesion: 0.06
 Nodes (33): abi, allowDynamicLatestInDebug, bootstrapSha256, bootstrapTag, bootstrapUrl, checkInstalled, compatibilityVersion, _computeSha256 (+25 more)
 
 ### Community 72 - "MainActivity"
-Cohesion: 0.08
-Nodes (16): NanoFloatingChannel, NanoNativeAiChannel, android, Array, Boolean, Bundle, EventChannel, FlutterEngine (+8 more)
+Cohesion: 0.07
+Nodes (19): AppFunctionChannelHandler, MethodCall, MethodChannel, NanoFloatingChannel, NanoNativeAiChannel, android, Array, Boolean (+11 more)
 
 ### Community 73 - "app_router.dart"
 Cohesion: 0.05
@@ -1301,36 +1364,36 @@ Cohesion: 0.06
 Nodes (32): body, bodyOf, bodySecondary, bodySecondaryOf, callout, caption, captionOf, display (+24 more)
 
 ### Community 75 - "i_bin_executor.dart"
-Cohesion: 0.07
-Nodes (26): chat_provider.dart, dashboard_provider.dart, double storageTotalGb, storageFreeGb,, ../../features/account/application/account_providers.dart, ../../features/models/application/models_provider.dart, kali_provider.dart, cpuCores, DashboardNotifier (+18 more)
+Cohesion: 0.06
+Nodes (32): ../../../engine/orchestration/execution_journal.dart, Gradient, ExecutionJournalEntry, AutomationVisualPalette, AutomationDiscoverTile, badgeGradient, build, _buildMetallicBadge (+24 more)
 
 ### Community 76 - "noar_panel.dart"
-Cohesion: 0.07
-Nodes (30): _CommandCard, _accent, _activeTag, build, cmd, _CommandCard, _CommandCardState, _copy (+22 more)
+Cohesion: 0.04
+Nodes (50): _CommandCard, _accent, _activeTag, build, cmd, _CommandCard, _CommandCardState, _copy (+42 more)
 
 ### Community 77 - "widget_test.dart"
 Cohesion: 0.05
-Nodes (46): _buildFields, _buildHeader, _BusinessProfileEditFields, _BusinessProfileEditParsers, _csv, _dialogueEntry, _faqEntry, _field (+38 more)
+Nodes (42): _buildFields, _buildHeader, _csv, _dialogueEntry, _faqEntry, _field, _formatDialogues, _formatFaq (+34 more)
 
 ### Community 78 - "State"
 Cohesion: 0.02
-Nodes (93): actionLabel, _ActionTile, attachmentNames, _buildAssistantActions, _buildAssistantMessage, _buildAssistantSuggestions, _buildUserMessage, color (+85 more)
+Nodes (97): actionLabel, _ActionTile, attachmentNames, _buildAssistantActions, _buildAssistantMessage, _buildAssistantSuggestions, _buildUserMessage, color (+89 more)
 
 ### Community 79 - "pty.c"
-Cohesion: 0.07
-Nodes (27): ../../application/automation_engine_provider.dart, automation_command_feedback.dart, automation_dashboard_content.dart, automation_dashboard_dialogs.dart, automation_dashboard_voice_controller.dart, automation_engine_status_provider.dart, ../../../browser_ai/presentation/sheets/ai_web_sessions_sheet.dart, _runTask (+19 more)
+Cohesion: 0.05
+Nodes (41): ../../application/automation_diagnostics.dart, ../../application/automation_engine.dart, ../../application/automation_engine_provider.dart, ../../application/automation_feedback_presenter.dart, automation_command_feedback.dart, automation_dashboard_content.dart, automation_dashboard_dialogs.dart, automation_dashboard_voice_controller.dart (+33 more)
 
 ### Community 80 - "PtyChannelHandler"
 Cohesion: 0.47
 Nodes (3): MethodCall, MethodChannel, PtyChannelHandler
 
 ### Community 81 - "libandroid-shmem.c"
-Cohesion: 0.03
-Nodes (69): bool isMedia, isListening,, ../../../../core/widgets/effects/nano_voice_beam.dart, FocusNode?, _action, brightness, build, compact, controller (+61 more)
+Cohesion: 0.02
+Nodes (104): ../../application/database_studio_controller.dart, ../../application/google_sheets_sync_service.dart, database_google_sheet_dialog.dart, database_html_viewer.dart, database_pdf_dialog.dart, database_shell_connect_dialog.dart, database_sql_chip.dart, database_studio_landscape_view.dart (+96 more)
 
 ### Community 82 - "models_state.dart"
 Cohesion: 0.03
-Nodes (77): action_path_router.dart, ../../executors/linux/linux_automation_port.dart, ../governance/rule_execution_authority.dart, AgentToolPrompt, build, _connectedEndpoint, execute, handleCommand (+69 more)
+Nodes (58): abort, base, _configureMetaGatewayCredentials, conversations, credential, cursor, deadline, _decodeInboxPage (+50 more)
 
 ### Community 83 - "cron_scheduler.dart"
 Cohesion: 0.05
@@ -1341,12 +1404,12 @@ Cohesion: 0.03
 Nodes (81): automation_context.dart, _activateElement, _clickableTarget, _executeNavigationDecision, _extractUrl, _fillElement, _groundPerceivedObject, _linuxStep (+73 more)
 
 ### Community 85 - "model_downloader_test.dart"
-Cohesion: 0.11
-Nodes (18): LLMEngineException, McpDiscoveryException, package:http/http.dart, package:http/testing.dart, package:nanoai/core/services/llm_engine_client.dart, package:nanoai/features/automation/engine/mcp/http_mcp_client.dart, package:nanoai/features/automation/engine/mcp/mcp_connection_registry.dart, package:nanoai/features/automation/engine/mcp/mcp_server_restorer.dart (+10 more)
+Cohesion: 0.06
+Nodes (36): ActionVerifier, AgentVerifier, _checkOnce, _containsVisibleText, copyWith, _engine, expectedPackage, expectedText (+28 more)
 
 ### Community 86 - "scaffold_shell.dart"
-Cohesion: 0.06
-Nodes (34): accent, accentColor, build, builder, _buildGlyph, custom, customChild, FeatherCoreIcon (+26 more)
+Cohesion: 0.09
+Nodes (24): close, _closed, _generateLiteRt, _generateMnn, _NativeCancellationLease, _RoutedNativeGeneration, send, http.BaseClient (+16 more)
 
 ### Community 87 - "terminal_audit_logger.dart"
 Cohesion: 0.09
@@ -1354,7 +1417,7 @@ Nodes (21): activeIntents, _appointmentRoots, blocksLiteralStyleReuse, classify,
 
 ### Community 88 - "proot_manager.dart"
 Cohesion: 0.02
-Nodes (94): _AttachmentPillsStrip, attachments, _attachTextDocument, _buildCleanOptionTile, _buildComposerBar, _buildComposerMicButton, _buildComposerSendButton, _buildLandscapeChat (+86 more)
+Nodes (95): _AttachmentPillsStrip, attachments, _attachTextDocument, _buildCleanOptionTile, _buildComposerBar, _buildComposerMicButton, _buildComposerSendButton, _buildLandscapeChat (+87 more)
 
 ### Community 89 - "pty_session_registry.c"
 Cohesion: 0.05
@@ -1373,28 +1436,28 @@ Cohesion: 0.20
 Nodes (9): [1.0.0+1] — 2026-08-08, Architecture (SOLID), Build, Changelog, Fixed, Lifecycle, Performance, Security (+1 more)
 
 ### Community 93 - "package:flutter_test/flutter_test.dart"
-Cohesion: 0.05
-Nodes (41): ../action_verifier.dart, ../agent_loop.dart, ../../browser/chrome_content_extractor.dart, AgentLoop, argInt, back, describeScreen, doLongPress (+33 more)
+Cohesion: 0.12
+Nodes (18): ../../engine/skills/prompt_skill.dart, ../../engine/skills/prompt_skill_importer.dart, ../../engine/skills/prompt_skill_provider.dart, automationCoordinatorProvider, buildBenchmarkCoordinator, promptSkillStoreProvider, _askFor, build (+10 more)
 
 ### Community 94 - "AgentChannelHandler"
-Cohesion: 0.03
-Nodes (63): ../../domain/messaging_platform.dart, fromPackageAndAgent, fromPackageName, gradientColors, id, label, MessagingPlatform, packageName (+55 more)
+Cohesion: 0.06
+Nodes (35): begin, cancelCompletedAtMs, cancelRequestedAtMs, complete, conversationHash, _counts, decodeMs, estimatedPromptTokens (+27 more)
 
 ### Community 95 - "SecurePathPolicy"
 Cohesion: 0.06
 Nodes (30): AggregatedIntentPrediction, clause, ClauseIntentPrediction, clausePredictions, confidence, detail, entities, evidence (+22 more)
 
 ### Community 96 - "DeviceMetricsProvider"
-Cohesion: 0.06
-Nodes (38): _observer, perceive, readCount, perceive, _backend, fullScreenCalls, _imageProvider, ocrCalls (+30 more)
+Cohesion: 0.08
+Nodes (28): _observer, perceive, readCount, perceive, _backend, fullScreenCalls, _imageProvider, ocrCalls (+20 more)
 
 ### Community 97 - "app_providers.dart"
 Cohesion: 0.06
 Nodes (122): atomic_binary_to_base64(), base64_make_array(), base64_to_binary(), base64_to_binary_details(), binary_length_from_base64(), binary_to_base64(), binary_to_base64_with_lines(), change_endianness_utf16() (+114 more)
 
 ### Community 98 - "expression_evaluator.dart"
-Cohesion: 0.05
-Nodes (38): ApiProviderException, ApiProviderKind, ApiProviderKindDetails, baseUrl, _baseUrlKey, _client, _configPrefix, copyWith (+30 more)
+Cohesion: 0.03
+Nodes (69): apiProviderChatServiceProvider, apiProviderSettingsStoreProvider, ApiProviderChatService, ApiProviderConfig, ApiProviderException, ApiProviderKind, ApiProviderKindDetails, ApiProviderSettingsStore (+61 more)
 
 ### Community 99 - ".decompressToStream"
 Cohesion: 0.29
@@ -1413,12 +1476,12 @@ Cohesion: 0.25
 Nodes (7): 1. Resumen ejecutivo, 2. Tabla maestra delta, 3. Qué está inyectado / interceptado (exacto), 4. Qué funciona (verificado en código por dominio), 5. Qué falta, 6. Plan de fases (delta), Auditoría Delta — Sprint B6+ (tarde 2026-08-13)
 
 ### Community 103 - "StateNotifier"
-Cohesion: 0.05
-Nodes (38): adapt, ambient, carousel, createSimulation, emphasized, glass, glassSpring, hero (+30 more)
+Cohesion: 0.06
+Nodes (30): adapt, ambient, carousel, createSimulation, emphasized, glass, glassSpring, hero (+22 more)
 
 ### Community 104 - "model_storage_repository.dart"
 Cohesion: 0.04
-Nodes (54): accent, _ambientController, _AnimatedReflection, autoReflect, blurSigma, borderRadius, borderStrength, build (+46 more)
+Nodes (51): accent, _ambientController, _AnimatedReflection, autoReflect, blurSigma, borderRadius, borderStrength, build (+43 more)
 
 ### Community 105 - "static const"
 Cohesion: 0.06
@@ -1433,8 +1496,8 @@ Cohesion: 0.29
 Nodes (5): DownloadService, File, Int, Long, String
 
 ### Community 108 - "SingleTickerProviderStateMixin"
-Cohesion: 0.04
-Nodes (54): ../execution/agent_result.dart, bounds, confidence, coordinateFallback, diagnostic, isResolved, locate, LocatorResolution (+46 more)
+Cohesion: 0.06
+Nodes (34): ambiguityGap, anchorMinScore, _applyNearBonus, centerRegion, centerRegionRatio, _classify, clickableMatch, descriptionExact (+26 more)
 
 ### Community 109 - "NavigationChannelHandler"
 Cohesion: 0.40
@@ -1450,7 +1513,7 @@ Nodes (3): GeneratedPluginRegistrant, FlutterEngine, Keep
 
 ### Community 112 - "RuntimeChannelHandler"
 Cohesion: 0.04
-Nodes (52): automation_planner_provider.dart, conversation_decision_context_builder.dart, allPending, assistedLearningServiceProvider, automationStoresHydratedProvider, _buildConversationDecisionContext, burstTurnGateProvider, canonicalConversationReplyComposerProvider (+44 more)
+Nodes (49): AutomaticKeepAliveClientMixin, ../../../browser/infrastructure/browser_security_firewall.dart, SiataLayer, build, _buildHeader, _buildLayerChips, _buildMapSurface, _buildQuickZoomControls (+41 more)
 
 ### Community 113 - "gradlew"
 Cohesion: 0.60
@@ -1458,7 +1521,7 @@ Nodes (3): gradlew script, die(), warn()
 
 ### Community 114 - "proot_manager.dart"
 Cohesion: 0.06
-Nodes (35): _catalogEntries0, _catalogEntries1, _catalogEntries2, _catalogEntries3, _catalogEntries4, chat_models.dart, backendForPath, backendType (+27 more)
+Nodes (34): _catalogEntries0, _catalogEntries1, _catalogEntries2, _catalogEntries3, _catalogEntries4, chat_models.dart, backendForPath, backendType (+26 more)
 
 ### Community 115 - "rootfs_env.dart"
 Cohesion: 0.50
@@ -1474,19 +1537,19 @@ Nodes (48): wl_buffer, wl_buffer_interface, wl_callback, wl_client, wl_composito
 
 ### Community 120 - "_ScanlinePainter"
 Cohesion: 0.03
-Nodes (54): CollationKey, CollatorFactory, Locale, U_NAMESPACE_BEGIN, LocaleDisplayNames::createInstance(), UObject(), BreakIterator, RegexCImpl (+46 more)
+Nodes (68): _, dart:ui, google_account_dialog.dart, ../google_account_provider.dart, colors, _HeaderIconButton, icon, onTap (+60 more)
 
 ### Community 121 - "NanoThemeExtension"
 Cohesion: 0.11
 Nodes (18): 1. EngineSupervisor.kt - Diagnóstico y Logging Mejorado, 2. LLMEngineClient.dart - Manejo de Timeouts Mejorado, Archivos Modificados, Beneficios de las Correcciones, Configuración de Entorno Validada, Correcciones Implementadas, Correcciones Implementadas para Timeout del Motor Llama.cpp, Generate (Modo No-Stream) (+10 more)
 
 ### Community 122 - "_ThinkingIndicatorState"
-Cohesion: 0.08
-Nodes (24): build, color, edges, from, icon, id, McpGraphEdge, McpGraphNode (+16 more)
+Cohesion: 0.05
+Nodes (39): CustomPainter, NanoVoiceBeamPainter, _LiquidPainter, _NanoGlyphPainter, _ParallaxShaderPainter, _GlassBorder360Painter, borderRadius, build (+31 more)
 
 ### Community 123 - "chat_screen.dart"
-Cohesion: 0.10
-Nodes (20): architecture, _cachedInstalled, defaultShell, expectedSha256, getInfo, id, initialEnvironment, install (+12 more)
+Cohesion: 0.01
+Nodes (200): ../../../account/application/account_providers.dart, ../../../account/domain/account_profile.dart, ../../../account/domain/auth_user.dart, account_kpi_section.dart, ../../../account/presentation/widgets/nano_support_banner.dart, ../../application/account_providers.dart, ../controllers/profile_editor_draft.dart, ../controllers/profile_media_picker.dart (+192 more)
 
 ### Community 124 - "dashboard_screen.dart"
 Cohesion: 0.10
@@ -1517,12 +1580,12 @@ Cohesion: 0.06
 Nodes (33): _ambientInterval, _appResumed, aspectRatio, back, build, createState, didChangeAppLifecycleState, didChangeDependencies (+25 more)
 
 ### Community 143 - ".readLimited"
-Cohesion: 0.17
-Nodes (11): dmesg, listPids, loadavg, meminfo, _parseKeyValInt, pidFds, pidStat, ProcFs (+3 more)
+Cohesion: 0.06
+Nodes (30): ../../domain/messaging_platform.dart, fromPackageAndAgent, fromPackageName, gradientColors, id, label, MessagingPlatform, packageName (+22 more)
 
 ### Community 144 - "dart:io"
-Cohesion: 0.18
-Nodes (16): dlopen(), execve(), pid_t, _call_stack_entry(), _elf_entry_of(), _load_nanoroot_for_detached(), nanoshell_spawn_busybox(), nanoshell_spawn_generic() (+8 more)
+Cohesion: 0.15
+Nodes (20): dlopen(), execve(), pid_t, _call_stack_entry(), _elf_entry_of(), _load_nanoroot_for_detached(), nanoshell_spawn_busybox(), nanoshell_spawn_generic() (+12 more)
 
 ### Community 145 - "Diseño: Funcionalidad faltante de orquestación (agente, degradación, RAM, honestidad)"
 Cohesion: 0.25
@@ -1530,19 +1593,19 @@ Nodes (7): Diseño: Funcionalidad faltante de orquestación (agente, degradació
 
 ### Community 146 - "fixtures.dart"
 Cohesion: 0.06
-Nodes (32): automation_active_card.dart, automation_agent_header.dart, automation_dashboard_actions.dart, engine_status_card.dart, AutomationDashboardContent, build, businessProductsCount, conversationActive (+24 more)
+Nodes (33): automation_active_card.dart, automation_agent_header.dart, automation_dashboard_actions.dart, engine_status_card.dart, AutomationDashboardContent, build, businessProductsCount, conversationActive (+25 more)
 
 ### Community 147 - "@Deprecated"
-Cohesion: 0.09
-Nodes (21): automation_suggestion_carousel.dart, ../../../../core/theme/nano_hero_source.dart, ../../../../core/widgets/navigation/nano_glyph.dart, ../dashboard/automation_agent_card.dart, ../dashboard/automation_discover_nano_section.dart, ../dashboard/automation_inbox_card.dart, ../dashboard/automation_system_footer.dart, _actions (+13 more)
+Cohesion: 0.07
+Nodes (25): agent_tool_dispatcher.dart, goal_verifier.dart, ActionPathRouter, coordinates, ExecutionPath, label, path, PathDecision (+17 more)
 
 ### Community 148 - "AnsiTerminalView"
-Cohesion: 0.11
-Nodes (16): current_situation.dart, entity_identity_resolver.dart, _actionTerms, _collectNames, entity, EntityIdentity, EntityIdentityResolver, evidence (+8 more)
+Cohesion: 0.05
+Nodes (41): ../action_verifier.dart, ../agent_loop.dart, ../../browser/chrome_content_extractor.dart, AgentLoop, argInt, back, describeScreen, doLongPress (+33 more)
 
 ### Community 149 - "@pantalla"
-Cohesion: 0.11
-Nodes (16): fromText, fromUrl, PromptSkillImporter, all, contextFor, _key, load, _loading (+8 more)
+Cohesion: 0.13
+Nodes (14): IncomingAttachment, attachment, audioUnprocessed, ConversationMediaEnricher, enrich, MediaEnrichmentResult, mediaPath, notification (+6 more)
 
 ### Community 150 - "Java_dev_nanoai_mobile_NanoshellBridge_workerSpawnDetached"
 Cohesion: 0.20
@@ -1550,23 +1613,23 @@ Nodes (15): JNIEnv, jobjectArray, jni_cstr_array_free(), jni_cstr_array_from_obj
 
 ### Community 151 - "nano_selector.dart"
 Cohesion: 0.03
-Nodes (57): ../execution/event_driven_waiter.dart, AccessibilityEventTypes, _channel, className, detected, EventDrivenWaiter, eventType, EventWaitResult (+49 more)
+Nodes (61): automation_planner_provider.dart, conversation_decision_context_builder.dart, main, prevOnError, allPending, assistedLearningServiceProvider, automationStoresHydratedProvider, _buildConversationDecisionContext (+53 more)
 
 ### Community 152 - "SettingsNotifier"
-Cohesion: 0.03
-Nodes (70): _bluetoothOpenFlow, _closeTabFlow, _deterministicEntries0, _deterministicEntries1, _listFilesFlow, _listFilesTerms, _newTabFlow, _notificationReadFlow (+62 more)
+Cohesion: 0.08
+Nodes (24): int? nextBefore, _pageSnapshot,, api, busy, _checkScope, _cursor, dispose, _initialized, loadOlder (+16 more)
 
 ### Community 153 - "ansi_terminal_test.dart"
-Cohesion: 0.07
-Nodes (29): Boolean, Context, Int, Long, Set, String, ScheduledWhatsAppAlarmActions, Boolean (+21 more)
+Cohesion: 0.06
+Nodes (34): Boolean, Context, Int, Long, Set, String, ScheduledWhatsAppAlarmActions, Boolean (+26 more)
 
 ### Community 154 - "AnsiTerminalView"
 Cohesion: 0.04
 Nodes (53): conversation/conversational_world_state.dart, conversation/grounding_resolver.dart, execution_cancellation.dart, activeGoal, _assistantMode, bargeIn, cancel, clear (+45 more)
 
 ### Community 155 - "ModelDownloader"
-Cohesion: 0.03
-Nodes (92): assign, _attachAndShareFile, _attachImage, _attachPdf, _attachVideo, _buildBottomActionBar, _buildCapabilityBadge, _buildChatBubble (+84 more)
+Cohesion: 0.02
+Nodes (101): assign, _attachAndShareFile, _attachImage, _attachPdf, _attachVideo, _buildBottomActionBar, _buildCapabilityBadge, _buildChatBubble (+93 more)
 
 ### Community 156 - "dart:async"
 Cohesion: 0.04
@@ -1577,12 +1640,12 @@ Cohesion: 0.06
 Nodes (32): architecture, _cachedInstalled, defaultShell, expectedSha256, getInfo, id, initialEnvironment, install (+24 more)
 
 ### Community 158 - "agent_tool_dispatcher_test.dart"
-Cohesion: 0.05
-Nodes (35): device_notification.dart, ../engine/conversation/conversation_reply_composer.dart, accepted, accessGranted, code, _composer, confirmAndReply, connected (+27 more)
+Cohesion: 0.08
+Nodes (25): device_notification.dart, ../engine/conversation/conversation_reply_composer.dart, accepted, accessGranted, code, _composer, confirmAndReply, connected (+17 more)
 
 ### Community 159 - "pdf_report_service.dart"
-Cohesion: 0.06
-Nodes (31): _ambientReflectionController, blur, borderWidth, build, child, clarity, createState, customBorderRadius (+23 more)
+Cohesion: 0.04
+Nodes (48): BorderRadius, _ambientReflectionController, blur, borderWidth, build, child, clarity, createState (+40 more)
 
 ### Community 160 - "linux_init.dart"
 Cohesion: 0.05
@@ -1590,19 +1653,19 @@ Nodes (43): AiProviderKind get, ../domain/ai_provider.dart, AiProviderKind, AiPr
 
 ### Community 161 - "chatProvider"
 Cohesion: 0.04
-Nodes (51): actionSignature, completed, confirmation, dependencies, dependencyEvidence, evidence, evidenceRequiredFrom, failureKind (+43 more)
+Nodes (45): actionSignature, completed, confirmation, dependencies, dependencyEvidence, evidence, evidenceRequiredFrom, failureKind (+37 more)
 
 ### Community 162 - "terminal_plugin.dart"
-Cohesion: 0.10
-Nodes (22): allDrafts, approve, _approved, defaultMaxDrafts, draft, _drafts, _hydrate, _key (+14 more)
+Cohesion: 0.18
+Nodes (10): applyTo, birthDate, coverPath, dispose, email, language, photoPath, ProfileEditorDraft (+2 more)
 
 ### Community 163 - "LocalModelRepository"
-Cohesion: 0.04
-Nodes (44): alias, export, BootOrchestrator, _chmodExecutable, _deployDesktopEyeCandy, _desktopAssetsVersion, df, EDITOR (+36 more)
+Cohesion: 0.05
+Nodes (43): export, BootOrchestrator, _chmodExecutable, _deployDesktopEyeCandy, _desktopAssetsVersion, df, EDITOR, _ensureCompatibilityLinks (+35 more)
 
 ### Community 164 - "LinuxDistribution"
 Cohesion: 0.05
-Nodes (44): chat_action_listener.dart, chat_api_turn_handler.dart, chat_attachment_evidence.dart, chat_inference_coordinator.dart, chat_send_use_case.dart, chat_stream_session.dart, chat_tool_approval_use_case.dart, chat_tool_coordinator.dart (+36 more)
+Nodes (42): chat_action_listener.dart, chat_api_turn_handler.dart, chat_attachment_evidence.dart, chat_inference_coordinator.dart, chat_send_use_case.dart, chat_stream_session.dart, chat_tool_approval_use_case.dart, chat_tool_coordinator.dart (+34 more)
 
 ### Community 165 - "_ScanlinePainter"
 Cohesion: 0.03
@@ -1610,7 +1673,7 @@ Nodes (72): active, activity, bottom, bounds, capturedAt, centerX, centerY, chec
 
 ### Community 166 - "NanoRuntimeApi"
 Cohesion: 0.04
-Nodes (58): agent_types.dart, candidates/candidate_action.dart, candidates/candidate_generator.dart, candidates/candidate_provider.dart, candidates/candidate_selection.dart, candidates/candidate_selection_engine.dart, candidates/candidate_selector.dart, candidates/candidate_tool_call_adapter.dart (+50 more)
+Nodes (66): _RuleCardState, _BrowserInstanceLifecycle, _BrowserInstancePromptState, _confirmSave, ConsumerState, ConsumerStatefulWidget, ../../engine/business/business_response_templates.dart, build (+58 more)
 
 ### Community 167 - ".readLimited"
 Cohesion: 0.03
@@ -1618,7 +1681,7 @@ Nodes (59): NanoThemeExtension, accent, accentSoft, AutomationBackdrop, Automati
 
 ### Community 168 - "devops_plugin.dart"
 Cohesion: 0.02
-Nodes (137): _, conversation_media_source.dart, conversation_media_viewer.dart, interactive_3d_turntable_box.dart, build, _choose, icon, onChanged (+129 more)
+Nodes (129): conversation_media_source.dart, conversation_media_viewer.dart, ../../engine/business/meta_inbox_models.dart, interactive_3d_turntable_box.dart, MetaInboxMessage, action, build, controller (+121 more)
 
 ### Community 169 - "security_utils.dart"
 Cohesion: 0.50
@@ -1630,15 +1693,15 @@ Nodes (69): endianness, match_system(), convert(), convert_with_errors(), InputP
 
 ### Community 171 - "ModelReasoningBlock"
 Cohesion: 0.04
-Nodes (49): atMs, bouncebackMs, conversationId, cooldownMs, _DedupeEntry, DedupeEventState, DedupeVerdict, defaultBouncebackMs (+41 more)
+Nodes (54): atMs, bouncebackMs, conversationId, cooldownMs, _DedupeCore, _DedupeEntry, DedupeEventState, DedupeVerdict (+46 more)
 
 ### Community 172 - "AnsiTerminalView"
-Cohesion: 0.02
-Nodes (129): _admitsUnknownLiveFact, agentContract, allowPlainText, arrivedAt, backend, budget, _buildNotificationDraft, business (+121 more)
+Cohesion: 0.01
+Nodes (140): activeTopic, _admitsUnknownLiveFact, agentContract, allowPlainText, arrivedAt, backend, budget, _buildNotificationDraft (+132 more)
 
 ### Community 173 - "VoidCallback"
-Cohesion: 0.06
-Nodes (36): accent, actionLabel, battery, cpu, description, freeStorage, icon, KaliStatus (+28 more)
+Cohesion: 0.04
+Nodes (55): ../../application/browser_surface_notifier.dart, ../../application/browser_tab_notifier.dart, BrowserSurfaceHost, BrowserSurfaceNotifier, browserSurfaceProvider, showEmbedded, showFullscreen, BrowserScreen (+47 more)
 
 ### Community 174 - "koog_supervisor.dart"
 Cohesion: 0.06
@@ -1650,7 +1713,7 @@ Nodes (45): _addLabelFor, _addSpatial, build, _labelFieldPair, RelationshipEngin
 
 ### Community 176 - "automation_settings_screen.dart"
 Cohesion: 0.07
-Nodes (33): _ModelsScreenActions, _onSelectModelByName, _onTabChanged, _openBenchmark, _pickDownloadDir, _showDetails, _toggleFavorite, ../../../../core/providers/chat_provider.dart (+25 more)
+Nodes (34): _ModelsScreenActions, _onSelectModelByName, _onTabChanged, _openBenchmark, _pickDownloadDir, _showDetails, _toggleFavorite, ../../../../core/providers/chat_provider.dart (+26 more)
 
 ### Community 177 - "conv_turn_state.dart"
 Cohesion: 0.11
@@ -1658,12 +1721,12 @@ Nodes (18): conv_turn_state_gating.dart, _confirmExpectationTokens, Conversation
 
 ### Community 178 - "conversation_memory.dart"
 Cohesion: 0.02
-Nodes (90): abstract class _MemoryCore
-    with, addUnresolvedObligation, agent, _agentByScope, appendInbound, _appendInboundMemory, appendOutbound, _appendOutboundMemory (+82 more)
+Nodes (97): abstract class _MemoryCore
+    with, addUnresolvedObligation, agent, _agentByScope, appendInbound, _appendInboundMemory, appendOutbound, _appendOutboundMemory (+89 more)
 
 ### Community 179 - "nano_owl_avatar.dart"
-Cohesion: 0.07
-Nodes (27): _applyState, _blinkFrame, _blinkTimer, build, createState, _currentAsset, didChangeDependencies, didUpdateWidget (+19 more)
+Cohesion: 0.08
+Nodes (25): _applyState, _blinkFrame, _blinkTimer, build, createState, _currentAsset, didChangeDependencies, didUpdateWidget (+17 more)
 
 ### Community 180 - "c14_metrics.dart"
 Cohesion: 0.04
@@ -1674,36 +1737,36 @@ Cohesion: 0.03
 Nodes (69): ../../application/models_notifier.dart, ../../application/models_state.dart, int totalInstalledCount, favoritesCount,, ModelsNotifier, ModelsState, activeFilter, activeTab, build (+61 more)
 
 ### Community 182 - "AutomationStoreDb"
-Cohesion: 0.18
-Nodes (5): AutomationStoreDb, Boolean, Long, String, org
+Cohesion: 0.05
+Nodes (32): AutomationStoreDb, Any, Boolean, Int, List, Long, Map, SQLiteDatabase (+24 more)
 
 ### Community 183 - "candidate_first_planner.dart"
-Cohesion: 0.05
-Nodes (32): FieldPosition::operator==(), U_NAMESPACE_BEGIN, UObject(), U_NAMESPACE_BEGIN, UObject(), U_NAMESPACE_BEGIN, UMemory(), UnlocalizedNumberFormatter (+24 more)
+Cohesion: 0.04
+Nodes (42): FieldPosition::operator==(), U_NAMESPACE_BEGIN, UObject(), U_NAMESPACE_BEGIN, UObject(), U_NAMESPACE_BEGIN, UMemory(), UnlocalizedNumberFormatter (+34 more)
 
 ### Community 184 - "language_assist.dart"
-Cohesion: 0.09
-Nodes (21): ../../automation/engine/mcp/mcp_connection_registry.dart, ../../automation/engine/mcp/mcp_tool_projection.dart, ../../../core/services/chat_system_prompt.dart, ../../../core/services/conversational/conversational_intent_matcher.dart, buildHistory, buildPrompt, ChatContextBuilder, historyBeforeCurrentUser (+13 more)
+Cohesion: 0.10
+Nodes (18): billing_product.dart, authStateChanges, deleteAccount, getCurrentUser, registerWithEmailAndPassword, reloadUser, sendEmailVerification, sendPasswordResetEmail (+10 more)
 
 ### Community 185 - "model_metadata_entities.dart"
 Cohesion: 0.04
 Nodes (44): architecture, benchmarks, capabilities, contextLength, datasetVersion, description, developer, displayName (+36 more)
 
 ### Community 186 - "automation_coordinator_provider.dart"
-Cohesion: 0.07
-Nodes (28): package:nanoai/features/automation/domain/messaging_platform.dart, package:nanoai/features/automation/engine/business/actions/commercial_structured_action.dart, package:nanoai/features/automation/engine/business/business_facts.dart, package:nanoai/features/automation/engine/business/checkout/commercial_checkout_service.dart, package:nanoai/features/automation/engine/business/fact_selector.dart, package:nanoai/features/automation/engine/business/policy/commercial_action_policy_engine.dart, package:nanoai/features/automation/engine/business/policy/commercial_policy_tier.dart, package:nanoai/features/automation/engine/business/proposals/pdf_product_extractor.dart (+20 more)
+Cohesion: 0.06
+Nodes (32): ../domain/persona_example.dart, emma_intent_seed_catalog.dart, ../../engine/language/conversational_intent_catalog.dart, ../../engine/language/conversational_intent_classifier.dart, ExternalResponseExperienceLearningService, instance, observe, _repository (+24 more)
 
 ### Community 187 - "nano_multi_use_nav_bar.dart"
-Cohesion: 0.09
-Nodes (24): ../../business/whatsapp_message_provider.dart, ../../domain/whatsapp_contact.dart, WhatsAppContactsService, _contacts, _genericTerms, resolve, WhatsAppContactResolver, _contactResolver (+16 more)
+Cohesion: 0.06
+Nodes (36): ../../business/whatsapp_message_provider.dart, ../../domain/whatsapp_contact.dart, WhatsAppContactsService, _contactResolver, _contacts, handleCommand, listContacts, openChat (+28 more)
 
 ### Community 188 - "screen_graph_candidate_provider.dart"
-Cohesion: 0.05
-Nodes (37): AsyncValue, AutoDisposeAsyncNotifier, _generateAiSuggestion, _refreshLiveHistory, ../../engine/platform/whatsapp_status_classifier.dart, ../../executors/device_notification.dart, ../../executors/notification_executor_provider.dart, AuthController (+29 more)
+Cohesion: 0.06
+Nodes (32): altSticky, build, colors, compact, ctrlSticky, DesktopExtraKeysBar, _divider, _keyChip (+24 more)
 
 ### Community 189 - "String get"
-Cohesion: 0.03
-Nodes (75): candidate_provider.dart, ../execution/action_verifier.dart, ../../execution/platform_verification.dart, ../execution/tool_registry.dart, _ExecutorScreenObserver, ActionExpectation, ToolRisk, adapt (+67 more)
+Cohesion: 0.04
+Nodes (53): NotificationDraftSource, candidate_action.dart, candidate_provider.dart, ../execution/action_verifier.dart, ../../execution/platform_verification.dart, ../execution/tool_registry.dart, adapt, _capabilitiesFor (+45 more)
 
 ### Community 190 - "search_result_resolver.dart"
 Cohesion: 0.07
@@ -1714,8 +1777,8 @@ Cohesion: 0.07
 Nodes (26): activityVerbs, classifyLiveStateIntent, complexity, compoundTokens, contextSensitive, explicitGreetingWords, hasActivity, hasGreeting (+18 more)
 
 ### Community 192 - "candidate_action.dart"
-Cohesion: 0.05
-Nodes (38): NotificationDraftSource, ../conversation/conversation_reply_composer.dart, ../language/pragmatic_fast_path.dart, ToolRoutedConversationReplyComposer, ConversationReplyComposer, draftSource, id, _launchCandidate (+30 more)
+Cohesion: 0.06
+Nodes (30): AgentCallerRole, agentId, AgentIdentity, approvalGranted, arguments, caller, conversation, correlationId (+22 more)
 
 ### Community 193 - "task_planner.dart"
 Cohesion: 0.03
@@ -1726,8 +1789,8 @@ Cohesion: 0.25
 Nodes (7): conversational/conversational_action_resolvers.dart, conversational/conversational_intent_matcher.dart, conversational/conversational_semantic_resolvers.dart, conversational/conversational_system_resolvers.dart, conversational/native_conversational_response.dart, NativeConversationalRouter, tryResolve
 
 ### Community 195 - "rule_pipeline_test.dart"
-Cohesion: 0.11
-Nodes (18): _auditAndReturn, auditTrail, _canonical, dispatch, _dispatchResolved, executor, _hashArguments, _nextExecutionId (+10 more)
+Cohesion: 0.06
+Nodes (34): ../domain/executable_tool.dart, ../domain/tool_audit.dart, ../domain/tool_input.dart, ../domain/tool_result.dart, ../domain/tool_risk.dart, execute, ToolExecutor, _auditAndReturn (+26 more)
 
 ### Community 196 - "NANO AI — Ronda 4: Motor de Conversación Humana — Informe Final"
 Cohesion: 0.05
@@ -1743,23 +1806,23 @@ Nodes (39): CONTEXT-GATE-01 — gating determinista de contexto conversacional, 
 
 ### Community 199 - "automation_run.dart"
 Cohesion: 0.06
-Nodes (31): ActionConfirmation? get, AutomationRunPhase get, AutomationRunTerminal? get, NavigationHistory, AutomationRun, AutomationRunPhase, AutomationRunTerminal, beginPlanning (+23 more)
+Nodes (32): ActionConfirmation? get, AutomationRunPhase get, AutomationRunTerminal? get, NavigationHistory, AutomationRun, AutomationRunPhase, AutomationRunTerminal, beginPlanning (+24 more)
 
 ### Community 200 - "nano_attach_sheet.dart"
-Cohesion: 0.03
-Nodes (57): main, prevOnError, main, prevOnError, main, main, main, main (+49 more)
+Cohesion: 0.05
+Nodes (45): package:nanoai/features/automation/domain/messaging_platform.dart, package:nanoai/features/automation/engine/business/actions/commercial_structured_action.dart, package:nanoai/features/automation/engine/business/business_facts.dart, package:nanoai/features/automation/engine/business/checkout/commercial_checkout_service.dart, package:nanoai/features/automation/engine/business/fact_selector.dart, package:nanoai/features/automation/engine/business/policy/commercial_action_policy_engine.dart, package:nanoai/features/automation/engine/business/policy/commercial_policy_tier.dart, package:nanoai/features/automation/engine/business/proposals/pdf_product_extractor.dart (+37 more)
 
 ### Community 201 - "candidate_ranker.dart"
-Cohesion: 0.04
-Nodes (52): candidate_action.dart, candidate_ranker.dart, candidate_selection.dart, candidate_selector.dart, candidate_set.dart, CandidateId, CandidateActionGenerator, CandidateConflict (+44 more)
+Cohesion: 0.06
+Nodes (32): candidate_ranker.dart, candidate_selection.dart, candidate_selector.dart, candidate_set.dart, ambiguityMargin, CandidateRanker, CandidateScore, _channelWeight (+24 more)
 
 ### Community 202 - "model_detail_bottom_sheet.dart"
 Cohesion: 0.06
-Nodes (21): UChar, DisplayOptions(), getCapitalization(), getDisplayLength(), getGrammaticalCase(), getNameStyle(), getNounClass(), getPluralCategory() (+13 more)
+Nodes (36): adoptInstead(), getAlias(), T, UBool, UErrorCode, isNull(), isValid(), LocalArray (+28 more)
 
 ### Community 203 - "agent_tool_dispatcher_test.dart"
-Cohesion: 0.05
-Nodes (46): ConstChar16Ptr, toUCharPtr(), CurrencyPluralInfo(), CurrencyPluralInfo::operator!=(), Hashtable, PluralRules, U_NAMESPACE_BEGIN, namespace number::impl() (+38 more)
+Cohesion: 0.04
+Nodes (49): Char16Ptr, ConstChar16Ptr, final(), U_NAMESPACE_BEGIN, toUCharPtr(), CurrencyPluralInfo(), CurrencyPluralInfo::operator!=(), Hashtable (+41 more)
 
 ### Community 204 - "nano_universal_input.dart"
 Cohesion: 0.05
@@ -1770,16 +1833,16 @@ Cohesion: 0.26
 Nodes (4): File, Map, String, MutableMap
 
 ### Community 206 - "rule_pipeline.dart"
-Cohesion: 0.05
-Nodes (36): contact_rate_limiter.dart, event_dedupe_store.dart, _admissionTail, _assignments, _dedupe, _dispatcher, _dispatchOne, drain (+28 more)
+Cohesion: 0.03
+Nodes (60): contact_rate_limiter.dart, ../conversation/conversation_reply_composer.dart, event_dedupe_store.dart, ../language/pragmatic_fast_path.dart, automationResult, _composer, dispatch, dispatchedText (+52 more)
 
 ### Community 207 - "notification_draft_prompt.dart"
 Cohesion: 0.05
 Nodes (41): conversation_prompt_templates.dart, currentSender, currentText, factual, _isFactualSocialEntry, maxEntries, selectWindow, socialConversationWindow (+33 more)
 
 ### Community 208 - "action_verifier.dart"
-Cohesion: 0.05
-Nodes (43): dynamic_surface_store.dart, AssistedLearningResult, AssistedLearningService, learnUserSelection, message, rejected, _store, success (+35 more)
+Cohesion: 0.06
+Nodes (36): dynamic_surface_store.dart, AssistedLearningResult, AssistedLearningService, learnUserSelection, message, rejected, _store, success (+28 more)
 
 ### Community 209 - "object_memory.dart"
 Cohesion: 0.05
@@ -1794,12 +1857,13 @@ Cohesion: 0.06
 Nodes (30): authToken, BusinessSourceType, categoryColumn, copyWith, detailsColumn, duplicateCount, errorMessage, hasErrors (+22 more)
 
 ### Community 212 - "personal_agent_cards.dart"
-Cohesion: 0.09
-Nodes (21): ../../../core/services/inference_media_input.dart, ../domain/stream_lease.dart, _activeConnections, _activeGenerationId, _activeStream, beginGeneration, cancelCooperativo, cancelStreamFlush (+13 more)
+Cohesion: 0.06
+Nodes (31): ../../../../core/services/execution_budget.dart, ../../../core/services/inference_media_input.dart, ../../core/services/llm_engine_client.dart, ../domain/stream_lease.dart, ../domain/stream_sanitizer.dart, Duration? requestTimeout,
+  Duration, first, firstText (+23 more)
 
 ### Community 213 - "perception_mux_test.dart"
-Cohesion: 0.15
-Nodes (16): UiSelectorEvidence, PerceptionEvidenceSource, candidates, confidence, evidence, memoryEvidence, object, PerceptionAmbiguous (+8 more)
+Cohesion: 0.09
+Nodes (25): UiSelectorEvidence, PerceptionEvidenceSource, candidates, confidence, evidence, memoryEvidence, object, PerceptionAmbiguous (+17 more)
 
 ### Community 214 - "interactive_3d_turntable_box.dart"
 Cohesion: 0.05
@@ -1807,7 +1871,7 @@ Nodes (43): _angularVelocity, _animController, autoRotate, _borderWidth, build, 
 
 ### Community 215 - "governance_test.dart"
 Cohesion: 0.18
-Nodes (8): ActiveTask, Int, List, Service, String, NanoshellWorkerService, _Message, Thread
+Nodes (8): ActiveTask, Int, List, Service, String, NanoshellWorkerService, Message, Thread
 
 ### Community 216 - "navigation_history.dart"
 Cohesion: 0.06
@@ -1822,16 +1886,16 @@ Cohesion: 0.08
 Nodes (33): caseSensitive, content, conversationId, ConversationOpenEquals, enabled, evaluate, evaluateAllOf, evidence (+25 more)
 
 ### Community 219 - "burst_turn_gate.dart"
-Cohesion: 0.06
-Nodes (34): _Batch, _Bucket, _bucketKey, _byConversation, count, _deadlineTimer, defaultBurstGapMs, _dispatchedReply (+26 more)
+Cohesion: 0.04
+Nodes (45): burst_durability.dart, allows, NotificationMessageAdmission, _social, _Batch, _Bucket, _bucketKey, _byConversation (+37 more)
 
 ### Community 220 - "business_studio_screen.dart"
-Cohesion: 0.05
-Nodes (36): ENumberFormatSymbol, DecimalFormatSymbols::getLocale(), DecimalFormatSymbols::getSymbol(), DecimalFormatSymbols::setSymbol(), Locale, U_NAMESPACE_BEGIN, UnicodeString, UObject() (+28 more)
+Cohesion: 0.06
+Nodes (26): CharacterIterator, CollationElementIterator::isIgnorable(), CollationIterator, UBool, RuleBasedCollator, UCollationElements, UCollationPCE, UHashtable (+18 more)
 
 ### Community 221 - "conversation_reply_composer_test.dart"
-Cohesion: 0.07
-Nodes (31): bool selected, isSelectionMode,, business_3d_file_preview.dart, business_library_grid_actions.dart, ../../engine/business/business_document_library.dart, BusinessDocument, build, Business3dFilePreview, document (+23 more)
+Cohesion: 0.13
+Nodes (14): ../domain/personal_conversation_state.dart, ../domain/personal_memory.dart, _expiredByDueHint, _kind, load, merge, PersonalTurnStateAccess, _stateKey (+6 more)
 
 ### Community 222 - "NotificationAutomationService"
 Cohesion: 0.06
@@ -1843,15 +1907,15 @@ Nodes (36): _, accentAmber, accentBlue, accentGreen, activeAccent, activeGradien
 
 ### Community 224 - "system_graph.dart"
 Cohesion: 0.03
-Nodes (62): U_NAMESPACE_BEGIN, MeasureUnit(), DecimalQuantity, FormattedNumber(), FormattedNumber::toDecimalNumber(), StringClass, UErrorCode, SimpleDateFormat (+54 more)
+Nodes (65): U_NAMESPACE_BEGIN, MeasureUnit(), DecimalQuantity, FormattedNumber(), FormattedNumber::toDecimalNumber(), StringClass, UErrorCode, SimpleDateFormat (+57 more)
 
 ### Community 225 - "rule_dispatcher.dart"
-Cohesion: 0.02
-Nodes (118): agent_executor.dart, agent_result.dart, ActionVerifier, AgentVerifier, _checkOnce, _containsVisibleText, copyWith, _engine (+110 more)
+Cohesion: 0.07
+Nodes (27): ../../automation/engine/language/runtime_personal_live_context.dart, ../../automation/personal_agent/domain/personal_live_context.dart, _buildTurnSystem, _ChatInferenceContext, _ChatInferenceTools, _completedMessage, ../../../core/services/device_info.dart, ../../../core/services/personal_language_policy.dart (+19 more)
 
 ### Community 226 - "automation_goal.dart"
-Cohesion: 0.06
-Nodes (32): ../../../engine/orchestration/execution_journal.dart, Gradient, ExecutionJournalEntry, AutomationVisualPalette, AutomationDiscoverTile, badgeGradient, build, _buildMetallicBadge (+24 more)
+Cohesion: 0.08
+Nodes (26): BurstDurability, BurstShadowStore, conversationId, db, discard, _enqueueMutation, firstSeenAt, fromJson (+18 more)
 
 ### Community 227 - "conversation_key.dart"
 Cohesion: 0.06
@@ -1871,19 +1935,19 @@ Nodes (31): AccessibilityPerceptionSource, ObjectMemoryPerceptionSource, OcrPerc
 
 ### Community 231 - "desktop_stream_chrome.dart"
 Cohesion: 0.07
-Nodes (25): _, ChatMessage, ChatTurnRouteResult, completed, isHandled, isPaused, message, notHandled (+17 more)
+Nodes (30): auth_credentials_helper.dart, ../data/google_account_repository.dart, ../../domain/auth_user.dart, google_auth_adapter.dart, google_sign_in_identity_provider.dart, AuthRepository, authStateChanges, _authStateController (+22 more)
 
 ### Community 232 - "nano_transitions.dart"
-Cohesion: 0.07
-Nodes (29): _BrowserWindowActions, _instanceKeyFor, _mutate, _openOptionsMenu, _selectTab, _setMode, _toggleAll, _toggleMaximize (+21 more)
+Cohesion: 0.03
+Nodes (71): _BrowserWindowActions, _closeTab, _instanceKeyFor, _mutate, _onUrlSubmit, _openOptionsMenu, _reconcileTabs, _selectTab (+63 more)
 
 ### Community 233 - "liquid_fluid_background.dart"
-Cohesion: 0.10
-Nodes (19): bytes, caption, copyWith, errorMessage, fileName, filePath, isConnected, lastActive (+11 more)
+Cohesion: 0.11
+Nodes (18): bytes, caption, copyWith, errorMessage, fileName, filePath, isConnected, lastActive (+10 more)
 
 ### Community 234 - "fact_selector.dart"
 Cohesion: 0.05
-Nodes (38): business_conversation_models.dart, ../business_facts.dart, business_intent_analyzer.dart, business_intent_patterns.dart, business_product_matcher.dart, business_product_reply.dart, business_profile_policy.dart, business_reply_phrases.dart (+30 more)
+Nodes (38): ../business_conversation_models.dart, ../business_facts.dart, business_intent_analyzer.dart, business_intent_patterns.dart, business_product_matcher.dart, business_product_reply.dart, business_profile_policy.dart, business_reply_phrases.dart (+30 more)
 
 ### Community 235 - "int get"
 Cohesion: 0.08
@@ -1915,19 +1979,19 @@ Nodes (29): bounds, checked, clickable, confidence, copyWith, description, displ
 
 ### Community 242 - "surface_resolvers.dart"
 Cohesion: 0.06
-Nodes (34): SurfaceAutoHealer, ActionSurfaceResolver, _editables, _elementKindFor, EntityActionSurfaceResolver, EntityInputSurfaceResolver, globalSurfaceAutoHealer, _healer (+26 more)
+Nodes (32): ActionSurfaceResolver, _editables, _elementKindFor, EntityActionSurfaceResolver, EntityInputSurfaceResolver, globalSurfaceAutoHealer, _healer, _identities (+24 more)
 
 ### Community 243 - "agent_executor.dart"
 Cohesion: 0.07
-Nodes (29): allCategory, BusinessDocumentLibrary, BusinessFolderInfo, category, createFolder, defaultCategories, delete, deleteFolder (+21 more)
+Nodes (27): business_document_models.dart, business_document_paths.dart, business_folder_library.dart, allCategory, BusinessDocumentLibrary, createFolder, defaultCategories, delete (+19 more)
 
 ### Community 244 - "notification_draft_writer.dart"
 Cohesion: 0.03
 Nodes (80): activityGeneralCandidates, activityGoingCandidates, activityGreetingCandidates, activityGreetingWithWellbeingCandidates, activityPlansCandidates, activityWithWellbeingCandidates, availabilityCandidates, callCandidates (+72 more)
 
 ### Community 245 - "engine_supervisor.dart"
-Cohesion: 0.07
-Nodes (27): _closeTab, _reconcileTabs, browserWebViewRegistryProvider, BrowserFocusedWindow, build, BrowserWebViewLifecycleHandler, currentZoom, identity (+19 more)
+Cohesion: 0.03
+Nodes (64): bool isDesktopMode, isDarkModeWeb,, BuildContext, context, controller, currentZoom, handleAction, isDarkModeWeb, isDesktopMode (+56 more)
 
 ### Community 246 - "agent_console_section.dart"
 Cohesion: 0.07
@@ -1943,7 +2007,7 @@ Nodes (27): _activeWindow, _buildScreenSignature, classificationEvidence, confid
 
 ### Community 249 - "persona_import.dart"
 Cohesion: 0.06
-Nodes (38): accepted, _addExampleCandidate, _addMessage, at, _author, candidates, _csv, example (+30 more)
+Nodes (39): accepted, _addExampleCandidate, _addMessage, at, _author, candidates, _csv, example (+31 more)
 
 ### Community 250 - "DevicePermissionsChannelHandler"
 Cohesion: 0.07
@@ -1955,11 +2019,11 @@ Nodes (16): Any, Map, MethodCall, MethodChannel, String, SystemInventoryChannelH
 
 ### Community 252 - "conversation_mirror.dart"
 Cohesion: 0.07
-Nodes (28): currentGraph, agentExecutorProvider, AgentConsoleSection, _AgentConsoleSectionState, build, _busy, _candidates, colors (+20 more)
+Nodes (26): _bounded, confidence, createdAt, currentTopic, description, dueHint, fromJson, id (+18 more)
 
 ### Community 253 - "rule_registry.dart"
-Cohesion: 0.06
-Nodes (35): match, RuleEngine, _specificity, add, flush, isWhatsAppRuleActive, load, _loaded (+27 more)
+Cohesion: 0.05
+Nodes (41): fromMap, fromNotification, NotificationEventAdapter, match, RuleEngine, _specificity, add, flush (+33 more)
 
 ### Community 254 - "trigger.dart"
 Cohesion: 0.08
@@ -1967,7 +2031,7 @@ Nodes (31): BatteryEvent, BatteryTrigger, belowPercent, ConnectivityEvent, Conne
 
 ### Community 255 - "edge_dev_section.dart"
 Cohesion: 0.05
-Nodes (49): ../engine/skills/skill.dart, ../engine/skills/verified_skill.dart, conversationMemoryStoreProvider, skillStoreProvider, _approve, _approved, _approvedTile, build (+41 more)
+Nodes (47): ../engine/skills/skill.dart, ../engine/skills/verified_skill.dart, skillStoreProvider, _approve, _approved, _approvedTile, build, createState (+39 more)
 
 ### Community 256 - "agent_loop.dart"
 Cohesion: 0.05
@@ -1975,71 +2039,71 @@ Nodes (39): affectedRows, author, columnCount, columns, columnTypes, companyName
 
 ### Community 257 - "automation_model_resolver.dart"
 Cohesion: 0.06
-Nodes (37): ../../domain/account_exceptions.dart, ../domain/billing_product.dart, ../domain/subscription_repository.dart, copyWith, dispose, errorMessage, _init, isLoading (+29 more)
+Nodes (34): ../domain/billing_product.dart, ../domain/subscription_repository.dart, copyWith, dispose, errorMessage, _init, isLoading, manage (+26 more)
 
 ### Community 258 - "tone_profile.dart"
 Cohesion: 0.06
 Nodes (32): bounds, capture, captured, confidence, error, failure, height, image (+24 more)
 
 ### Community 259 - "action_governance_pipeline.dart"
-Cohesion: 0.04
-Nodes (62): intent_firewall.dart, intent_spec.dart, broker, critic, firewall, govern, GovernanceApproved, GovernanceClarification (+54 more)
+Cohesion: 0.06
+Nodes (41): intent_firewall.dart, intent_spec.dart, broker, critic, firewall, govern, GovernanceApproved, GovernanceClarification (+33 more)
 
 ### Community 260 - "DateTime?"
-Cohesion: 0.01
-Nodes (199): ../../../account/application/account_providers.dart, ../../../account/domain/account_profile.dart, ../../../account/domain/auth_user.dart, account_kpi_section.dart, ../../../account/presentation/widgets/nano_support_banner.dart, ../../application/account_providers.dart, ../controllers/profile_editor_draft.dart, ../controllers/profile_media_picker.dart (+191 more)
+Cohesion: 0.02
+Nodes (81): bool isDark,, _, accentColor, _AiInjectTile, attachment, _AttachSheet, build, color (+73 more)
 
 ### Community 261 - "pending_reply.dart"
 Cohesion: 0.07
 Nodes (26): actionIndex, canTransitionTo, contextFingerprint, conversationId, copyWith, createdAt, draftText, expiresAt (+18 more)
 
 ### Community 262 - "vision_contracts.dart"
-Cohesion: 0.06
-Nodes (34): Iterable, _credentialPrefix, credentialRefFor, _credentials, credentialToken, delete, descriptor, FlutterSecureMcpCredentialStore (+26 more)
+Cohesion: 0.08
+Nodes (25): FlutterSecureStorage, _credentialPrefix, credentialRefFor, _credentials, credentialToken, delete, descriptor, FlutterSecureMcpCredentialStore (+17 more)
 
 ### Community 263 - "installed_app_catalog.dart"
-Cohesion: 0.06
-Nodes (29): distributions/kali_distribution.dart, distributions/termux_distribution.dart, distributions/ubuntu_distribution.dart, architecture, _cachedInstalled, defaultShell, expectedSha256, getInfo (+21 more)
+Cohesion: 0.07
+Nodes (28): distributions/kali_distribution.dart, distributions/termux_distribution.dart, distributions/ubuntu_distribution.dart, architecture, _cachedInstalled, defaultShell, expectedSha256, getInfo (+20 more)
 
 ### Community 264 - "engine_status_card.dart"
-Cohesion: 0.07
-Nodes (29): Client, http_mcp_parser.dart, http_mcp_tool_caller.dart, callTool, connect, credentialToken, descriptor, disconnect (+21 more)
+Cohesion: 0.05
+Nodes (43): annotations, arguments, callTool, connect, content, credentialRef, description, descriptor (+35 more)
 
 ### Community 265 - "pragmatic_fast_path.dart"
-Cohesion: 0.04
-Nodes (42): agent_tool_dispatcher.dart, goal_verifier.dart, ../governance/action_confirmation.dart, ActionPathRouter, coordinates, ExecutionPath, label, path (+34 more)
+Cohesion: 0.03
+Nodes (69): action_path_router.dart, ../governance/action_confirmation.dart, ../governance/rule_execution_authority.dart, AgentToolPrompt, build, listNotifications, notificationKey, notificationText (+61 more)
 
 ### Community 266 - "conversation_reply_composer.dart"
 Cohesion: 0.08
 Nodes (23): appendConversationMessage, appendPipelineEvent, assignConversation, _channel, claimOccurrence, _failedWriteCount, instance, _isHealthy (+15 more)
 
 ### Community 267 - "perception_contracts.dart"
-Cohesion: 0.07
-Nodes (26): allowAccessibility, allowFullScreenVision, allowMemory, allowOcr, allowVision, confidence, expectedRole, maxAccessibilityReads (+18 more)
+Cohesion: 0.08
+Nodes (24): allowAccessibility, allowFullScreenVision, allowMemory, allowOcr, allowVision, confidence, expectedRole, maxAccessibilityReads (+16 more)
 
 ### Community 268 - "contact_rate_limiter.dart"
 Cohesion: 0.09
 Nodes (24): ContactRatePolicy get, allowReply, _attempts, ContactRateLimiter, ContactRatePolicy, _decodeAttempts, _doLoad, _encodeAttempts (+16 more)
 
 ### Community 269 - "huggingface_metadata_service.dart"
-Cohesion: 0.05
-Nodes (40): AppBootProfile, automationBenchmark, current, _fromEnv, skipsLinuxProvisioning, acquireSession, _closed, computeAdaptiveThreads (+32 more)
+Cohesion: 0.06
+Nodes (33): acquireSession, _closed, computeAdaptiveThreads, dispose, _engine, _eventChannel, fromInt, fromMap (+25 more)
 
 ### Community 270 - "system_intent_test.dart"
-Cohesion: 0.07
-Nodes (31): apiProviderChatServiceProvider, apiProviderSettingsStoreProvider, ApiProviderChatService, ApiProviderConfig, ApiProviderSettingsStore, _baseUrlController, build, _busy (+23 more)
+Cohesion: 0.03
+Nodes (61): agent_executor.dart, agent_result.dart, ActionExpectation, AgentExecutor, _api, _engine, NanoAgentExecutor, resolve (+53 more)
 
 ### Community 271 - "agent_types.dart"
 Cohesion: 0.08
 Nodes (25): _chatMl, generateTokens, MnnStreaming, execution_budget.dart, LLMStreamToken, cancel, dispose, _events (+17 more)
 
 ### Community 272 - "SpeechChannelHandler"
-Cohesion: 0.08
-Nodes (24): adoptInstead(), getAlias(), T, UBool, UErrorCode, isNull(), isValid(), LocalArray (+16 more)
+Cohesion: 0.20
+Nodes (8): DurableInbox, eventId(), InboxEvent, Boolean, Int, List, Long, String
 
 ### Community 273 - "koog.dart"
 Cohesion: 0.04
-Nodes (47): chrome_content_extractor.dart, citations, _createClient, extractFromChrome, _fetchDuckDuckGo, _fetchWikipediaSummary, found, providerName (+39 more)
+Nodes (50): ../../browser/web_content_formatter.dart, ../../browser/web_knowledge_service.dart, ../../../../core/services/device_metrics.dart, core/services/nano_runtime_api.dart, _decodeHtmlEntities, format, _formatHtml, _formatJsonList (+42 more)
 
 ### Community 274 - "verified_transition_memory.dart"
 Cohesion: 0.09
@@ -2054,28 +2118,28 @@ Cohesion: 0.10
 Nodes (20): allowClickableContainer, _applicationProfiles, ConversationSurfaceProfile, element, elements, _generic, GenericSurfaceProfile, id (+12 more)
 
 ### Community 277 - "deterministic_catalog.dart"
-Cohesion: 0.07
-Nodes (33): core/linux/linux_init.dart, core/providers/app_providers.dart, core/router/app_router.dart, core/services/boot_orchestrator.dart, core/theme/app_theme.dart, core/widgets/error/nano_error_widget_builder.dart, features/automation/application/automation_coordinator_provider.dart, features/automation/engine/scheduling/notification_event_router.dart (+25 more)
+Cohesion: 0.06
+Nodes (37): BaseAudioHandler, core/linux/linux_init.dart, core/providers/app_providers.dart, core/router/app_router.dart, core/services/boot_orchestrator.dart, core/theme/app_theme.dart, core/widgets/error/nano_error_widget_builder.dart, features/automation/application/automation_coordinator_provider.dart (+29 more)
 
 ### Community 278 - "draft_writer.dart"
-Cohesion: 0.04
-Nodes (61): State, FAILED, GENERATING, LOADING, READY, UNLOADED, UNLOADING, AutomaticKeepAliveClientMixin (+53 more)
+Cohesion: 0.03
+Nodes (88): State, FAILED, GENERATING, LOADING, READY, UNLOADED, UNLOADING, _ImportReview (+80 more)
 
 ### Community 279 - "c14_debug_benchmark_section.dart"
-Cohesion: 0.11
-Nodes (18): avatarUrl, browserAgentEnabled, cloudSyncEnabled, copyWith, displayName, email, fromJson, fromMap (+10 more)
+Cohesion: 0.07
+Nodes (28): business_store_media_view.dart, ../../../engine/business/business_product.dart, BusinessProduct, BusinessStoreProductActions, _extractAssetToTemp, formatProductCaption, shareProduct, _badge (+20 more)
 
 ### Community 280 - "c14_runner.dart"
-Cohesion: 0.13
-Nodes (14): business_validation_result.dart, BusinessFacts, BusinessFactsNotifier, BusinessResponseValidator, facts, _findProduct, validate, _validateAddToCart (+6 more)
+Cohesion: 0.15
+Nodes (12): commercial_policy_tier.dart, BusinessFacts, BusinessFactsNotifier, allowed, CommercialActionPolicyEngine, detectPromptInjection, evaluate, facts (+4 more)
 
 ### Community 281 - "capabilities_report.dart"
 Cohesion: 0.09
 Nodes (21): capability_availability.dart, apps, _availabilityState, b, binderAlive, buildCapabilitiesReport, _capabilityName, caps (+13 more)
 
 ### Community 282 - "automation_diagnostics.dart"
-Cohesion: 0.13
-Nodes (13): _, _, aliasesFor, AppAliasCatalog, knownPackages, _normalize, packageForAlias, _table (+5 more)
+Cohesion: 0.14
+Nodes (13): commitBody, draftText, _identity, matches, operation, prepare, result, snapshot (+5 more)
 
 ### Community 283 - "r0_regression_test.dart"
 Cohesion: 0.11
@@ -2090,21 +2154,20 @@ Cohesion: 0.09
 Nodes (22): activeApp, activeConversation, activePerson, clear, confidence, ConversationalWorldState, entity, evidence (+14 more)
 
 ### Community 286 - "device_permissions_section.dart"
-Cohesion: 0.07
-Nodes (28): business_store_media_view.dart, ../../../engine/business/business_product.dart, BusinessProduct, BusinessStoreProductActions, _extractAssetToTemp, formatProductCaption, shareProduct, _badge (+20 more)
+Cohesion: 0.08
+Nodes (22): MlKitVisionBackend, analyze, bounds, boundsSpace, confidence, CoordinateSpace, expectedRole, image (+14 more)
 
 ### Community 287 - "gen_owl_sounds.dart"
-Cohesion: 0.09
-Nodes (22): required double peak,
-  double, ascii, attackMs, bytes, data, dir, _easeInCubic, _easeOutCubic (+14 more)
+Cohesion: 0.05
+Nodes (40): agent_types.dart, candidates/candidate_action.dart, candidates/candidate_generator.dart, candidates/candidate_provider.dart, candidates/candidate_selection.dart, candidates/candidate_selection_engine.dart, candidates/candidate_selector.dart, candidates/candidate_tool_call_adapter.dart (+32 more)
 
 ### Community 288 - "LanguageAssistChannelHandler"
 Cohesion: 0.20
 Nodes (11): Any, Int, java, Map, MethodCall, MethodChannel, String, T (+3 more)
 
 ### Community 289 - "situation_diff.dart"
-Cohesion: 0.02
-Nodes (88): ../agent_console_section.dart, automation_dev_screen.dart, ../automation_layout.dart, automation_rules_screen.dart, BackdropFilter, ../bot_studio/bot_studio_screen.dart, ../business/nano_business_screen.dart, ../../../../core/theme/nano_transitions.dart (+80 more)
+Cohesion: 0.07
+Nodes (27): ToolRisk, ActionChannel, ActionEvidence, ActionEvidenceSource, args, candidatePayloadKey, channel, confidence (+19 more)
 
 ### Community 290 - "incoming_message.dart"
 Cohesion: 0.07
@@ -2119,20 +2182,20 @@ Cohesion: 0.20
 Nodes (4): DesktopSessionManager, Int, Long, Canvas
 
 ### Community 293 - "automation_model.dart"
-Cohesion: 0.07
-Nodes (36): _onUrlSubmit, _openInFloatingWindow, browserHistoryProvider, browserPipProvider, browserTabProvider, _handleBack, BrowserHistoryBookmarksDialog, _BrowserHistoryBookmarksDialogState (+28 more)
+Cohesion: 0.09
+Nodes (22): AppCapability, AppCapabilityRegistry, AppCapabilityType, AppMaturityLevel, AppProfile, _buildDiscoveredProfile, buildUri, capabilities (+14 more)
 
 ### Community 294 - "task_orchestrator_test.dart"
-Cohesion: 0.04
-Nodes (53): BorderSide?, EdgeInsetsGeometry, border, borderRadius, build, child, NanoMetalFxContainer, padding (+45 more)
+Cohesion: 0.12
+Nodes (15): ../domain/model_storage_repository.dart, hasAllFilesAccess, _lastAllScanAt, _lastSafScanAt, ModelsScanCoordinator, openFd, persistedTree, pickTree (+7 more)
 
 ### Community 295 - "c14_benchmark.dart"
-Cohesion: 0.09
-Nodes (22): catalog_models.dart, ../../core/services/kali_manager.dart, ../../core/services/proc_fs.dart, dart:io, candidate, isRunnableModelPath, DashboardPlugin, register (+14 more)
+Cohesion: 0.07
+Nodes (26): ../../core/services/kali_manager.dart, ../../core/services/proc_fs.dart, DashboardPlugin, register, DevOpsPlugin, register, MonitorPlugin, register (+18 more)
 
 ### Community 296 - "personal_memory.dart"
-Cohesion: 0.08
-Nodes (25): copyWith, emojis, enabled, fromJson, load, businessToneProfileStoreProvider, _load, _loading (+17 more)
+Cohesion: 0.11
+Nodes (17): copyWith, emojis, enabled, fromJson, load, ToneProfileNotifier, renderBlock, sales (+9 more)
 
 ### Community 297 - "automation_feedback_presenter.dart"
 Cohesion: 0.10
@@ -2144,11 +2207,11 @@ Nodes (25): close, _closed, _closeSync, _done, _id, _inFlight, isClosed, _lastAl
 
 ### Community 299 - "nano_selector.dart"
 Cohesion: 0.08
-Nodes (26): Alignment, alignment, _animationAllowed, _animationTimer, _appVisible, _atmospherePhase, build, _CloudLayer (+18 more)
+Nodes (25): Alignment, alignment, _animationAllowed, _animationTimer, _appVisible, _atmospherePhase, build, _CloudLayer (+17 more)
 
 ### Community 300 - "NanoshellWorkerService"
 Cohesion: 0.04
-Nodes (58): @immutable, NanoCodeArtifact, NanoContextProvenance, NanoContextRecord, NanoUnifiedContext, NanoNavTokens, arguments, command (+50 more)
+Nodes (48): @immutable, NanoCodeArtifact, NanoContextProvenance, NanoContextRecord, NanoUnifiedContext, NanoNavTokens, arguments, command (+40 more)
 
 ### Community 301 - "Manual Oficial de Automatización con WhatsApp — Nano AI"
 Cohesion: 0.06
@@ -2167,8 +2230,8 @@ Cohesion: 0.10
 Nodes (19): actionTarget, app, _clean, _cleanPayload, fieldTarget, GenericSearchIntent, GenericUiComposeIntent, GenericUiFillIntent (+11 more)
 
 ### Community 305 - "persona_validator.dart"
-Cohesion: 0.08
-Nodes (24): BorderRadius, BoxFit, borderRadius, build, _buildFallback, BusinessStoreMediaView, fit, height (+16 more)
+Cohesion: 0.09
+Nodes (23): BoxFit, borderRadius, build, _buildFallback, BusinessStoreMediaView, _BusinessStoreMediaViewState, createState, _depthController (+15 more)
 
 ### Community 306 - "device_actions_test.dart"
 Cohesion: 0.03
@@ -2183,16 +2246,16 @@ Cohesion: 0.08
 Nodes (22): address, addressKey, AgentConversationScope, agentId, appPackage, business, channel, channelAccountId (+14 more)
 
 ### Community 310 - "notification_event_router.dart"
-Cohesion: 0.08
-Nodes (22): browser_ai_provider_registry.dart, browser_ai_session_manager.dart, browser_ai_synchronizer.dart, ../domain/browser_ai_query.dart, ../domain/browser_ai_sanitizer.dart, listProviders, openProviderTab, query (+14 more)
+Cohesion: 0.12
+Nodes (16): browser_ai_provider_registry.dart, browser_ai_session_manager.dart, browser_ai_synchronizer.dart, ../domain/browser_ai_query.dart, ../domain/browser_ai_sanitizer.dart, listProviders, openProviderTab, query (+8 more)
 
 ### Community 311 - "conversation_decision.dart"
-Cohesion: 0.09
-Nodes (21): conversation_autonomy_mode.dart, ConversationAgentRole, action, agentId, agentRole, autonomyMode, autoSend, confidence (+13 more)
+Cohesion: 0.10
+Nodes (20): conversation_autonomy_mode.dart, ConversationAgentRole, action, agentId, agentRole, autonomyMode, autoSend, confidence (+12 more)
 
 ### Community 312 - "skill_dev_section.dart"
-Cohesion: 0.04
-Nodes (56): ../../application/browser_credential_notifier.dart, browser_site_theme.dart, browser_webview_overlays.dart, browser_webview_surface.dart, browser_window_card_frame.dart, BrowserWebViewRegistry get, _clearCredentialPrompt, _currentScale (+48 more)
+Cohesion: 0.03
+Nodes (62): ../../application/browser_credential_notifier.dart, browser_oauth_popup_layer.dart, browser_site_theme.dart, browser_webview_overlays.dart, browser_webview_surface.dart, browser_window_card_frame.dart, BrowserWebViewRegistry get, _clearCredentialPrompt (+54 more)
 
 ### Community 313 - "nano_recorder.dart"
 Cohesion: 0.11
@@ -2204,23 +2267,23 @@ Nodes (22): action, copyWith, createdAt, createdByUser, dynamicReply, enabled, f
 
 ### Community 315 - "linux_tool_adapter.dart"
 Cohesion: 0.03
-Nodes (63): _AutomationRulesActions, _buildOutcomeChip, _buildSections, contact, _ContactLabel, controller, _createRule, dangerColor (+55 more)
+Nodes (72): _AutomationRulesActions, _buildOutcomeChip, _buildSections, _confirmDelete, contact, _ContactLabel, controller, _createRule (+64 more)
 
 ### Community 316 - "conversation_decision_engine.dart"
 Cohesion: 0.06
 Nodes (37): admitsUnknownFact, affirmsActivity, _ConversationReview, _finishConversationDecision, isLocationQuestion, isReciprocal, isSocialAcknowledge, matches (+29 more)
 
 ### Community 317 - "linux_voice_command_parser.dart"
-Cohesion: 0.01
-Nodes (165): bool fullBleed,, bool isDark,, conversation_video_sheet.dart, conversation_web_sheet.dart, dart:ui, double keyboardInset,, floating_video_overlay.dart, google_account_dialog.dart (+157 more)
+Cohesion: 0.08
+Nodes (23): build, emailController, language, onLanguageChanged, ProfileContactFields, addressController, build, ProfileLocationFields (+15 more)
 
 ### Community 318 - "rule_execution_authority.dart"
-Cohesion: 0.10
-Nodes (20): actionSignature, bytes, canonical, canonicalFingerprint, confirmationId, _consumed, consumeIfAuthorizes, convert (+12 more)
+Cohesion: 0.09
+Nodes (22): accessibilityActive, activeTier, adbActive, canCaptureScreenshot, canCaptureWindow, _checkAccessibilityActive, _checkAdbActive, _checkShizukuActive (+14 more)
 
 ### Community 319 - "actionability_engine.dart"
-Cohesion: 0.06
-Nodes (37): data_statistics_service.dart, distribution, _empty, _heading, _number, PdfChartSections, _percent, trend (+29 more)
+Cohesion: 0.05
+Nodes (42): _, data_statistics_service.dart, buildPdfBytes, exportMarkdown, exportReport, PdfReportService, distribution, _empty (+34 more)
 
 ### Community 320 - "trigger_parser.dart"
 Cohesion: 0.08
@@ -2235,12 +2298,12 @@ Cohesion: 0.07
 Nodes (29): audioExts, audios, _cleanMatchedUrl, cleanText, docExts, _has, hasMedia, imageExts (+21 more)
 
 ### Community 323 - "model_source_registry.dart"
-Cohesion: 0.15
-Nodes (12): definitionFor, ModelSourceRegistry, registry, registry/deepseek_source_definitions.dart, registry/edge_other_definitions.dart, registry/mobile_litert_definitions.dart, registry/model_source_definition.dart, registry/qwen_compact_definitions.dart (+4 more)
+Cohesion: 0.06
+Nodes (32): build, _buildFloatingZoomControls, _buildLayerSelector, _buildPillContent, _buildWindowContent, _buildWindowHeader, _controller, _createSettings (+24 more)
 
 ### Community 324 - "nano_flow.dart"
-Cohesion: 0.07
-Nodes (27): conversation_search.dart, _buildPrompt, conversationId, ConversationMirror, conversationMirrorProvider, ConversationSummary, _data, _deterministicSummary (+19 more)
+Cohesion: 0.08
+Nodes (23): _blockedInternalPorts, _blockedSchemes, BrowserSecurityFirewall, code, createWebViewSettings, defaultWebViewSettings, evaluatePopupUri, evaluateUri (+15 more)
 
 ### Community 325 - "business_facts_providers.dart"
 Cohesion: 0.10
@@ -2251,8 +2314,8 @@ Cohesion: 0.12
 Nodes (16): automationSemanticPolicy, inputs, irreversible, kAutomationSemanticPolicies, kTaskSemanticActionNames, rebuildOnResume, replayPolicy, RequiredEvidence (+8 more)
 
 ### Community 327 - "notification_executor_test.dart"
-Cohesion: 0.11
-Nodes (19): ../../domain/whatsapp_media_payload.dart, ../../engine/web_bridge/whatsapp_web_bridge_controller.dart, ../../engine/web_bridge/whatsapp_web_js_bridge.dart, WhatsAppWebSessionInfo, build, WhatsAppWebBridgeCard, build, _buildActionChips (+11 more)
+Cohesion: 0.03
+Nodes (45): UChar, DisplayOptions(), getCapitalization(), getDisplayLength(), getGrammaticalCase(), getNameStyle(), getNounClass(), getPluralCategory() (+37 more)
 
 ### Community 328 - ".claimInbox"
 Cohesion: 0.07
@@ -2267,20 +2330,20 @@ Cohesion: 0.15
 Nodes (11): BroadcastReceiver, Bundle, Context, RemoteInputFixtureInstrumentation, DeviceMetricsProvider, Any, Double, Map (+3 more)
 
 ### Community 331 - "nano_system_api.dart"
-Cohesion: 0.08
-Nodes (25): activeTabId, BrowserPipMode, copyWith, isActive, isCompact, isMaximized, isPlaying, isSystemPip (+17 more)
+Cohesion: 0.05
+Nodes (39): dart:collection, BrowserPipNotifier, activeTabId, BrowserPipMode, BrowserPipState, copyWith, isActive, isCompact (+31 more)
 
 ### Community 332 - "system_models.dart"
-Cohesion: 0.03
-Nodes (73): ../../application/notification_history_client.dart, ../../engine/messaging/conversation_agent.dart, ../../engine/messaging/conversation_group_resolver.dart, ../../engine/messaging/conversation_hub_providers.dart, ../../engine/messaging/conversation_key.dart, ../../engine/platform/notification_dismiss_client.dart, _channel, conversations (+65 more)
+Cohesion: 0.06
+Nodes (31): ../../application/notification_history_client.dart, _channel, conversations, messages, NotificationHistoryClient, cleanName, convId, historyId (+23 more)
 
 ### Community 333 - "INFORME del módulo de Automatización"
 Cohesion: 0.12
 Nodes (15): 1. ¿Qué es el módulo?, 2.1 `presentation/screens/automation_screen.dart` — Pantalla "Automatización", 2.2 `presentation/agent_console_section.dart` — Consola del agente de UI, 2.3 `presentation/notification_automation_section.dart` — Auto. de notificaciones, 2.4 `presentation/widgets/c14_debug_benchmark_section.dart` — Benchmark (solo kDebugMode), 2. Capa de presentación (UI), 3.1 `application/automation_engine.dart` — API PÚBLICA (facade), 3.2 `application/automation_coordinator.dart` — la implementación (orquesta el ciclo) (+7 more)
 
 ### Community 334 - "settings_tile_components.dart"
-Cohesion: 0.10
-Nodes (22): automation_model_resolver.dart, cold_start_retry.dart, app, AutomationDraftWriter, _buildPrompt, _client, conversation, DraftGenerated (+14 more)
+Cohesion: 0.06
+Nodes (39): automation_model.dart, automation_model_resolver.dart, CandidateSelector, cold_start_retry.dart, AutomationModelRole, _acceptNonEmptyPath, AutomationModelResolution, AutomationModelResolver (+31 more)
 
 ### Community 335 - "NotificationAutomationChannelHandler"
 Cohesion: 0.18
@@ -2291,23 +2354,20 @@ Cohesion: 0.29
 Nodes (6): Holder, AUTOMATION, UI, Boolean, File, RuntimeScope
 
 ### Community 337 - "model_metadata_providers.dart"
-Cohesion: 0.13
-Nodes (13): agent_role.dart, ../governance/intent_spec.dart, AgentRole, AgentContext, AgentMessage, AgentResult, from, goal (+5 more)
+Cohesion: 0.03
+Nodes (70): _bluetoothOpenFlow, _closeTabFlow, _deterministicEntries0, _deterministicEntries1, _listFilesFlow, _listFilesTerms, _newTabFlow, _notificationReadFlow (+62 more)
 
 ### Community 338 - "intent_firewall.dart"
-Cohesion: 0.06
-Nodes (27): bool get, checkout,         
-  paymentPending,   
-  paymentConfirmed, 
-  fulfilled,, escalatedHuman, isCheckout, isCompleted, isShopping, eligibleForSocialPrompt, isComplex (+19 more)
+Cohesion: 0.09
+Nodes (22): _, _blockedSchemes, BrowserNavigationPolicy, classifyUri, _customSchemePattern, _emailSchemes, extractOrigin, _internalWebSchemes (+14 more)
 
 ### Community 339 - "messaging_package.dart"
 Cohesion: 0.09
 Nodes (21): androidMms, discord, facebook, facebookLite, gmail, googleMessages, instagram, isKnownMessagingPackage (+13 more)
 
 ### Community 340 - "linux_execution_backend.dart"
-Cohesion: 0.10
-Nodes (19): MemoryConversationMemoryStore, _MemoryCore, _MemoryCoreHydration, SharedPrefsConversationMemoryStore, SqliteConversationMemoryStore, conversation_memory_models.dart, addUnresolvedObligation, appendInbound (+11 more)
+Cohesion: 0.07
+Nodes (28): currentGraph, agentExecutorProvider, AgentConsoleSection, _AgentConsoleSectionState, build, _busy, _candidates, colors (+20 more)
 
 ### Community 341 - "turn_complexity_classifier.dart"
 Cohesion: 0.10
@@ -2322,40 +2382,42 @@ Cohesion: 0.08
 Nodes (24): amp, _Blob, build, color, colors, _controller, createState, dispose (+16 more)
 
 ### Community 344 - "class"
-Cohesion: 0.06
-Nodes (33): dialog_container_shell.dart, build, BusinessNameEditDialog, _BusinessNameEditDialogState, _controller, createState, dispose, initial (+25 more)
+Cohesion: 0.10
+Nodes (20): build, _category, createState, _details, dispose, _error, _imagePath, initial (+12 more)
 
 ### Community 345 - "relationship_register.dart"
 Cohesion: 0.02
-Nodes (111): ../browser_ai_dom_adapter.dart, browser_ai_response.dart, ../../domain/browser_ai_provider.dart, ../../domain/browser_ai_response.dart, BrowserAiProvider, canHandle, countMessages, defaultUrl (+103 more)
+Nodes (138): auto,
+  needsConfirmation,
+  needsHuman,, ../browser_ai_dom_adapter.dart, browser_ai_response.dart, ../../domain/browser_ai_provider.dart, ../../domain/browser_ai_response.dart, blocked, label, BrowserAiProvider (+130 more)
 
 ### Community 346 - "automation_trace.dart"
-Cohesion: 0.03
-Nodes (64): AgentCallerRole, allowedExecutionModes, allowedRoles, allowsMode, allowsRole, approvalPolicy, category, defaultTimeout (+56 more)
+Cohesion: 0.06
+Nodes (34): allowedExecutionModes, allowedRoles, allowsMode, allowsRole, approvalPolicy, category, defaultTimeout, description (+26 more)
 
 ### Community 347 - "conversation_ownership_store.dart"
-Cohesion: 0.13
-Nodes (15): ../domain/conversation_owner.dart, ../../engine/messaging/conversation_identity_model.dart, ../../engine/storage/automation_db_store_client.dart, _byConversation, ConversationOwnershipStore, load, _loading, ownershipFor (+7 more)
+Cohesion: 0.09
+Nodes (21): conversation_ownership_store.dart, ../../engine/messaging/conversation_identity_model.dart, ../../engine/messaging/conversation_identity_resolver.dart, _addJidKeys, _addPhoneLike, _addTelUri, _conversationContactKeys, ConversationOwnershipPolicy (+13 more)
 
 ### Community 348 - "nano_breakpoint.dart"
 Cohesion: 0.04
-Nodes (49): ../../../../core/widgets/nano_optical_surface.dart, ../../domain/mobile_hardware_benchmark.dart, AccountVipHeader, build, email, initials, name, onCopied (+41 more)
+Nodes (51): ../../../../core/widgets/nano_optical_surface.dart, ../../domain/mobile_hardware_benchmark.dart, AccountVipHeader, build, email, initials, name, onCopied (+43 more)
 
 ### Community 349 - "visual_resource_policy.dart"
 Cohesion: 0.15
 Nodes (13): _lastKnownRamMb, _loadedModels, markFailed, markLoaded, markLoading, maxSimultaneousModels, mayLoad, _minAvailableRamMb (+5 more)
 
 ### Community 350 - "persona_example.dart"
-Cohesion: 0.06
-Nodes (31): automation_trace.dart, int get, copyWith, EnginePhase, hashCode, isLive, modelPath, operator (+23 more)
+Cohesion: 0.08
+Nodes (25): database_category_chart.dart, database_series_chart.dart, database_stat_cards.dart, ../../domain/data_statistics.dart, DataStatisticsSnapshot, AnimatedCategoryChart, _bar, build (+17 more)
 
 ### Community 351 - "AutomationRuntimeService"
-Cohesion: 0.13
-Nodes (12): AutomationRuntimeChannels, dev, AutomationRuntimeService, Context, FlutterEngine, IBinder, Int, Intent (+4 more)
+Cohesion: 0.08
+Nodes (20): AutomationRuntimeChannels, dev, AutomationRuntimeControl, Any, Int, List, Map, MethodCall (+12 more)
 
 ### Community 352 - "pre_action_critic.dart"
 Cohesion: 0.06
-Nodes (33): U_NAMESPACE_BEGIN, ParsePosition::operator==(), UObject(), ULocaleData, U_COMMON_API, TransliterationRuleData, U_COMMON_API, UnicodeReplacer (+25 more)
+Nodes (32): U_NAMESPACE_BEGIN, ParsePosition::operator==(), UObject(), U_COMMON_API, TransliterationRuleData, U_COMMON_API, UnicodeReplacer, UnicodeSet (+24 more)
 
 ### Community 353 - "c14_preflight.dart"
 Cohesion: 0.06
@@ -2370,12 +2432,12 @@ Cohesion: 0.07
 Nodes (27): actionTaken, _activeTask, clear, completedSteps, CompletedTaskStep, completeTask, currentApp, currentWindow (+19 more)
 
 ### Community 356 - "automation_headless_runner.dart"
-Cohesion: 0.07
-Nodes (26): analyze, MlKitVisionBackend, perceive, snapshot, analyze, bounds, boundsSpace, confidence (+18 more)
+Cohesion: 0.05
+Nodes (35): ../../engine/messaging/canonical_message.dart, ../../engine/messaging/canonical_message_store.dart, ../../engine/messaging/conversation_group_resolver.dart, ../../engine/web_bridge/whatsapp_web_message_filter.dart, areSameConversation, deduplicateAndSort, extractPhoneDigits, _isSpurious (+27 more)
 
 ### Community 357 - "buho_wallpaper.dart"
-Cohesion: 0.11
-Nodes (19): accent, accentColor, AutomationGlass360, _AutomationGlass360State, borderRadius, build, child, createState (+11 more)
+Cohesion: 0.06
+Nodes (27): dart:convert, AgentToolProtocol, extractToolCall, extractToolCalls, _field, _findBalanced, jsonDecodeTolerant, _parseToolObject (+19 more)
 
 ### Community 358 - "widget_test.dart"
 Cohesion: 0.06
@@ -2386,8 +2448,8 @@ Cohesion: 0.08
 Nodes (25): append, argumentsHash, callerRole, conversationId, correlationId, evidence, executionId, executionStatus (+17 more)
 
 ### Community 360 - "model_metadata_repository_impl.dart"
-Cohesion: 0.09
-Nodes (21): ../../../../core/models/catalog_models.dart, ../data/mnn_omni_package.dart, ../data/model_downloader.dart, cancel, dispose, _downloader, DownloadUpdateCallback, _isCancelled (+13 more)
+Cohesion: 0.04
+Nodes (54): await, _recordStyleLearning, businessToneProfileStoreProvider, _load, _loading, ready, _store, toneProfileNotifierProvider (+46 more)
 
 ### Community 361 - "automation_policy.dart"
 Cohesion: 0.05
@@ -2398,8 +2460,8 @@ Cohesion: 0.09
 Nodes (23): audioPathOrUrl, build, createState, _currentSeconds, _cycleSpeed, dispose, _formatTime, _initRealDuration (+15 more)
 
 ### Community 363 - "time_tick_scheduler.dart"
-Cohesion: 0.08
-Nodes (30): GlassSurface, _GlassSurfaceState, active, AnimatedActiveBorder, _AnimatedActiveBorderState, AnimatedMessageEntry, borderRadius, build (+22 more)
+Cohesion: 0.05
+Nodes (37): browser_media_transfer_reader.dart, browser_system_pip_bridge.dart, _, ../domain/browser_pip_model.dart, _browserChannel, _emitLog, handlePermissionRequest, initializeForWebView (+29 more)
 
 ### Community 364 - "whatsapp_integration_cards.dart"
 Cohesion: 0.17
@@ -2434,12 +2496,12 @@ Cohesion: 0.09
 Nodes (22): conversational_intent_catalog.dart, intent_prediction.dart, ambiguityMargin, classify, _classifyClause, ConversationalIntentClassifier, _isCorrection, _isEllipticalOrContextual (+14 more)
 
 ### Community 370 - "messaging_metrics.dart"
-Cohesion: 0.09
-Nodes (22): accessibilityActive, activeTier, adbActive, canCaptureScreenshot, canCaptureWindow, _checkAccessibilityActive, _checkAdbActive, _checkShizukuActive (+14 more)
+Cohesion: 0.07
+Nodes (28): chrome_content_extractor.dart, citations, _createClient, extractFromChrome, _fetchDuckDuckGo, _fetchWikipediaSummary, found, providerName (+20 more)
 
 ### Community 371 - "voice_backends.dart"
-Cohesion: 0.09
-Nodes (24): addExample, bindRelationshipScope, deleteExample, deleteImportBatch, deletePersonalMemory, importHistory, importPersonalization, listExamples (+16 more)
+Cohesion: 0.08
+Nodes (26): addExample, bindRelationshipScope, deleteExample, deleteImportBatch, deletePersonalMemory, importHistory, importPersonalization, listExamples (+18 more)
 
 ### Community 372 - "temporal_location_context.dart"
 Cohesion: 0.08
@@ -2459,27 +2521,27 @@ Nodes (33): _appendMemories, buildBlock, _exampleLine, now, PersonaPromptBuilder
 
 ### Community 376 - "static const int"
 Cohesion: 0.06
-Nodes (33): ModelBackendType, ModelKind, ModelTier, active, backendType, copyWith, description, downloadState (+25 more)
+Nodes (34): ModelBackendType, ModelKind, ModelTier, ChatTemplate, active, backendType, copyWith, description (+26 more)
 
 ### Community 377 - "AutomationBackgroundChannelHandler"
 Cohesion: 0.33
 Nodes (6): AutomationBackgroundChannelHandler, isBackgroundEnabled(), Boolean, Context, MethodCall, MethodChannel
 
 ### Community 378 - "StoreDb"
-Cohesion: 0.06
-Nodes (34): Binding, Checker, contents(), getAttributes(), getOptions(), T, U_I18N_API, UBool (+26 more)
+Cohesion: 0.07
+Nodes (25): Binding, Checker, contents(), U_I18N_API, UBool, isClose(), isExpression(), isMarkup() (+17 more)
 
 ### Community 379 - "PackageActionService"
 Cohesion: 0.22
 Nodes (6): Boolean, IBinder, Intent, Service, String, PackageActionService
 
 ### Community 380 - "intent_firewall.dart"
-Cohesion: 0.09
+Cohesion: 0.10
 Nodes (22): ApprovalRequest, auditValue, ContextualApprovalDecider, evaluate, grantedPermissions, hasPermission, message, PermissionProvider (+14 more)
 
 ### Community 381 - "return"
-Cohesion: 0.07
-Nodes (25): BaseAudioHandler, browser_audio_handler.dart, browser_webview_registry.dart, _artwork, attachSource, BrowserAudioHandler, clearSource, _command (+17 more)
+Cohesion: 0.06
+Nodes (34): accent, accentColor, build, builder, _buildGlyph, custom, customChild, FeatherCoreIcon (+26 more)
 
 ### Community 382 - "model_storage_repository.dart"
 Cohesion: 0.08
@@ -2489,12 +2551,12 @@ Nodes (21): CP32, CodePointsIterator, c_, CodeUnits, CodeUnits<
         std::enable_if_t<!prv::forward_iterator<UnitIter>>>, ok_, ok_, UnsafeCodeUnits (+13 more)
 
 ### Community 383 - "persona_profile.dart"
-Cohesion: 0.02
-Nodes (92): ../../application/database_studio_controller.dart, ../../application/google_sheets_sync_service.dart, database_google_sheet_dialog.dart, database_html_viewer.dart, database_pdf_dialog.dart, database_shell_connect_dialog.dart, database_sql_chip.dart, database_studio_landscape_view.dart (+84 more)
+Cohesion: 0.07
+Nodes (25): package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart, package:nanoai/features/automation/personal_agent/application/hybrid_retrieval_scorer.dart, package:nanoai/features/automation/personal_agent/application/persona_retriever.dart, package:nanoai/features/automation/personal_agent/application/personalization_scope_resolver.dart, package:nanoai/features/automation/personal_agent/domain/persona_example.dart, main, _notification, ownershipFor (+17 more)
 
 ### Community 384 - "nano_destination.dart"
-Cohesion: 0.05
-Nodes (36): browser_media_transfer_reader.dart, browser_system_pip_bridge.dart, ../domain/browser_pip_model.dart, ../../domain/browser_site_profile.dart, ../../infrastructure/browser_scripts.dart, ../../infrastructure/browser_web_compatibility_bridge.dart, activatePip, attachController (+28 more)
+Cohesion: 0.07
+Nodes (27): conversation_search.dart, _buildPrompt, conversationId, ConversationMirror, conversationMirrorProvider, ConversationSummary, _data, _deterministicSummary (+19 more)
 
 ### Community 385 - "app_boot_profile.dart"
 Cohesion: 0.04
@@ -2526,20 +2588,20 @@ Cohesion: 0.29
 Nodes (6): confidence, ScreenRelation, ScreenRelationType, sourceId, targetId, type
 
 ### Community 391 - "messageformat2_formattable.h"
-Cohesion: 0.07
-Nodes (12): U_NAMESPACE_BEGIN, namespace(), U_NAMESPACE_BEGIN, namespace(), Formatter, icu::FormattedValue(), MessageContext, Selector (+4 more)
+Cohesion: 0.06
+Nodes (30): dart:developer, HttpMcpParser, parseCallResult, parseTools, detail, endpoint, headers, mcpHttpHeaders (+22 more)
 
 ### Community 392 - "surface_resolvers_test.dart"
 Cohesion: 0.22
 Nodes (8): displayName, facts, factsJson, fromRow, personaKey, PersonaProfile, relationshipKey, RelationshipProfile
 
 ### Community 393 - "AutomationStoreChannelHandler"
-Cohesion: 0.15
-Nodes (10): IBinder, Intent, Boolean, Int, List, Long, String, WorkerClient (+2 more)
+Cohesion: 0.18
+Nodes (10): _cellValue, _columnIndex, decodeXlsx, ExcelDataDecoder, _infer, maxCompressedBytes, maxExpandedBytes, _sharedStrings (+2 more)
 
 ### Community 394 - ".onReceive"
-Cohesion: 0.12
-Nodes (14): DonationRepository, _cooldownDays, _getPrefs, _keyDismissCount, _keyLastDismissed, launchVoluntaryDonationFlow, _prefsInstance, recordBannerDismissed (+6 more)
+Cohesion: 0.06
+Nodes (33): _buildLayout, _openRequestedChat, _requestedChatSurface, WhatsAppWebRequestedChat, WhatsAppWebScreenLayout, _adapter, build, chatAlias (+25 more)
 
 ### Community 395 - ".recognize"
 Cohesion: 0.40
@@ -2550,8 +2612,8 @@ Cohesion: 0.40
 Nodes (4): Bitmap, List, VisionLabel, VisionService
 
 ### Community 398 - "plan_execution_coordinator.dart"
-Cohesion: 0.07
-Nodes (28): ../engine/messaging/reply_capability.dart, authority, AutomationGoal, AutomationOptions, confirmation, confirmed, executionId, expectation (+20 more)
+Cohesion: 0.10
+Nodes (20): actionSignature, bytes, canonical, canonicalFingerprint, confirmationId, _consumed, consumeIfAuthorizes, convert (+12 more)
 
 ### Community 399 - "Validación física T3 — OPPO / ColorOS"
 Cohesion: 0.33
@@ -2582,20 +2644,20 @@ Cohesion: 0.40
 Nodes (4): AUT-VIS-04 — Evaluación de candidato visual ligero, Cuándo volver a evaluar, Evaluación (criterios del protocolo), Justificación (regla del protocolo)
 
 ### Community 406 - "web_tool_handler.dart"
-Cohesion: 0.19
-Nodes (6): Boolean, Int, List, String, NativeRuntimeSupervisor, CoroutineScope
+Cohesion: 0.08
+Nodes (23): AmbientContext? get, device_location_service.dart, accuracyMeters, AmbientContext, AmbientContextService, _cache, currentContext, _fetch (+15 more)
 
 ### Community 407 - "DeviceMetricsChannelHandler"
-Cohesion: 0.10
-Nodes (19): ../../domain/local_model.dart, LocalModel, catalog, detected, fileName, filter, format, installed (+11 more)
+Cohesion: 0.08
+Nodes (27): ../deterministic_catalog.dart, CandidateProvider, _appQuery, _cache, _candidate, _canonicalArgs, _capabilityForDestination, _catalog (+19 more)
 
 ### Community 408 - "dcfmtsym.h"
-Cohesion: 0.10
-Nodes (19): buildIncomingEventId, canonical, conversation, conversationSafeToWrite, digest, eventId, fromNotification, hasReplyCapability (+11 more)
+Cohesion: 0.06
+Nodes (31): buildIncomingEventId, canonical, conversation, conversationSafeToWrite, digest, eventId, fromNotification, hasReplyCapability (+23 more)
 
 ### Community 409 - "agent_tool_prompt.dart"
 Cohesion: 0.05
-Nodes (38): _ask, NanoAiControllerSubmission, _serialAsk, submit, actions, activity, answers, askNativeApp (+30 more)
+Nodes (36): _ask, _serialAsk, submit, actions, activity, answers, askNativeApp, cancel (+28 more)
 
 ### Community 410 - "calendar.h"
 Cohesion: 0.10
@@ -2626,8 +2688,8 @@ Cohesion: 0.09
 Nodes (24): wl_fixed_t, wl_array, alloc, data, size, wl_fixed_from_double(), wl_fixed_from_int(), wl_fixed_to_double() (+16 more)
 
 ### Community 419 - "conversation_assignment_store.dart"
-Cohesion: 0.07
-Nodes (30): conversation_agent.dart, conversation_assignment_models.dart, ConversationAssignmentStore, agentForConversationId, assignmentFor, assignments, buildInitial, _cacheInitial (+22 more)
+Cohesion: 0.12
+Nodes (16): conversation_assignment_models.dart, _client, _enqueueWrite, ensureAssignment, ensureAssignmentForConversationId, load, _loading, _pending (+8 more)
 
 ### Community 420 - "UTextFuncs"
 Cohesion: 0.10
@@ -2638,8 +2700,8 @@ Cohesion: 0.22
 Nodes (7): DesktopController, Any, Boolean, Int, Long, Map, String
 
 ### Community 422 - "conversation_agent.dart"
-Cohesion: 0.07
-Nodes (27): ansi_terminal.dart, AnsiTerminal? get, _ansi, close, _closeActiveSession, _closeFuture, dispose, _disposed (+19 more)
+Cohesion: 0.06
+Nodes (31): ansi_terminal.dart, AnsiTerminal? get, AutomationLayout, contentMaxWidth, isCompactLandscape, _ansi, close, _closeActiveSession (+23 more)
 
 ### Community 423 - "google_account_provider.dart"
 Cohesion: 0.07
@@ -2652,29 +2714,25 @@ from_std_encoding(), encoding_type
 from_std_encoding_native(), encoding_type native_utf16_encoding(), encoding_type native_utf32_encoding(), simdutf_warn_unused, std::text_encoding
 to_std_encoding(), cpuid() (+6 more)
 
-### Community 426 - "atk.h"
-Cohesion: 0.09
-Nodes (11): AtkLayer, AtkRole, _AtkObject, accessible_parent, description, layer, name, parent (+3 more)
-
 ### Community 427 - "smpdtfmt.h"
 Cohesion: 0.08
-Nodes (24): ../domain/tool_approval_result.dart, _history, isLoop, reset, ToolLoopDetector, approvePending, _approvePlan, _approveTask (+16 more)
+Nodes (25): _activeChatName, _adapter, _backToList, _bootFirstLoad, build, _busy, _composer, _conversations (+17 more)
 
 ### Community 428 - "NanoshellWorkerService"
-Cohesion: 0.06
-Nodes (32): BrowserCredentialNotifier, browserCredentialVaultProvider, clearAll, deleteCredential, getCredentialsForDomain, _init, prefs, refresh (+24 more)
+Cohesion: 0.10
+Nodes (18): action_ledger.dart, automation_coordinator.dart, _, main, cancelExecution, _coordinator, from, _ledger (+10 more)
 
 ### Community 429 - "web_knowledge_service.dart"
-Cohesion: 0.02
-Nodes (103): ../../browser_ai/application/browser_ai_gateway.dart, ../../browser_ai/domain/browser_ai_query.dart, ../../browser/reverse_agent_client.dart, ../../browser/web_content_formatter.dart, ../../browser/web_knowledge_service.dart, arguments, _assistantPrompt, _browserAiGateway (+95 more)
+Cohesion: 0.08
+Nodes (25): _adapter, executeLinuxTool, hasShellOperators, LinuxToolHandler, _platformStateReader, forceStop, grantPermission, grantShizuku (+17 more)
 
 ### Community 430 - "NativeRuntimeSupervisor"
 Cohesion: 0.10
-Nodes (20): conversation_agent_tokens.dart, ../../engine/messaging/conv_turn_state.dart, allCasual, commercialIntent, ConversationAgentRouting, factsSelection, familyMention, hasBusinessFactsMatch (+12 more)
+Nodes (19): _cachedDevices, getDevices, _localStorage, registerCurrentDevice, renameDevice, unlinkDevice, clearSession, getOrCreateDeviceId (+11 more)
 
 ### Community 431 - "base64_to_binary_safe_impl"
-Cohesion: 0.09
-Nodes (21): chartype, base64_to_binary_safe_impl(), base64_options, last_chunk_handling_options, simdutf_warn_unused, slow_base64_to_binary_safe_impl(), base64_length_from_binary(), base64_length_from_binary_with_lines() (+13 more)
+Cohesion: 0.13
+Nodes (18): chartype, base64_to_binary_safe_impl(), base64_options, last_chunk_handling_options, simdutf_warn_unused, slow_base64_to_binary_safe_impl(), base64_length_from_binary(), base64_length_from_binary_with_lines() (+10 more)
 
 ### Community 432 - "constexpr_ptr.h"
 Cohesion: 0.17
@@ -2690,19 +2748,19 @@ Nodes (22): ../business/business_intent_analyzer.dart, ../business/fact_selector
 
 ### Community 435 - "google_account_profile.dart"
 Cohesion: 0.06
-Nodes (36): ../business/business_conversation_resolver.dart, ../business/runtime/nano_business_runtime.dart, _composeConversation, _ConversationDialogueEvidence, _ConversationReplyFallbacks, _ConversationReplyFlow, _fallbackReply, _packReply (+28 more)
+Nodes (37): ../business/business_conversation_resolver.dart, ../business/runtime/nano_business_runtime.dart, _composeConversation, _ConversationBusinessReply, _ConversationDialogueEvidence, _ConversationReplyFallbacks, _ConversationReplyFlow, _fallbackReply (+29 more)
 
 ### Community 437 - "mcp_store_catalog.dart"
 Cohesion: 0.08
 Nodes (28): CurvedAnimation, animation, barrierDismissible, build, _buildCurves, child, createState, _curved (+20 more)
 
 ### Community 438 - "personal_agent_screen.dart"
-Cohesion: 0.09
-Nodes (22): auth_credentials_helper.dart, google_auth_adapter.dart, AuthRepository, authStateChanges, _authStateController, _currentUser, deleteAccount, FirebaseAuthAdapter (+14 more)
+Cohesion: 0.07
+Nodes (28): ../../domain/account_profile.dart, ../domain/account_repository.dart, ../domain/auth_repository.dart, _accountRepository, _authRepository, continueWithGoogle, deleteAccount, login (+20 more)
 
 ### Community 439 - "full_result"
-Cohesion: 0.08
-Nodes (24): BuildContext, context, controller, currentZoom, handleAction, isDarkModeWeb, isDesktopMode, onFindInPage (+16 more)
+Cohesion: 0.07
+Nodes (25): ../execution/agent_result.dart, _ExecutorScreenObserver, bounds, confidence, coordinateFallback, diagnostic, isResolved, locate (+17 more)
 
 ### Community 440 - "tool_call.dart"
 Cohesion: 0.07
@@ -2713,20 +2771,20 @@ Cohesion: 0.21
 Nodes (10): ConversationSqlStore, ensureSchema(), Any, Boolean, Int, List, Long, Map (+2 more)
 
 ### Community 442 - "_AtkObject"
-Cohesion: 0.08
-Nodes (26): _active, _addNewTab, build, _closeTab, _commandController, _commandFocusNode, createState, didChangeAppLifecycleState (+18 more)
+Cohesion: 0.03
+Nodes (56): ../../../lib/features/automation/engine/web_bridge/whatsapp_web_conversation_decoder.dart, ../../../lib/features/automation/engine/web_bridge/whatsapp_web_history_scripts.dart, package:flutter_test/flutter_test.dart, package:nanoai/core/services/ambient_context_service.dart, package:nanoai/core/services/native_conversational_router.dart, package:nanoai/core/services/whisper_stt_service.dart, package:nanoai/features/account/domain/account_profile.dart, package:nanoai/features/account/domain/auth_state.dart (+48 more)
 
 ### Community 443 - "USetElementIterator"
-Cohesion: 0.04
-Nodes (65): _RuleCardState, _AutomationDashboardExecution, _BrowserInstanceLifecycle, _BrowserInstancePromptState, _confirmSave, ConsumerState, ConsumerStatefulWidget, googleAccountProvider (+57 more)
+Cohesion: 0.08
+Nodes (24): build, color, edges, from, icon, id, McpGraphEdge, McpGraphNode (+16 more)
 
 ### Community 444 - "README.md"
 Cohesion: 0.12
 Nodes (16): Default config:, Demos, Development issues, Features, Goals, How can I help out?, How do I ..., I want it! (+8 more)
 
 ### Community 445 - "browser_tab_notifier.dart"
-Cohesion: 0.13
-Nodes (15): ../../domain/browser_url_resolver.dart, activeTabId, addTab, BrowserTabNotifier, BrowserTabState, closeTab, copyWith, _counter (+7 more)
+Cohesion: 0.05
+Nodes (36): ENumberFormatSymbol, DecimalFormatSymbols::getLocale(), DecimalFormatSymbols::getSymbol(), DecimalFormatSymbols::setSymbol(), Locale, U_NAMESPACE_BEGIN, UnicodeString, UObject() (+28 more)
 
 ### Community 446 - "atkobject.h"
 Cohesion: 0.13
@@ -2737,12 +2795,12 @@ Cohesion: 0.07
 Nodes (30): FocusNode get, _applyInitialText, brightness, build, compact, _controller, createState, _dictating (+22 more)
 
 ### Community 448 - "base64_decode_result"
-Cohesion: 0.14
-Nodes (13): base64_decode_result, buffer, max_out, output_count, base64_literal_helper, storage, min(), USerializedSet (+5 more)
+Cohesion: 0.20
+Nodes (9): base64_decode_result, buffer, max_out, output_count, base64_literal_helper, storage, min(), array (+1 more)
 
 ### Community 449 - "alphaindex.h"
-Cohesion: 0.08
-Nodes (24): CustomPainter, NanoBorderBeamPainter, NanoVoiceBeamPainter, _LiquidPainter, _NanoGlyphPainter, _GlassBorder360Painter, _HaloPainter, borderRadius (+16 more)
+Cohesion: 0.05
+Nodes (43): AnimationController, core/theme/nano_motion.dart, build, _controller, createState, didChangeAppLifecycleState, dispose, initState (+35 more)
 
 ### Community 450 - "coleitr.h"
 Cohesion: 0.11
@@ -2750,7 +2808,7 @@ Nodes (17): author, cardData, downloads, fetchModelMetadata, fromJson, getTimest
 
 ### Community 451 - "USetCodePointIterator"
 Cohesion: 0.05
-Nodes (41): beamLengthFraction, borderRadius, borderWidth, build, child, _controller, createState, didChangeAppLifecycleState (+33 more)
+Nodes (42): beamLengthFraction, borderRadius, borderWidth, build, child, _controller, createState, didChangeAppLifecycleState (+34 more)
 
 ### Community 452 - "UnsafeUTFIterator"
 Cohesion: 0.15
@@ -2760,12 +2818,12 @@ Nodes (10): UnsafeUTFIterator, UnsafeUTFIterator<
         std::enable_if_t<!prv::forward_iterator<UnitIter>>>, ahead_, explicit, p_, units_, explicit, p_ (+2 more)
 
 ### Community 453 - "linux_distribution_registry.dart"
-Cohesion: 0.08
-Nodes (22): dart:math, Hero, color, gridColor, labels, paint, progress, selected (+14 more)
+Cohesion: 0.13
+Nodes (15): Fake, InAppWebViewController, build, _buildActionChips, _buildTopBar, createState, dispose, _progress (+7 more)
 
 ### Community 454 - "messaging_apps_bar.dart"
-Cohesion: 0.08
-Nodes (22): fromKey, key, network, ToolPermission, _adapter, canHandle, countMessages, defaultUrl (+14 more)
+Cohesion: 0.05
+Nodes (36): DateIntervalInfo, DateTimePatternGenerator, DateIntervalFormat, FormattedDateInterval(), UErrorCode, U_I18N_API, DateIntervalInfo::operator!=(), U_NAMESPACE_BEGIN (+28 more)
 
 ### Community 455 - "semantic_normalizer.dart"
 Cohesion: 0.11
@@ -2780,8 +2838,8 @@ Cohesion: 0.15
 Nodes (12): _AtkGObjectAccessible, parent, _AtkGObjectAccessibleClass, pad1, pad2, parent_class, AtkFunction, _AtkObjectClass (+4 more)
 
 ### Community 459 - "enumset.h"
-Cohesion: 0.24
-Nodes (9): add(), contains(), get(), T, UBool, isValidEnum(), isValidValue(), remove() (+1 more)
+Cohesion: 0.08
+Nodes (25): body, CanonicalMessage, CanonicalMessageDirection, CanonicalMessageProvider, ConversationCoverage, conversationId, deliveryState, direction (+17 more)
 
 ### Community 460 - "normlzr.h"
 Cohesion: 0.13
@@ -2793,15 +2851,15 @@ Nodes (7): xkb_compose_state, xkb_compose_table, xkb_compose_table_entry, xkb_co
 
 ### Community 462 - "static const String"
 Cohesion: 0.08
-Nodes (23): build, emailController, language, onLanguageChanged, ProfileContactFields, addressController, build, ProfileLocationFields (+15 more)
+Nodes (26): _active, _addNewTab, build, _closeTab, _commandController, _commandFocusNode, createState, didChangeAppLifecycleState (+18 more)
 
 ### Community 463 - "whatsapp_integration_cards.dart"
 Cohesion: 0.12
 Nodes (16): addedAt, bookmarks, BrowserBookmarkItem, BrowserHistoryItem, BrowserHistoryNotifier, BrowserHistoryState, clearHistory, copyWith (+8 more)
 
 ### Community 464 - "browser_security_firewall.dart"
-Cohesion: 0.03
-Nodes (75): package:nanoai/features/automation/engine/execution/handlers/semantic_linux_tool_handler.dart, package:nanoai/features/automation/engine/mcp/linux_automation_mcp_client.dart, package:nanoai/features/automation/executors/linux/linux_action_verifier.dart, package:nanoai/features/automation/executors/linux/linux_automation_port.dart, package:nanoai/features/automation/executors/linux/linux_process_supervisor.dart, package:nanoai/features/automation/executors/linux/linux_security_policy.dart, package:nanoai/features/automation/executors/linux/nanoshell_linux_automation_executor.dart, package:nanoai/features/terminal/i_bin_executor.dart (+67 more)
+Cohesion: 0.11
+Nodes (18): package:nanoai/features/automation/engine/execution/handlers/semantic_linux_tool_handler.dart, package:nanoai/features/automation/engine/mcp/linux_automation_mcp_client.dart, package:nanoai/features/automation/executors/linux/linux_process_supervisor.dart, baseDir, bash, binDir, execRootfs, execRootfsWorker (+10 more)
 
 ### Community 465 - "utf8.h"
 Cohesion: 0.30
@@ -2812,12 +2870,12 @@ Cohesion: 0.08
 Nodes (23): billingPeriod, BillingProduct, copyWith, currencyCode, description, formattedPrice, productId, tier (+15 more)
 
 ### Community 467 - "automation_policy.dart"
-Cohesion: 0.02
-Nodes (109): ../business/business_document_library_dialog.dart, _, active, _activeHubItems, all, archived, categoryCountsProvider, pendingRepliesCountProvider (+101 more)
+Cohesion: 0.08
+Nodes (22): _anaphoricMarkers, _clustersFor, _hasCapitalizedEntity, _paraphraseActs, _resolveRecentEntities, scoreParaphraseSimilarity, scoreThematicRelevance, selectWindow (+14 more)
 
 ### Community 468 - "atkutil.h"
-Cohesion: 0.27
-Nodes (6): _AtkUtil, parent, _AtkUtilClass, parent, GObject, GObjectClass
+Cohesion: 0.10
+Nodes (17): AtkLayer, AtkRole, _AtkObject, accessible_parent, description, layer, name, parent (+9 more)
 
 ### Community 469 - "translit.h"
 Cohesion: 0.14
@@ -2828,20 +2886,20 @@ Cohesion: 0.11
 Nodes (19): business_store_category_filters.dart, business_store_empty_state.dart, business_store_product_card.dart, business_store_product_detail_sheet.dart, business_store_product_list_row.dart, business_store_toolbar.dart, build, BusinessStoreContent (+11 more)
 
 ### Community 471 - "cold_start_retry.dart"
-Cohesion: 0.06
-Nodes (33): dart:developer, HttpMcpParser, parseCallResult, parseTools, detail, endpoint, headers, mcpHttpHeaders (+25 more)
+Cohesion: 0.09
+Nodes (21): automation_coordinator_provider.dart, automation_engine.dart, ../ledger/action_ledger_provider.dart, AutomationEngine, automationEngineProvider, from, assignedAgent, effectiveHumanOwns (+13 more)
 
 ### Community 472 - "atomic_util.h"
-Cohesion: 0.50
-Nodes (3): convert(), InputPtr, simdutf_constexpr23
+Cohesion: 0.16
+Nodes (5): simdutf_really_inline, convert(), InputPtr, simdutf_constexpr23, utf8_length_from_latin1()
 
 ### Community 473 - "listformatter.h"
-Cohesion: 0.06
-Nodes (35): browser_ai_login_sheet.dart, actions, activeController, audioLevel, build, child, controller, createState (+27 more)
+Cohesion: 0.07
+Nodes (28): browser_ai_login_sheet.dart, actions, activeController, audioLevel, build, child, controller, createState (+20 more)
 
 ### Community 474 - "USetStringIterator"
-Cohesion: 0.11
-Nodes (16): conversational_intent_matcher.dart, ConversationalActionResolvers, resolveAppControl, resolveAutomation, resolveGoogleAccount, resolveIpQuery, resolveLinux, resolveWebAccountLogin (+8 more)
+Cohesion: 0.07
+Nodes (24): conversational_intent_matcher.dart, ../device_info.dart, ConversationalActionResolvers, resolveAppControl, resolveAutomation, resolveGoogleAccount, resolveIpQuery, resolveLinux (+16 more)
 
 ### Community 475 - "TextEditingController?"
 Cohesion: 0.07
@@ -2883,8 +2941,8 @@ Cohesion: 0.20
 Nodes (10): wl_fixed_t, wl_data_device_send_enter(), wl_data_device_send_motion(), wl_pointer_send_axis(), wl_pointer_send_enter(), wl_pointer_send_motion(), wl_touch_send_down(), wl_touch_send_motion() (+2 more)
 
 ### Community 484 - "app_providers.dart"
-Cohesion: 0.06
-Nodes (32): androidPackage, ask, error, estimatedBytes, executeAuthorizedGoal, id, kind, message (+24 more)
+Cohesion: 0.07
+Nodes (26): androidPackage, ask, error, estimatedBytes, executeAuthorizedGoal, id, kind, message (+18 more)
 
 ### Community 485 - "cold_start_retry.dart"
 Cohesion: 0.09
@@ -2923,16 +2981,16 @@ Cohesion: 0.12
 Nodes (15): attachController, BrowserWebViewRegistry, controllerFor, _controllers, dispose, _initializedTabs, isInitialized, keepAliveFor (+7 more)
 
 ### Community 495 - "UIDNAInfo"
-Cohesion: 0.08
-Nodes (22): _anaphoricMarkers, _clustersFor, _hasCapitalizedEntity, _paraphraseActs, _resolveRecentEntities, scoreParaphraseSimilarity, scoreThematicRelevance, selectWindow (+14 more)
+Cohesion: 0.15
+Nodes (12): maxExampleChars, maxExampleIncomingChars, maxExamples, maxOwnerName, maxOwnerNotes, maxRelationshipNotes, maxTotalChars, _neutralize (+4 more)
 
 ### Community 496 - "nano_destination.dart"
-Cohesion: 0.07
-Nodes (26): billing_product.dart, authStateChanges, deleteAccount, getCurrentUser, registerWithEmailAndPassword, reloadUser, sendEmailVerification, sendPasswordResetEmail (+18 more)
+Cohesion: 0.02
+Nodes (116): AsyncValue, ../business/business_document_library_dialog.dart, active, _activeHubItems, all, archived, categoryCountsProvider, pendingRepliesCountProvider (+108 more)
 
 ### Community 497 - "split_automation_sources.ps1"
-Cohesion: 0.19
-Nodes (9): DevicePermissionsChannelHandler, Any, Boolean, Intent, Map, MethodCall, MethodChannel, String (+1 more)
+Cohesion: 0.04
+Nodes (48): ../../automation/application/automation_feedback_presenter.dart, ../../automation/engine/voice/conversation/conversational_world_state.dart, ../../automation/engine/voice/conversation/grounding_resolver.dart, ../../automation/engine/voice/voice_backends.dart, ../../automation/engine/voice/voice_runtime.dart, ../business/business_facts_providers.dart, business_column_detector.dart, business_data_normalizer.dart (+40 more)
 
 ### Community 498 - "convert_valid"
 Cohesion: 0.33
@@ -2943,8 +3001,8 @@ Cohesion: 0.47
 Nodes (5): convert(), convert_with_errors(), InputPtr, OutputPtr, SIMDUTF_CPLUSPLUS20
 
 ### Community 500 - "UParseError"
-Cohesion: 0.09
-Nodes (21): ConversationMemoryEntry? get, activeTopic, agentId, atMs, conversationId, ConversationMemory, ConversationMemoryEntryKind, entries (+13 more)
+Cohesion: 0.06
+Nodes (30): ConversationMemoryEntry get, activeTopic, agentId, atMs, conversationId, ConversationMemory, ConversationMemoryEntryKind, entries (+22 more)
 
 ### Community 501 - "DeviceMetricsChannelHandler"
 Cohesion: 0.06
@@ -2959,8 +3017,8 @@ Cohesion: 0.16
 Nodes (11): BroadcastReceiver, Context, Intent, String, ScheduledWhatsAppAlarmReceiver, ScheduledWhatsAppBootReceiver, Boolean, String (+3 more)
 
 ### Community 504 - "tool_loop_detector.dart"
-Cohesion: 0.10
-Nodes (20): Color get, activity, _anim, build, child, createState, didChangeAppLifecycleState, didChangeDependencies (+12 more)
+Cohesion: 0.11
+Nodes (17): category, copyWith, details, _formatThousands, fromJson, id, imagePath, isAvailable (+9 more)
 
 ### Community 505 - "atomic_ptr"
 Cohesion: 0.50
@@ -2975,8 +3033,8 @@ Cohesion: 0.09
 Nodes (23): audioLevel, build, controller, createState, didChangeDependencies, didUpdateWidget, _dismissAssistant, dispose (+15 more)
 
 ### Community 508 - "convert_valid"
-Cohesion: 0.24
-Nodes (7): EngineChannelHandler, Any, Int, Map, MethodCall, MethodChannel, String
+Cohesion: 0.09
+Nodes (22): bool isSelectionMode, isGridView,, business_library_file_grid.dart, business_library_file_list.dart, business_library_folders_carousel.dart, business_library_toolbar.dart, build, BusinessLibraryContent, documents (+14 more)
 
 ### Community 509 - "AllCodePoints"
 Cohesion: 0.12
@@ -2988,11 +3046,11 @@ Nodes (26): categories, categoryColumn, CategoryFrequency, column, ColumnQuality
 
 ### Community 512 - "fix_automation_split_exports.ps1"
 Cohesion: 0.08
-Nodes (23): account_profile.dart, auth_user.dart, bootstrapProfile, deleteProfile, getProfile, updatePlanTier, updateProfile, accountDisabled (+15 more)
+Nodes (25): account_profile.dart, auth_user.dart, SessionGateNotifier, bootstrapProfile, deleteProfile, getProfile, updatePlanTier, updateProfile (+17 more)
 
 ### Community 513 - ".onBind"
-Cohesion: 0.12
-Nodes (16): AgentConversationScope get, ConversationAddress, ConversationAgentId, address, agentForConversationId, agentId, assignedAtMs, assignmentFor (+8 more)
+Cohesion: 0.09
+Nodes (15): Hashtable, UBool, LocalizationInfo, NFRuleSet, PluralFormat, RuleBasedCollator, RuleBasedNumberFormat::getDefaultRuleSet(), RuleBasedNumberFormat::isLenient() (+7 more)
 
 ### Community 515 - "TaskValue"
 Cohesion: 0.39
@@ -3007,20 +3065,20 @@ Cohesion: 0.13
 Nodes (13): AgentChannelHandler, Bitmap, dev, Int, List, MethodCall, MethodChannel, Boolean (+5 more)
 
 ### Community 532 - "TaskValue"
-Cohesion: 0.20
-Nodes (9): _archived, ConversationHubArchiveStore, load, _loading, _maxArchived, _section, setArchived, _valid (+1 more)
+Cohesion: 0.14
+Nodes (13): _, ExternalAppBehaviorNotifier, decideAppScheme, ExternalAppBehavior, extractIntentWebFallback, fromId, id, isTikTokAppScheme (+5 more)
 
 ### Community 533 - "UTransPosition"
-Cohesion: 0.10
-Nodes (20): activeProductName, activeRole, agentId, appLabel, conversationAliases, conversationId, displayName, entryCount (+12 more)
+Cohesion: 0.08
+Nodes (23): accountFingerprint, activeProductName, activeRole, agentId, appLabel, conversationAliases, conversationId, displayName (+15 more)
 
 ### Community 534 - "convert_valid"
-Cohesion: 0.11
-Nodes (18): canRetry, channel, conversationId, DurableOutboxMessage, fromJson, id, lastError, maxRetries (+10 more)
+Cohesion: 0.09
+Nodes (21): baseDir, bridgeJs, ensureRunning, isBridgeProcess, libDir, MobileBridgeProcessSupervisor, nodeBin, pidPath (+13 more)
 
 ### Community 535 - "allowed_binaries.dart"
-Cohesion: 0.09
-Nodes (21): ../../domain/account_profile.dart, _accountRepository, _authRepository, _authSubscription, dispose, _init, _resolveAuthenticatedUser, SessionGateNotifier (+13 more)
+Cohesion: 0.13
+Nodes (14): DeliveryResult, DeliveryState, error, failed, mayHaveDispatched, messageId, observed, ok (+6 more)
 
 ### Community 536 - "DeviceMetricsChannelHandler"
 Cohesion: 0.11
@@ -3031,8 +3089,8 @@ Cohesion: 0.33
 Nodes (9): AccessibilityCapabilityProbe, _availabilityProvider, CapabilityProbe, LinuxCapabilityProbe, NotificationCapabilityProbe, probe, ShizukuCapabilityProbe, StaticSystemCapabilityProbe (+1 more)
 
 ### Community 538 - "catalog_local_model_repository.dart"
-Cohesion: 0.04
-Nodes (47): ../../application/browser_history_notifier.dart, ../../application/browser_webview_registry.dart, bool isDesktopMode,, bool isEmbedded, isDesktopMode, isDarkModeWeb,, browser_3d_carousel_view.dart, browser_dialog_helper.dart, browser_find_in_page_widget.dart, browser_menu_action_handler.dart (+39 more)
+Cohesion: 0.03
+Nodes (62): ../../application/browser_external_app_behavior.dart, ../../application/browser_history_notifier.dart, ../../application/browser_webview_registry.dart, bool isDesktopMode,, bool isEmbedded, isDesktopMode, isDarkModeWeb,, browser_3d_carousel_view.dart, browser_dialog_helper.dart, browser_find_in_page_widget.dart (+54 more)
 
 ### Community 539 - ".handleSpawnDetached"
 Cohesion: 0.11
@@ -3048,103 +3106,103 @@ Nodes (7): AccessibilityEvent, AccessibilityEventListener, AgentAccessibilityBri
 
 ### Community 542 - "ScientificNumberFormatter"
 Cohesion: 0.07
-Nodes (31): UHashtable, CompactDecimalFormat, DecimalFormatFields, DecimalQuantity, LocalizedNumberFormatter, NumberParserImpl, UFormattedNumberData, LikelySubtags (+23 more)
+Nodes (33): CollationKey, CollatorFactory, UHashtable, CompactDecimalFormat, DecimalFormatFields, DecimalQuantity, LocalizedNumberFormatter, NumberParserImpl (+25 more)
 
 ### Community 543 - "convert_valid"
-Cohesion: 0.09
-Nodes (21): clearSession, getOrCreateDeviceId, _getPrefs, getProfile, getUser, _keyDeviceId, _keyProfile, _keyUser (+13 more)
+Cohesion: 0.07
+Nodes (28): ../domain/donation_repository.dart, checkBannerVisibility, copyWith, dismissBanner, DonationBannerState, DonationController, isInteracting, _repository (+20 more)
 
 ### Community 544 - "UParseError"
-Cohesion: 0.14
-Nodes (14): BrowserFindInPageWidget, _BrowserFindInPageWidgetState, build, controller, createState, didUpdateWidget, dispose, _find (+6 more)
+Cohesion: 0.08
+Nodes (23): addBackBtn, apply, buildOpenConversationScript, buildReadActiveChatScript, buildReadConversationsScript, buildReadMessagesScript, buildSendReplyScript, buildSetChatViewScript (+15 more)
 
 ### Community 545 - "latin1.h"
-Cohesion: 0.08
-Nodes (22): package:nanoai/features/automation/application/whatsapp_contacts_provider.dart, package:nanoai/features/automation/domain/whatsapp_contact.dart, package:nanoai/features/automation/engine/business/whatsapp_message_provider.dart, package:nanoai/features/automation/engine/planning/contact_matcher.dart, package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart, package:nanoai/features/automation/presentation/messaging_center/messaging_center_providers.dart, main, main (+14 more)
+Cohesion: 0.05
+Nodes (42): WhatsAppMediaShare, package:nanoai/features/automation/application/whatsapp_contacts_provider.dart, package:nanoai/features/automation/domain/whatsapp_contact.dart, package:nanoai/features/automation/engine/business/whatsapp_message_provider.dart, package:nanoai/features/automation/engine/execution/handlers/whatsapp_tool_handler.dart, package:nanoai/features/automation/engine/execution/plan_execution_coordinator.dart, package:nanoai/features/automation/engine/planning/contact_matcher.dart, package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart (+34 more)
 
 ### Community 546 - "InMemoryNanoContextRepository"
-Cohesion: 0.05
-Nodes (40): bool isBookmarked, isDesktopMode,, browser_credential_save_banner.dart, browser_error_view.dart, browser_options_content.dart, browser_zoom_badge_overlay.dart, BrowserTabModel, action, BrowserOptionsContent (+32 more)
+Cohesion: 0.03
+Nodes (62): ../execution/handlers/semantic_linux_tool_handler.dart, ../execution/tool_call.dart, HttpMcpClient, callTool, connect, descriptor, disconnect, _executor (+54 more)
 
 ### Community 547 - "NotificationReplyResult"
-Cohesion: 0.12
-Nodes (17): automation_model.dart, CandidateSelector, AutomationModelRole, _acceptNonEmptyPath, AutomationModelResolution, AutomationModelResolver, inner, llmAllowed (+9 more)
+Cohesion: 0.09
+Nodes (20): localModelRepositoryProvider, modelStorageRepositoryProvider, CatalogLocalModelRepository, _descriptionFor, _entryToModel, initialCatalog, listModels, modelsDir (+12 more)
 
 ### Community 548 - "mcp_tool_projection.dart"
-Cohesion: 0.04
-Nodes (63): adaptive_swipe_calculator.dart, core/services/nano_runtime_api.dart, ../execution/agent_executor.dart, ../governance/nano_sensitive_data_policy.dart, NanoRuntimeApi, _api, _executor, _gestures (+55 more)
+Cohesion: 0.05
+Nodes (49): adaptive_swipe_calculator.dart, ../execution/agent_executor.dart, ../governance/nano_sensitive_data_policy.dart, NanoRuntimeApi, _api, _executor, _gestures, getLedgerHistory (+41 more)
 
 ### Community 549 - "turn_supersede_guard.dart"
 Cohesion: 0.08
-Nodes (22): browser_auth_scripts.dart, browser_media_script.dart, browser_pinch_zoom_engine.dart, browser_zoom_scripts.dart, _, BrowserPinchZoomEngine, pinchZoomScript, audioServiceSyncScript (+14 more)
+Nodes (23): browser_auth_scripts.dart, browser_media_script.dart, browser_pinch_zoom_engine.dart, browser_zoom_scripts.dart, _, BrowserPinchZoomEngine, pinchZoomScript, adaptiveDesktopViewportAdapterScript (+15 more)
 
 ### Community 550 - "InMemoryNanoContextRepository"
 Cohesion: 0.12
 Nodes (26): AccountDeletionFailedException, AccountDisabledException, AccountException, BillingUnavailableException, EmailAlreadyInUseException, EmailNotVerifiedException, EntitlementVerificationException, GoogleSignInCancelledException (+18 more)
 
 ### Community 551 - "build"
-Cohesion: 0.06
-Nodes (35): device_entity.dart, ../domain/account_repository.dart, ../../domain/device_entity.dart, ../domain/device_repository.dart, copyWith, DeviceController, DeviceListState, devices (+27 more)
+Cohesion: 0.09
+Nodes (22): _, _attachFile, _buildChatScreen, _showHistorySheet, _showToolConfirmDialog, _startNewConversation, _toggleConversation, EmptyChat (+14 more)
 
 ### Community 552 - "package:crypto/crypto.dart"
-Cohesion: 0.07
-Nodes (27): BrowserAiResponse, BrowserAiResponseStatus, content, duration, error, failure, isCompleted, needsUserAction (+19 more)
+Cohesion: 0.04
+Nodes (44): Iterable, LLMEngineException, McpDiscoveryException, _cache, description, _doFetch, fetchMetadata, getCached (+36 more)
 
 ### Community 553 - "conversation_detail_dialogs.dart"
 Cohesion: 0.09
 Nodes (21): advanced12Gb, AutomationHardwareTier, AutomationModelProfile, AutomationTierPresets, balanced6to8Gb, enabledForAutomation, estimatedRamGb, fromJson (+13 more)
 
 ### Community 554 - "LinuxDistribution"
-Cohesion: 0.14
-Nodes (13): android, Any, Boolean, EventChannel, Int, Intent, List, MethodCall (+5 more)
+Cohesion: 0.07
+Nodes (24): DevicePermissionsChannelHandler, Any, Boolean, Intent, Map, MethodCall, MethodChannel, String (+16 more)
 
 ### Community 555 - ".onBind"
-Cohesion: 0.11
-Nodes (17): capability_probes.dart, appByPackage, apps, availabilityOf, build, capabilities, _catalog, device (+9 more)
+Cohesion: 0.10
+Nodes (20): architecture, _cachedInstalled, defaultShell, expectedSha256, getInfo, id, initialEnvironment, install (+12 more)
 
 ### Community 556 - "_DedupeCore"
-Cohesion: 0.11
-Nodes (17): category, copyWith, details, _formatThousands, fromJson, id, imagePath, isAvailable (+9 more)
+Cohesion: 0.08
+Nodes (23): WhatsAppDisplayMode, WhatsAppNavState, allowedHosts, applyResponsiveCss, attachController, _controller, _cssCache, detachController (+15 more)
 
 ### Community 557 - "i_model_metadata_repository.dart"
-Cohesion: 0.07
-Nodes (26): ../data/model_integrity.dart, ../../domain/detected_model.dart, ../domain/model_storage_repository.dart, CustomModelPickerService, pickModel, CatalogReconciliation, detected, models (+18 more)
+Cohesion: 0.10
+Nodes (21): ../../application/whatsapp_contacts_provider.dart, _channel, contacts, contactsAsync, contactsPermissionProvider, filteredWhatsAppContactsProvider, getContacts, hasPerm (+13 more)
 
 ### Community 558 - "ExecutionJournal"
-Cohesion: 0.50
-Nodes (3): DeviceMetricsChannelHandler, MethodCall, MethodChannel
+Cohesion: 0.19
+Nodes (8): Boolean, Int, List, Long, String, WorkerClient, Messenger, ParcelFileDescriptor
 
 ### Community 559 - "AnsiTerminalView"
-Cohesion: 0.09
-Nodes (21): bool isSelectionMode, isGridView,, business_library_file_grid.dart, business_library_file_list.dart, business_library_folders_carousel.dart, business_library_toolbar.dart, build, BusinessLibraryContent, documents (+13 more)
+Cohesion: 0.17
+Nodes (11): ../business_product.dart, copyWith, id, isSelected, pageNumber, sourceDocumentName, suggestedCategory, suggestedDetails (+3 more)
 
 ### Community 560 - "notification_executor_provider.dart"
-Cohesion: 0.05
-Nodes (41): browser_display_mode.dart, browser_icon_button.dart, browser_view_mode_button.dart, browser_window_controls.dart, browser_window_omnibox.dart, BrowserDisplayMode, BrowserViewModeButton, build (+33 more)
+Cohesion: 0.11
+Nodes (19): ../../engine/web_bridge/whatsapp_web_bridge_controller.dart, _adapter, alias, build, _controller, createState, dispose, _error (+11 more)
 
 ### Community 561 - "build"
-Cohesion: 0.08
-Nodes (25): database_category_chart.dart, database_series_chart.dart, database_stat_cards.dart, ../../domain/data_statistics.dart, DataStatisticsSnapshot, AnimatedCategoryChart, _bar, build (+17 more)
+Cohesion: 0.15
+Nodes (12): WhatsAppContact, contact, ContactMatcher, ContactMatchResult, filter, findBest, minAcceptableScore, normalize (+4 more)
 
 ### Community 562 - "system_capability.dart"
-Cohesion: 0.04
-Nodes (51): automation_dashboard.dart, automation_settings_pickers.dart, rootfsProvider, runtimeEngineProvider, engineStatusProvider, build, _CapabilityRow, cleanAppearance (+43 more)
+Cohesion: 0.11
+Nodes (18): conversation_topic_tracker.dart, activeTopic, ConversationDialogueState, copyWith, DialogueStateTracker, getState, hasPendingQuestion, lastAgentAct (+10 more)
 
 ### Community 563 - "i_model_metadata_repository.dart"
 Cohesion: 0.10
-Nodes (21): database_report_section_editor.dart, _actions, build, _busy, colors, controller, createState, DatabasePdfDialog (+13 more)
+Nodes (20): ActionExecuteCallback, ActionVerifyCallback, ../domain/tool_definition.dart, ExecutableTool, VerifiableTool, ActionToolAdapter, definition, execute (+12 more)
 
 ### Community 564 - "IBinExecutor"
 Cohesion: 0.24
 Nodes (9): Boolean, Context, Int, String, TextView, NanoOverlayStyle, Float, GradientDrawable (+1 more)
 
 ### Community 565 - "SettingsNotifier"
-Cohesion: 0.06
-Nodes (33): chat_model_storage.dart, ../../../core/models/model_path_support.dart, dart:async, _lastMinuteKey, _persistLastKey, _prefKey, _recoverOccurrences, _restoreLastKey (+25 more)
+Cohesion: 0.14
+Nodes (14): BrowserFindInPageWidget, _BrowserFindInPageWidgetState, build, controller, createState, didUpdateWidget, dispose, _find (+6 more)
 
 ### Community 566 - "sortkey.h"
-Cohesion: 0.03
-Nodes (71): Color, GlobalKey, actionLabel, badgeColor, badgeText, build, description, icon (+63 more)
+Cohesion: 0.02
+Nodes (73): IconData, fromKey, icon, key, label, build, BusinessLibrarySection, BusinessLibrarySectionTabs (+65 more)
 
 ### Community 567 - "turn_supersede_guard.dart"
 Cohesion: 0.10
@@ -3152,95 +3210,96 @@ Nodes (19): conv_turn_state_models.dart, clientContextBlockForTurn, contextSigna
 
 ### Community 568 - "conversation_autonomy_mode.dart"
 Cohesion: 0.10
-Nodes (22): ../../browser_ai/application/browser_ai_provider_registry.dart, ../../browser_ai/domain/browser_ai_provider.dart, browserAiGatewayProvider, browserAiProviderRegistryProvider, _awaitingLogin, _BrowserAiLoginSheet, _BrowserAiLoginSheetState, build (+14 more)
+Nodes (20): ../../browser_ai/application/browser_ai_provider_registry.dart, ../../browser_ai/domain/browser_ai_provider.dart, browserAiGatewayProvider, _awaitingLogin, _BrowserAiLoginSheet, _BrowserAiLoginSheetState, compact, createState (+12 more)
 
 ### Community 569 - "browser_url_resolver.dart"
-Cohesion: 0.11
-Nodes (17): ../../features/models/data/catalog_local_model_repository.dart, _activeModelFile, _activeModelPath, autoSelectAvailableModel, clearActiveModel, findInstalledModelPath, hasActiveModel, init (+9 more)
+Cohesion: 0.04
+Nodes (41): _, AppBuildInfo, appVersion, deviceModel, gitCommit, createToolDefinitions, MobileAutomationToolCatalog, serverId (+33 more)
 
 ### Community 570 - "adaptive_theme.dart"
-Cohesion: 0.06
-Nodes (39): ../domain/executable_tool.dart, ../domain/tool_definition.dart, ../domain/tool_input.dart, ../domain/tool_permission.dart, ../domain/tool_result.dart, ../domain/tool_risk.dart, execute, ToolExecutor (+31 more)
+Cohesion: 0.05
+Nodes (42): A, ../domain/tool_permission.dart, argumentsType, decode, decoder, definition, execute, isVerifiable (+34 more)
 
 ### Community 571 - "tool_risk.dart"
-Cohesion: 0.11
-Nodes (17): expectedPostconditions, extractedAt, fromJson, goalFingerprint, id, idFor, inputs, kind (+9 more)
+Cohesion: 0.06
+Nodes (30): DateTime?, build, _choose, onChanged, ProfileBirthDateField, value, expectedPostconditions, extractedAt (+22 more)
 
 ### Community 572 - "TaskValue"
-Cohesion: 0.13
-Nodes (14): IncomingAttachment, attachment, audioUnprocessed, ConversationMediaEnricher, enrich, MediaEnrichmentResult, mediaPath, notification (+6 more)
+Cohesion: 0.15
+Nodes (12): conversation_memory_models.dart, addUnresolvedObligation, appendInbound, appendOutbound, clearConversation, clearObligations, knownConversationIds, load (+4 more)
 
 ### Community 573 - "AppFunctionChannelHandler"
 Cohesion: 0.09
-Nodes (22): FlutterSecureStorage, agentUsesCloud, _apiKey, _client, configure, connection, create, delete (+14 more)
+Nodes (20): _conversationCacheKey, restore, save, WhatsAppWebConversationCache, decode, displayName, fromJson, id (+12 more)
 
 ### Community 574 - "RuntimeChannelHandler"
-Cohesion: 0.12
-Nodes (15): ../../application/bot/bot_skills_catalog.dart, ../../domain/bot/bot_role.dart, bot, BotCard, build, onDelete, onEdit, onToggleEnabled (+7 more)
+Cohesion: 0.03
+Nodes (57): ../execution/event_driven_waiter.dart, AccessibilityEventTypes, _channel, className, detected, EventDrivenWaiter, eventType, EventWaitResult (+49 more)
 
 ### Community 575 - "utfstring.h"
 Cohesion: 0.13
 Nodes (15): audioLevel, build, _busy, controller, createState, input, NanoAssistantPanel, _NanoAssistantPanelState (+7 more)
 
 ### Community 576 - "UTransPosition"
-Cohesion: 0.11
-Nodes (19): DecimalQuantity, Formattable(), Formattable::fromUFormattable(), Formattable::getDate(), Formattable::getLong(), Formattable::toUFormattable(), UDate, UErrorCode (+11 more)
+Cohesion: 0.04
+Nodes (33): DateInterval, Normalizer2, Normalizer2Impl, DateInterval::getFromDate(), DateInterval::getToDate(), DateInterval::operator!=(), U_NAMESPACE_BEGIN, UDate (+25 more)
 
 ### Community 577 - "unirepl.h"
-Cohesion: 0.06
-Nodes (33): _Image, altSticky, build, colors, compact, ctrlSticky, DesktopExtraKeysBar, _divider (+25 more)
+Cohesion: 0.07
+Nodes (30): ../../engine/business/business_document_library.dart, BusinessDocument, build, Business3dFilePreview, document, isDark, build, BusinessDocumentCard (+22 more)
 
 ### Community 578 - "FormattedDateInterval"
-Cohesion: 0.20
-Nodes (8): DurableInbox, eventId(), InboxEvent, Boolean, Int, List, Long, String
+Cohesion: 0.05
+Nodes (36): ../domain/google_account_profile.dart, _client, GoogleAccountRepository, _keyProfile, loadProfile, saveProfile, verifyGoogleConnectivity, avatarUrl (+28 more)
 
 ### Community 579 - "ScientificNumberFormatter"
-Cohesion: 0.15
-Nodes (17): pid_t, _find_own_libdir(), _login_tty(), _openpty(), pty_close(), pty_is_alive(), pty_kill(), pty_read() (+9 more)
+Cohesion: 0.20
+Nodes (13): pid_t, _find_own_libdir(), _login_tty(), _openpty(), pty_close(), pty_is_alive(), pty_kill(), pty_read() (+5 more)
 
 ### Community 580 - "EngineChannelHandler"
-Cohesion: 0.10
-Nodes (20): let, angle, animate, arc, _buildHtmlTemplate, buildInviteMessage, BusinessGamificationService, c (+12 more)
+Cohesion: 0.07
+Nodes (25): , let, angle, animate, arc, _buildHtmlTemplate, buildInviteMessage, BusinessGamificationService (+17 more)
 
 ### Community 581 - "bot_definition.dart"
 Cohesion: 0.11
 Nodes (18): bot_permissions.dart, bot_role.dart, channels, copyWith, createdAt, description, enabled, fromMap (+10 more)
 
 ### Community 582 - "bot_repository.dart"
-Cohesion: 0.10
-Nodes (20): ConversationalIntentMatcher, isAIModelDomain, isAppControlDomain, isAutomationDomain, isDevelopmentDomain, isFarewell, isGoogleAccountQuery, isGreeting (+12 more)
+Cohesion: 0.22
+Nodes (8): _, adaptiveDesktopViewportAdapterScript, BrowserZoomScripts, desktopViewportAdapterScript, fitToScreenOverviewScript, installZoomScript, mobileViewportAdapterScript, setZoomLevelScript
 
 ### Community 583 - "whatsapp_media_payload.dart"
 Cohesion: 0.10
-Nodes (20): WhatsAppMediaShare, package:nanoai/features/automation/engine/execution/handlers/whatsapp_tool_handler.dart, package:nanoai/features/automation/engine/execution/plan_execution_coordinator.dart, cloudSelected, contacts, getContacts, hasPermission, lastAutoSend (+12 more)
+Nodes (20): conversation_agent_tokens.dart, ../../engine/messaging/conv_turn_state.dart, allCasual, commercialIntent, ConversationAgentRouting, factsSelection, familyMention, hasBusinessFactsMatch (+12 more)
 
 ### Community 584 - "whatsapp_web_bridge_controller.dart"
 Cohesion: 0.10
-Nodes (19): ../domain/personal_memory.dart, buildDynamicOptions, extractConversationTopics, findEvidenceInConversation, findMatchingMemories, PersonalMemoryFactHelpers, PersonalMemorySource, shortenTopic (+11 more)
+Nodes (21): database_report_section_editor.dart, _actions, build, _busy, colors, controller, createState, DatabasePdfDialog (+13 more)
 
 ### Community 585 - "mcp_mobile_agent_test.dart"
-Cohesion: 0.06
-Nodes (44): Char16Ptr, Compare, Char16Ptr::Char16Ptr(), ConstChar16Ptr(), ConstChar16Ptr::ConstChar16Ptr(), final(), basic_string_view, nullptr_t (+36 more)
+Cohesion: 0.07
+Nodes (33): Compare, Char16Ptr::Char16Ptr(), ConstChar16Ptr(), ConstChar16Ptr::ConstChar16Ptr(), basic_string_view, nullptr_t, T, u16string_view (+25 more)
 
 ### Community 586 - "DesktopSessionManager"
 Cohesion: 0.23
 Nodes (7): Any, Boolean, Int, IntArray, String, TargetIdentity, TargetMatchPolicy
 
 ### Community 587 - "bot_studio_providers.dart"
-Cohesion: 0.11
-Nodes (20): AsyncNotifier, bot_repository.dart, botRepositoryProvider, ../../engine/bot/bot_agent_dispatcher.dart, BotRepository, activeBotIdProvider, activeBotProvider, activeId (+12 more)
+Cohesion: 0.10
+Nodes (21): AsyncNotifier, bot_repository.dart, botRepositoryProvider, ../../engine/bot/bot_agent_dispatcher.dart, BotRepository, activeBotIdProvider, activeBotProvider, activeId (+13 more)
 
 ### Community 588 - "automation_model_resolver.dart"
 Cohesion: 0.27
 Nodes (6): Boolean, File, Int, MethodCall, MethodChannel, MediaCaptureChannelHandler
 
 ### Community 589 - "../automation_visual_theme.dart"
-Cohesion: 0.11
-Nodes (18): build, disconnectMcpStoreServer, endpointController, idController, isConnected, item, McpHotInjectionBanner, McpStoreItemCard (+10 more)
+Cohesion: 0.17
+Nodes (11): i_model_metadata_datasource.dart, IModelLocalMetadataCache, getTimestamp, initialize, _initialized, isFresh, _memoryCache, _prefPrefix (+3 more)
 
 ### Community 590 - "whatsapp_capability_resolver.dart"
-Cohesion: 0.10
-Nodes (19): actionKind, copyWith, fromJson, id, isCovered, isFailed, isResolved, missingRequirement (+11 more)
+Cohesion: 0.03
+Nodes (68): int? messageTimestamp,
+  String, main, package:nanoai/features/automation/engine/conversation/conversation_media_enricher.dart, package:nanoai/features/automation/engine/conversation/conversation_reply_composer.dart, package:nanoai/features/automation/engine/conversation/persona_style_resolver.dart, package:nanoai/features/automation/engine/conversation/personal_style_formatter.dart, package:nanoai/features/automation/engine/conversation/turn_knowledge_router.dart, package:nanoai/features/automation/engine/language/pragmatic_fast_path.dart (+60 more)
 
 ### Community 591 - "nano_account_tile.dart"
 Cohesion: 0.04
@@ -3255,20 +3314,20 @@ Cohesion: 0.10
 Nodes (20): apiKey, client, CloudAiVendor, cloudflareAccountId, CloudGenerativeInferenceAdapter, _defaultModelFor, _endpointUri, generate (+12 more)
 
 ### Community 594 - "personalization_studio_whatsapp_picker.dart"
-Cohesion: 0.11
-Nodes (18): McpRegistryCatalogSource, build, createState, _cursor, dispose, _entries, _error, initState (+10 more)
+Cohesion: 0.09
+Nodes (21): clickable, description, editable, expectedCount, fromClassName, hasAnyCriterion, isPackageConstrained, message (+13 more)
 
 ### Community 595 - "browser_ai_tool_adapter_test.dart"
 Cohesion: 0.12
 Nodes (16): browser_url_resolver.dart, canGoBack, canGoForward, copyWith, displayHost, errorCode, errorMessage, faviconUrl (+8 more)
 
 ### Community 596 - "browser_window_top_bar.dart"
-Cohesion: 0.11
-Nodes (18): automation_dashboard_runner.dart, automation_dashboard_voice.dart, ../../engine/perception/current_situation.dart, ../../engine/voice/voice_runtime.dart, VoiceSessionManager, AutomationVoiceHandler, activateConversation, activateVoice (+10 more)
+Cohesion: 0.06
+Nodes (30): commercial_order.dart, CommercialCheckoutResult, CommercialCheckoutService, createCheckout, customerSummary, facts, nextState, order (+22 more)
 
 ### Community 597 - "bot_editor_dialog.dart"
-Cohesion: 0.15
-Nodes (16): ../../application/bot/bot_studio_providers.dart, bot_card.dart, bot_editor_dialog.dart, botsListProvider, BotRole, BotStudioScreen, _BotStudioScreenState, build (+8 more)
+Cohesion: 0.02
+Nodes (84): ../../application/bot/bot_skills_catalog.dart, browser_load_error_description.dart, ../../domain/bot/bot_role.dart, ../../../engine/business/proposals/pdf_product_proposal.dart, build, _choose, icon, onChanged (+76 more)
 
 ### Community 598 - "linux_execution_backend.dart"
 Cohesion: 0.08
@@ -3283,16 +3342,16 @@ Cohesion: 0.10
 Nodes (20): Comparable, AppFuzzyMatcher, _codeFor, compareTo, _editDistance, FuzzyMatchScore, FuzzyTechnique, _levenshteinSimilarity (+12 more)
 
 ### Community 601 - "linux_voice_command_parser.dart"
-Cohesion: 0.11
-Nodes (17): language_assist_models.dart, actionsTimeout, analyzeInput, capabilities, _caps, _channel, conversationActions, LanguageAssistService (+9 more)
+Cohesion: 0.05
+Nodes (34): Future, language_assist_models.dart, canRecoverNotificationBacklog, _detectHeadlessEngine, _engineKind, _headlessChannel, isHeadlessAutomationEngine, actionsTimeout (+26 more)
 
 ### Community 602 - "persona_example.dart"
-Cohesion: 0.13
-Nodes (11): CodePointRange, rangeEnd, rangeStart, UChar32, USetCodePointIterator, c, end, rangeCount (+3 more)
+Cohesion: 0.10
+Nodes (20): Color get, activity, _anim, build, child, createState, didChangeAppLifecycleState, didChangeDependencies (+12 more)
 
 ### Community 603 - "whatsapp_qr_scanner_dialog.dart"
-Cohesion: 0.08
-Nodes (26): ../data/google_account_repository.dart, ../../domain/auth_user.dart, ../domain/google_account_profile.dart, google_sign_in_identity_provider.dart, _client, GoogleAccountRepository, _keyProfile, loadProfile (+18 more)
+Cohesion: 0.11
+Nodes (18): McpRegistryCatalogSource, build, createState, _cursor, dispose, _entries, _error, initState (+10 more)
 
 ### Community 604 - "browser_automation_models.dart"
 Cohesion: 0.11
@@ -3303,137 +3362,136 @@ Cohesion: 0.11
 Nodes (18): download, folder, isInstalled, isLfs, _manifest, manifestName, MnnArtifact, MnnOmniPackage (+10 more)
 
 ### Community 606 - "whatsapp_contacts_provider.dart"
-Cohesion: 0.12
-Nodes (16): AutomationPlanner, _buildPrompt, calls, _client, generated, _knownTools, LlmAutomationPlanner, llmLatency (+8 more)
+Cohesion: 0.09
+Nodes (22): depth_asset_cache.dart, FragmentShader?, FragmentShader? get, Image? get, _Image, DepthAssetCache, cache, DepthEstimatorService (+14 more)
 
 ### Community 607 - "bot_permissions.dart"
-Cohesion: 0.12
-Nodes (15): allowAndroidUiAutomation, allowBrowserAutomation, allowFileSystemRead, allowFileSystemWrite, allowLinuxExec, allowMessagingSend, allowPaymentCreation, blockedTools (+7 more)
+Cohesion: 0.11
+Nodes (18): build, disconnectMcpStoreServer, endpointController, idController, isConnected, item, McpHotInjectionBanner, McpStoreItemCard (+10 more)
 
 ### Community 608 - "package:shared_preferences/shared_preferences.dart"
-Cohesion: 0.13
-Nodes (14): conversation_ownership_store.dart, ../../engine/notifications/notification_object.dart, _addJidKeys, _addPhoneLike, _addTelUri, _conversationContactKeys, ConversationOwnershipPolicy, humanOwns (+6 more)
+Cohesion: 0.10
+Nodes (18): _adapter, id, McpCandidateProvider, provide, _registry, McpToolProjection, projectAll, toNanoTool (+10 more)
 
 ### Community 609 - "ContactsChannelHandler"
-Cohesion: 0.11
-Nodes (19): int minLines,, build, controller, createState, focusNode, helperText, isPassword, keyboardType (+11 more)
+Cohesion: 0.03
+Nodes (67): conversation_hub_action_controller.dart, ../../engine/messaging/conversation_hub_providers.dart, ../../engine/messaging/conversation_key.dart, ../../engine/platform/notification_dismiss_client.dart, clearNanoMemory, ConversationHubActionController, conversationHubActionControllerProvider, _dismissPendingReplies (+59 more)
 
 ### Community 611 - "WindowStrategy"
 Cohesion: 0.29
 Nodes (8): AdjacentMultiWindowStrategy, AndroidFreeformStrategy, FullscreenOverlayStrategy, Context, Intent, OemFloatingWindowStrategy, WindowStrategy, WindowStrategySelector
 
 ### Community 612 - "mcp_store_components.dart"
-Cohesion: 0.11
-Nodes (17): _, _, buildPdfBytes, exportMarkdown, exportReport, PdfReportService, copyToAppDirectory, pickImage (+9 more)
+Cohesion: 0.14
+Nodes (13): ../../automation/engine/execution/agent_tool_dispatcher.dart, ../../automation/engine/language/hybrid_intent_classifier.dart, _ActionIntent, _clf, _containsToken, _dispatcher, executeAuthorizedGoal, _isExactToken (+5 more)
 
 ### Community 613 - "browser_credential_model.dart"
 Cohesion: 0.02
-Nodes (84): bool allSelected,, bool canGoBack, canGoForward, minimized,, bool isSelectionMode, isChatPicker, isDark,, business_library_bottom_actions.dart, business_library_folder_actions.dart, int totalCount, totalSizeBytes,, build, BusinessLibraryBottomActions (+76 more)
+Nodes (95): bool allSelected,, bool canGoBack, canGoForward, minimized,, bool isDark, isGridView,, bool isSelectionMode, isChatPicker, isDark,, business_library_bottom_actions.dart, business_library_folder_actions.dart, business_library_toolbar_menu.dart, int totalCount, totalSizeBytes, (+87 more)
 
 ### Community 614 - "business_presets.dart"
-Cohesion: 0.11
-Nodes (18): A, argumentsType, decode, decoder, definition, execute, isVerifiable, RegisteredTool (+10 more)
+Cohesion: 0.10
+Nodes (20): ConversationalIntentMatcher, isAIModelDomain, isAppControlDomain, isAutomationDomain, isDevelopmentDomain, isFarewell, isGoogleAccountQuery, isGreeting (+12 more)
 
 ### Community 615 - "bot_skills_catalog.dart"
 Cohesion: 0.14
 Nodes (13): ../../domain/bot/bot_skill.dart, allSkills, BotSkillsCatalog, defaultSkillsForRole, getSkill, skillAndroidUi, skillBrowser, skillBrowserAi (+5 more)
 
 ### Community 616 - "coleitr.h"
-Cohesion: 0.12
-Nodes (16): baseArchitecture, developerName, id, isIdentified, ModelSourceDefinition, officialBenchmarks, officialCapabilities, officialContext (+8 more)
+Cohesion: 0.07
+Nodes (29): ../../browser_ai/application/browser_ai_gateway.dart, ../../browser_ai/domain/browser_ai_query.dart, ../../browser/reverse_agent_client.dart, BrowserAgentToolHandler, _client, _displayName, executeQuery, _gateway (+21 more)
 
 ### Community 617 - "browser_zoom_sheet.dart"
 Cohesion: 0.13
 Nodes (15): browser_zoom_quick_scales.dart, _adapt, _adapting, _applyZoom, BrowserZoomSheet, _BrowserZoomSheetState, build, controller (+7 more)
 
 ### Community 618 - "personalization_studio_single_input_dialog.dart"
-Cohesion: 0.09
-Nodes (20): ../agent_dependencies.dart, conversation_group_resolver.dart, conversation_summary_item.dart, contains, conversationHubListProvider, _isSpurious, m, n (+12 more)
+Cohesion: 0.10
+Nodes (19): ../agent_dependencies.dart, conversation_group_resolver.dart, conversation_summary_item.dart, contains, conversationHubListProvider, _isSpurious, m, n (+11 more)
 
 ### Community 619 - "browser_ai_response.dart"
-Cohesion: 0.24
-Nodes (9): Locale, UMemory, UnicodeString, ListFormatData, endPattern, locale, middlePattern, startPattern (+1 more)
+Cohesion: 0.09
+Nodes (25): _RuntimeGgufLifecycle, _RuntimeLocalLifecycle, durable_inbox_entry.dart, EngineStatus, RuntimeStatus, RuntimeEngineNotifier, dispose, interval (+17 more)
 
 ### Community 620 - "i_bin_executor.dart"
-Cohesion: 0.29
-Nodes (4): Any, Int, List, Map
+Cohesion: 0.06
+Nodes (35): commercial_conversation_state.dart, conversation_context_resolver.dart, conversation_evidence_window.dart, conversation_key.dart, conversation_memory.dart, incoming_message.dart, clear, CommercialConversationStateStore (+27 more)
 
 ### Community 621 - "int get"
 Cohesion: 0.17
 Nodes (11): boundingBox, confidence, description, inferRole, isInsideModal, matchedText, _matchesKeywords, role (+3 more)
 
 ### Community 622 - "Boolean"
-Cohesion: 0.12
-Nodes (16): arguments, cwd, duration, environment, executable, execute, exitCode, isAvailable (+8 more)
+Cohesion: 0.02
+Nodes (89): arguments, _assistantPrompt, _browserAiGateway, dispose, executeCascade, _isAiAssistantTool, _isRelevantWebResult, _mcpAssistantCandidates (+81 more)
 
 ### Community 623 - "browser_ai_provider_registry.dart"
-Cohesion: 0.08
-Nodes (23): matches, ReplyIntentVocabulary, terms, definitions, description, LinuxCapabilityCatalog, LinuxToolDefinition, lookup (+15 more)
+Cohesion: 0.10
+Nodes (18): _, ../../domain/automation_result.dart, Duration get, ../../engine/execution/plan_execution_coordinator.dart, AutomationResultStatus, AutomationTrace, duration, endedAt (+10 more)
 
 ### Community 624 - "ai_provider.dart"
-Cohesion: 0.07
-Nodes (26): auth_controller.dart, device_controller.dart, ../domain/auth_repository.dart, donation_controller.dart, ../infrastructure/device_management_adapter.dart, ../infrastructure/firebase_auth_adapter.dart, ../infrastructure/firestore_account_adapter.dart, ../infrastructure/google_play_billing_adapter.dart (+18 more)
+Cohesion: 0.06
+Nodes (33): auth_controller.dart, device_controller.dart, device_entity.dart, ../domain/device_repository.dart, donation_controller.dart, ../infrastructure/device_management_adapter.dart, ../infrastructure/firebase_auth_adapter.dart, ../infrastructure/firestore_account_adapter.dart (+25 more)
 
 ### Community 625 - "device_entity.dart"
 Cohesion: 0.12
-Nodes (15): ../../application/rule_creator.dart, ../../../../core/widgets/nano_choice_group.dart, ../../domain/automation_policy.dart, ../engine/scheduling/rule_registry.dart, ../../engine/scheduling/scheduled_rule.dart, ../../engine/scheduling/trigger.dart, create, _registry (+7 more)
+Nodes (16): ../../application/rule_creator.dart, ../../../../core/widgets/nano_choice_group.dart, ../../domain/automation_policy.dart, ../engine/scheduling/rule_registry.dart, ../../engine/scheduling/scheduled_rule.dart, ../../engine/scheduling/trigger.dart, create, _registry (+8 more)
 
 ### Community 626 - "bot_skill.dart"
-Cohesion: 0.10
-Nodes (19): ../../domain/terminal_hub_card.dart, Browser3DCarouselPage, build, child, controller, currentPage, index, onActivate (+11 more)
+Cohesion: 0.04
+Nodes (49): ../../domain/terminal_hub_card.dart, guided_fact_dialog_header.dart, build, child, DialogContainerShell, maxWidthLandscape, maxWidthPortrait, build (+41 more)
 
 ### Community 628 - "chat_context_builder.dart"
-Cohesion: 0.11
-Nodes (17): bool isDesktopMode, isDarkModeWeb,, _find, maximizedWindowId, minimizedWindowIds, onExit, ref, scrollController, showFindInPage (+9 more)
+Cohesion: 0.15
+Nodes (12): ../../data/datasources/huggingface_remote_datasource.dart, ../../data/datasources/i_model_metadata_datasource.dart, ../../data/datasources/shared_preferences_metadata_cache.dart, ../../data/repositories/model_metadata_repository_impl.dart, HuggingFaceRemoteDataSource, IModelRemoteMetadataDataSource, cache, modelMetadataCacheProvider (+4 more)
 
 ### Community 629 - "_AtkKeyEventStruct"
 Cohesion: 0.17
 Nodes (12): _AtkKeyEventStruct, keycode, keyval, length, state, string, timestamp, type (+4 more)
 
 ### Community 630 - "translit.h"
-Cohesion: 0.10
-Nodes (19): AmbientContext? get, AmbientContext, AmbientContextService, _cache, currentContext, _fetch, _flights, getOrFetchAmbientContext (+11 more)
+Cohesion: 0.12
+Nodes (17): NanoAiControllerSubmission, NanoAiController, build, controller, createState, _iconFor, initState, NanoMediaSheet (+9 more)
 
 ### Community 631 - "gemini_provider.dart"
-Cohesion: 0.21
-Nodes (10): android, Array, Boolean, List, MessagingStyle, Notification, StatusBarNotification, String (+2 more)
+Cohesion: 0.15
+Nodes (13): Boolean, StatusBarNotification, SocialConversationNotificationClassifier, android, Array, Boolean, List, MessagingStyle (+5 more)
 
 ### Community 632 - "mistral_provider.dart"
-Cohesion: 0.04
-Nodes (41): _, ../../../../core/services/execution_budget.dart, ../../core/services/llm_engine_client.dart, Duration? requestTimeout,
-  Duration, baseDir, bridgeJs, ensureRunning, isBridgeProcess (+33 more)
+Cohesion: 0.10
+Nodes (19): account, _cancelled, capture, _chat, dispose, _expectedAccount, forAlias, knownAccount (+11 more)
 
 ### Community 633 - "reverse_agent_response.dart"
 Cohesion: 0.17
 Nodes (11): actualBackend, actualProvider, error, failure, fromJson, ok, provider, requestedProvider (+3 more)
 
 ### Community 634 - "bot_card.dart"
-Cohesion: 0.12
-Nodes (13): emmaSocialSeeds, ../domain/persona_response_option.dart, emma_intent_seed.dart, emma_intent_seed_routine.dart, emma_intent_seed_social.dart, emmaCanonicalSeeds, category, EmmaIntentSeed (+5 more)
+Cohesion: 0.21
+Nodes (6): Boolean, Int, List, String, NativeRuntimeSupervisor, CoroutineScope
 
 ### Community 635 - "app_providers.dart"
-Cohesion: 0.11
-Nodes (17): commercial_conversation_state.dart, durable_outbox_message.dart, DurableOutboxQueue, enqueue, getPendingMessages, _loadAll, markDispatched, recordFailure (+9 more)
+Cohesion: 0.04
+Nodes (41): browser_connection_dialog.dart, browser_security_dialogs.dart, browser_url_edit_dialog.dart, _, conversation_inapp_player.dart, conversation_pdf_viewer.dart, conversation_photo_viewer.dart, build (+33 more)
 
 ### Community 636 - "system_inventory.dart"
 Cohesion: 0.10
 Nodes (20): analyze, _anaphoraPatterns, _classifyNegatedAttribute, _correctionPatterns, correctionTarget, detectedIntents, grammaticalPerson, hasNegation (+12 more)
 
 ### Community 637 - "nano_operating_tier.dart"
-Cohesion: 0.10
-Nodes (20): atMs, ClientContextEntry, ClientProductContext, ClientTopicThread, copyWith, details, fromJson, id (+12 more)
+Cohesion: 0.09
+Nodes (19): bool get, eligibleForSocialPrompt, isComplex, isContextual, isNarrative, isSocialMinimal, TurnComplexity, cancel (+11 more)
 
 ### Community 638 - "instruction_trust.dart"
-Cohesion: 0.08
-Nodes (25): conversation_hub_action_controller.dart, _buildTextField, BusinessDocumentActions, delete, rename, share, _showError, _buildTextField (+17 more)
+Cohesion: 0.10
+Nodes (19): automation_suggestion_carousel.dart, ../../../../core/theme/nano_hero_source.dart, ../../../../core/widgets/navigation/nano_glyph.dart, ../dashboard/automation_agent_card.dart, ../dashboard/automation_discover_nano_section.dart, ../dashboard/automation_inbox_card.dart, ../dashboard/automation_system_footer.dart, _actions (+11 more)
 
 ### Community 639 - "persona_response_option.dart"
-Cohesion: 0.05
-Nodes (40): build, createState, _data, dispose, initial, initState, _isRawMode, _onSave (+32 more)
+Cohesion: 0.10
+Nodes (20): accountDoc, accountHolder, accountNumber, accountType, bankName, codNotes, customNotes, fromText (+12 more)
 
 ### Community 640 - "browser_ai_session.dart"
-Cohesion: 0.11
-Nodes (18): conversation_topic_tracker.dart, activeTopic, ConversationDialogueState, copyWith, DialogueStateTracker, getState, hasPendingQuestion, lastAgentAct (+10 more)
+Cohesion: 0.09
+Nodes (22): conversation_topic.dart, conversation_topic_extractor.dart, _classifyDomain, ConversationTopicExtractor, _extractSalientEntities, extractTopic, _generateLabel, _healthWords (+14 more)
 
 ### Community 641 - "detected_model.dart"
 Cohesion: 0.22
@@ -3452,20 +3510,20 @@ Cohesion: 0.29
 Nodes (5): Int, LinearLayout, String, NanoGeminiInputBar, HorizontalScrollView
 
 ### Community 645 - "SecurePathPolicy"
-Cohesion: 0.33
-Nodes (4): Boolean, File, String, SecurePathPolicy
+Cohesion: 0.11
+Nodes (18): automation_dashboard_runner.dart, automation_dashboard_voice.dart, ../../engine/perception/current_situation.dart, ../../engine/voice/voice_runtime.dart, VoiceSessionManager, AutomationVoiceHandler, activateConversation, activateVoice (+10 more)
 
 ### Community 646 - "idna.h"
 Cohesion: 0.14
 Nodes (14): _autoScrollTimer, build, createState, _currentPage, dispose, featuredModels, initState, ModelsRecommendedCarousel (+6 more)
 
 ### Community 647 - "messaging_platform.dart"
-Cohesion: 0.07
-Nodes (28): AnimationController, build, _controller, createState, didChangeAppLifecycleState, dispose, initState, _isForeground (+20 more)
+Cohesion: 0.24
+Nodes (8): Any, Boolean, Int, Map, Pair, String, NanoModelRuntimeSupervisor, Job
 
 ### Community 648 - "observed_data_extractor.dart"
-Cohesion: 0.14
-Nodes (12): Future, ConversationPersistenceQueue, _pending, run, _tail, async, _channel, hide (+4 more)
+Cohesion: 0.09
+Nodes (21): _byGoal, clear, _evictIfNeeded, ExperienceCache, failureCount, goal, lastFailure, lastVerified (+13 more)
 
 ### Community 649 - "whatsapp_media_dispatcher.dart"
 Cohesion: 0.11
@@ -3477,27 +3535,27 @@ Nodes (16): accountFingerprint, appPackage, canonicalConversationId, channel, co
 
 ### Community 651 - "tool_approval_result.dart"
 Cohesion: 0.10
-Nodes (23): ../../automation/engine/agent_dependencies.dart, ../../../core/services/runtime_engine.dart, features/chat/nano_everywhere/nano_floating_wrapper.dart, ../../features/chat/nano_everywhere/nano_providers.dart, ../../features/home/buho_wallpaper.dart, build, ScaffoldShell, shell (+15 more)
+Nodes (23): ../../automation/engine/agent_dependencies.dart, ../../../../core/services/runtime_engine.dart, features/chat/nano_everywhere/nano_floating_wrapper.dart, ../../features/chat/nano_everywhere/nano_providers.dart, ../../features/home/buho_wallpaper.dart, build, ScaffoldShell, shell (+15 more)
 
 ### Community 652 - ".shareMedia"
 Cohesion: 0.47
 Nodes (4): Boolean, Intent, String, WhatsAppShareMediaBackend
 
 ### Community 653 - "rule_creator.dart"
-Cohesion: 0.08
-Nodes (21): action_ledger.dart, automation_coordinator.dart, automation_coordinator_provider.dart, automation_engine.dart, _, ../ledger/action_ledger_provider.dart, AutomationEngine, cancelExecution (+13 more)
+Cohesion: 0.07
+Nodes (26): capability_probes.dart, MethodChannelSystemInventory, appByPackage, apps, availabilityOf, build, capabilities, _catalog (+18 more)
 
 ### Community 654 - "piece"
 Cohesion: 0.25
 Nodes (4): Boolean, LinearLayout, ValueAnimator, NanoGlassCapsule
 
 ### Community 655 - "csv_tsv_parser.dart"
-Cohesion: 0.11
-Nodes (18): ../../application/data_statistics_service.dart, database_data_grid.dart, database_profile_panel.dart, database_statistics_panel.dart, _analysisBody, _analysisError, build, colors (+10 more)
+Cohesion: 0.07
+Nodes (28): ../engine/messaging/reply_capability.dart, authority, AutomationGoal, AutomationOptions, confirmation, confirmed, executionId, expectation (+20 more)
 
 ### Community 656 - ".installPackages"
-Cohesion: 0.15
-Nodes (12): WhatsAppContact, contact, ContactMatcher, ContactMatchResult, filter, findBest, minAcceptableScore, normalize (+4 more)
+Cohesion: 0.11
+Nodes (18): canonical_message.dart, canonical_message_store.dart, build, CanonicalContextBuilder, CanonicalConversationContext, coverage, hasKnownGaps, promptBlock (+10 more)
 
 ### Community 657 - ".findTargetRootNode"
 Cohesion: 0.32
@@ -3508,20 +3566,20 @@ Cohesion: 0.25
 Nodes (4): atspi_device_get_type, ATSPI_TYPE_DEVICE(), G_BEGIN_DECLS, guint
 
 ### Community 659 - "browser_keep_alive_wrapper.dart"
-Cohesion: 0.04
-Nodes (48): await, _recordStyleLearning, _sendReply, pendingReplyStoreProvider, toneProfileNotifierProvider, ToneWarmth, AutomationModelMode, personaContextProvider (+40 more)
+Cohesion: 0.03
+Nodes (62): automation_dashboard.dart, ../../../../core/services/remote_inference_config.dart, main, prevOnError, remoteInferenceConfigProvider, runtimeEngineProvider, _CapabilityRow, cleanAppearance (+54 more)
 
 ### Community 660 - "shared_preferences_tool_audit_trail.dart"
-Cohesion: 0.08
-Nodes (26): UCharIterator, context, current, getIndex, getState, hasNext, hasPrevious, index (+18 more)
+Cohesion: 0.10
+Nodes (19): accountId, attachments, channel, conversationId, fromJson, hasAttachments, id, isAudio (+11 more)
 
 ### Community 661 - "NanoAtomicSnapshotter"
 Cohesion: 0.23
 Nodes (5): Boolean, ByteArray, Int, NanoAtomicSnapshotter, ExecutorService
 
 ### Community 662 - "static final"
-Cohesion: 0.20
-Nodes (10): authToken, build, BusinessRemoteSourceDialog, _BusinessRemoteSourceDialogState, createState, dispose, isSheets, _submit (+2 more)
+Cohesion: 0.03
+Nodes (92): AutoDisposeAsyncNotifier, automation_settings_pickers.dart, _generateAiSuggestion, _refreshLiveHistory, ../../../core/providers/settings_provider.dart, settingsProvider, conversationOwnershipStoreProvider, conversationReplyComposerProvider (+84 more)
 
 ### Community 663 - ".scan"
 Cohesion: 0.33
@@ -3532,24 +3590,24 @@ Cohesion: 0.39
 Nodes (4): AccessibilityService, Boolean, String, WhatsAppAutoSendController
 
 ### Community 665 - "dtintrv.h"
-Cohesion: 0.13
-Nodes (15): ../../../chat/nano_everywhere/nano_floating_system.dart, build, _busy, _checkStatus, createState, didChangeAppLifecycleState, dispose, FloatingAssistantSection (+7 more)
+Cohesion: 0.10
+Nodes (20): atMs, ClientContextEntry, ClientProductContext, ClientTopicThread, copyWith, details, fromJson, id (+12 more)
 
 ### Community 666 - "pragmatic_fast_path_activity_banks.dart"
-Cohesion: 0.15
-Nodes (13): inference_benchmark_row.dart, _BenchmarkSheet, _BenchmarkSheetState, build, coordinator, createState, _error, liteRtPath (+5 more)
+Cohesion: 0.12
+Nodes (17): activeAccent, alpha, animated, build, _buildStaticBackground, color, createState, didChangeAppLifecycleState (+9 more)
 
 ### Community 667 - "UIDNAInfo"
-Cohesion: 0.04
-Nodes (44): bool isLandscape,, browser_address_field.dart, browser_window_card_header.dart, browser_window_resize_handle.dart, browser_window_url_editor.dart, BrowserWindowCardFrame, _BrowserWindowCardFrameState, build (+36 more)
+Cohesion: 0.02
+Nodes (79): automation_discover_tile.dart, bool isMedia, isListening,, browser_tab_bar_widget.dart, ../../../../core/widgets/effects/nano_voice_beam.dart, build, BusinessLibraryLoadError, busy, onRetry (+71 more)
 
 ### Community 668 - "persona_retriever.dart"
-Cohesion: 0.11
-Nodes (19): ../../automation/engine/language/runtime_personal_live_context.dart, ../../automation/personal_agent/domain/personal_live_context.dart, _buildTurnSystem, _ChatInferenceContext, _ChatInferenceTools, _completedMessage, ../../../core/services/device_info.dart, ../domain/chat_memory_index.dart (+11 more)
+Cohesion: 0.09
+Nodes (21): ../../automation/engine/mcp/mcp_connection_registry.dart, ../../automation/engine/mcp/mcp_tool_projection.dart, ../../../core/services/chat_system_prompt.dart, ../../../core/services/conversational/conversational_intent_matcher.dart, buildHistory, buildPrompt, ChatContextBuilder, historyBeforeCurrentUser (+13 more)
 
 ### Community 669 - "pragmatic_fast_path_misc_banks.dart"
-Cohesion: 0.13
-Nodes (14): AutomationSurface, CapabilityRoutingDecision, confidence, coordinates, _defaultTrue, displayName, fallbackSurfaces, _isBrowserIntended (+6 more)
+Cohesion: 0.08
+Nodes (22): capability_router.dart, ../../executors/linux/linux_automation_executor_provider.dart, handlers/semantic_linux_tool_handler.dart, AutomationSurface, CapabilityRouter, CapabilityRoutingDecision, confidence, coordinates (+14 more)
 
 ### Community 670 - "safe_repair_options.dart"
 Cohesion: 0.29
@@ -3560,8 +3618,8 @@ Cohesion: 0.23
 Nodes (8): Array, Boolean, Int, IntArray, MethodChannel, String, Pending, RuntimePermissionCoordinator
 
 ### Community 672 - "http_mcp_parser.dart"
-Cohesion: 0.11
-Nodes (18): attachController, captureScreen, _controller, _currentSession, detachController, dispose, getPairingCode, onPageFinished (+10 more)
+Cohesion: 0.06
+Nodes (32): InAppWebViewController? get, attachController, captureScreen, _controller, _conversationAccount, _conversationFeedEnabled, _conversationsController, conversationsStream (+24 more)
 
 ### Community 673 - "whatsapp_media_share.dart"
 Cohesion: 0.21
@@ -3572,36 +3630,36 @@ Cohesion: 0.22
 Nodes (8): defaultInstance, _pick, repair, _repairCallCenter, RepairCase, _repairRedundantQuestion, SafeConversationRepair, safe_repair_options.dart
 
 ### Community 679 - "TaskValue"
-Cohesion: 0.12
-Nodes (18): ../../engine/skills/prompt_skill.dart, ../../engine/skills/prompt_skill_importer.dart, ../../engine/skills/prompt_skill_provider.dart, automationCoordinatorProvider, buildBenchmarkCoordinator, promptSkillStoreProvider, _askFor, build (+10 more)
+Cohesion: 0.07
+Nodes (29): AgentConversationScope get, conversation_agent.dart, ConversationAddress, ConversationAgentId, address, agentForConversationId, agentId, assignedAtMs (+21 more)
 
 ### Community 680 - "nano_android_native_ai_port.dart"
-Cohesion: 0.14
-Nodes (13): ../../automation/engine/execution/agent_tool_dispatcher.dart, ../../automation/engine/language/hybrid_intent_classifier.dart, _ActionIntent, _clf, _containsToken, _dispatcher, executeAuthorizedGoal, _isExactToken (+5 more)
+Cohesion: 0.10
+Nodes (19): check, WhatsAppWebAccountGuard, current, _decode, owned, pane, read, _restore (+11 more)
 
 ### Community 681 - "AppFunctionChannelHandler"
-Cohesion: 0.12
-Nodes (17): activeAccent, alpha, animated, build, _buildStaticBackground, color, createState, didChangeAppLifecycleState (+9 more)
+Cohesion: 0.04
+Nodes (49): autoReply, ContactConfigResult, name, NanoPersonalContactDialog, relationship, show, styleRegister, _addOrEditContact (+41 more)
 
 ### Community 682 - "ChangeNotifier"
 Cohesion: 0.27
 Nodes (6): Boolean, Int, ValueAnimator, NanoBubbleTouchHelper, MotionEvent, View
 
 ### Community 683 - "utfstring.h"
-Cohesion: 0.13
-Nodes (14): ../engine/execution/handlers/whatsapp_contact_resolver.dart, cancel, _channel, _contacts, exact, nextRun, openExactAlarmSettings, reason (+6 more)
+Cohesion: 0.07
+Nodes (27): ../../domain/browser_site_profile.dart, ../../infrastructure/browser_scripts.dart, BrowserWebCompatibilityBridge, _channel, requestMediaPermissions, setDesktopIdentity, BrowserMediaTransfer, BrowserMediaTransferReader (+19 more)
 
 ### Community 684 - "auth_state_test.dart"
-Cohesion: 0.11
-Nodes (16): conversationId, ConversationOwner, ConversationOwnership, humanOwnershipTimeoutMs, humanOwns, isHumanActive, owner, updatedAtMs (+8 more)
+Cohesion: 0.10
+Nodes (19): _focusMessageInput, _genericTap, id, _isConversationObject, _isSendControl, _matchScore, _messagingVerbs, _observer (+11 more)
 
 ### Community 685 - "USerializedSet"
 Cohesion: 0.31
 Nodes (6): Int, LinearLayout, List, String, TextView, NanoGeminiOverlayView
 
 ### Community 686 - "model_viability.dart"
-Cohesion: 0.12
-Nodes (14): base, _canonicalizeToken, clean, isLearnablePersonalPrompt, _linkPattern, normalized, normalizePersonalLearningText, out (+6 more)
+Cohesion: 0.11
+Nodes (17): device_tilt_service.dart, borderRadius, build, BusinessStoreParallaxCard, depthImage, fallbackWidget, height, paint (+9 more)
 
 ### Community 687 - ".onBind"
 Cohesion: 0.40
@@ -3613,27 +3671,27 @@ Nodes (7): Any, Boolean, Map, MethodChannel, String, NanoOverlayBridge, BinaryMe
 
 ### Community 689 - "EngineSupervisor.kt"
 Cohesion: 0.11
-Nodes (18): bot_skills_catalog.dart, ../../domain/bot/bot_permissions.dart, botRepositoryProvider, botsListProvider, _cache, deleteBot, getActiveBotForChannel, getBot (+10 more)
+Nodes (19): accent, accentColor, AutomationGlass360, _AutomationGlass360State, borderRadius, build, child, createState (+11 more)
 
 ### Community 690 - "_ImportReview"
-Cohesion: 0.24
-Nodes (8): Any, Boolean, Int, Map, Pair, String, NanoModelRuntimeSupervisor, Job
+Cohesion: 0.13
+Nodes (14): account, domHelpers, earlier, header, main, norm, normalizeTitle, pane (+6 more)
 
 ### Community 691 - "_PersonalizationStudioScreenState"
-Cohesion: 0.05
-Nodes (42): ../../engine/business/meta_template_models.dart, category, components, fromJson, id, language, MetaMessageTemplate, MetaMessageTemplateDraft (+34 more)
+Cohesion: 0.11
+Nodes (18): ../../engine/business/meta_templates_api.dart, _api, build, _configured, createState, _delete, dispose, _edit (+10 more)
 
 ### Community 692 - "_MemoryEditDialog"
 Cohesion: 0.11
-Nodes (16): ../domain/persona_example.dart, exampleCount, export, file, _pageSize, PersonaTrainingDatasetExport, PersonaTrainingDatasetExporter, _writeExample (+8 more)
+Nodes (16): Duration, kNanoBarScrollReserve, kNanoBarScrollReserveLandscape, kNanoDockGapLandscape, kNanoDockGapPortrait, kNanoDockIdleCollapseDelay, kNanoInitialDockHeight, equivalent (+8 more)
 
 ### Community 693 - "_PersonaExampleCard"
 Cohesion: 0.14
 Nodes (14): build, _buildDescription, _buildPreview, createState, didUpdateWidget, _exists, _file, initState (+6 more)
 
 ### Community 694 - "_PersonalizationStudioDiagram"
-Cohesion: 0.07
-Nodes (34): business_connector_actions.dart, business_source_option_tile.dart, _buildContent, _buildDropdown, _buildHeader, _buildImportStep, _buildMappingStep, _buildMetricCard (+26 more)
+Cohesion: 0.08
+Nodes (28): _buildContent, _buildDropdown, _buildHeader, _buildImportStep, _buildMappingStep, _buildMetricCard, _BusinessImportWizardContent, _BusinessImportWizardFields (+20 more)
 
 ### Community 695 - "_StyleEditDialog"
 Cohesion: 0.21
@@ -3644,8 +3702,8 @@ Cohesion: 0.11
 Nodes (17): AttachmentConfidence, AttachmentResolutionStatus, AttachmentType, confidence, copyWith, durationMs, isResolved, localPath (+9 more)
 
 ### Community 697 - "USetStringIterator"
-Cohesion: 0.13
-Nodes (14): body, candidate, cleanReplyText, close, escaped, findUnescapedQuote, keyMatch, legacyMarkerReply (+6 more)
+Cohesion: 0.11
+Nodes (16): ../business/business_facts.dart, ../business/business_text_matcher.dart, business_connector_models.dart, business_data_value_parser.dart, BusinessColumnDetector, _categorySynonyms, _detailsSynonyms, detect (+8 more)
 
 ### Community 698 - "automation_result.dart"
 Cohesion: 0.06
@@ -3660,12 +3718,12 @@ Cohesion: 0.12
 Nodes (16): double width,, build, createState, didUpdateWidget, document, height, _image, _images (+8 more)
 
 ### Community 701 - "browser_tab_bar_widget.dart"
-Cohesion: 0.09
-Nodes (23): close, _closed, _generateLiteRt, _generateMnn, _NativeCancellationLease, _RoutedNativeGeneration, send, http.BaseClient (+15 more)
+Cohesion: 0.15
+Nodes (15): googleAccountProvider, build, GoogleAccountDashboardCard, build, createState, dispose, _emailController, _fieldLabel (+7 more)
 
 ### Community 702 - "model_brand_logo.dart"
-Cohesion: 0.07
-Nodes (27): _, digest, sha256File, toString, AuthCredentialsHelper, deriveGoogleUid, deriveUserUid, hashPassword (+19 more)
+Cohesion: 0.11
+Nodes (19): _attemptedSpecial, build, _busy, createState, DevicePermissionsSection, _DevicePermissionsSectionState, didChangeAppLifecycleState, dispose (+11 more)
 
 ### Community 703 - "String"
 Cohesion: 0.33
@@ -3676,20 +3734,20 @@ Cohesion: 0.06
 Nodes (30): database_session_loader.dart, database_studio_export_actions.dart, database_studio_source_actions.dart, DatabaseStudioState get, ../domain/database_port.dart, google_sheets_sync_service.dart, ../infrastructure/device_data_file_picker.dart, DatabaseSessionLoader (+22 more)
 
 ### Community 705 - "personal_style_seed.dart"
-Cohesion: 0.08
-Nodes (25): ../../../engine/business/business_facts.dart, ../../engine/business/catalog_pdf_generator.dart, build, CatalogPdfPreviewDialog, _CatalogPdfPreviewDialogState, createState, facts, _generating (+17 more)
+Cohesion: 0.14
+Nodes (14): build, createState, documentTitle, facts, _handleApprove, initState, _isSaving, _items (+6 more)
 
 ### Community 706 - "_McpSkillsHubScreenState"
 Cohesion: 0.11
 Nodes (18): BusinessIntentSignals, _catalog, _delivery, detectBusinessIntentSignals, false, _greetings, _hasMatch, _hours (+10 more)
 
 ### Community 707 - "whatsapp_media_resolver.dart"
-Cohesion: 0.14
-Nodes (11): Collator, UMemory, UnicodeString, Record, data_, name_, RuleBasedCollator, StringEnumeration (+3 more)
+Cohesion: 0.11
+Nodes (17): _, ../../executors/notification_executor.dart, allowedDataTypes, audio, canReplyInBackground, documentPdf, _evalMediaCapability, link (+9 more)
 
 ### Community 708 - "StoreDb"
-Cohesion: 0.12
-Nodes (15): ../../../engine/mcp/http_mcp_client.dart, ../../../engine/mcp/mcp_client_port.dart, ../../../engine/mcp/mcp_connection_registry.dart, McpToolCallResult, idController, nameController, selectedTransport, showMcpHotInjectionDialog (+7 more)
+Cohesion: 0.07
+Nodes (27): chat_provider.dart, dashboard_provider.dart, ../../features/account/application/account_providers.dart, ../../features/models/application/models_provider.dart, generative_inference_port.dart, GenerativeInferencePort get, inference_benchmark_runner.dart, kali_provider.dart (+19 more)
 
 ### Community 709 - "NanoMediaResolver"
 Cohesion: 0.33
@@ -3697,15 +3755,15 @@ Nodes (6): extractUrlFromText(), isSupportedSocialUrl(), Boolean, String, MediaR
 
 ### Community 710 - "nano_assistant_panel_components.dart"
 Cohesion: 0.07
-Nodes (29): hybrid_retrieval_scorer.dart, _computeLexicalOverlap, context, exact, fts, HybridRetrievalScorer, HybridScorerWeights, intent (+21 more)
+Nodes (28): hybrid_retrieval_scorer.dart, _computeLexicalOverlap, context, exact, fts, HybridRetrievalScorer, HybridScorerWeights, intent (+20 more)
 
 ### Community 711 - "nano_motion.dart"
-Cohesion: 0.05
-Nodes (35): autoReply, ContactConfigResult, name, NanoPersonalContactDialog, relationship, show, styleRegister, _addOrEditContact (+27 more)
+Cohesion: 0.11
+Nodes (18): bot_skills_catalog.dart, ../../domain/bot/bot_permissions.dart, botRepositoryProvider, botsListProvider, _cache, deleteBot, getActiveBotForChannel, getBot (+10 more)
 
 ### Community 712 - "EngineSupervisor.kt"
-Cohesion: 0.24
-Nodes (9): ensureSchema(), Any, Int, List, Map, SQLiteDatabase, String, NotificationHistoryEvent (+1 more)
+Cohesion: 0.04
+Nodes (49): FocusNode?, int minLines,, _action, brightness, build, compact, controller, focusNode (+41 more)
 
 ### Community 713 - "NanoGeminiHeaderView"
 Cohesion: 0.25
@@ -3717,23 +3775,27 @@ Nodes (20): business_profile.dart, buffer, buildBusinessBlock, businessName, cle
 
 ### Community 715 - "dtintrv.h"
 Cohesion: 0.02
-Nodes (94): ../application/automation_coordinator.dart, ../../benchmark/c14_benchmark.dart, ../../benchmark/c14_metrics.dart, ../../benchmark/c14_runner.dart, c14_benchmark.dart, c14_context.dart, c14_metrics.dart, c14_preflight.dart (+86 more)
+Nodes (86): ../application/automation_coordinator.dart, ../../benchmark/c14_benchmark.dart, ../../benchmark/c14_metrics.dart, ../../benchmark/c14_runner.dart, c14_benchmark.dart, c14_context.dart, c14_metrics.dart, c14_preflight.dart (+78 more)
 
 ### Community 716 - ".readLimited"
-Cohesion: 0.04
-Nodes (44): ../../automation/application/automation_feedback_presenter.dart, ../../automation/engine/voice/conversation/conversational_world_state.dart, ../../automation/engine/voice/conversation/grounding_resolver.dart, ../../automation/engine/voice/voice_backends.dart, ../../automation/engine/voice/voice_runtime.dart, _alwaysEnabled, AndroidSpeechRecognitionBackend, AndroidSpeechSynthesisBackend (+36 more)
+Cohesion: 0.06
+Nodes (31): Completer, ../../../core/models/model_path_support.dart, dart:async, ../../../database/application/tabular_import_service.dart, ../../../database/domain/data_models.dart, ../../../database/infrastructure/native_sqlite_gateway.dart, BusinessDataSourceAdapters, loadFromFile (+23 more)
 
 ### Community 717 - "turn_supersede_guard.dart"
 Cohesion: 0.12
 Nodes (16): BusinessResponseTemplates, editorDefaults, fromJson, greeting, greetingPrefix, humanHandoff, invalidVariables, missingFacts (+8 more)
 
 ### Community 718 - "execution_cancellation.dart"
-Cohesion: 0.10
-Nodes (20): _accent, active, _AnimatedKey, _AnimatedKeyState, bracketedPasteEnabled, build, chrome, createState (+12 more)
+Cohesion: 0.17
+Nodes (11): ../../../../core/models/catalog_models.dart, description, deviceEvidence, downloadSize, fromCatalog, isDefault, memoryReference, params (+3 more)
 
 ### Community 719 - "NanoOwlAnimator"
 Cohesion: 0.25
 Nodes (3): NanoMediaDownloader, String, NanoOwlAnimator
+
+### Community 720 - "NanoVoiceCapture"
+Cohesion: 0.12
+Nodes (15): conversation_doc_card.dart, conversation_link_card.dart, conversation_media_cards.dart, conversation_youtube_card.dart, build, ConversationMediaBubble, isInbound, _sfFallback (+7 more)
 
 ### Community 721 - "virtual_list_accumulator.dart"
 Cohesion: 0.05
@@ -3752,52 +3814,52 @@ Cohesion: 0.29
 Nodes (7): Any, Boolean, Map, MethodCall, String, MnnRuntimeSupervisor, Request
 
 ### Community 725 - ".onBind"
-Cohesion: 0.12
-Nodes (17): double phase,, audioLevel, build, createState, didChangeAppLifecycleState, didChangeDependencies, dispose, _foreground (+9 more)
+Cohesion: 0.24
+Nodes (7): EngineChannelHandler, Any, Int, Map, MethodCall, MethodChannel, String
 
 ### Community 726 - "chatgpt_provider.dart"
-Cohesion: 0.03
-Nodes (66): IconData, fromKey, icon, key, label, badge, build, BusinessSourceOptionTile (+58 more)
+Cohesion: 0.02
+Nodes (107): bool fullBleed,, ../business/meta_inbox_screen.dart, conversation_video_sheet.dart, conversation_web_sheet.dart, double keyboardInset,, floating_video_overlay.dart, AdaptiveOrientationBuilder, AdaptiveTheme (+99 more)
 
 ### Community 727 - "hours_edit_dialog.dart"
-Cohesion: 0.12
-Nodes (16): bot_skills_selector.dart, bot, BotEditorDialog, _BotEditorDialogState, build, createState, _descController, dispose (+8 more)
+Cohesion: 0.15
+Nodes (12): BusinessFolderInfo, category, extension, file, isImage, isPdf, isSheet, isVideo (+4 more)
 
 ### Community 728 - "@correo"
-Cohesion: 0.11
-Nodes (17): database_report_coordinator.dart, database_studio_state.dart, DatabaseReportCoordinator get, ../../domain/report_section.dart, _export, exportDelimited, exportHtml, exportPdf (+9 more)
+Cohesion: 0.07
+Nodes (31): DeterministicFlowCatalog, ApprovedSkillCandidateProvider, id, _primaryAction, provide, _resolver, SkillResolver, _store (+23 more)
 
 ### Community 729 - "@emmanuel"
 Cohesion: 0.12
-Nodes (16): _activeTag, _addOrEditPhrase, _addResponseQuickly, build, createState, _deletePhrase, _examples, _filterTags (+8 more)
+Nodes (16): arguments, cwd, duration, environment, executable, execute, exitCode, isAvailable (+8 more)
 
 ### Community 732 - "model_source_definition.dart"
-Cohesion: 0.05
-Nodes (33): BreakIterator::isBufferClone(), U_NAMESPACE_BEGIN, UBool, UObject(), CharacterIterator::setToEnd(), CharacterIterator::setToStart(), ForwardCharacterIterator(), ForwardCharacterIterator::operator!=() (+25 more)
+Cohesion: 0.07
+Nodes (27): _, digest, sha256File, toString, AuthCredentialsHelper, deriveGoogleUid, deriveUserUid, hashPassword (+19 more)
 
 ### Community 733 - "hardware_info_service.dart"
-Cohesion: 0.19
-Nodes (5): isManagedConfigCurrent(), Boolean, List, Pair, TerminalLaunch
+Cohesion: 0.08
+Nodes (21): ../../domain/data_models.dart, CsvTsvParser, _detectColumnType, _detectDelimiter, _inferValue, parse, _splitCsvLines, _tokenizeLine (+13 more)
 
 ### Community 734 - "bot_execution_context.dart"
-Cohesion: 0.16
-Nodes (13): ../../../core/services/automation_engine_context.dart, ../engine/scheduling/messaging_metrics.dart, _ClaimFailure, _ClaimResult, _claimRows, _ClaimSuccess, code, container (+5 more)
+Cohesion: 0.12
+Nodes (17): ../../../core/services/automation_engine_context.dart, ../engine/scheduling/messaging_metrics.dart, _ClaimFailure, _ClaimResult, _claimRows, _ClaimSuccess, code, container (+9 more)
 
 ### Community 735 - "browser_ai_session_manager.dart"
-Cohesion: 0.07
-Nodes (29): ../../application/browser_ai_provider_registry.dart, ../../application/browser_ai_session_manager.dart, ../../application/browser_oauth_helper.dart, ../../../browser/application/browser_pip_notifier.dart, ../../../browser/application/browser_tab_notifier.dart, ../../browser/application/browser_webview_registry.dart, ../dialogs/add_custom_ai_chat_dialog.dart, ../domain/browser_ai_session.dart (+21 more)
+Cohesion: 0.13
+Nodes (18): ../../application/browser_ai_provider_registry.dart, ../../application/browser_ai_session_manager.dart, ../../application/browser_oauth_helper.dart, ../../../browser/application/browser_pip_notifier.dart, ../dialogs/add_custom_ai_chat_dialog.dart, ../../infrastructure/browser_ai_preferences.dart, browserAiProviderRegistryProvider, browserAiSessionManagerProvider (+10 more)
 
 ### Community 736 - "business_column_detector.dart"
-Cohesion: 0.07
-Nodes (27): GestureDragCancelCallback, GestureDragEndCallback, GestureDragStartCallback, GestureDragUpdateCallback, NanoActivity, NanoMode, _channel, sharePrompt (+19 more)
+Cohesion: 0.12
+Nodes (16): GestureDragCancelCallback, GestureDragEndCallback, GestureDragStartCallback, GestureDragUpdateCallback, NanoActivity, activity, build, NanoFloatingOrb (+8 more)
 
 ### Community 737 - "voice_backends.dart"
-Cohesion: 0.07
-Nodes (21): CharacterIterator, CollationElementIterator::isIgnorable(), CollationIterator, UBool, RuleBasedCollator, UCollationElements, UCollationPCE, UHashtable (+13 more)
+Cohesion: 0.10
+Nodes (22): allDrafts, approve, _approved, defaultMaxDrafts, draft, _drafts, _hydrate, _key (+14 more)
 
 ### Community 738 - "conversation_media_bubble.dart"
 Cohesion: 0.12
-Nodes (16): build, _copyPairingCode, createState, _decodedQrText, _domQrBytes, _fetchNativeScreenshot, _getBestQrBytes, initState (+8 more)
+Nodes (16): base, businessLibraryRoot, checkedBusinessChild, child, create, documents, false, _inside (+8 more)
 
 ### Community 739 - "approved_skill_candidate_provider.dart"
 Cohesion: 0.18
@@ -3808,12 +3870,12 @@ Cohesion: 0.15
 Nodes (12): copyWith, createdAt, DeviceEntity, deviceId, friendlyName, fromJson, fromMap, isCurrentDevice (+4 more)
 
 ### Community 741 - "chrome_content_extractor.dart"
-Cohesion: 0.12
-Nodes (14): ../business/business_facts.dart, ../business/business_text_matcher.dart, business_connector_models.dart, business_data_value_parser.dart, ../../../database/application/tabular_import_service.dart, ../../../database/domain/data_models.dart, ../../../database/infrastructure/native_sqlite_gateway.dart, BusinessDataNormalizer (+6 more)
+Cohesion: 0.05
+Nodes (38): current_situation.dart, entity_identity_resolver.dart, _actionTerms, _collectNames, entity, EntityIdentity, EntityIdentityResolver, evidence (+30 more)
 
 ### Community 742 - "piece"
-Cohesion: 0.15
-Nodes (12): C14Preflight, C14PreflightResult, checks, _codeFor, detail, failCode, name, ok (+4 more)
+Cohesion: 0.11
+Nodes (17): ../governance/semantic_policy.dart, kAllowedTaskSemantics, kSemanticActionRegistry, kSemanticInputs, null, semanticActionDefinition, validateSemantics, collectAll (+9 more)
 
 ### Community 743 - "messaging_conversation_actions_sheet.dart"
 Cohesion: 0.12
@@ -3824,12 +3886,12 @@ Cohesion: 0.22
 Nodes (8): commercialIntentTokens, correctionPhrases, familyTokens, presenceVerbs, productMentionedWithoutCommerce, socialCasualTokens, socialReactionTokens, supportPhrases
 
 ### Community 745 - "personal_style_constraints.dart"
-Cohesion: 0.04
-Nodes (39): _, _, accepts, instructions, PersonalLanguagePolicy, appliesTo, _conversationId, _enabled (+31 more)
+Cohesion: 0.11
+Nodes (17): database_report_coordinator.dart, database_studio_state.dart, DatabaseReportCoordinator get, ../../domain/report_section.dart, _export, exportDelimited, exportHtml, exportPdf (+9 more)
 
 ### Community 746 - "model_storage_repository.dart"
-Cohesion: 0.32
-Nodes (14): jint, JNIEnv, JNIEXPORT, jstring, string, Java_dev_nanoai_mobile_mnn_MnnNative_cancel(), Java_dev_nanoai_mobile_mnn_MnnNative_generate(), Java_dev_nanoai_mobile_mnn_MnnNative_load() (+6 more)
+Cohesion: 0.07
+Nodes (25): _, ChatMessage, ChatTurnRouteResult, completed, isHandled, isPaused, message, notHandled (+17 more)
 
 ### Community 747 - ".installPackages"
 Cohesion: 0.12
@@ -3848,100 +3910,100 @@ Cohesion: 0.12
 Nodes (15): defaultLauncherPackage, DeviceProfile, enabled, fromMap, isLaunchCandidate, label, launchable, manufacturer (+7 more)
 
 ### Community 751 - "sortkey.h"
-Cohesion: 0.06
-Nodes (34): currentSituationSourceProvider, actionLabel, _automationStatus, build, _ChecklistTile, createState, didChangeAppLifecycleState, dispose (+26 more)
+Cohesion: 0.12
+Nodes (17): double phase,, audioLevel, build, createState, didChangeAppLifecycleState, didChangeDependencies, dispose, _foreground (+9 more)
 
 ### Community 752 - "linux_security_policy.dart"
-Cohesion: 0.15
-Nodes (12): _counts, emit, increment, _latencies, MessagingMetrics, queueDepth, recordBatchLatency, snapshot (+4 more)
+Cohesion: 0.05
+Nodes (39): class, pendingRepliesProvider, conversationAssignmentStoreProvider, isAvailable, reason, ShizukuAvailability, ShizukuAvailabilityProvider, ShizukuStatus (+31 more)
 
 ### Community 753 - "buho_wallpaper.dart"
-Cohesion: 0.07
-Nodes (26): package:nanoai/features/automation/personal_agent/application/conversation_ownership_policy.dart, package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart, package:nanoai/features/automation/personal_agent/application/hybrid_retrieval_scorer.dart, package:nanoai/features/automation/personal_agent/application/persona_retriever.dart, package:nanoai/features/automation/personal_agent/application/personalization_scope_resolver.dart, package:nanoai/features/automation/personal_agent/domain/persona_example.dart, main, _notification (+18 more)
+Cohesion: 0.14
+Nodes (15): check, effectOfTool, FirewallAllowed, FirewallClarification, FirewallDecision, FirewallDenied, IntentFirewall, reason (+7 more)
 
 ### Community 754 - ".clear"
 Cohesion: 0.33
 Nodes (4): ConversationCleanupSql, Boolean, SQLiteDatabase, String
 
 ### Community 755 - "UParseError"
-Cohesion: 0.13
-Nodes (15): ../../engine/business/meta_templates_api.dart, api, build, _ConnectionDialogState, createState, dispose, _endpoint, _error (+7 more)
+Cohesion: 0.07
+Nodes (26): ../../domain/whatsapp_media_payload.dart, WhatsAppWebSessionInfo, decodeWhatsAppWebSession, newStatus, qrDataRef, qrDataUrl, statusStr, build (+18 more)
 
 ### Community 756 - "conversation_prompt_templates.dart"
-Cohesion: 0.20
-Nodes (9): ../../../core/services/personal_language_policy.dart, conversationAgentPrompt, conversationEvidenceInstructions, conversationPersonalStructuredInstructions, conversationSocialInstructions, conversationSocialPrompt, notificationDraftPrompt, notificationSuggestionsPrompt (+1 more)
+Cohesion: 0.08
+Nodes (24): browser_audio_handler.dart, browser_webview_registry.dart, _artwork, attachSource, clearSource, _command, _commandGeneration, _controller (+16 more)
 
 ### Community 757 - "TaskValue"
 Cohesion: 0.36
 Nodes (9): Boolean, Bundle, File, List, Long, MessagingStyle, String, NotificationMediaCache (+1 more)
 
 ### Community 758 - "browser_ai_provider_registry.dart"
-Cohesion: 0.05
-Nodes (42): ../../domain/browser_ai_custom_provider_model.dart, FormState, ../../infrastructure/browser_ai_preferences.dart, ../infrastructure/providers/chatgpt_provider.dart, ../infrastructure/providers/claude_provider.dart, ../infrastructure/providers/copilot_provider.dart, ../infrastructure/providers/custom_dynamic_provider.dart, ../infrastructure/providers/deepseek_provider.dart (+34 more)
+Cohesion: 0.17
+Nodes (11): cancel, _cancelled, check, _clock, current, ExecutionBudget, limit, _zoneKey (+3 more)
 
 ### Community 759 - "browser_ai_response.dart"
-Cohesion: 0.12
-Nodes (15): ChromeContentExtractor, chromePackage, ChromeWebContent, extract, _getNodeText, _ignoredChromeUiIds, _isChromeSystemOrToolbar, isEmpty (+7 more)
+Cohesion: 0.10
+Nodes (19): actionKind, copyWith, fromJson, id, isCovered, isFailed, isResolved, missingRequirement (+11 more)
 
 ### Community 760 - "dismissMessagingNotification"
 Cohesion: 0.50
 Nodes (3): dismissMessagingNotification(), Boolean, String
 
 ### Community 761 - "unirepl.h"
-Cohesion: 0.12
-Nodes (16): ../../../../core/services/nano_identity_context.dart, allowsLongFormGeneration, allowsWebSearch, canAnswerLocally, evaluate, _externalKeywords, KnowledgeNeedDecision, KnowledgeNeedGate (+8 more)
+Cohesion: 0.11
+Nodes (17): ../../../../core/services/nano_identity_context.dart, allowsLongFormGeneration, allowsWebSearch, canAnswerLocally, evaluate, _externalKeywords, KnowledgeNeedDecision, KnowledgeNeedGate (+9 more)
 
 ### Community 762 - "messaging_conversation_time.dart"
 Cohesion: 0.50
 Nodes (3): date, formatMessagingTimestamp, now
 
 ### Community 763 - ".onBind"
-Cohesion: 0.22
-Nodes (10): ../../application/whatsapp_contacts_provider.dart, contactsPermissionProvider, filteredWhatsAppContactsProvider, build, _buildEmptyContacts, MessagingContactsView, messaging_center_banners.dart, messaging_contact_selection_list.dart (+2 more)
+Cohesion: 0.12
+Nodes (16): baseArchitecture, developerName, id, isIdentified, ModelSourceDefinition, officialBenchmarks, officialCapabilities, officialContext (+8 more)
 
 ### Community 764 - "FormattedDateInterval"
-Cohesion: 0.12
-Nodes (15): MethodChannelSystemInventory, getDefaultLauncher, getDeviceProfile, listLaunchableApps, reason, SystemInventory, SystemInventoryUnavailable, toString (+7 more)
+Cohesion: 0.15
+Nodes (11): key, source, SystemCapability, SystemEvidence, SystemEvidenceSource, InstalledApp, app, evidence (+3 more)
 
 ### Community 766 - "report_generator_service.dart"
-Cohesion: 0.18
-Nodes (10): cacheGroupTitle, cleanTitle, ConversationGroupResolver, getCachedGroupTitle, _groupTitleCache, isGenericTitle, isGroup, _normalizeKey (+2 more)
+Cohesion: 0.15
+Nodes (12): definitionFor, ModelSourceRegistry, registry, registry/deepseek_source_definitions.dart, registry/edge_other_definitions.dart, registry/mobile_litert_definitions.dart, registry/model_source_definition.dart, registry/qwen_compact_definitions.dart (+4 more)
 
 ### Community 767 - "int get"
 Cohesion: 0.10
 Nodes (18): ../../../../core/services/nano_inference_coordinator.dart, int? firstToken,, int? ttftMs,, count, durationMs, engine, EngineBenchmarkResult, error (+10 more)
 
 ### Community 768 - "browser_tab_model.dart"
-Cohesion: 0.12
-Nodes (15): conversation_doc_card.dart, conversation_link_card.dart, conversation_media_cards.dart, conversation_youtube_card.dart, build, ConversationMediaBubble, isInbound, _sfFallback (+7 more)
+Cohesion: 0.21
+Nodes (10): CanonicalMessageSqlStore, ensureSchema(), Any, Boolean, Int, List, Long, Map (+2 more)
 
 ### Community 769 - "nano_personal_screen.dart"
-Cohesion: 0.13
-Nodes (15): core/theme/nano_motion.dart, ActiveExecutionCard, _ActiveExecutionCardState, build, createState, didUpdateWidget, dispose, goal (+7 more)
+Cohesion: 0.32
+Nodes (14): jint, JNIEnv, JNIEXPORT, jstring, string, Java_dev_nanoai_mobile_mnn_MnnNative_cancel(), Java_dev_nanoai_mobile_mnn_MnnNative_generate(), Java_dev_nanoai_mobile_mnn_MnnNative_load() (+6 more)
 
 ### Community 770 - "database_shell_connect_dialog.dart"
-Cohesion: 0.17
-Nodes (12): dispatchCall, DynamicToolRegistry, execute, findHandlerFor, _handlers, IDynamicToolRegistry, registeredTools, registerHandler (+4 more)
+Cohesion: 0.15
+Nodes (12): design_tokens.dart, AppTheme, _base, buildTheme, classic, dark, light, spaceGray (+4 more)
 
 ### Community 771 - "ai_provider.dart"
-Cohesion: 0.18
-Nodes (10): BusinessColumnDetector, _categorySynonyms, _detailsSynonyms, detect, _matchesAny, _nameSynonyms, _normalize, _priceSynonyms (+2 more)
+Cohesion: 0.11
+Nodes (18): _adminKey, api, build, _ConnectionDialogState, createState, dispose, _endpoint, _error (+10 more)
 
 ### Community 772 - "conversation_topic.dart"
 Cohesion: 0.14
 Nodes (13): containsEntityReference, ConversationTopic, domain, evolve, initial, isFresh, keyEntities, label (+5 more)
 
 ### Community 773 - "bot_skill.dart"
-Cohesion: 0.17
-Nodes (12): MetaTemplatesApi, _cloudApi, cloudMessageId, cloudSelected, ConfiguredWhatsAppMessageProvider, message, send, WhatsAppMessageProvider (+4 more)
+Cohesion: 0.18
+Nodes (11): _cloudApi, cloudMessageId, cloudSelected, ConfiguredWhatsAppMessageProvider, message, send, WhatsAppMessageProvider, WhatsAppSendReceipt (+3 more)
 
 ### Community 774 - "browser_options_sheet.dart"
-Cohesion: 0.11
-Nodes (19): ../../application/browser_surface_notifier.dart, ../../application/browser_tab_notifier.dart, BrowserSurfaceHost, BrowserSurfaceNotifier, browserSurfaceProvider, showEmbedded, showFullscreen, BrowserScreen (+11 more)
+Cohesion: 0.10
+Nodes (19): package:nanoai/features/automation/executors/linux/linux_action_verifier.dart, package:nanoai/features/terminal/i_bin_executor.dart, package:nanoai/features/terminal/terminal_types.dart, baseDir, bash, binDir, execRootfs, execRootfsWorker (+11 more)
 
 ### Community 775 - "terminal_session_controller.dart"
-Cohesion: 0.06
-Nodes (31): ../../../browser/application/browser_readability_extractor.dart, dart:convert, braveApiKey, _buildResultFromItems, _createClient, _fetchReadableExcerpt, search, _searchBrave (+23 more)
+Cohesion: 0.10
+Nodes (17): fromText, fromUrl, PromptSkillImporter, all, contextFor, _key, load, _loading (+9 more)
 
 ### Community 776 - "dialogue_act.dart"
 Cohesion: 0.15
@@ -3957,92 +4019,92 @@ Nodes (12): continuation,
   gratitude,, DialogueAct, confidence, DialogueAct, DialogueActClassification, expectsNoQuestionReturn, isPurelySocial, neutral (+4 more)
 
 ### Community 777 - "relationship_register.dart"
-Cohesion: 0.17
-Nodes (11): conversation_agent_role.dart, _closePhrases, _closeTokens, derive, _levelLabel, _professionalTokens, relationLineFor, RelationshipLevel (+3 more)
+Cohesion: 0.12
+Nodes (15): bool selected, isSelectionMode,, business_3d_file_preview.dart, business_library_grid_actions.dart, build, BusinessLibraryGridCard, document, _fallback, _formatSize (+7 more)
 
 ### Community 778 - "contact_matcher.dart"
-Cohesion: 0.14
-Nodes (13): dart:collection, BrowserPipNotifier, BrowserPipState, BrowserPipWebView, build, notifier, pip, package:nanoai/features/browser/application/browser_pip_notifier.dart (+5 more)
+Cohesion: 0.12
+Nodes (15): ChromeContentExtractor, chromePackage, ChromeWebContent, extract, _getNodeText, _ignoredChromeUiIds, _isChromeSystemOrToolbar, isEmpty (+7 more)
 
 ### Community 779 - "business_reply_phrases.dart"
 Cohesion: 0.11
 Nodes (18): businessGreeting, businessGreetingPrefix, businessHumanReply, businessMissingReply, businessSalesClosing, businessUnknownReply, close, edited (+10 more)
 
 ### Community 780 - "universal_execution_resolver.dart"
-Cohesion: 0.15
-Nodes (12): chat_message_manager.dart, ChatMessageManager get, emitError, msgManager, onEngineError, onEngineReady, onInferenceSuccess, onMessageAppended (+4 more)
+Cohesion: 0.13
+Nodes (14): _, ../../engine/web_bridge/whatsapp_web_js_bridge.dart, InAppWebViewKeepAlive, build, hasCreatedPersistentWebView, keepAlive, WhatsAppWebViewContainer, BrowserGestureArena (+6 more)
 
 ### Community 781 - "automation_suggestion_carousel.dart"
-Cohesion: 0.15
-Nodes (12): browser_connection_dialog.dart, browser_security_dialogs.dart, browser_url_edit_dialog.dart, _, BrowserDialogHelper, promptExternalApp, showFirewallBlockedDialog, showHttpAuthDialog (+4 more)
+Cohesion: 0.12
+Nodes (15): ../../engine/language/conversation_semantic_tag.dart, ../../engine/messaging/social_context_retriever.dart, genericGreetingOrVocativeTokens, meaningfulTerms, PersonaRetrieverScorer, scorePatternMatch, buildDynamicOptions, extractConversationTopics (+7 more)
 
 ### Community 782 - "hours_edit_dialog.dart"
 Cohesion: 0.06
 Nodes (31): guided_fact_dialog.dart, build, _buildConsolidated, createState, DeliveryEditDialog, _DeliveryEditDialogState, dispose, _initFromText (+23 more)
 
 ### Community 783 - "location_edit_dialog.dart"
-Cohesion: 0.15
-Nodes (12): _blockedInternalPorts, _blockedSchemes, BrowserSecurityFirewall, createWebViewSettings, defaultWebViewSettings, _externalAppSchemes, isAllowedUrl, isExternalScheme (+4 more)
+Cohesion: 0.12
+Nodes (15): allowAndroidUiAutomation, allowBrowserAutomation, allowFileSystemRead, allowFileSystemWrite, allowLinuxExec, allowMessagingSend, allowPaymentCreation, blockedTools (+7 more)
 
 ### Community 784 - "bot_agent_dispatcher.dart"
-Cohesion: 0.15
-Nodes (12): double get, CommercialCartItem, copyWith, currency, fromJson, productId, productName, quantity (+4 more)
+Cohesion: 0.12
+Nodes (16): apiKey, _apiKeySecret, InferenceExecutionTarget, _init, isRemote, load, RemoteInferenceConfig, RemoteInferenceNotifier (+8 more)
 
 ### Community 785 - "browser_ai_provider.dart"
-Cohesion: 0.15
-Nodes (12): BotSkill, category, description, fromMap, hashCode, icon, id, name (+4 more)
+Cohesion: 0.13
+Nodes (13): agent_role.dart, ../governance/intent_spec.dart, AgentRole, AgentContext, AgentMessage, AgentResult, from, goal (+5 more)
 
 ### Community 786 - "dialogue_act_classifier.dart"
-Cohesion: 0.18
-Nodes (10): dialogue_act.dart, dialogue_act_phrases.dart, classify, DialogueActClassifier, _isAcknowledgement, _isGreeting, _isInterrogativeSentence, _isPositiveReaction (+2 more)
+Cohesion: 0.13
+Nodes (14): ../../../browser/application/browser_tab_notifier.dart, ../../browser/application/browser_webview_registry.dart, ../domain/browser_ai_session.dart, ../infrastructure/browser_ai_session_prefs.dart, BrowserAiSessionManager, consumePendingPrompt, getOrCreateController, getSession (+6 more)
 
 ### Community 787 - "conversation_context_resolver.dart"
-Cohesion: 0.11
-Nodes (18): conversation_context_resolver.dart, conversation_evidence_window.dart, conversation_key.dart, conversation_memory.dart, incoming_message.dart, ConversationContextResolver, _fingerprint, _hasStrongIdentity (+10 more)
+Cohesion: 0.05
+Nodes (39): main, BrowserAiSessionPrefs, clearTabId, loadTabId, _prefix, saveTabId, BrowserCredentialNotifier, browserCredentialVaultProvider (+31 more)
 
 ### Community 788 - "automation_policy.dart"
 Cohesion: 0.33
 Nodes (4): DataStudioDemoDatabase, Context, File, SQLiteDatabase
 
 ### Community 789 - "candidate_selection.dart"
-Cohesion: 0.06
-Nodes (31): ../actions/commercial_structured_action.dart, commercial_order.dart, CommercialCheckoutResult, CommercialCheckoutService, createCheckout, customerSummary, facts, nextState (+23 more)
+Cohesion: 0.15
+Nodes (12): conversationId, createdAt, deliveryAddress, fromJson, id, items, orderReference, OrderStatus (+4 more)
 
 ### Community 790 - "gemini_provider.dart"
-Cohesion: 0.13
-Nodes (14): _cache, description, _doFetch, fetchMetadata, getCached, hasContent, imageUrl, _inFlight (+6 more)
+Cohesion: 0.14
+Nodes (14): ../domain/conversation_owner.dart, ../../engine/storage/automation_db_store_client.dart, _byConversation, ConversationOwnershipStore, load, _loading, ownershipFor, _parseOwner (+6 more)
 
 ### Community 791 - "mistral_provider.dart"
 Cohesion: 0.17
 Nodes (12): build, createState, icon, isExpanded, isLoading, label, NanoMetallicButton, _NanoMetallicButtonState (+4 more)
 
 ### Community 792 - "instruction_trust.dart"
-Cohesion: 0.10
-Nodes (19): GoogleSignIn, AllowedBinaries, _cache, isAllowed, load, _loadFromAssets, _loadFuture, authenticate (+11 more)
+Cohesion: 0.08
+Nodes (21): durable_outbox_message.dart, AllowedBinaries, _cache, isAllowed, load, _loadFromAssets, _loadFuture, DurableOutboxQueue (+13 more)
 
 ### Community 793 - "scientificnumberformatter.h"
-Cohesion: 0.09
-Nodes (20): data_models.dart, createDatabase, createTable, DatabaseColumnDefinition, DatabasePort, ensureDefaultDatabase, ensureDemoDatabase, execute (+12 more)
+Cohesion: 0.20
+Nodes (9): Any, Int, List, Long, Map, SQLiteDatabase, SQLiteOpenHelper, String (+1 more)
 
 ### Community 794 - "browser_readability_extractor.dart"
-Cohesion: 0.17
-Nodes (11): cancel, _cancelled, check, _clock, current, ExecutionBudget, limit, _zoneKey (+3 more)
+Cohesion: 0.13
+Nodes (14): bool isSelectionMode, isChatPicker,, business_library_file_actions.dart, business_library_file_thumbnail.dart, build, BusinessLibraryFileList, documents, _formatDate, _formatSize (+6 more)
 
 ### Community 795 - "detected_model.dart"
-Cohesion: 0.03
-Nodes (42): Normalizer2, Normalizer2Impl, Hashtable, U_NAMESPACE_BEGIN, UObject(), U_NAMESPACE_BEGIN, UMemory(), GenderInfoTest (+34 more)
+Cohesion: 0.14
+Nodes (13): copyWith, createdAt, domain, fromJson, fromMap, hashCode, id, lastUsedAt (+5 more)
 
 ### Community 796 - "browser_security_dialogs.dart"
 Cohesion: 0.15
 Nodes (12): data_statistics_preparer.dart, ../infrastructure/native_statistics_gateway.dart, analyze, DataStatisticsService, _sqrt, statisticsPort, _summarizeInDart, _toStatistics (+4 more)
 
 ### Community 797 - "whatsapp_media_share.dart"
-Cohesion: 0.15
-Nodes (12): actionIndex, contextFingerprint, fromNotification, hashCode, isUsable, notificationKey, observedAt, operator (+4 more)
+Cohesion: 0.09
+Nodes (23): ../core/channel_adapter.dart, ../core/delivery_result.dart, ../core/messaging_capabilities.dart, ../core/nano_incoming_message.dart, ../core/nano_outgoing_message.dart, delivery_result.dart, capabilities, deliver (+15 more)
 
 ### Community 798 - "nano_operating_tier.dart"
-Cohesion: 0.17
-Nodes (11): _accumulated, allItems, _computeItemKey, findItem, ingestSnapshot, itemCount, maxItems, recordScroll (+3 more)
+Cohesion: 0.13
+Nodes (14): ../engine/execution/handlers/whatsapp_contact_resolver.dart, cancel, _channel, _contacts, exact, nextRun, openExactAlarmSettings, reason (+6 more)
 
 ### Community 799 - "business_presets.dart"
 Cohesion: 0.09
@@ -4053,166 +4115,164 @@ Cohesion: 0.22
 Nodes (8): buffer, isSpecificBusinessToken, _nonSpecificProductTokens, normalizeText, tokenizeText, toString, withAccents, without
 
 ### Community 801 - "agent_tool_protocol.dart"
-Cohesion: 0.12
-Nodes (14): Duration, kNanoBarScrollReserve, kNanoBarScrollReserveLandscape, kNanoDockGapLandscape, kNanoDockGapPortrait, kNanoDockIdleCollapseDelay, kNanoInitialDockHeight, clear (+6 more)
+Cohesion: 0.13
+Nodes (13): _, _, aliasesFor, AppAliasCatalog, knownPackages, _normalize, packageForAlias, _table (+5 more)
 
 ### Community 802 - "dialogue_act_phrases.dart"
 Cohesion: 0.22
 Nodes (8): kClarificationPhrases, kCorrectionPhrases, kFarewellPhrases, kGratitudePhrases, kGreetingPhrases, kNegativeReactionPhrases, kPositiveReactionPhrases, kRepairPhrases
 
 ### Community 803 - "conversation_search.dart"
-Cohesion: 0.17
-Nodes (10): fromMap, fromNotification, NotificationEventAdapter, batch, event, failure, isWhatsApp, NotificationEventTrace (+2 more)
+Cohesion: 0.15
+Nodes (12): actionIndex, contextFingerprint, conversationId, fromNotification, hashCode, isUsable, notificationKey, observedAt (+4 more)
 
 ### Community 804 - "browser_keep_alive_wrapper.dart"
-Cohesion: 0.11
-Nodes (19): _attemptedSpecial, build, _busy, createState, DevicePermissionsSection, _DevicePermissionsSectionState, didChangeAppLifecycleState, dispose (+11 more)
+Cohesion: 0.12
+Nodes (16): bot_skills_selector.dart, bot, BotEditorDialog, _BotEditorDialogState, build, createState, _descController, dispose (+8 more)
 
 ### Community 805 - "nano_media_downloader.dart"
-Cohesion: 0.08
-Nodes (22): canRecoverNotificationBacklog, _detectHeadlessEngine, _engineKind, _headlessChannel, isHeadlessAutomationEngine, compactMax, contentBox, _contentMax (+14 more)
+Cohesion: 0.15
+Nodes (12): ../../../engine/mcp/mcp_registry_catalog_source.dart, ../../../engine/mcp/mcp_store_catalog.dart, McpRegistryEntry, build, entry, hash, McpRegistryEntryCard, onConnect (+4 more)
 
 ### Community 806 - "system_role.dart"
-Cohesion: 0.09
-Nodes (20): ../../engine/language/conversation_semantic_tag.dart, ../../engine/language/conversational_intent_catalog.dart, ../../engine/language/conversational_intent_classifier.dart, ../../engine/messaging/social_context_retriever.dart, ExternalResponseExperienceLearningService, instance, observe, _repository (+12 more)
+Cohesion: 0.12
+Nodes (16): AutomationPlanner, _buildPrompt, calls, _client, generated, _knownTools, LlmAutomationPlanner, llmLatency (+8 more)
 
 ### Community 807 - "browser_context_extractor.dart"
-Cohesion: 0.22
-Nodes (8): _, HttpAuthResponse, BrowserSecurityDialogs, showFirewallBlockedDialog, showHttpAuthDialog, showPermissionPromptDialog, showSslWarningDialog, ServerTrustAuthResponse
+Cohesion: 0.10
+Nodes (19): package:nanoai/features/automation/executors/linux/linux_automation_port.dart, baseDir, bash, bashMap, binDir, execMap, execRootfs, execRootfsWorker (+11 more)
 
 ### Community 808 - "whatsapp_media_share.dart"
-Cohesion: 0.05
-Nodes (36): ../../../core/services/chat_history_store.dart, ChatHistoryStore, clear, _decode, _ensureFile, _file, _fileName, _legacyPrefsKey (+28 more)
+Cohesion: 0.14
+Nodes (14): ../../engine/business/meta_template_models.dart, build, _category, _components, createState, dispose, _error, initial (+6 more)
 
 ### Community 809 - "_PersonalizationStudioScreenState"
-Cohesion: 0.20
-Nodes (9): BrowserAiQuery, copyWith, metadata, prompt, providerId, requestId, startNewChat, timeout (+1 more)
+Cohesion: 0.13
+Nodes (14): int? nextBefore, nextAfter,, caption, cursor, fromJson, kind, messages, MetaInboxPage, preview (+6 more)
 
 ### Community 810 - "bot_role.dart"
-Cohesion: 0.07
-Nodes (27): localModelRepositoryProvider, modelStorageRepositoryProvider, _channel, ChannelModelStorageRepository, _fromMap, hasAllFilesAccess, openFd, persistedTree (+19 more)
+Cohesion: 0.10
+Nodes (19): _channel, ChannelModelStorageRepository, _fromMap, hasAllFilesAccess, openFd, persistedTree, pickTree, requestAllFilesAccess (+11 more)
 
 ### Community 811 - "business_data_value_parser.dart"
 Cohesion: 0.33
 Nodes (5): clean, dataCellValue, parseRegionalPriceValue, parseStockValue, tryParse
 
 ### Community 812 - "_ExampleEditDialogState"
-Cohesion: 0.17
-Nodes (11): description, ExecutionMechanism, ExecutionResolution, isDegraded, isTierSufficient, mechanism, rationale, resolve (+3 more)
+Cohesion: 0.11
+Nodes (18): ../../application/data_statistics_service.dart, database_data_grid.dart, database_profile_panel.dart, database_statistics_panel.dart, _analysisBody, _analysisError, build, colors (+10 more)
 
 ### Community 813 - "_ImportReview"
-Cohesion: 0.14
-Nodes (13): _adapter, canHandle, countMessages, customId, defaultUrl, displayName, id, isLoggedIn (+5 more)
+Cohesion: 0.20
+Nodes (9): accuracyMeters, capturedAt, DeviceLocationFix, DeviceLocationService, instance, latitude, locateOnce, longitude (+1 more)
 
 ### Community 814 - "_MemoryEditDialog"
 Cohesion: 0.22
-Nodes (8): AutomationRuntimeControl, Any, Int, List, Map, MethodCall, MethodChannel, String
+Nodes (9): BrowserUrlEditDialog, _BrowserUrlEditDialogState, build, createState, dispose, initialUrl, initState, _submit (+1 more)
 
 ### Community 815 - "_PersonaExampleCard"
 Cohesion: 0.21
 Nodes (6): Boolean, Double, Int, String, MnnNative, MnnTokenCallback
 
 ### Community 816 - "_PersonalizationStudioDiagram"
-Cohesion: 0.15
-Nodes (12): ../../data/datasources/huggingface_remote_datasource.dart, ../../data/datasources/i_model_metadata_datasource.dart, ../../data/datasources/shared_preferences_metadata_cache.dart, ../../data/repositories/model_metadata_repository_impl.dart, HuggingFaceRemoteDataSource, IModelRemoteMetadataDataSource, cache, modelMetadataCacheProvider (+4 more)
+Cohesion: 0.13
+Nodes (14): body, candidate, cleanReplyText, close, escaped, findUnescapedQuote, keyMatch, legacyMarkerReply (+6 more)
 
 ### Community 817 - "_StyleEditDialog"
 Cohesion: 0.15
-Nodes (12): ../../../engine/mcp/mcp_registry_catalog_source.dart, ../../../engine/mcp/mcp_store_catalog.dart, McpRegistryEntry, build, entry, hash, McpRegistryEntryCard, onConnect (+4 more)
+Nodes (13): business_validation_result.dart, _BusinessCartValidation, _validateAddToCart, BusinessResponseValidator, facts, _findProduct, validate, _validateCatalogQuery (+5 more)
 
 ### Community 818 - "build"
-Cohesion: 0.13
-Nodes (13): capability, CapabilityAvailability, CapabilityAvailabilityKind, evidence, isAvailable, reason, state, unknown (+5 more)
+Cohesion: 0.22
+Nodes (8): capability, CapabilityAvailability, CapabilityAvailabilityKind, evidence, isAvailable, reason, state, unknown
 
 ### Community 819 - "conversation_media_source.dart"
-Cohesion: 0.17
-Nodes (12): build, _computeNew, createState, didUpdateWidget, _dismiss, _dismissed, initState, ModelNewBadgeBanner (+4 more)
+Cohesion: 0.08
+Nodes (23): DecimalQuantity, Formattable(), Formattable::fromUFormattable(), Formattable::getDate(), Formattable::getLong(), Formattable::toUFormattable(), UDate, UErrorCode (+15 more)
 
 ### Community 820 - "allowed_binaries.dart"
 Cohesion: 0.23
 Nodes (7): BrowserCompatibilityChannelHandler, IdentityState, Boolean, MethodCall, MethodChannel, String, UserAgentMetadata
 
 ### Community 821 - "chat_action_listener.dart"
-Cohesion: 0.10
-Nodes (22): USet, USetCodePoints, rangeCount, uset, USetElementIterator, c, end, index (+14 more)
+Cohesion: 0.11
+Nodes (18): canRetry, channel, conversationId, DurableOutboxMessage, fromJson, id, lastError, maxRetries (+10 more)
 
 ### Community 822 - "build"
-Cohesion: 0.25
-Nodes (8): isAvailable, reason, ShizukuAvailability, ShizukuAvailabilityProvider, ShizukuStatus, status, UnsupportedShizukuAvailabilityProvider, MethodChannelShizukuAvailabilityProvider
+Cohesion: 0.10
+Nodes (19): package:nanoai/features/automation/executors/linux/linux_security_policy.dart, package:nanoai/features/automation/executors/linux/nanoshell_linux_automation_executor.dart, baseDir, bash, bashMap, binDir, execMap, execRootfs (+11 more)
 
 ### Community 823 - "bot_skills_selector.dart"
-Cohesion: 0.17
-Nodes (11): bool?, backgroundColor, body, build, hideHeader, hideHeaderInPortrait, NanoScreenShell, resizeToAvoidBottomInset (+3 more)
+Cohesion: 0.11
+Nodes (18): _AnimatedWeatherGlyph, _AnimatedWeatherGlyphState, build, condition, consultedAt, _controller, createState, data (+10 more)
 
 ### Community 824 - "UTransPosition"
-Cohesion: 0.14
-Nodes (14): ActionExecuteCallback, ActionVerifyCallback, ExecutableTool, VerifiableTool, ActionToolAdapter, definition, execute, onExecute (+6 more)
+Cohesion: 0.11
+Nodes (17): ../../features/models/data/catalog_local_model_repository.dart, _activeModelFile, _activeModelPath, autoSelectAvailableModel, clearActiveModel, findInstalledModelPath, hasActiveModel, init (+9 more)
 
 ### Community 825 - "i_model_metadata_repository.dart"
 Cohesion: 0.18
 Nodes (10): 1. Zero 'No Overlay' Guarantee (Eradication Pattern), 2. Adaptive Landscape (Horizontal) Design Standard, 3. Strict File Size Limit (< 200 Lines), 4. Lifecycle Discipline (Zero Zombie Controllers), 5. Mandatory Code Documentation Header, Mobile Clean Architecture & Visual Resilience Standard, Root Cause, Slider Overlay Immunity (+2 more)
 
 ### Community 826 - ".onBind"
-Cohesion: 0.10
-Nodes (17): isStatusOrBroadcast, isStoryReaction, isSystemMaintenance, _isWhatsApp, shouldIgnoreFromChatHub, _statusReactionRegex, _systemMaintenanceRegex, WhatsAppStatusClassifier (+9 more)
+Cohesion: 0.12
+Nodes (13): _channel, dismiss, instance, NotificationDismissClient, _channel, clear, ConversationCleanupClient, instance (+5 more)
 
 ### Community 827 - "task_step_vocabulary.dart"
 Cohesion: 0.18
 Nodes (7): InferenceThermalGuard, Boolean, Context, Long, PowerManager, T, AtomicBoolean
 
 ### Community 828 - "nano_destination.dart"
-Cohesion: 0.13
-Nodes (13): auto,
-  needsConfirmation,
-  needsHuman,, commercial_policy_tier.dart, allowed, CommercialActionPolicyEngine, detectPromptInjection, evaluate, facts, PolicyEvaluationResult (+5 more)
+Cohesion: 0.25
+Nodes (8): BrowserResizableSplit, _BrowserResizableSplitState, build, createState, _dividerWidth, _leftFraction, right, Widget left,
 
 ### Community 829 - "typedef"
-Cohesion: 0.14
-Nodes (13): bool busy,, build, controller, enabled, isMedia, NanoAssistantPrimaryAction, NanoAssistantSuggestionChips, NanoMediaManagerLink (+5 more)
+Cohesion: 0.06
+Nodes (32): allowedHosts, applyDesktopIdentity, applyPanelLayoutFix, attachController, buildWebViewSettings, _controller, detachController, entryUrl (+24 more)
 
 ### Community 830 - "nano_floating_system.dart"
-Cohesion: 0.24
-Nodes (7): Boolean, CharSequence, List, StatusBarNotification, String, NotificationHistoryExtractor, Person
+Cohesion: 0.17
+Nodes (12): dispatchCall, DynamicToolRegistry, execute, findHandlerFor, _handlers, IDynamicToolRegistry, registeredTools, registerHandler (+4 more)
 
 ### Community 831 - "int get"
-Cohesion: 0.17
-Nodes (12): U_NAMESPACE_BEGIN, UBool, UErrorCode, UnicodeString, Normalizer::compare(), Normalizer::isNormalized(), Normalizer::operator!=(), Normalizer::quickCheck() (+4 more)
+Cohesion: 0.11
+Nodes (17): ../infrastructure/providers/chatgpt_provider.dart, ../infrastructure/providers/claude_provider.dart, ../infrastructure/providers/copilot_provider.dart, ../infrastructure/providers/custom_dynamic_provider.dart, ../infrastructure/providers/deepseek_provider.dart, ../infrastructure/providers/gemini_provider.dart, ../infrastructure/providers/kimi_provider.dart, ../infrastructure/providers/mistral_provider.dart (+9 more)
 
 ### Community 832 - "chat_memory_tools_test.dart"
-Cohesion: 0.25
-Nodes (7): package:nanoai/core/models/chat_models.dart, package:nanoai/features/chat/domain/chat_memory_tools.dart, package:nanoai/features/chat/domain/chat_social_reply_resolver.dart, main, memory, message, socialReplies
+Cohesion: 0.15
+Nodes (12): base, _canonicalizeToken, clean, isLearnablePersonalPrompt, _linkPattern, normalized, normalizePersonalLearningText, out (+4 more)
 
 ### Community 833 - "NotificationEventTrace"
 Cohesion: 0.33
 Nodes (4): Int, Long, String, NotificationEventTrace
 
 ### Community 834 - "conversation_phone_resolver.dart"
-Cohesion: 0.14
-Nodes (13): bool isSelectionMode, isChatPicker,, business_library_file_actions.dart, business_library_file_thumbnail.dart, build, BusinessLibraryFileList, documents, _formatDate, _formatSize (+5 more)
+Cohesion: 0.19
+Nodes (9): USetCodePointIterator, c, end, rangeCount, rangeIndex, uset, USetCodePoints, rangeCount (+1 more)
 
 ### Community 835 - "build"
-Cohesion: 0.18
-Nodes (10): ../../engine/business/fact_selector.dart, ../../engine/language/turn_complexity_classifier.dart, affirmsOwnerActivity, callCenterPhrases, ConversationDecisionGuards, fold, isAsking, isCallCenterPhrase (+2 more)
+Cohesion: 0.07
+Nodes (30): ../../../chat/nano_everywhere/nano_floating_system.dart, ../../engine/business/meta_inbox_controller.dart, build, _configure, _controller, createState, didChangeAppLifecycleState, dispose (+22 more)
 
 ### Community 836 - "String get"
 Cohesion: 0.25
 Nodes (7): package:nanoai/features/automation/engine/system/app_alias_catalog.dart, package:nanoai/features/automation/engine/system/app_fuzzy_matcher.dart, package:nanoai/features/automation/engine/system/installed_app_catalog.dart, package:nanoai/features/automation/engine/system/system_models.dart, _app, main, _testApps
 
 ### Community 837 - "i_model_metadata_repository.dart"
-Cohesion: 0.20
-Nodes (10): FocusScopeNode, build, child, createState, dispose, _focus, initState, NanoKeyboardDockGate (+2 more)
+Cohesion: 0.14
+Nodes (13): bool?, C14Preflight, C14PreflightResult, checks, _codeFor, detail, failCode, name (+5 more)
 
 ### Community 838 - "convert_valid"
 Cohesion: 0.33
 Nodes (4): AutomationConversationStoreHandler, Boolean, MethodCall, MethodChannel
 
 ### Community 839 - "build"
-Cohesion: 0.07
-Nodes (26): ../../domain/data_models.dart, CsvTsvParser, _detectColumnType, _detectDelimiter, _inferValue, parse, _splitCsvLines, _tokenizeLine (+18 more)
+Cohesion: 0.17
+Nodes (11): _columnIndex, _evaluateProjection, _expressionValue, _identifier, _limit, _operand, _order, process (+3 more)
 
 ### Community 840 - "UParseError"
-Cohesion: 0.18
-Nodes (10): context, copyWith, enabled, followUp, fromMap, listFromJson, PersonaResponseOption, text (+2 more)
+Cohesion: 0.13
+Nodes (14): CandidateId, CandidateActionGenerator, CandidateConflict, CandidateGenerationResult, CandidateProviderFailure, candidates, _dedupById, error (+6 more)
 
 ### Community 841 - ".isRequested"
 Cohesion: 0.40
@@ -4223,52 +4283,52 @@ Cohesion: 0.40
 Nodes (3): EngineAssetFingerprint, String, InputStream
 
 ### Community 843 - "browser_surface_notifier.dart"
-Cohesion: 0.60
-Nodes (4): encodeOrFFFD(), encodeUnsafe(), StringClass, UChar32
+Cohesion: 0.14
+Nodes (14): command, CronJob, _cronJobs, CronScheduler, dispose, intervalMin, jobs, register (+6 more)
 
 ### Community 845 - "_VncScreenState"
 Cohesion: 0.50
 Nodes (3): _, BrowserLoadErrorDescription, describe
 
 ### Community 846 - "build"
-Cohesion: 0.14
-Nodes (13): Duration get, AutomationResultStatus, AutomationTrace, duration, endedAt, executionId, goal, pauseIndex (+5 more)
+Cohesion: 0.50
+Nodes (3): DeviceMetricsChannelHandler, MethodCall, MethodChannel
 
 ### Community 847 - "engine_status.dart"
-Cohesion: 0.06
-Nodes (35): ../core/channel_adapter.dart, ../core/delivery_result.dart, ../core/messaging_capabilities.dart, ../core/nano_incoming_message.dart, ../core/nano_outgoing_message.dart, delivery_result.dart, capabilities, deliver (+27 more)
+Cohesion: 0.14
+Nodes (14): inference_benchmark_row.dart, NanoInferenceCoordinator, _BenchmarkSheet, _BenchmarkSheetState, build, coordinator, createState, _error (+6 more)
 
 ### Community 848 - "meta_template_models.dart"
 Cohesion: 0.50
 Nodes (3): convert_valid(), InputPtr, simdutf_constexpr23
 
 ### Community 849 - "whatsapp_message_provider.dart"
-Cohesion: 0.14
-Nodes (13): emma_intent_seed_catalog.dart, a, all, _allExamples, b, _canonical, ensurePersonalStyleSeed, expectedReplies (+5 more)
+Cohesion: 0.18
+Nodes (11): AutomationSuggestion, AutomationSuggestionCarousel, _AutomationSuggestionCarouselState, build, createState, _expanded, label, leading (+3 more)
 
 ### Community 850 - "scheduled_message_command_parser.dart"
-Cohesion: 0.15
-Nodes (13): command, CronJob, _cronJobs, CronScheduler, dispose, intervalMin, jobs, register (+5 more)
+Cohesion: 0.14
+Nodes (13): clean, collect, isTimeLabel, observe, observer, rowSelector, scan, scheduleScan (+5 more)
 
 ### Community 851 - "excel_data_decoder.dart"
-Cohesion: 0.07
-Nodes (25): _buildCatalogProductTable, data, headers, dart:typed_data, _buildFooter, _buildHeader, CatalogPdfGenerator, generateAndSaveFile (+17 more)
+Cohesion: 0.04
+Nodes (44): dart:math, Hero, color, gridColor, labels, paint, progress, selected (+36 more)
 
 ### Community 852 - "model_brand_logo.dart"
-Cohesion: 0.03
-Nodes (71): automation_discover_tile.dart, browser_tab_bar_widget.dart, build, BusinessLibraryLoadError, busy, onRetry, build, BusinessStoreCategoryFilters (+63 more)
+Cohesion: 0.14
+Nodes (13): compactMax, contentBox, _contentMax, contentMaxWidth, expandedMax, hasHorizontalSpace, isCompactLandscape, largeMax (+5 more)
 
 ### Community 853 - "whatsapp_web_js_bridge.dart"
 Cohesion: 0.05
-Nodes (44): business_document_actions.dart, business_document_library_view.dart, business_folder_actions.dart, _addProduct, _buildLibrary, _BusinessDocumentLibraryDialogActions, _BusinessDocumentLibraryDialogView, _editProduct (+36 more)
+Nodes (46): business_document_actions.dart, business_document_library_view.dart, business_folder_actions.dart, _buildLibrary, _BusinessDocumentLibraryDialogActions, _BusinessDocumentLibraryDialogView, _folderChanged, _importFile (+38 more)
 
 ### Community 854 - "voice_note_transcriber.dart"
-Cohesion: 0.08
-Nodes (23): DateTime?, build, _choose, onChanged, ProfileBirthDateField, value, contentHash, conversationId (+15 more)
+Cohesion: 0.25
+Nodes (7): contentHash, conversationId, DurableInboxEntry, eventId, fromJson, receivedAt, toJson
 
-### Community 855 - "linux_init.dart"
-Cohesion: 0.14
-Nodes (13): baseDir, bash, binDir, execRootfs, execRootfsWorker, init, initialized, killAll (+5 more)
+### Community 855 - "deepseek_provider.dart"
+Cohesion: 0.12
+Nodes (15): _, _, buildBackPressScript, buildRestoreOriginalScript, buildSuspendObserverScript, WhatsAppWebNavigationScripts, buildBackPressScript, buildObserverScript (+7 more)
 
 ### Community 856 - "Qwen3.5-2B: evaluación real en Nano Mobile"
 Cohesion: 0.20
@@ -4283,20 +4343,20 @@ Cohesion: 0.18
 Nodes (10): _leadingMessage, _leadingTo, message, _messageSeparator, _parenthesized, parse, recipients, ScheduledMessageCommand (+2 more)
 
 ### Community 859 - "candidate_selection.dart"
-Cohesion: 0.20
-Nodes (10): build, BusinessLibrarySearchBar, _BusinessLibrarySearchBarState, _controller, createState, didUpdateWidget, dispose, isDark (+2 more)
+Cohesion: 0.14
+Nodes (13): bool busy,, build, controller, enabled, isMedia, NanoAssistantPrimaryAction, NanoAssistantSuggestionChips, NanoMediaManagerLink (+5 more)
 
 ### Community 860 - "browser_readability_extractor.dart"
-Cohesion: 0.18
-Nodes (10): TurnMetrics, client, fullText, generationId, released, requestId, StreamLease, StreamTurnResult (+2 more)
+Cohesion: 0.15
+Nodes (12): double get, CommercialCartItem, copyWith, currency, fromJson, productId, productName, quantity (+4 more)
 
-### Community 861 - "detected_model.dart"
+### Community 861 - "gemini_provider.dart"
 Cohesion: 0.17
-Nodes (12): database_series_painter.dart, AnimatedSeriesChart, _AnimatedSeriesChartState, build, color, createState, didUpdateWidget, _label (+4 more)
+Nodes (11): conversation_agent_role.dart, _closePhrases, _closeTokens, derive, _levelLabel, _professionalTokens, relationLineFor, RelationshipLevel (+3 more)
 
 ### Community 862 - "StoreDb"
-Cohesion: 0.04
-Nodes (39): DateInterval, DateIntervalInfo, DateTimePatternGenerator, DateInterval::getFromDate(), DateInterval::getToDate(), DateInterval::operator!=(), U_NAMESPACE_BEGIN, UDate (+31 more)
+Cohesion: 0.14
+Nodes (11): Collator, UMemory, UnicodeString, Record, data_, name_, RuleBasedCollator, StringEnumeration (+3 more)
 
 ### Community 863 - "LiteRtChannelHandler"
 Cohesion: 0.26
@@ -4306,41 +4366,41 @@ Nodes (6): Any, EventChannel, MethodCall, MethodChannel, String, LiteRtChannelHa
 Cohesion: 0.22
 Nodes (12): Any, Boolean, Double, Engine, Int, List, Map, Pair (+4 more)
 
-### Community 865 - "business_connector_actions.dart"
-Cohesion: 0.17
-Nodes (12): InAppWebViewController?, build, _controller, createState, initState, _isLoading, _pageTitle, _progress (+4 more)
+### Community 865 - "whatsapp_web_js_bridge.dart"
+Cohesion: 0.07
+Nodes (28): double storageTotalGb, storageFreeGb,, cpuCores, DashboardNotifier, dashboardProvider, DashboardState, dispose, enginePhase, _fetch (+20 more)
 
 ### Community 866 - "business_data_source_adapters.dart"
-Cohesion: 0.11
-Nodes (18): _, _attachFile, _buildChatScreen, _showHistorySheet, _showToolConfirmDialog, _startNewConversation, _toggleConversation, EmptyChat (+10 more)
+Cohesion: 0.24
+Nodes (9): add(), contains(), get(), T, UBool, isValidEnum(), isValidValue(), remove() (+1 more)
 
-### Community 867 - "shared_preferences_tool_audit_trail.dart"
-Cohesion: 0.15
-Nodes (12): _channel, contacts, contactsAsync, getContacts, hasPerm, hasPermission, query, requestPermission (+4 more)
+### Community 867 - "conversation_prompt_templates.dart"
+Cohesion: 0.12
+Nodes (16): action, domain, intent, isAutoReply, isRequireHuman, isSilent, PersonalAction, PersonalDecision (+8 more)
 
 ### Community 868 - "tool_approval_result.dart"
-Cohesion: 0.18
-Nodes (10): allFilesGranted, copyWith, detected, downloadDir, loadingDetectedUri, models, scanError, scanning (+2 more)
+Cohesion: 0.15
+Nodes (13): ../../domain/browser_ai_custom_provider_model.dart, FormState, AddCustomAiChatDialog, _AddCustomAiChatDialogState, build, createState, dispose, _formKey (+5 more)
 
 ### Community 869 - "business_dialogue.dart"
 Cohesion: 0.22
 Nodes (8): BusinessDialogue, fromJson, id, intent, requiredSlots, steps, _strings, toJson
 
 ### Community 870 - ".initialize"
-Cohesion: 0.31
-Nodes (6): Any, Engine, Int, Map, String, LiteRtEngineOwner
+Cohesion: 0.17
+Nodes (11): ../engine/governance/semantic_policy.dart, AgentAutomationMode, AutomationPolicy, autonomous, confirmationDescription, description, fromName, label (+3 more)
 
 ### Community 871 - "PerformanceChannelHandler"
 Cohesion: 0.27
 Nodes (5): Any, EventChannel, MethodCall, MethodChannel, PerformanceChannelHandler
 
 ### Community 872 - "mcp_connected_servers_section.dart"
-Cohesion: 0.20
-Nodes (9): ../../domain/incoming_attachment.dart, locateImage, locateVideo, locateVoiceNote, possibleImageDirs, possibleVideoDirs, possibleVoiceDirs, _scanAndCorrelate (+1 more)
+Cohesion: 0.14
+Nodes (13): AndroidSpeechSynthesisBackend, SpeechSynthesisBackend, package:nanoai/features/automation/engine/voice/voice_runtime.dart, cancel, cancelled, isSpeaking, listen, main (+5 more)
 
 ### Community 873 - "scientificnumberformatter.h"
-Cohesion: 0.15
-Nodes (12): BotExecutionResult, botId, directReply, error, eventId, executedTools, executionDurationMs, isSuccess (+4 more)
+Cohesion: 0.10
+Nodes (20): currentTilt, _currentX, _currentY, _deadZoneThreshold, dispose, _initTicker, _isDisposed, _maxTilt (+12 more)
 
 ### Community 874 - "business_rule.dart"
 Cohesion: 0.25
@@ -4351,60 +4411,60 @@ Cohesion: 0.29
 Nodes (5): EngineBinaryInstaller, File, Long, String, AssetManager
 
 ### Community 877 - "../business/business_facts.dart"
-Cohesion: 0.09
-Nodes (20): Completer, _activeAbort, cancel, cancelled, _client, _contentRangeTotal, dispose, download (+12 more)
+Cohesion: 0.05
+Nodes (34): ../../../browser/application/browser_readability_extractor.dart, catalog_models.dart, dart:io, candidate, isRunnableModelPath, dmesg, listPids, loadavg (+26 more)
 
 ### Community 878 - "business_faq.dart"
 Cohesion: 0.29
 Nodes (6): answer, BusinessFaq, fromJson, id, questionPatterns, toJson
 
 ### Community 879 - "noar_persistence.dart"
-Cohesion: 0.05
-Nodes (33): error_code, error_to_string(), full_result, error, input_count, output_count, padding_error, simdutf_constexpr23 (+25 more)
+Cohesion: 0.10
+Nodes (19): error_code, error_to_string(), full_result, error, input_count, output_count, padding_error, simdutf_constexpr23 (+11 more)
 
 ### Community 880 - "Java_dev_nanoai_mobile_NanoshellBridge_dataStatistics"
 Cohesion: 0.33
 Nodes (5): jclass, JNIEnv, JNIEXPORT, Java_dev_nanoai_mobile_NanoshellBridge_dataStatistics(), jdoubleArray
 
 ### Community 881 - "bot_execution_context.dart"
-Cohesion: 0.11
-Nodes (17): ../../domain/bot/bot_definition.dart, BotDefinition, BotEvent, bot, BotCapabilityRouter, buildCapabilitiesPrompt, dispatcher, executeTool (+9 more)
+Cohesion: 0.40
+Nodes (5): ChangeNotifier, MetaInboxController, McpConnectionRegistry, ProductDepthController, AnsiTerminal
 
 ### Community 882 - "sql_projection.dart"
 Cohesion: 0.33
 Nodes (5): expression, function, label, parse, SqlProjection
 
-### Community 883 - "shared_preferences_metadata_cache.dart"
-Cohesion: 0.17
-Nodes (11): i_model_metadata_datasource.dart, IModelLocalMetadataCache, getTimestamp, initialize, _initialized, isFresh, _memoryCache, _prefPrefix (+3 more)
+### Community 883 - "approved_skill_candidate_provider.dart"
+Cohesion: 0.14
+Nodes (13): build, configured, _empty, error, loading, MetaTemplatesCollection, onConfigure, onDelete (+5 more)
 
 ### Community 884 - "UTransPosition"
-Cohesion: 0.15
-Nodes (12): _contactResolver, _contacts, handleCommand, listContacts, openChat, sendMessage, _share, shareFile (+4 more)
+Cohesion: 0.17
+Nodes (12): database_series_painter.dart, AnimatedSeriesChart, _AnimatedSeriesChartState, build, color, createState, didUpdateWidget, _label (+4 more)
 
 ### Community 885 - "whatsapp_media_dispatcher.dart"
-Cohesion: 0.20
-Nodes (9): attachments, conversationId, fromJson, id, metadata, NanoOutgoingMessage, replyToMessageId, text (+1 more)
+Cohesion: 0.17
+Nodes (11): description, ExecutionMechanism, ExecutionResolution, isDegraded, isTierSufficient, mechanism, rationale, resolve (+3 more)
 
 ### Community 886 - "sql_row_processor.dart"
 Cohesion: 0.40
 Nodes (4): _matches, order, SqlRowProcessor, where
 
-### Community 887 - "browser_readability_extractor.dart"
-Cohesion: 0.15
-Nodes (12): maxExampleChars, maxExampleIncomingChars, maxExamples, maxOwnerName, maxOwnerNotes, maxRelationshipNotes, maxTotalChars, _neutralize (+4 more)
+### Community 887 - "model_card_action_button.dart"
+Cohesion: 0.14
+Nodes (13): baseDir, bash, binDir, execRootfs, execRootfsWorker, init, initialized, killAll (+5 more)
 
 ### Community 888 - "nano_media_downloader.dart"
-Cohesion: 0.20
-Nodes (9): _basePath, _channel, _client, download, downloadBatch, NanoMediaDownloader, _resolveExtension, _sanitizeFilename (+1 more)
+Cohesion: 0.18
+Nodes (11): authToken, build, BusinessRemoteSourceDialog, _BusinessRemoteSourceDialogState, BusinessRemoteSourceInput, createState, dispose, isSheets (+3 more)
 
 ### Community 889 - "_SingleInputDialog"
 Cohesion: 0.15
-Nodes (12): BrowserWebViewDialogGuard, _cancelHttpAuth, _cancelServerTrust, _compatibility, _deny, ref, requestHttpAuth, requestPermission (+4 more)
+Nodes (12): chat_message_manager.dart, ChatMessageManager get, emitError, msgManager, onEngineError, onEngineReady, onInferenceSuccess, onMessageAppended (+4 more)
 
 ### Community 890 - "_WhatsAppContactPickerDialog"
 Cohesion: 0.17
-Nodes (11): ../business/business_facts_providers.dart, business_column_detector.dart, business_data_normalizer.dart, business_data_source_adapters.dart, BusinessDataConnectorService, commitImport, loadSourceTable, proposeMapping (+3 more)
+Nodes (11): BrowserAiPreferences, getPreferredProviderId, _init, _keyCustomProviders, _keyPreferred, loadCustomProviders, PreferredAiProviderNotifier, removeCustomProvider (+3 more)
 
 ### Community 891 - "nano_nav_dock_mode.dart"
 Cohesion: 0.29
@@ -4420,27 +4480,27 @@ Nodes (6): bottomLeft, bottomRight, NanoNavDockMode, rightDrawer, rightCollapsed
   topLeft,, static const NanoNavDockMode
 
 ### Community 892 - "chat_vision_adapter.dart"
-Cohesion: 0.17
-Nodes (11): ../business_product.dart, copyWith, id, isSelected, pageNumber, sourceDocumentName, suggestedCategory, suggestedDetails (+3 more)
+Cohesion: 0.20
+Nodes (9): BrowserAiQuery, copyWith, metadata, prompt, providerId, requestId, startNewChat, timeout (+1 more)
 
 ### Community 893 - "channel_model_storage_repository.dart"
-Cohesion: 0.20
-Nodes (9): availableFeatures, description, displayName, isFullyConfigured, missingPrerequisites, NanoOperatingTier, OperatingTierDescriptor, satisfies (+1 more)
+Cohesion: 0.15
+Nodes (11): ../data/model_integrity.dart, ../../domain/detected_model.dart, CustomModelPickerService, pickModel, CatalogReconciliation, detected, models, ModelsReconciliationService (+3 more)
 
 ### Community 894 - "browser_url_edit_dialog.dart"
-Cohesion: 0.20
-Nodes (9): DetectedModel, DetectedModelFormat, format, magicOk, name, path, sizeBytes, uri (+1 more)
+Cohesion: 0.09
+Nodes (20): data_models.dart, createDatabase, createTable, DatabaseColumnDefinition, DatabasePort, ensureDefaultDatabase, ensureDemoDatabase, execute (+12 more)
 
 ### Community 895 - ".read"
 Cohesion: 0.22
 Nodes (7): ConversationSqlMessageReader, Any, Int, List, Map, SQLiteDatabase, String
 
 ### Community 896 - "turn_complexity.dart"
-Cohesion: 0.22
-Nodes (8): business_import_wizard_dialog.dart, business_remote_source_dialog.dart, BusinessConnectorActions, launchWizard, pickLocalFile, pickSqliteFile, promptUrl, BusinessRemoteSourceInput
+Cohesion: 0.18
+Nodes (10): dialogue_act.dart, dialogue_act_phrases.dart, classify, DialogueActClassifier, _isAcknowledgement, _isGreeting, _isInterrogativeSentence, _isPositiveReaction (+2 more)
 
 ### Community 897 - "MnnChannelHandler"
-Cohesion: 0.31
+Cohesion: 0.27
 Nodes (5): Any, EventChannel, MethodCall, MethodChannel, MnnChannelHandler
 
 ### Community 898 - ".writeWavHeader"
@@ -4448,20 +4508,20 @@ Cohesion: 0.25
 Nodes (6): AudioWavConverter, Boolean, File, Int, Long, String
 
 ### Community 901 - "nano_search_dispatcher.dart"
-Cohesion: 0.44
-Nodes (3): SQLiteDatabase, SQLiteOpenHelper, StoreDb
-
-### Community 902 - "conversational_system_resolvers.dart"
-Cohesion: 0.20
-Nodes (9): ../../../engine/mcp/mcp_server_persistence.dart, McpServerPersistence, build, McpConnectedServersSection, persistence, registry, _stateLabel, visual (+1 more)
-
-### Community 903 - "agent_tool_protocol.dart"
 Cohesion: 0.17
-Nodes (11): ../engine/governance/semantic_policy.dart, AgentAutomationMode, AutomationPolicy, autonomous, confirmationDescription, description, fromName, label (+3 more)
+Nodes (12): build, _computeNew, createState, didUpdateWidget, _dismiss, _dismissed, initState, ModelNewBadgeBanner (+4 more)
+
+### Community 902 - "model_detail_general_info.dart"
+Cohesion: 0.14
+Nodes (15): USet, USetRangeIterator, rangeCount, rangeIndex, uset, USetRanges, rangeCount, uset (+7 more)
+
+### Community 903 - "conversational_system_resolvers.dart"
+Cohesion: 0.18
+Nodes (10): ../language/dialogue_act.dart, approved, _externalFactKeywords, isApproved, rejectionReason, relevanceScore, safeFallbackReply, SemanticOutputGate (+2 more)
 
 ### Community 904 - ".installPackages"
-Cohesion: 0.18
-Nodes (10): FormattedRelativeDateTime, FormattedRelativeDateTimeData, UErrorCode, NumberFormat, RelativeDateTimeCacheData, SharedBreakIterator, SharedNumberFormat, SharedPluralRules (+2 more)
+Cohesion: 0.15
+Nodes (12): ../../domain/account_exceptions.dart, GoogleSignIn, authenticate, _client, displayName, email, GoogleIdentity, id (+4 more)
 
 ### Community 905 - "inference_media_input.dart"
 Cohesion: 0.50
@@ -4472,32 +4532,32 @@ Cohesion: 0.17
 Nodes (11): fromJson, isCovered, kind, missingFact, ObligationKind, ObligationStatus, status, targetEntity (+3 more)
 
 ### Community 907 - "csv_tsv_parser.dart"
-Cohesion: 0.25
-Nodes (7): ../../data/media/whatsapp_media_locator.dart, findRecentWhatsAppImage, findRecentWhatsAppVideo, findRecentWhatsAppVoiceNote, invalidateCache, _resolvedCache, WhatsAppMediaResolver
+Cohesion: 0.20
+Nodes (9): detect, _dueHints, loopId, _normalize, OpenLoopDetector, _strongSignals, _weakSignals, personal_conversation_state.dart (+1 more)
 
-### Community 908 - "NanoApplication"
-Cohesion: 0.33
-Nodes (5): from(), Context, dev, NanoApplication, Application
+### Community 908 - "task_step_vocabulary.dart"
+Cohesion: 0.11
+Nodes (15): UnicodeString, NormalizationTransliterator, Transliterator::integerToken(), Transliterator::pointerToken(), Transliterator::setID(), TransliteratorIDParser, TransliteratorParser, UnicodeSet (+7 more)
 
-### Community 909 - "nano_floating_system.dart"
-Cohesion: 0.46
-Nodes (5): EngineState, Failed, Idle, Ready, Starting
+### Community 909 - "verified_skill.dart"
+Cohesion: 0.15
+Nodes (11): build, _choosePhoto, onPhotoChanged, _photo, photoPath, ProfileAvatarHeader, username, DeviceDataFilePicker (+3 more)
 
 ### Community 910 - "LocalModelGate"
 Cohesion: 0.43
 Nodes (3): String, Unit, LocalModelGate
 
 ### Community 911 - "browser_context_extractor.dart"
-Cohesion: 0.06
-Nodes (33): browser_gesture_arena.dart, browser_keep_alive_wrapper.dart, browser_readability_extractor.dart, browser_web_identity_coordinator.dart, browser_webview_dialog_guard.dart, browser_webview_lifecycle_handler.dart, ../../infrastructure/browser_security_firewall.dart, BrowserContextExtractor (+25 more)
+Cohesion: 0.03
+Nodes (60): browser_gesture_arena.dart, browser_keep_alive_wrapper.dart, browser_readability_extractor.dart, browser_web_identity_coordinator.dart, browser_webview_dialog_guard.dart, browser_webview_lifecycle_handler.dart, ../../domain/browser_navigation_policy.dart, ../../domain/tiktok_web_policy.dart (+52 more)
 
 ### Community 912 - "nano_identity_context.dart"
-Cohesion: 0.18
-Nodes (11): AutomationSuggestion, AutomationSuggestionCarousel, _AutomationSuggestionCarouselState, build, createState, _expanded, label, leading (+3 more)
+Cohesion: 0.15
+Nodes (12): BotExecutionResult, botId, directReply, error, eventId, executedTools, executionDurationMs, isSuccess (+4 more)
 
 ### Community 913 - "browser_ai_custom_provider_model.dart"
-Cohesion: 0.25
-Nodes (7): ../governance/semantic_policy.dart, kAllowedTaskSemantics, kSemanticActionRegistry, kSemanticInputs, null, semanticActionDefinition, validateSemantics
+Cohesion: 0.24
+Nodes (5): CodePointRange, rangeEnd, rangeStart, UChar32, iterator
 
 ### Community 914 - "instruction_trust.dart"
 Cohesion: 0.20
@@ -4508,36 +4568,40 @@ Cohesion: 0.29
 Nodes (6): explicitCity, fold, isQuery, isSourceQuestion, mentionsWeather, WeatherRequest
 
 ### Community 916 - "TaskValue"
+Cohesion: 0.11
+Nodes (18): bot_capability_router.dart, bot_execution_context.dart, bot_execution_result.dart, ../../domain/bot/bot_definition.dart, ../../domain/bot/bot_event.dart, ../execution/agent_tool_dispatcher.dart, BotAgentDispatcher, dispatch (+10 more)
+
+### Community 917 - "NanoClassicLightColors"
 Cohesion: 0.18
-Nodes (10): bot_capability_router.dart, bot_execution_context.dart, bot_execution_result.dart, ../../domain/bot/bot_event.dart, BotAgentDispatcher, dispatch, _executeConversationalFlow, _executeToolFlow (+2 more)
+Nodes (10): UniversalInstructionContract, contract, executeContract, _generateOptions, requiresUserConfirmation, responseOptions, _synthesizeMessage, UniversalExecutionResult (+2 more)
 
 ### Community 918 - "payment_methods_guided_view.dart"
-Cohesion: 0.18
-Nodes (10): ../datasources/i_model_metadata_datasource.dart, ../../domain/repositories/i_model_metadata_repository.dart, _cacheTtl, getVerifiedModelInfo, _inFlightRequests, initialize, _localCache, refreshRemoteMetadata (+2 more)
+Cohesion: 0.17
+Nodes (11): ../data/mnn_omni_package.dart, ../data/model_downloader.dart, cancel, dispose, _downloader, DownloadUpdateCallback, _isCancelled, ModelsDownloadService (+3 more)
 
 ### Community 919 - "typedef"
 Cohesion: 0.29
 Nodes (6): SharePickerProgress, AMBIGUOUS, NOT_PICKER, RECIPIENT_SELECTED, SEARCH_STARTED, WAITING_RESULTS
 
-### Community 920 - ".readLimited"
-Cohesion: 0.20
-Nodes (10): ../domain/donation_repository.dart, checkBannerVisibility, copyWith, dismissBanner, DonationBannerState, DonationController, isInteracting, _repository (+2 more)
+### Community 920 - "payment_methods_guided_view.dart"
+Cohesion: 0.08
+Nodes (20): _, accepts, instructions, PersonalLanguagePolicy, appliesTo, _conversationId, _enabled, includesTimestamp (+12 more)
 
-### Community 921 - "nano_sensitive_data_policy.dart"
-Cohesion: 0.20
-Nodes (9): FormattedList(), FormattedListData, UErrorCode, Hashtable, ListFormatInternal, ListFormatter, U_I18N_API, UFormattedList (+1 more)
+### Community 921 - "NanoApplication"
+Cohesion: 0.15
+Nodes (13): build, createState, _data, dispose, initial, initState, _isRawMode, _onSave (+5 more)
 
 ### Community 922 - "package:url_launcher/url_launcher.dart"
-Cohesion: 0.29
-Nodes (7): NanoFloatingNavigationFrame, build, _NanoFloatingNavigationFrameState, initState, NanoInputScope, _NanoInputScopeState, nanoUniversalInputProvider
+Cohesion: 0.18
+Nodes (10): ../../engine/business/fact_selector.dart, ../../engine/language/turn_complexity_classifier.dart, affirmsOwnerActivity, callCenterPhrases, ConversationDecisionGuards, fold, isAsking, isCallCenterPhrase (+2 more)
 
-### Community 923 - "AppFunctionChannelHandler"
-Cohesion: 0.50
-Nodes (3): AppFunctionChannelHandler, MethodCall, MethodChannel
+### Community 923 - "data_statistics_preparer.dart"
+Cohesion: 0.10
+Nodes (17): NanoAnswer, NanoMode, NanoNativeAiPort, _channel, NanoAndroidNativeAiPort, sharePrompt, answer, build (+9 more)
 
-### Community 924 - "browser_ai_sanitizer.dart"
-Cohesion: 0.50
-Nodes (3): InboxDb, SQLiteDatabase, SQLiteOpenHelper
+### Community 924 - "UParseError"
+Cohesion: 0.17
+Nodes (11): Capacidad real hoy, Cobertura comprobada, Informe de mensajería WhatsApp — 14 de octubre de 2026, Lo que no puede prometerse, P0 — Historial canónico, P0 — Multimedia oficial, P1 — Historial para el modelo, P1 — Rendimiento medido (+3 more)
 
 ### Community 925 - "AutomationStoreChannelHandler"
 Cohesion: 0.22
@@ -4548,176 +4612,440 @@ Cohesion: 0.40
 Nodes (3): Context, String, ScheduledWhatsAppNotifier
 
 ### Community 929 - "UTransPosition"
-Cohesion: 0.24
-Nodes (7): USetStringIterator, count, index, uset, USetStrings, count, uset
+Cohesion: 0.16
+Nodes (11): USetElementIterator, c, end, index, rangeCount, totalCount, uset, USetElements (+3 more)
 
-### Community 931 - "@Deprecated"
-Cohesion: 0.50
-Nodes (4): @Deprecated, agentFindText, agentTapOnText, NanoAgentOrchestrator
+### Community 931 - "report_section.dart"
+Cohesion: 0.17
+Nodes (11): _counts, emit, increment, _latencies, MessagingMetrics, queueDepth, recordBatchLatency, snapshot (+3 more)
 
 ### Community 932 - "browser_audio_service_initializer.dart"
-Cohesion: 0.18
-Nodes (10): ../language/dialogue_act.dart, approved, _externalFactKeywords, isApproved, rejectionReason, relevanceScore, safeFallbackReply, SemanticOutputGate (+2 more)
+Cohesion: 0.07
+Nodes (27): _, _buildCatalogProductTable, data, headers, dart:typed_data, copyToAppDirectory, pickImage, ProfileMediaPicker (+19 more)
 
 ### Community 933 - "convert_valid"
-Cohesion: 0.20
-Nodes (10): collectAll, collectEntry, extract, extractor, PolicySkillExtractor, SkillCollector, SkillExtractor, store (+2 more)
+Cohesion: 0.18
+Nodes (10): bool isSelectionMode,, business_library_grid_card.dart, build, BusinessLibraryFileGrid, documents, isDark, onAnalyzeDocument, onDeleteDocument (+2 more)
 
-### Community 934 - "USerializedSet"
-Cohesion: 0.33
-Nodes (6): UChar, UParseError, line, offset, postContext, preContext
+### Community 934 - "InboxDb"
+Cohesion: 0.18
+Nodes (10): _, BrowserSiteProfile, isTikTokWebUrl, _matchesHost, _mobileHostSuffixes, requiresDesktopIdentity, requiresMobileIdentity, usesAdaptiveDesktop (+2 more)
 
 ### Community 935 - "_VncScreenState"
-Cohesion: 0.40
-Nodes (4): _, BrowserSiteProfile, requiresDesktopIdentity, usesDesktop
-
-### Community 936 - "AnsiTerminalView"
-Cohesion: 0.18
-Nodes (10): UniversalInstructionContract, contract, executeContract, _generateOptions, requiresUserConfirmation, responseOptions, _synthesizeMessage, UniversalExecutionResult (+2 more)
-
-### Community 937 - "personal_style_learning_test.dart"
 Cohesion: 0.20
-Nodes (9): bool isSelectionMode,, business_library_grid_card.dart, build, BusinessLibraryFileGrid, documents, isDark, onDeleteDocument, onShare (+1 more)
+Nodes (10): FocusScopeNode, build, child, createState, dispose, _focus, initState, NanoKeyboardDockGate (+2 more)
+
+### Community 936 - "LocaleDisplayNames::createInstance"
+Cohesion: 0.08
+Nodes (24): ../../../engine/mcp/http_mcp_client.dart, ../../../engine/mcp/mcp_client_port.dart, ../../../engine/mcp/mcp_connection_registry.dart, ../../../engine/mcp/mcp_server_persistence.dart, McpToolCallResult, McpServerPersistence, build, McpConnectedServersSection (+16 more)
+
+### Community 937 - "UTransPosition"
+Cohesion: 0.18
+Nodes (10): BrowserAiSession, BrowserAiSessionStatus, copyWith, isLoggedIn, lastActive, lastResponse, providerId, status (+2 more)
 
 ### Community 938 - "_BusinessProfileEditDialogState"
-Cohesion: 0.20
-Nodes (9): conversation_inapp_player.dart, conversation_pdf_viewer.dart, conversation_photo_viewer.dart, ConversationMediaViewer, openExternalLink, openInAppWeb, openPdfDocument, openVideo (+1 more)
+Cohesion: 0.19
+Nodes (5): isManagedConfigCurrent(), Boolean, List, Pair, TerminalLaunch
 
 ### Community 939 - "pdf_product_extractor.dart"
 Cohesion: 0.50
 Nodes (3): extractFromText, PdfProductExtractor, pdf_product_proposal.dart
 
-### Community 940 - "_AppsSheetContent"
-Cohesion: 0.20
-Nodes (9): ../../../../core/services/whisper_stt_service.dart, _activeSessions, _cache, _doTranscribe, getCached, transcribe, _transcribeWithGemini, _transcribeWithWhisperOpenAi (+1 more)
+### Community 940 - "_BusinessProfileEditDialogState"
+Cohesion: 0.18
+Nodes (10): description, fromJson, installedAt, instructions, name, parse, PromptSkill, source (+2 more)
 
-### Community 941 - "_CommandsSheetContent"
-Cohesion: 0.20
-Nodes (9): hybrid_intent_classifier.dart, ConversationalIntentId, fromId, id, label, macroCategory, requiresContext, requiresLiveState (+1 more)
+### Community 941 - "unirepl.h"
+Cohesion: 0.08
+Nodes (22): ../../../core/services/chat_history_store.dart, ChatHistoryStore, clear, _decode, _ensureFile, _file, _fileName, _legacyPrefsKey (+14 more)
 
-### Community 942 - "_ZoomSheetContent"
-Cohesion: 0.20
-Nodes (9): _bridge, canSendMedia, sendDocument, sendMediaPayload, sendPhoto, sendVideo, WhatsAppMediaDispatcher, WhatsAppWebBridgeController (+1 more)
+### Community 942 - "whatsapp_web_app_bar.dart"
+Cohesion: 0.14
+Nodes (13): WhatsAppWebSessionStatus, build, isConversationActive, isDark, isOriginalMode, onBack, onReload, onToggleMode (+5 more)
 
-### Community 944 - "conversation_video_sheet.dart"
-Cohesion: 0.22
-Nodes (9): build, createState, _isLoading, _progress, title, urlOrPath, VideoPlayerSheet, _VideoPlayerSheetState (+1 more)
+### Community 944 - ".claimInbox"
+Cohesion: 0.60
+Nodes (4): encodeOrFFFD(), encodeUnsafe(), StringClass, UChar32
 
 ### Community 945 - "automation_dashboard_runner.dart"
-Cohesion: 0.22
-Nodes (8): ../../application/automation_diagnostics.dart, ../../application/automation_engine.dart, ../../application/automation_feedback_presenter.dart, ../../domain/automation_goal.dart, ../../engine/governance/action_confirmation.dart, AutomationDashboardRunner, execute, spokenResult
+Cohesion: 0.10
+Nodes (19): ../../domain/local_model.dart, LocalModel, catalog, detected, fileName, filter, format, installed (+11 more)
 
-### Community 946 - "conversational_system_resolvers.dart"
-Cohesion: 0.22
-Nodes (8): ../device_info.dart, ConversationalSystemResolvers, resolveFarewell, resolveGreeting, resolveHelp, resolveIdentity, resolveSystemStatus, resolveThanks
+### Community 946 - "bot_agent_dispatcher.dart"
+Cohesion: 0.18
+Nodes (10): ../datasources/i_model_metadata_datasource.dart, ../../domain/repositories/i_model_metadata_repository.dart, _cacheTtl, getVerifiedModelInfo, _inFlightRequests, initialize, _localCache, refreshRemoteMetadata (+2 more)
 
-### Community 947 - "conversation_media_source.dart"
-Cohesion: 0.22
-Nodes (8): File? get, ConversationMediaSource, existsSync, isLocal, localFile, playbackUrl, raw, value
+### Community 947 - "conversation_decision_guards.dart"
+Cohesion: 0.20
+Nodes (10): build, BusinessLibrarySearchBar, _BusinessLibrarySearchBarState, _controller, createState, didUpdateWidget, dispose, isDark (+2 more)
 
 ### Community 948 - "chat_action_listener.dart"
-Cohesion: 0.22
-Nodes (8): onEngineError, onEngineReady, onInferenceSuccess, onMessageAppended, onStreamingText, onToolPaused, onToolTraceAppended, onTurnError
+Cohesion: 0.07
+Nodes (25): automation_trace.dart, int get, BotSkill, category, description, fromMap, hashCode, icon (+17 more)
 
 ### Community 949 - "nano_media_sheet.dart"
-Cohesion: 0.25
-Nodes (8): build, controller, createState, _iconFor, initState, NanoMediaSheet, _NanoMediaSheetState, _selected
+Cohesion: 0.33
+Nodes (5): _, buildRailAdapterScript, buildRailStylesheet, buildSuspendRailAdapterScript, WhatsAppWebRailScripts
 
-### Community 950 - "terminal_session_controller.dart"
-Cohesion: 0.22
-Nodes (8): _bashCwd, clear, _lines, out, _ptyActive, setBashCwd, setPtyActive, TerminalSessionController
+### Community 950 - "listformatter.h"
+Cohesion: 0.24
+Nodes (9): Locale, UMemory, UnicodeString, ListFormatData, endPattern, locale, middlePattern, startPattern (+1 more)
 
 ### Community 951 - "shared_preferences_tool_audit_trail.dart"
-Cohesion: 0.25
-Nodes (7): ../domain/tool_audit.dart, append, _decode, maxRecords, recent, _recordFromJson, storageKey
+Cohesion: 0.33
+Nodes (4): Boolean, File, String, SecurePathPolicy
 
 ### Community 952 - "UIDNAInfo"
-Cohesion: 0.25
-Nodes (8): UBool, UIDNAInfo, errors, isTransitionalDifferent, reservedB3, reservedI2, reservedI3, size
+Cohesion: 0.06
+Nodes (23): StringClass, U_NAMESPACE_BEGIN, StringByteSink, dest_, UMemory(), value_type_or_char, value_type_or_char<StringClass, std::void_t<typename StringClass::value_type>>, ByteSink (+15 more)
 
-### Community 953 - "verified_skill.dart"
-Cohesion: 0.25
-Nodes (7): Skill, approvedAt, fromJson, skill, toJson, VerifiedSkill, skill.dart
+### Community 953 - "recruitment_event.dart"
+Cohesion: 0.20
+Nodes (9): FormattedList(), FormattedListData, UErrorCode, Hashtable, ListFormatInternal, ListFormatter, U_I18N_API, UFormattedList (+1 more)
 
-### Community 954 - "business_library_file_actions.dart"
-Cohesion: 0.25
-Nodes (7): build, BusinessLibraryFileActions, document, _icon, onDelete, onShare, _showMore
+### Community 954 - "models_state.dart"
+Cohesion: 0.18
+Nodes (10): allFilesGranted, copyWith, detected, downloadDir, loadingDetectedUri, models, scanError, scanning (+2 more)
 
 ### Community 955 - "terminal_output_view.dart"
 Cohesion: 0.25
 Nodes (7): baseStyle, build, lines, scrollController, TerminalOutputView, ScrollController, TextStyle
 
-### Community 956 - "nano_identity_context.dart"
-Cohesion: 0.29
-Nodes (6): description, matches, _modelQuestion, NanoIdentityContext, _productQuestion, promptBlock
+### Community 956 - "conversational_intent_catalog.dart"
+Cohesion: 0.18
+Nodes (10): clearAll, delete, _getPrefs, _hashKey, _prefix, _prefsInstance, read, SecureStorageAdapter (+2 more)
 
 ### Community 957 - "conversation_autonomy_mode.dart"
-Cohesion: 0.33
-Nodes (6): ConversationAutonomyMode, ConversationAutonomyModeName, description, fromName, label, name
+Cohesion: 0.18
+Nodes (10): BotDefinition, BotEvent, bot, BotExecutionContext, elapsedMs, event, executionLogs, log (+2 more)
 
 ### Community 958 - "business_library_grid_actions.dart"
-Cohesion: 0.29
-Nodes (6): _action, build, BusinessLibraryGridActions, document, onDelete, _show
+Cohesion: 0.18
+Nodes (10): TurnMetrics, client, fullText, generationId, released, requestId, StreamLease, StreamTurnResult (+2 more)
 
-### Community 959 - "browser_ai_custom_provider_model.dart"
+### Community 959 - "device_location_service.dart"
+Cohesion: 0.18
+Nodes (10): category, components, fromJson, id, language, MetaMessageTemplate, MetaMessageTemplateDraft, name (+2 more)
+
+### Community 960 - "data_statistics_preparer.dart"
+Cohesion: 0.20
+Nodes (9): ../../domain/incoming_attachment.dart, locateImage, locateVideo, locateVoiceNote, possibleImageDirs, possibleVideoDirs, possibleVoiceDirs, _scanAndCorrelate (+1 more)
+
+### Community 961 - "stability_gate.dart"
+Cohesion: 0.18
+Nodes (10): _lastMinuteKey, _persistLastKey, _prefKey, _recoverOccurrences, _restoreLastKey, _running, start, stop (+2 more)
+
+### Community 962 - "conversation_group_resolver.dart"
+Cohesion: 0.11
+Nodes (16): cacheGroupTitle, cleanTitle, ConversationGroupResolver, getCachedGroupTitle, _groupTitleCache, isGenericTitle, isGroup, _normalizeKey (+8 more)
+
+### Community 963 - "candidate_selection.dart"
+Cohesion: 0.20
+Nodes (9): _bridge, canSendMedia, sendDocument, sendMediaPayload, sendPhoto, sendVideo, WhatsAppMediaDispatcher, WhatsAppWebBridgeController (+1 more)
+
+### Community 966 - "conversation_video_sheet.dart"
+Cohesion: 0.18
+Nodes (10): _alwaysEnabled, AndroidSpeechRecognitionBackend, cancel, isSpeaking, listen, speak, stop, SpeechRecognitionBackend (+2 more)
+
+### Community 967 - "nano_search_dispatcher.dart"
+Cohesion: 0.20
+Nodes (9): isStatusOrBroadcast, isStoryReaction, isSystemMaintenance, _isWhatsApp, shouldIgnoreFromChatHub, _statusReactionRegex, _systemMaintenanceRegex, WhatsAppStatusClassifier (+1 more)
+
+### Community 969 - "browser_readability_extractor.dart"
+Cohesion: 0.18
+Nodes (10): context, copyWith, enabled, followUp, fromMap, listFromJson, PersonaResponseOption, text (+2 more)
+
+### Community 970 - "AnsiTerminalView"
+Cohesion: 0.18
+Nodes (10): actionRequired, extract, isClosed, platform, position, rawText, RecruitmentEvent, stage (+2 more)
+
+### Community 971 - "mobile_hardware_benchmark.dart"
+Cohesion: 0.08
+Nodes (23): matches, ReplyIntentVocabulary, terms, definitions, description, LinuxCapabilityCatalog, LinuxToolDefinition, lookup (+15 more)
+
+### Community 972 - "browser_readability_extractor.dart"
+Cohesion: 0.12
+Nodes (13): emmaSocialSeeds, ../domain/persona_response_option.dart, emma_intent_seed.dart, emma_intent_seed_routine.dart, emma_intent_seed_social.dart, emmaCanonicalSeeds, category, EmmaIntentSeed (+5 more)
+
+### Community 973 - "nano_search_dispatcher.dart"
 Cohesion: 0.29
 Nodes (6): BrowserAiCustomProviderModel, fromJson, id, name, toJson, url
 
-### Community 960 - "data_statistics_preparer.dart"
-Cohesion: 0.29
-Nodes (6): _categoryDistribution, DataStatisticsPreparer, prepare, PreparedStatistics, _seriesLabelColumn, _seriesLabels
+### Community 976 - "mcp_server_persistence_test.dart"
+Cohesion: 0.31
+Nodes (6): Any, Engine, Int, Map, String, LiteRtEngineOwner
 
-### Community 961 - "i_model_metadata_repository.dart"
+### Community 979 - "utfstring.h"
+Cohesion: 0.22
+Nodes (8): _, HttpAuthResponse, BrowserSecurityDialogs, showFirewallBlockedDialog, showHttpAuthDialog, showPermissionPromptDialog, showSslWarningDialog, ServerTrustAuthResponse
+
+### Community 980 - "_DedupeCore"
+Cohesion: 0.20
+Nodes (9): ../../../../core/services/whisper_stt_service.dart, _activeSessions, _cache, _doTranscribe, getCached, transcribe, _transcribeWithGemini, _transcribeWithWhisperOpenAi (+1 more)
+
+### Community 981 - "personal_style_constraints.dart"
+Cohesion: 0.20
+Nodes (9): annotateForPrompt, authorizesExecution, ContentProvenance, hasObserved, InstructionTrust, isUserInstruction, observed, provenanceOf (+1 more)
+
+### Community 982 - "weather_request_test.dart"
+Cohesion: 0.20
+Nodes (10): dialog_container_shell.dart, build, BusinessNameEditDialog, _BusinessNameEditDialogState, _controller, createState, dispose, initial (+2 more)
+
+### Community 983 - "@Deprecated"
+Cohesion: 0.18
+Nodes (11): ../../../engine/business/business_facts.dart, ../../engine/business/catalog_pdf_generator.dart, build, CatalogPdfPreviewDialog, _CatalogPdfPreviewDialogState, createState, facts, _generating (+3 more)
+
+### Community 984 - "tool_permission.dart"
+Cohesion: 0.05
+Nodes (38): Client, http_mcp_parser.dart, http_mcp_tool_caller.dart, callTool, connect, credentialToken, descriptor, disconnect (+30 more)
+
+### Community 985 - "_BusinessProfileEditDialogState"
+Cohesion: 0.20
+Nodes (9): DetectedModel, DetectedModelFormat, format, magicOk, name, path, sizeBytes, uri (+1 more)
+
+### Community 986 - "whatsapp_web_touch_scripts.dart"
+Cohesion: 0.40
+Nodes (4): _, buildSuspendTouchScript, buildTouchScrollerScript, WhatsAppWebTouchScripts
+
+### Community 987 - "dtintrv.h"
+Cohesion: 0.14
+Nodes (13): business_connector_actions.dart, business_import_wizard_dialog.dart, business_remote_source_dialog.dart, business_source_option_tile.dart, ../../engine/connectors/business_connector_models.dart, ../../engine/connectors/business_data_connector_service.dart, BusinessConnectorActions, launchWizard (+5 more)
+
+### Community 988 - "_ImportReview"
+Cohesion: 0.22
+Nodes (8): _cardRegex, isSensitiveNode, isSensitiveText, NanoSensitiveDataPolicy, _otpRegex, _passwordKeywordRegex, redact, _tokenPrefixRegex
+
+### Community 989 - "depth_asset_cache.dart"
+Cohesion: 0.22
+Nodes (8): onEngineError, onEngineReady, onInferenceSuccess, onMessageAppended, onStreamingText, onToolPaused, onToolTraceAppended, onTurnError
+
+### Community 990 - ".onListen"
+Cohesion: 0.28
+Nodes (9): getAttributes(), getOptions(), T, piece(), toStdVector(), _e, m, Option (+1 more)
+
+### Community 991 - "commercial_funnel_stage.dart"
+Cohesion: 0.20
+Nodes (9): hybrid_intent_classifier.dart, ConversationalIntentId, fromId, id, label, macroCategory, requiresContext, requiresLiveState (+1 more)
+
+### Community 992 - "convert_valid"
+Cohesion: 0.50
+Nodes (3): convert_valid(), InputPtr, simdutf_constexpr23
+
+### Community 993 - "_PersonalizationStudioDiagram"
+Cohesion: 0.04
+Nodes (37): BreakIterator::isBufferClone(), U_NAMESPACE_BEGIN, UBool, UObject(), U_NAMESPACE_BEGIN, UObject(), UChar, UParseError (+29 more)
+
+### Community 994 - "_SingleInputDialog"
+Cohesion: 0.29
+Nodes (9): CandidateAction, AmbiguousCandidates, candidate, candidates, CandidateSelection, InvalidCandidateSelection, NoCandidate, reason (+1 more)
+
+### Community 995 - "browser_keep_alive_wrapper.dart"
+Cohesion: 0.36
+Nodes (4): Boolean, List, String, PackageInstallController
+
+### Community 996 - "_DedupeCore"
+Cohesion: 0.20
+Nodes (9): _decode, dispatchText, _evidence, sendMedia, sendText, WhatsAppWebMessageTransport, ../orchestration/commit_guard.dart, whatsapp_web_dispatch_scripts.dart (+1 more)
+
+### Community 997 - "whatsapp_media_resolver.dart"
+Cohesion: 0.46
+Nodes (5): EngineState, Failed, Idle, Ready, Starting
+
+### Community 998 - "_ExampleEditDialogState"
+Cohesion: 0.20
+Nodes (9): build, BusinessLibraryMenuKind, BusinessLibraryToolbarMenu, _filterOptions, kind, onChanged, _showOptions, _sortOptions (+1 more)
+
+### Community 999 - "_ImportReview"
+Cohesion: 0.22
+Nodes (8): fast, morph, NanoMotion, settle, smooth, spring, package:flutter/animation.dart, static const Curve
+
+### Community 1000 - "app_boot_profile.dart"
+Cohesion: 0.22
+Nodes (8): File? get, ConversationMediaSource, existsSync, isLocal, localFile, playbackUrl, raw, value
+
+### Community 1001 - "_PersonaExampleCard"
+Cohesion: 0.22
+Nodes (8): examples, hasContent, ownerName, ownerNotes, rejected, relationshipName, relationshipNotes, ValidatedPersonaContext
+
+### Community 1002 - "_PersonalizationStudioDiagram"
+Cohesion: 0.29
+Nodes (7): NanoFloatingNavigationFrame, build, _NanoFloatingNavigationFrameState, initState, NanoInputScope, _NanoInputScopeState, nanoUniversalInputProvider
+
+### Community 1003 - "_SingleInputDialog"
+Cohesion: 0.29
+Nodes (6): BrowserAiSanitizer, _cardRegex, _emailRegex, _phoneRegex, sanitize, _tokenRegex
+
+### Community 1004 - "JSONObject"
+Cohesion: 0.22
+Nodes (8): avoidExpressions, defaultEmmanuel, maxTypicalSentences, PersonalStyleConstraints, preferredAnswerLength, preferredExpressions, preferredReciprocity, toPromptInstruction
+
+### Community 1005 - "rep.h"
+Cohesion: 0.22
+Nodes (8): fromJson, hasUnread, index, name, text, TikTokChatMessage, TikTokConversation, unread
+
+### Community 1006 - "_WhatsAppContactPickerDialog"
+Cohesion: 0.33
+Nodes (5): ../../engine/web_bridge/whatsapp_web_account_guard.dart, ../../engine/web_bridge/whatsapp_web_history_selection.dart, ../../engine/web_bridge/whatsapp_web_operation_lock.dart, open, WhatsAppWebChatRequest
+
+### Community 1007 - "usetiter.h"
+Cohesion: 0.22
+Nodes (8): ConversationSearch, ConversationSearchHit, entry, maxResults, score, search, _tokens, static const int
+
+### Community 1008 - "SocialHistoryAdmission"
+Cohesion: 0.28
+Nodes (5): Boolean, Int, SQLiteDatabase, String, SocialHistoryAdmission
+
+### Community 1009 - ".handle"
+Cohesion: 0.33
+Nodes (4): Boolean, MethodCall, MethodChannel, NotificationHistoryChannelHandler
+
+### Community 1010 - ".handle"
+Cohesion: 0.33
+Nodes (4): Boolean, MethodCall, MethodChannel, WebHistoryStoreHandler
+
+### Community 1011 - "PersonaImportPipeline"
+Cohesion: 0.25
+Nodes (7): ../../data/media/whatsapp_media_locator.dart, findRecentWhatsAppImage, findRecentWhatsAppVideo, findRecentWhatsAppVoiceNote, invalidateCache, _resolvedCache, WhatsAppMediaResolver
+
+### Community 1012 - "business_library_file_actions.dart"
+Cohesion: 0.36
+Nodes (8): UBool, UErrorCode, UnicodeString, Normalizer::compare(), Normalizer::isNormalized(), Normalizer::quickCheck(), UNormalizationCheckResult, UNormalizationMode
+
+### Community 1013 - "typedef"
+Cohesion: 0.25
+Nodes (7): allows, _clean, _isActivity, _likeNotice, _reactionNotice, _serviceNotice, WhatsAppWebMessageFilter
+
+### Community 1014 - "tool_permission.dart"
+Cohesion: 0.33
+Nodes (5): from(), Context, dev, NanoApplication, Application
+
+### Community 1015 - "payment_methods_guided_view.dart"
+Cohesion: 0.25
+Nodes (7): build, data, onChanged, PaymentMethodsGuidedView, PaymentMethodsData, payment_method_card.dart, payment_methods_models.dart
+
+### Community 1016 - "conversation_inapp_player.dart"
+Cohesion: 0.25
+Nodes (7): AppBootProfile, automationBenchmark, current, _fromEnv, skipsLinuxProvisioning, normal, static AppBootProfile get
+
+### Community 1017 - "nano_identity_context.dart"
+Cohesion: 0.50
+Nodes (4): _BusinessProfileEditFields, _BusinessProfileEditParsers, BusinessProfileEditDialog, _BusinessProfileEditDialogState
+
+### Community 1018 - "tiktok_note_logo.dart"
+Cohesion: 0.29
+Nodes (6): captureScreen, getPairingCode, reloadSession, switchToPhoneLinking, WhatsAppWebBridgeActions, whatsapp_web_js_bridge.dart
+
+### Community 1019 - "inbound_deduplicator.dart"
+Cohesion: 0.25
+Nodes (7): clear, InboundDeduplicator, isDuplicate, maxEntries, _purgeExpired, _recentFingerprints, window
+
+### Community 1020 - "NanoVoiceCapture"
+Cohesion: 0.29
+Nodes (6): checkout,         
+  paymentPending,   
+  paymentConfirmed, 
+  fulfilled,, CommercialFunnelStage, escalatedHuman, isCheckout, isCompleted, isShopping
+
+### Community 1021 - "NotificationHistoryCapture"
+Cohesion: 0.33
+Nodes (6): rootfsProvider, engineStatusProvider, state, build, EngineStatusCard, return
+
+### Community 1023 - "UParseError"
+Cohesion: 0.29
+Nodes (6): description, matches, _modelQuestion, NanoIdentityContext, _productQuestion, promptBlock
+
+### Community 1024 - "bot_role.dart"
+Cohesion: 0.15
+Nodes (16): ../../application/bot/bot_studio_providers.dart, bot_card.dart, bot_editor_dialog.dart, botsListProvider, BotRole, BotStudioScreen, _BotStudioScreenState, build (+8 more)
+
+### Community 1025 - "pdf_text_extraction_service.dart"
+Cohesion: 0.29
+Nodes (6): _channel, ExtractedPdfPage, extractPages, page, PdfTextExtractionService, text
+
+### Community 1026 - "personal_reply_variants.dart"
+Cohesion: 0.29
+Nodes (6): fitLearningMetadata, kept, sameLearningReplies, seen, true, uniqueLearningReplies
+
+### Community 1027 - "chat_vision_adapter.dart"
+Cohesion: 0.33
+Nodes (6): ChatVisionAdapter, describe, ImageLabeler, _labelImage, maxBytes, MlKitChatVisionAdapter
+
+### Community 1028 - "i_model_metadata_repository.dart"
 Cohesion: 0.29
 Nodes (6): ModelMetadataRepositoryImpl, getVerifiedModelInfo, IModelMetadataRepository, initialize, refreshRemoteMetadata, ../model_metadata_entities.dart
 
-### Community 962 - "html_report_builder.dart"
-Cohesion: 0.33
-Nodes (5): , build, class, HtmlReportBuilder, lang
+### Community 1029 - "_VncScreenState"
+Cohesion: 0.50
+Nodes (3): InboxDb, SQLiteDatabase, SQLiteOpenHelper
 
-### Community 963 - "../../domain/automation_result.dart"
-Cohesion: 0.33
-Nodes (5): _, ../../domain/automation_result.dart, ../../engine/execution/plan_execution_coordinator.dart, AutomationCommandFeedback, statusFor
-
-### Community 964 - "commercial_action_parser.dart"
+### Community 1030 - "commercial_action_parser.dart"
 Cohesion: 0.33
 Nodes (5): commercial_structured_action.dart, CommercialActionParser, _extractJsonMap, _fromMap, parse
 
-### Community 965 - "package:url_launcher/url_launcher.dart"
+### Community 1031 - "UTransPosition"
 Cohesion: 0.33
-Nodes (5): BrowserOAuthHelper, isOAuthUrl, openInSystemBrowser, safeMobileChromeUserAgent, package:url_launcher/url_launcher.dart
+Nodes (5): fromKey, key, network, ToolPermission, terminalExecute,
 
-### Community 966 - "donation_repository.dart"
+  
+  accessibilityControl,
+
+  
+  memoryRead,
+
+  
+  memoryWrite,
+
+### Community 1032 - "tool_loop_detector.dart"
+Cohesion: 0.08
+Nodes (24): ../domain/tool_approval_result.dart, _history, isLoop, reset, ToolLoopDetector, approvePending, _approvePlan, _approveTask (+16 more)
+
+### Community 1033 - "personal_style_learning_test.dart"
+Cohesion: 0.33
+Nodes (6): FilePathValue, NotificationValue, PackageValue, TaskValue, TextValue, UrlValue
+
+### Community 1034 - "report_section.dart"
 Cohesion: 0.40
-Nodes (4): launchVoluntaryDonationFlow, recordBannerDismissed, recordSupportActionTriggered, shouldShowSupportBanner
+Nodes (5): description, kDefaultReportSections, ReportSection, ReportSectionMetadata, title
 
-### Community 967 - "_DedupeCore"
+### Community 1035 - "PdfTextExtractionChannelHandler"
+Cohesion: 0.50
+Nodes (3): MethodCall, MethodChannel, PdfTextExtractionChannelHandler
+
+### Community 1036 - "_NanoOpticalSurfaceState"
 Cohesion: 0.40
-Nodes (5): _DedupeCore, EventDedupeStore, MemoryEventDedupeStore, SharedPrefsEventDedupeStore, SqliteEventDedupeStore
+Nodes (5): NanoOpticalSurface, _NanoOpticalSurfaceState, NanoOwlAvatar, _NanoOwlAvatarState, TickerProviderStateMixin
 
-### Community 968 - "convert_valid"
+### Community 1037 - "@Deprecated"
+Cohesion: 0.50
+Nodes (4): @Deprecated, agentFindText, agentTapOnText, NanoAgentOrchestrator
+
+### Community 1038 - "convert_valid"
 Cohesion: 0.50
 Nodes (3): convert_valid(), InputPtr, OutputPtr
 
+### Community 1039 - "USerializedSet"
+Cohesion: 0.50
+Nodes (4): USerializedSet, bmpLength, length, staticArray
+
 ## Knowledge Gaps
-- **16891 isolated node(s):** `UI`, `AUTOMATION`, `ChannelNames`, `Request`, `UNLOADED` (+16886 more)
+- **17918 isolated node(s):** `UI`, `AUTOMATION`, `ChannelNames`, `Request`, `UNLOADED` (+17913 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **43 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `ChatNotifierListenerMixin` connect `chat_provider.dart` to `universal_execution_resolver.dart`, `chat_screen.dart`?**
+- **Why does `ChatNotifierListenerMixin` connect `chat_provider.dart` to `_SingleInputDialog`, `browser_ai_response.dart`?**
   _High betweenness centrality (0.077) - this node is a cross-community bridge._
-- **Why does `_e` connect `StoreDb` to `vnc_des.dart`?**
+- **Why does `_e` connect `.onListen` to `vnc_des.dart`?**
+  _High betweenness centrality (0.076) - this node is a cross-community bridge._
+- **Why does `piece()` connect `.onListen` to `StoreDb`?**
   _High betweenness centrality (0.076) - this node is a cross-community bridge._
 - **What connects `UI`, `AUTOMATION`, `ChannelNames` to the rest of the system?**
-  _16891 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _17918 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `vnc_screen.dart` be split into smaller, more focused modules?**
   _Cohesion score 0.0196078431372549 - nodes in this community are weakly interconnected._
 - **Should `term_screen.dart` be split into smaller, more focused modules?**
   _Cohesion score 0.02 - nodes in this community are weakly interconnected._
 - **Should `terminal_core.dart` be split into smaller, more focused modules?**
   _Cohesion score 0.017543859649122806 - nodes in this community are weakly interconnected._
-- **Should `vnc_client.dart` be split into smaller, more focused modules?**
-  _Cohesion score 0.022222222222222223 - nodes in this community are weakly interconnected._

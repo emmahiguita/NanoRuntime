@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/browser/application/browser_credential_notifier.dart';
-import 'package:nanoai/features/browser/infrastructure/browser_web_compatibility_bridge.dart';
+import 'package:nanoai/core/platform/browser_web_compatibility_bridge.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_dialog_helper.dart';
 
 /// Presenta diálogos nativos solo mientras la vista del navegador existe.

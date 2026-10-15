@@ -6,12 +6,15 @@
 /// - POR QUÉ: Evita que me gustas/reacciones a historias de WhatsApp se conviertan en chats (<200 líneas).
 library;
 
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/services/nano_runtime_api.dart';
 import '../../application/automation_coordinator_provider.dart';
 import '../../engine/messaging/conversation_agent.dart';
+import '../../engine/messaging/canonical_message.dart';
+import '../../engine/messaging/canonical_message_store.dart';
 import '../../engine/messaging/conversation_group_resolver.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
 import '../../engine/messaging/conversation_key.dart';
@@ -22,15 +25,18 @@ import '../../personal_agent/application/conversation_ownership_policy.dart';
 import '../../personal_agent/application/conversation_ownership_store.dart';
 import 'messaging_dedup_merger.dart';
 
+part 'messaging_live_summary.dart';
+
 final liveNotificationStreamProvider =
     StreamProvider.autoDispose<Map<dynamic, dynamic>>((ref) {
       return NanoRuntimeApi.instance.notificationEvents;
     });
 
-final liveNotificationsProvider = AutoDisposeAsyncNotifierProvider<
-    LiveNotificationsNotifier, List<ConversationSummaryItem>>(
-  LiveNotificationsNotifier.new,
-);
+final liveNotificationsProvider =
+    AutoDisposeAsyncNotifierProvider<
+      LiveNotificationsNotifier,
+      List<ConversationSummaryItem>
+    >(LiveNotificationsNotifier.new);
 
 class LiveNotificationsNotifier
     extends AutoDisposeAsyncNotifier<List<ConversationSummaryItem>> {
@@ -61,7 +67,10 @@ class LiveNotificationsNotifier
 
     for (final notif in notifications) {
       final summary = _buildSummary(notif, ownershipStore, settings, now);
-      if (summary != null) items.add(summary);
+      if (summary != null) {
+        items.add(summary);
+        unawaited(_persistNotification(notif, summary));
+      }
     }
 
     return MessagingDedupMerger.deduplicateAndSort(items);
@@ -77,123 +86,49 @@ class LiveNotificationsNotifier
       final now = DateTime.now().millisecondsSinceEpoch;
       final summary = _buildSummary(notif, ownershipStore, settings, now);
       if (summary == null) return;
+      unawaited(_persistNotification(notif, summary));
       final current = state.valueOrNull ?? const [];
-      final updated = MessagingDedupMerger.deduplicateAndSort([summary, ...current]);
+      final updated = MessagingDedupMerger.deduplicateAndSort([
+        summary,
+        ...current,
+      ]);
       state = AsyncData(updated);
     } catch (_) {}
   }
 }
 
-ConversationSummaryItem? _buildSummary(
-  DeviceNotification notif,
-  ConversationOwnershipStore ownershipStore,
-  SettingsState settings,
-  int now,
-) {
-  if (!MessagingDedupMerger.isSupportedMessagingApp(notif.packageName)) {
-    return null;
-  }
-
-  final notifObj = notif.toNotificationObject();
-  if (WhatsAppStatusClassifier.shouldIgnoreFromChatHub(notifObj)) {
-    return null;
-  }
-
-  final identity = resolveConversationIdentity(notifObj);
-  final rawConvKey = notif.conversationId.isNotEmpty
-      ? notif.conversationId
-      : (notif.shortcutId.isNotEmpty
-            ? notif.shortcutId
-            : '${notif.packageName}:${notif.title}');
-  final convKey = identity.key.id.isNotEmpty
-      ? identity.key.id
-      : rawConvKey;
-  final isGroup = ConversationGroupResolver.isGroup(
-    convId: rawConvKey,
-    isGroupFlag: notif.isGroup,
-    rawTitle: notif.title.isNotEmpty ? notif.title : null,
-    conversationTitle: notif.conversationTitle.isNotEmpty
-        ? notif.conversationTitle
-        : null,
-    shortcutId: notif.shortcutId.isNotEmpty ? notif.shortcutId : null,
-  );
-  final groupInfo = isGroup
-      ? ConversationGroupResolver.resolveGroupInfo(
-          convId: rawConvKey,
-          conversationTitle: notif.conversationTitle.isNotEmpty
-              ? notif.conversationTitle
-              : null,
-          title: notif.title.isNotEmpty ? notif.title : null,
-          sender: notif.sender.isNotEmpty ? notif.sender : null,
-        )
-      : null;
-
-  final groupTitle = groupInfo?.groupTitle;
-  final displayName = isGroup
-      ? (groupTitle ?? 'Grupo de WhatsApp')
-      : (notif.sender.isNotEmpty
-            ? notif.sender
-            : (notif.title.isNotEmpty ? notif.title : 'Chat'));
-  final lastSender = isGroup
-      ? (groupInfo?.lastSender.isNotEmpty == true
-            ? groupInfo!.lastSender
-            : (notif.sender.isNotEmpty ? notif.sender : null))
-      : (notif.sender.isNotEmpty ? notif.sender : null);
-  final agentId = notif.packageName == 'com.whatsapp.w4b'
-      ? ConversationAgentId.business
-      : ConversationAgentId.personal;
-  final messageText = notif.messageText.isNotEmpty
-      ? notif.messageText
-      : (notif.text.isNotEmpty ? notif.text : '');
-
-  final lowerName = displayName.trim().toLowerCase();
-  final lowerMsg = messageText.trim().toLowerCase();
-  if (displayName == '0' ||
-      lowerName == 'actualizaciones de estado' ||
-      lowerName == 'status updates' ||
-      lowerName == 'actualizaciones' ||
-      lowerName == 'novedades' ||
-      lowerName.contains('comprobando si hay') ||
-      lowerName.contains('buscando mensajes nuevos')) {
-    return null;
-  }
-  if (lowerMsg.contains('le gustó tu estado') ||
-      lowerMsg.contains('le gusta tu estado') ||
-      lowerMsg.contains('dio me gusta a tu estado') ||
-      lowerMsg.contains('reacted to your status') ||
-      lowerMsg.contains('replied to your status') ||
-      lowerMsg.contains('comprobando si hay') ||
-      lowerMsg.contains('buscando mensajes nuevos')) {
-    return null;
-  }
-
-  final atMs = notif.messageTimestamp > 0
-      ? notif.messageTimestamp
-      : (notif.postedAt.millisecondsSinceEpoch > 0
-            ? notif.postedAt.millisecondsSinceEpoch
-            : now);
-
-  return ConversationSummaryItem(
-    conversationId: 'live:$convKey',
-    displayName: displayName,
-    packageName: notif.packageName,
-    lastMessage: messageText,
-    lastAtMs: atMs,
-    hasPendingReply: false,
-    humanOwns: ConversationOwnershipPolicy.humanOwns(
-      targetContactsMode: settings.waTargetContactsMode,
-      ownership: ConversationOwnershipPolicy.ownershipForNotification(
-        store: ownershipStore,
-        conversationId: convKey,
-        notification: notifObj,
-        isGroup: isGroup,
-      ),
+Future<void> _persistNotification(
+  DeviceNotification notification,
+  ConversationSummaryItem summary,
+) async {
+  final body = notification.messageText.isNotEmpty
+      ? notification.messageText
+      : notification.text;
+  if (body.trim().isEmpty) return;
+  final atMs = notification.messageTimestamp > 0
+      ? notification.messageTimestamp
+      : notification.postedAt.millisecondsSinceEpoch;
+  await canonicalMessageStore.upsert(
+    CanonicalMessage.observed(
+      conversationId: summary.conversationId,
+      provider: CanonicalMessageProvider.androidNotification,
+      providerMessageId: notification.key,
+      body: body,
+      occurredAtMs: atMs,
+      sender: notification.sender.isNotEmpty
+          ? notification.sender
+          : notification.title,
+      rawMetadata: {
+        'package': notification.packageName,
+        'truncated': notification.isTruncated,
+      },
     ),
-    agentId: agentId,
-    entryCount: 1,
-    notificationKey: notif.key,
-    isGroup: isGroup,
-    groupTitle: groupTitle,
-    lastSender: lastSender,
+  );
+  await canonicalMessageStore.recordCoverage(
+    conversationId: summary.conversationId,
+    provider: CanonicalMessageProvider.androidNotification,
+    fromMs: atMs,
+    toMs: atMs,
+    gapBefore: true,
   );
 }

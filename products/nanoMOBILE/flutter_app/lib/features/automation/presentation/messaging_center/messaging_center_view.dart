@@ -33,6 +33,9 @@ import 'messaging_conversations_view.dart';
 import 'messaging_filter_chips.dart';
 import 'messaging_search_bar.dart';
 import 'notification_history_provider.dart';
+import 'whatsapp_web_feed_switch.dart';
+import 'whatsapp_web_background_host.dart';
+import 'meta_inbox_shortcut.dart';
 
 class MessagingCenterView extends ConsumerStatefulWidget {
   const MessagingCenterView({super.key});
@@ -80,6 +83,8 @@ class _MessagingCenterViewState extends ConsumerState<MessagingCenterView>
 
     return Stack(
       children: [
+        // La sesión ocupa un único host detrás del panel, sin navegación manual.
+        const Positioned.fill(child: WhatsAppWebBackgroundHost()),
         Positioned.fill(
           child: ColoredBox(
             color: isDark ? const Color(0xFF09111F) : const Color(0xFFF8FAFC),
@@ -112,6 +117,10 @@ class _MessagingCenterViewState extends ConsumerState<MessagingCenterView>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const MessagingAppsBar(),
+                        const SizedBox(height: 8),
+                        const WhatsAppWebFeedSwitch(),
+                        // Cloud usa la bandeja del servidor, sin alterar Web ni notificaciones.
+                        const MetaInboxShortcut(),
                         const SizedBox(height: 10),
                         const MessagingSearchBar(),
                         accessAsync.when(

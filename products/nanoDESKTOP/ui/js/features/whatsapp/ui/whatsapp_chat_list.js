@@ -17,6 +17,7 @@
 import { whatsAppStorage } from '../services/whatsapp_storage.js';
 import { whatsAppBus, WhatsAppEvents } from '../domain/whatsapp_events.js';
 import { NanoIcon } from '../../../components/nano_icon.js';
+import { escapeHtml } from '../../../core/utils.js';
 
 export class WhatsAppChatList {
   constructor(container, onSelectThread) {
@@ -39,24 +40,17 @@ export class WhatsAppChatList {
             <span class="wa-brand-icon">${NanoIcon.get('whatsapp', 22)}</span>
             <span class="wa-title-text">Chats de WhatsApp</span>
           </div>
-          <button type="button" class="wa-btn-new-chat" id="wa-btn-new-chat" title="Iniciar nueva conversación">
-            <span>+ Nuevo chat</span>
-          </button>
         </div>
         <div class="wa-search-row">
           <div class="wa-search-box">
             <span class="wa-search-icon">${NanoIcon.get('search', 14)}</span>
-            <input type="text" class="wa-search-input" id="wa-search-input" placeholder="Buscar conversaciones..." />
+            <input type="search" class="wa-search-input" id="wa-search-input" aria-label="Buscar conversaciones" placeholder="Buscar conversaciones…" />
           </div>
-          <button type="button" class="wa-btn-filter" id="wa-btn-filter" title="Filtros de conversación">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
-          </button>
         </div>
         <div class="wa-filter-tabs">
           <button type="button" class="wa-tab-pill active" data-tab="all">Todos <span class="tab-count" id="wa-tab-all-count"></span></button>
           <button type="button" class="wa-tab-pill" data-tab="unread">No leídos <span class="tab-count" id="wa-tab-unread-count"></span></button>
           <button type="button" class="wa-tab-pill" data-tab="clients">Clientes</button>
-          <button type="button" class="wa-tab-pill" data-tab="tags">Etiquetas ▾</button>
         </div>
       </div>
       <div class="wa-chat-list" id="wa-chat-items-container"></div>
@@ -89,6 +83,8 @@ export class WhatsAppChatList {
   }
 
   render() {
+    // Rehacer la lista no debe moverla al cambiar de conversación o contador.
+    const previousTop = this.itemsContainer.scrollTop;
     const all = whatsAppStorage.getConversations();
     if (this.tabAllCount) this.tabAllCount.textContent = all.length;
     if (this.tabUnreadCount) this.tabUnreadCount.textContent = all.filter((c) => c.unreadCount > 0).length;
@@ -104,7 +100,7 @@ export class WhatsAppChatList {
 
     if (filtered.length === 0) {
       this.itemsContainer.innerHTML = `
-        <div class="wa-empty-list-notice">No se encontraron conversaciones.</div>
+        <div class="wa-empty-list-notice">${all.length ? 'Sin resultados para este filtro.' : 'Aún no hay conversaciones guardadas.'}</div>
       `;
       return;
     }
@@ -112,32 +108,34 @@ export class WhatsAppChatList {
     this.itemsContainer.innerHTML = filtered.map((conv) => {
       const isActive = conv.id === this.activeThreadId;
       const initial = (conv.contact?.name || 'W')[0].toUpperCase();
-      const timeStr = conv.lastMessageTime || (conv.lastMessage ? new Date(conv.lastMessage.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+      const time = conv.lastMessage?.timestamp ? new Date(conv.lastMessage.timestamp) : null;
+      const timeStr = time && !Number.isNaN(time.getTime())
+        ? time.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '';
       const preview = conv.lastMessage?.text?.replace(/\n/g, ' ') || 'Sin mensajes';
-      const isOnline = conv.online || false;
       const hasAttach = conv.hasAttach;
 
       return `
-        <div class="wa-chat-item ${isActive ? 'active' : ''}" data-thread-id="${conv.id}">
+        <button type="button" class="wa-chat-item ${isActive ? 'active' : ''}"
+          aria-pressed="${isActive}" data-thread-id="${escapeHtml(String(conv.id))}">
           <div class="wa-avatar-wrap">
-            <div class="wa-avatar">${initial}</div>
-            ${isOnline ? '<span class="wa-avatar-online-dot"></span>' : ''}
+            <div class="wa-avatar">${escapeHtml(initial)}</div>
           </div>
           <div class="wa-chat-info">
             <div class="wa-chat-top-row">
-              <span class="wa-chat-name">${conv.contact?.name || 'Contacto'}</span>
+              <span class="wa-chat-name">${escapeHtml(String(conv.contact?.name || 'Contacto'))}</span>
               <span class="wa-chat-time">${timeStr}</span>
             </div>
             <div class="wa-chat-bottom-row">
               <span class="wa-chat-preview">
-                ${hasAttach ? `<span class="attach-mini">${NanoIcon.get('attach', 11)}</span> ` : ''}${preview}
+                ${hasAttach ? `<span class="attach-mini">${NanoIcon.get('attach', 11)}</span> ` : ''}${escapeHtml(String(preview))}
               </span>
               ${conv.unreadCount > 0 ? `<span class="wa-badge-unread">${conv.unreadCount}</span>` : ''}
             </div>
           </div>
-        </div>
+        </button>
       `;
     }).join('');
+    this.itemsContainer.scrollTop = previousTop;
 
     this.itemsContainer.querySelectorAll('.wa-chat-item').forEach((el) => {
       el.addEventListener('click', () => this.selectThread(el.dataset.threadId));
@@ -146,7 +144,6 @@ export class WhatsAppChatList {
 
   selectThread(threadId) {
     this.activeThreadId = threadId;
-    this.render();
 
     const convs = whatsAppStorage.getConversations();
     const target = convs.find((c) => c.id === threadId);
@@ -154,6 +151,8 @@ export class WhatsAppChatList {
       target.unreadCount = 0;
       whatsAppStorage.saveConversations(convs);
     }
+    // Actualiza contador y selección después de leer; nunca equivale a recibo de Meta.
+    this.render();
 
     if (typeof this.onSelectThread === 'function') {
       this.onSelectThread(threadId);

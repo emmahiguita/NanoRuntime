@@ -157,6 +157,9 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:image-labeling:17.0.8")
+    // Extracción local de texto para convertir catálogos PDF en propuestas
+    // revisables; el documento nunca modifica la tienda automáticamente.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
 }

@@ -1,0 +1,22 @@
+; ─────────────────────────────────────────────────────────────────────────────
+; nativeInterop/cinterop/llama.def
+;
+; Kotlin/Native cinterop descriptor para llama.cpp.
+; Conecta los símbolos C de llama.h al módulo `llama` importable desde iosMain.
+;
+; USO: Cuando el repositorio del submódulo llama.cpp esté disponible en
+;      vendor/llama.cpp, actualizar `headers` con la ruta exacta.
+; ─────────────────────────────────────────────────────────────────────────────
+headers = llama.h
+package = llama
+
+; Encabezados adicionales de Metal Performance Shaders si se usa aceleración GPU
+; headerFilter = llama.h ggml.h ggml-metal.h
+
+; Archivos de objeto o librerías estáticas a enlazar.
+; La librería estática se genera con `cmake -DGGML_METAL=ON` en llama.cpp.
+; staticLibraries = libllama.a
+; libraryPaths = /ruta/a/build/ios/arm64
+
+compilerOpts = -x objective-c
+linkerOpts = -framework Metal -framework MetalPerformanceShaders -framework Foundation

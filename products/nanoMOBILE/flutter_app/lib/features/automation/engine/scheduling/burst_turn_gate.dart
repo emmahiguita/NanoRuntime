@@ -24,6 +24,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../notifications/notification_object.dart';
+import 'burst_durability.dart' show BurstDurability;
 import 'messaging_metrics.dart';
 import 'rule_dispatcher.dart' show RuleDispatchResult, RuleOutcome;
 
@@ -39,6 +40,9 @@ final class BurstTurnGate {
     this.maxBurst = 64,
     this.onInbound,
     this.onTurnComplete,
+    // LOOP-2 — sombra durable opcional (metadata-first, sin texto). null =
+    // comportamiento original idéntico (estado puro en memoria).
+    this.durability,
   });
 
   /// WA-CONV-03 — notifica cada mensaje REAL entrante (incluidos los que
@@ -67,6 +71,9 @@ final class BurstTurnGate {
 
   /// Maximum queued fragments per conversation; overflow is explicit.
   final int maxBurst;
+
+  /// LOOP-2 — espejo durable opcional de las ráfagas en ventana (metadata).
+  final BurstDurability? durability;
 
   /// Pipeline del turno agregado. Reentrada segura por conversación
   /// (serialización aquí, nunca dos ejecuciones simultáneas del mismo chat).
@@ -147,6 +154,7 @@ final class BurstTurnGate {
     _pending.add(batch.done.future);
     // Anclar conversaciones ANTES de cualquier await: los eventos viven en
     // una lista estable durante la tanda.
+    final durability = this.durability;
     for (var i = 0; i < events.length; i++) {
       final event = events[i];
       final key = _bucketKey(event);
@@ -161,9 +169,23 @@ final class BurstTurnGate {
           beforeTurn: beforeTurn,
           onTurnComplete: onTurnComplete,
           onIdle: () => _byConversation.remove(key),
+          // LOOP-2 — al emitir el turno la ráfaga deja de estar viva en la
+          // sombra (idéntico criterio de vida que el bucket en memoria).
+          onEmit: durability == null
+              ? null
+              : () =>
+                    durability.markEmitted(key.startsWith('anon:') ? '' : key),
         ),
       );
       onInbound?.call(key.startsWith('anon:') ? '' : key);
+      // La persistencia termina antes de abrir la ventana de 800 ms. Esto
+      // elimina carreras read-modify-write y hace recuperable un kill real.
+      if (durability != null) {
+        await durability.recordFragment(
+          key.startsWith('anon:') ? '' : key,
+          event.key,
+        );
+      }
       bucket.push(
         _Member(event, (turnResults) {
           results[i] = turnResults;
@@ -195,6 +217,7 @@ class _Bucket {
     this.beforeTurn,
     required this.onIdle,
     required this.onTurnComplete,
+    this.onEmit,
   });
 
   final String key;
@@ -212,6 +235,9 @@ class _Bucket {
     String dispatchedText,
   })?
   onTurnComplete;
+
+  /// LOOP-2 — disparo del turno (sombra durable marca EMITTED).
+  final Future<void> Function()? onEmit;
 
   /// El bucket se retira SOLO cuando quedó vacío y sin turno en curso
   /// (nunca antes: un miembro en cola huérfano colgaría su futuro).
@@ -263,10 +289,14 @@ class _Bucket {
       if (_disposed) throw StateError('Runtime disposed before dispatch');
       final aggregated = _merge(members);
       MessagingMetrics.turn(members.length);
+      // LOOP-2 — la ráfaga se emite AHORA: fuera de la sombra durable antes
+      // del dispatch (ventana de doble recuperación mínima; el dedupe por
+      // eventId cubre el resto).
+      await onEmit?.call();
       debugPrint(
         '[turn] conv=${key.substring(0, key.length > 12 ? 12 : key.length)} '
         'agregados=${members.length} '
-        'texto="${_sample(aggregated.messageText)}"',
+        'caracteres=${aggregated.messageText.length}',
       );
       executionStarted = true;
       final results = await runTurn(aggregated);
@@ -404,11 +434,6 @@ class _Bucket {
       }
     }
     return '';
-  }
-
-  static String _sample(String raw) {
-    final single = raw.replaceAll('\n', ' · ');
-    return single.length <= 120 ? single : '${single.substring(0, 120)}…';
   }
 }
 

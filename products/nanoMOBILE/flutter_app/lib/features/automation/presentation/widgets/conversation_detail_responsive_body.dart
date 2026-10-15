@@ -7,6 +7,7 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
     AutomationVisualPalette visual,
     List<ConversationMemoryEntry> entries,
   ) {
+    final webConversation = _hasWhatsAppWebConversation();
     return LayoutBuilder(
       builder: (context, constraints) {
         final landscape = constraints.maxWidth > constraints.maxHeight;
@@ -18,7 +19,7 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
           return Column(
             children: [
               Expanded(child: _buildMessageList(visual, entries)),
-              _buildBottomActionBar(visual),
+              if (!webConversation) _buildBottomActionBar(visual),
             ],
           );
         }
@@ -30,7 +31,7 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
               _buildCapabilityBadge(visual),
               _buildStatus(visual),
               Expanded(child: _buildMessageList(visual, entries)),
-              _buildBottomActionBar(visual),
+              if (!webConversation) _buildBottomActionBar(visual),
             ],
           );
         }
@@ -66,7 +67,7 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
               child: Column(
                 children: [
                   Expanded(child: _buildMessageList(visual, entries)),
-                  _buildBottomActionBar(visual),
+                  if (!webConversation) _buildBottomActionBar(visual),
                 ],
               ),
             ),
@@ -75,6 +76,11 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
       },
     );
   }
+
+  bool _hasWhatsAppWebConversation() => {
+    widget.item.conversationId,
+    ...widget.item.conversationAliases,
+  }.any((id) => id.startsWith('waweb:'));
 
   Widget _buildStatus(AutomationVisualPalette visual) {
     final status = _statusText;
@@ -94,6 +100,43 @@ extension ConversationDetailResponsiveBody on _ConversationDetailSheetState {
     AutomationVisualPalette visual,
     List<ConversationMemoryEntry> entries,
   ) {
+    final aliases = {
+      widget.item.conversationId,
+      ...widget.item.conversationAliases,
+    };
+    final webAlias = aliases.where((id) => id.startsWith('waweb:')).firstOrNull;
+    if (webAlias != null) {
+      // Solo el hilo que el usuario abre en Nano; no abre la pantalla Web.
+      return WhatsAppWebHistoryView(
+        key: ValueKey(webAlias),
+        title: widget.item.displayName,
+        alias: webAlias,
+        fallback: entries,
+        bubble: (entry) => _buildChatBubble(
+          entry.text,
+          entry.kind == ConversationMemoryEntryKind.inbound,
+          visual,
+          sender: entry.sender,
+          timestampMs: entry.atMs,
+        ),
+      );
+    }
+    final historyId = _historyIdForConversation();
+    if (historyId != null) {
+      // La página pertenece al hash guardado; no cambia cuentas ni abre WhatsApp.
+      return NotificationHistoryView(
+        key: ValueKey(historyId),
+        historyId: historyId,
+        fallback: entries,
+        bubble: (entry) => _buildChatBubble(
+          entry.text,
+          entry.kind == ConversationMemoryEntryKind.inbound,
+          visual,
+          sender: entry.sender,
+          timestampMs: entry.atMs,
+        ),
+      );
+    }
     if (entries.isEmpty) return _buildFallbackLastMessage(visual);
     return ListView.builder(
       controller: _scrollController,

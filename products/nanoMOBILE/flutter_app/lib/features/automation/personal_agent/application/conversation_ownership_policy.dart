@@ -6,7 +6,7 @@
 ///
 /// CÓMO FUNCIONA:
 /// En modo `selected`, solo una selección explícita del bot habilita el chat.
-/// En modo global, se respeta un takeover humano activo y temporal.
+/// En modo global, se respeta una pausa humana persistente.
 ///
 /// POR QUÉ:
 /// La interfaz y el pipeline deben aplicar la misma regla; de lo contrario la
@@ -16,6 +16,7 @@ library;
 import '../domain/conversation_owner.dart';
 import 'conversation_ownership_store.dart';
 import '../../engine/messaging/messaging_package.dart';
+import '../../engine/messaging/conversation_identity_resolver.dart';
 import '../../engine/notifications/notification_object.dart';
 
 abstract final class ConversationOwnershipPolicy {
@@ -34,18 +35,19 @@ abstract final class ConversationOwnershipPolicy {
     required NotificationObject notification,
     bool? isGroup,
   }) {
-    final direct = store.ownershipFor(conversationId);
-    if (direct != null) return direct;
-    if (!_isWhatsApp(notification.packageName) ||
-        (isGroup ?? notification.isGroup)) {
-      return null;
-    }
-
-    for (final key in _notificationContactKeys(notification)) {
-      final ownership = store.ownershipFor(key);
-      if (ownership != null) return ownership;
-    }
-    return null;
+    // El alias de notificación enlaza historial legacy con el evento actual.
+    // Una pausa gana frente a un alias Bot; no se usan nombres para autorizar.
+    return _fromKeys(store, {
+      conversationId,
+      conversationIdentityFor(
+        packageName: notification.packageName,
+        accountHint: notification.accountHint,
+        notificationKey: notification.key,
+      ).key.id,
+      if (_isWhatsApp(notification.packageName) &&
+          !(isGroup ?? notification.isGroup))
+        ..._notificationContactKeys(notification),
+    });
   }
 
   /// Resuelve los mismos aliases para filas históricas del Centro de mensajes,
@@ -55,16 +57,28 @@ abstract final class ConversationOwnershipPolicy {
     required String conversationId,
     required String packageName,
     bool isGroup = false,
+    Iterable<String> aliases = const [],
   }) {
-    final direct = store.ownershipFor(conversationId);
-    if (direct != null) return direct;
-    if (!_isWhatsApp(packageName) || isGroup) return null;
+    return _fromKeys(store, {
+      conversationId,
+      ...aliases,
+      if (_isWhatsApp(packageName) && !isGroup)
+        ..._conversationContactKeys(conversationId),
+    });
+  }
 
-    for (final key in _conversationContactKeys(conversationId)) {
-      final ownership = store.ownershipFor(key);
-      if (ownership != null) return ownership;
+  /// Aplica el estado más restrictivo de aliases técnicos equivalentes.
+  static ConversationOwnership? _fromKeys(
+    ConversationOwnershipStore store,
+    Iterable<String> keys,
+  ) {
+    ConversationOwnership? selected;
+    for (final key in keys) {
+      final current = store.ownershipFor(key);
+      if (current?.humanOwns == true) return current;
+      selected ??= current;
     }
-    return null;
+    return selected;
   }
 
   static bool humanOwns({

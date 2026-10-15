@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:nanoai/main.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/features/browser/application/browser_external_app_behavior.dart';
 import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
 import 'package:nanoai/features/browser/application/browser_webview_registry.dart';
 import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
@@ -50,6 +51,8 @@ class BrowserWebViewLifecycleHandler {
       isAlive: isAlive,
       identity: identity,
       onExternalPrompt: onExternalPrompt,
+      externalAppBehavior: () =>
+          ref.read(browserExternalAppBehaviorProvider),
     );
   }
 

@@ -14,6 +14,7 @@ import 'llm_engine_client.dart';
 import 'nano_runtime_api.dart';
 import 'litert_inference_adapter.dart';
 import 'mnn_inference_adapter.dart';
+import 'remote_inference_config.dart';
 import 'routed_llm_engine_client.dart';
 export 'engine_status.dart';
 part 'runtime_gguf_lifecycle.dart';
@@ -39,10 +40,13 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   Future<void> _lifecycleTail = Future<void>.value();
   @override
   late final EngineWatchdogCoordinator _watchdog;
+  bool _isRemoteInference = false;
+  @override
+  bool get isRemoteInference => _isRemoteInference;
 
   static const Duration startTimeout = Duration(seconds: 45);
 
-  RuntimeEngineNotifier(this._api, {int port = 8080})
+  RuntimeEngineNotifier(this._api, {int port = 8080, Ref? ref})
     : _client = LLMEngineClient(baseUrl: 'http://127.0.0.1:$port'),
       super(EngineStatus(port: port)) {
     _routedClient = RoutedLlmEngineClient(
@@ -66,11 +70,23 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
     );
     _api.setEngineStateListener(_onEngineStateEvent);
     WidgetsBinding.instance.addObserver(this);
-    // El motor se restaura como selección, no como proceso caliente. Arrancar
-    // aquí el watchdog y consultar /health mantenía un timer de 2 s y cinco
-    // intentos HTTP incluso si el usuario todavía no había enviado un turno.
-    // start() activa el watchdog cuando un GGUF se necesita de verdad.
     _watchdog.pause();
+    if (ref != null) {
+      ref.listen<RemoteInferenceConfig>(remoteInferenceConfigProvider, (_, next) {
+        applyRemoteConfig(next);
+      });
+      applyRemoteConfig(ref.read(remoteInferenceConfigProvider));
+    }
+  }
+
+  void applyRemoteConfig(RemoteInferenceConfig config) {
+    _isRemoteInference = config.isRemote;
+    _client.updateEndpoint(
+      baseUrl: config.isRemote && config.serverUrl.isNotEmpty
+          ? config.serverUrl
+          : 'http://127.0.0.1:${state.port}',
+      apiKey: config.isRemote && config.apiKey.isNotEmpty ? config.apiKey : null,
+    );
   }
 
   @override
@@ -92,6 +108,19 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
   @override
   Future<EngineStatus> refresh() async {
     if (_usesLocalRuntime) return state;
+    if (isRemoteInference) {
+      final s = state;
+      final online = await _client.isOnline(attempts: 1, requestTimeout: const Duration(seconds: 3));
+      if (state != s) return state;
+      if (!online) {
+        return state = s.copyWith(phase: EnginePhase.idle, reason: 'Servidor PC no responde (${_client.baseUrl})');
+      }
+      final hasModel = await _client.hasModel();
+      if (state != s) return state;
+      return state = hasModel
+          ? s.copyWith(phase: EnginePhase.ready, clearReason: true)
+          : s.copyWith(phase: EnginePhase.degraded, reason: 'Servidor PC online, sin modelo cargado');
+    }
     final snapshot = await _api.engineGetState();
     if (snapshot != null) _applyStateMap(snapshot, scheduleRefresh: false);
     final s = state;
@@ -100,21 +129,13 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
     final online = await _isOnlineWithNativeFallback();
     if (state != s) return state;
     if (!online) {
-      state = s.copyWith(
-        phase: EnginePhase.idle,
-        reason: '/health no responde',
-      );
-      return state;
+      return state = s.copyWith(phase: EnginePhase.idle, reason: '/health no responde');
     }
     final hasModel = await _client.hasModel();
     if (state != s) return state;
-    state = hasModel
+    return state = hasModel
         ? s.copyWith(phase: EnginePhase.ready, clearReason: true)
-        : s.copyWith(
-            phase: EnginePhase.degraded,
-            reason: 'servidor vivo, pero el modelo no está cargado',
-          );
-    return state;
+        : s.copyWith(phase: EnginePhase.degraded, reason: 'servidor vivo, pero el modelo no está cargado');
   }
 
   /// Espera a que el motor esté listo para inferir. Si está idle arranca.
@@ -122,31 +143,21 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
     String? modelPath,
     ModelBackendType? backendType,
   }) async {
-    final target =
-        backendType ??
-        (modelPath == null
-            ? _selectedBackend
-            : NeuralCatalog.backendForPath(modelPath));
+    final target = backendType ??
+        (modelPath == null ? _selectedBackend : NeuralCatalog.backendForPath(modelPath));
     if (target != ModelBackendType.gguf) {
-      return (await start(modelPath: modelPath, backendType: target)).phase ==
-          EnginePhase.ready;
+      return (await start(modelPath: modelPath, backendType: target)).phase == EnginePhase.ready;
     }
     var s = state;
     debugPrint('[engine] ensureReady fase=${s.phase.name} model=$modelPath');
-    if (s.isLive && modelPath != null && s.modelPath != modelPath) {
-      // QUÉ HACE: reconcilia el modelo usando el supervisor nativo como fuente de verdad.
-      // CÓMO FUNCIONA: start consulta engineStart; Kotlin conserva o reemplaza el proceso según su ruta real.
-      // POR QUÉ: Flutter no debe enviar SIGTERM por una ruta local desconocida o desactualizada.
+    if ((s.isLive && modelPath != null && s.modelPath != modelPath) ||
+        s.phase == EnginePhase.idle ||
+        s.phase == EnginePhase.failed) {
       s = await start(modelPath: modelPath);
-    }
-    if (s.phase == EnginePhase.idle || s.phase == EnginePhase.failed) {
-      s = await start(modelPath: modelPath);
-    }
-    if (s.phase == EnginePhase.starting) {
+    } else if (s.phase == EnginePhase.starting) {
       await start(modelPath: modelPath);
       s = state;
     }
-    // /health marca vida del servidor; refrescar /api/status valida el modelo real.
     if (s.isLive) s = await refresh();
     return s.phase == EnginePhase.ready;
   }
@@ -170,5 +181,5 @@ class RuntimeEngineNotifier extends StateNotifier<EngineStatus>
 
 final runtimeEngineProvider =
     StateNotifierProvider<RuntimeEngineNotifier, EngineStatus>(
-      (ref) => RuntimeEngineNotifier(NanoRuntimeApi.instance),
+      (ref) => RuntimeEngineNotifier(NanoRuntimeApi.instance, ref: ref),
     );

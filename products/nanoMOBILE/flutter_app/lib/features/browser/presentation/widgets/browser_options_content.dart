@@ -11,6 +11,9 @@ import '../../domain/browser_tab_model.dart';
 class BrowserOptionsContent extends StatelessWidget {
   final BrowserTabModel tab;
   final bool isBookmarked, isDesktopMode, isDarkModeWeb;
+
+  /// Etiqueta del modo actual de enlaces a apps externas (STAY_IN_WEB, etc.).
+  final String externalAppModeLabel;
   final ValueChanged<String> onAction;
 
   const BrowserOptionsContent({
@@ -19,6 +22,7 @@ class BrowserOptionsContent extends StatelessWidget {
     required this.isBookmarked,
     required this.isDesktopMode,
     required this.isDarkModeWeb,
+    required this.externalAppModeLabel,
     required this.onAction,
   });
 
@@ -86,6 +90,13 @@ class BrowserOptionsContent extends StatelessWidget {
           const SizedBox(height: 12),
           _sectionHeader('NAVEGACIÓN Y DATOS', isDark),
           _group(isDark, [
+            _ItemDef(
+              CupertinoIcons.link,
+              const Color(0xFFF97316),
+              'Enlaces a apps externas',
+              'cycle_external_app_mode',
+              subtitle: externalAppModeLabel,
+            ),
             const _ItemDef(CupertinoIcons.plus_square_fill, Color(0xFF3B82F6), 'Nueva pestaña', 'new_tab'),
             const _ItemDef(CupertinoIcons.bookmark_fill, Color(0xFFF59E0B), 'Favoritos', 'show_bookmarks'),
             const _ItemDef(CupertinoIcons.clock_fill, Color(0xFF64748B), 'Historial', 'show_history'),

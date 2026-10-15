@@ -22,6 +22,7 @@ import '../../application/automation_coordinator_provider.dart'
 import '../../engine/messaging/messaging_package.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/settings_tile_components.dart';
+import 'meta_templates_screen.dart';
 
 class NanoBusinessChannelsTab extends ConsumerWidget {
   const NanoBusinessChannelsTab({super.key});
@@ -86,6 +87,18 @@ class NanoBusinessChannelsTab extends ConsumerWidget {
                   'Asigna el chat a Negocios desde el Centro de Mensajería',
               trailing: ValueBadge(label: 'POR CHAT'),
               showChevron: false,
+            ),
+            SettingsRow(
+              icon: Icons.cloud_done_outlined,
+              title: 'WhatsApp Business Platform',
+              subtitle:
+                  'Gateway seguro, bandeja oficial y plantillas aprobadas por Meta',
+              trailing: const ValueBadge(label: 'OFICIAL'),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const MetaTemplatesScreen(),
+                ),
+              ),
             ),
           ],
         ),

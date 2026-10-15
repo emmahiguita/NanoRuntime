@@ -24,6 +24,9 @@ Future<String> generateWithColdRetry(
   List<Map<String, String>>? history,
   Duration? requestTimeout,
   Duration threshold = const Duration(seconds: 3),
+  // LOOP-1-TELEMETRY — correlación opcional del turno (sin contenido).
+  String? requestId,
+  int? queuedAtMs,
 }) async {
   final stopwatch = Stopwatch()..start();
   final first = await client.generate(
@@ -34,6 +37,8 @@ Future<String> generateWithColdRetry(
     context: context,
     history: history,
     requestTimeout: ExecutionBudget.current?.remaining ?? requestTimeout,
+    requestId: requestId,
+    queuedAtMs: queuedAtMs,
   );
   final firstText = first.text.trim();
   if (firstText.isNotEmpty || stopwatch.elapsed >= threshold) {

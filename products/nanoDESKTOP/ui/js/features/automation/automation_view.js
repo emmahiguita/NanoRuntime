@@ -18,8 +18,12 @@ export class AutomationView {
   constructor(containerElement) {
     this.container = containerElement;
     this.currentFilter = 'all';
+    // Cada vista posee sus listeners; abortar los libera al abandonar el módulo.
+    this.events = new AbortController();
     this.mount();
     this.bindEvents();
+    this._bindCardEvents(this.container.querySelector('#auto-grid-section'));
+    this._bindLogEvents(this.container.querySelector('#auto-logs-table'));
     this.unsubscribe = agentService.subscribe(() => this.refresh());
     this.refresh();
   }
@@ -47,7 +51,7 @@ export class AutomationView {
               <span class="live-pulse-badge"><span class="pulse-dot"></span><span>Daemon activo</span></span>
             </div>
             <div class="logs-header-actions">
-              <button type="button" class="btn-log-action" id="btn-fire-event">${i('refresh', 13)} <span>Disparar Evento</span></button>
+              <button type="button" class="btn-log-action" id="btn-fire-event">${i('refresh', 13)} <span>Ejecutar programados</span></button>
               <button type="button" class="btn-log-action" id="btn-clear-logs">${i('clear', 13)} <span>Limpiar</span></button>
             </div>
           </div>
@@ -59,7 +63,7 @@ export class AutomationView {
   refresh() {
     const agents = agentService.agents;
     const logs = agentService.logs;
-    const active = agents.filter((a) => a.status === 'active').length;
+    const active = agents.filter((a) => a.status === 'active' || a.status === 'executing').length;
     const total = agents.length;
     const execs = agents.reduce((s, a) => s + (a.executions || 0), 0);
     const pend = logs.filter((l) => l.status === 'pending').length;
@@ -78,7 +82,7 @@ export class AutomationView {
       `<span class="metric-value"><strong class="${cls}">${val}</strong><small>${sub}</small></span></div>`;
     return m('Agentes Operativos', active, `/ ${total} Total`, 'color-active') +
       sep + m('Ejecuciones Totales', execs, 'despachos') +
-      sep + m('Tasa de Fiabilidad', '99.8%', 'éxito local', 'color-active') +
+      sep + m('Tasa de Fiabilidad', agentService.successRate, 'ejecuciones terminadas', 'color-neutral') +
       sep + m('Gobernanza Humana', pend, 'pendientes', w);
   }
 
@@ -105,13 +109,12 @@ export class AutomationView {
     const el = this.container.querySelector('#auto-grid-section');
     if (!el) return;
     const filtered = agents.filter((a) => {
-      if (this.currentFilter === 'active') return a.status === 'active';
+      if (this.currentFilter === 'active') return a.status === 'active' || a.status === 'executing';
       if (this.currentFilter === 'paused') return a.status === 'paused';
       if (this.currentFilter === 'system') return a.isSystem;
       return true;
     });
     el.innerHTML = filtered.map(renderAgentCard).join('');
-    this._bindCardEvents(el);
   }
 
   _updateLogs(logs) {
@@ -120,27 +123,26 @@ export class AutomationView {
     el.innerHTML = logs.length > 0
       ? logs.map(renderLogRow).join('')
       : '<div class="logs-empty">Sin registros de ejecución recientes.</div>';
-    this._bindLogEvents(el);
   }
 
   bindEvents() {
     this.container.querySelector('#btn-open-create-agent')?.addEventListener('click', () =>
-      openCreateAgentModal((data) => agentService.createAgent(data)));
+      openCreateAgentModal((data) => agentService.createAgent(data)), { signal: this.events.signal });
 
     this.container.querySelector('#btn-fire-event')?.addEventListener('click', async (e) => {
-      e.currentTarget.disabled = true;
-      const active = agentService.agents.filter((a) => a.status === 'active');
-      if (active.length > 0) {
-        await agentService.executeAgent(active[Math.floor(Math.random() * active.length)].id, false);
-      }
-      e.currentTarget.disabled = false;
-    });
+      const button = e.currentTarget;
+      button.disabled = true;
+      try {
+        const active = agentService.agents.filter((a) => a.status === 'active' && a.triggerType === 'interval');
+        for (const agent of active) await agentService.executeAgent(agent.id, false);
+      } finally { button.disabled = false; }
+    }, { signal: this.events.signal });
 
-    this.container.querySelector('#btn-clear-logs')?.addEventListener('click', () => agentService.clearLogs());
+    this.container.querySelector('#btn-clear-logs')?.addEventListener('click', () => agentService.clearLogs(), { signal: this.events.signal });
   }
 
   _bindCardEvents(grid) {
-    grid.addEventListener('click', async (e) => {
+    grid?.addEventListener('click', async (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
       e.stopPropagation();
@@ -155,11 +157,11 @@ export class AutomationView {
       } else if (btn.classList.contains('btn-delete-agent')) {
         if (confirm('¿Eliminar este agente soberano del runtime local?')) agentService.deleteAgent(agentId);
       }
-    });
+    }, { signal: this.events.signal });
   }
 
   _bindLogEvents(table) {
-    table.addEventListener('click', (e) => {
+    table?.addEventListener('click', (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
       e.stopPropagation();
@@ -171,10 +173,11 @@ export class AutomationView {
         const log = agentService.logs.find((l) => l.id === logId);
         if (log) openInspectorModal(log, (id) => agentService.executeAgent(id, true));
       }
-    });
+    }, { signal: this.events.signal });
   }
 
   destroy() {
+    this.events.abort();
     if (this.unsubscribe) this.unsubscribe();
   }
 }

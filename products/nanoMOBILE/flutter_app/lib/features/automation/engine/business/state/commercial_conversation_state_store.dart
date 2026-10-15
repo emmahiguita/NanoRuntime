@@ -5,7 +5,7 @@
 //
 // CÓMO FUNCIONA:
 // - Persiste atómicamente el estado del embudo, carrito y slots por conversationId.
-// - Aplica fail-closed: si el registro no existe o está corrupto, inicia un estado limpio.
+// - Inicializa solo registros nuevos; la corrupción interrumpe el turno sin sobrescribirlo.
 //
 // POR QUÉ:
 // Sobrevive a reinicios de Android, cierres de la app o interrupciones de red.
@@ -37,11 +37,9 @@ class CommercialConversationStateStore {
       }
       final map = (jsonDecode(raw) as Map).cast<String, dynamic>();
       return CommercialConversationState.fromJson(map);
-    } catch (_) {
-      return CommercialConversationState(
-        conversationId: conversationId,
-        lastInteraction: DateTime.now(),
-      );
+    } catch (error) {
+      // Un fallo de lectura no es una conversación nueva ni autoriza perder su estado.
+      throw StateError('No se pudo leer el estado comercial: $error');
     }
   }
 

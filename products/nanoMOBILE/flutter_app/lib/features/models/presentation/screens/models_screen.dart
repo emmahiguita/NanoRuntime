@@ -24,6 +24,8 @@ import '../widgets/models_portrait_view.dart';
 import '../widgets/models_screen_actions.dart';
 import '../widgets/models_top_nav_tabs.dart';
 
+import '../widgets/remote_inference_dialog.dart';
+
 part 'models_screen_actions.part.dart';
 
 class ModelsScreen extends ConsumerStatefulWidget {
@@ -119,6 +121,11 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.hub_rounded, size: 21),
+            tooltip: 'Destino de inferencia (PC / Local)',
+            onPressed: () => showRemoteInferenceSheet(context),
+          ),
           IconButton(
             icon: const Icon(Icons.speed_rounded, size: 21),
             tooltip: 'Benchmark LiteRT vs llama.cpp',

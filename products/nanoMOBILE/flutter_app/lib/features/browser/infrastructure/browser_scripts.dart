@@ -135,6 +135,8 @@ class BrowserScripts {
       BrowserZoomScripts.fitToScreenOverviewScript;
   static const String mobileViewportAdapterScript =
       BrowserZoomScripts.mobileViewportAdapterScript;
+  static const String adaptiveDesktopViewportAdapterScript =
+      BrowserZoomScripts.adaptiveDesktopViewportAdapterScript;
   static const String desktopViewportAdapterScript =
       BrowserZoomScripts.desktopViewportAdapterScript;
 

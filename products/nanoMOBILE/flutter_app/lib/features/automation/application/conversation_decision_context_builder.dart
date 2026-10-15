@@ -6,7 +6,7 @@
 //
 // CÓMO FUNCIONA:
 // 1. Resuelve la identidad y consulta el almacén de ownership durable.
-// 2. Determina si el humano tiene control activo con timeout de inactividad de 30 minutos.
+// 2. Respeta la pausa persistente hasta que el usuario devuelva el chat al bot.
 // 3. Sincroniza el modo de autonomía (eleva 'suggestions' a 'autonomous' si el agente general está en autónomo).
 // 4. Integra hechos de negocio, relaciones personales y reglas activas para emitir el contexto final.
 //
@@ -107,7 +107,9 @@ ConversationDecisionContext buildConversationDecisionContext(
   return ConversationDecisionContext(
     humanOwnsConversation: effectiveHumanOwns,
     identityConfidence: identity.confidence,
-    autonomyMode: mode,
+    // Releído también antes del envío: pausar impide nuevos drafts automáticos
+    // y bloquea una respuesta generada en vuelo sin apagar el modelo de otros chats.
+    autonomyMode: effectiveHumanOwns ? ConversationAutonomyMode.disabled : mode,
     agentRole: effectiveRole,
     agentId: assignedAgent,
     userText: notif.text,

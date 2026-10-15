@@ -10,6 +10,7 @@ class BusinessLibraryGridCard extends StatelessWidget {
   final BusinessDocument document;
   final bool selected, isSelectionMode, isDark;
   final ValueChanged<BusinessDocument> onSelect, onOpen, onShare;
+  final ValueChanged<BusinessDocument> onAnalyze;
   final ValueChanged<BusinessDocument> onRename, onDelete;
 
   const BusinessLibraryGridCard({
@@ -21,6 +22,7 @@ class BusinessLibraryGridCard extends StatelessWidget {
     required this.onSelect,
     required this.onOpen,
     required this.onShare,
+    required this.onAnalyze,
     required this.onRename,
     required this.onDelete,
   });
@@ -72,6 +74,7 @@ class BusinessLibraryGridCard extends StatelessWidget {
                 document: document,
                 onOpen: onOpen,
                 onShare: onShare,
+                onAnalyze: onAnalyze,
                 onRename: onRename,
                 onDelete: onDelete,
               ),

@@ -119,6 +119,7 @@ internal class ConversationSqlStore(
         if (!validId(scopeId) || !validId(eventId)) return false
         if (direction !in DIRECTIONS || deliveryState !in DELIVERY_STATES) return false
         if (body.isBlank() || body.length > MAX_BODY || sender.length > MAX_SENDER || ruleId.length > MAX_ID) return false
+        val db = writable()
         val values = ContentValues().apply {
             put("scope_id", scopeId)
             put("event_id", eventId)
@@ -129,10 +130,36 @@ internal class ConversationSqlStore(
             put("at_ms", atMs)
             put("rule_id", ruleId)
         }
-        return writable().insertWithOnConflict(
+        val inserted = db.insertWithOnConflict(
             MESSAGES, null, values, SQLiteDatabase.CONFLICT_REPLACE,
         ) != -1L
+
+        // Escribe en canonical_messages como fuente canónica única
+        try {
+            val convId = db.rawQuery(
+                "SELECT a.conversation_id FROM conversation_scopes s JOIN conversation_assignments a ON s.address_key = a.address_key WHERE s.scope_id = ? LIMIT 1",
+                arrayOf(scopeId),
+            ).use { if (it.moveToFirst()) it.getString(0) else scopeId }
+            val canonicalValues = ContentValues().apply {
+                put("canonical_id", "$scopeId:$eventId")
+                put("conversation_id", convId)
+                put("provider", "android_notification")
+                put("provider_message_id", eventId)
+                put("direction", direction)
+                put("delivery_state", deliveryState)
+                put("sender", sender.take(300))
+                put("body", body)
+                put("occurred_at_ms", atMs)
+                put("observed_at_ms", System.currentTimeMillis())
+                put("fingerprint", eventId)
+                put("raw_metadata", "{\"ruleId\":\"$ruleId\"}")
+            }
+            db.insertWithOnConflict("canonical_messages", null, canonicalValues, SQLiteDatabase.CONFLICT_IGNORE)
+        } catch (_: Exception) {}
+
+        return inserted
     }
+
 
     fun putDialogueState(scopeId: String, stateJson: String, updatedAtMs: Long): Boolean {
         if (!validId(scopeId) || stateJson.length > MAX_STATE) return false

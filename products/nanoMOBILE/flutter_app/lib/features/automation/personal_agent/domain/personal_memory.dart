@@ -12,6 +12,10 @@ const personalMemoryKinds = {
   'episodicMemory': 'Recuerdo histórico',
   'temporaryFact': 'Dato temporal',
   'stylePreference': 'Preferencia de estilo',
+  // LOOP-3 — estado personal compacto (una fila por conversación, JSON).
+  'personalTurnState': 'Estado personal compacto del turno',
+  // LOOP-4 — compromisos abiertos detectados ("te aviso cuando llegue").
+  'openLoop': 'Compromiso pendiente',
 };
 
 /// Estado de vigencia semántica de un recuerdo o hecho (Ciclos 10 y 17).

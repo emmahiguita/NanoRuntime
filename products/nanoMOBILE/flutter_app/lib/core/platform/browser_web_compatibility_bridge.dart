@@ -1,16 +1,17 @@
-import 'package:flutter/services.dart';
+﻿import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
-/// Puente mínimo con Android para capacidades que WebView no expone en Dart.
+/// Puente mÃ­nimo con Android para capacidades que WebView no expone en Dart.
 class BrowserWebCompatibilityBridge {
   const BrowserWebCompatibilityBridge();
 
   static const _channel = MethodChannel('com.nanoai/browser_compatibility');
 
-  /// Cambia juntos el User-Agent clásico y sus Client Hints antes de navegar.
+  /// Cambia juntos el User-Agent clÃ¡sico y sus Client Hints antes de navegar.
   Future<bool> setDesktopIdentity(
     InAppWebViewController controller, {
     required bool enabled,
+    bool forceMobileLayout = false,
   }) async {
     try {
       final viewId = controller.getViewId()?.toString();
@@ -18,6 +19,7 @@ class BrowserWebCompatibilityBridge {
       return await _channel.invokeMethod<bool>('setDesktopIdentity', {
             'viewId': viewId,
             'enabled': enabled,
+            'forceMobileLayout': forceMobileLayout,
           }) ??
           false;
     } on PlatformException {
@@ -27,7 +29,7 @@ class BrowserWebCompatibilityBridge {
     }
   }
 
-  /// Solicita al sistema solo cámara/micrófono pedidos por la página aprobada.
+  /// Solicita al sistema solo cÃ¡mara/micrÃ³fono pedidos por la pÃ¡gina aprobada.
   Future<bool> requestMediaPermissions({
     required bool camera,
     required bool microphone,

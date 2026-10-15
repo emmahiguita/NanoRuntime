@@ -65,6 +65,13 @@ enum MessagingPlatform {
     primaryColor: Color(0xFF0A66C2),
     gradientColors: [Color(0xFF0A66C2), Color(0xFF004182)],
   ),
+  tiktok(
+    id: 'tiktok',
+    label: 'TikTok',
+    packageName: 'com.zhiliaoapp.musically',
+    primaryColor: Color(0xFF25F4EE),
+    gradientColors: [Color(0xFFFE2C55), Color(0xFF25F4EE)],
+  ),
   other(
     id: 'other',
     label: 'Otras',
@@ -112,6 +119,13 @@ enum MessagingPlatform {
       return MessagingPlatform.x;
     }
     if (lower.contains('linkedin')) return MessagingPlatform.linkedin;
+    // TikTok (Lite incluida): zhiliaoapp.musically / trill / tiktok.android
+    if (lower.contains('zhiliaoapp') ||
+        lower.contains('musically') ||
+        lower.contains('trill') ||
+        lower.contains('tiktok')) {
+      return MessagingPlatform.tiktok;
+    }
     return MessagingPlatform.other;
   }
 

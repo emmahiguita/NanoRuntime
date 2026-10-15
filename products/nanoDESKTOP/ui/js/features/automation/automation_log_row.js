@@ -17,13 +17,16 @@ import { escapeHtml } from '../../core/utils.js';
 export function renderLogRow(log) {
   const isPending = log.status === 'pending';
   const isOk      = log.status === 'ok';
+  const isPartial = log.status === 'partial_success';
 
   // Badge de estado con color semántico
   const badge = isOk
     ? `<span class="log-status-badge badge-ok">✓ Éxito</span>`
-    : isPending
-      ? `<span class="log-status-badge badge-pending">⚠️ Pendiente</span>`
-      : `<span class="log-status-badge badge-error">✕ Error</span>`;
+    : isPartial
+      ? `<span class="log-status-badge badge-warning">⚡ Parcial</span>`
+      : isPending
+        ? `<span class="log-status-badge badge-pending">⚠️ Pendiente</span>`
+        : `<span class="log-status-badge badge-error">✕ Error</span>`;
 
   // Acciones contextuales: aprobar/rechazar si está pendiente, inspeccionar si no
   const actions = isPending
