@@ -7,6 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		74858F202026102700000008 /* NanoNotificationsHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000008 /* NanoNotificationsHandler.swift */; };
+		74858F202026102700000000 /* NanoChannelRegistrar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000000 /* NanoChannelRegistrar.swift */; };
+		74858F202026102700000001 /* NanoRuntimeHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000001 /* NanoRuntimeHandler.swift */; };
+		74858F202026102700000002 /* NanoMetricsHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000002 /* NanoMetricsHandler.swift */; };
+		74858F202026102700000003 /* NanoEngineHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000003 /* NanoEngineHandler.swift */; };
+		74858F202026102700000004 /* NanoPermissionsHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000004 /* NanoPermissionsHandler.swift */; };
+		74858F202026102700000005 /* NanoAgentHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000005 /* NanoAgentHandler.swift */; };
+		74858F202026102700000006 /* NanoSpeechHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000006 /* NanoSpeechHandler.swift */; };
+		74858F202026102700000007 /* NanoDataStudioHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858F102026102700000007 /* NanoDataStudioHandler.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
@@ -40,6 +49,15 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		74858F102026102700000008 /* NanoNotificationsHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoNotificationsHandler.swift; sourceTree = "<group>"; };
+		74858F102026102700000000 /* NanoChannelRegistrar.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoChannelRegistrar.swift; sourceTree = "<group>"; };
+		74858F102026102700000001 /* NanoRuntimeHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoRuntimeHandler.swift; sourceTree = "<group>"; };
+		74858F102026102700000002 /* NanoMetricsHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoMetricsHandler.swift; sourceTree = "<group>"; };
+		74858F102026102700000003 /* NanoEngineHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoEngineHandler.swift; sourceTree = "<group>"; };
+		74858F102026102700000004 /* NanoPermissionsHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoPermissionsHandler.swift; sourceTree = "<group>"; };
+		74858F102026102700000005 /* NanoAgentHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoAgentHandler.swift; sourceTree = "<group>"; };
+		74858F102026102700000006 /* NanoSpeechHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoSpeechHandler.swift; sourceTree = "<group>"; };
+		74858F102026102700000007 /* NanoDataStudioHandler.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NanoDataStudioHandler.swift; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
@@ -116,6 +134,15 @@
 				1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */,
 				1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */,
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
+				74858F102026102700000008 /* NanoNotificationsHandler.swift */,
+				74858F102026102700000000 /* NanoChannelRegistrar.swift */,
+				74858F102026102700000001 /* NanoRuntimeHandler.swift */,
+				74858F102026102700000002 /* NanoMetricsHandler.swift */,
+				74858F102026102700000003 /* NanoEngineHandler.swift */,
+				74858F102026102700000004 /* NanoPermissionsHandler.swift */,
+				74858F102026102700000005 /* NanoAgentHandler.swift */,
+				74858F102026102700000006 /* NanoSpeechHandler.swift */,
+				74858F102026102700000007 /* NanoDataStudioHandler.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -269,6 +296,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
+				74858F202026102700000008 /* NanoNotificationsHandler.swift in Sources */,
+				74858F202026102700000000 /* NanoChannelRegistrar.swift in Sources */,
+				74858F202026102700000001 /* NanoRuntimeHandler.swift in Sources */,
+				74858F202026102700000002 /* NanoMetricsHandler.swift in Sources */,
+				74858F202026102700000003 /* NanoEngineHandler.swift in Sources */,
+				74858F202026102700000004 /* NanoPermissionsHandler.swift in Sources */,
+				74858F202026102700000005 /* NanoAgentHandler.swift in Sources */,
+				74858F202026102700000006 /* NanoSpeechHandler.swift in Sources */,
+				74858F202026102700000007 /* NanoDataStudioHandler.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

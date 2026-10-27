@@ -1,0 +1,55 @@
+name: Build iOS (NanoAI)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build-ios:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: products/nanoMOBILE/flutter_app
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17 (requerido para KMP/Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.4'
+          channel: 'stable'
+          cache: true
+
+      - name: Instalar dependencias de Flutter
+        run: flutter pub get
+
+      - name: Instalar CocoaPods
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Compilar aplicación iOS (sin firma / ad-hoc)
+        run: flutter build ios --release --no-codesign
+
+      - name: Empaquetar como archivo .IPA para Sideloadly / AltStore
+        run: |
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r NanoAI.ipa Payload
+          mv NanoAI.ipa ../../../NanoAI.ipa
+
+      - name: Subir archivo IPA como artefacto de descarga
+        uses: actions/upload-artifact@v4
+        with:
+          name: NanoAI-iOS-IPA
+          path: NanoAI.ipa
+          retention-days: 7

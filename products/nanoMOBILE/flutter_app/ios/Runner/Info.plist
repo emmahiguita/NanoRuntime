@@ -48,9 +48,13 @@
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>whatsapp</string>
+		<string>chatgpt</string>
+		<string>claude</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>NanoAI requiere acceso al micrófono para comandos de voz y transcripción Whisper.</string>
+	<string>NanoAI requiere acceso al micrófono para comandos de voz y transcripción.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>NanoAI requiere reconocimiento de voz para interactuar con el asistente Búho.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>NanoAI requiere acceso a la cámara para captura y análisis multimodal.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
