@@ -34,6 +34,21 @@ extension _NanoFloatingAssistantView on _NanoFloatingAssistantState {
 
         return Stack(
           children: [
+            // Toque fuera del panel: contrae por el mismo camino que la X.
+            // Es transparente para conservar el cristal aprobado y solo existe
+            // con el panel abierto; el orbe compacto no bloquea la pantalla.
+            if (expanded)
+              Positioned.fill(
+                child: Semantics(
+                  label: 'Cerrar asistente',
+                  button: true,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _collapsePanel,
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              ),
             AnimatedPositioned(
               key: ValueKey(motionEnabled),
               duration: reduce || _dragging || _snapAnimation != null
@@ -86,11 +101,7 @@ extension _NanoFloatingAssistantView on _NanoFloatingAssistantState {
                     audioLevel: widget.audioLevel,
                     onVoice: widget.onVoice,
                     onSpeak: widget.onSpeak,
-                    onCollapse: () {
-                      widget.onStopVoice?.call();
-                      setState(() => expanded = false);
-                      _wakeUp();
-                    },
+                    onCollapse: _collapsePanel,
                   ),
                 ),
               ),
@@ -99,5 +110,14 @@ extension _NanoFloatingAssistantView on _NanoFloatingAssistantState {
         );
       },
     );
+  }
+
+  /// Contrae el panel a orbe: libera la voz propia y reinicia el reposo.
+  /// Compartido por la X y el toque exterior; no cancela la consulta en curso
+  /// ni borra el borrador, que vive en el controlador de entrada del estado.
+  void _collapsePanel() {
+    widget.onStopVoice?.call();
+    setState(() => expanded = false);
+    _wakeUp();
   }
 }

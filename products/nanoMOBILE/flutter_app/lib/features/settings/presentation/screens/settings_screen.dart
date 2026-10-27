@@ -66,11 +66,16 @@ class SettingsScreen extends ConsumerWidget {
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(
+                // El dock flota sobre el contenido: la reserva final sigue la
+                // altura real del dock en cada orientación, sin vacío extra.
+                padding: EdgeInsets.fromLTRB(
                   14,
                   10,
                   14,
-                  kNanoBarScrollReserve + 28,
+                  (MediaQuery.orientationOf(context) == Orientation.landscape
+                          ? kNanoBarScrollReserveLandscape
+                          : kNanoBarScrollReserve) +
+                      28,
                 ),
                 children: [
                   SettingsHeaderSection(

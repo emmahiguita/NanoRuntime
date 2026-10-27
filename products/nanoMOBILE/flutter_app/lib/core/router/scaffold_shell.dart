@@ -61,11 +61,19 @@ class ScaffoldShell extends ConsumerWidget {
       ),
     );
 
+    // Atrás resuelve primero el stack interno de la pestaña. En la raíz de
+    // Modelos, Terminal o Ajustes regresa a Inicio en lugar de cerrar la app;
+    // solo Inicio cede el gesto al sistema, la salida esperada en Android.
+    final returnsHome = !branchCanPop && currentIndex != 0;
+
     return PopScope(
-      canPop: !branchCanPop,
+      canPop: !branchCanPop && !returnsHome,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && branchCanPop) {
+        if (didPop) return;
+        if (branchCanPop) {
           AppRouter.branchKeys[currentIndex].currentState?.pop();
+        } else if (returnsHome) {
+          shell.goBranch(0);
         }
       },
       child: Scaffold(
