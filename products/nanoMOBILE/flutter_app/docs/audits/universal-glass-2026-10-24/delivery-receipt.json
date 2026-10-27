@@ -1,0 +1,104 @@
+{
+  "date_local": "2026-10-25",
+  "variant": "fullSideloadDebug",
+  "device": "VGL7MVFMDYQG8T55",
+  "package": "dev.nanoai.mobile",
+  "installation": "adb install -r: Success (final build)",
+  "apk": "build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+  "sha256": "29ee7f0f2438f91484fdfac6434bc81e8ab9aa2ba6690b22cde5ead61c9183e5",
+  "bytes": 191063639,
+  "app_owned_bottom_sheet_calls_remaining": [],
+  "floating_window_call_sites_including_definition": 62,
+  "automated_tests_run": false,
+  "source": [
+    {
+      "path": "lib/core/widgets/glass_surface.dart",
+      "lines": 55,
+      "sha256": "b184822f70b24a6cf50fab08af9d2a8962c0143a6252d6b6f047a3c85bb91957"
+    },
+    {
+      "path": "lib/core/widgets/glass_surface_state.part.dart",
+      "lines": 153,
+      "sha256": "193f92642b7c24cad3a5399d2a4976d1d8fe353067874ab462a98421787871e4"
+    },
+    {
+      "path": "lib/core/widgets/glass_surface_body.part.dart",
+      "lines": 122,
+      "sha256": "221d27dd9ef25586750080ff7152d4d55bfebda0906e2c2d219af74c78e4af0e"
+    },
+    {
+      "path": "lib/core/widgets/nano_optical_surface.dart",
+      "lines": 98,
+      "sha256": "7f75d5d2664bd3081e231acaa3e27aac4c150792f00167a73b8043a2ec8642c7"
+    },
+    {
+      "path": "lib/core/widgets/interactive_glass_card.dart",
+      "lines": 35,
+      "sha256": "da922cc0bfa5663c6c665798bee7382e5e569371dbbf8f1b8ebe6640791c4ebc"
+    },
+    {
+      "path": "lib/core/widgets/nano_glass_window.dart",
+      "lines": 153,
+      "sha256": "748e997bc9fd8ebc64b59613f4cdb7eb06adafc71abcf19d37a2a23f9c49f0ab"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_nav_bar_container.dart",
+      "lines": 79,
+      "sha256": "46279afc5d70928c376e9166cfe2e9f9e25f85a6975c6606ccf5ef6e2900f13c"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_nav_mini_pill.dart",
+      "lines": 81,
+      "sha256": "9bc34c63f5c4b131c66f879901102657abd44264925678a49dc69062afb922dd"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_nav_destination_item.dart",
+      "lines": 102,
+      "sha256": "c82cfadfb63c5dfb09c2ef957277e9a152f0990e7f337d11c5a21592fe1d773f"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_nav_search_input_row.dart",
+      "lines": 127,
+      "sha256": "da29f7fc5a6aaa62aec6780a541403546138e5615dcf72e3449b0c93e5aff489"
+    },
+    {
+      "path": "lib/core/theme/app_theme.dart",
+      "lines": 144,
+      "sha256": "6383a5d5c2ba3c5ee00a7489d953c06bf56bc091ba40dcf4e11c31582e5e431f"
+    },
+    {
+      "path": "lib/core/theme/app_theme_typography.part.dart",
+      "lines": 64,
+      "sha256": "ee66c4f875066893abc3221c46f0bd0539b38f27cad76ba8e5f5a13affc7ebb3"
+    },
+    {
+      "path": "lib/core/theme/app_theme_controls.part.dart",
+      "lines": 119,
+      "sha256": "43bb150d25b3b925de3ce8b4322a18cd617806941be163c2d6739fddf47d93a0"
+    },
+    {
+      "path": "lib/core/theme/app_theme_surfaces.part.dart",
+      "lines": 104,
+      "sha256": "e6fda497fdcc64d1a7f71f04fbcf6f3025858e085f4b26d4d505fd267d5754db"
+    },
+    {
+      "path": "lib/core/theme/nano_palette_brightness.part.dart",
+      "lines": 18,
+      "sha256": "3434104f0314a445e2b0f03a9d282094fbd852c5ec98516c81c57094141c3437"
+    },
+    {
+      "path": "lib/features/automation/presentation/automation_visual_theme.dart",
+      "lines": 135,
+      "sha256": "096e0634900fb473a5a3992ef98fab19189bab03a73787c225447902b743e919"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_bottom_dock.dart",
+      "lines": 160,
+      "sha256": "dc7dde4b865f4c837ce6925231fb9e1d10d20efd4f94902121d04aa0dc16083b"
+    }
+  ],
+  "build_log": "build-installed-final.log",
+  "final_theme": "Grisáceo",
+  "final_theme_authorization": "El usuario eligió Dejar Gris espacial después de la revisión.",
+  "manual_ui_scope": "Autonomía e inferencia abiertas sin guardar cambios; texto seleccionado corregido observado. La revisión visual final de la barra se interrumpió al cambiar la pantalla durante el uso del teléfono; su ancho se verificó en código con las métricas tipográficas reales."
+}

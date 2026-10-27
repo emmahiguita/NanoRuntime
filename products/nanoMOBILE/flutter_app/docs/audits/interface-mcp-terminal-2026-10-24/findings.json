@@ -1,0 +1,233 @@
+[
+  {
+    "id": "MCP-01",
+    "priority": "P1",
+    "file": "lib/features/automation/presentation/widgets/mcp/mcp_tool_test_dialog.dart",
+    "line": 41,
+    "title": "Probar herramienta evita la gobernanza del agente",
+    "evidence": "Invoca client.callTool directamente desde el builder, con argumentos vacíos; no usa runGuarded ni muestra el riesgo/esquema.",
+    "impact": "Una herramienta con efectos puede ejecutarse por la ruta de prueba sin las mismas barreras de autorización del agente. Reconstruir el diálogo puede iniciar otra llamada.",
+    "recommendation": "Separar inspección de ejecución; capturar una sola operación y usar el ejecutor gobernado con argumentos y riesgo visibles.",
+    "verification": "Código; no se ejecutaron herramientas de Nano."
+  },
+  {
+    "id": "MCP-02",
+    "priority": "P1",
+    "file": "lib/features/automation/engine/mcp/http_mcp_parser.dart",
+    "line": 56,
+    "title": "Errores de herramienta y resultados ausentes terminan como éxito",
+    "evidence": "parseCallResult siempre devuelve McpOperationStatus.success; no consulta isError. Un result nulo también produce un resultado exitoso vacío.",
+    "impact": "El manejador puede tratar un fallo funcional como contenido exitoso o anunciar ejecución correcta ante una respuesta incompleta.",
+    "recommendation": "Validar result y mapear isError antes de declarar éxito; preservar el diagnóstico del servidor.",
+    "verification": "Código contrastado con la especificación MCP."
+  },
+  {
+    "id": "TERM-01",
+    "priority": "P1",
+    "file": "android/app/src/main/cpp/pty_session_registry.c",
+    "line": 35,
+    "title": "El recolector PTY puede consumir el estado de otros hijos",
+    "evidence": "_reap_delayed_zombies usa waitpid(-1), mientras nanoshell.c tiene un recolector propietario que espera un PID específico.",
+    "impact": "Si coinciden ejecuciones, el barrido puede recoger un hijo finalizado de otro ejecutor y privarlo de su estado de salida. No significa que mate procesos vivos.",
+    "recommendation": "Recolectar únicamente PIDs propiedad del registro PTY y coordinar los cierres por sesión.",
+    "verification": "Riesgo de concurrencia sustentado en código y semántica waitpid; no reproducido en dispositivo."
+  },
+  {
+    "id": "UI-01",
+    "priority": "P1",
+    "file": "lib/features/chat/presentation/widgets/nano_active_model_glass_card.dart",
+    "line": 29,
+    "title": "El chat inventa modelo y velocidad cuando faltan datos",
+    "evidence": "El nombre vacío se sustituye por Gemma-4-E2B-it (LiteRT); effectiveTps usa 5.9 tanto en generación como en reposo, y el badge se renderiza siempre.",
+    "impact": "La interfaz presenta nombre/velocidad sin medición y un badge LOCAL IA fijo. isOnline no condiciona el indicador mostrado.",
+    "recommendation": "Mostrar modelo/backend observados y un estado sin medición; eliminar cifras de respaldo.",
+    "verification": "Código; pantalla de chat no recorrida durante esta auditoría."
+  },
+  {
+    "id": "TERM-02",
+    "priority": "P2",
+    "file": "android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+    "line": 362,
+    "title": "El cierre PTY puede bloquear el hilo de plataforma",
+    "evidence": "El canal PTY se registra sin TaskQueue; handlePtyClose llama JNI sin delegación. El cierre nativo puede esperar 60x5 ms y después 40x5 ms.",
+    "impact": "Un hijo que no sale enseguida puede retener aproximadamente 500 ms el hilo Android por cierre. No se midieron frames ni latencia real.",
+    "recommendation": "Mover las operaciones bloqueantes a una cola de trabajo preservando exclusión y orden por sesión.",
+    "verification": "Código y contrato oficial de MethodChannel."
+  },
+  {
+    "id": "TERM-03",
+    "priority": "P2",
+    "file": "lib/features/terminal/presentation/screens/terminal_screen.dart",
+    "line": 121,
+    "title": "Volver al primer plano reactiva el polling de todas las pestañas",
+    "evidence": "didChangeAppLifecycleState itera todas las sesiones; PtyManager.handleLifecycleState(resumed) llama resumePolling sin consultar si la pestaña está visible.",
+    "impact": "Sesiones ocultas previamente pausadas vuelven a consultar canales cada 50 ms tras reanudar la app.",
+    "recommendation": "Combinar visibilidad de ruta/pestaña con el ciclo de vida antes de reanudar lecturas.",
+    "verification": "Código; consumo no medido."
+  },
+  {
+    "id": "TERM-04",
+    "priority": "P2",
+    "file": "lib/features/terminal/plugins/dashboard_plugin.dart",
+    "line": 21,
+    "title": "El dashboard muestra ceros provenientes de listas de compatibilidad",
+    "evidence": "Procs, Pkgs, Containers y Plugins se cuentan desde TerminalCtx y sus listas Stub, no desde el inventario nativo o gestores reales.",
+    "impact": "Cero puede significar ausencia de observación y no ausencia real de procesos, paquetes o contenedores.",
+    "recommendation": "Conectar cada métrica a su fuente real o mostrar no disponible, con alcance de la observación.",
+    "verification": "Código; no se ejecutó dashboard."
+  },
+  {
+    "id": "UI-02",
+    "priority": "P2",
+    "file": "lib/features/terminal/presentation/widgets/terminal_coverflow_card.dart",
+    "line": 235,
+    "title": "Texto blanco sobre el fondo claro de terminal",
+    "evidence": "_TitleBlock fija Colors.white para el título; la captura inicial muestra SHELL LINUX con poco contraste.",
+    "impact": "La etiqueta central pierde legibilidad en el tema claro.",
+    "recommendation": "Usar el color semántico del tema fuera de las portadas y conservar blanco solo sobre fondos oscuros controlados.",
+    "verification": "Código y captura real terminal-hub-light.jpg."
+  },
+  {
+    "id": "UI-03",
+    "priority": "P2",
+    "file": "lib/features/terminal/presentation/widgets/terminal_coverflow_card.dart",
+    "line": 852,
+    "title": "Botón de más opciones sin función",
+    "evidence": "El IconButton visible del detalle tiene onPressed: () {}.",
+    "impact": "Parece una acción habilitada pero no produce ningún resultado.",
+    "recommendation": "Conectarlo a opciones reales o retirarlo/deshabilitarlo explícitamente.",
+    "verification": "Código; no pulsado."
+  },
+  {
+    "id": "MCP-03",
+    "priority": "P2",
+    "file": "lib/features/automation/presentation/widgets/mcp/mcp_tool_test_dialog.dart",
+    "line": 50,
+    "title": "El diálogo puede ocultar el mensaje de fallo",
+    "evidence": "Con content vacío, join devuelve una cadena vacía no nula; el operador ?? no llega a result.message. La UI comprueba snapshot.hasError, pero no result.success.",
+    "impact": "Un fallo HTTP/MCP representado como resultado tipado puede dejar un cuadro vacío sin diagnóstico.",
+    "recommendation": "Renderizar status, message y contenido por separado, diferenciando vacío, fallo y éxito.",
+    "verification": "Código."
+  },
+  {
+    "id": "MCP-04",
+    "priority": "P2",
+    "file": "lib/features/automation/presentation/screens/mcp_skills_hub_screen.dart",
+    "line": 293,
+    "title": "El grafo anuncia disponibilidad mediante constantes",
+    "evidence": "Los metadatos ACTIVE de Accesibilidad y OPERATIONAL del Core son constantes. La lectura real del teléfono mostró accesibilidad de Nano desactivada.",
+    "impact": "Las propiedades etiquetadas como factuales pueden contradecir las capacidades del teléfono.",
+    "recommendation": "Derivar disponibilidad de sondas reales y representar desconocido/degradado/no disponible.",
+    "verification": "Código y consulta de permisos del dispositivo; no se abrió el grafo."
+  },
+  {
+    "id": "MCP-05",
+    "priority": "P2",
+    "file": "lib/features/automation/engine/mcp/http_mcp_client.dart",
+    "line": 229,
+    "title": "tools/list solo recoge la primera página",
+    "evidence": "Se hace un POST con params vacíos y se devuelve parseTools sin leer nextCursor.",
+    "impact": "Se pierden herramientas en servidores que paginan; el contador deja de representar el catálogo completo.",
+    "recommendation": "Recorrer cursores con límites de páginas, herramientas y presupuesto; señalar cobertura parcial.",
+    "verification": "Código y especificación MCP; no confundir con el directorio público, que sí pagina."
+  },
+  {
+    "id": "MCP-06",
+    "priority": "P2",
+    "file": "lib/features/automation/engine/mcp/http_mcp_tool_caller.dart",
+    "line": 74,
+    "title": "SSE se procesa después de almacenar el cuerpo completo",
+    "evidence": "httpClient.post produce una Response completa; decodeMcpJsonRpcResponse divide response.body después. No hay lectura incremental ni límite explícito de bytes.",
+    "impact": "Un stream que no termina puede agotar el plazo aunque ya haya enviado el resultado; respuestas grandes elevan memoria antes del parser.",
+    "recommendation": "Leer el stream incrementalmente por ID de petición con límites y cancelación explícita.",
+    "verification": "Análisis de implementación y contrato HTTP/SSE; no se abrió un servidor de prueba."
+  },
+  {
+    "id": "MCP-07",
+    "priority": "P2",
+    "file": "lib/features/automation/presentation/screens/mcp_skills_hub_screen.dart",
+    "line": 246,
+    "title": "El lienzo del grafo no crece con el catálogo",
+    "evidence": "Lienzo fijo 960x680 y herramientas desplazadas 58 unidades por índice dentro de un Stack que recorta; faltan dimensiones derivadas de nodos.",
+    "impact": "Con suficientes herramientas algunos nodos quedan parcialmente o totalmente fuera del lienzo; el paneo no recupera lo que ya recortó el Stack.",
+    "recommendation": "Calcular límites del grafo y ofrecer también una lista accesible de servidores/herramientas.",
+    "verification": "Geometría del código; no se afirmó un número actual de nodos ocultos."
+  },
+  {
+    "id": "MCP-08",
+    "priority": "P2",
+    "file": "lib/features/automation/engine/agent_dependencies.dart",
+    "line": 224,
+    "title": "El teardown del proveedor no cierra los clientes registrados",
+    "evidence": "onDispose solo marca active=false. McpConnectionRegistry hereda dispose de ChangeNotifier y no desconecta sus clientes; HttpMcpClient libera el cliente HTTP en disconnect.",
+    "impact": "El desmontaje/recreación del contenedor no garantiza liberar las conexiones HTTP existentes.",
+    "recommendation": "Dar al registro un cierre de clientes idempotente y conectarlo al ciclo de vida del proveedor.",
+    "verification": "Código; no se midió una fuga de sockets."
+  },
+  {
+    "id": "MCP-09",
+    "priority": "P2",
+    "file": "lib/features/automation/presentation/screens/mcp_skills_hub_screen.dart",
+    "line": 170,
+    "title": "Refrescar y salir puede actualizar un estado ya desmontado",
+    "evidence": "El callback espera refreshTools y llama _loadJournal; _loadJournal ejecuta setState al entrar, sin una guarda mounted anterior al primer setState.",
+    "impact": "Si la pantalla se cierra durante la espera, puede producir setState after dispose.",
+    "recommendation": "Comprobar mounted después de cada espera y antes de entrar en una operación que actualiza estado.",
+    "verification": "Secuencia asíncrona del código; no reproducida mediante navegación."
+  },
+  {
+    "id": "MCP-10",
+    "priority": "P2",
+    "file": "lib/features/automation/presentation/widgets/mcp/mcp_store_components.dart",
+    "line": 240,
+    "title": "La notificación de conexión no comprueba el servidor solicitado",
+    "evidence": "La rama androidBinder anuncia conectado tras refreshTools sin comprobar snap.failures ni el estado de ese cliente; el número mostrado suma herramientas de todos los servidores.",
+    "impact": "Puede informar éxito para un conector local no disponible y atribuirle herramientas ajenas.",
+    "recommendation": "Usar resultado, estado y conteo por serverId; distinguir éxito parcial.",
+    "verification": "Código; el conector móvil exige accesibilidad, desactivada en la observación actual."
+  },
+  {
+    "id": "MCP-11",
+    "priority": "P3",
+    "file": "lib/features/automation/presentation/screens/mcp_skills_hub_screen.dart",
+    "line": 63,
+    "title": "La telemetría es una instantánea, no una suscripción en vivo",
+    "evidence": "Carga el journal al inicio y mediante acciones de refresco; no se observa una suscripción a nuevas entradas en la pantalla.",
+    "impact": "La presentación de tiempo real puede mostrar información anterior hasta que se recargue.",
+    "recommendation": "Etiquetar la hora de actualización o conectar una suscripción acotada con cierre.",
+    "verification": "Código."
+  },
+  {
+    "id": "UI-04",
+    "priority": "P2",
+    "file": "lib/features/terminal/presentation/widgets/interactive_3d_turntable_box.dart",
+    "line": 77,
+    "title": "El visor 3D no consulta la preferencia común de movimiento reducido",
+    "evidence": "Inicia AnimationController.repeat y autoRotate=true; esta ruta no usa MediaQuery.disableAnimations ni NanoMotion.",
+    "impact": "La animación ambiental puede seguir activa pese a una preferencia de movimiento reducido; no se midió el costo gráfico.",
+    "recommendation": "Aplicar la política común de movimiento y detener el ticker cuando no haya animación necesaria.",
+    "verification": "Código; preferencia de accesibilidad no modificada."
+  },
+  {
+    "id": "TERM-05",
+    "priority": "P2",
+    "file": "lib/features/terminal/presentation/screens/terminal_screen.dart",
+    "line": 144,
+    "title": "Cerrar una pestaña anterior puede cambiar la sesión activa",
+    "evidence": "Se elimina por ID pero _active solo se corrige cuando supera la nueva longitud.",
+    "impact": "Con A,B,C y B activa, cerrar A deja el índice 1 apuntando a C; el editor compartido puede quedar dirigido a otra sesión.",
+    "recommendation": "Conservar el ID activo y recalcular su índice tras la eliminación.",
+    "verification": "Seguimiento de índices en el código, sin ejecutar comandos ni una prueba automatizada."
+  },
+  {
+    "id": "MCP-12",
+    "priority": "P2",
+    "file": "lib/features/automation/engine/mcp/local_device_mcp_client.dart",
+    "line": 428,
+    "title": "El diagnóstico del dispositivo afirma salud sin evaluarla",
+    "evidence": "La temperatura ausente se presenta como Normal y el reporte incluye Estado del Dispositivo: Óptimo de forma fija.",
+    "impact": "Un sensor no disponible se confunde con temperatura normal; no hay una regla que sustente la evaluación Óptimo.",
+    "recommendation": "Mostrar temperatura no disponible y definir métricas/umbrales explícitos antes de evaluar salud.",
+    "verification": "Código del diagnóstico; la herramienta no se ejecutó."
+  }
+]

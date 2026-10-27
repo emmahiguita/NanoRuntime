@@ -13,9 +13,9 @@ class NanoshellLinuxArchiveOperations {
     required IBinExecutor binExecutor,
     required LinuxSecurityPolicy securityPolicy,
     required LinuxActionVerifier verifier,
-  })  : _binExecutor = binExecutor,
-        _securityPolicy = securityPolicy,
-        _verifier = verifier;
+  }) : _binExecutor = binExecutor,
+       _securityPolicy = securityPolicy,
+       _verifier = verifier;
 
   Future<LinuxActionResult<bool>> createTar(
     String sourcePath,
@@ -30,11 +30,19 @@ class NanoshellLinuxArchiveOperations {
     }
 
     final flag = gzip ? '-czf' : '-cf';
-    final res = await _binExecutor.toybox(['tar', flag, tarPath, sourcePath], timeout: timeout);
+    final res = await _binExecutor.toybox([
+      'tar',
+      flag,
+      tarPath,
+      sourcePath,
+    ], timeout: timeout);
 
     LinuxVerificationDetail verification = LinuxVerificationDetail.skipped();
     if (res.exitCode == 0 && verifyIntegrity) {
-      verification = await _verifier.verifyArchiveIntegrity(tarPath, gzip: gzip);
+      verification = await _verifier.verifyArchiveIntegrity(
+        tarPath,
+        gzip: gzip,
+      );
     }
 
     return LinuxActionResult(
@@ -59,7 +67,13 @@ class NanoshellLinuxArchiveOperations {
     }
 
     final flag = gzip ? '-xzf' : '-xf';
-    final res = await _binExecutor.toybox(['tar', flag, tarPath, '-C', targetDir], timeout: timeout);
+    final res = await _binExecutor.toybox([
+      'tar',
+      flag,
+      tarPath,
+      '-C',
+      targetDir,
+    ], timeout: timeout);
 
     return LinuxActionResult(
       data: res.exitCode == 0,
@@ -68,7 +82,10 @@ class NanoshellLinuxArchiveOperations {
       stderr: res.stderr,
       duration: DateTime.now().difference(started),
       verification: res.exitCode == 0
-          ? LinuxVerificationDetail.satisfied('archive_extracted', 'Extracción exitosa.')
+          ? LinuxVerificationDetail.satisfied(
+              'archive_extracted',
+              'Extracción exitosa.',
+            )
           : LinuxVerificationDetail.failed('archive_extracted', res.stderr),
     );
   }

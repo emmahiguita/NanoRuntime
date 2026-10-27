@@ -89,11 +89,23 @@ extension _PragmaticSituationalIntents on PragmaticFastPath {
 
     if (normalized.contains('lloviendo') ||
         normalized.contains('esta lloviendo') ||
+        normalized.contains('va a llover') ||
         normalized.contains('mucho calor') ||
         normalized.contains('hace calor') ||
         normalized.contains('hace frio') ||
+        normalized.contains('hace sol') ||
         normalized.contains('como esta el clima') ||
-        normalized.contains('que tal el clima')) {
+        normalized.contains('como esta el tiempo') ||
+        normalized.contains('que tal el clima') ||
+        normalized.contains('que tal el tiempo') ||
+        normalized.contains('que tiempo hace') ||
+        normalized.contains('dime el clima') ||
+        normalized.contains('dime el tiempo') ||
+        normalized.contains('el tiempo en') ||
+        normalized.contains('el clima en') ||
+        normalized.contains('temperatura en') ||
+        normalized.contains('clima de') ||
+        normalized.contains('tiempo de')) {
       intents.add(ConversationIntent.askWeatherSocial);
     }
 

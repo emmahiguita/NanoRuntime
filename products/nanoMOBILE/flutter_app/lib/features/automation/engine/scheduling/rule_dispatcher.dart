@@ -114,8 +114,8 @@ class RuleDispatcher {
     // Contexto de la decisión por notificación (PERSONA-HANDOFF-03 lo
     // alimentará con el ownership durable). null = contexto por defecto.
     ConversationDecisionContext Function(NotificationObject)? decisionContext,
-    // A07/A09 — fast path pragmático: speech acts triviales sin LLM. null =
-    // rutas legacy/tests: siempre LLM (paridad histórica).
+    // Compatibilidad: el agente ya no envía frases fast-path prefabricadas.
+    @Deprecated('Las respuestas automáticas requieren modelo o evidencia real.')
     PragmaticFastPath? fastPath,
     // A12 — política térmica: estado PowerManager leído justo antes de la
     // inferencia; severe+ suprime el LLM (jamás la seguridad). null = rutas
@@ -123,11 +123,11 @@ class RuleDispatcher {
     Future<int> Function()? thermalStatus,
     // WA-DRAFT-INBOX-01 — almacén de borradores para aprobación humana en UI.
     PendingReplyRepository? pendingReplyStore,
-  }) : _composer = composer ??
+  }) : _composer =
+           composer ??
            (draftSource != null
                ? RuntimeConversationReplyComposer(
                    draftSource: draftSource,
-                   fastPath: fastPath,
                    decisionEngine:
                        decisionEngine ?? const ConversationDecisionEngine(),
                    thermalStatus: thermalStatus,
@@ -219,6 +219,14 @@ class RuleDispatcher {
               'para responder usa un trigger de notificación',
         );
 
+      case RuleAction.sendMessage:
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: RuleOutcome.failed,
+          reason:
+              'los mensajes programados se ejecutan por AlarmManager nativo',
+        );
+
       case RuleAction.sendMedia:
         // WA-MEDIA-01 — igual que reply: sin notificación entrante no hay
         // contacto factual. Jamás se envía a un destinatario inventado.
@@ -249,6 +257,9 @@ class RuleDispatcher {
       }
       final context = _decisionContext?.call(notif);
       if (context == null) return true; // Standalone callers retain governance.
+      // Solo participación: no carga el modelo para mensajes de grupo ajenos.
+      // La memoria ya se registró en el pipeline; se vuelve a comprobar al enviar.
+      if (!context.groupReplyAllowed) return false;
       if (context.autonomyMode == ConversationAutonomyMode.disabled) {
         debugPrint('[rules] rechazada: autonomyMode=disabled');
         return false;
@@ -258,8 +269,12 @@ class RuleDispatcher {
 
     bool permitsSideEffect() {
       final context = _decisionContext?.call(notif);
+      // También cubre reglas de texto fijo, adjuntos y cambios durante la pausa.
+      if (context != null && !context.personalAutoReplyAllowed) return false;
       if (context != null && context.humanOwnsConversation) {
-        debugPrint('[rules] sideEffect rechazado: conversación bajo control humano activo');
+        debugPrint(
+          '[rules] sideEffect rechazado: conversación bajo control humano activo',
+        );
         return false;
       }
       if (context != null &&
@@ -376,7 +391,7 @@ class RuleDispatcher {
         // decision y dispatch cuelgan de este par input+version.
         debugPrint(
           '[turn] conv=${_shortId(conversationId)} '
-          'input="${_sample(notif.text)}" event=${notif.key} '
+          'inputChars=${notif.text.length} event=${notif.key} '
           'version=$conversationVersion',
         );
         // WA-AGENT-09 — reply dinámico: composición y comprensión contextual única.
@@ -396,11 +411,14 @@ class RuleDispatcher {
             notif,
             decisionContext: _decisionContext?.call(notif),
           );
+          // Separa sin respuesta de reply vacío; el compositor deja la causa detallada.
           if (result == null || !result.hasReply) {
             return RuleDispatchResult(
               ruleId: rule.id,
               outcome: RuleOutcome.failed,
-              reason: 'regla dinámica: el motor local no produjo borrador',
+              reason: result == null
+                  ? 'compositor sin respuesta: revisa [conversation-compose] y [draft]'
+                  : 'compositor devolvió un reply vacío',
             );
           }
           dynamicDraftResult = result;
@@ -415,7 +433,7 @@ class RuleDispatcher {
             debugPrint(
               '[supersede] conv=${_shortId(conversationId)} '
               'captured=$conversationVersion current=$currentVersion '
-              'stage=postDraft input="${_sample(notif.text)}"',
+              'stage=postDraft',
             );
             return RuleDispatchResult(
               ruleId: rule.id,
@@ -507,7 +525,7 @@ class RuleDispatcher {
             '[supersede] conv=${_shortId(conversationId)} '
             'captured=$conversationVersion '
             'current=${supersedeGuard.versionOf(conversationId)} '
-            'stage=preSend input="${_sample(notif.text)}"',
+            'stage=preSend',
           );
           return RuleDispatchResult(
             ruleId: rule.id,
@@ -526,7 +544,7 @@ class RuleDispatcher {
         // dispatch cierra el turno con el MISMO input que lo abrió.
         debugPrint(
           '[dispatch] conv=${_shortId(conversationId)} '
-          'input="${_sample(notif.text)}" reply="${_sample(text)}" '
+          'inputChars=${notif.text.length} replyChars=${text.length} '
           'version=$conversationVersion',
         );
         final AutomationResult result;
@@ -574,6 +592,13 @@ class RuleDispatcher {
           MessagingMetrics.emit();
         }
         return outcome;
+
+      case RuleAction.sendMessage:
+        return RuleDispatchResult(
+          ruleId: rule.id,
+          outcome: RuleOutcome.failed,
+          reason: 'una notificación entrante no ejecuta mensajes programados',
+        );
 
       case RuleAction.sendMedia:
         // WA-MEDIA-01 — Camino A: abre WhatsApp con el archivo del catálogo,
@@ -644,24 +669,27 @@ class RuleDispatcher {
     final capability = ReplyCapabilityRef.fromNotification(notification);
     final now = DateTime.now();
     try {
-      await store.save(PendingReply(
-        id: 'pending_${now.microsecondsSinceEpoch}_${rule.id}',
-        conversationId: resolveConversationIdentity(notification).key.id,
-        packageName: notification.packageName,
-        sender: notification.sender,
-        originalMessage: notification.text,
-        draftText: text.trim(),
-        suggestions: suggestions.isNotEmpty ? suggestions : [text.trim()],
-        sourceRuleId: rule.id,
-        notificationKey: notification.key,
-        notificationPostTime: notification.postTime,
-        actionIndex: capability?.actionIndex ?? notification.actionIndex,
-        remoteInputKey: capability?.remoteInputResultKey ?? notification.remoteInputKey,
-        contextFingerprint: capability?.contextFingerprint ?? '',
-        status: PendingReplyStatus.pending,
-        createdAt: now,
-        expiresAt: now.add(const Duration(hours: 24)),
-      ));
+      await store.save(
+        PendingReply(
+          id: 'pending_${now.microsecondsSinceEpoch}_${rule.id}',
+          conversationId: resolveConversationIdentity(notification).key.id,
+          packageName: notification.packageName,
+          sender: notification.sender,
+          originalMessage: notification.text,
+          draftText: text.trim(),
+          suggestions: suggestions.isNotEmpty ? suggestions : [text.trim()],
+          sourceRuleId: rule.id,
+          notificationKey: notification.key,
+          notificationPostTime: notification.postTime,
+          actionIndex: capability?.actionIndex ?? notification.actionIndex,
+          remoteInputKey:
+              capability?.remoteInputResultKey ?? notification.remoteInputKey,
+          contextFingerprint: capability?.contextFingerprint ?? '',
+          status: PendingReplyStatus.pending,
+          createdAt: now,
+          expiresAt: now.add(const Duration(hours: 24)),
+        ),
+      );
       return RuleDispatchResult(
         ruleId: rule.id,
         outcome: RuleOutcome.drafted,
@@ -698,13 +726,6 @@ class RuleDispatcher {
       reason: result.reason,
       dispatchedText: dispatchedText,
     );
-  }
-
-  /// P1-FIX — muestra acotada del input/reply para trazas físicas (200
-  /// chars, una línea: el texto completo con saltos inundaba el logcat).
-  static String _sample(String raw) {
-    final single = raw.replaceAll('\n', ' ').trim();
-    return single.length <= 200 ? single : single.substring(0, 200);
   }
 
   /// P1-FIX — hash corto del id de conversación para la traza.

@@ -3,7 +3,10 @@ part of 'conversation_detail_sheet.dart';
 /// Reconstruye evidencia de identidad para un chat guardado cuando Android ya
 /// no conserva su notificación activa. No inventa otro ID ni duplica el ID
 /// canónico completo dentro de `conversationId`.
-NotificationObject notificationFromConversationSummary(ConversationSummaryItem item) {
+NotificationObject notificationFromConversationSummary(
+  ConversationSummaryItem item, {
+  ConversationMemoryEntry? latestInbound,
+}) {
   final canonical = canonicalConversationId(item.conversationId);
   final parts = canonical.split('/');
   var fingerprint = parts.length >= 4 ? parts.skip(3).join('/') : canonical;
@@ -38,11 +41,15 @@ NotificationObject notificationFromConversationSummary(ConversationSummaryItem i
     'key': 'hub_$canonical',
     'package': item.packageName,
     'title': item.displayName,
-    'text': item.lastMessage,
-    'messageText': item.lastMessage,
-    'sender': item.lastSender ?? item.displayName,
-    'postTime': item.lastAtMs,
-    'messageTimestamp': item.lastAtMs,
+    // El panel puede haber recibido mensajes después de abrir el resumen.
+    // Un borrador responde al último entrante observado, no al último saliente.
+    'text': latestInbound?.text ?? item.lastMessage,
+    'messageText': latestInbound?.text ?? item.lastMessage,
+    'sender': latestInbound?.sender.isNotEmpty == true
+        ? latestInbound!.sender
+        : item.lastSender ?? item.displayName,
+    'postTime': latestInbound?.atMs ?? item.lastAtMs,
+    'messageTimestamp': latestInbound?.atMs ?? item.lastAtMs,
     'isGroup': item.isGroup,
     'canReply': false,
     ...identity,

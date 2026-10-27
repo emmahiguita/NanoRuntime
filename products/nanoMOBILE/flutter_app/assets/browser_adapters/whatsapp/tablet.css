@@ -1,0 +1,143 @@
+/* Nano · WhatsApp Web master-detail para >=700 px de ancho útil. */
+:root { --nano-wa-height: 100vh; }
+@supports (height: 100dvh) {
+  :root { --nano-wa-height: 100dvh; }
+}
+
+html.nano-wa-mobile-shell,
+html.nano-wa-mobile-shell body,
+html.nano-wa-mobile-shell #app {
+  width: 100% !important;
+  height: var(--nano-wa-height) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  touch-action: pan-x pan-y pinch-zoom !important;
+  -webkit-text-size-adjust: 100% !important;
+}
+
+html.nano-wa-mobile-shell *,
+html.nano-wa-mobile-shell *::before,
+html.nano-wa-mobile-shell *::after {
+  box-sizing: border-box !important;
+}
+
+html.nano-wa-mobile-shell .nano-wa-layout {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  display: flex !important;
+  overflow: hidden !important;
+}
+
+html.nano-wa-mobile-shell .nano-wa-list-host {
+  position: relative !important;
+  width: clamp(280px, 36vw, 400px) !important;
+  min-width: 280px !important;
+  max-width: 400px !important;
+  height: 100% !important;
+  flex: 0 0 clamp(280px, 36vw, 400px) !important;
+  display: flex !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+html.nano-wa-mobile-shell .nano-wa-conversation-host {
+  position: relative !important;
+  width: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 100% !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+html.nano-wa-mobile-shell #side,
+html.nano-wa-mobile-shell #main {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+html.nano-wa-mobile-shell #main {
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+html.nano-wa-mobile-shell #main > header,
+html.nano-wa-mobile-shell #main > footer {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+html.nano-wa-mobile-shell #main [data-testid="conversation-panel-messages"] {
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+}
+
+html.nano-wa-mobile-shell #main > footer {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 30 !important;
+  padding-bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+html.nano-wa-mobile-shell #main [contenteditable="true"] {
+  max-height: min(156px, 30vh) !important;
+  overflow-y: auto !important;
+  scroll-margin-bottom: 12px !important;
+}
+
+html.nano-wa-mobile-shell #pane-side,
+html.nano-wa-mobile-shell [data-testid="chat-list"] {
+  min-height: 0 !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain !important;
+}
+
+html.nano-wa-mobile-shell #app .nano-wa-rail-host {
+  display: none !important;
+}
+
+html.nano-wa-mobile-shell .nano-wa-list-host::before,
+html.nano-wa-mobile-shell .nano-wa-list-host::after,
+html.nano-wa-mobile-shell #side::before,
+html.nano-wa-mobile-shell #side::after {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Un teléfono horizontal angosto sigue usando navegación de un panel. */
+@media (max-width: 699px) {
+  html.nano-wa-mobile-shell .nano-wa-list-host,
+  html.nano-wa-mobile-shell .nano-wa-conversation-host {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+  }
+
+  html.nano-wa-mobile-shell body.nano-view-list .nano-wa-conversation-host,
+  html.nano-wa-mobile-shell body.nano-view-chat .nano-wa-list-host {
+    display: none !important;
+  }
+}

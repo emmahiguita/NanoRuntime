@@ -1,0 +1,14 @@
+﻿{
+    "flavor":  "fullSideloadDebug",
+    "build":  "BUILD SUCCESSFUL in 29s",
+    "apk":  "C:\\Users\\emman\\Desktop\\Proyectos\\Nueva carpeta\\Nanoai\\products\\nanoMOBILE\\flutter_app\\build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+    "apkSha256":  "b0900a2ab729ddf7528a3a12ee147e993a620e33f7b9fcb459ced50ed0114182",
+    "apkBytes":  190662251,
+    "officialLogoAsset":  "assets/flutter_assets/assets/nano/qwen_official.png",
+    "officialLogoSha256":  "4a36e944efd4d11761ba3a98518493cb078364939ba0899d7bdd58429a454ae5",
+    "logoMatchesOriginal":  true,
+    "staticAnalysis":  "No issues found",
+    "automatedTestsRun":  false,
+    "deviceTouched":  false,
+    "installed":  false
+}

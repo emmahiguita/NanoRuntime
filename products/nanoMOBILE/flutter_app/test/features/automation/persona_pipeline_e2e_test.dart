@@ -73,8 +73,8 @@ void main() {
       storeExamples.add({
         'id': 101,
         'personaKey': 'owner',
-        'body': 'Hola Juan! La sacamos el próximo viernes con el nuevo motor.',
-        'incomingText': 'Hola Emma, ¿cuándo sale la nueva versión de la app?',
+        'body': 'Parcero, ese motor quedó buenísimo.',
+        'incomingText': 'Hola Juan, ¿qué te parece el motor nuevo?',
         'toneJson': jsonEncode({'ownerVerified': 'true', 'enabled': 'true'}),
         'source': 'import',
       });
@@ -83,13 +83,13 @@ void main() {
       final resolver = RuntimePersonaStyleResolver(retriever: retriever);
 
       final match = await resolver.resolve(
-        text: '¿cuándo sale la nueva versión de la app?',
+        text: '¿qué te parece el motor nuevo?',
         conversationId: 'wa_juan',
         minConfidence: 0.60,
       );
 
       expect(match, isNotNull);
-      expect(match!.reply, contains('La sacamos el próximo viernes'));
+      expect(match!.reply, contains('ese motor quedó buenísimo'));
       expect(match.confidence, greaterThanOrEqualTo(0.60));
       expect(match.understanding.intent, equals('persona_style_match'));
     });
@@ -98,7 +98,7 @@ void main() {
       storeExamples.add({
         'id': 102,
         'personaKey': 'owner',
-        'body': 'Bien parcero, trabajando en la app a full.',
+        'body': 'Bien parcero, gracias por preguntar. ¿Y tú?',
         'incomingText': 'Hola Emma cómo estás?',
         'toneJson': jsonEncode({'ownerVerified': 'true', 'enabled': 'true'}),
         'source': 'import',

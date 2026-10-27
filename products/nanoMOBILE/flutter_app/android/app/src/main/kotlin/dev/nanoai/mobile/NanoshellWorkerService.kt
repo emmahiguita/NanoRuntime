@@ -93,8 +93,17 @@ when (msg.what) {
         try {
             System.loadLibrary("nanoshell")
             android.util.Log.i("nanoshell-worker", "libnanoshell.so cargada en worker (sin GPU)")
+            val isolation = NanoshellBridge.workerIsolateProcessGroup()
+            if (isolation == 0) {
+                android.util.Log.i("nanoshell-worker", "process group aislado para apagado seguro")
+            } else {
+                android.util.Log.e(
+                    "nanoshell-worker",
+                    "no se aisló el process group ($isolation); el apagado grupal quedará bloqueado",
+                )
+            }
         } catch (e: Throwable) {
-            android.util.Log.e("nanoshell-worker", "loadLibrary falló: $e")
+            android.util.Log.e("nanoshell-worker", "inicialización nativa falló: $e")
         }
     }
 
@@ -210,8 +219,15 @@ when (msg.what) {
      * DesktopSessionManager antes de matar el worker.
      */
     private fun handleKill(msg: Message) {
-        android.util.Log.w("nanoshell-worker", "MSG_KILL recibido — matando group + worker")
-        try { NanoshellBridge.workerKillGroup() } catch (_: Throwable) {}
+        android.util.Log.w("nanoshell-worker", "MSG_KILL recibido — apagando el grupo aislado del worker")
+        try {
+            val result = NanoshellBridge.workerKillGroup()
+            if (result != 0) {
+                android.util.Log.e("nanoshell-worker", "apagado grupal rechazado ($result); no se tocará el proceso principal")
+            }
+        } catch (error: Throwable) {
+            android.util.Log.e("nanoshell-worker", "apagado grupal falló; no se tocará el proceso principal", error)
+        }
         // stopSelf() si el SIGKILL anterior no tumbó el proceso (fallback).
         this.stopSelf()
     }

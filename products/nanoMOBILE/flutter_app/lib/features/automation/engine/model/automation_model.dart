@@ -79,7 +79,10 @@ abstract final class AutomationTierPresets {
     id: 'tier_4gb_lightweight',
     name: 'Ligero (Móviles ≤ 4GB RAM)',
     recommendedModel: 'LFM2.5-1.2B-Instruct-Q4_0-QAD',
-    roles: {AutomationModelRole.draftWriter, AutomationModelRole.intentUnderstanding},
+    roles: {
+      AutomationModelRole.draftWriter,
+      AutomationModelRole.intentUnderstanding,
+    },
     estimatedRamGb: 1.1,
   );
 

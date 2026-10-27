@@ -13,11 +13,17 @@ enum NanoOperatingTier {
 
   /// Modo desarrollador: requiere depuración inalámbrica local o ADB habilitado.
   /// Incluye: ADB inalámbrico local, diagnósticos profundos, inspección de apps y pruebas UI.
-  developer('Nano Developer', 'ADB inalámbrico, diagnósticos de sistema e inspección de apps.'),
+  developer(
+    'Nano Developer',
+    'ADB inalámbrico, diagnósticos de sistema e inspección de apps.',
+  ),
 
   /// Modo avanzado: requiere servicio Shizuku emparejado y activo.
   /// Incluye: Operaciones con identidad shell (UID 2000), gestión de paquetes sin root.
-  advanced('Nano Advanced', 'Servicios Shizuku, gestión de paquetes y control de procesos.');
+  advanced(
+    'Nano Advanced',
+    'Servicios Shizuku, gestión de paquetes y control de procesos.',
+  );
 
   final String displayName;
   final String description;

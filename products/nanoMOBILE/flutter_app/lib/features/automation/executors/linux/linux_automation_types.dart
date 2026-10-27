@@ -1,7 +1,16 @@
 import 'package:flutter/foundation.dart';
 
 /// Tipo de entrada en el sistema de archivos Linux.
-enum LinuxFileType { file, directory, symlink, socket, fifo, blockDevice, charDevice, unknown }
+enum LinuxFileType {
+  file,
+  directory,
+  symlink,
+  socket,
+  fifo,
+  blockDevice,
+  charDevice,
+  unknown,
+}
 
 /// Representación estructurada de una entrada en el sistema de archivos.
 @immutable
@@ -26,13 +35,13 @@ class LinuxFileEntry {
   bool get isFile => type == LinuxFileType.file;
 
   Map<String, dynamic> toJson() => {
-        'path': path,
-        'name': name,
-        'type': type.name,
-        'sizeBytes': sizeBytes,
-        'permissions': permissions,
-        'modifiedAt': modifiedAt?.toIso8601String(),
-      };
+    'path': path,
+    'name': name,
+    'type': type.name,
+    'sizeBytes': sizeBytes,
+    'permissions': permissions,
+    'modifiedAt': modifiedAt?.toIso8601String(),
+  };
 }
 
 /// Información de un proceso en ejecución dentro del entorno Linux.
@@ -53,12 +62,12 @@ class LinuxProcessInfo {
   });
 
   Map<String, dynamic> toJson() => {
-        'pid': pid,
-        'command': command,
-        'memoryKb': memoryKb,
-        'cpuPercent': cpuPercent,
-        'state': state,
-      };
+    'pid': pid,
+    'command': command,
+    'memoryKb': memoryKb,
+    'cpuPercent': cpuPercent,
+    'state': state,
+  };
 }
 
 /// Identificador y control de un proceso rastreado en streaming.
@@ -77,11 +86,11 @@ class LinuxProcessHandle {
   });
 
   Map<String, dynamic> toJson() => {
-        'trackTag': trackTag,
-        'command': command,
-        'arguments': arguments,
-        'startedAt': startedAt.toIso8601String(),
-      };
+    'trackTag': trackTag,
+    'command': command,
+    'arguments': arguments,
+    'startedAt': startedAt.toIso8601String(),
+  };
 }
 
 /// Detalle de la verificación de una acción Linux (EXECUTED ≠ VERIFIED).
@@ -99,7 +108,9 @@ class LinuxVerificationDetail {
     required this.verifiedAt,
   });
 
-  static LinuxVerificationDetail skipped([String reason = 'No verification required']) {
+  static LinuxVerificationDetail skipped([
+    String reason = 'No verification required',
+  ]) {
     return LinuxVerificationDetail(
       verified: true,
       condition: 'skipped',
@@ -127,11 +138,11 @@ class LinuxVerificationDetail {
   }
 
   Map<String, dynamic> toJson() => {
-        'verified': verified,
-        'condition': condition,
-        'details': details,
-        'verifiedAt': verifiedAt.toIso8601String(),
-      };
+    'verified': verified,
+    'condition': condition,
+    'details': details,
+    'verifiedAt': verifiedAt.toIso8601String(),
+  };
 }
 
 /// Resultado tipado de una acción del motor Linux.
@@ -158,14 +169,14 @@ class LinuxActionResult<T> {
   bool get isVerified => verification.verified;
 
   Map<String, dynamic> toJson() => {
-        'ok': ok,
-        'executedOk': executedOk,
-        'isVerified': isVerified,
-        'exitCode': exitCode,
-        'stdout': stdout,
-        'stderr': stderr,
-        'durationMs': duration.inMilliseconds,
-        'verification': verification.toJson(),
-        if (data != null) 'data': data,
-      };
+    'ok': ok,
+    'executedOk': executedOk,
+    'isVerified': isVerified,
+    'exitCode': exitCode,
+    'stdout': stdout,
+    'stderr': stderr,
+    'durationMs': duration.inMilliseconds,
+    'verification': verification.toJson(),
+    if (data != null) 'data': data,
+  };
 }

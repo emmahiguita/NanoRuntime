@@ -124,6 +124,14 @@ class PtyManager {
         logger: logger,
         traceId: traceId,
       );
+
+      // QUÉ: cierra la sesión si dispose ocurrió mientras el canal nativo abría.
+      // POR QUÉ: dispose no podía cerrar una sesión aún no asignada y el proceso
+      // quedaba vivo al reanudarse este Future después de desmontar la pestaña.
+      if (_disposed) {
+        await ses.close();
+        return false;
+      }
       _session = ses;
       // Old _ansi should be null here (close() calls _notifyEndAndDisposeAnsi).
       // Guard for edge cases where close() partially failed.

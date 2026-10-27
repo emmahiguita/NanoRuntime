@@ -65,9 +65,11 @@ class AgentChannelHandler : MethodChannel.MethodCallHandler {
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val ocrService = OcrService()
-    private val qrService = QrService()
-    private val visionService = VisionService()
+    // ML Kit carga modelos y módulos nativos. Mantener estos servicios lazy
+    // evita reservarlos durante el arranque cuando no hay una solicitud visual.
+    private val ocrService by lazy { OcrService() }
+    private val qrService by lazy { QrService() }
+    private val visionService by lazy { VisionService() }
     private val ocrExecutor = Executors.newSingleThreadExecutor()
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {

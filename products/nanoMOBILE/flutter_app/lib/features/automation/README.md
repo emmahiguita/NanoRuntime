@@ -10,6 +10,11 @@
 
 ### Lo que SÍ hace hoy (probado)
 - `runGoal(goal)` ejecuta acciones reales (tap/write/back/app) por accesibilidad.
+- En la variante `fullSideload`, programa mensajes salientes de WhatsApp con
+  `AlarmManager`, persiste la cola y la restaura después de reiniciar Android.
+  Resuelve los contactos al crear la regla y admite uno o varios destinatarios:
+  `a las 6:45 pm mándale a Emm: Hola` o
+  `todos los días a las 7 pm envíales a Emm, Juan: Ya voy`.
 - **Sin LLM**: objetivos del catálogo determinista (Bluetooth, Wi-Fi, Ajustes,
   Chrome, volver) → ejecución real + verificación + aprendizaje.
 - **Gobernanza** en 3 niveles (manual/asistido/autónomo).
@@ -18,6 +23,9 @@
 - **Ledger** de ejecuciones reales + **benchmark C14-A** del planner.
 
 ### Lo que NO hace aún (limitación real)
+- El envío programado depende de que WhatsApp siga instalado, la sesión esté
+  iniciada y el servicio de accesibilidad de NanoAI permanezca habilitado. La
+  app puede abrir y pulsar **Enviar**, pero no confirma entrega o lectura.
 - **Planner de calidad para objetivos desconocidos**: el modelo local (Qwen 1.5B)
   puede producir selectores pobres/placeholder (`id=resourceId`) → esos planes
   fallan en ejecución (reportado `failed`, nunca éxito falso).

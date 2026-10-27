@@ -53,18 +53,20 @@ class ChatModelService {
       required ModelConnectionState connection,
     })
     onModelRestored,
-    required Future<void> Function(String model, int revision) onCheckEngine,
   }) async {
     final revision = _modelSelectionRevision;
     final saved = await _storage.loadSavedModel();
-    if (saved == null || !isMounted() || revision != _modelSelectionRevision) return;
+    if (saved == null || !isMounted() || revision != _modelSelectionRevision) {
+      return;
+    }
 
     onModelRestored(
       model: saved.model,
       path: saved.path,
-      connection: ModelConnectionState.loadingModel,
+      // Restaurar una selección no debe reservar 2+ GB ni encender la GPU.
+      // El primer turno (o una respuesta automática real) llama ensureReady.
+      connection: ModelConnectionState.sleeping,
     );
-    await onCheckEngine(saved.model, revision);
   }
 
   /// Persiste la selección en Settings y claves legacy de SharedPreferences.
@@ -118,7 +120,8 @@ class ChatModelService {
       await engine.refresh();
     }
     if (!isMounted() ||
-        (expectedRevision != null && expectedRevision != _modelSelectionRevision)) {
+        (expectedRevision != null &&
+            expectedRevision != _modelSelectionRevision)) {
       return;
     }
     onStateUpdated(
@@ -139,12 +142,17 @@ class ChatModelService {
     bool confirmedExtreme = false,
     required String currentModel,
     required String? currentModelPath,
-    required void Function({required String selectedModel, required String? selectedPath})
+    required void Function({
+      required String selectedModel,
+      required String? selectedPath,
+    })
     onSelectionStarted,
     required Future<void> Function(String model, int revision) onCheckEngine,
   }) {
     final entry = NeuralCatalog.entryOf(name);
-    if (entry.name == name && entry.tier == ModelTier.extreme && !confirmedExtreme) {
+    if (entry.name == name &&
+        entry.tier == ModelTier.extreme &&
+        !confirmedExtreme) {
       debugPrint(
         '[ChatModelService] selectModel extreme ($name) sin confirmación — ignorado',
       );
@@ -155,7 +163,9 @@ class ChatModelService {
     final pathChanged = path != null && path != currentModelPath;
     if (modelChanged || pathChanged) {
       rotateSession();
-      debugPrint('[ChatModelService] modelo cambiado → nueva sesión $_sessionId');
+      debugPrint(
+        '[ChatModelService] modelo cambiado → nueva sesión $_sessionId',
+      );
     }
     final revision = ++_modelSelectionRevision;
     final selectedPath = modelChanged ? path : (path ?? currentModelPath);

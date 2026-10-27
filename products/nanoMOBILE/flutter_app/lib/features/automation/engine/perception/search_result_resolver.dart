@@ -131,9 +131,8 @@ class SearchResultResolver {
     caseSensitive: false,
   );
 
-  bool _isSponsored(NanoUiObject o) => _sponsoredTerms.hasMatch(
-    '${o.label} ${o.text} ${o.description}',
-  );
+  bool _isSponsored(NanoUiObject o) =>
+      _sponsoredTerms.hasMatch('${o.label} ${o.text} ${o.description}');
 
   ResultResolution resolve(ScreenGraph graph, ResultTarget target) {
     final results = resolveResults(graph);

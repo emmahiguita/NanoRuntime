@@ -44,7 +44,9 @@ object InteractiveWindowFinder {
             // Fallback directo a rootInActiveWindow si getWindows retorna vacío
             val activeRoot = service.rootInActiveWindow ?: return null
             val pkg = activeRoot.packageName?.toString() ?: ""
-            return if (isTargetPackage(pkg, targetPackage)) activeRoot else null
+            if (isTargetPackage(pkg, targetPackage)) return activeRoot
+            activeRoot.recycle()
+            return null
         }
 
         // Iteración sobre ventanas devueltas por FLAG_RETRIEVE_INTERACTIVE_WINDOWS
@@ -61,6 +63,7 @@ object InteractiveWindowFinder {
                 Log.d(TAG, "Ventana de destino localizada: $pkgName (id=${window.id})")
                 return root
             }
+            root.recycle()
         }
 
         return null

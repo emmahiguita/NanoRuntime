@@ -1,91 +1,187 @@
-/// PERSONA-RETRIEVAL-07 — retriever de ejemplos de estilo.
-///
-/// Sin embeddings (V1): FTS4 puro en SQLite. El texto del mensaje entrante
-/// es la query; los ejemplos más parecidos guían al modelo en el prompt.
-/// La selección es determinista (MATCH FTS + recencia) — jamás un vector
-/// generado ni una puntuación del LLM.
+// persona_retriever.dart
+//
+// QUÉ HACE:
+// Recupera ejemplos de estilo y frases aprendidas desde SQLite FTS4 y almacén persistente.
+//
+// CÓMO FUNCIONA:
+// - Clasifica la intención del turno con `ConversationalIntentClassifier`.
+// - Consulta FTS4 y lista de ejemplos considerando la jerarquía de scopes:
+//   1. Contacto específico -> 2. Rol personal -> 3. Propietario -> 4. Global.
+// - Pondera con `HybridRetrievalScorer` (8 señales: exacto, variantes, FTS, léxico, semántico, intent, contexto).
+//
+// POR QUÉ:
+// Asegura que intenciones y paráfrasis sin tokens idénticos se recuperen fielmente (< 175 líneas).
+
 library;
 
+import 'package:flutter/foundation.dart' show debugPrint;
+
+import 'package:nanoai/features/automation/engine/language/conversational_intent_catalog.dart';
+import 'package:nanoai/features/automation/engine/language/conversational_intent_classifier.dart';
+import 'package:nanoai/features/automation/engine/language/intent_prediction.dart';
 import '../domain/persona_example.dart';
+import 'hybrid_retrieval_scorer.dart';
 import 'persona_repository.dart';
+import 'persona_retriever_scorer.dart';
 import 'personal_learning_text.dart';
 
 final class PersonaRetriever {
-  PersonaRetriever({PersonaRepository? repository})
-    : _repository = repository ?? PersonaRepository.instance;
+  PersonaRetriever({
+    PersonaRepository? repository,
+    ConversationalIntentClassifier? classifier,
+    HybridRetrievalScorer? scorer,
+  }) : _repository = repository ?? PersonaRepository.instance,
+       _classifier = classifier ?? const ConversationalIntentClassifier(),
+       _scorer = scorer ?? const HybridRetrievalScorer();
 
   final PersonaRepository _repository;
+  final ConversationalIntentClassifier _classifier;
+  final HybridRetrievalScorer _scorer;
 
-  /// Ejemplos parecidos al contexto (máx [limit], típicamente 2: el prompt
-  /// WA ya es denso y cada ejemplo consume tokens).
+  /// Delegado estático para compatibilidad con código existente.
+  static double scorePatternMatch(String rawInput, String rawPattern) =>
+      PersonaRetrieverScorer.scorePatternMatch(rawInput, rawPattern);
+
+  /// Puntuación híbrida multi-señal [0.0..1.0] de un [example] frente al [context] actual.
+  static double scoreExample(
+    String context,
+    PersonaExample example, [
+    IntentPrediction? pred,
+  ]) {
+    final prediction =
+        pred ??
+        const ConversationalIntentClassifier().classify(context).primaryIntent;
+    return const HybridRetrievalScorer().score(
+      rawInput: context,
+      example: example,
+      inputPrediction: prediction,
+    );
+  }
+
+  /// QUÉ: Puntúa una respuesta candidata con el motor que usa este recuperador.
+  /// CÓMO: Reutiliza la interfaz por lotes, incluso para un único ejemplo.
+  /// POR QUÉ: Mantiene el umbral de estilo coherente con el ranking semántico.
+  Future<double> scoreExampleWithEngine(
+    String context,
+    PersonaExample example, [
+    IntentPrediction? pred,
+  ]) async {
+    final prediction = pred ?? _classifier.classify(context).primaryIntent;
+    return (await _scorer.scoreMany(
+      rawInput: context,
+      examples: [example],
+      inputPrediction: prediction,
+    )).first;
+  }
+
+  /// Recupera ejemplos parecidos respetando la lista de ámbitos ordenada por precedencia.
   Future<List<PersonaExample>> retrieve(
     String context, {
     int limit = 2,
     String scopeKey = 'owner',
     String roleKey = 'role:personal',
+    List<String>? candidateScopes,
   }) async {
+    final sw = Stopwatch()..start();
     if (context.trim().isEmpty) return const [];
+
+    final aggregated = _classifier.classify(context);
+    final inputPrediction = aggregated.primaryIntent;
+
+    // Si es una corrección dialógica explícita, se bloquea la reutilización literal
+    if (inputPrediction.intentId == ConversationalIntentId.correction.id) {
+      return const [];
+    }
+
+    final effectiveScopes =
+        candidateScopes ?? [scopeKey, roleKey, 'owner', 'global'];
+    final primaryScope = effectiveScopes.first;
+
     final indexed = await _repository.searchExamples(
       context,
       limit: 40,
-      scopeKey: scopeKey,
+      scopeKey: primaryScope,
       roleKey: roleKey,
     );
-    final terms = normalizePersonalLearningText(
-      context,
-    ).split(' ').where((s) => s.length > 2).toSet();
-    int score(PersonaExample example) {
-      var best = 0;
-      for (final pattern in example.incomingVariants) {
-        final matches = normalizePersonalLearningText(
-          pattern,
-        ).split(' ').where(terms.contains).toSet().length;
-        if (matches > best) best = matches;
-      }
-      return best;
-    }
 
-    // FTS indexa la frase principal. Sólo los mensajes cortos sin una buena
-    // coincidencia hacen el fallback acotado que incluye variantes; párrafos
-    // grandes siguen por el índice/LLM y no escanean todo el catálogo.
-    var indexedBest = 0;
-    for (final example in indexed) {
-      final current = score(example);
-      if (current > indexedBest) indexedBest = current;
-    }
+    final normalizedContext = normalizePersonalLearningText(context);
+    final terms = PersonaRetrieverScorer.meaningfulTerms(normalizedContext);
+
+    final indexedScores = await _scorer.scoreMany(
+      rawInput: context,
+      examples: indexed,
+      inputPrediction: inputPrediction,
+    );
+    final indexedBest = indexedScores.isEmpty
+        ? 0.0
+        : indexedScores.reduce((a, b) => a > b ? a : b);
+
     final needsVariantFallback =
-        terms.length <= 8 && (indexed.isEmpty || indexedBest < terms.length);
+        terms.length <= 8 && (indexed.isEmpty || indexedBest < 0.70);
     final stored = needsVariantFallback
         ? await _repository.listExamples(limit: 200)
         : const <PersonaExample>[];
+
     final byId = <int, PersonaExample>{
       for (final example in indexed) example.id: example,
       for (final example in stored) example.id: example,
     };
     final candidates = byId.values.toList();
 
-    final eligible = candidates
-        .where(
-          (e) =>
-              e.enabled &&
-              (e.ownerVerified || e.isTemplate) &&
-              (e.personaKey == scopeKey ||
-                  e.personaKey == roleKey ||
-                  e.personaKey == 'owner') &&
-              !e.source.toLowerCase().contains('nano') &&
-              e.source != 'assistant',
-        )
+    const minPairedRelevance = 0.40;
+    final scoresById = <int, double>{
+      for (var i = 0; i < indexed.length; i++) indexed[i].id: indexedScores[i],
+    };
+    final remaining = candidates
+        .where((e) => !scoresById.containsKey(e.id))
         .toList();
+    final remainingScores = await _scorer.scoreMany(
+      rawInput: context,
+      examples: remaining,
+      inputPrediction: inputPrediction,
+    );
+    for (var i = 0; i < remaining.length; i++) {
+      scoresById[remaining[i].id] = remainingScores[i];
+    }
+
+    final eligible = candidates.where((e) {
+      if (!e.enabled) return false;
+      if (!e.ownerVerified && !e.isTemplate) return false;
+      if (!effectiveScopes.contains(e.personaKey) &&
+          e.personaKey != 'owner' &&
+          e.personaKey != 'global') {
+        return false;
+      }
+      if (e.isPaired && (scoresById[e.id] ?? 0.0) < minPairedRelevance) {
+        return false;
+      }
+      final src = e.source.toLowerCase();
+      if (src.contains('nano') || src == 'assistant') return false;
+      return true;
+    }).toList();
+
     eligible.sort((a, b) {
-      final scope = (b.personaKey == scopeKey ? 1 : 0).compareTo(
-        a.personaKey == scopeKey ? 1 : 0,
+      final relevance = (scoresById[b.id] ?? 0.0).compareTo(
+        scoresById[a.id] ?? 0.0,
       );
-      if (scope != 0) return scope;
-      final relevance = score(b).compareTo(score(a));
       if (relevance != 0) return relevance;
+
+      final idxA = effectiveScopes.indexOf(a.personaKey);
+      final idxB = effectiveScopes.indexOf(b.personaKey);
+      final orderA = idxA >= 0 ? idxA : 999;
+      final orderB = idxB >= 0 ? idxB : 999;
+      final scopeOrder = orderA.compareTo(orderB);
+      if (scopeOrder != 0) return scopeOrder;
+
       if (a.isPaired != b.isPaired) return a.isPaired ? -1 : 1;
       return b.id.compareTo(a.id);
     });
+
+    sw.stop();
+    debugPrint(
+      '[personal-retriever] latency=${sw.elapsedMicroseconds / 1000.0}ms candidates=${candidates.length} eligible=${eligible.length}',
+    );
+
     return eligible.take(limit.clamp(1, 4)).toList();
   }
 }

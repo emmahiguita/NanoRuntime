@@ -36,7 +36,10 @@ class _NanoMediaSheetState extends State<NanoMediaSheet> {
         children: [
           Row(
             children: [
-              Text('${_selected.length}/${items.length} seleccionados', style: t.textTheme.labelMedium),
+              Text(
+                '${_selected.length}/${items.length} seleccionados',
+                style: t.textTheme.labelMedium,
+              ),
               const Spacer(),
               TextButton(
                 onPressed: () => setState(() {
@@ -46,7 +49,9 @@ class _NanoMediaSheetState extends State<NanoMediaSheet> {
                     _selected.addAll(items);
                   }
                 }),
-                child: Text(_selected.length == items.length ? 'Limpiar' : 'Todos'),
+                child: Text(
+                  _selected.length == items.length ? 'Limpiar' : 'Todos',
+                ),
               ),
             ],
           ),
@@ -61,9 +66,18 @@ class _NanoMediaSheetState extends State<NanoMediaSheet> {
                 return CheckboxListTile(
                   dense: true,
                   value: isChecked,
-                  title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text('${item.typeLabel} · ${item.quality ?? "Original"}'),
-                  secondary: Icon(_iconFor(item.type), color: const Color(0xFF23C6C1)),
+                  title: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${item.typeLabel} · ${item.quality ?? "Original"}',
+                  ),
+                  secondary: Icon(
+                    _iconFor(item.type),
+                    color: const Color(0xFF23C6C1),
+                  ),
                   onChanged: (val) => setState(() {
                     if (val == true) {
                       _selected.add(item);

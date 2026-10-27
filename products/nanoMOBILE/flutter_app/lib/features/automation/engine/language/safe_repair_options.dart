@@ -1,13 +1,12 @@
-﻿/// Catálogo inmutable de opciones para reparación determinista de conversaciones.
+/// Catálogo inmutable de opciones para reparación determinista de conversaciones.
 ///
 /// **QUÉ HACE:**
 /// Centraliza los bancos de frases alternativas seguras con más de 10 opciones
 /// por categoría para evitar respuestas mecánicas o monótonas en turnos reparados.
 ///
 /// **CÓMO FUNCIONA:**
-/// Expone listas constantes (const List<String>) agrupadas por intención semántica
-/// (planes y actividades cotidianas, desplazamientos físicos, estado en vivo,
-/// preguntas redundantes y aperturas de cortesía).
+/// Expone listas constantes para preguntas sobre planes/actividades, desplazamientos,
+/// estado general en vivo, preguntas redundantes y aperturas de cortesía.
 ///
 /// **POR QUÉ:**
 /// Desacopla la lógica de matching de los bancos de candidatos de texto (SOLID - SRP),
@@ -15,23 +14,20 @@
 library;
 
 /// Opciones para preguntas sobre planes, actividades o qué hará el dueño.
-/// Todas admiten desconocimiento honesto y/o estar en casa para cumplir la invariante
-/// de Live State de ConversationDecisionEngine.
+/// Todas admiten honestamente el estado sin inventar compromisos ni alucinar planes.
 const List<String> safeRepairActivityOptions = [
-  'No sé, estaré en casa.',
-  'Estaré en casa, tengo cosas que hacer.',
-  'No sé, estaré en casa, tengo cosas que hacer.',
-  'No sé todavía, por ahora en casa tranquilo.',
-  'Aún no sé qué voy a hacer hoy, estaré en casa.',
-  'No sé la verdad, creo que me quedo en la casa.',
-  'Aún no sé, tengo unas cosas que hacer en casa.',
-  'Por ahora no sé, estaré en casa haciendo unas cosas.',
-  'No sé bien todavía, en la casa tengo cosas que hacer.',
-  'No estoy seguro, por ahora en la casa tranquilo.',
-  'Todavía no sé qué voy a hacer hoy, estaré en casa.',
-  'No sé, tengo cosas pendientes en la casa por hacer.',
-  'Aún no sé con certeza, por ahora estaré en casa.',
-  'No sé qué haré hoy, por ahora en casa relajado.',
+  'Todavía no sé qué hacer hoy; luego te cuento.',
+  'Aún no sé, no lo he definido; más tarde te confirmo.',
+  'No sé todavía qué plan tendré hoy.',
+  'Todavía no sé, no tengo claro qué haré hoy.',
+  'Aún no tengo certeza; cuando lo sepa te aviso.',
+  'Por ahora no lo sé con certeza.',
+  'No lo he decidido todavía, no sé qué haré.',
+  'Todavía no sé qué hacer hoy; te aviso más tarde.',
+  'Aún no sé, no tengo un plan confirmado.',
+  'No sé qué haré todavía; luego lo reviso.',
+  'Todavía no sé, no puedo confirmarte un plan.',
+  'Aún no sé, no lo tengo claro; te aviso cuando sepa.',
 ];
 
 /// Opciones para preguntas de desplazamiento físico, salidas o asistencia ("vas a ir").
@@ -96,4 +92,20 @@ const List<String> safeRepairCallCenterGreetingOptions = [
   '¡Hola! ¿Cómo andas?',
   'Buenas, ¿qué cuentas?',
   'Hola, ¿cómo va el día?',
+];
+
+/// Opciones de reparación cuando el usuario corrige ("eso no lo pregunté yo", "no pregunté eso").
+const List<String> safeRepairCorrectionOptions = [
+  '¡Uy, qué pena! Me enredé ahí. Cuéntame, ¿qué era lo que me decías?',
+  'Qué pena contigo parce, me crucé de tema. Dime qué necesitas y lo miramos.',
+  '¡Ah, disculpa! Me confundí de mensaje. Decime qué era lo que necesitabas.',
+  '¡Uy, qué pena! Respondí lo que no era. ¿En qué íbamos?',
+  'Qué pena, me embolaté con el mensaje. Cuéntame qué pasó.',
+  '¡Ah qué pena! Me crucé ahí. Dime y te pongo atención.',
+  'Disculpa la confusión, me enredé. ¿Qué era lo que me comentabas?',
+  '¡Uy qué pena contigo! Se me cruzaron los cables. Cuéntame bien.',
+  'Qué pena, leí mal el mensaje. Decime qué necesitas con calma.',
+  'Disculpa, respondí otra cosa. Dime qué era lo que me decías.',
+  '¡Uy, me equivoqué ahí! Cuéntame qué era.',
+  'Qué pena la confusión. Dime de nuevo y lo revisamos.',
 ];

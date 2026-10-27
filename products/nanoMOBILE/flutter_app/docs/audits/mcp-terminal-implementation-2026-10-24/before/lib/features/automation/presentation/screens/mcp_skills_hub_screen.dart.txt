@@ -1,0 +1,144 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/providers/settings_provider.dart';
+
+import '../../engine/agent_dependencies.dart';
+import '../../engine/mcp/mcp_store_catalog.dart';
+import '../../engine/orchestration/execution_journal.dart';
+import '../automation_visual_theme.dart';
+import '../widgets/mcp/api_provider_settings_card.dart';
+import '../widgets/mcp/mcp_graph_components.dart';
+import '../widgets/mcp/mcp_store_components.dart';
+import '../widgets/mcp/mcp_telemetry_components.dart';
+import '../widgets/mcp/mcp_tool_test_dialog.dart';
+import '../widgets/mcp/mcp_connected_servers_section.dart';
+import '../widgets/mcp/mcp_registry_catalog_section.dart';
+import 'skill_manager_screen.dart';
+import 'mcp_platform_status.dart';
+
+part 'mcp_hub_chrome.dart';
+part 'mcp_hub_refresh.dart';
+part 'mcp_hub_graph.dart';
+part 'mcp_hub_platform_nodes.dart';
+part 'mcp_hub_server_nodes.dart';
+part 'mcp_hub_graph_controls.dart';
+part 'mcp_hub_journal.dart';
+part 'mcp_hub_store.dart';
+part 'mcp_hub_store_filters.dart';
+
+/// Hub visual interactivo para conexiones, MCP y Skills de Nano AI.
+///
+/// Arquitectura limpia:
+/// 1. Tab 1 - Grafo Vivo: topología reactiva entre Core, Servidores MCP y Skills.
+/// 2. Tab 2 - Telemetría: instantánea manual del ExecutionJournal.
+/// 3. Tab 3 - Tienda & Inyección: catálogo verificado e inyector HTTP/SSE en caliente.
+class McpSkillsHubScreen extends ConsumerStatefulWidget {
+  const McpSkillsHubScreen({super.key});
+
+  @override
+  ConsumerState<McpSkillsHubScreen> createState() => _McpSkillsHubScreenState();
+}
+
+class _McpSkillsHubScreenState extends ConsumerState<McpSkillsHubScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  late final TransformationController _graphTransform;
+
+  // Estado local para telemetría
+  DateTime? _journalCapturedAt;
+  String _logFilter = 'all';
+  bool _refreshingCatalog = false;
+  bool _refreshingLogs = false;
+  List<ExecutionJournalEntry> _journalEntries = const [];
+
+  // Estado para la tienda
+  String _storeSearchQuery = '';
+  McpStoreCategory _selectedStoreCategory = McpStoreCategory.all;
+  final TextEditingController _searchController = TextEditingController();
+  final McpStoreCatalog _catalog = const McpStoreCatalog();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    _graphTransform = TransformationController();
+    _loadJournal();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _graphTransform.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadJournal() async {
+    if (!mounted || _refreshingLogs) return;
+    setState(() => _refreshingLogs = true);
+    try {
+      final journal = ref.read(executionJournalProvider);
+      final entries = await journal.all();
+      if (mounted) {
+        setState(() {
+          _journalCapturedAt = DateTime.now();
+          _journalEntries = entries.reversed.toList();
+          _refreshingLogs = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _refreshingLogs = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visualMode = AutomationVisual.modeFromSetting(
+      ref.watch(settingsProvider.select((settings) => settings.themeMode)),
+    );
+
+    return AnimatedTheme(
+      data: AutomationVisual.theme(context, mode: visualMode),
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+      child: Builder(
+        builder: (context) {
+          final visual = AutomationVisual.of(context);
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Stack(
+              fit: StackFit.expand,
+              children: [
+                const AutomationBackdrop(),
+                SafeArea(
+                  child: Column(
+                    children: [
+                      _buildHeader(context, visual),
+                      _buildTabBar(visual),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildLiveGraphTab(visual),
+                            _buildTelemetryTab(visual),
+                            _buildStoreTab(visual),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Las partes comparten un único dueño del estado y respetan su montaje.
+  void _update(VoidCallback change) {
+    if (mounted) setState(change);
+  }
+}

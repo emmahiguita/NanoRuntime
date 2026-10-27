@@ -1,42 +1,56 @@
-/// AUTOMATION-DASHBOARD — Centro de control operativo de Nano AI.
-///
-/// QUÉ HACE:
-/// Orquesta la interfaz del asistente: composer cósmico, voz push-to-talk,
-/// tareas activas y las 4 áreas unificadas (Inbox, Personal, Negocio, Sistema).
-///
-/// CÓMO FUNCIONA:
-/// Conecta [NanoInputScope] al árbol de widgets y delega en controladores modulares.
-///
-/// POR QUÉ:
-/// Cumple estrictamente con el límite de < 200 líneas garantizando alta cohesión.
+// QUÉ: dashboard operativo con entrada contextual de texto y voz.
+// CÓMO: conecta el scope y presenta estados reales; ejecución separada en un part.
+// POR QUÉ: conserva controles y recursos sin mezclar presentación y despacho.
 library;
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/providers/chat_provider.dart';
 import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/services/nano_runtime_api.dart';
 import '../../../../core/widgets/navigation/nano_universal_input.dart';
+import '../../../../core/widgets/navigation/nano_navigation_panel.dart'
+    show NanoFloatingNavigationFrame;
+import '../../../browser_ai/presentation/sheets/ai_web_sessions_sheet.dart';
+import '../whatsapp_web/whatsapp_web_screen.dart';
 import '../../application/automation_coordinator_provider.dart'
-    show pendingRepliesProvider, ruleRegistryProvider;
+    show ruleRegistryProvider;
 import '../../application/automation_diagnostics.dart';
 import '../../application/automation_engine.dart';
+import '../../application/whatsapp_ui_goal_preparer.dart';
+import '../../domain/prepared_automation_goal.dart';
+import '../../engine/planning/whatsapp_component_requests.dart';
+import '../../engine/agent_dependencies.dart' show agentExecutorProvider;
 import '../../application/automation_engine_provider.dart';
 import '../../application/automation_feedback_presenter.dart';
-import '../../application/rule_creator.dart';
 import '../../domain/automation_result.dart';
-import '../../engine/agent_dependencies.dart';
+import '../../engine/execution/agent_tool_dispatcher.dart'
+    show AgentToolDispatcher;
 import '../../engine/business/business_facts_providers.dart';
 import '../../engine/governance/action_confirmation.dart';
 import '../../engine/messaging/messaging_package.dart';
 import '../../engine/voice/voice_runtime.dart';
 import 'automation_dashboard_content.dart';
+import 'automation_input_context_controller.dart';
+import '../../application/automation_access_controller.dart';
+import '../../ledger/automation_activity_store.dart';
+import 'whatsapp_automation_menu.dart';
+import 'automation_input_menu.dart';
+import 'automation_input_attachment.dart';
+import 'automation_attachment_picker.dart';
 import 'automation_dashboard_dialogs.dart';
 import 'automation_dashboard_runner.dart';
 import 'automation_dashboard_voice.dart';
 import 'automation_dashboard_voice_controller.dart';
+import 'automation_command_feedback.dart';
 export 'automation_engine_status_provider.dart';
+part 'automation_dashboard_execution.dart';
+part 'automation_dashboard_goal_execution.dart';
+part 'automation_dashboard_view.dart';
+part 'automation_dashboard_lifecycle.dart';
+part 'automation_dashboard_input.dart';
 
 class AutomationDashboard extends ConsumerStatefulWidget {
   const AutomationDashboard({
@@ -46,21 +60,28 @@ class AutomationDashboard extends ConsumerStatefulWidget {
     this.onRulesTap,
     this.onBusinessTap,
     this.onPersonalAgentTap,
-    this.onBotStudioTap,
-    this.onSkillsMcpTap,
     this.onDevTap,
   });
 
   final VoidCallback? onSettingsTap, onMessagesTap, onRulesTap;
-  final VoidCallback? onBusinessTap, onPersonalAgentTap, onBotStudioTap;
-  final VoidCallback? onSkillsMcpTap, onDevTap;
+  // El contexto pertenece a la tarjeta: permite medir su origen, no el dashboard.
+  final ValueChanged<BuildContext>? onBusinessTap, onPersonalAgentTap;
+  final VoidCallback? onDevTap;
 
   @override
-  ConsumerState<AutomationDashboard> createState() => _AutomationDashboardState();
+  ConsumerState<AutomationDashboard> createState() =>
+      _AutomationDashboardState();
 }
 
 class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   late final AutomationVoiceController _voiceCtrl;
+  final _inputContext = AutomationInputContextController();
+  final _access = AutomationAccessController();
+  final _commandController = TextEditingController();
+  final _commandFocus = FocusNode();
+  bool _cancelRequested = false;
+  Future<void>? _inputMenu;
+  AutomationInputAttachment? _attachment;
   StreamSubscription<VoiceSessionState>? _voiceSub;
   StreamSubscription<String>? _confirmSub;
   AutomationResultStatus? _lastStatus;
@@ -70,127 +91,41 @@ class _AutomationDashboardState extends ConsumerState<AutomationDashboard> {
   String? _activeExecutionId;
   AutomationEngine? _activeEngine;
   ActionConfirmation? _lastConfirmation;
+  ({
+    String original,
+    String command,
+    String id,
+    PreparedAutomationGoal goal,
+    bool usesAttachment,
+  })?
+  _pendingGoal;
 
   @override
   void initState() {
     super.initState();
-    final vs = ref.read(chatProvider.notifier).voiceSession;
-    _voiceCtrl = AutomationVoiceController(
-      voiceSession: vs,
-      isRunning: () => _running,
-      isSensing: () => vs.state == VoiceSessionState.listening || vs.state == VoiceSessionState.processing,
-      onFeedback: (fb) { if (mounted) setState(() {}); },
-    );
-    _voiceSub = vs.states.listen((_) { if (mounted) setState(() {}); });
-    _confirmSub = NanoRuntimeApi.instance.automationConfirmationActions.listen((action) {
-      if (action == 'confirm' && mounted && !_running && _lastConfirmation != null) {
-        unawaited(_runTask(_lastGoal, confirmation: _lastConfirmation));
-      }
-    });
+    _initializeDashboard();
   }
 
   @override
   void dispose() {
-    _voiceSub?.cancel(); _confirmSub?.cancel();
+    _stopActiveTask();
+    _voiceCtrl.dispose();
+    _access.removeListener(_refreshInputContext);
+    _access.dispose();
+    _commandController.dispose();
+    _commandFocus.dispose();
+    _inputContext.removeListener(_refreshInputContext);
+    _inputContext.dispose();
+    _voiceSub?.cancel();
+    _confirmSub?.cancel();
     super.dispose();
   }
 
-  Future<AutomationResult?> _runTask(
-    String text, {
-    ActionConfirmation? confirmation,
-    bool fromVoice = false,
-    bool speakResult = true,
-  }) async {
-    final goal = text.trim();
-    if (goal.isEmpty || _running) return null;
-    final executionId = confirmation?.executionId ?? 'dash-${UniqueKey()}';
-    _activeEngine = ref.read(automationEngineProvider);
-    _activeExecutionId = executionId;
-    setState(() { _running = true; _lastGoal = goal; _lastStatus = null; _lastReason = ''; });
-
-    final result = await AutomationDashboardRunner.execute(
-      text: goal,
-      engine: _activeEngine!,
-      diagnostics: ref.read(automationDiagnosticsProvider),
-      confirmation: confirmation,
-      executionId: executionId,
-    );
-
-    if (mounted && result != null) {
-      setState(() {
-        _lastStatus = result.status;
-        _lastReason = automationUserFacingReason(result.reason);
-        _lastConfirmation = result.confirmation;
-        _running = false;
-      });
-      if (result.status == AutomationResultStatus.paused && result.confirmation != null) {
-        unawaited(NanoRuntimeApi.instance.showAutomationConfirmation());
-      }
-      if (ref.read(settingsProvider).voiceEnabled && speakResult && !isDiagCommand(goal)) {
-        await ref.read(chatProvider.notifier).voiceSession.respond(
-          AutomationDashboardRunner.spokenResult(result),
-        );
-      }
-    }
-    return result;
+  /// La extensión de ejecución solicita cambios; el State es dueño de setState.
+  void _updateExecutionState(VoidCallback update) {
+    if (mounted) setState(update);
   }
 
   @override
-  Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider);
-    final drafts = ref.watch(pendingRepliesProvider).maybeWhen(
-      data: (list) => list.where((d) => d.isActionable).length,
-      orElse: () => 0,
-    );
-    final rules = ref.watch(ruleRegistryProvider);
-    final isW4b = rules.isWhatsAppRuleActive(MessagingPackage.whatsappBusiness);
-
-    return NanoInputScope(
-      scopeId: 'automation',
-      hint: 'Describe qué quieres automatizar en Nano AI...',
-      onSubmit: (t) => _runTask(t),
-      onVoice: () => _voiceCtrl.activateVoice(onGoalRecognized: (g) => _runTask(g, fromVoice: true)),
-      onAttach: () => _voiceCtrl.observeScreen(situationSource: () => ref.read(currentSituationSourceProvider).call()),
-      isGenerating: _running,
-      onStop: _running && _activeExecutionId != null ? () => _activeEngine?.cancelExecution(_activeExecutionId!) : null,
-      child: AutomationDashboardContent(
-        settings: settings,
-        running: _running,
-        lastStatus: _lastStatus,
-        lastGoal: _lastGoal,
-        lastReason: _lastReason,
-        conversationActive: _voiceCtrl.conversationActive,
-        pendingDraftsCount: drafts,
-        rulesCount: rules.rules.where((r) => r.enabled).length,
-        businessProductsCount: ref.watch(businessFactsNotifierProvider).products.length,
-        isW4bActive: isW4b,
-        onPickMode: () => AutomationDashboardDialogs.pickMode(
-          context: context, currentMode: settings.agentAutomationMode,
-          onSelected: (m) => ref.read(settingsProvider.notifier).setAgentAutomationMode(m),
-        ),
-        onToggleVoiceOutput: () => AutomationVoiceHandler.toggleVoiceOutput(
-          settingsNotifier: ref.read(settingsProvider.notifier),
-          currentEnabled: settings.voiceEnabled, onFeedback: (_) => setState(() {}),
-        ),
-        onActivateConversation: () => _voiceCtrl.activateConversation(
-          onTurn: (t) => _runTask(t, fromVoice: true, speakResult: false),
-        ),
-        onRunTask: (goal) => _runTask(goal),
-        onConfirmTask: _lastStatus == AutomationResultStatus.paused
-            ? () => _runTask(_lastGoal, confirmation: _lastConfirmation)
-            : null,
-        onDevTap: widget.onDevTap,
-        onMessagesTap: widget.onMessagesTap,
-        onPersonalAgentTap: widget.onPersonalAgentTap,
-        onBusinessTap: widget.onBusinessTap,
-        onRulesTap: widget.onRulesTap,
-        onSettingsTap: widget.onSettingsTap,
-        onBotStudioTap: widget.onBotStudioTap,
-        onSkillsMcpTap: widget.onSkillsMcpTap,
-        onTimeRuleTap: () => AutomationDashboardDialogs.createTimeRule(
-          context: context, ruleCreator: ref.read(ruleCreatorProvider),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => _buildDashboard(context);
 }

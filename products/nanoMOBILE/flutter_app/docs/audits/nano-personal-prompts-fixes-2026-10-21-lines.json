@@ -1,0 +1,82 @@
+[
+    {
+        "path":  "lib/core/services/personal_prompt_policy.dart",
+        "lines":  17
+    },
+    {
+        "path":  "lib/core/services/personal_profile_output_guard.dart",
+        "lines":  29
+    },
+    {
+        "path":  "lib/core/services/conversation_reply_quality.dart",
+        "lines":  76
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/domain/personal_context_query.dart",
+        "lines":  7
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/domain/personal_turn_continuity.dart",
+        "lines":  34
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/domain/personal_conversation_analyzer.dart",
+        "lines":  149
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/application/persona_prompt_builder_body.part.dart",
+        "lines":  191
+    },
+    {
+        "path":  "lib/features/automation/engine/messaging/inbound_deduplicator.dart",
+        "lines":  87
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/notification_draft_writer.dart",
+        "lines":  186
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/notification_draft_writer_prompt.part.dart",
+        "lines":  169
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/notification_draft_writer_prepared.part.dart",
+        "lines":  35
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/notification_draft_writer_personal_prompt.part.dart",
+        "lines":  133
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/notification_draft_writer_capacity.part.dart",
+        "lines":  68
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/notification_draft_prompt.dart",
+        "lines":  195
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/conversation_prompt_templates.dart",
+        "lines":  149
+    },
+    {
+        "path":  "lib/features/automation/engine/conversation/conversation_reply_composer.dart",
+        "lines":  162
+    },
+    {
+        "path":  "lib/features/automation/engine/conversation/conversation_reply_flow.dart",
+        "lines":  138
+    },
+    {
+        "path":  "lib/features/automation/engine/conversation/conversation_personal_intake.dart",
+        "lines":  79
+    },
+    {
+        "path":  "lib/features/automation/engine/conversation/conversation_dialogue_evidence.dart",
+        "lines":  40
+    },
+    {
+        "path":  "lib/features/automation/engine/conversation/personal_style_formatter.dart",
+        "lines":  90
+    }
+]

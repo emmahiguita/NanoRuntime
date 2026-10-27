@@ -21,10 +21,6 @@ android {
         buildConfig = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         applicationId = "dev.nanoai.mobile"
         testInstrumentationRunner =
@@ -57,6 +53,13 @@ android {
             applicationId = "dev.nanoai.mobile"
             buildConfigField("boolean", "PLAY_STORE_BUILD", "false")
         }
+          // Flutter desinstala la app de integración al terminar. Este paquete
+          // separado impide que esa limpieza elimine los datos de Nano principal.
+          create("personalValidation") {
+              dimension = "distribution"
+              applicationId = "dev.nanoai.mobile.validation"
+              buildConfigField("boolean", "PLAY_STORE_BUILD", "false")
+          }
     }
 
     externalNativeBuild {
@@ -69,20 +72,34 @@ android {
     signingConfigs {
         create("release") {
             // Signing config lee credenciales de variables de entorno.
-            // Si no están definidas, fallback a debug keystore (solo desarrollo).
             val keystorePath = System.getenv("NANOAI_KEYSTORE")
+            val allowDebugFallback = System.getenv("NANOAI_ALLOW_DEBUG_KEYSTORE_FOR_RELEASE") == "true"
             if (keystorePath != null) {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("NANOAI_KEYSTORE_PASS")
                 keyAlias = System.getenv("NANOAI_KEY_ALIAS")
                 keyPassword = System.getenv("NANOAI_KEY_PASS")
                 println("NanoAI: release signing con keystore externo.")
-            } else {
+            } else if (allowDebugFallback) {
                 storeFile = signingConfigs.getByName("debug").storeFile
                 storePassword = signingConfigs.getByName("debug").storePassword
                 keyAlias = signingConfigs.getByName("debug").keyAlias
                 keyPassword = signingConfigs.getByName("debug").keyPassword
-                println("NanoAI: release signing con debug keystore (SOLO DESARROLLO)")
+                println("NanoAI: release signing con debug keystore explícitamente autorizado (SOLO DESARROLLO)")
+            } else {
+                // AUT-P1-14: Evitar publicar o generar artefactos release firmados con debug por error.
+                val isBuildingRelease = gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+                if (isBuildingRelease) {
+                    throw org.gradle.api.InvalidUserDataException(
+                        "NanoAI [AUT-P1-14]: No se puede construir 'release' sin NANOAI_KEYSTORE configurado. " +
+                        "Para pruebas internas locales, defina la variable NANOAI_ALLOW_DEBUG_KEYSTORE_FOR_RELEASE=true."
+                    )
+                } else {
+                    storeFile = signingConfigs.getByName("debug").storeFile
+                    storePassword = signingConfigs.getByName("debug").storePassword
+                    keyAlias = signingConfigs.getByName("debug").keyAlias
+                    keyPassword = signingConfigs.getByName("debug").keyPassword
+                }
             }
         }
     }
@@ -93,6 +110,9 @@ android {
             useLegacyPackaging = true
             // Excluye libnanortime_ffi.so (60.75 MB huérfana sin consumidor) para reducir el APK
             excludes += "**/libnanortime_ffi.so"
+            // Capa de diagnóstico Vulkan: ningún motor la necesita para inferir.
+            // No empaquetarla conserva los motores y evita 4.44 MiB comprimidos.
+            excludes += "**/libVkLayer_khronos_validation.so"
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -102,6 +122,11 @@ android {
     }
 
     buildTypes {
+        configureEach {
+            // Flutter agrega tres ABI por buildType y oculta el filtro global.
+            // Limpiarlas hace heredar arm64-v8a de defaultConfig en toda variante.
+            ndk.abiFilters.clear()
+        }
         release {
             signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
@@ -118,7 +143,20 @@ flutter {
     source = "../.."
 }
 
+// API vigente de Kotlin 2.4; mantiene el mismo bytecode Java 17.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        // Lee metadatos 2.4 de LiteRT sin cambiar las reglas del código existente.
+        languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_2_2)
+    }
+}
+
 dependencies {
+    // Client Hints de WebView: sincroniza identidad desktop para WhatsApp Web.
+    implementation("androidx.webkit:webkit:1.12.0")
+    // Motor real, fijado a una versión reproducible de Google Maven.
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.17.1")
     testImplementation("junit:junit:4.13.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
@@ -126,6 +164,9 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:image-labeling:17.0.8")
+    // Extracción local de texto para convertir catálogos PDF en propuestas
+    // revisables; el documento nunca modifica la tienda automáticamente.
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
 }

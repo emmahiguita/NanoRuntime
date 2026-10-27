@@ -16,6 +16,7 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 import '../notifications/notification_object.dart';
+import '../../domain/notification_source_fragment.dart';
 import 'conversation_key.dart';
 import 'reply_capability.dart';
 
@@ -49,6 +50,7 @@ final class IncomingMessage {
 
   /// Evidencia cruda conservada (mapa del canal nativo) para auditoría.
   final Map<String, Object?> rawEvidence;
+  final List<NotificationSourceFragment> sourceFragments;
 
   const IncomingMessage({
     required this.eventId,
@@ -61,6 +63,7 @@ final class IncomingMessage {
     required this.receivedAt,
     required this.replyCapability,
     required this.rawEvidence,
+    this.sourceFragments = const [],
   });
 
   bool get hasReplyCapability => replyCapability?.isUsable ?? false;
@@ -85,7 +88,7 @@ final class IncomingMessage {
       postTime: n.postTime,
       senderIdentity: senderIdentity,
       conversationIdentity: identity.key.conversationFingerprint,
-      text: n.interpretableText,
+      text: n.sourceText,
     );
     return IncomingMessage(
       eventId: eventId,
@@ -93,11 +96,12 @@ final class IncomingMessage {
       notificationKey: n.key,
       packageName: n.packageName,
       sender: n.sender,
-      text: n.interpretableText,
+      text: n.sourceText,
       messageTimestamp: n.messageTimestamp,
       receivedAt: n.postTime,
       replyCapability: ReplyCapabilityRef.fromNotification(n),
       rawEvidence: const {},
+      sourceFragments: n.sourceFragments,
     );
   }
 

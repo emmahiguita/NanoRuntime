@@ -20,6 +20,8 @@ abstract final class NanoRuntimeChannels {
   static const mediaCapture = 'com.nanoai/media_capture';
   static const system = 'com.nanoai/system';
   static const languageAssist = 'com.nanoai/language_assist';
+  static const performance = 'com.nanoai/performance';
+  static const thermalEvents = 'com.nanoai/thermal_events';
 }
 
 /// Resultado del handshake de runtime.
@@ -987,7 +989,10 @@ class NanoRuntimeApi {
   /// Reproduce un archivo de audio local (.opus, .m4a, .mp3, .ogg) con el MediaPlayer nativo.
   Future<bool> playAudioFile(String path) async {
     try {
-      return await _speech.invokeMethod<bool>('playAudioFile', {'path': path}) == true;
+      return await _speech.invokeMethod<bool>('playAudioFile', {
+            'path': path,
+          }) ==
+          true;
     } catch (e) {
       debugPrint('[runtime] playAudioFile error: $e');
       return false;
@@ -1007,10 +1012,28 @@ class NanoRuntimeApi {
   /// Obtiene la duración real en milisegundos de un archivo de audio local.
   Future<int> getAudioDuration(String path) async {
     try {
-      final res = await _speech.invokeMethod<int>('getAudioDuration', {'path': path});
+      final res = await _speech.invokeMethod<int>('getAudioDuration', {
+        'path': path,
+      });
       return res ?? 0;
     } catch (e) {
       return 0;
+    }
+  }
+
+  /// Convierte cualquier archivo de audio soportado (.opus, .m4a, .aac) a WAV PCM 16-bit
+  /// usando los decodificadores nativos de Android (MediaCodec).
+  Future<String?> convertAudioToWav(String inputPath, {String? outputPath}) async {
+    try {
+      final out = outputPath ?? '${inputPath}_converted.wav';
+      final res = await _speech.invokeMethod<String>('convertAudioToWav', {
+        'inputPath': inputPath,
+        'outputPath': out,
+      });
+      return res;
+    } catch (e) {
+      debugPrint('[runtime] convertAudioToWav error: $e');
+      return null;
     }
   }
 
@@ -1178,10 +1201,25 @@ class NanoRuntimeApi {
   static const EventChannel _notificationEvents = EventChannel(
     'com.nanoai/notification_events',
   );
+  // El bridge nativo admite un único EventSink por engine. El Centro de
+  // mensajes y NotificationEventRouter consumen el mismo canal, así que la
+  // suscripción de plataforma debe compartirse y hacer fan-out en Dart.
+  static final Stream<Map<dynamic, dynamic>> _notificationEventStream =
+      _notificationEvents.receiveBroadcastStream().map(
+        (e) => Map<dynamic, dynamic>.from(e as Map),
+      );
 
-  Stream<Map<dynamic, dynamic>> get notificationEvents => _notificationEvents
+  Stream<Map<dynamic, dynamic>> get notificationEvents =>
+      _notificationEventStream;
+
+  // Aísla los cambios de SQLite del canal que puede disparar automatizaciones.
+  static const EventChannel _notificationHistoryEvents = EventChannel(
+    'com.nanoai/notification_history_events',
+  );
+  Stream<int> get notificationHistoryEvents => _notificationHistoryEvents
       .receiveBroadcastStream()
-      .map((e) => Map<dynamic, dynamic>.from(e as Map));
+      .where((event) => event is int)
+      .cast<int>();
 
   /// Snapshot de notificaciones ACTIVAS del listener nativo (sin resúmenes de
   /// grupo ni notificaciones propias, ordenadas por postTime desc). Retry en

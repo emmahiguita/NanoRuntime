@@ -164,4 +164,21 @@ final class RelationshipRegister {
         '${facts['usesContactName'] == 'never' ? 'No uses el nombre al saludar.' : 'Usa el nombre solo cuando sea natural; no es obligatorio.'} '
         '${custom.length > 240 ? custom.substring(0, 240) : custom}';
   }
+
+  /// Versión breve para paquetes con KV pequeño; conserva preferencias explícitas.
+  static String compactStyleLine(Map<String, String> facts) {
+    Map<String, dynamic> tone = {};
+    try {
+      tone = jsonDecode(facts['tone'] ?? '{}') as Map<String, dynamic>;
+    } catch (_) {}
+    final formal = facts['styleRegister']?.toLowerCase() == 'formal';
+    return 'Trato ${formal ? 'formal' : 'natural'}. '
+        '${tone['verbosity'] == 'breve'
+            ? 'Breve.'
+            : tone['verbosity'] == 'extensa'
+            ? 'Detalla si hace falta.'
+            : ''} '
+        '${tone['emojis'] == true ? 'Emojis moderados.' : 'Sin emojis.'} '
+        '${facts['customStyle']?.startsWith('Responde de forma breve.') == true ? 'Breve.' : ''}';
+  }
 }

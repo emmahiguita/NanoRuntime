@@ -91,12 +91,50 @@ internal class NanoSnaptubeSniffer(private val context: Context) {
                 }
                 return super.shouldInterceptRequest(view, request)
             }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                if (!isCapturing || view == null) return
+                // Forzar reproducción silenciosa en el DOM y extraer src/og:video directo si ya existe
+                val jsProbe = """
+                    (function() {
+                        try {
+                            var videos = document.querySelectorAll('video');
+                            for (var i = 0; i < videos.length; i++) {
+                                videos[i].muted = true;
+                                var p = videos[i].play();
+                                if (p && p.catch) p.catch(function(){});
+                                if (videos[i].currentSrc && videos[i].currentSrc.indexOf('http') === 0) return videos[i].currentSrc;
+                                if (videos[i].src && videos[i].src.indexOf('http') === 0) return videos[i].src;
+                            }
+                            var srcEl = document.querySelector('video source[src^="http"]');
+                            if (srcEl) return srcEl.src;
+                            var og = document.querySelector('meta[property="og:video:secure_url"], meta[property="og:video"]');
+                            if (og && og.content && og.content.indexOf('http') === 0) return og.content;
+                        } catch (e) {}
+                        return '';
+                    })();
+                """.trimIndent()
+                view.evaluateJavascript(jsProbe) { raw ->
+                    val cleaned = raw?.trim()?.removeSurrounding("\"")?.replace("\\/", "/").orEmpty()
+                    if (isCapturing && cleaned.startsWith("http") && !cleaned.startsWith("blob:")) {
+                        isCapturing = false
+                        mainHandler.removeCallbacks(timeoutRunnable!!)
+                        wv.stopLoading()
+                        onFound(SniffedStream(cleaned, audioOnly, if (audioOnly) "audio/mp4" else "video/mp4"), null)
+                    }
+                }
+            }
         }
 
-        // Transformar URLs cortas de YouTube a m.youtube.com para carga móvil rápida
+        // Transformar URLs cortas/escritorio de YouTube y X a versión móvil para carga rápida
         val effectiveUrl = when {
             targetUrl.contains("youtu.be/") -> {
                 val id = targetUrl.substringAfter("youtu.be/").substringBefore("?")
+                "https://m.youtube.com/watch?v=$id"
+            }
+            targetUrl.contains("youtube.com/shorts/") -> {
+                val id = targetUrl.substringAfter("youtube.com/shorts/").substringBefore("?").substringBefore("/")
                 "https://m.youtube.com/watch?v=$id"
             }
             targetUrl.contains("youtube.com/watch") -> {
@@ -112,8 +150,10 @@ internal class NanoSnaptubeSniffer(private val context: Context) {
         return lower.contains("googlevideo.com/videoplayback") ||
                 lower.contains("video.twimg.com") ||
                 (lower.contains("fbcdn.net") && (lower.contains(".mp4") || lower.contains("bytestart"))) ||
-                (lower.contains("cdninstagram.com") && lower.contains(".mp4")) ||
+                (lower.contains("cdninstagram.com") && (lower.contains(".mp4") || lower.contains("bytestart"))) ||
                 lower.contains("tiktokcdn.com") ||
+                lower.contains("tiktokv.com") ||
+                lower.contains("v.redd.it") ||
                 lower.endsWith(".mp4") || lower.endsWith(".m4a") || lower.endsWith(".mp3")
     }
 

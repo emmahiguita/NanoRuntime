@@ -1,14 +1,12 @@
-/// PERSONAL STYLE FORMATTER
-///
-/// Transforma hechos crudos o información externa (Web, Catálogo, Noticias)
-/// al estilo conversacional auténtico de Emmanuel (paisa/colombiano cercano),
-/// sin sonar robótico ni como asistente de soporte.
-/// Cumple Clean Architecture, SOLID y límite de < 200 líneas.
+/// QUÉ: presenta evidencia recuperada cuando no hubo redacción del modelo.
+/// CÓMO: limpia formato, conserva contenido/atribución y devuelve un candidato.
+/// POR QUÉ: una plantilla no puede afirmar «estuve mirando» en nombre del dueño.
 library;
 
 import '../language/language_assist.dart';
 import '../notifications/conversation_understanding.dart';
 
+/// Resultado compatible con el compositor; tener texto no autoriza enviarlo.
 final class StyledResponseResult {
   final String text;
   final List<String> suggestions;
@@ -29,16 +27,10 @@ abstract interface class PersonalStyleFormatter {
   });
 }
 
+/// Conserva el contrato público; la personalización corresponde al modelo con
+/// perfil autorizado, no a introducciones elegidas por el reloj o un hash.
 final class RuntimePersonalStyleFormatter implements PersonalStyleFormatter {
   const RuntimePersonalStyleFormatter();
-
-  static const _intros = [
-    'Pillá que',
-    'Por lo que vi,',
-    'Por ahí estuve mirando y',
-    'Según estuve viendo,',
-    'Pillá, según vi:',
-  ];
 
   @override
   StyledResponseResult formatKnowledge({
@@ -46,81 +38,53 @@ final class RuntimePersonalStyleFormatter implements PersonalStyleFormatter {
     required String query,
     String? ownerName,
   }) {
-    final cleanFacts = _cleanRawFacts(rawFacts);
-
-    if (cleanFacts.isEmpty) {
-      const candidates = [
-        'La verdad no sé, tendría que mirar.',
-        'No sé, déjame ver y te digo.',
-        'No sabría decirte, no encontré nada claro.',
-        'No estoy seguro todavía, déjame ver.',
-      ];
-      final minuteSeed = (query.hashCode ^ DateTime.now().minute).abs();
-      final fallback = candidates[minuteSeed % candidates.length];
+    final cleaned = LanguageAssistService.safeCleanOutput(
+      _cleanFormat(rawFacts),
+    );
+    // No inventa incertidumbre, promesas futuras ni un resumen recortado:
+    // sin evidencia utilizable deja el turno retenido por el circuito existente.
+    final failure = cleaned.isEmpty
+        ? 'informacion_no_encontrada'
+        : cleaned.length > 2000
+        ? 'contenido_externo_demasiado_extenso'
+        : null;
+    if (failure != null) {
       return StyledResponseResult(
-        text: fallback,
-        suggestions: candidates.take(3).toList(),
+        text: '',
+        suggestions: const [],
         understanding: ConversationUnderstanding(
-          reply: fallback,
-          intent: 'knowledge_empty',
-          relation: 'responde',
-          questions: const [],
-          missingFacts: const ['informacion_no_encontrada'],
-          requiresAction: false,
+          reply: '',
+          intent: 'knowledge_unavailable',
+          missingFacts: [failure],
+          requiresAction: true,
         ),
       );
     }
 
-    // Componer respuesta en primera persona auténtica
-    final minuteSeed = (query.hashCode ^ DateTime.now().minute).abs();
-    final intro = _intros[minuteSeed % _intros.length];
-
-    // Formatear texto conciso en 1-2 frases
-    final firstSentence = cleanFacts.split(RegExp(r'(?<=[.!?])\s+')).first;
-    final formattedPrimary = '$intro $firstSentence'.trim();
-    final cleaned = LanguageAssistService.safeCleanOutput(formattedPrimary);
-
-    final suggestions = <String>[cleaned];
-
-    // Alternativas estilísticas
-    final alt1 = 'Estuve mirando y $firstSentence'.trim();
-    final cleanAlt1 = LanguageAssistService.safeCleanOutput(alt1);
-    if (!suggestions.contains(cleanAlt1)) suggestions.add(cleanAlt1);
-
-    final alt2 = cleanFacts;
-    final cleanAlt2 = LanguageAssistService.safeCleanOutput(alt2);
-    if (!suggestions.contains(cleanAlt2)) suggestions.add(cleanAlt2);
-
+    final suggestions = [cleaned];
     return StyledResponseResult(
       text: cleaned,
       suggestions: suggestions,
       understanding: ConversationUnderstanding(
         reply: cleaned,
         options: suggestions,
+        // Identificador legacy conservado para no cambiar la política de decisión.
         intent: 'external_knowledge_styled',
         relation: 'responde',
-        questions: const [],
-        missingFacts: const [],
         requiresAction: false,
       ),
     );
   }
 
-  /// Limpia citas, URLs y prefijos pesados típicos de motores de búsqueda.
-  static String _cleanRawFacts(String raw) {
-    var text = raw.trim();
-
-    // Remover encabezados markdown de búsqueda
-    text = text.replaceAll(RegExp(r'### 🌐.*?\n\n'), '');
-    text = text.replaceAll(RegExp(r'\*\*Puntos destacados:\*\*.*', dotAll: true), '');
-    text = text.replaceAll(RegExp(r'🔍 \*Fuente.*', dotAll: true), '');
-    text = text.replaceAll(RegExp(r'https?:\/\/\S+'), '');
-    text = text.replaceAll(RegExp(r'\[([^\]]+)\]\([^\)]+\)'), r'$1');
-
-    // Remover jerga formal de Wikipedia o bot
-    text = text.replaceAll(RegExp(r'^(Según Wikipedia,|Wikipedia informa que|En resumen:)\s*', caseSensitive: false), '');
-
-    text = text.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return text;
-  }
+  /// Solo retira marcadores de presentación. Conserva URLs, fuentes, negaciones
+  /// y todas las oraciones: la limpieza no demuestra que la fuente sea correcta.
+  static String _cleanFormat(String raw) => raw
+      .trim()
+      .replaceAll(RegExp(r'^#{1,6}\s*', multiLine: true), '')
+      .replaceAllMapped(
+        RegExp(r'\[([^\]]+)\]\((https?://[^\s)]+)\)'),
+        (match) => '${match.group(1)} (${match.group(2)})',
+      )
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }

@@ -1,0 +1,262 @@
+[
+  {
+    "path": "android/app/src/main/cpp/pty_session_registry.c",
+    "lines": 128,
+    "sha256": "a8d596e12d1c6aaff7662952f642d9437c0be294d483d4f000995bfcd6cb6918"
+  },
+  {
+    "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/PtyChannelHandler.kt",
+    "lines": 123,
+    "sha256": "adbdee30b96135356419509f39b5d9f60be0fba62ad69b3ef1ebcddefb82e30f"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/http_mcp_catalog.dart",
+    "lines": 82,
+    "sha256": "555f3d40723ccd4be15a971daba79230b34bda4c1d9e64d28481446fdb649e22"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/http_mcp_client.dart",
+    "lines": 95,
+    "sha256": "74124a046e5c8858f4078e3fb182f2ccfa4e443dbfaaf96acf3109cc6a0239b6"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/http_mcp_disconnect.dart",
+    "lines": 31,
+    "sha256": "5695dd240574f0119c39978e70b1f3af9ff47e390790a5b1e4b669a893242667"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/http_mcp_parser.dart",
+    "lines": 101,
+    "sha256": "759bfa9f275cc5faa9ad52d963524b804662e6f7085b44545d8f38fc0bf72ed4"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/http_mcp_session.dart",
+    "lines": 138,
+    "sha256": "ce60909c245d23109a0136e46aacf7737d3a9a63f07dff338340a8a2602d2305"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/http_mcp_tool_caller.dart",
+    "lines": 143,
+    "sha256": "256622850aa09621020301f9af66ea88b977871034278a09b7e48a8ab448b626"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/local_device_actions_schema.dart",
+    "lines": 111,
+    "sha256": "67afa793d6d3308f8300434a936fb4e4967765a9c841f142e6844af8cb3aa6b0"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/local_device_inspection.dart",
+    "lines": 106,
+    "sha256": "5640a954151b110c9c9480e902c734fd29e8da6c51b3d0768f11aad5a2332f5c"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/local_device_mcp_client.dart",
+    "lines": 111,
+    "sha256": "a1deec788bc32b98d7b70e882319ac7c51d9e43106a4dcb09d9e24cc0b29e52c"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/local_device_mobile.dart",
+    "lines": 143,
+    "sha256": "999672d8ef7e519353458bb533b5c8329d7c652145be46f08b61716a74ccad25"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/local_device_observation_schema.dart",
+    "lines": 88,
+    "sha256": "17712b7e45b4567e5288f3c289e1d74cf51141db3669a009f2df7d134c3bf7d5"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/local_device_results.dart",
+    "lines": 118,
+    "sha256": "ab91c9fdcea53fac15d63f0baa0e70259c717e3f7cdad20c0604d6f8a7742e1b"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_bounded_http.dart",
+    "lines": 111,
+    "sha256": "7a464588915e872435abba06369a695a8f9a83292f0b4daee3b82da7bca43961"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_connection_registry.dart",
+    "lines": 147,
+    "sha256": "6ff5b0e112cea106180d491c5956a5221253870e0f4c8d70db79cdd13d07035d"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_discovery_snapshot.dart",
+    "lines": 32,
+    "sha256": "9aa90b6fda73868bffb2dfa0aed3be29d48f61e6f4c1318bc6970f39413f6fbd"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_registry_discovery.dart",
+    "lines": 88,
+    "sha256": "d1c0665ad6d183938848d05e9cb9fbb415ce6e07add6043a4afbbf808c707ef9"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_chrome.dart",
+    "lines": 98,
+    "sha256": "842e4f3deedfd9e2984ca2d218186eaebd8facafb8ea4b0d3420910295090840"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_graph.dart",
+    "lines": 95,
+    "sha256": "ce08552219c6bce3184faa96f3bb58765217ef62845aa55b3b565d0578985ea4"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_graph_controls.dart",
+    "lines": 51,
+    "sha256": "f9e8236aba54369b1a081fd701bf304a7c1559579f41c5425f8f02f3b5b87401"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_journal.dart",
+    "lines": 103,
+    "sha256": "693867687519235770a9b325f51b85f312dca61f042e31a13f73d585c86cfe40"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_platform_nodes.dart",
+    "lines": 133,
+    "sha256": "e9ffb6382950ebe03c785023126fefe57e694c608426ea48dbc1c0145976ad42"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_refresh.dart",
+    "lines": 38,
+    "sha256": "d4791f4630bc1e907bd4ad0272e143f2141bd59476b76a4661ecf3b4486c18d7"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_server_nodes.dart",
+    "lines": 88,
+    "sha256": "b817d992d11368bcb319b8b964245ac88747aed8fc76026baa52bbf1ad1d7a9f"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_store.dart",
+    "lines": 128,
+    "sha256": "d403d3fb428e83f31ac07ddbe9c52ff979a127e8ce06b3ff62f31d7d7e1a6b13"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_store_filters.dart",
+    "lines": 94,
+    "sha256": "5c92906449bd43dbff1e85ed51c6c61195557667bcad15068e9b861b6b70caba"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_platform_status.dart",
+    "lines": 12,
+    "sha256": "970e8c8e91f35614acae4cb323a9a44057e344e45d5fd0ace63f1f4afa3abdda"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_graph_components.dart",
+    "lines": 163,
+    "sha256": "2d690319d61d1e0c50e2b26042615246197e4a4ccd881e3fb95f6bddf84c5751"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_graph_node_details.dart",
+    "lines": 149,
+    "sha256": "8bad9c6f91b0bab88fc2cfd5093a4255bee88500152f171d49956a390f58e58e"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_store_components.dart",
+    "lines": 136,
+    "sha256": "72a061293ea912f294740aa8de3f96467b1130a97f06d19ba8135695644470d3"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_store_connect.dart",
+    "lines": 148,
+    "sha256": "a3ceb01e85bf811cb3a6ffdfd4a6c3dda4ef79f2e5fca6d9334f8f3a394e751f"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_store_connection_operation.dart",
+    "lines": 82,
+    "sha256": "783e34e474749307d63efe22e8809a95b0141128cb26ea042a1e78f46426c8fe"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_store_form.dart",
+    "lines": 106,
+    "sha256": "d8e0374ac027d1ccd2a117fd1b41e8105f49b0be129feae04ee118eaa1f10d70"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_store_item_card.dart",
+    "lines": 159,
+    "sha256": "7bd0107011184beed4436e6c225bd2c24427b134084c31dae92259c302e2b2d6"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_store_metadata.dart",
+    "lines": 58,
+    "sha256": "7a0ff1c2731ff3512e02a88e6525f8ceb3a8d7ff674f1b416b495ac47d5c2226"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_tool_test_dialog.dart",
+    "lines": 60,
+    "sha256": "8884d7c3cae69f18184f5681c44670df1c2a523718d021ed5a62ef6fe755c0c0"
+  },
+  {
+    "path": "lib/features/chat/presentation/screens/chat_screen_layout.part.dart",
+    "lines": 142,
+    "sha256": "1fd68c9ce2d5f1d077283e2c2245a05ab02a84edf46b60329b4eb13720deed1e"
+  },
+  {
+    "path": "lib/features/chat/presentation/widgets/nano_active_model_glass_card.dart",
+    "lines": 167,
+    "sha256": "b7f40e1dc3b9a32b208ac64d9e31e69ab2c53155984469e795c5a7c698bbd185"
+  },
+  {
+    "path": "lib/features/terminal/plugins/dashboard_plugin.dart",
+    "lines": 116,
+    "sha256": "8281868157c7c69c617b069a6370f0d64f481646c9e7562d23e318338422d4cd"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_screen.dart",
+    "lines": 118,
+    "sha256": "8f7486a75ea95243acaad2f4f8fd1257e5b377fff67b0c132f2f8b65bca83131"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_screen_layout.dart",
+    "lines": 143,
+    "sha256": "0131deef9f29963f2db0646fb0425cd308dada7cdc4cc530c406a28354f1370c"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_screen_sessions.dart",
+    "lines": 103,
+    "sha256": "c9cbcea447c6e9f0189f8435f5cb5bcab611b5d9dc91f3061413e9c3ab4ee0e4"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_card.dart",
+    "lines": 149,
+    "sha256": "4c486f8971f0a6c0a382277892101b695252051d5d64bf8849e4efef3fe5ae9d"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_detail_content.dart",
+    "lines": 101,
+    "sha256": "e770be0c591f57225ed4bb2ff758101eedf271b35a88a9c1fad39197cc69e629"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_detail_heading.dart",
+    "lines": 66,
+    "sha256": "af6d6e28201357a0eeba29019ab3d29b1985a4e6dab1d63650f302e7cfdbe336"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_detail_landscape.dart",
+    "lines": 77,
+    "sha256": "9e400de962113116589f14b82d08d0d60dc69e57ce5d1906a5e558b4731eb612"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_detail_landscape_info.dart",
+    "lines": 104,
+    "sha256": "41c79f442ac76569f73d0e01ef2388b7b10845c151ff9c49201818ca773b3730"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_detail_portrait.dart",
+    "lines": 69,
+    "sha256": "180b64da054434d495cc93d9a2f52759303dea1d19157a993ec6eaa63344d440"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_detail_screen.dart",
+    "lines": 100,
+    "sha256": "59b30e09ffc9df61b71a448f7dc79db5908516b4140070500abf84bdfedd57e7"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_detail_tags.dart",
+    "lines": 99,
+    "sha256": "226442fa210aff9ca336eb873d81a8abd73d29b5bcb221d7964021d0bda722de"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_small.dart",
+    "lines": 169,
+    "sha256": "91940be7f64f570f341ee7c42ee34a358f4a7feebcf221f5d993a733a7d3de10"
+  }
+]

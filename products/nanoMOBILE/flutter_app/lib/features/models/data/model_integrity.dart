@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:crypto/crypto.dart' as crypto;
 
@@ -55,8 +56,15 @@ abstract final class ModelIntegrity {
     }
   }
 
-  static Future<String> sha256Of(File artifact) async =>
-      (await crypto.sha256.bind(artifact.openRead()).first).toString();
+  // Calcula el hash fuera del isolate visual: verificar GB no debe congelar la UI.
+  // Solo cruza la ruta; el lector usa stream para no cargar los pesos en RAM.
+  static Future<String> sha256Of(File artifact) {
+    final path = artifact.path;
+    return Isolate.run(
+      () async =>
+          (await crypto.sha256.bind(File(path).openRead()).first).toString(),
+    );
+  }
 
   static Future<void> writeManifest(File artifact, String sha256) async {
     final manifest = manifestFor(artifact);

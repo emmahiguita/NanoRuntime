@@ -1,29 +1,18 @@
-/// NANO-PERSONAL-IDENTITY-TAB — Pestaña de Identidad del Agente Personal.
-///
-/// QUÉ HACE:
-/// Permite editar los datos de identidad de Emmanuel (nombre, descripción,
-/// estilo de trato cercano/formal, emojis y retardo humano de respuesta).
-///
-/// CÓMO FUNCIONA:
-/// Lee y persiste en [PersonaRepository] durable en SQLite (clave 'owner')
-/// y sincroniza con [toneProfileNotifierProvider].
-///
-/// POR QUÉ:
-/// Ofrece una configuración limpia y sin tecnicismos para que Nano
-/// sepa a quién representa y cómo debe expresarse.
-library;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../engine/messaging/tone_profile.dart';
 import '../../engine/messaging/tone_profile_providers.dart';
+import '../../personal_agent/application/persona_context.dart';
 import '../../personal_agent/application/persona_repository.dart';
-import '../automation_visual_theme.dart';
-import '../widgets/settings_tile_components.dart';
+import '../../personal_agent/application/personal_owner_profile_editor.dart';
+import 'nano_personal_agenda_card.dart';
+import 'nano_personal_style_card.dart';
+import 'nano_personal_owner_context_card.dart';
+import 'adaptive_personal_fields.dart';
 
+/// Identidad y agenda reales; las conexiones se administran fuera de esta pestaña.
 class NanoPersonalIdentityTab extends ConsumerStatefulWidget {
   const NanoPersonalIdentityTab({super.key});
-
   @override
   ConsumerState<NanoPersonalIdentityTab> createState() =>
       _NanoPersonalIdentityTabState();
@@ -31,159 +20,146 @@ class NanoPersonalIdentityTab extends ConsumerStatefulWidget {
 
 class _NanoPersonalIdentityTabState
     extends ConsumerState<NanoPersonalIdentityTab> {
-  final _nameController = TextEditingController();
-  final _descController = TextEditingController();
-  bool _loading = true;
-
+  final _name = TextEditingController(),
+      _nickname = TextEditingController(),
+      _occupation = TextEditingController(),
+      _groupMentions = TextEditingController(),
+      _notes = TextEditingController();
+  bool _loading = true, _saving = false, _loadFailed = false;
+  String? _status;
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _load();
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _descController.dispose();
+    for (final c in [_name, _nickname, _occupation, _notes, _groupMentions]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _load() async {
     try {
-      final personas = await PersonaRepository.instance.listPersonas();
-      final owner = personas.where((p) => p.personaKey == 'owner').firstOrNull;
+      final owners = await PersonaRepository.instance.listPersonas(
+        rethrowFailures: true,
+      );
       if (!mounted) return;
+      final owner = owners.where((p) => p.personaKey == 'owner').firstOrNull;
       setState(() {
-        _nameController.text = owner?.displayName ?? 'Emmanuel';
-        _descController.text = owner?.facts['notas'] ?? '';
+        _name.text = owner?.displayName ?? '';
+        _nickname.text = owner?.facts['nickname'] ?? '';
+        _occupation.text = owner?.facts['occupation'] ?? '';
+        _groupMentions.text = owner?.facts['groupMentionAliases'] ?? '';
+        _notes.text = owner?.facts['notas'] ?? '';
         _loading = false;
+        _loadFailed = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadFailed = true;
+        });
+      }
     }
   }
 
-  Future<void> _saveData() async {
-    final name = _nameController.text.trim();
-    final desc = _descController.text.trim();
-    await PersonaRepository.instance.upsertPersona('owner', name, {
-      'notas': desc,
-      'identidad': 'Dueño de Nano AI',
-    });
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Identidad personal guardada.'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      await PersonalOwnerProfileEditor.update({
+        'nickname': _nickname.text.trim(),
+        'occupation': _occupation.text.trim(),
+        'groupMentionAliases': _groupMentions.text.trim(),
+        'notas': _notes.text.trim(),
+      }, name: _name.text.trim());
+      await ref.read(personaContextProvider).refresh();
+      if (mounted) setState(() => _status = 'Identidad guardada.');
+    } catch (_) {
+      if (mounted) setState(() => _status = 'No se pudo guardar la identidad.');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
+  Future<void> _tone(ToneProfile value) async {
+    try {
+      await ref
+          .read(toneProfileNotifierProvider.notifier)
+          .update(value.copyWith(enabled: true));
+      await ref.read(personaContextProvider).refresh();
+    } catch (_) {
+      if (mounted) setState(() => _status = 'No se pudo guardar el estilo.');
+    }
+  }
+
+  Widget _field(
+    TextEditingController controller,
+    String label,
+    int length, {
+    int lines = 1,
+  }) => TextField(
+    controller: controller,
+    enabled: !_saving,
+    maxLength: length,
+    maxLines: lines,
+    decoration: InputDecoration(labelText: label),
+  );
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loadFailed) {
+      return Center(
+        child: TextButton(
+          onPressed: _load,
+          child: const Text('No se pudo cargar. Reintentar'),
+        ),
+      );
     }
-
-    final visual = AutomationVisual.of(context);
     final tone = ref.watch(toneProfileNotifierProvider);
-    final toneNotifier = ref.read(toneProfileNotifierProvider.notifier);
-
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       children: [
-        const AutomationSectionLabel('Información del Dueño'),
-        SettingsCard(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: TextField(
-                controller: _nameController,
-                style: TextStyle(color: visual.text, fontSize: 14),
-                decoration: InputDecoration(
-                  labelText: 'Tu nombre o apodo',
-                  labelStyle: TextStyle(color: visual.textMuted),
-                  border: InputBorder.none,
+        Card.filled(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                AdaptivePersonalFields(
+                  children: [
+                    _field(_name, 'Nombre', 100),
+                    _field(_nickname, 'Apodo', 60),
+                    _field(_occupation, 'Empleo u ocupación', 100),
+                    _field(_notes, 'Descripción personal', 1000, lines: 3),
+                  ],
                 ),
-                onSubmitted: (_) => _saveData(),
-              ),
-            ),
-            const Divider(height: 1, thickness: 0.5),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: TextField(
-                controller: _descController,
-                maxLines: 2,
-                style: TextStyle(color: visual.text, fontSize: 13),
-                decoration: InputDecoration(
-                  labelText: 'Descripción personal (ocupación, contexto)',
-                  hintText: 'Ej. Ingeniero de software, trabajo en tecnología...',
-                  labelStyle: TextStyle(color: visual.textMuted),
-                  hintStyle: TextStyle(color: visual.textMuted.withValues(alpha: 0.5)),
-                  border: InputBorder.none,
+                _field(
+                  _groupMentions,
+                  'Otras etiquetas para mencionarme en grupos',
+                  320,
                 ),
-                onSubmitted: (_) => _saveData(),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        const AutomationSectionLabel('Trato y Estilo de Escritura'),
-        SettingsCard(
-          children: [
-            SettingsRow(
-              icon: Icons.record_voice_over_outlined,
-              title: 'Trato a personas conocidas',
-              subtitle: tone.warmth == ToneWarmth.cercano
-                  ? 'Cercano y natural (tuteo amigable)'
-                  : 'Formal y reservado (usted)',
-              trailing: ValueBadge(
-                label: tone.warmth == ToneWarmth.cercano ? 'CERCANO' : 'FORMAL',
-              ),
-              onTap: () => toneNotifier.update(
-                tone.copyWith(
-                  enabled: true,
-                  warmth: tone.warmth == ToneWarmth.cercano
-                      ? ToneWarmth.formal
-                      : ToneWarmth.cercano,
+                const Text(
+                  'En grupos, Nano solo responde a @tu nombre, @tu apodo '
+                  'o estas etiquetas. Añade el nombre o número que aparece '
+                  'al etiquetarte, separado por comas. Los chats privados siguen igual.',
                 ),
-              ),
-            ),
-            SettingsRow(
-              icon: Icons.emoji_emotions_outlined,
-              title: 'Uso de emojis',
-              subtitle: tone.emojis
-                  ? 'Permitidos según tu estilo natural'
-                  : 'Desactivados (solo texto plano)',
-              trailing: Switch(
-                value: tone.emojis,
-                onChanged: (v) => toneNotifier.update(
-                  tone.copyWith(enabled: true, emojis: v),
+                FilledButton.icon(
+                  onPressed: _saving ? null : _save,
+                  icon: const Icon(Icons.save_outlined),
+                  label: Text(_saving ? 'Guardando…' : 'Guardar identidad'),
                 ),
-              ),
-              showChevron: false,
-            ),
-            const SettingsRow(
-              icon: Icons.timer_outlined,
-              title: 'Retardo de respuesta humano',
-              subtitle: 'Espera entre 4 y 12 segundos para simular tipeo real.',
-              trailing: ValueBadge(label: '8 SEG'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: _saveData,
-          icon: const Icon(Icons.check_rounded, size: 18),
-          label: const Text('Guardar Identidad'),
-          style: FilledButton.styleFrom(
-            backgroundColor: visual.accent,
-            foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+                if (_status != null) Text(_status!),
+              ],
             ),
           ),
         ),
+        NanoPersonalStyleCard(tone: tone, onChanged: _tone),
+        const NanoPersonalAgendaCard(),
+        const NanoPersonalOwnerContextCard(),
       ],
     );
   }

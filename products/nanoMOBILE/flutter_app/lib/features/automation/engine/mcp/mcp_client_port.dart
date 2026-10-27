@@ -6,6 +6,7 @@
 library;
 
 enum McpTransportKind {
+  inProcess,
   streamableHttp,
   sse,
   stdio,
@@ -23,6 +24,17 @@ enum McpOperationStatus {
   timeout,
   cancelled,
   failed,
+}
+
+/// A safe, user-facing failure while discovering a server's tool catalogue.
+/// The message deliberately excludes endpoint URLs, credentials and bodies.
+class McpDiscoveryException implements Exception {
+  const McpDiscoveryException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }
 
 class McpServerDescriptor {

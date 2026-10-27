@@ -263,9 +263,7 @@ class _CapRow extends StatelessWidget {
               decoration: BoxDecoration(
                 color: chipColor.withValues(alpha: 0.16),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: chipColor.withValues(alpha: 0.40),
-                ),
+                border: Border.all(color: chipColor.withValues(alpha: 0.40)),
                 boxShadow: [
                   BoxShadow(
                     color: chipColor.withValues(alpha: 0.14),
@@ -280,9 +278,9 @@ class _CapRow extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     chipLabel,
-                    style: NanoType.label(chipColor).copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: NanoType.label(
+                      chipColor,
+                    ).copyWith(fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -293,9 +291,7 @@ class _CapRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: chipColor.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: chipColor.withValues(alpha: 0.25),
-              ),
+              border: Border.all(color: chipColor.withValues(alpha: 0.25)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -304,9 +300,9 @@ class _CapRow extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   chipLabel,
-                  style: NanoType.label(chipColor).copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: NanoType.label(
+                    chipColor,
+                  ).copyWith(fontWeight: FontWeight.w600),
                 ),
               ],
             ),

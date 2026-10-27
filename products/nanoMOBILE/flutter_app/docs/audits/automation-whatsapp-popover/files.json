@@ -1,0 +1,72 @@
+[
+  {
+    "path": "lib/core/widgets/nano_anchored_popover.dart",
+    "lines": 154,
+    "sha256": "e5285b6bc7f84bdccb29bb94ce3a798adfabaa8d57803410327be98bc86e068a"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_input_tool_controls.dart",
+    "lines": 61,
+    "sha256": "9c114a3345a1c6dd1a6d90378298b688c9ca93e4a727a2784e461dd207189035"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_command_launcher.dart",
+    "lines": 63,
+    "sha256": "602acbeca0235faa4b4ed83e694de29fa3236a3570ac055ce374acdb828f35d9"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_bottom_dock.dart",
+    "lines": 173,
+    "sha256": "7659a59b5dfdea27dfc2de8d8d58a7e969699a9b0154ea5daf4876a33780283f"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_nav_search_input_row.dart",
+    "lines": 147,
+    "sha256": "764cd96866296951163ec75cdba3311c55412fa3a3c4fccc9be7179fa67cb6c4"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_input_tool_header.dart",
+    "lines": 63,
+    "sha256": "e455c6cd9588e317a52669831f41060e42804b45aac8b89f92550aa3ceb28dd6"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_input_context_bar.dart",
+    "lines": 38,
+    "sha256": "9d46e5225f22e98085db556c2eca37cb9fb3a3cb02269d1c3c28a5bdf8af735f"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/whatsapp_automation_menu.dart",
+    "lines": 35,
+    "sha256": "12938c05ff8cc5021bdb554924a230bcdd12474f7953c329090427c97a6170fc"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/whatsapp_automation_menu_state.dart",
+    "lines": 95,
+    "sha256": "2650db0ef27c884da443844e7b57e0d51bf831227efb859a96c8aed78f8a902b"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/whatsapp_automation_menu_view.dart",
+    "lines": 147,
+    "sha256": "3811eea949d0700cabde94f26ef7147805cb72e867663cb5234d6045db11bfca"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/automation_dashboard.dart",
+    "lines": 190,
+    "sha256": "4176de5c414ec2ada51ad020f2a08ebc9b5bafb39aa3620a5f5150d5693cc00e"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/automation_dashboard_lifecycle.dart",
+    "lines": 67,
+    "sha256": "89cf142ee41320d3fe421cfc5b26c9d3777c902bc8c0cea9cf93ea21eaab1c33"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/automation_dashboard_content.dart",
+    "lines": 162,
+    "sha256": "3508d04fac8b15a0a20f839679808aa2ffd6a5fc41d9eb27c54e6c95e662eeaf"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/automation_compact_status.dart",
+    "lines": 89,
+    "sha256": "9f585f722f1a45a80815b08a4aa62832f14888ec7911372bf455ed673b5aac0a"
+  }
+]

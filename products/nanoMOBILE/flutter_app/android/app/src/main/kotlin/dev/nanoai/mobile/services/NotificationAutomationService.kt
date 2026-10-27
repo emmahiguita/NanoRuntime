@@ -14,36 +14,83 @@ import dev.nanoai.mobile.automation.AutomationRuntimeService
 import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
 import java.util.Locale
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
-import android.graphics.drawable.Icon
 import java.io.File
 import java.io.FileOutputStream
 
 /**
- * Listener local de notificaciones. WA-PROD-01: persiste SOLO la identidad
- * del evento (package + notificationKey + tiempos) en el DurableInbox; el
- * CONTENIDO nunca se persiste ni se envía por red — se rehidrata de las
- * notificaciones activas que Android ya entregó al proceso al momento de
- * procesar. Responde mediante la acción RemoteInput de la app origen.
+ * Listener local: conserva un historial acotado de texto que Android expone,
+ * dentro de SQLite local. El historial no sale del dispositivo; las respuestas
+ * siguen usando RemoteInput de la aplicación de origen.
  */
 class NotificationAutomationService : NotificationListenerService() {
+    // Android adjunta el contexto después del constructor; crear el capturador antes causaba crash.
+    private lateinit var historyCapture: NotificationHistoryCapture
+
+    override fun onCreate() {
+        super.onCreate()
+        historyCapture = NotificationHistoryCapture(this)
+    }
+
+    private val replyAttemptLedger by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        val preferences = getSharedPreferences(REPLY_ATTEMPT_PREFS, Context.MODE_PRIVATE)
+        ReplyAttemptLedger(
+            readEntries = {
+                preferences.getStringSet(REPLY_ATTEMPT_IDS, emptySet()).orEmpty().toSet()
+            },
+            writeEntries = { entries ->
+                preferences.edit().putStringSet(REPLY_ATTEMPT_IDS, entries.toSet()).commit()
+            },
+        )
+    }
+
+    // QUÉ HACE: Lee activeNotifications capturando SecurityException y excepciones del sistema.
+    // CÓMO FUNCIONA: En reconexiones rápidas, el binder del NotificationListenerService puede no estar 
+    //               listo, lanzando SecurityException. Retornar emptyArray() previene el crash de la app.
+    // POR QUÉ: Evita cierres de la app en segundo plano y tormentas de reconexión cíclica.
+    private fun getSafeActiveNotifications(): Array<StatusBarNotification> {
+        return try {
+            activeNotifications ?: emptyArray()
+        } catch (e: SecurityException) {
+            android.util.Log.w("NanoNotifications", "SecurityException reading activeNotifications: ${e.message}")
+            emptyArray()
+        } catch (e: Exception) {
+            android.util.Log.w("NanoNotifications", "Error reading activeNotifications: ${e.message}")
+            emptyArray()
+        }
+    }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
         NotificationAutomationBridge.service = this
-        if (NanoApplication.from(this).durableInbox.pendingCount() > 0 &&
-            AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) {
+        // Android vuelve a entregar notificaciones activas al conectar el listener; se importan sin inventar chats.
+        getSafeActiveNotifications()
+            .filter { WhatsAppConversationNotificationClassifier.allows(it) }
+            .forEach(historyCapture::capture)
+        val pending = NanoApplication.from(this).durableInbox.pendingCount()
+        NotificationEventTrace.lifecycle("connected", pending)
+        if (pending > 0 && AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) {
             AutomationRuntimeService.request(this, "nls_reconnect")
         }
     }
 
+    // QUÉ: Limpia el bridge y solicita reconexión al sistema.
+    // CÓMO: super.onListenerDisconnected() PRIMERO para completar el lifecycle del sistema.
+    //       Luego nulificar el bridge y pedir rebind protegido contra excepciones del sistema.
+    // POR QUÉ (BUG-06): requestRebind antes de super puede fallar porque el
+    //       NotificationListenerService no ha completado su desconexión interna.
     override fun onListenerDisconnected() {
-        NotificationAutomationBridge.service = null
-        requestRebind(ComponentName(this, NotificationAutomationService::class.java))
         super.onListenerDisconnected()
+        NotificationAutomationBridge.service = null
+        NotificationEventTrace.lifecycle("disconnected")
+        try {
+            requestRebind(ComponentName(this, NotificationAutomationService::class.java))
+        } catch (e: Exception) {
+            android.util.Log.w("NanoNotifications", "requestRebind safely caught: ${e.message}")
+        }
     }
 
     override fun onDestroy() {
+        historyCapture.close()
         if (NotificationAutomationBridge.service === this) {
             NotificationAutomationBridge.service = null
         }
@@ -63,27 +110,126 @@ class NotificationAutomationService : NotificationListenerService() {
         super.onNotificationPosted(sbn)
         if (sbn == null) return
         if (sbn.packageName == packageName) return
-        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
+        val conversationalPackage = sbn.packageName in setOf(
+            "com.whatsapp",
+            "com.whatsapp.w4b",
+            "com.telegram.messenger",
+            "org.telegram.messenger",
+        )
+        if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) {
+            if (conversationalPackage) {
+                NotificationEventTrace.event(
+                    "admission", sbn.packageName, sbn.postTime, "rejected", "group_summary",
+                )
+            }
+            return
+        }
+
+        // WA-ADMISSION-01: estados, reacciones y avisos de servicio mueren
+        // antes del inbox durable; así nunca despiertan ni crean un chat.
+        val conversationEvidence = WhatsAppConversationNotificationClassifier.inspect(sbn)
+        val traceEvent = conversationalPackage || conversationEvidence.applies
+        if (traceEvent) {
+            NotificationEventTrace.event(
+                "callback", sbn.packageName, sbn.postTime, "received",
+                "conversation=${conversationEvidence.isConversationEvent}",
+            )
+        }
+        if (conversationEvidence.applies && !conversationEvidence.isConversationEvent) {
+            NotificationEventTrace.event(
+                "admission", sbn.packageName, sbn.postTime, "rejected",
+                conversationEvidence.reason,
+            )
+            android.util.Log.d(
+                "NanoNotifications",
+                "Conversation event rejected: ${conversationEvidence.reason}",
+            )
+            return
+        }
+
+        // El archivo usa solo datos visibles en la notificación y sigue activo aunque Nano esté cerrada.
+        historyCapture.capture(sbn)
 
         val sink = NotificationAutomationBridge.notificationEventsSink
-        if (sink == null && !AutomationBackgroundChannelHandler.isBackgroundEnabled(this)) return
+        val backgroundEnabled = AutomationBackgroundChannelHandler.isBackgroundEnabled(this)
+        if (sink == null && !backgroundEnabled) {
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "admission", sbn.packageName, sbn.postTime, "rejected", "background_disabled",
+                )
+            }
+            return
+        }
 
         // NATIVE-ADMISSION-01: Si no hay sink UI vivo, verificar que el paquete tenga reglas
         // activas antes de persistir en DurableInbox o despertar el runtime headless.
         if (sink == null && !isPackageEligible(sbn.packageName)) {
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "admission", sbn.packageName, sbn.postTime, "rejected", "package_not_eligible",
+                )
+            }
             android.util.Log.d("NanoNotifications", "Skipping background wake for non-automated package: ${sbn.packageName}")
             return
         }
 
         try {
             NanoApplication.from(this).durableInbox.insert(sbn.packageName, sbn.key, sbn.postTime)
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "durable_inbox", sbn.packageName, sbn.postTime, "stored",
+                    if (sink == null) "route=background" else "route=ui",
+                )
+            }
         } catch (error: Exception) {
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "durable_inbox", sbn.packageName, sbn.postTime, "failed",
+                    error.javaClass.simpleName,
+                )
+            }
             android.util.Log.e("NanoNotifications", "Inbox persistence failed; delivery deferred", error)
             return
         }
+        // QUÉ HACE: Despacha el evento al engine Flutter en el hilo principal de Android.
+        // CÓMO FUNCIONA: Usa Handler(Looper.getMainLooper()) para cumplir la invariante de @UiThread de EventChannel.
+        // POR QUÉ: Evita caídas silenciosas o IllegalStateException cuando NLS recibe en binder thread.
         if (sink != null) {
-            sink.success(toMap(sbn))
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                try {
+                    val currentSink = NotificationAutomationBridge.notificationEventsSink
+                    if (currentSink != null) {
+                        currentSink.success(toMap(sbn))
+                        if (traceEvent) {
+                            NotificationEventTrace.event(
+                                "event_channel", sbn.packageName, sbn.postTime, "submitted",
+                            )
+                        }
+                    } else {
+                        if (traceEvent) {
+                            NotificationEventTrace.event(
+                                "event_channel", sbn.packageName, sbn.postTime, "sink_missing",
+                            )
+                        }
+                        AutomationRuntimeService.request(this@NotificationAutomationService)
+                    }
+                } catch (e: Exception) {
+                    if (traceEvent) {
+                        NotificationEventTrace.event(
+                            "event_channel", sbn.packageName, sbn.postTime, "failed",
+                            e.javaClass.simpleName,
+                        )
+                    }
+                    android.util.Log.e("NanoNotifications", "Event delivery via sink failed; requesting background runtime", e)
+                    AutomationRuntimeService.request(this@NotificationAutomationService)
+                }
+            }
         } else {
+            if (traceEvent) {
+                NotificationEventTrace.event(
+                    "background_runtime", sbn.packageName, sbn.postTime, "requested",
+                )
+            }
             AutomationRuntimeService.request(this)
         }
     }
@@ -109,7 +255,8 @@ class NotificationAutomationService : NotificationListenerService() {
             val raw = prefs.getString("flutter.automation.eligible_packages", null)
             if (raw == null) {
                 pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" ||
-                    pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger"
+                    pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger" ||
+                    pkg == "org.telegram.plus" || pkg == "com.instagram.android"
             } else if (raw == "*" || raw.contains("*")) {
                 true
             } else {
@@ -118,15 +265,17 @@ class NotificationAutomationService : NotificationListenerService() {
             }
         } catch (e: Exception) {
             pkg == "com.whatsapp" || pkg == "com.whatsapp.w4b" ||
-                pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger"
+                pkg == "org.telegram.messenger" || pkg == "com.telegram.messenger" ||
+                pkg == "org.telegram.plus" || pkg == "com.instagram.android"
         }
     }
 
     fun snapshot(limit: Int = 30): List<Map<String, Any?>> =
-        (activeNotifications ?: emptyArray())
+        getSafeActiveNotifications()
             .asSequence()
             .filter { it.packageName != packageName }
             .filterNot { it.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0 }
+            .filter(WhatsAppConversationNotificationClassifier::allows)
             .sortedByDescending(StatusBarNotification::getPostTime)
             .take(limit.coerceIn(1, MAX_NOTIFICATIONS))
             .map(::toMap)
@@ -136,8 +285,10 @@ class NotificationAutomationService : NotificationListenerService() {
      *  el mapa del evento SOLO si la notificación sigue activa (sin contenido
      *  persistido no hay otra fuente honesta). */
     fun byKey(key: String): Map<String, Any?>? =
-        (activeNotifications ?: emptyArray())
-            .firstOrNull { it.key == key }
+        getSafeActiveNotifications()
+            .firstOrNull {
+                it.key == key && WhatsAppConversationNotificationClassifier.allows(it)
+            }
             ?.let(::toMap)
 
     /**
@@ -161,18 +312,21 @@ class NotificationAutomationService : NotificationListenerService() {
         expectedRemoteInputKey: String = "",
         expectedContextFingerprint: String = "",
         expectedPostTime: Long = 0L,
+        attemptNonce: String = java.util.UUID.randomUUID().toString(),
     ): ReplyResult {
         val cleanText = text.trim()
         if (cleanText.isEmpty() || cleanText.length > MAX_REPLY_CHARS) {
             return ReplyResult(false, "INVALID_TEXT")
         }
-        val source = (activeNotifications ?: emptyArray()).firstOrNull { it.key == key }
-            ?: return ReplyResult(false, "NOTIFICATION_GONE")
-
-        // WA-TOCTOU: si el postTime cambió, WhatsApp actualizó la notificación a un
-        // turno nuevo dentro del mismo chat; responder con el borrador viejo es stale.
-        if (expectedPostTime > 0L && source.postTime != expectedPostTime) {
-            return ReplyResult(false, "CONTEXT_CHANGED")
+        val safeActive = getSafeActiveNotifications()
+        var source = safeActive.firstOrNull { it.key == key }
+        if (source == null && expectedContextFingerprint.isNotEmpty()) {
+            source = safeActive.firstOrNull {
+                contextFingerprint(it.notification) == expectedContextFingerprint
+            }
+        }
+        if (source == null) {
+            return ReplyResult(false, "NOTIFICATION_GONE")
         }
 
         val notification = source.notification
@@ -181,12 +335,21 @@ class NotificationAutomationService : NotificationListenerService() {
         val remoteInputs = textRemoteInputs(action)
         if (remoteInputs.isEmpty()) return ReplyResult(false, "REPLY_UNAVAILABLE")
 
+        val currentFingerprint = contextFingerprint(notification)
+        if (expectedContextFingerprint.isNotEmpty() &&
+            currentFingerprint != expectedContextFingerprint
+        ) {
+            return ReplyResult(false, "CONTEXT_CHANGED")
+        }
+
+        // Si no se proporcionó contextFingerprint, aplicamos chequeo estricto de postTime
+        if (expectedContextFingerprint.isEmpty() && expectedPostTime > 0L && source.postTime != expectedPostTime) {
+            return ReplyResult(false, "CONTEXT_CHANGED")
+        }
+
         // WA-RI-05: exigir la MISMA capacidad observada (índice, resultKey y
         // contexto de conversación), no "cualquier acción con RemoteInput".
         val currentActionIndex = notification.actions?.indexOf(action) ?: -1
-        if (expectedActionIndex >= 0 && currentActionIndex != expectedActionIndex) {
-            return ReplyResult(false, "CONTEXT_CHANGED")
-        }
         val currentRemoteInputKey = remoteInputs
             .firstOrNull(RemoteInput::getAllowFreeFormInput)
             ?.resultKey
@@ -196,117 +359,51 @@ class NotificationAutomationService : NotificationListenerService() {
         ) {
             return ReplyResult(false, "CONTEXT_CHANGED")
         }
-        val currentFingerprint = contextFingerprint(notification)
-        if (expectedContextFingerprint.isNotEmpty() &&
-            currentFingerprint != expectedContextFingerprint
-        ) {
-            return ReplyResult(false, "CONTEXT_CHANGED")
+
+        // The nonce scopes the durable guard to this send, not the notification:
+        // WhatsApp can keep one notification revision active for several replies.
+        val attemptId = replyAttemptId(
+            notificationKey = source.key,
+            notificationRevision = source.postTime,
+            actionIndex = currentActionIndex,
+            remoteInputKey = currentRemoteInputKey,
+            contextFingerprint = currentFingerprint,
+            attemptNonce = attemptNonce,
+        )
+        when (replyAttemptLedger.reserve(attemptId)) {
+            ReplyAttemptLedger.Reservation.DUPLICATE -> {
+                android.util.Log.i(
+                    "NanoNotifications",
+                    "Duplicate RemoteInput dispatch suppressed",
+                )
+                return ReplyResult(false, "DUPLICATE_SUPPRESSED")
+            }
+            ReplyAttemptLedger.Reservation.PERSISTENCE_FAILED -> {
+                android.util.Log.e(
+                    "NanoNotifications",
+                    "Reply idempotency reservation unavailable; dispatch blocked",
+                )
+                return ReplyResult(false, "REPLY_GUARD_UNAVAILABLE")
+            }
+            ReplyAttemptLedger.Reservation.RESERVED -> Unit
         }
 
         val dispatch = RemoteInputReplySender.send(this, action, cleanText)
+        if (!dispatch.ok) {
+            // Android explicitly rejected/canceled the PendingIntent; no send
+            // occurred, so a later attempt against this same capability is safe.
+            replyAttemptLedger.release(attemptId)
+        }
         // PendingIntent.send sin excepción prueba que Android entregó la
         // acción a la app origen; no demuestra lectura del destinatario.
         return ReplyResult(dispatch.ok, dispatch.code)
     }
 
-    private fun extractAndSaveImage(extras: android.os.Bundle?, messages: List<MessagingStyle.Message>?, postTime: Long): String? {
-        if (extras == null) return null
-        return try {
-            var bitmap: Bitmap? = extras.get(Notification.EXTRA_PICTURE) as? Bitmap
-                ?: (extras.getParcelable("android.picture") as? Bitmap)
-            if (bitmap == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                val icon = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    extras.getParcelable(Notification.EXTRA_PICTURE_ICON) as? Icon
-                } else null
-                    ?: (extras.getParcelable(Notification.EXTRA_LARGE_ICON) as? Icon)
-                if (icon != null) {
-                    val drawable = icon.loadDrawable(this)
-                    if (drawable is BitmapDrawable) {
-                        bitmap = drawable.bitmap
-                    }
-                }
-            }
-            if (bitmap == null) {
-                bitmap = extras.get(Notification.EXTRA_LARGE_ICON) as? Bitmap
-            }
-            if (bitmap != null) {
-                val dir = File(cacheDir, "nano_notif_media")
-                if (!dir.exists()) dir.mkdirs()
-                val file = File(dir, "img_${postTime}.jpg")
-                FileOutputStream(file).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                }
-                file.absolutePath
-            } else if (messages != null) {
-                val imgMsg = messages.lastOrNull { 
-                    it.dataMimeType?.startsWith("image/") == true && it.dataUri != null 
-                }
-                if (imgMsg?.dataUri != null) {
-                    val dir = File(cacheDir, "nano_notif_media")
-                    if (!dir.exists()) dir.mkdirs()
-                    val file = File(dir, "img_${postTime}.jpg")
-                    contentResolver.openInputStream(imgMsg.dataUri!!)?.use { input ->
-                        FileOutputStream(file).use { out ->
-                            input.copyTo(out)
-                        }
-                    }
-                    file.absolutePath
-                } else null
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun extractAndSaveVideo(messages: List<MessagingStyle.Message>?, postTime: Long): String? {
-        if (messages == null || messages.isEmpty()) return null
-        return try {
-            val vidMsg = messages.lastOrNull { 
-                it.dataMimeType?.startsWith("video/") == true && it.dataUri != null 
-            }
-            if (vidMsg?.dataUri != null) {
-                val dir = File(cacheDir, "nano_notif_media")
-                if (!dir.exists()) dir.mkdirs()
-                val file = File(dir, "vid_${postTime}.mp4")
-                contentResolver.openInputStream(vidMsg.dataUri!!)?.use { input ->
-                    FileOutputStream(file).use { out ->
-                        input.copyTo(out)
-                    }
-                }
-                file.absolutePath
-            } else null
-        } catch (e: Exception) {
-            null
-        }
-    }
-
-    private fun extractAndSaveAudio(messages: List<MessagingStyle.Message>?, postTime: Long): String? {
-        if (messages == null || messages.isEmpty()) return null
-        return try {
-            val audioMsg = messages.lastOrNull { 
-                it.dataMimeType?.startsWith("audio/") == true && it.dataUri != null 
-            }
-            if (audioMsg?.dataUri != null) {
-                val dir = File(cacheDir, "nano_notif_media")
-                if (!dir.exists()) dir.mkdirs()
-                val file = File(dir, "voice_${postTime}.opus")
-                contentResolver.openInputStream(audioMsg.dataUri!!)?.use { input ->
-                    FileOutputStream(file).use { out ->
-                        input.copyTo(out)
-                    }
-                }
-                file.absolutePath
-            } else null
-        } catch (e: Exception) {
-            null
-        }
-    }
-
     private fun toMap(source: StatusBarNotification): Map<String, Any?> {
         val notification = source.notification
         val extras = notification.extras
+        val conversationEvidence =
+            WhatsAppConversationNotificationClassifier.inspect(source)
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val text = (
             extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
@@ -319,13 +416,13 @@ class NotificationAutomationService : NotificationListenerService() {
         val messages = MessagingStyle.Message.getMessagesFromBundleArray(
             extras.getParcelableArray(Notification.EXTRA_MESSAGES),
         )
-        val savedImagePath = extractAndSaveImage(extras, messages, source.postTime)
-        val savedVideoPath = extractAndSaveVideo(messages, source.postTime)
-        val savedAudioPath = extractAndSaveAudio(messages, source.postTime)
 
         val lastMessage = messages.lastOrNull()
         val sender = lastMessage?.sender?.toString().orEmpty()
         var messageText = lastMessage?.text?.toString().orEmpty()
+        if (messageText.isBlank()) {
+            messageText = text
+        }
 
         val combinedLower = "$title $text $messageText".lowercase(Locale.ROOT)
         val isViewOnce = combinedLower.contains("ver una sola vez") ||
@@ -343,6 +440,14 @@ class NotificationAutomationService : NotificationListenerService() {
         val isVideoMsg = combinedLower.contains("video") ||
             combinedLower.contains("envió un video") ||
             combinedLower.contains("envio un video")
+        // El resumen representa solo el último evento, nunca adjuntos anteriores.
+        val latestMedia = NotificationMessageMedia.capture(
+            cacheDir, contentResolver, source.packageName, lastMessage,
+        )
+        val savedImagePath = latestMedia.image
+        val savedVideoPath = latestMedia.video
+        val savedAudioPath = latestMedia.audio
+        val savedPdfPath = latestMedia.pdf
 
         if (isViewOnce) {
             val tag = if (savedImagePath != null) "[VerUnaVez: $savedImagePath]" else "[VerUnaVez]"
@@ -361,6 +466,10 @@ class NotificationAutomationService : NotificationListenerService() {
             messageText = "$messageText\n[Audio: $savedAudioPath]".trim()
         }
 
+        if (savedPdfPath != null && !messageText.contains("[PDF:")) {
+            messageText = "$messageText\n[PDF: $savedPdfPath]".trim()
+        }
+
         var cleanedText = text
         if (isViewOnce) {
             val tag = if (savedImagePath != null) "[VerUnaVez: $savedImagePath]" else "[VerUnaVez]"
@@ -377,6 +486,9 @@ class NotificationAutomationService : NotificationListenerService() {
 
         if (savedAudioPath != null && !cleanedText.contains("[Audio:")) {
             cleanedText = "$cleanedText\n[Audio: $savedAudioPath]".trim()
+        }
+        if (savedPdfPath != null && !cleanedText.contains("[PDF:")) {
+            cleanedText = "$cleanedText\n[PDF: $savedPdfPath]".trim()
         }
         // WA-GROUP-IDENT — Detección fidedigna de grupos de WhatsApp (ej: "infinity")
         // QUÉ HACE: Extrae el nombre real del grupo y el remitente individual desde los metadatos de Android.
@@ -489,32 +601,34 @@ class NotificationAutomationService : NotificationListenerService() {
             "isSelf" to isSelfMessage,
             "imagePath" to (savedImagePath ?: ""),
             "videoPath" to (savedVideoPath ?: ""),
+            "audioPath" to (savedAudioPath ?: ""),
+            "pdfPath" to (savedPdfPath ?: ""),
             // Preserve the individual MessagingStyle events on live updates
             // and cold replay. Dart deduplicates each original timestamp.
             "messages" to messages.map { message ->
                 val person = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     message.senderPerson
                 } else null
-                var mText = message.text?.toString().orEmpty()
-                if (savedImagePath != null && !mText.contains("[Imagen:") && 
-                    (mText.contains("foto", ignoreCase = true) || mText.contains("imagen", ignoreCase = true))) {
-                    mText = "$mText\n[Imagen: $savedImagePath]"
-                }
-                if (savedVideoPath != null && !mText.contains("[Video:") && 
-                    mText.contains("video", ignoreCase = true)) {
-                    mText = "$mText\n[Video: $savedVideoPath]"
-                }
+                // Cada evento conserva su propia URI; no replica el audio global.
+                val media = if (message === lastMessage) latestMedia else
+                    NotificationMessageMedia.capture(
+                        cacheDir, contentResolver, source.packageName, message,
+                    )
+                val mText = media.appendTo(message.text?.toString().orEmpty())
                 mapOf(
                     "messageText" to mText.take(MAX_FIELD_CHARS),
                     "text" to mText.take(MAX_FIELD_CHARS),
                     "messageTimestamp" to message.timestamp,
+                    "mediaMimeType" to message.dataMimeType.orEmpty(),
                     "isTruncated" to (mText.length > MAX_FIELD_CHARS),
-                    "sender" to message.sender?.toString().orEmpty().take(200),
-                    "senderKey" to person?.key.orEmpty().take(200),
-                    "senderUri" to person?.uri.orEmpty().take(500),
+                    "sender" to (message.sender?.toString()?.takeIf { it.isNotBlank() } ?: finalSender).take(200),
+                    "senderKey" to (person?.key?.takeIf { it.isNotBlank() } ?: senderKey).take(200),
+                    "senderUri" to (person?.uri?.takeIf { it.isNotBlank() } ?: senderUri).take(500),
                     "isSelf" to isSelfSender(message.sender, person, userPerson),
-                    "imagePath" to (savedImagePath ?: ""),
-                    "videoPath" to (savedVideoPath ?: ""),
+                    "imagePath" to (media.image ?: ""),
+                    "videoPath" to (media.video ?: ""),
+                    "audioPath" to (media.audio ?: ""),
+                    "pdfPath" to (media.pdf ?: ""),
                 )
             },
             "sender" to finalSender.take(200),
@@ -525,6 +639,11 @@ class NotificationAutomationService : NotificationListenerService() {
             "shortcutId" to shortcutId.take(200),
             "locusId" to locusId.take(200),
             "accountHint" to subText.take(200),
+            // La capa Dart vuelve a verificar esta evidencia para cubrir rutas
+            // legacy/directas sin depender de frases localizadas.
+            "notificationCategory" to conversationEvidence.category,
+            "hasMessagingStyle" to conversationEvidence.hasMessagingStyle,
+            "isConversationEvent" to conversationEvidence.isConversationEvent,
             "isGroup" to isGroup,
             "isViewOnce" to isViewOnce,
             "audioPath" to (savedAudioPath ?: ""),
@@ -610,8 +729,15 @@ class NotificationAutomationService : NotificationListenerService() {
             ?.toString().orEmpty().trim()
         val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty().trim()
         var extractedGroupTitle = rawConvTitle
+        var extractedSender = lastMessage?.sender?.toString().orEmpty()
         if (extractedGroupTitle.isEmpty() && rawTitle.contains(" @ ")) {
-            extractedGroupTitle = rawTitle.split(" @ ", limit = 2).getOrNull(1)?.trim().orEmpty()
+            val parts = rawTitle.split(" @ ", limit = 2)
+            if (parts.size == 2) {
+                if (extractedSender.isEmpty()) {
+                    extractedSender = parts[0].trim()
+                }
+                extractedGroupTitle = parts[1].trim()
+            }
         }
         if (extractedGroupTitle.isNotEmpty()) {
             extractedGroupTitle = extractedGroupTitle.replace(Regex("""\s*\(\d+[^)]*\)"""), "").trim()
@@ -626,8 +752,15 @@ class NotificationAutomationService : NotificationListenerService() {
             shortcutId.contains("@g.us") ||
             notification.shortcutId?.contains("@g.us") == true ||
             rawTitle.contains(" @ ")
-        if (isGroup && extractedGroupTitle.isEmpty() && rawTitle.isNotEmpty() && rawTitle != lastMessage?.sender?.toString()) {
+        if (isGroup && extractedGroupTitle.isEmpty() && rawTitle.isNotEmpty() && rawTitle != extractedSender) {
             extractedGroupTitle = rawTitle.replace(Regex("""\s*\(\d+[^)]*\)"""), "").trim()
+        }
+        val finalSender = if (extractedSender.isNotEmpty()) {
+            extractedSender
+        } else if (!isGroup && rawTitle.isNotEmpty()) {
+            rawTitle
+        } else {
+            ""
         }
         val locusId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             notification.locusId?.id.orEmpty()
@@ -640,7 +773,7 @@ class NotificationAutomationService : NotificationListenerService() {
             locusId,
             senderPerson?.key.orEmpty(),
             extractedGroupTitle,
-            lastMessage?.sender?.toString().orEmpty(),
+            finalSender,
             if (isGroup) "group" else "direct",
         ).joinToString(separator = "\u0000")
     }
@@ -648,6 +781,8 @@ class NotificationAutomationService : NotificationListenerService() {
     data class ReplyResult(val ok: Boolean, val code: String)
 
     private companion object {
+        const val REPLY_ATTEMPT_PREFS = "automation_reply_attempts_v1"
+        const val REPLY_ATTEMPT_IDS = "attempt_ids"
         const val MAX_NOTIFICATIONS = 100
         const val MAX_FIELD_CHARS = 4_000
         const val MAX_REPLY_CHARS = 2_000

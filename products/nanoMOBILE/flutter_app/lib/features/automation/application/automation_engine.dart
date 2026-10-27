@@ -19,6 +19,7 @@ import 'package:nanoai/features/automation/ledger/action_ledger.dart';
 import 'package:nanoai/features/automation/ledger/automation_trace.dart';
 
 import 'automation_coordinator.dart';
+import '../engine/execution/tool_call.dart';
 
 class AutomationEngine {
   final AutomationCoordinator _coordinator;
@@ -32,7 +33,8 @@ class AutomationEngine {
     ActionLedger ledger,
   ) => AutomationEngine._(coordinator, ledger);
 
-  /// EL objetivo → acciones verificadas → [AutomationResult] honesto.
+  /// Ejecuta el objetivo mediante el coordinador. Un [plan] sustentado en
+  /// observación puede evitar el LLM; conserva las mismas políticas y journal.
   ///
   /// Nunca inventa éxito: completed / completedUnverified / paused / denied /
   /// noPlan / failed / cancelled. El motor decide el camino (flujo verificado
@@ -41,7 +43,14 @@ class AutomationEngine {
   Future<AutomationResult> runGoal(
     AutomationGoal goal, {
     AutomationOptions? options,
-  }) => _coordinator.execute(goal, options: options);
+    List<ToolCall>? plan,
+  }) => _coordinator.execute(goal, options: options, plan: plan);
+
+  /// Ejecuta un comando `@` escrito directamente en el módulo Automatización.
+  /// El coordinator conserva el router y las políticas existentes para cada
+  /// herramienta, sin convertir el comando en un objetivo que deba planear el LLM.
+  Future<String> runCommand(String command, {String? executionId}) =>
+      _coordinator.runCommand(command, executionId: executionId);
 
   /// Cancels only the caller-owned run. Completion remains asynchronous:
   /// tools already dispatched finish, pending cooperative steps are stopped.

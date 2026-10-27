@@ -1,6 +1,6 @@
 // nano_answer_card.dart — Tarjeta de respuesta generada para el panel Nano.
-// QUÉ: Renderiza la respuesta individual de un proveedor IA (ChatGPT, DeepSeek, local).
-// CÓMO: Card.filled con tipografía Material 3 y estado de error diferenciado.
+// QUÉ: Renderiza la respuesta individual con lenguaje visible para la persona.
+// CÓMO: Card.filled conserva el texto y presenta un error claro sin exponer rutas internas.
 // POR QUÉ: SOLID-S: extrae la presentación de respuestas fuera del panel principal,
 //          manteniendo ambos componentes por debajo de 200 líneas.
 import 'package:flutter/material.dart';
@@ -25,16 +25,15 @@ class NanoAnswerCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${answer.provider.name} · Ronda ${answer.round}',
-                style: theme.textTheme.labelMedium,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                error ?? answer.text,
+                answer.ok
+                    ? answer.text
+                    : 'No pude generar una respuesta. Revisa la conexión e inténtalo de nuevo.',
                 maxLines: 5,
                 overflow: TextOverflow.ellipsis,
                 style: error != null
-                    ? theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error)
+                    ? theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      )
                     : null,
               ),
             ],

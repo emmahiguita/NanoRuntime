@@ -1,0 +1,106 @@
+/// Resumen factual de una conversación mostrado por el centro de mensajería.
+library;
+
+import 'conversation_agent.dart';
+
+final class ConversationSummaryItem {
+  final String conversationId;
+  final String displayName;
+  final String packageName;
+  final String lastMessage;
+  final int lastAtMs;
+
+  /// Etiqueta temporal observada en Web; no equivale a un timestamp exacto.
+  final String lastTimeLabel;
+  final bool hasPendingReply;
+  final String? pendingReplyId;
+  final String? pendingReplyText;
+  final List<String> pendingSuggestions;
+  final bool humanOwns;
+  final String activeRole;
+  final ConversationAgentId agentId;
+  final String? activeProductName;
+  final int entryCount;
+  final String? notificationKey;
+  final bool isGroup;
+  final String? groupTitle;
+  final String? lastSender;
+  final List<String> conversationAliases;
+
+  /// Cuenta observada por el transporte; vacío indica que no se conoce.
+  final String accountFingerprint;
+
+  /// Evidencia recibida del transporte; el prefijo live/history no la sustituye.
+  final bool messageVerified;
+
+  const ConversationSummaryItem({
+    required this.conversationId,
+    required this.displayName,
+    this.packageName = '',
+    required this.lastMessage,
+    required this.lastAtMs,
+    this.lastTimeLabel = '',
+    this.hasPendingReply = false,
+    this.pendingReplyId,
+    this.pendingReplyText,
+    this.pendingSuggestions = const [],
+    this.humanOwns = false,
+    this.activeRole = 'general',
+    required this.agentId,
+    this.activeProductName,
+    this.entryCount = 0,
+    this.notificationKey,
+    this.isGroup = false,
+    this.groupTitle,
+    this.lastSender,
+    this.conversationAliases = const [],
+    this.accountFingerprint = '',
+    this.messageVerified = false,
+  });
+
+  String get appLabel => switch (packageName) {
+    'com.whatsapp' =>
+      conversationId.startsWith('waweb:')
+          ? 'WhatsApp Web'
+          : conversationAliases.any((id) => id.startsWith('waweb:'))
+          ? 'WhatsApp móvil + Web'
+          : 'WhatsApp instalado',
+    'com.whatsapp.w4b' => 'WhatsApp Business',
+    'com.telegram.messenger' || 'org.telegram.messenger' => 'Telegram',
+    'org.telegram.plus' => 'Telegram',
+    'com.instagram.android' => 'Instagram',
+    'com.facebook.orca' || 'com.facebook.mlite' => 'Messenger',
+    'com.facebook.katana' || 'com.facebook.lite' => 'Facebook',
+    'com.Slack' || 'com.slack' => 'Slack',
+    _ => 'Mensajería',
+  };
+
+  /// Actualiza solo el control visible; conserva identidad, fuente y mensajes reales.
+  ConversationSummaryItem withHumanOwnership(
+    bool paused, {
+    ConversationAgentId? assignedAgent,
+  }) => ConversationSummaryItem(
+    conversationId: conversationId,
+    displayName: displayName,
+    packageName: packageName,
+    lastMessage: lastMessage,
+    lastAtMs: lastAtMs,
+    lastTimeLabel: lastTimeLabel,
+    hasPendingReply: hasPendingReply,
+    pendingReplyId: pendingReplyId,
+    pendingReplyText: pendingReplyText,
+    pendingSuggestions: pendingSuggestions,
+    humanOwns: paused,
+    activeRole: activeRole,
+    agentId: assignedAgent ?? agentId,
+    activeProductName: activeProductName,
+    entryCount: entryCount,
+    notificationKey: notificationKey,
+    isGroup: isGroup,
+    groupTitle: groupTitle,
+    lastSender: lastSender,
+    conversationAliases: conversationAliases,
+    accountFingerprint: accountFingerprint,
+    messageVerified: messageVerified,
+  );
+}

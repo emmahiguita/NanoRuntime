@@ -5,21 +5,26 @@ import 'package:nanoai/features/automation/domain/automation_goal.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart';
 
 import '../../../core/models/chat_models.dart';
+import '../../../core/services/personal_language_policy.dart';
+import '../../automation/engine/language/runtime_personal_live_context.dart';
+import '../../automation/personal_agent/domain/personal_live_context.dart';
 import '../../../core/services/chat_system_prompt.dart';
 import '../../../core/services/device_info.dart';
 import '../../../core/services/llm_engine_client.dart';
 import '../../../core/services/runtime_engine.dart';
 import '../domain/chat_context_builder.dart';
+import '../domain/chat_memory_index.dart';
 import '../domain/chat_suggestion_engine.dart';
 import '../domain/stream_sanitizer.dart';
 import 'chat_stream_session.dart';
 import 'chat_tool_coordinator.dart';
 
-/// Orquesta la generación recursiva del LLM, tool-calling multi-paso y control de fallos.
-///
-/// **QUÉ HACE:** Controla una ronda de inferencia generativa y recursión de herramientas.
-/// **CÓMO FUNCIONA:** Ensambla contexto, consume stream SSE, ejecuta tools y detecta bucles.
-/// **POR QUÉ:** Separa la complejidad del bucle del StateNotifier (SRP y Clean Architecture).
+part 'chat_inference_context.part.dart';
+part 'chat_inference_tools.part.dart';
+
+/// QUÉ: orquesta inferencia y rondas de herramientas con confirmación.
+/// CÓMO: delega contexto/ejecución, conserva cancelación y detecta bucles.
+/// POR QUÉ: separa estas responsabilidades del estado visual del chat.
 class ChatInferenceCoordinator {
   final ChatStreamSession streamSession;
   final ChatToolCoordinator toolCoordinator;
@@ -27,6 +32,8 @@ class ChatInferenceCoordinator {
   final AgentToolDispatcher tools;
   final AutomationCoordinator coordinator;
   final LLMEngineClient engine;
+  final Future<String> Function(String query)? mcpContextFor;
+  final Future<String> Function(String query)? skillContextFor;
 
   const ChatInferenceCoordinator({
     required this.streamSession,
@@ -35,6 +42,8 @@ class ChatInferenceCoordinator {
     required this.tools,
     required this.coordinator,
     required this.engine,
+    this.mcpContextFor,
+    this.skillContextFor,
   });
 
   Future<void> generateRound({
@@ -51,17 +60,43 @@ class ChatInferenceCoordinator {
     required bool Function() getEngineLive,
     required bool Function() isMounted,
     required List<ChatMessage> Function() getMessages,
-    required void Function(ChatMessage message) onMessageAppended,
+    required void Function(ChatMessage message) onToolTraceAppended,
+    required void Function(String? tool, String? description) onToolPaused,
     required void Function(String text) onStreamingText,
-    required void Function({required ChatMessage aiMessage, required double? liveTps, required TurnMetrics? turnMetrics}) onSuccess,
-    required void Function({required String errorText, required bool degraded, required bool engineOnline}) onEngineError,
+    required void Function({
+      required ChatMessage aiMessage,
+      required double? liveTps,
+      required TurnMetrics? turnMetrics,
+    })
+    onSuccess,
+    required void Function({
+      required String errorText,
+      required bool degraded,
+      required bool engineOnline,
+    })
+    onEngineError,
     required void Function(String errorText) onError,
   }) async {
     final messages = getMessages();
     final history = contextBuilder.historyBeforeCurrentUser(messages, text);
-    final prompt = contextBuilder.buildPrompt(text: text, attachments: attachments, isFirstRound: toolTrace.isEmpty);
+    final prompt = contextBuilder.buildPrompt(
+      text: text,
+      attachments: attachments,
+      isFirstRound: toolTrace.isEmpty,
+    );
+    final memoryContext = const ChatMemoryIndex().contextFor(history, text);
+    // El envío validó evidencia textual. Los motores integrados en esta ruta
+    // no reciben binarios: una foto aporta únicamente sus etiquetas de ML Kit.
 
     try {
+      if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
+      final system = await _buildTurnSystem(
+        text: text,
+        history: history,
+        activeModel: activeModel,
+        sessionId: sessionId,
+        memoryContext: memoryContext,
+      );
       if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
       final res = await streamSession.executeStream(
         engine: engine,
@@ -70,12 +105,7 @@ class ChatInferenceCoordinator {
         topP: topP,
         maxTokens: maxTokens,
         sessionId: sessionId,
-        systemPrompt: ChatSystemPrompt.build(
-          registry: tools.registry,
-          modelName: activeModel,
-          now: DateTime.now(),
-          device: DeviceInfo.read(),
-        ),
+        systemPrompt: system,
         history: contextBuilder.buildHistory(history, toolTrace),
         generationId: generationId,
         isMounted: isMounted,
@@ -86,48 +116,27 @@ class ChatInferenceCoordinator {
       if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
 
       if (res.fullText.isEmpty) {
-        onError('El motor terminó sin emitir texto. Esto suele indicar modelo no cargado o falta de memoria.');
+        onError(
+          'El motor terminó sin emitir texto. Esto suele indicar modelo no cargado o falta de memoria.',
+        );
         return;
       }
 
-      final toolCalls = AgentToolProtocol.extractToolCalls(res.fullText);
-      if (toolCalls.isNotEmpty && (toolTrace.length ~/ 2) < ChatToolCoordinator.maxToolRounds) {
-        onMessageAppended(ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: res.fullText,
-          timestamp: DateTime.now(),
-          status: MessageStatus.sent,
-        ));
-
-        final worldBefore = await tools.worldFingerprint();
-        final execRes = await coordinator.execute(AutomationGoal(text: text), plan: toolCalls);
-        if (!streamSession.isGenerationCurrent(generationId, isMounted())) return;
-
-        if (execRes.isPaused && execRes.confirmation != null) {
-          toolCoordinator.pausePlan(
-            plan: toolCalls,
-            pauseIndex: execRes.pauseIndex,
-            confirmation: execRes.confirmation,
-            userText: text,
-            trace: toolTrace,
-            callText: res.fullText,
-          );
-          return;
-        }
-
-        final feedback = automationUserFacingReason(execRes.reason);
-        final worldAfter = await tools.worldFingerprint();
-        if (toolCoordinator.isStalledToolRound(calls: toolCalls, before: worldBefore, after: worldAfter, feedback: feedback)) {
-          onError('[loopDetected] La misma herramienta devolvió el mismo resultado sin cambios.');
-          return;
-        }
-
-        final lease = streamSession.activeStream;
-        if (lease != null) streamSession.releaseStream(lease, 'entre rondas');
+      final toolRound = await _handleToolReply(
+        response: res.fullText,
+        text: text,
+        trace: toolTrace,
+        generationId: generationId,
+        isMounted: isMounted,
+        onToolTraceAppended: onToolTraceAppended,
+        onToolPaused: onToolPaused,
+        onError: onError,
+      );
+      if (toolRound.handled) {
+        if (toolRound.feedback == null) return;
         await generateRound(
           text: text,
-          toolTrace: [...toolTrace, res.fullText, feedback],
+          toolTrace: [...toolTrace, res.fullText, toolRound.feedback!],
           attachments: const [],
           generationId: generationId,
           activeModel: activeModel,
@@ -139,7 +148,8 @@ class ChatInferenceCoordinator {
           getEngineLive: getEngineLive,
           isMounted: isMounted,
           getMessages: getMessages,
-          onMessageAppended: onMessageAppended,
+          onToolTraceAppended: onToolTraceAppended,
+          onToolPaused: onToolPaused,
           onStreamingText: onStreamingText,
           onSuccess: onSuccess,
           onEngineError: onEngineError,
@@ -148,17 +158,15 @@ class ChatInferenceCoordinator {
         return;
       }
 
-      final cleanMsg = StreamSanitizer.sanitize(res.fullText);
+      final message = _completedMessage(res.fullText, res.tps);
+      if (message == null) {
+        onError(
+          'La salida del modelo no cumple el formato o el lenguaje neutral.',
+        );
+        return;
+      }
       onSuccess(
-        aiMessage: ChatMessage(
-          id: DateTime.now().microsecondsSinceEpoch.toString(),
-          sender: MessageSender.ai,
-          text: cleanMsg,
-          timestamp: DateTime.now(),
-          tps: res.tps,
-          suggestions: ChatSuggestionEngine.derive(cleanMsg),
-          status: MessageStatus.sent,
-        ),
+        aiMessage: message,
         liveTps: res.tps,
         turnMetrics: res.turnMetrics,
       );
@@ -167,8 +175,8 @@ class ChatInferenceCoordinator {
       final degraded = getEnginePhase() == EnginePhase.degraded;
       onEngineError(
         errorText: degraded
-            ? 'El motor está vivo pero no hay modelo GGUF instalado. ($activeModel)'
-            : 'El motor llama.cpp no respondió: ${e.message}. ($activeModel)',
+            ? 'El motor local está vivo pero el paquete no está instalado. ($activeModel)'
+            : 'El motor local no respondió: ${e.message}. ($activeModel)',
         degraded: degraded,
         engineOnline: getEngineLive(),
       );
@@ -185,5 +193,6 @@ class ChatInferenceCoordinator {
   }
 
   /// Re-exporta la derivación de sugerencias para retrocompatibilidad directa.
-  static List<String> deriveSuggestions(String text) => ChatSuggestionEngine.derive(text);
+  static List<String> deriveSuggestions(String text) =>
+      ChatSuggestionEngine.derive(text);
 }

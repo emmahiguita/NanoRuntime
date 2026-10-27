@@ -1,4 +1,4 @@
-﻿part of 'personalization_studio_screen.dart';
+part of 'personalization_studio_screen.dart';
 
 /// PERSONALIZATION-STUDIO-WHATSAPP-PICKER — Selector de Contactos Reales de WhatsApp.
 ///
@@ -93,7 +93,10 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: const BorderSide(color: Color(0x22FFFFFF))),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0x22FFFFFF)),
+      ),
       backgroundColor: const Color(0xFF162036),
       titlePadding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14),
@@ -102,7 +105,9 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
         children: [
           const Icon(Icons.perm_contact_calendar_rounded, size: 16, color: Color(0xFF25D366)),
           const SizedBox(width: 8),
-          const Expanded(child: Text('Contactos de WhatsApp', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold))),
+          const Expanded(
+            child: Text('Contactos de WhatsApp', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          ),
           TextButton(
             style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
             onPressed: () => Navigator.of(context).pop('manual'),
@@ -110,13 +115,12 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
           ),
         ],
       ),
-      content: SizedBox(
-        width: 460,
-        height: size.height * 0.58,
-        child: _buildBody(),
-      ),
+      content: SizedBox(width: 460, height: size.height * 0.58, child: _buildBody()),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancelar', style: TextStyle(fontSize: 11))),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar', style: TextStyle(fontSize: 11)),
+        ),
       ],
     );
   }
@@ -133,7 +137,11 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
           const SizedBox(height: 10),
           const Text('Acceso a contactos requerido', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          const Text('NanoAI identifica automáticamente los contactos con WhatsApp en tu libreta.', textAlign: TextAlign.center, style: TextStyle(fontSize: 10, color: Colors.white60)),
+          const Text(
+            'NanoAI identifica automáticamente los contactos con WhatsApp en tu libreta.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 10, color: Colors.white60),
+          ),
           const SizedBox(height: 14),
           FilledButton.icon(
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.black),
@@ -157,15 +165,29 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
             prefixIcon: const Icon(Icons.search, size: 14, color: Color(0xFF25D366)),
             filled: true,
             fillColor: const Color(0x0CFFFFFF),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0x22FFFFFF))),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0x22FFFFFF))),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0x8025D366))),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0x22FFFFFF)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0x22FFFFFF)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Color(0x8025D366)),
+            ),
           ),
         ),
         const SizedBox(height: 8),
         Expanded(
           child: _filtered.isEmpty
-              ? Center(child: Text(_all.isEmpty ? 'No se encontraron contactos con WhatsApp' : 'Sin coincidencias', style: const TextStyle(fontSize: 11, color: Colors.white54)))
+              ? Center(
+                  child: Text(
+                    _all.isEmpty ? 'No se encontraron contactos con WhatsApp' : 'Sin coincidencias',
+                    style: const TextStyle(fontSize: 11, color: Colors.white54),
+                  ),
+                )
               : ListView.separated(
                   itemCount: _filtered.length,
                   separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0x12FFFFFF)),
@@ -177,14 +199,32 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
                       leading: CircleAvatar(
                         radius: 14,
                         backgroundColor: const Color(0x2525D366),
-                        child: Text(c.name.isNotEmpty ? c.name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF25D366))),
+                        child: Text(
+                          c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF25D366)),
+                        ),
                       ),
-                      title: Text(c.name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      subtitle: Text(c.number.isNotEmpty ? c.number : c.jid, style: const TextStyle(fontSize: 9.5, color: Colors.white60)),
+                      title: Text(
+                        c.name,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        c.number.isNotEmpty ? c.number : c.jid,
+                        style: const TextStyle(fontSize: 9.5, color: Colors.white60),
+                      ),
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: const Color(0x1825D366), borderRadius: BorderRadius.circular(5), border: Border.all(color: const Color(0x4025D366), width: 0.6)),
-                        child: Text(c.isBusiness ? 'WhatsApp Business' : 'WhatsApp', style: const TextStyle(fontSize: 8.5, color: Color(0xFF25D366), fontWeight: FontWeight.w600)),
+                        decoration: BoxDecoration(
+                          color: const Color(0x1825D366),
+                          borderRadius: BorderRadius.circular(5),
+                          border: Border.all(color: const Color(0x4025D366), width: 0.6),
+                        ),
+                        child: Text(
+                          c.isBusiness ? 'WhatsApp Business' : 'WhatsApp',
+                          style: const TextStyle(fontSize: 8.5, color: Color(0xFF25D366), fontWeight: FontWeight.w600),
+                        ),
                       ),
                       onTap: () => Navigator.of(context).pop(c),
                     );

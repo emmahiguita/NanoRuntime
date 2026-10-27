@@ -58,18 +58,25 @@ class TimeTickScheduler {
   Future<void> _recoverOccurrences() async {
     try {
       // Phase 6 - Cold start recovery
-      final occurrences = await AutomationDbStoreClient.instance.recoverOccurrences();
+      final occurrences = await AutomationDbStoreClient.instance
+          .recoverOccurrences();
       var recovered = 0;
       for (final occ in occurrences) {
         final id = occ['occurrenceId'] as String?;
         final status = occ['status'] as String?;
         if (id != null && (status == 'CLAIMED' || status == 'EXECUTING')) {
-          await AutomationDbStoreClient.instance.updateOccurrenceStatus(id, 'OUTCOME_UNKNOWN', reason: 'Cold start recovery');
+          await AutomationDbStoreClient.instance.updateOccurrenceStatus(
+            id,
+            'OUTCOME_UNKNOWN',
+            reason: 'Cold start recovery',
+          );
           recovered++;
         }
       }
       if (recovered > 0) {
-        debugPrint('[rules] recuperadas $recovered ocurrencias estancadas a OUTCOME_UNKNOWN');
+        debugPrint(
+          '[rules] recuperadas $recovered ocurrencias estancadas a OUTCOME_UNKNOWN',
+        );
       }
     } catch (e) {
       debugPrint('[rules] error recuperando ocurrencias: $e');

@@ -1,110 +1,60 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-
-import '../../../engine/mcp/mcp_client_port.dart';
 import '../../../engine/mcp/mcp_connection_registry.dart';
 import '../../automation_visual_theme.dart';
 import 'mcp_graph_components.dart';
 
-/// Ejecuta una prueba en vivo contra una herramienta MCP y muestra los resultados.
+/// Inspecciona el catálogo sin ejecutar acciones ni sustituir servidores.
+/// La ejecución sigue pasando por el agente y su política de autorización.
+/// Se conserva el nombre público para mantener los consumidores del grafo.
 Future<void> showMcpToolTestDialog({
   required BuildContext context,
   required McpGraphNode node,
   required McpConnectionRegistry registry,
   required AutomationVisualPalette visual,
 }) async {
-  final serverId = (node.metadata['server_id'] as String?) ?? 'device';
-  final client = registry.client(serverId) ??
-      registry.client('device') ??
-      (registry.servers.isNotEmpty ? registry.client(registry.servers.first.id) : null);
-
-  if (client == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Servidor MCP "$serverId" no se encuentra conectado.')),
-    );
-    return;
-  }
-
-  String toolName = node.title;
-  if (node.type != McpGraphNodeType.tool) {
-    toolName = 'diagnostics';
-  }
-
+  final serverId = node.metadata['server_id'] as String?;
+  final tools = registry.lastTools.values.where(
+    (tool) => tool.serverId == serverId && tool.name == node.title,
+  );
+  final tool = tools.isEmpty ? null : tools.first;
+  final client = serverId == null ? null : registry.client(serverId);
+  // Datos observados del catálogo: una ausencia nunca activa otro servidor.
+  final details = tool == null
+      ? 'Servidor: ${serverId ?? "sin identificar"}\n'
+            'Estado: ${client?.state.name ?? "no registrado"}\n'
+            'No hay una herramienta identificada para este nodo.'
+      : 'Servidor: ${tool.serverId}\n'
+            'Herramienta: ${tool.name}\n'
+            'Estado: ${client?.state.name ?? "no registrado"}\n\n'
+            '${tool.description}\n\n'
+            'Argumentos requeridos y opcionales:\n'
+            '${const JsonEncoder.withIndent("  ").convert(tool.inputSchema)}\n\n'
+            'Las anotaciones del servidor no conceden autorización. '
+            'Solicita la ejecución desde el agente para aplicar sus controles.';
   return showDialog<void>(
     context: context,
-    builder: (dialogCtx) {
-      return FutureBuilder<McpToolCallResult>(
-        future: client.callTool(
-          McpToolCall(
-            serverId: client.descriptor.id,
-            toolName: toolName,
-            arguments: const {},
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: visual.isDark ? const Color(0xFF0E1726) : Colors.white,
+      title: Text(
+        'Información de herramienta',
+        style: TextStyle(color: visual.text),
+      ),
+      content: SizedBox(
+        width: 380,
+        child: SingleChildScrollView(
+          child: SelectableText(
+            details,
+            style: TextStyle(color: visual.text, height: 1.45),
           ),
         ),
-        builder: (context, snapshot) {
-          final isDone = snapshot.connectionState == ConnectionState.done;
-          final contentText = snapshot.data?.content
-                  .map((c) => c.text ?? '')
-                  .where((t) => t.isNotEmpty)
-                  .join('\n') ??
-              snapshot.data?.message ??
-              'Sin respuesta devuelta por el servidor MCP';
-
-          return AlertDialog(
-            backgroundColor: visual.isDark ? const Color(0xFF0E1726) : Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: Row(
-              children: [
-                Icon(Icons.bolt_rounded, color: visual.accent),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Ejecución: $toolName',
-                    style: TextStyle(
-                      color: visual.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: 380,
-              child: isDone
-                  ? snapshot.hasError
-                      ? Text(
-                          'Error: ${snapshot.error}',
-                          style: const TextStyle(color: Colors.red),
-                        )
-                      : SingleChildScrollView(
-                          child: SelectableText(
-                            contentText,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                              height: 1.4,
-                            ),
-                          ),
-                        )
-                  : const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 12),
-                        Text('Consultando herramienta MCP...'),
-                      ],
-                    ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogCtx).pop(),
-                child: const Text('Cerrar'),
-              ),
-            ],
-          );
-        },
-      );
-    },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(),
+          child: const Text('Cerrar'),
+        ),
+      ],
+    ),
   );
 }

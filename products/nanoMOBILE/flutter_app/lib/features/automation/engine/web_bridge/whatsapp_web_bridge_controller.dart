@@ -1,80 +1,137 @@
-/// WA-WEB-BRIDGE-CTRL-01 — Controlador del puente WhatsApp Web embebido.
-///
-/// **QUÉ HACE:**
-/// Administra el ciclo de vida, la inyección de scripts y el despacho de mensajes
-/// de texto y multimedia a través de una instancia dedicada de InAppWebViewController.
-///
-/// **CÓMO FUNCIONA:**
-/// Se vincula al WebView cargando 'https://web.whatsapp.com', registra un handler
-/// de comunicación JavaScript y expone métodos asíncronos para enviar fotos y videos.
-///
-/// **POR QUÉ:**
-/// Permite despachar multimedia 100% en segundo plano sin requerir que el usuario
-/// abandone Nano ni interactúe con la app nativa de WhatsApp.
+/// Coordina el WebView vinculado; retiene su identidad y delega parsing/envíos.
 library;
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../domain/whatsapp_media_payload.dart';
+import 'whatsapp_web_bridge_actions.dart';
+import 'whatsapp_web_conversation_cache.dart';
 import 'whatsapp_web_js_bridge.dart';
+import 'whatsapp_web_conversation_decoder.dart';
+import 'whatsapp_web_conversation_snapshot.dart';
+import 'whatsapp_web_message_transport.dart';
+import 'whatsapp_web_observer_access.dart';
+import 'whatsapp_web_session_decoder.dart';
+
+export 'whatsapp_web_conversation_decoder.dart'
+    show WhatsAppWebConversationSummary;
 
 final class WhatsAppWebBridgeController {
   InAppWebViewController? _controller;
-  final _sessionController = StreamController<WhatsAppWebSessionInfo>.broadcast();
+  final _sessionController =
+      StreamController<WhatsAppWebSessionInfo>.broadcast();
+  final _conversationsController =
+      StreamController<List<WhatsAppWebConversationSummary>>.broadcast();
   WhatsAppWebSessionInfo _currentSession = const WhatsAppWebSessionInfo(
     status: WhatsAppWebSessionStatus.disconnected,
   );
-
+  List<WhatsAppWebConversationSummary> _currentConversations = const [];
+  String? _conversationAccount;
+  bool _conversationFeedEnabled = false;
   WhatsAppWebBridgeController();
 
-  /// Información actual del estado de la sesión de WhatsApp Web.
+  InAppWebViewController? get retainedController => _controller;
   WhatsAppWebSessionInfo get currentSession => _currentSession;
-
-  /// Flujo reactivo de cambios en el estado de la sesión.
   Stream<WhatsAppWebSessionInfo> get sessionStream => _sessionController.stream;
+  List<WhatsAppWebConversationSummary> get currentConversations =>
+      _currentConversations;
+  String? get conversationAccount => _conversationAccount;
+  Stream<List<WhatsAppWebConversationSummary>> get conversationsStream =>
+      _conversationsController.stream;
 
-  /// Vincula el controlador del WebView activo y registra los listeners de JavaScript.
   void attachController(InAppWebViewController controller) {
     _controller = controller;
     _registerJsHandlers(controller);
+    unawaited(_syncConversationObserver());
   }
 
-  /// Desvincula el controlador cuando el WebView se destruye o pasa a reposo.
-  void detachController() {
-    _controller = null;
-  }
+  void detachController() => _controller = null;
 
   void _registerJsHandlers(InAppWebViewController controller) {
+    controller.removeJavaScriptHandler(handlerName: 'WhatsAppWebEvent');
     controller.addJavaScriptHandler(
       handlerName: 'WhatsAppWebEvent',
       callback: (args) {
-        if (args.isEmpty || args.first is! Map) return;
+        if (args.isEmpty || args.first is! Map) return {'accepted': false};
         final map = Map<String, dynamic>.from(args.first as Map);
         final event = map['event'] as String?;
-        final data = map['data'] is Map ? Map<String, dynamic>.from(map['data'] as Map) : {};
-
+        final data = map['data'] is Map
+            ? Map<String, dynamic>.from(map['data'] as Map)
+            : <String, dynamic>{};
         if (event == 'status_changed') {
-          final statusStr = data['status'] as String? ?? 'disconnected';
-          final qrDataUrl = data['qrDataUrl'] as String?;
-          final qrDataRef = data['qrDataRef'] as String?;
-          final newStatus = switch (statusStr) {
-            'waitingForQr' => WhatsAppWebSessionStatus.waitingForQr,
-            'syncing' => WhatsAppWebSessionStatus.syncing,
-            'connected' => WhatsAppWebSessionStatus.connected,
-            _ => WhatsAppWebSessionStatus.disconnected,
-          };
-          _updateSession(_currentSession = WhatsAppWebSessionInfo(
-            status: newStatus,
-            lastActive: DateTime.now(),
-            qrDataUrl: qrDataUrl,
-            qrDataRef: qrDataRef,
-          ));
+          _updateSession(decodeWhatsAppWebSession(data));
+        } else if (event == 'conversations_changed') {
+          if (!_conversationFeedEnabled || data['conversations'] is! List) {
+            return {'accepted': false};
+          }
+          final account = '${data['account'] ?? ''}';
+          if (account.isEmpty) return {'accepted': false};
+          _handleConversationEvent(data['conversations'], account);
+          return {'accepted': true};
         }
+        return {'accepted': false};
       },
     );
+  }
+
+  // Una única publicación por snapshot recibido y reconocido por Flutter.
+  void _handleConversationEvent(Object? rawValue, String account) {
+    // Otra cuenta vinculada no hereda los chats de la anterior.
+    final previous =
+        account.isNotEmpty &&
+            _conversationAccount != null &&
+            _conversationAccount != account
+        ? const <WhatsAppWebConversationSummary>[]
+        : _currentConversations;
+    if (account.isNotEmpty) _conversationAccount = account;
+    final changed = _publishConversations(
+      WhatsAppWebConversationDecoder().decode(rawValue, previous),
+    );
+    if (!changed) return;
+    unawaited(
+      WhatsAppWebConversationCache.save(_conversationAccount, _currentConversations),
+    );
+    debugPrint('[wa-web-feed] received rows=${_currentConversations.length}');
+  }
+
+  bool _publishConversations(List<WhatsAppWebConversationSummary> value) {
+    if (WhatsAppWebConversationSnapshot.same(_currentConversations, value)) return false;
+    _currentConversations = List.unmodifiable(value);
+    if (!_conversationsController.isClosed) _conversationsController.add(_currentConversations);
+    return true;
+  }
+
+  Future<void> setConversationFeedEnabled(bool enabled) async {
+    _conversationFeedEnabled = enabled;
+    if (!enabled) {
+      _publishConversations(const []);
+    } else if (_currentConversations.isEmpty) {
+      final cached = await WhatsAppWebConversationCache.restore();
+      if (cached != null && _currentConversations.isEmpty && _conversationFeedEnabled) {
+        _conversationAccount = cached.account;
+        _publishConversations(cached.items);
+      }
+    }
+    await _syncConversationObserver(failOnError: true);
+  }
+
+  Future<void> _syncConversationObserver({bool failOnError = false}) async {
+    final ctrl = _controller;
+    if (ctrl == null) return;
+    try {
+      final applied = await WhatsAppWebObserverAccess.evaluate(
+        ctrl,
+        _conversationFeedEnabled
+            ? WhatsAppWebJsBridge.conversationObserverScript
+            : WhatsAppWebJsBridge.stopConversationObserverScript,
+      );
+      if (!applied) throw StateError('WebView observer not applied');
+      debugPrint('[wa-web-feed] observer enabled=$_conversationFeedEnabled');
+    } catch (error) {
+      debugPrint('[wa-web-feed] observer failed type=${error.runtimeType}');
+      if (failOnError) rethrow;
+    }
   }
 
   void _updateSession(WhatsAppWebSessionInfo info) {
@@ -90,98 +147,43 @@ final class WhatsAppWebBridgeController {
       await _controller?.evaluateJavascript(
         source: WhatsAppWebJsBridge.sessionObserverScript,
       );
+      await _syncConversationObserver();
     }
   }
 
-  /// Despacha un archivo multimedia (foto, video, documento) a un número de teléfono.
+  /// Delega el envío multimedia verificando sesión y cuenta vinculada.
   Future<bool> sendMedia(
     WhatsAppMediaPayload payload, {
     required String recipientPhone,
-  }) async {
-    final ctrl = _controller;
-    if (ctrl == null || !_currentSession.isConnected) return false;
+  }) => WhatsAppWebMessageTransport.sendMedia(
+    _controller,
+    _currentSession.isConnected,
+    payload,
+    recipientPhone: recipientPhone,
+    expectedAccount: _conversationAccount ?? '',
+  );
 
-    // Obtener los bytes en Base64
-    final bytes = payload.bytes ?? (payload.filePath != null ? await File(payload.filePath!).readAsBytes() : null);
-    if (bytes == null || bytes.isEmpty) return false;
+  Future<bool> sendText(String text, {required String recipientPhone}) =>
+      WhatsAppWebMessageTransport.sendText(
+        _controller,
+        _currentSession.isConnected,
+        text,
+        recipientPhone: recipientPhone,
+        expectedAccount: _conversationAccount ?? '',
+      );
 
-    final base64Data = base64Encode(bytes);
-    final script = WhatsAppWebJsBridge.buildSendMediaScript(
-      base64Data: base64Data,
-      mimeType: payload.mimeType,
-      fileName: payload.fileName,
-      caption: payload.caption,
-    );
-
-    final rawResult = await ctrl.evaluateJavascript(source: script);
-    if (rawResult == null) return false;
-
-    try {
-      final parsed = jsonDecode(rawResult.toString()) as Map<String, dynamic>;
-      return parsed['success'] == true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Despacha un mensaje de texto simple a través del canal Web.
-  Future<bool> sendText(String text, {required String recipientPhone}) async {
-    final ctrl = _controller;
-    if (ctrl == null || !_currentSession.isConnected) return false;
-
-    final cleanText = Uri.encodeComponent(text);
-    final script = '''(function(){var i=document.querySelector('div[contenteditable="true"][data-tab="10"]');if(i){i.focus();document.execCommand('insertText',false,decodeURIComponent('$cleanText'));var b=document.querySelector('button[data-testid="compose-btn-send"]')||document.querySelector('span[data-icon="send"]');if(b){b.click();return true;}}return false;})();''';
-    final result = await ctrl.evaluateJavascript(source: script);
-    return result == true;
-  }
-
-  /// Alterna el modo de vinculación a código de 8 dígitos (sin requerir segundo teléfono).
-  Future<bool> switchToPhoneLinking() async {
-    final ctrl = _controller;
-    if (ctrl == null) return false;
-    final result = await ctrl.evaluateJavascript(
-      source: WhatsAppWebJsBridge.switchToPhoneCodeScript,
-    );
-    return result == true;
-  }
-
-  /// Captura la pantalla física actual del WebView nativo en formato PNG.
-  ///
-  /// **QUÉ HACE:**
-  /// Genera un buffer de bytes PNG directamente de la textura del WebView.
-  ///
-  /// **CÓMO FUNCIONA:**
-  /// Llama a `takeScreenshot()` del InAppWebViewController.
-  ///
-  /// **POR QUÉ:**
-  /// Permite mostrar el código QR real en pantalla aun si el DOM de WhatsApp bloquea canvas.toDataURL.
-  Future<Uint8List?> captureScreen() async {
-    final ctrl = _controller;
-    if (ctrl == null) return null;
-    try {
-      return await ctrl.takeScreenshot();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Extrae el código de vinculación de 8 dígitos de WhatsApp Web si está visible.
-  Future<String?> getPairingCode() async {
-    final ctrl = _controller;
-    if (ctrl == null) return null;
-    final res = await ctrl.evaluateJavascript(
-      source: WhatsAppWebJsBridge.extractPairingCodeScript,
-    );
-    return res?.toString();
-  }
-
-  /// Recarga la página de WhatsApp Web si se produce una pérdida de sincronización.
-  Future<void> reloadSession() async {
-    await _controller?.reload();
-  }
+  Future<bool> switchToPhoneLinking() =>
+      WhatsAppWebBridgeActions.switchToPhoneLinking(_controller);
+  Future<Uint8List?> captureScreen() =>
+      WhatsAppWebBridgeActions.captureScreen(_controller);
+  Future<String?> getPairingCode() =>
+      WhatsAppWebBridgeActions.getPairingCode(_controller);
+  Future<void> reloadSession() =>
+      WhatsAppWebBridgeActions.reloadSession(_controller);
 
   void dispose() {
     _sessionController.close();
+    _conversationsController.close();
     _controller = null;
   }
 }

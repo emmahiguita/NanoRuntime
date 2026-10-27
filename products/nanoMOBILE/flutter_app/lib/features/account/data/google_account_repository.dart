@@ -20,8 +20,11 @@ class GoogleAccountRepository {
         final profile = GoogleAccountProfile.fromJson(jsonStr);
         // P0-TRUTH-02: Si el perfil almacenado proviene de las credenciales sintéticas
         // hardcodeadas en versiones anteriores, depurar a no configurado para veracidad estricta.
-        if (profile.email.contains('emmanuel.higuita') ||
-            profile.email.trim().isEmpty) {
+        final email = profile.email.trim().toLowerCase();
+        if (email.isEmpty ||
+            (!profile.identityVerified &&
+                (email.contains('emmanuel.higuita') ||
+                    email == 'eememeai@gmail.com'))) {
           await prefs.remove(_keyProfile);
           return const GoogleAccountProfile.unconfigured();
         }
@@ -40,6 +43,17 @@ class GoogleAccountRepository {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_keyProfile, profile.toJson());
     } catch (_) {}
+  }
+
+  /// El acceso no puede anunciar éxito si no pudo guardar la identidad real.
+  /// Los perfiles manuales heredados no adquieren verificación por esta vía.
+  Future<void> saveAuthenticatedProfile(GoogleAccountProfile profile) async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = await prefs.setString(
+      _keyProfile,
+      profile.copyWith(identityVerified: true).toJson(),
+    );
+    if (!saved) throw StateError('No se pudo guardar la cuenta autenticada.');
   }
 
   /// Ejecuta una sincronización real con la infraestructura de Google.

@@ -18,6 +18,8 @@ void main() {
         'number': '+57 300 123 4567',
         'jid': '573001234567@s.whatsapp.net',
         'isBusiness': false,
+        'isWhatsAppVerified': true,
+        'verificationSource': 'contacts_provider_whatsapp_mime',
       },
       {
         'id': '2',
@@ -70,6 +72,23 @@ void main() {
       expect(contact.number, '+573009998877');
       expect(contact.jid, '573009998877@s.whatsapp.net');
       expect(contact.isBusiness, isTrue);
+      expect(contact.isWhatsAppVerified, isFalse);
+      expect(contact.verificationSource, 'unknown');
+    });
+
+    test('phonebook-only contact is not promoted to a WhatsApp JID', () {
+      final contact = WhatsAppContact.fromMap({
+        'id': '11',
+        'name': 'Agenda local',
+        'number': '573001112233',
+        'jid': '',
+        'isWhatsAppVerified': false,
+        'verificationSource': 'phonebook',
+      });
+
+      expect(contact.jid, isEmpty);
+      expect(contact.isWhatsAppVerified, isFalse);
+      expect(contact.verificationSource, 'phonebook');
     });
 
     test('WhatsAppContactsService fetches contacts and permission status', () async {

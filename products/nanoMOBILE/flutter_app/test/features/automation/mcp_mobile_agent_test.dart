@@ -215,6 +215,15 @@ void main() {
         ),
       );
       expect(dottedResult, contains('"totalSteps":0'));
+
+      final readPolicyWriteAttempt = await handler.executeMcpTool(
+        const ToolCall(
+          tool: 'mcp.read',
+          args: {'mcpTool': 'nano.mobile.tap', 'text': 'Enviar'},
+        ),
+      );
+      expect(readPolicyWriteAttempt, contains('clasificación MCP'));
+      expect(executor.lastTapped, isNull);
     },
   );
 }

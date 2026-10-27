@@ -78,75 +78,87 @@ class _AutomationSuggestionCarouselState
             ),
           ],
         ),
-        if (_expanded)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final itemWidth = (constraints.maxWidth * 0.72)
-                  .clamp(160.0, 260.0)
-                  .clamp(0.0, constraints.maxWidth);
-              return SizedBox(
-                height: rowHeight,
-                child: ListView.separated(
-                  key: const ValueKey('automation-suggestion-carousel'),
-                  scrollDirection: Axis.horizontal,
-                  itemCount: widget.suggestions.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final suggestion = widget.suggestions[index];
+        AnimatedSize(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: !_expanded
+              ? const SizedBox(width: double.infinity)
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final itemWidth = (constraints.maxWidth * 0.72)
+                        .clamp(160.0, 260.0)
+                        .clamp(0.0, constraints.maxWidth);
                     return SizedBox(
-                      width: itemWidth,
-                      child: Semantics(
-                        label: suggestion.label,
-                        button: true,
-                        child: Material(
-                          color: visual.accentSoft.withValues(alpha: 0.48),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: visual.accent.withValues(alpha: 0.20),
-                            ),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: suggestion.onSelected,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              child: Row(
-                                children: [
-                                  if (suggestion.leading != null) ...[
-                                    suggestion.leading!,
-                                    const SizedBox(width: 8),
-                                  ],
-                                  Expanded(
-                                    child: Text(
-                                      suggestion.label,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: suggestion.onSelected != null
-                                            ? visual.text
-                                            : visual.textMuted,
-                                        fontSize: 12,
-                                        height: 1.2,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                      height: rowHeight,
+                      child: ListView.separated(
+                        key: const ValueKey('automation-suggestion-carousel'),
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: widget.suggestions.length,
+                        separatorBuilder: (_, _) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final suggestion = widget.suggestions[index];
+                          return SizedBox(
+                            width: itemWidth,
+                            child: Semantics(
+                              label: suggestion.label,
+                              button: true,
+                              child: Material(
+                                color: visual.surface.withValues(
+                                  alpha: visual.isDark ? 0.44 : 0.50,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  side: BorderSide(
+                                    color: Colors.white.withValues(
+                                      alpha: visual.isDark ? 0.12 : 0.55,
                                     ),
                                   ),
-                                ],
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: InkWell(
+                                  onTap: suggestion.onSelected,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        if (suggestion.leading != null) ...[
+                                          suggestion.leading!,
+                                          const SizedBox(width: 8),
+                                        ],
+                                        Expanded(
+                                          child: Text(
+                                            suggestion.label,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color:
+                                                  suggestion.onSelected != null
+                                                  ? visual.text
+                                                  : visual.textMuted,
+                                              fontSize: 12,
+                                              height: 1.2,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     );
                   },
                 ),
-              );
-            },
-          ),
+        ),
       ],
     );
   }

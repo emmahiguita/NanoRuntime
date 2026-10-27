@@ -1,45 +1,45 @@
 import 'chat_models.dart';
+part 'catalog_entries_0.dart';
+part 'catalog_entries_1.dart';
+part 'catalog_entries_2.dart';
+part 'catalog_entries_3.dart';
+part 'catalog_entries_4.dart';
+part 'catalog_entries_5.dart';
+part 'catalog_entries_6.dart';
 
-/// Catálogo REAL de modelos GGUF descargables desde HuggingFace.
+/// Catálogo de modelos y recursos con archivo, backend y SHA definidos.
 ///
-/// Cada entrada declara URL de descarga directa (`resolve/main/...`) y el
-/// SHA256 exacto del archivo (lfs oid verificado contra la API de
-/// HuggingFace el 2026-08-13 y re-auditado el 2026-09-04). La descarga en
-/// la app exige que el hash del archivo recibido coincida: sin SHA256
-/// válido, el modelo no se instala.
+/// LiteRT-LM y GGUF se enrutan por el formato declarado; no se infiere velocidad
+/// del nombre del modelo. La instalación comprueba el SHA antes de usar el archivo.
 ///
-/// MODELS-CAT-02 — reglas de admisión (auditoría 2026-09-04 contra la API):
-/// 1. El archivo debe existir COMO UN SOLO GGUF en el repo. Fuera los
-///    partidos en shards (qwen2.5-7b/14b/32b): nanortime no soporta split
-///    y la URL apuntaría a un archivo inexistente.
-/// 2. Solo móvil: ramGb ≤ ~7 GB (cabe en un teléfono de 8 GB con margen).
-///    Fuera 27B/32B — nunca cargarán en un móvil, ni en batch.
-/// 3. Un solo cuant por modelo cuando uno es estrictamente peor (Q4_K_S
-///    vs Q4_K_M del mismo modelo: se queda el K_M).
-///
-/// Un solo motor nanortime corre a la vez: cambiar de modelo requiere
-/// reiniciar el motor, y eso lo orquesta la app vía EngineSupervisor
-/// (kill limpio + respawn con --model <path>).
-/// Tier de rendimiento del modelo — Gate R9. El chat debe seleccionar
-/// INTERACTIVE por defecto; DEEP/EXTREME solo si el usuario elige explícitamente.
+/// Se mantiene una opción pequeña por defecto y alternativas pesadas marcadas
+/// como avanzadas; el rendimiento de cada teléfono se comprueba por separado.
 enum ModelTier {
-  /// ≤3B: tiempo al primer token < ~5s en móvil. Default del chat.
+  /// Opción ligera que se puede ofrecer como predeterminada tras validarla.
   interactive,
 
-  /// 4B–7B: usable pero lento en el primer token.
+  /// Recurso avanzado: el usuario lo elige por memoria o contexto.
   deep,
 
-  /// 9B+: solo batch/insistencia explícita. Nunca default del chat.
+  /// Modelo pesado: no se selecciona por defecto en un móvil.
   extreme,
 }
 
-/// Tipo de modelo (A16): el catálogo soporta diversas modalidades. Cada kind se
-/// carga y consume según su arquitectura:
-/// - [llm]: Modelo generativo de texto a texto en GGUF (llama.cpp).
-/// - [wakeWord]: Detector local en background (.tflite microWakeWord).
-/// - [voiceStt]: Transcripción de voz local en el dispositivo (Whisper GGML).
-/// - [multimodalVision]: Modelo con proyector visual CLIP/SigLIP (GGUF + mmproj).
-enum ModelKind { llm, wakeWord, voiceStt, multimodalVision }
+/// Función que el modelo puede cumplir; evita enviar recursos especializados al chat.
+/// Los embeddings producen vectores y no respuestas de texto conversacional.
+enum ModelKind {
+  llm,
+  wakeWord,
+  voiceStt,
+  voiceTts,
+  speakerDiarization,
+  multimodalVision,
+  imageOcr,
+  embedding,
+}
+
+/// Formato y motor de inferencia nativo que consume el archivo del modelo.
+enum ModelBackendType { gguf, litertlm, mnn }
 
 class LmCatalogEntry {
   final String name;
@@ -62,8 +62,11 @@ class LmCatalogEntry {
   /// Tier de rendimiento: guía la selección por defecto (Gate R9).
   final ModelTier tier;
 
-  /// Tipo de modelo (A16): llm, wakeWord, voiceStt, multimodalVision.
+  /// Función del archivo: texto, voz, visión, embeddings o activación.
   final ModelKind kind;
+
+  /// Motor de ejecución correspondiente (GGUF llama.cpp o LiteRT-LM).
+  final ModelBackendType backendType;
 
   /// Nombre del archivo del proyector visual (solo para [ModelKind.multimodalVision]).
   final String? mmprojFile;
@@ -73,6 +76,9 @@ class LmCatalogEntry {
 
   /// Hash SHA-256 verificado del proyector visual.
   final String? mmprojSha256;
+
+  /// Commit in the provider's model repository for verified multi-file packages.
+  final String? packageRevision;
 
   const LmCatalogEntry(
     this.name,
@@ -86,342 +92,24 @@ class LmCatalogEntry {
     this.template = ChatTemplate.qwen,
     this.tier = ModelTier.interactive,
     this.kind = ModelKind.llm,
+    this.backendType = ModelBackendType.gguf,
     this.mmprojFile,
     this.mmprojUrl,
     this.mmprojSha256,
+    this.packageRevision,
   });
 }
 
 abstract final class NeuralCatalog {
+  // Partes privadas conservan el orden y los contratos públicos sin repetir modelos.
   static const models = <LmCatalogEntry>[
-    LmCatalogEntry(
-      'Qwen2.5-0.5B-Instruct',
-      '0.5B',
-      'Q8_0',
-      0.68,
-      1.0,
-      'qwen2.5-0.5b-instruct-q8_0.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf',
-      'ca59ca7f13d0e15a8cfa77bd17e65d24f6844b554a7b6c12e07a5f89ff76844e',
-      template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Qwen2.5-1.5B-Instruct',
-      '1.5B',
-      'Q8_0',
-      1.76,
-      2.2,
-      'qwen2.5-1.5b-instruct-q8_0.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q8_0.gguf',
-      'd7efb072e7724d25048a4fda0a3e10b04bdef5d06b1403a1c93bd9f1240a63c8',
-      template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Qwen2.5-Coder-1.5B-Instruct',
-      '1.5B',
-      'Q4_K_M',
-      0.99,
-      1.5,
-      'qwen2.5-coder-1.5b-instruct-q4_k_m.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-1.5b-instruct-q4_k_m.gguf',
-      'cc324af070c2ecbfd324a30884d2f951a7ff756aba85cb811a6ec436933bb046',
-      template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Qwen2.5-3B-Instruct-Q4_K_M',
-      '3B',
-      'Q4_K_M',
-      2.09,
-      2.8,
-      'qwen2.5-3b-instruct-q4_k_m.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf',
-      '626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d',
-      template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Qwen2.5-3B-Instruct',
-      '3B',
-      'Q8_0',
-      3.37,
-      4.0,
-      'qwen2.5-3b-instruct-q8_0.gguf',
-      'https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q8_0.gguf',
-      '6dcc22694c8654b045ec40bbe350212b88893fd9010e8474bae5b19a43578ba1',
-      template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Qwen3.8-2B-Q4_K_M',
-      '2B',
-      'Q4_K_M',
-      1.31,
-      1.9,
-      'Qwen3.8-2B-Q4_K_M.gguf',
-      'https://huggingface.co/empero-ai/Qwen3.8-2B-Distill-GGUF/resolve/main/Qwen3.8-2B-Q4_K_M.gguf',
-      '4aa0fb13c431514262f259d420ecc95a8714df58ac2a2384514e20b93983f0ff',
-      template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Qwen3.8-2B-Q8_0',
-      '2B',
-      'Q8_0',
-      2.08,
-      2.7,
-      'Qwen3.8-2B-Q8_0.gguf',
-      'https://huggingface.co/empero-ai/Qwen3.8-2B-Distill-GGUF/resolve/main/Qwen3.8-2B-Q8_0.gguf',
-      '866773b0d68f09a1db9733555e92daff85b617f9a2e601773dff494c5ca2bbf2',
-      template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Qwen3.5-4B-Q4_K_M',
-      '4B',
-      'Q4_K_M',
-      2.55,
-      3.5,
-      'Qwen3.5-4B-Q4_K_M.gguf',
-      'https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf',
-      '00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.deep,
-    ),
-    LmCatalogEntry(
-      'Phi-3.5-mini-Instruct-3.8B',
-      '3.8B',
-      'Q4_K_M',
-      2.39,
-      3.2,
-      'Phi-3.5-mini-instruct-Q4_K_M.gguf',
-      'https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf',
-      'e4165e3a71af97f1b4820da61079826d8752a2088e313af0c7d346796c38eff5',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.deep,
-    ),
-    LmCatalogEntry(
-      'Llama-3.2-1B-Instruct',
-      '1B',
-      'Q4_K_M',
-      0.79,
-      1.2,
-      'Llama-3.2-1B-Instruct-Q4_K_M.gguf',
-      'https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf',
-      '6f85a640a97cf2bf5b8e764087b1e83da0fdb51d7c9fab7d0fece9385611df83',
-      template: ChatTemplate.llama,
-    ),
-    LmCatalogEntry(
-      'DeepSeek-R1-Distill-Qwen-7B',
-      '7B',
-      'Q4_K_M',
-      4.36,
-      5.5,
-      'DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf',
-      'https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf',
-      '78272d8d32084548bd450394a560eb2d70de8232ab96a725769b1f9171235c1c',
-      template: ChatTemplate.deepseek,
-      tier: ModelTier.deep,
-    ),
-    LmCatalogEntry(
-      'DeepSeek-R1-Distill-Qwen-7B-Q2',
-      '7B',
-      'Q2_K',
-      2.81,
-      4.0,
-      'DeepSeek-R1-Distill-Qwen-7B-Q2_K.gguf',
-      'https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-7B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-7B-Q2_K.gguf',
-      '7680555ca635d38cd851095f0f21caed0632f021005037f7d689de77e8f64c35',
-      template: ChatTemplate.deepseek,
-      tier: ModelTier.deep,
-    ),
-    // MODELS-CAT-01 — modelos conversacionales 2025-2026 verificados contra
-    // la API real de HuggingFace (api/models/<repo>/tree/main) el 2026-09-04:
-    // nombre de archivo, tamaño y lfs.oid (SHA256) copiados tal cual, jamás
-    // inventados. El gate de instalación exige coincidencia del hash.
-    LmCatalogEntry(
-      'Qwen3-1.7B-Instruct',
-      '1.7B',
-      'Q8_0',
-      1.83,
-      2.4,
-      'Qwen3-1.7B-Q8_0.gguf',
-      'https://huggingface.co/Qwen/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q8_0.gguf',
-      '061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a',
-      template: ChatTemplate.qwen,
-    ),
-    LmCatalogEntry(
-      'Gemma-3-1B-IT',
-      '1B',
-      'Q4_K_M',
-      0.81,
-      1.2,
-      'gemma-3-1b-it-Q4_K_M.gguf',
-      'https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf',
-      '8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135',
-      template: ChatTemplate.gemma,
-    ),
-    LmCatalogEntry(
-      'Gemma-3-1B-IT-Q8_0',
-      '1B',
-      'Q8_0',
-      1.07,
-      1.5,
-      'gemma-3-1b-it-Q8_0.gguf',
-      'https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q8_0.gguf',
-      'b205840c5dcef55078e37d344677869a714ffd42a4ae448c48dcfb52e4bb10d5',
-      template: ChatTemplate.gemma,
-    ),
-    LmCatalogEntry(
-      'Llama-3.2-3B-Instruct',
-      '3B',
-      'Q4_K_M',
-      2.02,
-      2.6,
-      'Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-      'https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf',
-      '6c1a2b41161032677be168d354123594c0e6e67d2b9227c84f296ad037c728ff',
-      template: ChatTemplate.llama,
-    ),
-    LmCatalogEntry(
-      'Qwen3-4B-Instruct-2507',
-      '4B',
-      'Q4_K_M',
-      2.50,
-      3.2,
-      'Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
-      'https://huggingface.co/lmstudio-community/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
-      '8cdb57cbb880d313736a9bc4e3d3d2485f145b5e19cf33783746e753e82641fc',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.deep,
-    ),
-    LmCatalogEntry(
-      'Ministral-3-3B-Instruct-2512',
-      '3B',
-      'Q4_K_M',
-      2.15,
-      2.8,
-      'Ministral-3-3B-Instruct-2512-Q4_K_M.gguf',
-      'https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF/resolve/main/Ministral-3-3B-Instruct-2512-Q4_K_M.gguf',
-      '9ed150d4367e68df0ac8e1540f6ddc65b42d0ee26378329d1ecbca60f93fc5f8',
-      template: ChatTemplate.mistral,
-      tier: ModelTier.deep,
-    ),
-    // MODELS-CAT-03 — Modelos multi-tier optimizados para móviles (1.2B a 2.6B):
-    // Conversación continua, comprensión, razonamiento, agentic y visión local.
-    LmCatalogEntry(
-      'LFM2.5-1.2B-Instruct-Q4_0-QAD',
-      '1.2B',
-      'Q4_0-QAD',
-      0.65,
-      1.1,
-      'LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf',
-      'https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-QAD-Q4_0.gguf',
-      'bb741ebb106d543e9de114b843a3d3d73d51c74b5801e69da2abde821a0cb3e1',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.interactive,
-    ),
-    LmCatalogEntry(
-      'Qwen3.5-2B-Q4_K_M',
-      '2B',
-      'Q4_K_M',
-      1.19,
-      1.8,
-      'Qwen3.5-2B-Q4_K_M.gguf',
-      'https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf',
-      'aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.interactive,
-    ),
-    LmCatalogEntry(
-      'LFM2.5-1.2B-Thinking',
-      '1.2B',
-      'Q4_K_M',
-      0.68,
-      1.1,
-      'LFM2.5-1.2B-Thinking.Q4_K_M.gguf',
-      'https://huggingface.co/mradermacher/LFM2.5-1.2B-Thinking-GGUF/resolve/main/LFM2.5-1.2B-Thinking.Q4_K_M.gguf',
-      '5460bf6d126e85447e5542e88ade8aa6205bc947a28babc77736fffe91747cd8',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.interactive,
-    ),
-    LmCatalogEntry(
-      'LFM2.5-2.6B-Q4_0-QAD',
-      '2.6B',
-      'Q4_0-QAD',
-      1.48,
-      2.2,
-      'LFM2.5-2.6B-QAD-Q4_0.gguf',
-      'https://huggingface.co/LiquidAI/LFM2.5-2.6B-GGUF/resolve/main/LFM2.5-2.6B-QAD-Q4_0.gguf',
-      'a247afd6414918eac8e520a9e6137dc271235461ecbe1180462221d5b8d40b03',
-      template: ChatTemplate.qwen,
-      tier: ModelTier.interactive,
-    ),
-    LmCatalogEntry(
-      'Gemma-3n-E2B-IT',
-      '2B',
-      'Q4_K_M',
-      2.81,
-      3.6,
-      'gemma-3n-E2B-it-Q4_K_M.gguf',
-      'https://huggingface.co/unsloth/gemma-3n-E2B-it-GGUF/resolve/main/gemma-3n-E2B-it-Q4_K_M.gguf',
-      '189d42b4303cb1078ea8d00963f437cd6d884069b7ba2ba80b38cd09585dc415',
-      template: ChatTemplate.gemma,
-      tier: ModelTier.deep,
-    ),
-    // A16 — wake word (detector local microWakeWord, modelo .tflite). SHA256
-    // verificado del release oficial OHF-Voice/micro-wake-word v2.1_models.
-    // No hay modelo "Nano" pre-entrenado: se usa "hey mycroft" como base; un
-    // modelo "Nano" se entrenaría con openWakeWord y se añadiría igual.
-    LmCatalogEntry(
-      'Hey Mycroft (wake word)',
-      'microWakeWord',
-      'tflite',
-      0.000055,
-      0.01,
-      'hey_mycroft.tflite',
-      'https://github.com/OHF-Voice/micro-wake-word/releases/download/v2.1_models/hey_mycroft.tflite',
-      'c2a9b6ed51182db72e014781d5a4ece1929dc232a40b5b4be384f0295f0e1571',
-      kind: ModelKind.wakeWord,
-    ),
-    // Modelos de voz local en el dispositivo (Whisper.cpp)
-    LmCatalogEntry(
-      'Whisper-Tiny (Voz Local)',
-      '39M',
-      'Q5_1',
-      0.075,
-      0.15,
-      'ggml-tiny.bin',
-      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
-      'bd577a113a864445214878a8731112b32f2f458516d0be9b7f58a5f80b957e8d',
-      kind: ModelKind.voiceStt,
-      tier: ModelTier.interactive,
-    ),
-    LmCatalogEntry(
-      'Whisper-Base (Voz Local)',
-      '74M',
-      'Q5_1',
-      0.142,
-      0.25,
-      'ggml-base.bin',
-      'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
-      '60ed5bc3dd14eea856493d33afdac61453272d89e677c65069714330d07e600c',
-      kind: ModelKind.voiceStt,
-      tier: ModelTier.interactive,
-    ),
-    // Modelo multimodal con proyección visual integrada (Moondream2 GGUF + mmproj)
-    LmCatalogEntry(
-      'Moondream2-1.8B-Vision',
-      '1.8B',
-      'Q4_K_M',
-      1.18,
-      1.9,
-      'moondream2-text-model-q4_k_m.gguf',
-      'https://huggingface.co/vikhyatk/moondream2/resolve/main/moondream2-text-model-q4_k_m.gguf',
-      '7b9c1d0a5f9c46db1d4e08cf8ba52824cfc5aeefd91e3e481beaa07b9a5c88b1',
-      kind: ModelKind.multimodalVision,
-      mmprojFile: 'moondream2-mmproj-f16.gguf',
-      mmprojUrl:
-          'https://huggingface.co/vikhyatk/moondream2/resolve/main/moondream2-mmproj-f16.gguf',
-      mmprojSha256:
-          '9a8d2f1b8c4e09f583e2b9c7d1e8a34f59c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4',
-      tier: ModelTier.interactive,
-    ),
+    ..._catalogEntries0,
+    ..._catalogEntries1,
+    ..._catalogEntries2,
+    ..._catalogEntries3,
+    ..._catalogEntries4,
+    ..._catalogEntries5,
+    ..._catalogEntries6,
   ];
 
   static LmCatalogEntry entryOf(String name) =>
@@ -429,10 +117,14 @@ abstract final class NeuralCatalog {
 
   static String fileOf(String name) => entryOf(name).file;
 
-  /// Gate R9 — modelo interactivo por defecto: el primer modelo del catálogo
-  /// con tier INTERACTIVE (≤3B). El chat NUNCA debe arrancar con un modelo
-  /// DEEP/EXTREME seleccionado por defecto: eso hace parecer lenta a toda la
-  /// app. El usuario elige un modelo grande explícitamente si lo necesita.
+  /// Resolves an installed path through catalog metadata; imported GGUF paths
+  /// are explicitly registered as GGUF by the model picker/repository.
+  static ModelBackendType backendForPath(String? path) {
+    // Un único resolvedor conserva el backend declarado para cada artefacto conocido.
+    return entryForPath(path)?.backendType ?? ModelBackendType.gguf;
+  }
+
+  /// Elige la primera opción ligera; los modelos avanzados requieren elección.
   static LmCatalogEntry get defaultInteractive {
     for (final m in models) {
       if (m.tier == ModelTier.interactive) return m;
@@ -444,17 +136,49 @@ abstract final class NeuralCatalog {
   static List<LmCatalogEntry> modelsOf(ModelKind kind) =>
       models.where((m) => m.kind == kind).toList();
 
+  /// Busca una entrada por nombre de archivo exacto dentro de una ruta privada.
+  static LmCatalogEntry? entryForPath(String? path) {
+    if (path == null || path.isEmpty) return null;
+    final normalized = path
+        .replaceAll('\\', '/')
+        .replaceAll(RegExp(r'/+$'), '');
+    final segments = normalized.split('/');
+    for (final entry in models) {
+      if (segments.contains(entry.file)) return entry;
+    }
+    return null;
+  }
+
+  /// Solo modelos generativos aparecen en selectores de conversación.
+  static List<LmCatalogEntry> get chatModels => models
+      .where(
+        (m) => m.kind == ModelKind.llm || m.kind == ModelKind.multimodalVision,
+      )
+      .toList(growable: false);
+
   /// Modelos de wake word (.tflite) con SHA256 verificado. Se instalan con el
   /// mismo gate de integridad, pero no se envían al runtime GGUF del chat.
   static List<LmCatalogEntry> get wakeWordModels =>
       modelsOf(ModelKind.wakeWord);
 
   /// Modelos de reconocimiento de voz local (Whisper GGML).
-  static List<LmCatalogEntry> get voiceModels => modelsOf(ModelKind.voiceStt);
+  static List<LmCatalogEntry> get voiceModels => models
+      .where(
+        (m) =>
+            m.kind == ModelKind.voiceStt ||
+            m.kind == ModelKind.voiceTts ||
+            m.kind == ModelKind.speakerDiarization,
+      )
+      .toList(growable: false);
 
-  /// Modelos con visión multimodal (GGUF + mmproj).
-  static List<LmCatalogEntry> get visionModels =>
-      modelsOf(ModelKind.multimodalVision);
+  /// Modelos de visión y OCR documental del catálogo, aunque su runtime siga pendiente.
+  static List<LmCatalogEntry> get visionModels => models
+      .where(
+        (m) =>
+            m.kind == ModelKind.multimodalVision ||
+            m.kind == ModelKind.imageOcr,
+      )
+      .toList(growable: false);
 
   /// Devuelve el [ChatTemplate] del modelo por nombre exacto de catálogo.
   ///

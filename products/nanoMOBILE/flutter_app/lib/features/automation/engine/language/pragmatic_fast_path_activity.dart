@@ -1,4 +1,4 @@
-﻿part of 'pragmatic_fast_path.dart';
+part of 'pragmatic_fast_path.dart';
 
 /// Respuestas para preguntas sobre actividad y planes del dueño.
 ///
@@ -28,7 +28,11 @@ extension _PragmaticFastPathActivity on PragmaticFastPath {
         normalized.contains('sale hoy') ||
         normalized.contains('vas a ir') ||
         normalized.contains('vas ir')) {
-      return _selectCandidate(activityGoingCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        activityGoingCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     if (normalized.contains('que haras') ||
@@ -40,7 +44,11 @@ extension _PragmaticFastPathActivity on PragmaticFastPath {
         normalized.contains('vas a hacer') ||
         normalized.contains('que planes') ||
         normalized.contains('tienes pensado')) {
-      return _selectCandidate(activityPlansCandidates, conversationId, lastOutboundText);
+      return _selectCandidate(
+        activityPlansCandidates,
+        conversationId,
+        lastOutboundText,
+      );
     }
 
     final withWellbeing = intents.contains(ConversationIntent.askWellbeing);

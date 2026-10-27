@@ -1,37 +1,42 @@
+import 'dart:convert';
 import '../../executors/linux/linux_automation_port.dart';
+import '../../executors/linux/linux_automation_types.dart';
+import '../../executors/linux/linux_process_inspector.dart';
 import '../execution/handlers/semantic_linux_tool_handler.dart';
 import '../execution/tool_call.dart';
 import 'mcp_client_port.dart';
+import 'mcp_schema_validator.dart';
 
-/// Servidor MCP nativo para el subsistema Linux de Nano.
-///
-/// Expone las capacidades de bajo nivel y semánticas de Linux/Nanoshell
-/// a través del protocolo estándar MCP, permitiendo que agentes autónomos (Koog,
-/// subagentes, modelos remotos) utilicen Linux sin inventar comandos bash inseguros.
+part 'linux_mcp_catalog.dart';
+part 'linux_mcp_dispatch.dart';
+part 'linux_mcp_result.dart';
+
+/// Conector interno: comparte el ejecutor Linux, nunca una sesión PTY ni stdio.
+/// La autorización pertenece al dispatcher; aquí se valida el contrato de entrada.
 class LinuxAutomationMcpClient implements McpClientPort {
   static const String serverId = 'nano-linux';
-
   final ILinuxAutomationExecutor _executor;
-  final SemanticLinuxToolHandler _toolHandler;
+  final SemanticLinuxToolHandler? _toolHandler;
   McpConnectionState _state = McpConnectionState.disconnected;
 
   LinuxAutomationMcpClient({
     required ILinuxAutomationExecutor executor,
     SemanticLinuxToolHandler? toolHandler,
-  })  : _executor = executor,
-        _toolHandler = toolHandler ?? SemanticLinuxToolHandler(executor: executor);
+  }) : _executor = executor,
+       _toolHandler = toolHandler;
 
   @override
   McpServerDescriptor get descriptor => const McpServerDescriptor(
-        id: serverId,
-        displayName: 'Nano Linux Automation Engine',
-        transport: McpTransportKind.stdio,
-        metadata: {
-          'version': '1.0.0',
-          'engine': 'Nanoshell',
-          'runtime': 'Rootfs Linux',
-        },
-      );
+    id: serverId,
+    displayName: 'Nano Linux',
+    transport: McpTransportKind.inProcess,
+    metadata: {
+      'version': '1.1.0',
+      'engine': 'Nanoshell',
+      'runtime': 'Nanoshell: bootstrap o rootfs instalado',
+      'session': 'independiente de la terminal PTY',
+    },
+  );
 
   @override
   McpConnectionState get state => _state;
@@ -39,139 +44,82 @@ class LinuxAutomationMcpClient implements McpClientPort {
   @override
   Future<McpConnectionResult> connect() async {
     _state = McpConnectionState.connecting;
-    if (!_executor.isAvailable) {
-      await _executor.init();
-    }
-
-    if (!_executor.isAvailable) {
+    try {
+      if (!_executor.isAvailable) await _executor.init();
+      if (!_executor.isAvailable) throw StateError('Motor no disponible');
+      _state = McpConnectionState.connected;
+      return const McpConnectionResult(
+        status: McpOperationStatus.success,
+        message:
+            'Motor Linux inicializado. No demuestra ejecución de herramientas.',
+      );
+    } catch (_) {
       _state = McpConnectionState.failed;
       return const McpConnectionResult(
         status: McpOperationStatus.unavailable,
-        message: 'Subsistema Linux/Nanoshell no inicializado o rootfs ausente.',
+        message:
+            'Linux no disponible: comprueba el motor y su rootfs en Terminal.',
       );
     }
-
-    _state = McpConnectionState.connected;
-    return const McpConnectionResult(
-      status: McpOperationStatus.success,
-      protocolVersion: '2024-11-05',
-      message: 'Nano Linux Automation MCP conectado exitosamente.',
-      metadata: {'nanoshellActive': true},
-    );
   }
 
   @override
   Future<void> disconnect() async {
+    // El registro es dueño del conector; la terminal conserva sus propias tareas.
     _state = McpConnectionState.disconnected;
   }
 
   @override
-  Future<List<McpRemoteTool>> listTools() async {
-    return const [
-      McpRemoteTool(
-        serverId: serverId,
-        name: 'nano.linux.fs.list',
-        description: 'Lista archivos y carpetas estructurados en Linux.',
-        inputSchema: {
-          'type': 'object',
-          'properties': {
-            'path': {'type': 'string', 'description': 'Ruta absoluta'},
-            'recursive': {'type': 'boolean', 'default': false},
-          },
-          'required': ['path'],
-        },
-        annotations: McpToolAnnotations(readOnlyHint: true, idempotentHint: true),
-      ),
-      McpRemoteTool(
-        serverId: serverId,
-        name: 'nano.linux.fs.read',
-        description: 'Lee el contenido de un archivo en Linux.',
-        inputSchema: {
-          'type': 'object',
-          'properties': {
-            'path': {'type': 'string', 'description': 'Ruta del archivo'},
-            'maxBytes': {'type': 'integer', 'default': 4096},
-          },
-          'required': ['path'],
-        },
-        annotations: McpToolAnnotations(readOnlyHint: true, idempotentHint: true),
-      ),
-      McpRemoteTool(
-        serverId: serverId,
-        name: 'nano.linux.fs.write',
-        description: 'Escribe contenido en un archivo verificando su persistencia en disco.',
-        inputSchema: {
-          'type': 'object',
-          'properties': {
-            'path': {'type': 'string', 'description': 'Ruta del archivo'},
-            'content': {'type': 'string', 'description': 'Contenido a escribir'},
-          },
-          'required': ['path', 'content'],
-        },
-        annotations: McpToolAnnotations(destructiveHint: true),
-      ),
-      McpRemoteTool(
-        serverId: serverId,
-        name: 'nano.linux.archive.create',
-        description: 'Crea un paquete tar/tar.gz con integridad verificada.',
-        inputSchema: {
-          'type': 'object',
-          'properties': {
-            'sourcePath': {'type': 'string', 'description': 'Ruta de origen'},
-            'tarPath': {'type': 'string', 'description': 'Ruta de destino tar.gz'},
-            'gzip': {'type': 'boolean', 'default': true},
-          },
-          'required': ['sourcePath', 'tarPath'],
-        },
-        annotations: McpToolAnnotations(destructiveHint: true),
-      ),
-      McpRemoteTool(
-        serverId: serverId,
-        name: 'nano.linux.git.status',
-        description: 'Consulta el estado de cambios de un repositorio Git.',
-        inputSchema: {
-          'type': 'object',
-          'properties': {
-            'repoPath': {'type': 'string', 'default': '.'},
-          },
-        },
-        annotations: McpToolAnnotations(readOnlyHint: true, idempotentHint: true),
-      ),
-      McpRemoteTool(
-        serverId: serverId,
-        name: 'nano.linux.process.list',
-        description: 'Lista los procesos actualmente en ejecución en Linux.',
-        inputSchema: {'type': 'object'},
-        annotations: McpToolAnnotations(readOnlyHint: true, idempotentHint: true),
-      ),
-    ];
-  }
+  Future<List<McpRemoteTool>> listTools() async => _linuxMcpCatalog();
 
   @override
   Future<McpToolCallResult> callTool(McpToolCall call) async {
-    if (_state != McpConnectionState.connected) {
+    if (_state != McpConnectionState.connected || call.serverId != serverId) {
       return const McpToolCallResult(
         status: McpOperationStatus.unavailable,
-        message: 'Servidor MCP nano-linux no conectado.',
+        message: 'Conector Linux no disponible para este servidor.',
       );
     }
-
-    try {
-      final toolCall = ToolCall(tool: call.toolName, args: call.arguments);
-      final resultText = await _toolHandler.handleToolCall(toolCall);
-      final isSuccess = resultText.startsWith('SUCCESS');
-
-      return McpToolCallResult(
-        status: isSuccess ? McpOperationStatus.success : McpOperationStatus.failed,
-        message: resultText,
-        structuredContent: {'result': resultText},
-        content: [McpContentItem(type: 'text', text: resultText)],
+    final matches = _linuxMcpCatalog().where((t) => t.name == call.toolName);
+    if (matches.isEmpty) {
+      return const McpToolCallResult(
+        status: McpOperationStatus.unsupported,
+        message: 'Operación Linux no publicada.',
       );
-    } catch (e) {
+    }
+    final problems = await McpSchemaValidator.validate(
+      matches.first.inputSchema,
+      call.arguments,
+    );
+    if (problems.isNotEmpty) {
       return McpToolCallResult(
+        status: McpOperationStatus.denied,
+        message: problems.join('\n'),
+      );
+    }
+    try {
+      // Conserva la inyección pública de adaptadores antiguos sin usarla en producción.
+      if (_toolHandler != null) {
+        final text = await _toolHandler.handleToolCall(
+          ToolCall(tool: call.toolName, args: call.arguments),
+        );
+        final accepted =
+            text.startsWith('SUCCESS') ||
+            text.startsWith('[completedUnverified]');
+        return McpToolCallResult(
+          status: accepted
+              ? McpOperationStatus.success
+              : McpOperationStatus.failed,
+          content: [McpContentItem(type: 'text', text: text)],
+          metadata: const {'verified': false},
+        );
+      }
+      return await _dispatch(call);
+    } catch (_) {
+      return const McpToolCallResult(
         status: McpOperationStatus.failed,
-        message: '$e',
-        structuredContent: {'error': '$e'},
+        message:
+            'La operación Linux no pudo completarse; consulta su registro local.',
       );
     }
   }

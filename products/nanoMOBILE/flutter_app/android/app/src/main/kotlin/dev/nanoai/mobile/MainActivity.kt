@@ -1,6 +1,5 @@
 package dev.nanoai.mobile
 
-import android.Manifest
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -19,26 +18,36 @@ import dev.nanoai.mobile.appfunctions.AppFunctionChannelHandler
 import dev.nanoai.mobile.channels.AgentChannelHandler
 import dev.nanoai.mobile.channels.AutomationBackgroundChannelHandler
 import dev.nanoai.mobile.channels.AutomationStoreChannelHandler
+import dev.nanoai.mobile.channels.BrowserCompatibilityChannelHandler
 import dev.nanoai.mobile.channels.ChannelNames
 import dev.nanoai.mobile.channels.ContactsChannelHandler
+import dev.nanoai.mobile.channels.DataStudioChannelHandler
 import dev.nanoai.mobile.channels.DeviceMetricsChannelHandler
 import dev.nanoai.mobile.channels.DevicePermissionsChannelHandler
 import dev.nanoai.mobile.channels.EngineChannelHandler
 import dev.nanoai.mobile.channels.ExecBinChannelHandler
 import dev.nanoai.mobile.channels.LanguageAssistChannelHandler
+import dev.nanoai.mobile.channels.LiteRtChannelHandler
+import dev.nanoai.mobile.channels.MnnChannelHandler
 import dev.nanoai.mobile.channels.MediaCaptureChannelHandler
 import dev.nanoai.mobile.channels.ModelStorageChannelHandler
 import dev.nanoai.mobile.channels.NanoFloatingChannel
 import dev.nanoai.mobile.channels.NanoNativeAiChannel
 import dev.nanoai.mobile.channels.NotificationAutomationChannelHandler
+import dev.nanoai.mobile.channels.PerformanceChannelHandler
+import dev.nanoai.mobile.channels.PdfTextExtractionChannelHandler
 import dev.nanoai.mobile.channels.PtyChannelHandler
 import dev.nanoai.mobile.channels.RuntimeChannelHandler
 import dev.nanoai.mobile.channels.ShareChannelHandler
 import dev.nanoai.mobile.channels.SpeechChannelHandler
 import dev.nanoai.mobile.channels.SystemInventoryChannelHandler
+import dev.nanoai.mobile.channels.UiEngineContextChannel
+import dev.nanoai.mobile.performance.NanoPerformanceEngine
+import dev.nanoai.mobile.performance.NanoThermalMonitor
 import dev.nanoai.mobile.services.NotificationAutomationBridge
+import dev.nanoai.mobile.services.NotificationHistoryBridge
 import dev.nanoai.mobile.services.NanoOverlayBridge
-import io.flutter.embedding.android.FlutterActivity
+import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
@@ -47,7 +56,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 
-class MainActivity : FlutterActivity() {
+// Comparte el motor Flutter con la sesión multimedia para que la notificación
+// controle el mismo navegador al salir de Nano, sin iniciar otro isolate de UI.
+class MainActivity : AudioServiceActivity() {
+    private var messageDocumentHandler: PdfTextExtractionChannelHandler? = null
 
     /** WA-PROD-01 — runtime compartido en scope de Application: MainActivity
      *  es UI CLIENT, no dueño. RuntimeScope apaga los supervisores solo cuando
@@ -67,12 +79,11 @@ class MainActivity : FlutterActivity() {
     /** Handler de contactos: lectura de WhatsApp y gestión de permisos. */
     private var contactsHandler: ContactsChannelHandler? = null
 
-    /** Result pendiente de requestStoragePermission — resuelto por
-     *  onRequestPermissionsResult cuando el usuario contesta el diálogo. */
-    private var pendingStorageResult: MethodChannel.Result? = null
+    /** Único dueño de los diálogos runtime para evitar resultados huérfanos. */
+    private var runtimePermissions: RuntimePermissionCoordinator? = null
 
-    /** Resultado pendiente del lote micrófono + medios del centro de permisos. */
-    private var pendingRuntimePermissionsResult: MethodChannel.Result? = null
+    /** Puente Android del navegador; se desconecta junto con el engine Flutter. */
+    private var browserCompatibilityHandler: BrowserCompatibilityChannelHandler? = null
 
     /** A03-A06 — coprocesador lingüístico (cerrado en onDestroy, A13). */
     private var languageAssistHandler: LanguageAssistChannelHandler? = null
@@ -89,6 +100,21 @@ class MainActivity : FlutterActivity() {
     /** Canal para compartir prompts con apps nativas de IA (ChatGPT, Gemini…). */
     private var nanoNativeAiChannel: NanoNativeAiChannel? = null
 
+    /** Handler de LiteRT-LM (Google AI Edge): inferencia local con modelos .litertlm. */
+    private var liteRtChannelHandler: LiteRtChannelHandler? = null
+
+    /** MNN owner is retained for the Activity lifetime and releases native state on destroy. */
+    private var mnnChannelHandler: MnnChannelHandler? = null
+
+    /** ADPF + Thermal engine handler (cerrado en onDestroy). */
+    private var performanceChannelHandler: PerformanceChannelHandler? = null
+
+    /** Handler para el almacén persistente de automatizaciones y conversaciones SQLite. */
+    private var automationStoreHandler: AutomationStoreChannelHandler? = null
+
+    /** EventSink vivo de la UI para reenrutar eventos cuando la Activity pasa a foreground. */
+    private var currentUiSink: EventChannel.EventSink? = null
+
     private val pathPolicy: SecurePathPolicy by lazy { SecurePathPolicy(filesDir) }
     private val downloadService: DownloadService by lazy { DownloadService(pathPolicy) }
     private val deviceMetricsProvider: DeviceMetricsProvider by lazy { DeviceMetricsProvider(this) }
@@ -96,14 +122,14 @@ class MainActivity : FlutterActivity() {
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Una apertura visible gana la carrera al consumidor headless antes de
+        // que Flutter inicialice la Activity. configureFlutterEngine lo repite
+        // como red de seguridad cuando los canales ya están disponibles.
+        dev.nanoai.mobile.automation.AutomationRuntimeService.onUiEngineAttached()
         super.onCreate(savedInstanceState)
-        // WA-REG-01 — acquire(UI) SÍNCRONO: cierra la ventana de handoff
-        // headless→UI. Antes el acquire iba dentro del postDelayed de warmup:
-        // si el service headless soltaba AUTOMATION en esos 1500ms, holders
-        // quedaba vacío y RuntimeScope apagaba el runtime completo (engine LLM
-        // incluido, que no podía re-arrancar en el mismo proceso). Acquire es
-        // solo un add a un set sincronizado — no toca disco ni pelea el
-        // primer frame.
+        // WA-REG-01 — registramos la UI sin iniciar procesos nativos. El worker
+        // se crea al primer uso de GGUF, terminal o Desktop; LiteRT no lo usa y
+        // así conserva memoria para el modelo y su caché KV.
         runtimeScope.acquire(RuntimeScope.Holder.UI)
         // Barras del sistema oscuras + inmersión total sticky: ocultar status bar para aprovechar pantalla
         window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
@@ -115,13 +141,6 @@ class MainActivity : FlutterActivity() {
         window.statusBarColor = Color.TRANSPARENT
         window.navigationBarColor = Color.TRANSPARENT
         applyImmersiveMode()
-        // Starting the worker binds a native service and may touch disk. Do it
-        // after initial UI work so cold start can render before runtime warmup.
-        mainHandler.postDelayed({
-            if (!isFinishing && !isDestroyed) {
-                runtimeScope.nativeSupervisor.start()
-            }
-        }, RUNTIME_WARMUP_DELAY_MS)
     }
 
     override fun onAttachedToWindow() {
@@ -207,13 +226,38 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        currentUiSink?.let { NotificationAutomationBridge.setSink(SINK_UI, it) }
+    }
+
     override fun onPause() {
         super.onPause()
         isForeground = false
     }
 
+    override fun onStop() {
+        NotificationAutomationBridge.clearSink(SINK_UI)
+        super.onStop()
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        messageDocumentHandler?.close()
+        messageDocumentHandler = null
+        NotificationAutomationBridge.clearSink(SINK_UI)
+        currentUiSink = null
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AutomationStoreChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(null)
+        automationStoreHandler = null
+        browserCompatibilityHandler?.close()
+        browserCompatibilityHandler = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
 
     override fun onDestroy() {
+        NotificationAutomationBridge.clearSink(SINK_UI)
+        currentUiSink = null
+        automationStoreHandler = null
         languageAssistHandler?.close()
         languageAssistHandler = null
         speechChannelHandler?.close()
@@ -225,91 +269,22 @@ class MainActivity : FlutterActivity() {
         nanoFloatingChannel = null
         nanoNativeAiChannel?.detach()
         nanoNativeAiChannel = null
+        liteRtChannelHandler = null
+        mnnChannelHandler?.close()
+        mnnChannelHandler = null
+        performanceChannelHandler?.close()
+        performanceChannelHandler = null
         NanoOverlayBridge.detach() // OVERLAY-03: limpiar puente al engine Flutter.
         ioScope.cancel()
-        // Si el diálogo de permisos quedó abierto al destruirse la Activity,
-        // resolver el Result pendiente — un Future Dart colgado para siempre.
-        pendingStorageResult?.error(
-            "activity_destroyed", "Activity destruida antes de contestar permisos", null,
-        )
-        pendingStorageResult = null
-        pendingRuntimePermissionsResult?.error(
-            "activity_destroyed", "Activity destruida antes de contestar permisos", null,
-        )
-        pendingRuntimePermissionsResult = null
+        browserCompatibilityHandler?.close()
+        browserCompatibilityHandler = null
+        runtimePermissions?.close()
+        runtimePermissions = null
         // WA-PROD-01: la UI suelta su requestor; el shutdown real ocurre en
         // RuntimeScope solo si automation no sigue activo (orden interno:
         // engine antes que worker).
         runtimeScope.release(RuntimeScope.Holder.UI)
         super.onDestroy()
-    }
-
-    /**
-     * Permisos de lectura de medios compartidos para el gestor de archivos
-     * del escritorio (pcmanfm monta /storage/emulated/0 vía nanoroot).
-     * API 33+: READ_MEDIA_*; API 23-32: READ_EXTERNAL_STORAGE. < 23: concedido
-     * en instalación. Si ya están concedidos responde de inmediato; si no,
-     * guarda el Result y lo resuelve onRequestPermissionsResult.
-     */
-    private fun requestStoragePermission(result: MethodChannel.Result) {
-        val sdk = Build.VERSION.SDK_INT
-        if (sdk < 23) {
-            result.success(true)
-            return
-        }
-        val perms = if (sdk >= 33) {
-            arrayOf(
-                Manifest.permission.READ_MEDIA_IMAGES,
-                Manifest.permission.READ_MEDIA_VIDEO,
-                Manifest.permission.READ_MEDIA_AUDIO,
-            )
-        } else {
-            arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-        }
-        val granted = perms.all {
-            checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED
-        }
-        if (granted) {
-            result.success(true)
-            return
-        }
-        // El Result se resuelve cuando el usuario contesta el diálogo; si hay
-        // uno previo colgado (raza doble-tap), fallar el viejo primero.
-        pendingStorageResult?.error("permission_pending", "solicitud anterior aún abierta", null)
-        pendingStorageResult = result
-        requestPermissions(perms, REQ_STORAGE_PERMISSION)
-    }
-
-    /** Solicita únicamente permisos runtime usados: micrófono y medios. */
-    private fun requestRuntimePermissions(result: MethodChannel.Result) {
-        if (Build.VERSION.SDK_INT < 23) {
-            result.success(true)
-            return
-        }
-        val permissions = mutableListOf(Manifest.permission.RECORD_AUDIO)
-        if (Build.VERSION.SDK_INT >= 33) {
-            // Notificaciones propias del agente (avisos T3). Sin request runtime
-            // el sistema suprime las notificaciones (POST_NOTIFICATION=ignore).
-            permissions += Manifest.permission.POST_NOTIFICATIONS
-            permissions += Manifest.permission.READ_MEDIA_IMAGES
-            permissions += Manifest.permission.READ_MEDIA_VIDEO
-            permissions += Manifest.permission.READ_MEDIA_AUDIO
-        } else {
-            permissions += Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-        val missing = permissions.filter {
-            checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED
-        }
-        if (missing.isEmpty()) {
-            result.success(true)
-            return
-        }
-        if (pendingStorageResult != null || pendingRuntimePermissionsResult != null) {
-            result.error("permission_pending", "solicitud anterior aún abierta", null)
-            return
-        }
-        pendingRuntimePermissionsResult = result
-        requestPermissions(missing.toTypedArray(), REQ_RUNTIME_PERMISSIONS)
     }
 
     override fun onRequestPermissionsResult(
@@ -321,24 +296,45 @@ class MainActivity : FlutterActivity() {
         if (contactsHandler?.onRequestPermissionsResult(requestCode, permissions, grantResults) == true) {
             return
         }
-        if (requestCode == REQ_STORAGE_PERMISSION) {
-            val ok = grantResults.isNotEmpty() &&
-                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-            pendingStorageResult?.success(ok)
-            pendingStorageResult = null
-        } else if (requestCode == REQ_RUNTIME_PERMISSIONS) {
-            val ok = grantResults.isNotEmpty() &&
-                grantResults.all { it == PackageManager.PERMISSION_GRANTED }
-            pendingRuntimePermissionsResult?.success(ok)
-            pendingRuntimePermissionsResult = null
+        runtimePermissions?.onRequestPermissionsResult(requestCode, grantResults)
+    }
+
+    override fun provideFlutterEngine(context: android.content.Context): FlutterEngine? {
+        val flutterEngine = NanoUiFlutterEngine.obtain(context)
+        registerAutomationStoreChannel(flutterEngine, context)
+        return flutterEngine
+    }
+
+    private fun registerAutomationStoreChannel(
+        flutterEngine: FlutterEngine,
+        context: android.content.Context,
+    ) {
+        // QUÉ: impide instalar dos handlers sobre el mismo canal del engine.
+        // CÓMO: provideFlutterEngine/configureFlutterEngine comparten esta guarda.
+        // POR QUÉ: duplicarlo abre SQLite dos veces y retrasa el panel de mensajes.
+        if (automationStoreHandler != null) return
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
+        val handler = AutomationStoreChannelHandler(context.applicationContext).also {
+            automationStoreHandler = it
         }
+        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME)
+            .setMethodCallHandler(handler)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        // Expone el estado visible a consultas posteriores de recuperación.
+        UiEngineContextChannel.register(flutterEngine.dartExecutor.binaryMessenger)
+        // Este canal es usado durante el arranque del Centro de Mensajería.
+        // Registrarlo antes de trabajo de runtime/plugins evita que Dart
+        // solicite las conversaciones mientras el handler aún no existe.
+        registerAutomationStoreChannel(flutterEngine, this)
         runtimeScope.acquire(RuntimeScope.Holder.UI)
         dev.nanoai.mobile.automation.AutomationRuntimeService.onUiEngineAttached()
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        val permissions = runtimePermissions ?: RuntimePermissionCoordinator(this).also {
+            runtimePermissions = it
+        }
 
         val contacts = ContactsChannelHandler(this, ioScope).also { contactsHandler = it }
         MethodChannel(messenger, ContactsChannelHandler.CHANNEL_NAME)
@@ -359,7 +355,7 @@ class MainActivity : FlutterActivity() {
                     ioScope = ioScope,
                     mainHandler = mainHandler,
                     nativeSupervisor = runtimeScope.nativeSupervisor,
-                    onRequestStoragePermission = { result -> requestStoragePermission(result) },
+                    onRequestStoragePermission = permissions::requestStorage,
                 ),
             )
 
@@ -381,10 +377,23 @@ class MainActivity : FlutterActivity() {
         EventChannel(messenger, "com.nanoai/notification_events").setStreamHandler(
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    currentUiSink = events
                     NotificationAutomationBridge.setSink(SINK_UI, events)
                 }
                 override fun onCancel(arguments: Any?) {
+                    currentUiSink = null
                     NotificationAutomationBridge.clearSink(SINK_UI)
+                }
+            },
+        )
+        // Mantiene SQLite observable sin reenviar estos avisos al motor de automatización.
+        EventChannel(messenger, "com.nanoai/notification_history_events").setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    NotificationHistoryBridge.attach(events)
+                }
+                override fun onCancel(arguments: Any?) {
+                    NotificationHistoryBridge.attach(null)
                 }
             },
         )
@@ -395,17 +404,19 @@ class MainActivity : FlutterActivity() {
         // WA-PROD-01: estado/config del runtime en segundo plano (solo UI).
         MethodChannel(messenger, AutomationBackgroundChannelHandler.CHANNEL_NAME)
             .setMethodCallHandler(AutomationBackgroundChannelHandler(this))
-        // WA-PROD-02: estado durable del pipeline (dedupe/rate/memoria).
-        MethodChannel(messenger, AutomationStoreChannelHandler.CHANNEL_NAME,
-            io.flutter.plugin.common.StandardMethodCodec.INSTANCE, messenger.makeBackgroundTaskQueue())
-            .setMethodCallHandler(AutomationStoreChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.DEVICE_PERMISSIONS)
             .setMethodCallHandler(
                 DevicePermissionsChannelHandler(this) { result ->
-                    requestRuntimePermissions(result)
+                    permissions.requestDefaults(result)
                 },
             )
+
+        browserCompatibilityHandler?.close()
+        browserCompatibilityHandler = BrowserCompatibilityChannelHandler(
+            flutterEngine = flutterEngine,
+            requestWebMedia = permissions::requestWebMedia,
+        )
 
         val speechHandler = SpeechChannelHandler(this)
         speechChannelHandler = speechHandler
@@ -427,11 +438,57 @@ class MainActivity : FlutterActivity() {
                 }
         }
 
+        // ADPF + Thermal: Motor de rendimiento adaptativo para inferencia IA
+        val thermalMonitor = NanoThermalMonitor(this).also { it.start() }
+        val performanceEngine = NanoPerformanceEngine(this, thermalMonitor)
+        val perfHandler = PerformanceChannelHandler(performanceEngine, thermalMonitor).also {
+            performanceChannelHandler = it
+        }
+        MethodChannel(messenger, ChannelNames.PERFORMANCE)
+            .setMethodCallHandler(perfHandler)
+        EventChannel(messenger, PerformanceChannelHandler.THERMAL_STREAM_NAME)
+            .setStreamHandler(perfHandler)
+
+        // LiteRT-LM: Registro del canal nativo para modelos .litertlm con ADPF y Thermal
+        val supervisor = NanoApplication.from(this).modelRuntimeSupervisor
+        val liteRtHandler = LiteRtChannelHandler(this, ioScope, mainHandler, supervisor, performanceEngine, thermalMonitor)
+        liteRtChannelHandler = liteRtHandler
+        MethodChannel(messenger, LiteRtChannelHandler.METHOD_CHANNEL_NAME)
+            .setMethodCallHandler(liteRtHandler)
+        EventChannel(messenger, LiteRtChannelHandler.STREAM_CHANNEL_NAME)
+            .setStreamHandler(liteRtHandler)
+
+        // MNN-LLM is an independent CPU route for the downloaded Omni package.
+        val mnnHandler = MnnChannelHandler(ioScope, mainHandler)
+        mnnChannelHandler = mnnHandler
+        MethodChannel(messenger, MnnChannelHandler.METHOD_CHANNEL_NAME)
+            .setMethodCallHandler(mnnHandler)
+        EventChannel(messenger, MnnChannelHandler.STREAM_CHANNEL_NAME)
+            .setStreamHandler(mnnHandler)
+
         MethodChannel(messenger, ChannelNames.SHARE)
             .setMethodCallHandler(ShareChannelHandler(this))
 
+        // El handler administra su worker y su cierre; no depende de la pantalla.
+        messageDocumentHandler?.close()
+        val documents = PdfTextExtractionChannelHandler(this)
+        messageDocumentHandler = documents
+        MethodChannel(
+            messenger,
+            ChannelNames.PDF_TEXT,
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            messenger.makeBackgroundTaskQueue(),
+        ).setMethodCallHandler(documents)
+
         MethodChannel(messenger, ChannelNames.SYSTEM)
             .setMethodCallHandler(SystemInventoryChannelHandler(this))
+
+        MethodChannel(
+            messenger,
+            ChannelNames.DATA_STUDIO,
+            io.flutter.plugin.common.StandardMethodCodec.INSTANCE,
+            messenger.makeBackgroundTaskQueue(),
+        ).setMethodCallHandler(DataStudioChannelHandler(this))
 
         MethodChannel(messenger, ChannelNames.MODEL_STORAGE)
             .setMethodCallHandler(
@@ -541,8 +598,5 @@ class MainActivity : FlutterActivity() {
         var isForeground: Boolean = false
 
         private val SINK_UI = Any()
-        private const val RUNTIME_WARMUP_DELAY_MS = 1_500L
-        private const val REQ_STORAGE_PERMISSION = 4101
-        private const val REQ_RUNTIME_PERMISSIONS = 4102
     }
 }

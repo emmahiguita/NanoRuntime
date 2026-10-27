@@ -43,6 +43,10 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
     final isEn = ex.enabled;
     final title = ex.displayTrigger;
     final category = ex.category;
+    final storedTag = ConversationSemanticTag.fromStorageKey(ex.intent);
+    final semanticTag = storedTag == ConversationSemanticTag.conversation
+        ? ConversationSemanticClassifier.classify(ex.incomingText)
+        : storedTag;
     final responses = ex.responseOptions;
     final total = responses.length;
     final visibleCount = _expanded ? total : (total > 3 ? 3 : total);
@@ -54,15 +58,10 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isEn
-              ? const [Color(0x1E00E676), Color(0x0800E676)]
-              : const [Color(0x12FFFFFF), Color(0x05FFFFFF)],
+          colors: isEn ? const [Color(0x1E00E676), Color(0x0800E676)] : const [Color(0x12FFFFFF), Color(0x05FFFFFF)],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isEn ? const Color(0x6000E676) : const Color(0x20FFFFFF),
-          width: 0.8,
-        ),
+        border: Border.all(color: isEn ? const Color(0x6000E676) : const Color(0x20FFFFFF), width: 0.8),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       child: Column(
@@ -80,9 +79,22 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      '$category · $total ${total == 1 ? 'respuesta posible' : 'respuestas posibles'}',
-                      style: const TextStyle(fontSize: 9.5, color: Color(0xFF00E676), fontWeight: FontWeight.w500),
+                    Row(
+                      children: [
+                        ConversationSemanticBadge(tag: semanticTag, compact: true),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            '$category · $total ${total == 1 ? 'respuesta' : 'respuestas'}',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              color: Color(0xFF00E676),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -106,7 +118,10 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(top: 3, right: 5),
-                    child: Text('•', style: TextStyle(color: Color(0xFF00E676), fontSize: 11, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      '•',
+                      style: TextStyle(color: Color(0xFF00E676), fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
                   ),
                   Expanded(
                     child: Text(
@@ -128,7 +143,10 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: const Color(0x4000D2FF), width: 0.5),
                       ),
-                      child: Text(responses[i].tone, style: const TextStyle(fontSize: 7.5, color: Color(0xFF00D2FF), fontWeight: FontWeight.w600)),
+                      child: Text(
+                        responses[i].tone,
+                        style: const TextStyle(fontSize: 7.5, color: Color(0xFF00D2FF), fontWeight: FontWeight.w600),
+                      ),
                     ),
                 ],
               ),
@@ -151,7 +169,12 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
             children: [
               _btn('Editar', Icons.edit_outlined, const Color(0xFF81C784), widget.canEdit ? widget.onEdit : null),
               const SizedBox(width: 8),
-              _btn('+ Respuesta', Icons.add_circle_outline, const Color(0xFF00D2FF), widget.canEdit ? widget.onAddResponse : null),
+              _btn(
+                '+ Respuesta',
+                Icons.add_circle_outline,
+                const Color(0xFF00D2FF),
+                widget.canEdit ? widget.onAddResponse : null,
+              ),
               const SizedBox(width: 8),
               _btn('Eliminar', Icons.delete_outline, const Color(0xFFE57373), widget.canEdit ? widget.onDelete : null),
             ],
@@ -172,7 +195,10 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
           children: [
             Icon(icon, size: 11, color: color),
             const SizedBox(width: 3),
-            Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+            Text(
+              label,
+              style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),

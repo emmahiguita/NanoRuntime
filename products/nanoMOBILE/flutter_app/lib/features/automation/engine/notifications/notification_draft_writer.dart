@@ -1,17 +1,22 @@
 /// Redacción contextual de una respuesta a notificación (A14.7).
-///
-/// Lee el contenido REAL de la notificación y produce un borrador entendido
-/// con el runtime local. El LLM es OPCIONAL y está gateado por política: sin
-/// modelo permitido o sin motor disponible devuelve null (la automatización
-/// NO responde con texto genérico — pediría clarificación al humano). El
-/// contenido de la notificación es dato no confiable; el prompt lo aísla.
+/// Motor opcional: sin inferencia real no fabrica respuestas. Aísla datos no confiables.
 library;
 
 import 'dart:async';
-
+import 'package:nanoai/core/services/execution_budget.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:nanoai/core/models/catalog_models.dart'
+    show ModelBackendType, NeuralCatalog;
+import 'package:nanoai/core/services/generative_inference_port.dart';
 import 'package:nanoai/core/services/llm_engine_client.dart';
-
+import 'package:nanoai/core/services/nano_identity_context.dart';
+import 'package:nanoai/core/services/personal_language_policy.dart';
+import 'package:nanoai/core/services/personal_prompt_policy.dart';
+import 'package:nanoai/core/services/conversation_reply_quality.dart';
+import '../../personal_agent/domain/personal_live_context.dart';
+import 'native_conversation_history.dart';
+import '../language/runtime_personal_live_context.dart';
 import '../../personal_agent/domain/conversation_agent_role.dart'
     show
         ConversationAgentRole,
@@ -19,78 +24,99 @@ import '../../personal_agent/domain/conversation_agent_role.dart'
         isCorrectionMessage,
         isGreetingLikeMessage,
         isLiveStateQuestion,
-        isSocialReactionMessage,
         productMentionedWithoutCommerce;
-import '../messaging/conv_turn_state.dart' show isPureGreeting;
-import '../messaging/conversation_context_resolver.dart';
+import '../conversation/personal_conversation_diagnostic.dart';
+import '../messaging/conversation_durable_context.dart';
 import '../messaging/conversation_key.dart' show resolveConversationIdentity;
 import '../messaging/conversation_agent.dart';
 import '../messaging/conversation_memory.dart'
-    show ConversationMemoryEntry, ConversationMemoryEntryKind, ConversationMemoryStore;
+    show
+        ConversationMemoryEntry,
+        ConversationMemoryEntryKind,
+        ConversationMemoryStore;
 import '../model/cold_start_retry.dart';
+import '../model/inference_telemetry.dart' show InferenceTelemetry;
+import '../../personal_agent/application/personal_turn_state_access.dart'
+    show PersonalTurnStateAccess;
+import '../../personal_agent/domain/open_loop_detector.dart'
+    show OpenLoopDetector;
 import '../scheduling/messaging_metrics.dart';
 import '../messaging/incoming_message.dart';
-import '../scheduling/event_dedupe_store.dart' show normalizeDedupeText;
 import 'conversation_understanding.dart';
 import 'conversation_agent_contract.dart';
 import 'notification_draft_prompt.dart';
+import 'cloud_turn_context.dart';
+import 'media_prompt_budget.dart';
 import 'notification_object.dart';
+import 'conversation_social_window.dart';
 import '../language/temporal_location_context.dart';
-import '../language/turn_complexity_classifier.dart' show turnComplexityClassifier;
+import '../language/turn_complexity_classifier.dart'
+    show turnComplexityClassifier;
 
-/// Fuente de borrador contextual. null = no se puede redactar hoy.
+part 'notification_draft_writer_result.part.dart';
+part 'notification_draft_writer_queue.part.dart';
+part 'notification_draft_writer_context.part.dart';
+part 'notification_draft_writer_prompt.part.dart';
+part 'notification_draft_writer_prepared.part.dart';
+part 'notification_draft_writer_capacity.part.dart';
+part 'notification_draft_writer_personal_prompt.part.dart';
+part 'notification_draft_writer_generation.part.dart';
+part 'notification_draft_writer_draft.part.dart';
+part 'notification_draft_writer_response.part.dart';
+part 'notification_draft_writer_trace.part.dart';
+
+/// Coordinador de redacción contextual de respuestas (Local Open Source + Multi-API Cloud).
 ///
-/// PERSONA-CORE-01 — devuelve el resultado COMPLETO, no solo el texto: el
-/// entendimiento estructurado (intent/requiresAction/missingFacts) acompaña
-/// al reply para que el DecisionEngine decida con señales verificables en
-/// vez de descartarlas justo antes de necesitarlas.
-typedef NotificationDraftSource = Future<NotificationDraftResult?> Function(NotificationObject notification);
-
-/// Resultado del borrador contextual: reply listo para enviar + entendimiento
-/// tipado que lo produjo.
-final class NotificationDraftResult {
-  /// Entendimiento estructurado del mensaje. Con el escalón de JSON roto
-  /// (salida recortada por maxTokens) los campos no-reply quedan vacíos:
-  /// honesto, jamás se inventa intent ni requiresAction.
-  final ConversationUnderstanding understanding;
-
-  /// Texto listo para enviar (recortado a 2000 chars; el reply del
-  /// [understanding] queda SIN recortar para que la decisión vea el texto
-  /// completo del modelo).
-  final String reply;
-
-  const NotificationDraftResult({required this.understanding, required this.reply});
-
-  bool get hasReply => reply.isNotEmpty;
-}
-
+/// - **QUÉ HACE:** Encola turnos, construye el contexto conversacional real y delega
+///   la inferencia a LiteRT-LM o al puerto Multi-API (Groq + Gemini).
+/// - **CÓMO FUNCIONA:** Serializa las peticiones por conversación, inyecta persona/agenda
+///   en vivo y conserva la caché KV nativa entre turnos consecutivos.
+/// - **POR QUÉ:** Garantiza respuestas rápidas, naturales y sin cruce de sesiones.
 final class RuntimeNotificationDraftWriter {
   RuntimeNotificationDraftWriter({
     required LLMEngineClient client,
     required bool Function() llmAllowed,
-    // WA-LIVE-01 — Future<bool>: el writer valida el resultado (antes el
-    // typedef era Future<void> y el bool se descartaba en silencio).
     required Future<bool> Function(String? modelPath) ensureReady,
     required String? Function() modelPath,
+    Future<void> Function()? afterDraft,
     required bool Function() styleEnabled,
     required String Function() styleText,
     String Function(String messageText)? businessBlock,
     String Function()? toneBlock,
-    String Function(String conversationId, String messageText)? clientContextFor,
-    Future<String> Function(String conversationId, String messageText, String sender, String role)? personaBlock,
-    // P0-ROUTE — rol del turno por dominio (router determinista AUTO-02,
-    // jamás LLM). null = rutas legacy: negocio y persona entran por match
-    // léxico como antes. Con routing, el ROL manda sobre el contexto:
-    // SALES → hechos del negocio; PERSONAL → persona+relación; el resto
-    // no recibe bloque comercial (NO COMMERCIAL = NO SALES CONTEXT).
-    ConversationAgentRouting Function(String conversationId, String messageText, String sender, String? packageName)?
+    String Function(String conversationId, String messageText)?
+    clientContextFor,
+    Future<String> Function(
+      String conversationId,
+      String messageText,
+      String sender,
+      String role,
+    )?
+    personaBlock,
+    ConversationAgentRouting Function(
+      String conversationId,
+      String messageText,
+      String sender,
+      String? packageName,
+    )?
     routeFor,
-    ConversationAgentId Function(String conversationId, String packageName)? agentFor,
+    ConversationAgentId Function(String conversationId, String packageName)?
+    agentFor,
     ConversationMemoryStore? memory,
+    PersonalLiveContext? liveContext,
+    GenerativeInferencePort? cloudInferencePort,
+    Future<void> Function({
+      required String input,
+      required String response,
+      required String provider,
+    })?
+    externalResponseLearner,
+    bool Function(String conversationId, String sender)?
+    externalResponseLearningAllowed,
   }) : _client = client,
        _llmAllowed = llmAllowed,
        _ensureReady = ensureReady,
        _modelPath = modelPath,
+       _afterDraft = afterDraft,
        _styleEnabled = styleEnabled,
        _styleText = styleText,
        _businessBlock = businessBlock,
@@ -99,40 +125,33 @@ final class RuntimeNotificationDraftWriter {
        _personaBlock = personaBlock,
        _routeFor = routeFor,
        _agentFor = agentFor,
-       _memory = memory;
+       _memory = memory,
+       _liveContext =
+           liveContext ?? RuntimePersonalLiveContext(allowDeclaredAgenda: true),
+       _externalResponseLearner = externalResponseLearner,
+       _externalResponseLearningAllowed = externalResponseLearningAllowed,
+       _cloudInferencePort =
+           cloudInferencePort ?? CloudGenerativeInferenceAdapter();
 
   final LLMEngineClient _client;
+  final GenerativeInferencePort? _cloudInferencePort;
   final bool Function() _llmAllowed;
   final Future<bool> Function(String? modelPath) _ensureReady;
   final String? Function() _modelPath;
-
-  /// WA-PERSONA-01 — estilo declarado por el dueño. Leído EN VIVO en cada
-  /// borrador (closures sobre settingsProvider): cambiar el toggle o el texto
-  /// aplica desde el siguiente mensaje, sin reconstruir el writer.
+  final Future<void> Function()? _afterDraft;
   final bool Function() _styleEnabled;
   final String Function() _styleText;
-
-  /// WA-BUSINESS-01/02 — bloque <DATOS DEL NEGOCIO> leído EN VIVO por
-  /// mensaje: el selector determinista elige el subconjunto relevante del
-  /// catálogo (el texto del mensaje decide qué hechos entran al prompt).
   final String Function(String messageText)? _businessBlock;
-
-  /// WA-NATURAL-01 — bloque <TONO DE RESPUESTA> (frases deterministas del
-  /// perfil; '' si deshabilitado). Leído EN VIVO en cada borrador.
   final String Function()? _toneBlock;
-
-  /// WA-STATE-01 + CONTEXT-GATE-01 — recuerdo estructurado de la consulta
-  /// anterior de ESTA conversación, gated por el mensaje actual
-  /// (<CONTEXTO DEL CLIENTE>; '' si no hay nada que recordar o el recuerdo
-  /// no aplica al turno).
-  final String Function(String conversationId, String messageText)? _clientContextFor;
-
-  /// PERSONA-COMPOSE-08 — bloque <DATOS DE LA PERSONA> (dueño, relación con
-  /// el remitente y ejemplos FTS4). Async: el retriever consulta SQLite por
-  /// mensaje; '' si no hay perfil ni ejemplos. Remitente factual, jamás LLM.
-  final Future<String> Function(String conversationId, String messageText, String sender, String role)? _personaBlock;
-
-  /// P0-ROUTE — router de dominio por turno. null = comportamiento legacy.
+  final String Function(String conversationId, String messageText)?
+  _clientContextFor;
+  final Future<String> Function(
+    String conversationId,
+    String messageText,
+    String sender,
+    String role,
+  )?
+  _personaBlock;
   final ConversationAgentRouting Function(
     String conversationId,
     String messageText,
@@ -140,400 +159,28 @@ final class RuntimeNotificationDraftWriter {
     String? packageName,
   )?
   _routeFor;
-
-  final ConversationAgentId Function(String conversationId, String packageName)? _agentFor;
-
-  /// WA-MEM-08/WA-AGENT-09 — memoria factual de la conversación (contexto
-  /// para el borrador). null = el writer conserva el prompt sin historial.
+  final ConversationAgentId Function(String conversationId, String packageName)?
+  _agentFor;
   final ConversationMemoryStore? _memory;
+  final PersonalLiveContext _liveContext;
+  final Future<void> Function({
+    required String input,
+    required String response,
+    required String provider,
+  })?
+  _externalResponseLearner;
+  final bool Function(String conversationId, String sender)?
+  _externalResponseLearningAllowed;
 
-  /// Drafts en vuelo por INPUT LÓGICO. Single-flight solo para la
-  /// reemisión del MISMO evento: un notify duplicado de Android (misma
-  /// notification.key + mismo timestamp + mismo texto) reutiliza el draft
-  /// en curso en vez de lanzar un segundo POST al motor, que lo rechaza
-  /// instantáneo (modelo ocupado) y produce un terminal failed falso.
-  /// Verificado en dispositivo: notify duplicado a los 10.5s marcó failed
-  /// mientras el borrador real llegó 35s después y se envió bien.
-  ///
-  /// P1-FIX (2026-09-06) — antes la clave era SOLO conversationId: un
-  /// mensaje nuevo que llegaba durante un borrador en curso recibía el
-  /// Future ANTERIOR y el dispatcher podía enviar el draft del mensaje A
-  /// como respuesta al mensaje B (evidencia física: "hola" → "Déjame
-  /// confirmar el stock del negro y te digo"). Invariante: 1 INPUT = 1
-  /// DRAFT. La clave es conversationId + fingerprint del input (la MISMA
-  /// evidencia del dedupe: notification.key, timestamp y texto).
   static final Map<String, Future<NotificationDraftResult?>> _inFlight = {};
+  static final Map<String, String> _latestFlightKeyByConv = {};
   static Future<void> _draftTail = Future<void>.value();
   static int _queueDepth = 0;
   static const _maxQueueDepth = 64;
 
-  /// P1-FIX — fingerprint del input lógico. Reutiliza la evidencia real
-  /// del evento (no se inventa identidad): la misma notification.key con
-  /// el mismo timestamp y texto ES el mismo evento; cualquier diferencia
-  /// es un mensaje distinto.
-  static String _flightFingerprint(NotificationObject n) => IncomingMessage.fromNotification(n).eventId;
+  static String _flightFingerprint(NotificationObject n) =>
+      IncomingMessage.fromNotification(n).eventId;
 
-  Future<NotificationDraftResult?> call(NotificationObject notification) async {
-    if (!_llmAllowed()) return null;
-    final conversationId = resolveConversationIdentity(notification).key.id;
-    final flightKey = '$conversationId|${_flightFingerprint(notification)}';
-    final inFlight = _inFlight[flightKey];
-    if (inFlight != null) {
-      debugPrint(
-        '[draft:flight] HIT conv=${_shortId(conversationId)} '
-        'input="${_sample(notification.text)}"',
-      );
-      return inFlight;
-    }
-    debugPrint(
-      '[draft:flight] MISS conv=${_shortId(conversationId)} '
-      'input="${_sample(notification.text)}"',
-    );
-    if (_queueDepth >= _maxQueueDepth) {
-      debugPrint('[draft:queue] full; no generation admitted');
-      return null;
-    }
-    _queueDepth++;
-    MessagingMetrics.queueDepth(_queueDepth);
-    debugPrint('[draft:queue] depth=$_queueDepth');
-    final future = _draftTail.then((_) => _draft(notification, conversationId));
-    _draftTail = future.then<void>((_) {}, onError: (Object _) {});
-
-    _inFlight[flightKey] = future;
-    try {
-      return await future;
-    } finally {
-      _queueDepth--;
-      if (identical(_inFlight[flightKey], future)) {
-        _inFlight.remove(flightKey);
-      }
-    }
-  }
-
-  Future<NotificationDraftResult?> _draft(NotificationObject notification, String conversationId) async {
-    try {
-      // El motor local se asegura bajo demanda (mismo patrón que el draft
-      // writer de mensajes): sin motor cargado no hay entendimiento.
-      // WA-LIVE-01 — el retorno se VALIDA: antes se ignoraba y el writer
-      // generaba contra un motor no listo (o con otro modelo cargado).
-      final ready = await _ensureReady(_modelPath()).timeout(
-        // AUTO-03 — el arranque del motor no puede colgar el turno: al
-        // agotarse, el borrador se declara fallido y el pipeline sigue
-        // (estado terminal honesto en vez de await eterno — el drenado
-        // headless espera submitAll sin timeout propio).
-        const Duration(seconds: 60),
-        onTimeout: () {
-          debugPrint('[draft] ensureReady agotó 60s; sin borrador (honesto)');
-          return false;
-        },
-      );
-      if (!ready) {
-        debugPrint('[draft] motor no quedó listo; sin borrador (honesto)');
-        return null;
-      }
-      // P1-FIX — traza TEMPORAL del invariante 1 INPUT = 1 DRAFT: start y
-      // end llevan el MISMO input, y el dispatcher traza el reply final.
-      debugPrint(
-        '[draft:start] conv=${_shortId(conversationId)} '
-        'input="${_sample(notification.interpretableText)}"',
-      );
-      // MSG-TEXT-01 — fuente canónica: interpretableText prefiere messageText
-      // (texto individual del MessagingStyle) sobre text (resumen/agregado).
-      // Para párrafos largos messageText contiene el mensaje completo; text
-      // puede estar truncado o ser el acumulado de varios mensajes.
-      final msgText = notification.interpretableText;
-      // La identidad visible y el shortcut/JID pueden variar para el mismo
-      // chat. El resolver une únicamente memoria factual observada por Nano y
-      // quita el mensaje actual, que ya entra por separado en el prompt.
-      final historyEntries =
-          ConversationContextResolver.resolve(
-            store: _memory,
-            conversationId: conversationId,
-            notification: notification,
-          )?.entries ??
-          const [];
-      // CONTEXT-GATE-01 — saludo puro: el historial comercial anterior NO
-      // entra (el 1.5B ecoea la respuesta vieja del Negro en un "Hola");
-      // referencias y respuestas cortas sí necesitan la conversación.
-      // R5-GREETING-01 — el saludo extendido ("hola como estas emma?")
-      // limpia el historial igual que el puro: es saludo real, no
-      // referencia a lo conversado.
-      // P0-CORRECTION — corrección ("¿cuál negro de qué hablas?"): el
-      // cliente está deshaciendo el turno anterior; el historial del tema
-      // viejo solo incita eco. R5-06 — pero anclada al ÚLTIMO reply de
-      // Nano: sin ancla el modelo no sabe qué corrigieron y responde
-      // "¿qué quieres que haga?" (evidencia física). El saludo sigue con
-      // historial limpio total.
-      final history = isGreetingLikeMessage(msgText)
-          ? '(sin historial previo)'
-          : isCorrectionMessage(msgText)
-          ? _correctionAnchor(historyEntries)
-          : formatConversationHistory(historyEntries);
-      // CONV-SOC-01 — ventana social relevante para el prompt social mínimo:
-      // solo el intercambio SOCIAL previo (saludo/reacción), jamás el
-      // comercial. MEMORIA DISPONIBLE != MEMORIA RELEVANTE: un "¿y vos?"
-      // tras "todo bien" necesita el turno social anterior; un "Hola" tras
-      // una venta NO necesita el Negro (eco verificado en vivo).
-      final socialEntries = _socialWindow(historyEntries);
-      // P0-ROUTE — UNDERSTANDING → ROUTER → CONTEXT: el rol decide QUÉ
-      // contexto entra al prompt. Antes negocio y persona entraban por
-      // match léxico independiente del routing: una broma con "crema
-      // alpina" recibía <DATOS DEL NEGOCIO> y respondía stock (evidencia
-      // física). Ahora el invariante manda: SIN intención comercial NO hay
-      // bloque comercial; persona+relación SOLO en turnos personales
-      // (incluida identidad y correcciones). null routing = legacy.
-      final routing = _routeFor?.call(conversationId, msgText, notification.sender, notification.packageName);
-      final agentId =
-          _agentFor?.call(conversationId, notification.packageName) ??
-          ConversationAgentId.defaultFor(channel: notification.packageName, appPackage: notification.packageName);
-      final routedRole = routing?.role ?? ConversationAgentRole.general;
-      final role = switch (agentId) {
-        ConversationAgentId.personal => ConversationAgentRole.personal,
-        ConversationAgentId.business =>
-          routedRole == ConversationAgentRole.personal ? ConversationAgentRole.general : routedRole,
-      };
-      debugPrint(
-        '[route] agente=${agentId.name} rol=${role.name} '
-        'commercial=${routing?.commercialIntent == true} '
-        '${routing?.reasons.join(' | ') ?? 'legacy (sin router)'}',
-      );
-      // PERSONA-COMPOSE-08 — bloque persona antes del prompt (FTS4 local,
-      // no consume turno del motor). Sin perfil ni ejemplos: cadena vacía y
-      // el prompt queda idéntico al de WA-CTX-01.
-      final persona = agentId == ConversationAgentId.personal
-          ? await _personaBlock?.call(conversationId, msgText, notification.sender, role.name) ?? ''
-          : '';
-      // WA-CONV-01 — salida JSON estructurada: el razonamiento textual ya no
-      // se pide (quemaba tokens antes de "Respuesta:" y el extractor podía
-      // devolver el análisis como mensaje con salidas recortadas). El parser
-      // tolerante recupera `reply` de JSON completo, JSON roto o legacy.
-      // P0-KV (2026-09-06) — sessionId ÚNICO POR TURNO, no por conversación.
-      // Forense del runtime (master): con sessionId=conversationId el motor
-      // reutilizaba el KV cache de llama.cpp entre turnos de la MISMA
-      // conversación (model_manager.rs:1548-1555 — reuse_kv sin
-      // clear_kv_cache) y el prompt completo del turno anterior (incluido
-      // <DATOS DEL NEGOCIO> del Negro) quedaba en la ventana de atención
-      // del turno siguiente: segunda memoria SIN gate, inmune al
-      // CONTEXT-GATE-01. Evidencia física: "hola" → reply del Negro.
-      // Con sessionId por input (la MISMA identidad del dedupe P1) el gate
-      // R5 nunca reutiliza KV: cada turno arranca limpio y el prefix cache
-      // V1.1 del motor restaura el system estático desde snapshot (solo se
-      // prefilléa el turno dinámico — sin pagar los ~125s completos). El
-      // retry frío conserva la MISMA sesión: mismo input = mismo turno.
-      // CONV-CTX-01 — firewall por rol: el recuerdo <CONTEXTO DEL CLIENTE>
-      // entra SOLO en turnos de venta (rol sales o intención comercial
-      // mixta), con el MISMO gate del bloque <DATOS DEL NEGOCIO>. Antes un
-      // turno GENERAL con respuesta corta ("sí") recibía el recuerdo del
-      // producto sin los facts del negocio: el modelo inventaba precios
-      // sobre un contexto a medias.
-      final clientContext = agentId == ConversationAgentId.business
-          ? _clientContextFor?.call(conversationId, msgText) ?? ''
-          : '';
-      // P0-ROUTE — hechos del negocio SOLO en turnos de venta. El selector
-      // léxico (WA-BUSINESS-02) elige el subconjunto; el ROL decide si
-      // entra. NO COMMERCIAL INTENT = NO SALES CONTEXT.
-      // P0-MULTI — turno mixto ("¿está Emmanuel y todavía tienen el
-      // Negro?"): rol personal por identidad PERO commercialIntent true →
-      // <DATOS DEL NEGOCIO> entra igual: UNA respuesta con estilo del dueño
-      // y facts reales (jamás un chat entre agentes).
-      final isCommercial = agentId == ConversationAgentId.business;
-      final business = isCommercial ? _businessBlock?.call(msgText) ?? '' : '';
-      // FASE 8: El tono comercial (ToneProfile) entra ÚNICAMENTE en turnos
-      // de venta. En turnos personales NUNCA entra el tono de ventas.
-      final tone = isCommercial ? _toneBlock?.call() : null;
-      final turnSession = '$conversationId|${_flightFingerprint(notification)}';
-      // CONTEXT-GATE-01 — traza diagnóstica TEMPORAL (se quita tras la
-      // validación física M01-M10): una línea antes de llamar al modelo con
-      // todo lo que entra al prompt.
-      debugPrint(
-        '[ctx:prompt] conv=${_shortId(conversationId)} '
-        'current="${_sample(msgText)}" '
-        'greeting=${isGreetingLikeMessage(msgText)} '
-        'clientContext=${clientContext.isNotEmpty} '
-        'historyEntries=${historyEntries.length} '
-        'businessChars=${business.length} '
-        'session=${_shortId(turnSession)}',
-      );
-      // P0-PERSONA-BASE — saludo puro: prompt SOCIAL mínimo (sin JSON ni
-      // reglas largas) + maxTokens 128. Evidencia física: con el prompt
-      // completo el 1.5B devuelve operador aunque la regla dura lo prohíba;
-      // el guard lo retiene, pero el objetivo es respuesta cotidiana. El
-      // social prompt no necesita estructura: el escalón legacy del parser
-      // toma el texto tras "Respuesta:".
-      // WA-CONV-UNDERSTANDING-01 — clasificador centralizado: cierra la fuga
-      // PragmaticFastPath → NULL → socialPrompt. Un turno narrativo/contextual
-      // /complejo JAMÁS usa el prompt mínimo aunque pase por isGreetingLikeMessage
-      // o isSocialReactionMessage (la fuga exacta del bug). El clasificador es
-      // determinista, 0 LLM, compartido entre el FastPath y el DraftWriter.
-      final complexity = turnComplexityClassifier.classify(msgText);
-
-      // P0-SOCIAL-2 — reacción social pura ("me alegra", "gracias", "dale")
-      // usa el MISMO prompt mínimo: el router ya la marcó personal
-      // y el prompt completo la empujó a operador. Excepción:
-      // turno mixto con producto mencionado conserva el prompt completo
-      // para responder al producto.
-      // R5-GREETING-01 — saludo extendido usa el social mínimo igual que el
-      // puro: con 60 entradas de historial el prompt completo revienta ctx=256.
-      // CONV-STATE-02 — la respuesta a la pregunta pendiente JAMÁS usa el
-      // social mínimo aunque empiece con saludo ("hola si").
-      // WA-CONV-UNDERSTANDING-01 — invariante: !eligibleForSocialPrompt suprime
-      // el social mínimo cuando el turno es narrativo/contextual/complejo.
-      final social =
-          agentId == ConversationAgentId.personal &&
-          role == ConversationAgentRole.personal &&
-          complexity.eligibleForSocialPrompt &&
-          (isGreetingLikeMessage(msgText) ||
-              (isSocialReactionMessage(msgText) &&
-                  !(routing?.reasons.contains(productMentionedWithoutCommerce) ?? false)));
-      // R5-PROMPT-ECO-01 — la pregunta por la actividad/estado del dueño
-      // JAMÁS usa el social mínimo: su regla de honestidad vive en la regla
-      // 6 del prompt completo (evidencia 16:58:17: "como estas?" recibió el
-      // social con la frase LIVE STATE copiable y el 1.5B la devolvió como
-      // reply "No sabes ahora, ¿qué pasó?" — despachado al cliente).
-      final socialOrPendingReply = social && !(routing?.pendingReply ?? false) && !isLiveStateQuestion(msgText);
-      final temporalBlock = TemporalLocationContext.promptBlock();
-      final agentContract = conversationAgentContract(agentId);
-      final genSw = Stopwatch()..start();
-      final prompt = socialOrPendingReply
-          ? conversationSocialPromptFor(
-              text: msgText,
-              style: agentId == ConversationAgentId.personal && _styleEnabled() ? _styleText() : null,
-              persona: persona,
-              tone: tone,
-              history: formatConversationHistory(socialEntries),
-              temporalContext: temporalBlock,
-              agentContract: agentContract,
-            )
-          : conversationAgentPromptFor(
-              history: history,
-              text: msgText,
-              style: agentId == ConversationAgentId.personal && _styleEnabled() ? _styleText() : null,
-              business: business,
-              tone: tone,
-              persona: persona,
-              clientContext: clientContext,
-              temporalContext: temporalBlock,
-              agentContract: agentContract,
-            );
-      final raw = await generateWithColdRetry(
-        _client,
-        prompt: prompt,
-        temperature: 0.3,
-        maxTokens: socialOrPendingReply ? 128 : 320,
-        sessionId: turnSession,
-      );
-      genSw.stop();
-      debugPrint(
-        '[latency:decomp] conv=${_shortId(conversationId)} '
-        'genMs=${genSw.elapsedMilliseconds} promptChars=${prompt.length} '
-        'rawChars=${raw.length} social=$socialOrPendingReply',
-      );
-      // PERSONA-CORE-01 — el entendimiento COMPLETO viaja con el reply:
-      // el DecisionEngine consume intent/requiresAction/missingFacts (antes
-      // se descartaban aquí y la decisión quedaba ciega).
-      final understanding = parseConversationUnderstanding(raw);
-      final draft = understanding?.reply ?? '';
-      // CONV-SEM-03 — traza diagnóstica del entendimiento (temporal, como
-      // [ctx:gate]): sin ella la relación declarada por el modelo era
-      // invisible en logcat y los fallos de continuidad no se podían
-      // verificar en dispositivo. Una línea por turno.
-      if (understanding != null) {
-        debugPrint(
-          '[understanding] conv=${_shortId(conversationId)} '
-          'relation="${understanding.relation}" intent="${_sample(understanding.intent)}" '
-          'questions=${understanding.questions.length} '
-          'missingFacts=${understanding.missingFacts.length} '
-          'requiresAction=${understanding.requiresAction}',
-        );
-        // R5-02 — traza TEMPORAL de calidad del reply (brief R5 §27; se
-        // quita tras la evidencia física). echo usa la MISMA normalización
-        // del dedupe (jamás una nueva); la decisión final llega después en
-        // [decision] del dispatcher, aquí aún no existe.
-        debugPrint(
-          '[reply:quality] conv=${_shortId(conversationId)} '
-          'echo=${normalizeDedupeText(draft) == normalizeDedupeText(notification.text)} '
-          'questions=${understanding.questions.length} '
-          'relation="${understanding.relation}" '
-          'missingFacts=${understanding.missingFacts.length} '
-          'liveStateRequired=${isLiveStateQuestion(notification.text)} '
-          'decision=?',
-        );
-      }
-      if (draft.isEmpty && raw.trim().isNotEmpty) {
-        // WA-PHYS-11: sin reply recuperable la traza cruda (acotada) hace
-        // el fallo diagnosticable en dispositivo.
-        debugPrint('[draft] sin reply parseable; raw=${_sample(raw)}');
-      }
-      if (draft.isEmpty || understanding == null) return null;
-      if (draft.length > 2000) {
-        debugPrint('[draft] output rejected: exceeds reply length limit');
-        return null;
-      }
-      final reply = draft;
-      debugPrint(
-        '[draft:end] conv=${_shortId(conversationId)} '
-        'input="${_sample(notification.text)}" reply="${_sample(reply)}"',
-      );
-      return NotificationDraftResult(understanding: understanding, reply: reply);
-    } on Object catch (e) {
-      // Motor local no disponible o falló → sin borrador (honesto).
-      // WA-LIVE-01 — el catch mudo escondía la razón real del fallo
-      // (evidencia device: 7 min de turno colgado sin una sola traza).
-      debugPrint('[draft] falló: ${e.runtimeType}: $e');
-      return null;
-    }
-  }
-
-  /// CONV-SOC-01 — ventana social relevante para el prompt social mínimo.
-  /// Recorre de atrás hacia adelante: un inbound NO social corta la ventana
-  /// (la conversación giró a otro tema — el saludo actual no continúa una
-  /// venta); un outbound entra solo acompañado de su inbound social previo
-  /// (un outbound HUÉRFANO — Nano respondió social sin mensaje social del
-  /// cliente — se salta: no hay continuidad que mostrar). Tras un outbound
-  /// la bandera se reinicia: el siguiente outbound necesita OTRO inbound
-  /// social. Máx [maxEntries] para el presupuesto del prompt chico.
-  static List<ConversationMemoryEntry> _socialWindow(List<ConversationMemoryEntry> entries, {int maxEntries = 2}) {
-    final out = <ConversationMemoryEntry>[];
-    var socialInboundSeen = false;
-    for (final e in entries.reversed) {
-      if (e.kind == ConversationMemoryEntryKind.inbound) {
-        if (!(isPureGreeting(e.text) || isSocialReactionMessage(e.text))) {
-          break;
-        }
-        out.add(e);
-        socialInboundSeen = true;
-      } else if (socialInboundSeen) {
-        out.add(e);
-        socialInboundSeen = false;
-      }
-      if (out.length >= maxEntries) break;
-    }
-    return out.reversed.toList();
-  }
-
-  /// Muestra acotada de la salida cruda para trazas físicas (200 chars,
-  /// una línea: el raw completo con saltos inundaba el logcat).
-  static String _sample(String raw) {
-    final single = raw.replaceAll('\n', ' ').trim();
-    return single.length <= 200 ? single : single.substring(0, 200);
-  }
-
-  /// CONTEXT-GATE-01 — hash corto del id de conversación para la traza.
-  static String _shortId(String id) => id.length <= 8 ? id : id.substring(0, 8);
-
-  /// R5-06 — CORRECTION REPAIR: ancla de reparación para turnos de
-  /// corrección. El cliente corrige QUÉ DIJO Nano; sin ese ancla el modelo
-  /// responde "¿qué quieres que haga?" (no sabe qué corrigieron). Solo el
-  /// ÚLTIMO reply de Nano entra (160 chars máx): el resto del diálogo es
-  /// tema muerto que incita eco. Sin reply previo de Nano no hay nada que
-  /// reparar: historial limpio.
-  static String _correctionAnchor(List<ConversationMemoryEntry> entries) {
-    for (final e in entries.reversed) {
-      if (e.kind != ConversationMemoryEntryKind.inbound) {
-        final t = e.text.length <= 160 ? e.text : e.text.substring(0, 160);
-        return 'Lo último que respondiste: $t';
-      }
-    }
-    return '(sin historial previo)';
-  }
+  Future<NotificationDraftResult?> call(NotificationObject notification) =>
+      _enqueueNotificationDraft(this, notification);
 }

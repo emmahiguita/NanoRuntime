@@ -1,0 +1,12 @@
+﻿{
+    "flavor":  "fullSideloadDebug",
+    "build":  "BUILD SUCCESSFUL in 1m 7s",
+    "apk":  "C:\\Users\\emman\\Desktop\\Proyectos\\Nueva carpeta\\Nanoai\\products\\nanoMOBILE\\flutter_app\\build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+    "sha256":  "786a24df0299a5bde97d8faf050ebd7451a121ef0f0965e1bbd23695d9ef3f7e",
+    "bytes":  190670151,
+    "staticAnalysis":  "No issues found",
+    "automatedTestsRun":  false,
+    "intermediateInstalled":  true,
+    "finalInstalled":  false,
+    "finalDeviceVisualReview":  false
+}

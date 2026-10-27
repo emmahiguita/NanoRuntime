@@ -11,19 +11,24 @@ import 'nano_personal_identity_tab.dart';
 import 'nano_personal_memory_tab.dart';
 import 'nano_personal_phrases_tab.dart';
 import 'nano_personal_timing_tab.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../application/automation_coordinator_provider.dart'
+    show ruleRegistryProvider;
+import '../../engine/messaging/messaging_package.dart';
 
-class NanoPersonalScreen extends StatelessWidget {
+class NanoPersonalScreen extends ConsumerWidget {
   final int initialTabIndex;
 
   const NanoPersonalScreen({super.key, this.initialTabIndex = 0});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final visual = AutomationVisual.of(context);
+    final compact = MediaQuery.sizeOf(context).height < 500;
 
     return DefaultTabController(
       length: 6,
-      initialIndex: initialTabIndex,
+      initialIndex: initialTabIndex.clamp(0, 5),
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: Colors.transparent,
@@ -35,7 +40,18 @@ class NanoPersonalScreen extends StatelessWidget {
             child: Column(
               children: [
                 const AutomationBackHeader(),
-                const NanoPersonalHeader(),
+                NanoPersonalHeader(
+                  compact: compact,
+                  isActive: ref
+                      .watch(ruleRegistryProvider)
+                      .isWhatsAppRuleActive(MessagingPackage.whatsapp),
+                  activeChannels:
+                      ref
+                          .watch(ruleRegistryProvider)
+                          .isWhatsAppRuleActive(MessagingPackage.whatsapp)
+                      ? const ['WhatsApp · regla habilitada']
+                      : const [],
+                ),
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
@@ -98,6 +114,8 @@ class NanoPersonalScreen extends StatelessWidget {
                       NanoPersonalIdentityTab(),
                       NanoPersonalChannelsTab(),
                       NanoPersonalContactsTab(),
+                      // Mismo almacén que Inicio y Centro de Mensajes; no se copia.
+
                     ],
                   ),
                 ),

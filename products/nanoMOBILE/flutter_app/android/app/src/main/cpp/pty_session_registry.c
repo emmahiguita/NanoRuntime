@@ -1,14 +1,13 @@
 #include "pty_session_registry.h"
 
+#include <errno.h>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Máximo de sesiones PTY simultáneas. La UI no impone un límite superior,
-// así que se reservan 16 slots (tabla estática, ~384 bytes en el stack).
-// Auditoría BUG-02 (2026-09-09): ampliado de 8 → 16 para evitar que la
-// 9ª pestaña falle silenciosamente cuando pty_registry_alloc() retorna NULL.
+// Tabla estática de sesiones PTY. La UI limita nuevas pestañas a 16.
+// Cada slot reserva descriptor/PID hasta completar su recolección propietaria.
 #define MAX_PTY_SESSIONS 16
 
 static PtySessionRecord g_sessions[MAX_PTY_SESSIONS];
@@ -17,14 +16,32 @@ static long g_next_id = 1;
 
 static PtySessionRecord* find_session_locked(jlong id) {
     for (int i = 0; i < MAX_PTY_SESSIONS; i++) {
-        if (g_sessions[i].in_use && g_sessions[i].id == id) {
+        if (g_sessions[i].in_use == 1 && g_sessions[i].id == id) {
             return &g_sessions[i];
         }
     }
     return NULL;
 }
 
+// Estados: 0 libre, 1 activa, 2 cierre en curso, 3 espera de recolección.
+// Solo recogemos hijos PTY propios; waitpid(-1) robaría salidas a nanoshell.
+static void _reap_delayed_zombies(void) {
+    pthread_mutex_lock(&g_lock);
+    for (int i = 0; i < MAX_PTY_SESSIONS; i++) {
+        PtySessionRecord* rec = &g_sessions[i];
+        if (rec->in_use != 3) continue;
+        int status = 0;
+        pid_t r = waitpid(rec->pty.child_pid, &status, WNOHANG);
+        if (r == rec->pty.child_pid || (r < 0 && errno == ECHILD)) {
+            rec->pty.child_pid = -1;
+            rec->in_use = 0;
+        }
+    }
+    pthread_mutex_unlock(&g_lock);
+}
+
 PtySessionRecord* pty_registry_alloc(void) {
+    _reap_delayed_zombies();
     pthread_mutex_lock(&g_lock);
     for (int i = 0; i < MAX_PTY_SESSIONS; i++) {
         if (!g_sessions[i].in_use) {
@@ -66,52 +83,46 @@ pid_t pty_registry_pid(jlong id) {
     return pid;
 }
 
+// Espera acotada por PID: EINTR no significa que el hijo haya terminado.
+static int reap_owned_child(pid_t child, int rounds) {
+    for (int i = 0; i < rounds; i++) {
+        int status = 0;
+        pid_t r = waitpid(child, &status, WNOHANG);
+        if (r == child || (r < 0 && errno == ECHILD)) return 1;
+        usleep(5000);
+    }
+    return 0;
+}
+
+// Desconecta el descriptor y reserva el slot hasta recoger SU proceso hijo.
+// La espera ocurre en el trabajador Kotlin, nunca en el hilo de presentación.
 int pty_registry_close(jlong id) {
-    int fd = -1;
-    pid_t child = -1;
     pthread_mutex_lock(&g_lock);
     PtySessionRecord* rec = find_session_locked(id);
-    if (rec) {
-        fd = rec->pty.master_fd;
-        child = rec->pty.child_pid;
-        rec->pty.master_fd = -1;
-        rec->pty.child_pid = -1;
-        // NOTE: in_use stays 1 until the child is reaped below.
-        // Clearing it here would allow a concurrent pty_open() to reuse
-        // this slot while the old child process is still alive.
+    if (!rec) {
+        pthread_mutex_unlock(&g_lock);
+        return -1;
     }
+    int fd = rec->pty.master_fd;
+    pid_t child = rec->pty.child_pid;
+    rec->pty.master_fd = -1;
+    rec->in_use = 2; // Impide doble cierre y reutilización concurrente.
     pthread_mutex_unlock(&g_lock);
 
-    if (child > 0) {
-        // Step 1: graceful SIGHUP to the entire process group.
+    int reaped = child <= 0;
+    if (!reaped) {
         kill(-child, SIGHUP);
-        // Wait up to ~300ms for voluntary exit.
-        int status = 0;
-        int graceful_rounds = 60; // 60 * 5ms = 300ms
-        for (int i = 0; i < graceful_rounds; i++) {
-            pid_t r = waitpid(child, &status, WNOHANG);
-            if (r == child || r < 0) goto reaped;
-            usleep(5000);
-        }
-        // Step 2: force SIGKILL if child is still alive.
-        kill(-child, SIGKILL);
-        // PROC-001 FIX: reap acotado con WNOHANG para evitar colgar el hilo JNI
-        // ante procesos en D-state o reparentados. 40 rondas x 5ms = 200ms máx.
-        for (int j = 0; j < 40; j++) {
-            pid_t r2 = waitpid(child, &status, WNOHANG);
-            if (r2 == child || r2 < 0) goto reaped;
-            usleep(5000);
+        reaped = reap_owned_child(child, 60);
+        if (!reaped) {
+            kill(-child, SIGKILL);
+            reaped = reap_owned_child(child, 40);
         }
     }
-reaped:
-    // Now that the child slot is fully released, mark it free.
     pthread_mutex_lock(&g_lock);
-    {
-        PtySessionRecord* rec2 = find_session_locked(id);
-        if (rec2) rec2->in_use = 0;
-    }
+    // Un proceso lento conserva su PID para el próximo barrido propietario.
+    rec->in_use = reaped ? 0 : 3;
+    if (reaped) rec->pty.child_pid = -1;
     pthread_mutex_unlock(&g_lock);
-
     if (fd >= 0) pty_close(fd);
     return fd >= 0 ? 0 : -1;
 }

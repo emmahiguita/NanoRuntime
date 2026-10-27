@@ -1,0 +1,8 @@
+{
+  "prompt": "Responde en una frase breve: hola",
+  "n_predict": 32,
+  "temperature": 0.2,
+  "top_p": 0.9,
+  "stream": false,
+  "request_id": "codex-qwen-omni-speed-probe"
+}

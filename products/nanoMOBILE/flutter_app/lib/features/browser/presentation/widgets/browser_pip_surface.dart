@@ -40,6 +40,7 @@ class BrowserPipSurface extends StatelessWidget {
     final colors = NanoThemeExtension.of(context).colors;
     final isDark = colors is NanoDarkColors;
     final radius = maximized ? 0.0 : 20.0;
+    final accentColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF);
 
     return Material(
       type: MaterialType.transparency,
@@ -51,10 +52,10 @@ class BrowserPipSurface extends StatelessWidget {
             decoration: BoxDecoration(
               color: isDark ? const Color(0xF5081422) : const Color(0xF8F8FAFC),
               borderRadius: BorderRadius.circular(radius),
-              border: maximized ? null : Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.7), width: 1.2),
+              border: maximized ? null : Border.all(color: accentColor.withValues(alpha: isDark ? 0.6 : 0.35), width: 1.0),
               boxShadow: maximized ? null : [
                 BoxShadow(color: Colors.black.withValues(alpha: 0.48), blurRadius: 32, offset: const Offset(0, 12)),
-                BoxShadow(color: const Color(0xFF10B981).withValues(alpha: 0.18), blurRadius: 22, spreadRadius: -4),
+                BoxShadow(color: accentColor.withValues(alpha: isDark ? 0.18 : 0.08), blurRadius: 22, spreadRadius: -4),
               ],
             ),
             child: Stack(

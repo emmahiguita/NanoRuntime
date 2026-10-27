@@ -12,6 +12,14 @@ class McpTool {
   final String id;
   final String name;
   final McpToolCategory category;
+  final String description;
+  final Map<String, Object?> inputSchema;
 
-  const McpTool({required this.id, required this.name, required this.category});
+  const McpTool({
+    required this.id,
+    required this.name,
+    required this.category,
+    this.description = '',
+    this.inputSchema = const {},
+  });
 }

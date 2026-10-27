@@ -165,7 +165,9 @@ extension AutomationCoordinatorExecution on AutomationCoordinator {
         steps.isNotEmpty &&
         steps.every((s) => s.status == TaskStepStatus.completed);
     final anyFailed = steps.any((s) => s.status == TaskStepStatus.failed);
-    final pendingStep = steps.where((s) => s.status == TaskStepStatus.needsConfirmation).firstOrNull;
+    final pendingStep = steps
+        .where((s) => s.status == TaskStepStatus.needsConfirmation)
+        .firstOrNull;
     final anyPaused = pendingStep != null;
     final status = anyPaused
         ? AutomationResultStatus.paused
@@ -174,7 +176,11 @@ extension AutomationCoordinatorExecution on AutomationCoordinator {
         : allCompleted
         ? AutomationResultStatus.completed
         : AutomationResultStatus.completedUnverified;
-    final summary = steps.asMap().entries.map((e) => 'step[${e.key}]:${e.value.status.name}').join(', ');
+    final summary = steps
+        .asMap()
+        .entries
+        .map((e) => 'step[${e.key}]:${e.value.status.name}')
+        .join(', ');
     recordTrace(
       executionId: taskRun.executionId,
       goal: goal,
@@ -404,7 +410,9 @@ extension AutomationCoordinatorExecution on AutomationCoordinator {
         startedAt: startedAt,
       );
       run.finish(
-        status: run.hasDispatchedPhysicalEffect ? 'outcomeUnknown' : 'cancelled',
+        status: run.hasDispatchedPhysicalEffect
+            ? 'outcomeUnknown'
+            : 'cancelled',
         reason: outcome.feedback,
       );
       return outcome;
@@ -430,8 +438,15 @@ extension AutomationCoordinatorExecution on AutomationCoordinator {
     }
   }
 
-  Future<String> runCommandInternal(String command) async {
-    final run = AutomationRun(executionId: _newId(), goal: command);
+  Future<String> runCommandInternal(
+    String command, {
+    String? executionId,
+  }) async {
+    // Conserva el identificador del módulo para que Detener cancele su tarea.
+    final run = AutomationRun(
+      executionId: executionId ?? _newId(),
+      goal: command,
+    );
     _activeRuns[run.executionId] = run;
     try {
       run.beginPlanning();
@@ -446,7 +461,9 @@ extension AutomationCoordinatorExecution on AutomationCoordinator {
             ? '[timeoutOutcomeUnknown] Ejecución cancelada tras iniciar efectos físicos; resultado incierto.'
             : '[cancelled] Ejecución cancelada por el usuario.';
         run.finish(
-          status: run.hasDispatchedPhysicalEffect ? 'outcomeUnknown' : 'cancelled',
+          status: run.hasDispatchedPhysicalEffect
+              ? 'outcomeUnknown'
+              : 'cancelled',
           reason: cancelled,
         );
         return cancelled;
@@ -459,7 +476,9 @@ extension AutomationCoordinatorExecution on AutomationCoordinator {
           ? '[timeoutOutcomeUnknown] Ejecución cancelada tras iniciar efectos físicos; resultado incierto.'
           : '[cancelled] Ejecución cancelada por el usuario.';
       run.finish(
-        status: run.hasDispatchedPhysicalEffect ? 'outcomeUnknown' : 'cancelled',
+        status: run.hasDispatchedPhysicalEffect
+            ? 'outcomeUnknown'
+            : 'cancelled',
         reason: cancelled,
       );
       return cancelled;

@@ -4,7 +4,9 @@ import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatche
 /// Contrato abstracto para manejadores dinámicos de herramientas en Nano.
 abstract class IToolHandler {
   List<String> get supportedTools;
-  bool supports(String toolName) => supportedTools.map((t) => t.toLowerCase()).contains(toolName.toLowerCase());
+  bool supports(String toolName) => supportedTools
+      .map((t) => t.toLowerCase())
+      .contains(toolName.toLowerCase());
   Future<String> execute(ToolCall call);
 }
 

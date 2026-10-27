@@ -2,10 +2,15 @@ part of 'conversation_detail_sheet.dart';
 
 /// Carga el historial observable de la notificación activa sin duplicar mensajes.
 extension ConversationDetailLiveHistory on _ConversationDetailSheetState {
-  Future<void> _loadLiveHistoryAndCapabilities() async {
+  Future<void> _loadLiveHistoryAndCapabilities({
+    DeviceNotification? observed,
+  }) async {
+    // Un callback ya encolado puede ejecutarse después de cerrar la hoja.
+    if (!mounted) return;
     // Dos streams pueden invalidar a la vez. Se serializa la lectura y se
     // conserva una sola recarga pendiente para no crear futuros huérfanos.
     if (_historyLoadInProgress) {
+      _queuedHistoryNotification = observed ?? _queuedHistoryNotification;
       _historyReloadRequested = true;
       return;
     }
@@ -13,26 +18,45 @@ extension ConversationDetailLiveHistory on _ConversationDetailSheetState {
     try {
       do {
         _historyReloadRequested = false;
-        await _refreshLiveHistory();
+        await _refreshLiveHistory(observed: observed);
+        observed = _queuedHistoryNotification;
+        _queuedHistoryNotification = null;
       } while (_historyReloadRequested && mounted);
     } catch (error) {
       debugPrint('[conversation-detail] historial no disponible: $error');
+      // Un fallo de SQLite/IPC no se presenta como si el chat estuviera vacío.
+      if (mounted) {
+        setState(
+          () => _statusText =
+              'No se pudo leer el historial local. Reintenta al abrir el chat.',
+        );
+      }
     } finally {
       _historyLoadInProgress = false;
     }
   }
 
-  Future<void> _refreshLiveHistory() async {
+  Future<void> _refreshLiveHistory({DeviceNotification? observed}) async {
     final executor = ref.read(notificationExecutorProvider);
     final matches = _findAllMatchingNotifications(
-      await executor.list(limit: 50),
+      observed == null ? await executor.list(limit: 50) : [observed],
     );
-    if (matches.isEmpty || !mounted) return;
+    if (!mounted) return;
 
+    // Una conversación archivada puede no tener notificación activa; por eso
+    // el historial persistente se carga aunque Android no exponga ninguna.
     final replyable =
-        matches.where((n) => n.canReply).firstOrNull ?? matches.first;
-    final entries = <ConversationMemoryEntry>[];
-    final seen = <String>{};
+        matches.where((n) => n.canReply).firstOrNull ?? matches.firstOrNull;
+    // Una actualización incremental no borra eventos observados anteriormente.
+    final entries = observed == null
+        ? <ConversationMemoryEntry>[]
+        : [..._liveEntries];
+    final seen = entries
+        .map(
+          (entry) =>
+              '${entry.atMs}_${entry.kind == ConversationMemoryEntryKind.inbound ? 'in' : 'out'}_${entry.text}',
+        )
+        .toSet();
     for (final matched in matches) {
       for (final message in matched.rawMessages) {
         final text = (message['messageText'] ?? message['text'] ?? '')
@@ -46,7 +70,7 @@ extension ConversationDetailLiveHistory on _ConversationDetailSheetState {
         final atMs = message['messageTimestamp'] is num
             ? (message['messageTimestamp'] as num).toInt()
             : matched.postedAt.millisecondsSinceEpoch;
-        if (seen.add('${atMs}_$text')) {
+        if (seen.add('${atMs}_${isSelf ? 'out' : 'in'}_$text')) {
           entries.add(
             ConversationMemoryEntry(
               kind: isSelf
@@ -66,7 +90,17 @@ extension ConversationDetailLiveHistory on _ConversationDetailSheetState {
       final atMs = matched.messageTimestamp > 0
           ? matched.messageTimestamp
           : matched.postedAt.millisecondsSinceEpoch;
-      if (mainText.isNotEmpty && seen.add('${atMs}_$mainText')) {
+      // No repetir como entrante el evento que ya llegó clasificado en messages.
+      final hasRawCopy = matched.rawMessages.any((message) {
+        final rawText = (message['messageText'] ?? message['text'] ?? '')
+            .toString()
+            .trim();
+        return rawText.isNotEmpty &&
+            rawText.toLowerCase() == mainText.toLowerCase();
+      });
+      if (mainText.isNotEmpty &&
+          !hasRawCopy &&
+          seen.add('${atMs}_in_$mainText')) {
         entries.add(
           ConversationMemoryEntry(
             kind: ConversationMemoryEntryKind.inbound,
@@ -80,15 +114,35 @@ extension ConversationDetailLiveHistory on _ConversationDetailSheetState {
       }
     }
 
+    // NotificationHistoryView es el único lector paginado del archivo Android.
+
     final itemLastMsg = widget.item.lastMessage.trim();
     final isPhone = RegExp(r'^\+?[0-9\s\-]+$').hasMatch(itemLastMsg);
     final itemKey = '${widget.item.lastAtMs}_$itemLastMsg';
-    if (itemLastMsg.isNotEmpty && !isPhone && seen.add(itemKey)) {
+    // Web entrega resúmenes, no evidencia de emisor/fecha para una burbuja.
+    final isWeb = {
+      widget.item.conversationId,
+      ...widget.item.conversationAliases,
+    }.any((id) => id.startsWith('waweb:'));
+    final alreadyObserved = entries.any(
+      (entry) =>
+          entry.atMs == widget.item.lastAtMs && entry.text == itemLastMsg,
+    );
+    if (!isWeb &&
+        !alreadyObserved &&
+        itemLastMsg.isNotEmpty &&
+        !isPhone &&
+        seen.add(itemKey)) {
       entries.add(
         ConversationMemoryEntry(
-          kind: ConversationMemoryEntryKind.inbound,
+          // El emisor del resumen evita pintar como ajeno un mensaje de "Tú".
+          kind: widget.item.lastSender?.trim().toLowerCase() == 'tú'
+              ? ConversationMemoryEntryKind.outboundObservedManual
+              : ConversationMemoryEntryKind.inbound,
           text: itemLastMsg,
-          sender: widget.item.displayName,
+          sender: widget.item.lastSender?.trim().isNotEmpty == true
+              ? widget.item.lastSender!.trim()
+              : widget.item.displayName,
           atMs: widget.item.lastAtMs,
         ),
       );
@@ -97,7 +151,24 @@ extension ConversationDetailLiveHistory on _ConversationDetailSheetState {
     if (!mounted) return;
     setState(() {
       _activeNotification = replyable;
-      if (entries.isNotEmpty) _liveEntries = entries;
+      _liveEntries = entries;
     });
+  }
+
+  // Acepta ambas formas porque el deduplicador puede conservar cualquiera.
+  String? _historyIdForConversation() {
+    final identities = {
+      widget.item.conversationId,
+      ...widget.item.conversationAliases,
+    };
+    for (final identity in identities) {
+      for (final prefix in const ['notification-history:', 'history:']) {
+        if (identity.startsWith(prefix)) {
+          final id = identity.substring(prefix.length);
+          if (RegExp(r'^[a-f0-9]{64}$').hasMatch(id)) return id;
+        }
+      }
+    }
+    return null;
   }
 }

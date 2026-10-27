@@ -1,0 +1,9 @@
+﻿{
+    "date":  "2026-10-25T12:45:33.5472907-05:00",
+    "device":  "VGL7MVFMDYQG8T55",
+    "variant":  "fullSideloadDebug",
+    "apk":  "build/app/outputs/flutter-apk/app-fullsideload-debug.apk",
+    "sha256":  "EC04732564C4AC684F14E2D149A0937D5C21DC25C33BA3F35A0F191362225582",
+    "exitCode":  0,
+    "output":  "Performing Streamed Install\nSuccess"
+}

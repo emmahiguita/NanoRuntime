@@ -33,17 +33,26 @@ class UbuntuManager {
     'Web': ['lynx', 'w3m'],
   };
 
-  /// Ubuntu ARM64 minimal rootfs (basado en Debian, ~200MB).
-  /// URL del build oficial de Ubuntu NetHunter para ARM64.
-  /// A-22b: la URL anterior (Ubuntufs-arm64-minimal.tar.xz) devolvía HTTP 404
-  /// — el naming oficial migró a Ubuntu-nethunter-rootfs-* (verificado
-  /// 2026-08-13). El hash se lee de SHA256SUMS oficial; fail-closed: si no
-  /// coincide o está vacío, la instalación aborta.
+  /// Ubuntu ARM64 minimal rootfs oficial (Ubuntu Base 24.04.5 LTS ARM64).
+  ///
+  /// QUÉ HACE:
+  /// Define la dirección URL segura (HTTPS) desde los servidores oficiales de Canonical
+  /// para descargar la imagen base mínima de Ubuntu para arquitecturas ARM64 (móviles).
+  ///
+  /// POR QUÉ:
+  /// Usar HTTPS previene ataques de Man-in-the-Middle (MITM). La versión 24.04.5
+  /// es la versión LTS activa verificada en cdimage.ubuntu.com.
   static const rootfsUrl =
-      'https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.1-base-arm64.tar.gz';
+      'https://cdimage.ubuntu.com/ubuntu-base/releases/24.04/release/ubuntu-base-24.04.5-base-arm64.tar.gz';
 
-  /// SHA256 esperado del rootfs (vacío para desactivar en desarrollo).
-  static const expectedSha256 = '';
+  /// Hash criptográfico SHA-256 oficial verificado.
+  ///
+  /// CÓMO FUNCIONA:
+  /// Cada byte del archivo descargado se pasa por el algoritmo SHA-256. El resultado
+  /// debe coincidir exactamente con este valor publicado por Canonical en SHA256SUMS.
+  /// Si un solo bit es alterado o se descarga corrupto, la instalación aborta (Fail-Closed).
+  static const expectedSha256 =
+      'a91d5a93010193712d346d761372b7c9db6dfcf093893161c64ca107f05914f2';
 
   final ProotManager _proot;
   final IBinExecutor _shell;
@@ -98,53 +107,50 @@ class UbuntuManager {
     if (_ubuntuRoot == null) return false;
 
     final base = _distDir!;
-    final tarball = '$base/Ubuntufs-arm64.tar.xz';
+    // El archivo oficial es un tarball comprimido con gzip (.tar.gz)
+    final tarball = '$base/ubuntufs-arm64.tar.gz';
 
     _downloading = true;
     onProgress('download', 0);
 
     try {
-      // 1. Descargar rootfs (~200 MB)
+      // 1. Descargar rootfs oficial (~200 MB)
       await NanoRuntimeApi.instance.downloadFile(rootfsUrl, tarball);
       onProgress('download', 100);
 
-      // P2 fail-closed: instalar un rootfs de ~200MB bajado por HTTP sin
-      // verificar su hash es aceptar suministro comprometido o corrupto.
-      // Antes '' saltaba la verificación en silencio; ahora aborta.
-      // Hash oficial: Ubuntu.download/nethunter-images/current/rootfs/SHA256SUMS
+      // P2 fail-closed: verificar integridad criptográfica antes de descomprimir.
+      // Si el archivo no existe o el SHA256 no coincide, se aborta la instalación.
       final tarballFile = File(tarball);
       if (!tarballFile.existsSync()) {
-        log('Error: tarball not found after download');
+        log('Error: tarball no encontrado tras la descarga');
         return false;
       }
 
       if (expectedSha256.isNotEmpty) {
-        // Verify SHA256 checksum
+        // Verificar suma de comprobación SHA256 mediante streaming para evitar sobrecarga de RAM
         onProgress('verify', 0);
-        log('Verifying rootfs integrity (SHA256)...');
-        // TER-32: hash streaming — tarball ~200MB sin picos de RAM ni
-        // freeze del isolate principal (readAsBytes+convert síncrono antes).
+        log('Verificando integridad del RootFS (SHA-256)...');
         final actualHash = await sha256File(tarball);
         if (actualHash != expectedSha256) {
-          log('SECURITY: Rootfs checksum mismatch!');
-          log('  Expected: $expectedSha256');
-          log('  Got:      $actualHash');
-          log('  The downloaded file may be corrupted or tampered with.');
-          log('  Installation aborted.');
+          log('SEGURIDAD: ¡El hash SHA-256 no coincide!');
+          log('  Esperado: $expectedSha256');
+          log('  Obtenido: $actualHash');
+          log('  El archivo descargado podría estar corrupto o alterado.');
+          log('  Instalación abortada por seguridad.');
           try {
             tarballFile.deleteSync();
           } catch (_) {}
           onProgress('error', 0);
           return false;
         }
-        log('Rootfs integrity verified (SHA256).');
+        log('Integridad del RootFS verificada con éxito (SHA-256 válido).');
         onProgress('verify', 100);
       } else {
         log('WARNING: Instalando Ubuntu sin verificar el SHA256 (desarrollo).');
       }
 
       // 2. Extraer tarball con staging atómico para evitar rootfs corrupto
-      //    si la extracción falla a mitad.
+      // si la extracción se cancela o falla a la mitad.
       onProgress('extract', 0);
 
       final stagingDir = '${_distDir!}/.Ubuntu-staging';
@@ -154,12 +160,12 @@ class UbuntuManager {
       } catch (_) {}
       Directory(stagingDir).createSync(recursive: true);
 
-      log('Extrayendo Ubuntu rootfs (~200 MB, puede tardar ~2-3 min)...');
+      log('Extrayendo Ubuntu rootfs (~200 MB, puede tardar ~1-2 min)...');
 
-      // toybox no interpreta pipes — usar bash directamente para la extracción.
-      // xz -dc descomprime el stream, tar -x extrae los archivos.
+      // CORRECCIÓN TÉCNICA: El paquete es .tar.gz (GZIP), no .tar.xz (XZ).
+      // Usar gzip -dc o tar -xzf previene el error "format not recognized" de xz.
       final bashResult = await _shell.bash(
-        'cd "$stagingDir" && xz -dc "$tarball" | tar -x',
+        'cd "$stagingDir" && gzip -dc "$tarball" | tar -x',
         timeout: const Duration(minutes: 5),
       );
       if (bashResult.exitCode != 0) {

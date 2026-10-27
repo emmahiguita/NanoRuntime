@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'nano_nav_tokens.dart';
 
 enum NanoGlyphType {
@@ -34,14 +35,13 @@ enum NanoGlyphType {
   voice,
   memory,
   cpu,
+  vision,
+  assistant,
+  code,
+  audioSplit,
 }
 
-enum NanoIconState {
-  normal,
-  active,
-  selected,
-  disabled,
-}
+enum NanoIconState { normal, active, selected, disabled }
 
 /// Componente centralizado de iconografía Nano Design System v1.
 ///
@@ -71,7 +71,8 @@ class NanoIcon extends StatefulWidget {
   State<NanoIcon> createState() => _NanoIconState();
 }
 
-class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin {
+class _NanoIconState extends State<NanoIcon>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _anim;
   late final Animation<double> _scale;
 
@@ -82,9 +83,10 @@ class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    _scale = Tween<double>(begin: 1.0, end: 0.965).animate(
-      CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic),
-    );
+    _scale = Tween<double>(
+      begin: 1.0,
+      end: 0.965,
+    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -111,17 +113,26 @@ class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final themeColor = NanoNavTokens.activeAccent(Theme.of(context).brightness);
-    final effectiveColor = widget.color ??
-        (widget.state == NanoIconState.selected || widget.state == NanoIconState.active
+    final themeColors = Theme.of(
+      context,
+    ).extension<NanoThemeExtension>()?.colors;
+    final themeColor =
+        themeColors?.accent ??
+        NanoNavTokens.activeAccent(Theme.of(context).brightness);
+    final effectiveColor =
+        widget.color ??
+        (widget.state == NanoIconState.selected ||
+                widget.state == NanoIconState.active
             ? themeColor
             : (widget.state == NanoIconState.disabled
-                ? Colors.grey.withValues(alpha: 0.4)
-                : (Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFFE6EDF6)
-                    : const Color(0xFF0F172A))));
-    final effectiveGlow = widget.glow ??
-        (widget.state == NanoIconState.active || widget.state == NanoIconState.selected);
+                  ? Colors.grey.withValues(alpha: 0.4)
+                  : (Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFFE6EDF6)
+                        : const Color(0xFF0F172A))));
+    final effectiveGlow =
+        widget.glow ??
+        (widget.state == NanoIconState.active ||
+            widget.state == NanoIconState.selected);
 
     Widget iconWidget = NanoGlyph(
       type: widget.type,
@@ -140,10 +151,8 @@ class _NanoIconState extends State<NanoIcon> with SingleTickerProviderStateMixin
         behavior: HitTestBehavior.opaque,
         child: AnimatedBuilder(
           animation: _scale,
-          builder: (context, child) => Transform.scale(
-            scale: _scale.value,
-            child: child,
-          ),
+          builder: (context, child) =>
+              Transform.scale(scale: _scale.value, child: child),
           child: iconWidget,
         ),
       );
@@ -324,6 +333,18 @@ class _NanoGlyphPainter extends CustomPainter {
       case NanoGlyphType.cpu:
         _cpu(c, w, h, stroke, fill);
         break;
+      case NanoGlyphType.vision:
+        _vision(c, w, h, stroke);
+        break;
+      case NanoGlyphType.assistant:
+        _assistant(c, w, h, stroke, fill);
+        break;
+      case NanoGlyphType.code:
+        _code(c, w, h, stroke);
+        break;
+      case NanoGlyphType.audioSplit:
+        _audioSplit(c, w, h, stroke);
+        break;
     }
   }
 
@@ -345,10 +366,7 @@ class _NanoGlyphPainter extends CustomPainter {
     final door = Path()
       ..moveTo(w * .41, h * .82)
       ..lineTo(w * .41, h * .62)
-      ..arcToPoint(
-        Offset(w * .59, h * .62),
-        radius: Radius.circular(w * .09),
-      )
+      ..arcToPoint(Offset(w * .59, h * .62), radius: Radius.circular(w * .09))
       ..lineTo(w * .59, h * .82);
     c.drawPath(door, stroke);
   }
@@ -480,14 +498,30 @@ class _NanoGlyphPainter extends CustomPainter {
     final p = Path()
       ..moveTo(w * .65, h * .38)
       ..lineTo(w * .40, h * .63)
-      ..arcToPoint(Offset(w * .28, h * .63), radius: Radius.circular(w * .08), clockwise: false)
-      ..arcToPoint(Offset(w * .28, h * .51), radius: Radius.circular(w * .08), clockwise: false)
+      ..arcToPoint(
+        Offset(w * .28, h * .63),
+        radius: Radius.circular(w * .08),
+        clockwise: false,
+      )
+      ..arcToPoint(
+        Offset(w * .28, h * .51),
+        radius: Radius.circular(w * .08),
+        clockwise: false,
+      )
       ..lineTo(w * .56, h * .23)
       ..arcToPoint(Offset(w * .74, h * .23), radius: Radius.circular(w * .12))
       ..arcToPoint(Offset(w * .74, h * .41), radius: Radius.circular(w * .12))
       ..lineTo(w * .46, h * .69)
-      ..arcToPoint(Offset(w * .28, h * .69), radius: Radius.circular(w * .12), clockwise: false)
-      ..arcToPoint(Offset(w * .20, h * .51), radius: Radius.circular(w * .16), clockwise: false)
+      ..arcToPoint(
+        Offset(w * .28, h * .69),
+        radius: Radius.circular(w * .12),
+        clockwise: false,
+      )
+      ..arcToPoint(
+        Offset(w * .20, h * .51),
+        radius: Radius.circular(w * .16),
+        clockwise: false,
+      )
       ..lineTo(w * .20, h * .45);
     c.drawPath(p, stroke);
   }
@@ -584,7 +618,11 @@ class _NanoGlyphPainter extends CustomPainter {
       ..close();
     c.drawPath(p, stroke);
     c.drawArc(
-      Rect.fromCenter(center: Offset(w * .50, h * .68), width: w * .20, height: h * .16),
+      Rect.fromCenter(
+        center: Offset(w * .50, h * .68),
+        width: w * .20,
+        height: h * .16,
+      ),
       0,
       3.14159,
       false,
@@ -681,14 +719,22 @@ class _NanoGlyphPainter extends CustomPainter {
       ..close();
     c.drawPath(p, stroke);
     c.drawArc(
-      Rect.fromCenter(center: Offset(w * .48, h * .50), width: w * .32, height: h * .36),
+      Rect.fromCenter(
+        center: Offset(w * .48, h * .50),
+        width: w * .32,
+        height: h * .36,
+      ),
       -0.9,
       1.8,
       false,
       stroke,
     );
     c.drawArc(
-      Rect.fromCenter(center: Offset(w * .48, h * .50), width: w * .52, height: h * .56),
+      Rect.fromCenter(
+        center: Offset(w * .48, h * .50),
+        width: w * .52,
+        height: h * .56,
+      ),
       -0.9,
       1.8,
       false,
@@ -723,6 +769,58 @@ class _NanoGlyphPainter extends CustomPainter {
       c.drawLine(Offset(w * .12, h * i), Offset(w * .24, h * i), stroke);
       c.drawLine(Offset(w * .76, h * i), Offset(w * .88, h * i), stroke);
     }
+  }
+
+  void _vision(Canvas c, double w, double h, Paint stroke) {
+    final eye = Path()
+      ..moveTo(w * .14, h * .50)
+      ..quadraticBezierTo(w * .50, h * .16, w * .86, h * .50)
+      ..quadraticBezierTo(w * .50, h * .84, w * .14, h * .50)
+      ..close();
+    c.drawPath(eye, stroke);
+    c.drawCircle(Offset(w * .50, h * .50), w * .13, stroke);
+  }
+
+  void _assistant(Canvas c, double w, double h, Paint stroke, Paint fill) {
+    c.drawCircle(Offset(w * .36, h * .46), w * .14, stroke);
+    c.drawCircle(Offset(w * .64, h * .46), w * .14, stroke);
+    c.drawCircle(Offset(w * .36, h * .46), w * .035, fill);
+    c.drawCircle(Offset(w * .64, h * .46), w * .035, fill);
+    c.drawLine(Offset(w * .32, h * .68), Offset(w * .50, h * .78), stroke);
+    c.drawLine(Offset(w * .68, h * .68), Offset(w * .50, h * .78), stroke);
+    c.drawOval(Rect.fromLTWH(w * .34, h * .18, w * .32, h * .08), stroke);
+  }
+
+  void _code(Canvas c, double w, double h, Paint stroke) {
+    final left = Path()
+      ..moveTo(w * .42, h * .28)
+      ..lineTo(w * .25, h * .50)
+      ..lineTo(w * .42, h * .72);
+    final right = Path()
+      ..moveTo(w * .58, h * .28)
+      ..lineTo(w * .75, h * .50)
+      ..lineTo(w * .58, h * .72);
+    c.drawPath(left, stroke);
+    c.drawPath(right, stroke);
+    c.drawLine(Offset(w * .54, h * .24), Offset(w * .46, h * .76), stroke);
+  }
+
+  void _audioSplit(Canvas c, double w, double h, Paint stroke) {
+    c.drawLine(Offset(w * .5, h * .16), Offset(w * .5, h * .84), stroke);
+    final left = Path()
+      ..moveTo(w * .40, h * .33)
+      ..lineTo(w * .31, h * .42)
+      ..lineTo(w * .31, h * .58)
+      ..lineTo(w * .40, h * .67);
+    final right = Path()
+      ..moveTo(w * .60, h * .33)
+      ..lineTo(w * .69, h * .42)
+      ..lineTo(w * .69, h * .58)
+      ..lineTo(w * .60, h * .67);
+    c.drawPath(left, stroke);
+    c.drawPath(right, stroke);
+    c.drawCircle(Offset(w * .22, h * .50), w * .07, stroke);
+    c.drawCircle(Offset(w * .78, h * .50), w * .07, stroke);
   }
 
   @override

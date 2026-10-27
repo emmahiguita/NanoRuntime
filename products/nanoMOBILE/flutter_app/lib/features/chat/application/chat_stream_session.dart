@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../../core/models/chat_models.dart';
 import '../../../core/services/llm_engine_client.dart';
+import '../../../core/services/inference_media_input.dart';
 import '../domain/stream_lease.dart';
 import '../domain/stream_sanitizer.dart';
 
@@ -17,8 +18,6 @@ import '../domain/stream_sanitizer.dart';
 /// **POR QUÉ:**
 /// Evita colisiones de red, memory leaks por streams huérfanos y libera GPU/NPU al cancelar.
 class ChatStreamSession {
-  static const Duration streamIdleTimeout = Duration(seconds: 45);
-
   StreamLease? _activeStream;
   int _generationSequence = 0;
   int? _activeGenerationId;
@@ -90,6 +89,7 @@ class ChatStreamSession {
     required bool Function() isMounted,
     required void Function(ModelConnectionState) onPhaseChange,
     required void Function(String streamingText) onTextUpdated,
+    List<InferenceMediaInput> mediaInputs = const [],
   }) async {
     final (:stream, :client, :requestId) = engine.generateStream(
       prompt: prompt,
@@ -99,6 +99,7 @@ class ChatStreamSession {
       sessionId: sessionId,
       context: systemPrompt,
       history: history,
+      mediaInputs: mediaInputs,
     );
 
     final lease = StreamLease(generationId: generationId, client: client, requestId: requestId);
@@ -111,10 +112,11 @@ class ChatStreamSession {
     TurnMetrics? turnMetrics;
 
     try {
+      final idleTimeout = engine.streamIdleTimeout;
       await for (final token in stream.timeout(
-        streamIdleTimeout,
+        idleTimeout,
         onTimeout: (sink) => sink.addError(
-          LLMEngineException('Timeout: motor sin emitir tokens por ${streamIdleTimeout.inSeconds}s'),
+          LLMEngineException('Timeout: motor sin emitir tokens por ${idleTimeout.inSeconds}s'),
         ),
       )) {
         if (!isGenerationCurrent(generationId, isMounted())) break;
@@ -149,13 +151,13 @@ class ChatStreamSession {
   }
 
   /// Detiene la inferencia en curso emitiendo cancel cooperativo a llama.cpp.
-  void stop({required LLMEngineClient engine}) {
+  Future<void> stop({required LLMEngineClient engine}) async {
     _generationCancelled = true;
     _activeGenerationId = null;
     cancelStreamFlush();
     final lease = _activeStream;
     if (lease != null) {
-      unawaited(cancelCooperativo(engine, lease.requestId));
+      await cancelCooperativo(engine, lease.requestId);
       releaseStream(lease, 'stop');
     }
   }

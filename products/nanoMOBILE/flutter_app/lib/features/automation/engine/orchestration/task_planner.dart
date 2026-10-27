@@ -139,7 +139,6 @@ class TaskPlanner {
       return _searchPlan(goal, openApp: search.app.isNotEmpty);
     }
     return null;
-
   }
 
   /// "reproduce X en youtube" / "ponme X" — buscar Y abrir el primer

@@ -111,7 +111,8 @@ class GoalVerifier {
         return true;
       }
       if (isSettingsExpected) {
-        if (actualPkg.contains('settings') || actualPkg.contains('wirelesssettings')) {
+        if (actualPkg.contains('settings') ||
+            actualPkg.contains('wirelesssettings')) {
           return true;
         }
       }

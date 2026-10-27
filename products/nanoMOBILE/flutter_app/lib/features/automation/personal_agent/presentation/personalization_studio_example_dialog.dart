@@ -1,17 +1,18 @@
 part of 'personalization_studio_screen.dart';
 
-/// PERSONALIZATION-STUDIO-EXAMPLE-DIALOG — Editor de Frase Aprendida con Variantes.
-///
-/// **QUÉ HACE:**
-/// Permite editar o crear una frase recibida con sus variantes equivalentes de entrada
-/// y su conjunto de respuestas posibles con selector de estado y tono.
-///
-/// **CÓMO FUNCIONA:**
-/// Presenta listas dinámicas de variantes y respuestas en scroll responsivo,
-/// validando que al menos exista una respuesta antes de guardar en SQLite.
-///
-/// **POR QUÉ:**
-/// Materializa la visión de aprendizaje por intenciones y múltiples respuestas humanas (< 200 líneas).
+// personalization_studio_example_dialog.dart
+//
+// QUÉ HACE:
+// Diálogo de edición de frases aprendidas, variantes equivalentes y respuestas múltiples.
+//
+// CÓMO FUNCIONA:
+// - Detecta orientación landscape/portrait para ajustar márgenes y paddings dinámicos.
+// - Presenta campos compactos con Material Expressive (fondos translúcidos y acentos cromáticos).
+// - Scroll vertical seguro con ConstrainedBox para garantizar cero RenderFlex overflows con teclado.
+//
+// POR QUÉ:
+// Asegura que las intenciones y respuestas sean editables cómodamente en móviles apaisados (< 200 líneas).
+
 class _ExampleEditDialog extends StatefulWidget {
   final PersonaExample? example;
   final bool isTemplate;
@@ -37,15 +38,21 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
   late final List<String> _respTones;
   late final List<bool> _respActives;
   late String _scope;
+  late ConversationSemanticTag _semanticTag;
 
   @override
   void initState() {
     super.initState();
     final ex = widget.example;
     _scope = widget.initialScope;
+    _semanticTag = ex == null
+        ? ConversationSemanticTag.conversation
+        : ConversationSemanticTag.fromStorageKey(ex.intent);
     _triggerCtrl = TextEditingController(text: ex?.displayTrigger ?? '');
     final inVars = ex?.incomingVariants ?? [];
-    _inVarCtrls = inVars.isEmpty ? [TextEditingController(text: ex?.incomingText ?? '')] : inVars.map((v) => TextEditingController(text: v)).toList();
+    _inVarCtrls = inVars.isEmpty
+        ? [TextEditingController(text: ex?.incomingText ?? '')]
+        : inVars.map((v) => TextEditingController(text: v)).toList();
     final opts = ex?.responseOptions ?? [];
     if (opts.isNotEmpty) {
       _respCtrls = opts.map((o) => TextEditingController(text: o.text)).toList();
@@ -63,62 +70,122 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
   @override
   void dispose() {
     _triggerCtrl.dispose();
-    for (final c in _inVarCtrls) { c.dispose(); }
-    for (final c in _respCtrls) { c.dispose(); }
+    for (final c in _inVarCtrls) {
+      c.dispose();
+    }
+    for (final c in _respCtrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final isLandscape = size.width > size.height;
     final title = widget.example != null ? widget.example!.displayTrigger : 'Nueva Frase / Intención';
 
     return AlertDialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-      titlePadding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+      insetPadding: EdgeInsets.symmetric(horizontal: 14, vertical: isLandscape ? 6 : 16),
+      titlePadding: EdgeInsets.fromLTRB(16, isLandscape ? 8 : 12, 16, isLandscape ? 4 : 6),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      actionsPadding: EdgeInsets.symmetric(horizontal: 12, vertical: isLandscape ? 4 : 8),
       title: Row(
         children: [
           const Icon(Icons.forum_outlined, size: 15, color: Color(0xFF00E676)),
           const SizedBox(width: 8),
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
       content: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: size.height * 0.72, maxWidth: 480),
+        constraints: BoxConstraints(
+          maxHeight: size.height * (isLandscape ? 0.76 : 0.70),
+          maxWidth: isLandscape ? 520 : 460,
+        ),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               _label('TEXTO / INTENCIÓN RECIBIDA'),
-              TextField(controller: _triggerCtrl, style: const TextStyle(fontSize: 11.5), decoration: _dec('Ej: ¿Qué haces?, ¿Cómo estás?')),
-              const SizedBox(height: 8),
+              TextField(
+                controller: _triggerCtrl,
+                style: const TextStyle(fontSize: 11),
+                decoration: _dec('Ej: ¿Qué haces?, ¿Cómo estás?'),
+              ),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<ConversationSemanticTag>(
+                initialValue: _semanticTag,
+                isExpanded: true,
+                decoration: _dec('Etiqueta del diálogo'),
+                dropdownColor: const Color(0xFF162036),
+                style: const TextStyle(fontSize: 10.5, color: Colors.white),
+                items: [
+                  for (final tag in ConversationSemanticTag.values)
+                    DropdownMenuItem(value: tag, child: Text(tag.label)),
+                ],
+                onChanged: (tag) {
+                  if (tag != null) setState(() => _semanticTag = tag);
+                },
+              ),
+              const SizedBox(height: 7),
               Row(
                 children: [
                   _label('VARIANTES EQUIVALENTES'),
                   const Spacer(),
-                  InkWell(onTap: () => setState(() => _inVarCtrls.add(TextEditingController())), child: const Text('+ Variante', style: TextStyle(fontSize: 10, color: Color(0xFF00D2FF), fontWeight: FontWeight.bold))),
+                  InkWell(
+                    onTap: () => setState(() => _inVarCtrls.add(TextEditingController())),
+                    child: const Text(
+                      '+ Variante',
+                      style: TextStyle(fontSize: 9.5, color: Color(0xFF00D2FF), fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ],
               ),
               for (int i = 0; i < _inVarCtrls.length; i++)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
+                  padding: const EdgeInsets.only(bottom: 2.5),
                   child: Row(
                     children: [
-                      Expanded(child: TextField(controller: _inVarCtrls[i], style: const TextStyle(fontSize: 10.5), decoration: _dec('Variante #${i + 1}'))),
+                      Expanded(
+                        child: TextField(
+                          controller: _inVarCtrls[i],
+                          style: const TextStyle(fontSize: 10),
+                          decoration: _dec('Variante #${i + 1}'),
+                        ),
+                      ),
                       if (_inVarCtrls.length > 1)
-                        IconButton(icon: const Icon(Icons.close, size: 13, color: Colors.white54), onPressed: () => setState(() => _inVarCtrls.removeAt(i).dispose()), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 20, minHeight: 20)),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 12, color: Colors.white54),
+                          onPressed: () => setState(() => _inVarCtrls.removeAt(i).dispose()),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                        ),
                     ],
                   ),
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   _label('RESPUESTAS POSIBLES'),
                   const Spacer(),
-                  InkWell(onTap: () => setState(() { _respCtrls.add(TextEditingController()); _respTones.add('cotidiana'); _respActives.add(true); }), child: const Text('+ Respuesta', style: TextStyle(fontSize: 10, color: Color(0xFF00E676), fontWeight: FontWeight.bold))),
+                  InkWell(
+                    onTap: () => setState(() {
+                      _respCtrls.add(TextEditingController());
+                      _respTones.add('cotidiana');
+                      _respActives.add(true);
+                    }),
+                    child: const Text(
+                      '+ Respuesta',
+                      style: TextStyle(fontSize: 9.5, color: Color(0xFF00E676), fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ],
               ),
               for (int i = 0; i < _respCtrls.length; i++) _respItem(i),
@@ -127,54 +194,22 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar', style: TextStyle(fontSize: 11.5))),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar', style: TextStyle(fontSize: 11)),
+        ),
         FilledButton(
           onPressed: widget.busy ? null : _save,
-          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00E676), foregroundColor: Colors.black),
-          child: const Text('Guardar frase', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF00E676),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          ),
+          child: const Text('Guardar frase', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
         ),
       ],
     );
   }
-
-  Widget _respItem(int i) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(color: const Color(0x0EFFFFFF), borderRadius: BorderRadius.circular(7), border: Border.all(color: const Color(0x22FFFFFF), width: 0.6)),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Text('#${i + 1}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF00E676))),
-              const Spacer(),
-              InkWell(onTap: () => setState(() => _respActives[i] = !_respActives[i]), child: Text(_respActives[i] ? 'Activo ✓' : 'Inactivo', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: _respActives[i] ? const Color(0xFF00E676) : Colors.white38))),
-              if (_respCtrls.length > 1) ...[
-                const SizedBox(width: 5),
-                InkWell(onTap: () => setState(() { _respCtrls.removeAt(i).dispose(); _respTones.removeAt(i); _respActives.removeAt(i); }), child: const Icon(Icons.delete_outline, size: 12, color: Colors.redAccent)),
-              ],
-            ],
-          ),
-          const SizedBox(height: 2),
-          TextField(controller: _respCtrls[i], maxLines: 2, minLines: 1, style: const TextStyle(fontSize: 10.5), decoration: _dec('Respuesta posible #${i + 1}')),
-        ],
-      ),
-    );
-  }
-
-  Widget _label(String t) => Text(t, style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, letterSpacing: 0.3, color: Colors.white70));
-
-  InputDecoration _dec(String h) => InputDecoration(
-    hintText: h,
-    hintStyle: const TextStyle(fontSize: 9.5, color: Colors.white24),
-    filled: true,
-    fillColor: const Color(0x0BFFFFFF),
-    isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0x22FFFFFF), width: 0.7)),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0x22FFFFFF), width: 0.7)),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: Color(0x8000E676), width: 0.7)),
-  );
 
   void _save() {
     final trigger = _triggerCtrl.text.trim();
@@ -186,19 +221,26 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
     }
     if (responses.isEmpty) return;
 
-    Navigator.pop(context, _ExampleResult(
-      scope: _scope,
-      input: trigger.isNotEmpty ? trigger : (inVars.isNotEmpty ? inVars.first : ''),
-      body: responses.first.text,
-      verified: true,
-      enabled: true,
-      isTemplate: widget.isTemplate,
-      title: widget.example?.categoryTitle ?? 'Cotidiano · conversación',
-      category: widget.example?.category ?? 'Cotidiano · conversación',
-      intent: widget.example?.intent ?? 'custom_intent',
-      incomingVariants: inVars,
-      variants: responses.map((r) => r.text).toList(),
-      responses: responses,
-    ));
+    final semantic = _semanticTag == ConversationSemanticTag.conversation
+        ? ConversationSemanticClassifier.classify(trigger)
+        : _semanticTag;
+
+    Navigator.pop(
+      context,
+      _ExampleResult(
+        scope: _scope,
+        input: trigger.isNotEmpty ? trigger : (inVars.isNotEmpty ? inVars.first : ''),
+        body: responses.first.text,
+        verified: true,
+        enabled: true,
+        isTemplate: widget.isTemplate,
+        title: semantic.label,
+        category: semantic.label,
+        intent: semantic.storageKey,
+        incomingVariants: inVars,
+        variants: responses.map((r) => r.text).toList(),
+        responses: responses,
+      ),
+    );
   }
 }

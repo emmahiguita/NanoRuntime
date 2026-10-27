@@ -1,55 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:nanoai/main.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/features/browser/application/browser_external_app_behavior.dart';
 import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
 import 'package:nanoai/features/browser/application/browser_webview_registry.dart';
 import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
-import 'package:nanoai/features/browser/infrastructure/browser_security_firewall.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_webview_dialog_guard.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_webview_load_synchronizer.dart';
+import 'package:nanoai/features/browser/presentation/widgets/browser_webview_navigation_guard.dart';
+import 'package:nanoai/features/browser/presentation/widgets/browser_web_identity_coordinator.dart';
 
-/// Manejador de ciclo de vida, eventos de seguridad y puentes JS de `InAppWebView`.
-///
-/// - ¿Qué hace?: Centraliza verificación de firewall (SSRF), respuestas HTTP Auth/SSL,
-///   solicitudes de permisos Web, inyección post-carga de scripts y sync con Riverpod.
-/// - ¿Cómo?: Recibe eventos nativos del WebView y los delega en notifiers y diálogos.
-/// - ¿Por qué?: SRP y DIP de SOLID; [isAlive] previene el bug "ref after disposed"
-///   cuando el WebView dispara callbacks después de destruir el widget padre.
+/// Coordina carga/JS; [navigation] aísla seguridad e [isAlive] protege Riverpod.
 class BrowserWebViewLifecycleHandler {
   final BuildContext Function() getContext;
   final WidgetRef ref;
   BrowserTabModel tab;
   String? reportedUrl;
   int _loadGeneration = 0;
-  bool isDesktopMode, isDarkModeWeb;
+  bool isDarkModeWeb;
+  final BrowserWebIdentityCoordinator identity;
   double currentZoom;
   final void Function(double scale) onZoomChanged;
   final void Function(String domain, String username, String password)
   onPromptSaveCredential;
+  final VoidCallback onRenderProcessLost;
   final ValueChanged<InAppWebViewController>? onControllerCreated;
   final void Function(String url)? onExternalPrompt;
 
   /// Retorna true si el widget padre sigue montado. Previene ref-after-disposed.
   final bool Function() isAlive;
-  late final BrowserWebViewDialogGuard _dialogs;
+  late final BrowserWebViewNavigationGuard navigation;
 
   BrowserWebViewLifecycleHandler({
     required this.getContext,
     required this.ref,
     required this.tab,
-    required this.isDesktopMode,
+    required this.identity,
     required this.isDarkModeWeb,
     required this.currentZoom,
     required this.onZoomChanged,
     required this.onPromptSaveCredential,
+    required this.onRenderProcessLost,
     required this.isAlive,
     this.onControllerCreated,
     this.onExternalPrompt,
   }) {
-    _dialogs = BrowserWebViewDialogGuard(
+    navigation = BrowserWebViewNavigationGuard(
       context: getContext,
       ref: ref,
       isAlive: isAlive,
+      identity: identity,
+      onExternalPrompt: onExternalPrompt,
+      externalAppBehavior: () =>
+          ref.read(browserExternalAppBehaviorProvider),
     );
   }
 
@@ -77,7 +80,6 @@ class BrowserWebViewLifecycleHandler {
     ctrl.addJavaScriptHandler(
       handlerName: 'nanoSaveCredential',
       callback: (args) {
-        // Misma protección para evitar banners sobre un contexto inválido.
         if (!isAlive()) return null;
         if (args.length >= 3 && (args[2]?.toString().isNotEmpty ?? false)) {
           onPromptSaveCredential(
@@ -88,77 +90,117 @@ class BrowserWebViewLifecycleHandler {
         }
       },
     );
+    // La sesión pertenece al WebView, que sigue vivo al salir de esta pantalla.
+    audioHandler.attachSource(tab.id, ctrl);
   }
 
   void onLoadStart(InAppWebViewController ctrl, WebUri? url) {
-    if (url == null) return;
-    // Nunca se presenta UI desde un callback cuyo widget ya fue destruido.
-    if (!isAlive()) return;
+    audioHandler.clearSource(tab.id);
+    if (url == null || !isAlive()) return;
     ++_loadGeneration;
     final urlStr = reportedUrl = url.toString();
-    if (!BrowserSecurityFirewall.isAllowedUrl(urlStr)) {
-      ctrl.stopLoading();
-      _dialogs.showBlocked(
-        url: urlStr,
-        reason: 'Dirección o protocolo bloqueado por Firewall de Seguridad.',
-      );
-      return;
-    }
+    if (!navigation.allowsLoad(ctrl, urlStr)) return;
     ref
         .read(browserTabProvider.notifier)
-        .updateTabById(tab.id, url: urlStr, isLoading: true, progress: 0.1);
+        .updateTabById(
+          tab.id,
+          url: urlStr,
+          isLoading: true,
+          progress: 0.1,
+          clearError: true,
+        );
   }
 
   Future<void> onLoadStop(InAppWebViewController ctrl, WebUri? url) async {
     final generation = _loadGeneration;
     await BrowserWebViewLoadSynchronizer(
-      ref: ref, tab: tab, isDesktopMode: isDesktopMode,
-      isDarkModeWeb: isDarkModeWeb, currentZoom: currentZoom,
+      ref: ref,
+      tab: tab,
+      isDesktopMode: identity.usesDesktop(url?.toString() ?? tab.url),
+      isDarkModeWeb: isDarkModeWeb,
+      currentZoom: currentZoom,
       isAlive: () => isAlive() && generation == _loadGeneration,
     ).synchronize(ctrl, url);
   }
 
-  Future<NavigationActionPolicy> shouldOverrideUrlLoading(
+  void onReceivedError(
     InAppWebViewController ctrl,
-    NavigationAction act,
-  ) async {
-    if (!isAlive()) return NavigationActionPolicy.CANCEL;
-    final uri = act.request.url?.uriValue;
-    if (uri == null) return NavigationActionPolicy.CANCEL;
-    final u = uri.toString();
-    if (BrowserSecurityFirewall.isExternalScheme(u)) {
-      onExternalPrompt?.call(u);
-      return NavigationActionPolicy.CANCEL;
+    WebResourceRequest request,
+    WebResourceError error,
+  ) {
+    if (!isAlive() || !(request.isForMainFrame ?? true)) return;
+    ref
+        .read(browserTabProvider.notifier)
+        .updateTabById(
+          tab.id,
+          hasError: true,
+          errorMessage: error.description,
+          isLoading: false,
+          progress: 0.0,
+        );
+  }
+
+  void onReceivedHttpError(
+    InAppWebViewController ctrl,
+    WebResourceRequest request,
+    WebResourceResponse res,
+  ) {
+    if (!isAlive() || !(request.isForMainFrame ?? true)) return;
+    final code = res.statusCode ?? 0;
+    if (code >= 400) {
+      ref
+          .read(browserTabProvider.notifier)
+          .updateTabById(
+            tab.id,
+            hasError: true,
+            errorCode: code,
+            errorMessage: res.reasonPhrase ?? 'Error HTTP $code',
+            isLoading: false,
+          );
     }
-    if (!BrowserSecurityFirewall.isAllowedUrl(u)) {
-      _dialogs.showBlocked(
-        url: u,
-        reason:
-            'Dirección privada, puerto interno o protocolo no seguro bloqueado.',
-      );
-      return NavigationActionPolicy.CANCEL;
+  }
+
+  void onUpdateVisitedHistory(
+    InAppWebViewController ctrl,
+    WebUri? url,
+    bool? isReload,
+  ) async {
+    if (!isAlive() || url == null) return;
+    final urlStr = reportedUrl = url.toString();
+    try {
+      final canBack = await ctrl.canGoBack();
+      final canFwd = await ctrl.canGoForward();
+      if (!isAlive()) return;
+      ref
+          .read(browserTabProvider.notifier)
+          .updateTabById(
+            tab.id,
+            url: urlStr,
+            canGoBack: canBack,
+            canGoForward: canFwd,
+          );
+    } catch (_) {}
+  }
+
+  void onRenderProcessGone(
+    InAppWebViewController ctrl,
+    RenderProcessGoneDetail detail,
+  ) {
+    audioHandler.clearSource(tab.id);
+    if (isAlive()) {
+      ref
+          .read(browserTabProvider.notifier)
+          .updateTabById(
+            tab.id,
+            hasError: true,
+            errorMessage: detail.didCrash
+                ? 'El proceso de la página se cerró inesperadamente.'
+                : 'Android liberó el proceso de la página para recuperar memoria.',
+            isLoading: false,
+          );
     }
-    return NavigationActionPolicy.ALLOW;
-  }
-
-  Future<ServerTrustAuthResponse?> onReceivedServerTrustAuthRequest(
-    InAppWebViewController ctrl,
-    URLAuthenticationChallenge ch,
-  ) async {
-    return _dialogs.requestServerTrust(ch);
-  }
-
-  Future<HttpAuthResponse?> onReceivedHttpAuthRequest(
-    InAppWebViewController ctrl,
-    URLAuthenticationChallenge ch,
-  ) async {
-    return _dialogs.requestHttpAuth(ch);
-  }
-
-  Future<PermissionResponse> onPermissionRequest(
-    InAppWebViewController ctrl,
-    PermissionRequest r,
-  ) async {
-    return _dialogs.requestPermission(r);
+    // Un renderer terminado no admite reload: el dueño debe retirar la vista,
+    // incluso si su widget está oculto; la activa además montará una nueva.
+    onRenderProcessLost();
   }
 }

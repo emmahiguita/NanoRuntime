@@ -140,6 +140,7 @@ abstract interface class ILinuxAutomationExecutor {
     String? cwd,
     Map<String, String>? environment,
     Duration? timeout,
-    Future<LinuxVerificationDetail> Function(LinuxActionResult<void> rawResult)? customVerifier,
+    Future<LinuxVerificationDetail> Function(LinuxActionResult<void> rawResult)?
+    customVerifier,
   });
 }

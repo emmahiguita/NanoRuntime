@@ -1,17 +1,18 @@
-// nano_floating_assistant.dart — Asistente flotante bajo demanda (no permanente).
-// QUÉ HACE: Despliega al Búho Nano únicamente cuando el usuario lo invoca explícitamente.
-// CÓMO FUNCIONA: Mantiene `isVisible = false` por defecto; al cerrarse se oculta por completo sin dejar orbes fijos.
-// POR QUÉ: Erradica la presencia permanente e intrusiva del personaje sobre el contenido de la pantalla.
+// Flotante dentro de Nano: posee editor, posicion, acople y apertura del panel.
+// Comparte el controlador de acciones; no crea otro motor de automatizacion.
 library;
 
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'nano_3d_flip_transition.dart';
 import 'nano_ai_controller.dart';
 import 'nano_assistant_panel.dart';
-import 'nano_motion.dart';
-import 'nano_owl_alive.dart';
-import 'nano_owl_orbital_ring.dart';
+import 'nano_floating_orb.dart';
+import 'nano_animation_policy.dart';
+part 'nano_floating_assistant_policy.dart';
+part 'nano_floating_assistant_view.dart';
 
 class NanoFloatingAssistant extends StatefulWidget {
   const NanoFloatingAssistant({
@@ -19,25 +20,42 @@ class NanoFloatingAssistant extends StatefulWidget {
     required this.controller,
     required this.audioLevel,
     this.onVoice,
+    this.onSpeak,
+    this.onStopVoice,
     this.initiallyExpanded = false,
   });
 
   final NanoAiController controller;
   final ValueListenable<double> audioLevel;
   final VoidCallback? onVoice;
+  final VoidCallback? onStopVoice;
+  final ValueChanged<String>? onSpeak;
   final bool initiallyExpanded;
 
   @override
   State<NanoFloatingAssistant> createState() => _NanoFloatingAssistantState();
 }
 
-class _NanoFloatingAssistantState extends State<NanoFloatingAssistant> {
+class _NanoFloatingAssistantState extends State<NanoFloatingAssistant>
+    with SingleTickerProviderStateMixin, NanoAnimationPolicy {
   late final TextEditingController input;
   late bool expanded;
   bool isVisible = false;
   bool _dragging = false;
   Offset position = const Offset(12, 300);
 
+  // Animador magnético iOS (snap-to-edge)
+  late final AnimationController _snapController;
+  Animation<Offset>? _snapAnimation;
+  Offset? _snapDestination;
+
+  // Atenuación sutil tras inactividad (iOS AssistiveTouch idle dimming)
+  Timer? _idleTimer;
+  double _opacity = 1.0;
+
+  Orientation? _lastOrientation;
+
+  /// Owns input, controller subscription and the original 320 ms snap clock.
   @override
   void initState() {
     super.initState();
@@ -45,8 +63,57 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant> {
     isVisible = widget.controller.isVisible;
     input = TextEditingController();
     widget.controller.addListener(_sync);
+
+    _snapController =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 320),
+          )
+          ..addListener(() {
+            if (_snapAnimation != null) {
+              setState(() {
+                position = _snapAnimation!.value;
+              });
+            }
+          })
+          ..addStatusListener((status) {
+            if (status == AnimationStatus.completed && _snapAnimation != null) {
+              setState(() => _snapAnimation = null);
+            }
+          });
+
+    _startIdleTimer();
   }
 
+  /// Stops hidden/reduced motion and restarts idle timing only when allowed.
+  @override
+  void onMotionPolicyChanged() {
+    if (!motionEnabled) {
+      _settleSnap();
+      _idleTimer?.cancel();
+      _opacity = 1;
+    } else {
+      _startIdleTimer();
+    }
+  }
+
+  /// Repositions only on orientation changes and cancels the old snap target.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ori = MediaQuery.orientationOf(context);
+    if (_lastOrientation != null && _lastOrientation != ori) {
+      _snapController.stop();
+      _snapAnimation = null;
+      final size = MediaQuery.sizeOf(context);
+      setState(() {
+        position = Offset(10, size.height * 0.35);
+      });
+    }
+    _lastOrientation = ori;
+  }
+
+  /// Rebinds the external assistant without retaining the replaced listener.
   @override
   void didUpdateWidget(covariant NanoFloatingAssistant oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -56,26 +123,36 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant> {
     _sync();
   }
 
+  /// Applies external visibility and pending input, then cancels hidden clocks.
   void _sync() {
     if (!mounted) return;
     if (widget.controller.checkAndClearExpandRequest()) {
       expanded = true;
       isVisible = true;
+      _wakeUp();
     }
     if (widget.controller.isVisible != isVisible) {
       isVisible = widget.controller.isVisible;
+      _wakeUp();
     }
-    final pending = widget.controller.takePendingPrompt();
+    final pending = widget.controller.takePendingPrompt(
+      currentText: input.text,
+    );
     if (pending != null) {
       input.text = pending;
+      input.selection = TextSelection.collapsed(offset: pending.length);
       expanded = true;
       isVisible = true;
+      _wakeUp();
     }
+    if (!isVisible) _settleSnap();
     setState(() {});
   }
 
   @override
   void dispose() {
+    _idleTimer?.cancel();
+    _snapController.dispose();
     widget.controller.removeListener(_sync);
     input.dispose();
     super.dispose();
@@ -90,104 +167,7 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant> {
     widget.controller.hide();
   }
 
+  /// Delegates layout while retaining this State as the sole clock owner.
   @override
-  Widget build(BuildContext context) {
-    if (!isVisible) return const SizedBox.shrink();
-
-    final window = MediaQuery.sizeOf(context);
-    final reduce = MediaQuery.disableAnimationsOf(context);
-
-    return LayoutBuilder(
-      builder: (_, box) {
-        final w = box.maxWidth.isFinite ? box.maxWidth : window.width;
-        final h = box.maxHeight.isFinite ? box.maxHeight : window.height;
-        final double width = expanded
-            ? (w - 24).clamp(0.0, 390.0).toDouble()
-            : 76.0;
-        final double height = expanded
-            ? (h - 24).clamp(0.0, 560.0).toDouble()
-            : 76.0;
-        final maxX = (w - width).clamp(0.0, w).toDouble();
-        final maxY = (h - height - 12).clamp(0.0, h).toDouble();
-        final x = position.dx.clamp(0.0, maxX).toDouble();
-        final y = position.dy.clamp(0.0, maxY).toDouble();
-
-        return Stack(
-          children: [
-            AnimatedPositioned(
-              key: ValueKey(expanded),
-              duration: reduce || _dragging ? Duration.zero : NanoMotion.morph,
-              curve: NanoMotion.smooth,
-              left: x,
-              top: y,
-              width: width,
-              height: height,
-              child: expanded
-                  ? NanoAssistantPanel(
-                      controller: widget.controller,
-                      input: input,
-                      audioLevel: widget.audioLevel,
-                      onVoice: widget.onVoice,
-                      onCollapse: _dismissAssistant,
-                    )
-                  : Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => expanded = true);
-                          },
-                          onPanStart: (_) => setState(() => _dragging = true),
-                          onPanCancel: () => setState(() => _dragging = false),
-                          onPanUpdate: (d) => setState(() {
-                            position = Offset(
-                              (x + d.delta.dx).clamp(0.0, maxX),
-                              (y + d.delta.dy).clamp(0.0, maxY),
-                            );
-                          }),
-                          onPanEnd: (_) => setState(() => _dragging = false),
-                          child: NanoOwlOrbitalRing(
-                            size: 76,
-                            activity: widget.controller.activity,
-                            child: NanoOwlAlive(
-                              size: 64,
-                              activity: widget.controller.activity,
-                            ),
-                          ),
-                        ),
-                        // Botón de cierre para despedir al Búho cuando está en orbe
-                        Positioned(
-                          top: 0,
-                          right: 0,
-                          child: GestureDetector(
-                            onTap: _dismissAssistant,
-                            child: Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: const Color(0xEE090D16),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFF22D3EE).withValues(alpha: 0.5),
-                                  width: 1.2,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 13,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => buildView(context);
 }

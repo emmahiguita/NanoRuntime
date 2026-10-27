@@ -1,0 +1,137 @@
+{
+  "policy": {
+    "path": "lib/features/automation/engine/execution/tool_registry.dart",
+    "line": 594,
+    "sha256": "12c293dba53d600786197718307c796e009360311e5b22049a866f3599b8d1c5"
+  },
+  "policy_fallback": {
+    "path": "lib/features/automation/engine/execution/tool_registry.dart",
+    "line": 50,
+    "sha256": "12c293dba53d600786197718307c796e009360311e5b22049a866f3599b8d1c5"
+  },
+  "canonical_policy": {
+    "path": "lib/features/automation/engine/governance/semantic_policy.dart",
+    "line": 48,
+    "sha256": "71702ebeb608da6da1cfd23e03bc12a5f786b6f6fa03ccea87a520013617f5bc"
+  },
+  "trust": {
+    "path": "lib/features/automation/engine/mcp/mcp_tool_projection.dart",
+    "line": 17,
+    "sha256": "b4a96cd48e6484c0cc47a1e6068f0fae22d94ac5a942ccd13cc95432adcbb091"
+  },
+  "case": {
+    "path": "lib/features/automation/engine/execution/agent_tool_protocol.dart",
+    "line": 144,
+    "sha256": "622ea0fc56a69fc17e592dbd3d845d5fb50dc2630c48142a78964fae81556c30"
+  },
+  "candidate_args": {
+    "path": "lib/features/automation/engine/mcp/mcp_candidate_provider.dart",
+    "line": 39,
+    "sha256": "68c7a5a9b3b600417925f41c036c165eeec15b1fbb3e7ecadf0adf26b4fb8ce2"
+  },
+  "schema": {
+    "path": "lib/features/automation/engine/execution/handlers/mcp_tool_handler.dart",
+    "line": 155,
+    "sha256": "4202969bfa2016c351a4ec385b6c9a0864b19086d442837162c9a6d0507ee27e"
+  },
+  "text_trim": {
+    "path": "lib/features/automation/engine/execution/handlers/semantic_linux_tool_handler.dart",
+    "line": 54,
+    "sha256": "f8e74a0300cc3246b433a8a315380e3dcebd374ef3766e7f2d9bb230b53d7184"
+  },
+  "text_trim_helper": {
+    "path": "lib/features/automation/engine/execution/handlers/semantic_linux_tool_handler.dart",
+    "line": 198,
+    "sha256": "f8e74a0300cc3246b433a8a315380e3dcebd374ef3766e7f2d9bb230b53d7184"
+  },
+  "process_start": {
+    "path": "lib/features/automation/executors/linux/linux_process_supervisor.dart",
+    "line": 93,
+    "sha256": "e5865a8ac8b822ac08330e26113f920a0e222dcc64caa7049c49cf8e9baed7aa"
+  },
+  "process_stop": {
+    "path": "lib/features/automation/executors/linux/linux_process_supervisor.dart",
+    "line": 102,
+    "sha256": "e5865a8ac8b822ac08330e26113f920a0e222dcc64caa7049c49cf8e9baed7aa"
+  },
+  "linux_subset": {
+    "path": "lib/features/automation/engine/mcp/linux_automation_mcp_client.dart",
+    "line": 70,
+    "sha256": "681935012b2d655796e9a306de6a7c6d493c60cfd2eca863d3a2ebac07f9c2ab"
+  },
+  "mcp_content": {
+    "path": "lib/features/automation/engine/mcp/http_mcp_parser.dart",
+    "line": 98,
+    "sha256": "759bfa9f275cc5faa9ad52d963524b804662e6f7085b44545d8f38fc0bf72ed4"
+  },
+  "mcp_result": {
+    "path": "lib/features/automation/engine/execution/handlers/mcp_tool_handler.dart",
+    "line": 181,
+    "sha256": "4202969bfa2016c351a4ec385b6c9a0864b19086d442837162c9a6d0507ee27e"
+  },
+  "feedback_status": {
+    "path": "lib/features/automation/engine/execution/plan_execution_coordinator.dart",
+    "line": 98,
+    "sha256": "ff5e8587a1a5a19918154e6d9070d26a1f85f5281ce59097e4f0aaeb3982f401"
+  },
+  "ui_scroll": {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_graph_node_details.dart",
+    "line": 22,
+    "sha256": "8bad9c6f91b0bab88fc2cfd5093a4255bee88500152f171d49956a390f58e58e"
+  },
+  "ui_label": {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_chrome.dart",
+    "line": 26,
+    "sha256": "842e4f3deedfd9e2984ca2d218186eaebd8facafb8ea4b0d3420910295090840"
+  },
+  "ui_icons": {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_server_nodes.dart",
+    "line": 34,
+    "sha256": "b817d992d11368bcb319b8b964245ac88747aed8fc76026baa52bbf1ad1d7a9f"
+  },
+  "runtime": {
+    "path": "lib/features/models/presentation/widgets/model_item_runtime.part.dart",
+    "line": 8,
+    "sha256": "637f7c6d562b50373d0b0c43c682acfe578a8fba0a8f02d2ff2c2bb3d881a6e1"
+  },
+  "model_media": {
+    "path": "lib/core/services/routed_llm_engine_client.dart",
+    "line": 96,
+    "sha256": "c0d42b20c3153403564a04914da5c163bac16f32a73700f4ca7612e65ce2a686"
+  },
+  "vision": {
+    "path": "lib/features/chat/domain/chat_vision_adapter.dart",
+    "line": 18,
+    "sha256": "c4d7fbb002cb4da46a7bece05a666cea3e42f67487c4082190901fa63d58b3d2"
+  },
+  "imports": {
+    "path": "lib/features/models/data/hugging_face_gguf_import_service.dart",
+    "line": 30,
+    "sha256": "b8e8a0d8a5828c6ab02eebe57e158dab1501979c3973a32b9fe83d81f4706d09"
+  },
+  "transports": {
+    "path": "lib/features/automation/engine/mcp/mcp_http_diagnostics.dart",
+    "line": 12,
+    "sha256": "ea197a2c751b5d4807c119b09c32fb73505c854ae51c88a2d5c3a60e27aaed02"
+  },
+  "auth": {
+    "path": "lib/features/automation/engine/mcp/mcp_http_diagnostics.dart",
+    "line": 39,
+    "sha256": "ea197a2c751b5d4807c119b09c32fb73505c854ae51c88a2d5c3a60e27aaed02"
+  },
+  "store_meta": {
+    "path": "lib/features/automation/engine/mcp/mcp_store_catalog.dart",
+    "line": 81,
+    "sha256": "ffa60c789775080947dd25204a56cb7c72292f7099210546de56c33fa341548d"
+  },
+  "supervisor": {
+    "path": "lib/features/automation/executors/linux/linux_process_supervisor.dart",
+    "line": 130,
+    "sha256": "e5865a8ac8b822ac08330e26113f920a0e222dcc64caa7049c49cf8e9baed7aa"
+  },
+  "rootfs": {
+    "path": "lib/core/services/shell_executor.dart",
+    "line": 134,
+    "sha256": "71a7051e86a045d8334eea6894828a80ebbd00e63d1707b07b42ac7b632f216a"
+  }
+}

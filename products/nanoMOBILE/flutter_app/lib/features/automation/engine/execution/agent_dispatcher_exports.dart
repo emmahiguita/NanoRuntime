@@ -1,0 +1,22 @@
+// Conserva la superficie pública previa del dispatcher.
+export 'agent_tool_protocol.dart';
+export 'handlers/browser_agent_tool_handler.dart';
+export 'handlers/alarm_tool_handler.dart';
+export 'handlers/app_inspector_tool_handler.dart';
+export 'handlers/system_diagnostics_tool_handler.dart';
+export 'handlers/adb_tool_handler.dart';
+export 'handlers/benchmark_tool_handler.dart';
+export 'handlers/browser_ai_tool_adapter.dart';
+export 'handlers/device_system_handler.dart';
+export 'handlers/linux_tool_handler.dart';
+export 'handlers/mcp_tool_handler.dart';
+export 'handlers/notification_tool_handler.dart';
+export 'handlers/shizuku_tool_handler.dart';
+export 'handlers/ui_tool_handler.dart';
+export 'handlers/universal_messaging_tool_handler.dart';
+export 'handlers/web_tool_handler.dart';
+export 'handlers/whatsapp_tool_handler.dart';
+export 'plan_execution_coordinator.dart';
+export 'tool_call.dart';
+export 'tool_loop_detector.dart';
+export 'tool_outcome.dart';

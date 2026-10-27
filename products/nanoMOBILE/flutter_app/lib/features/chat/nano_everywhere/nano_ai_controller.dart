@@ -1,135 +1,116 @@
-// nano_ai_controller.dart — Cerebro del asistente flotante.
-// QUÉ: ChangeNotifier que gestiona el ciclo consulta→respuesta→sugerencias.
-// CÓMO: 1° Evalúa rutas conversacionales locales ultrarrápidas (0ms) sin LLM.
-//       2° Consulta providers remotos serializados con invalidación por token.
-//       3° Deriva opciones interactivas para responder mediante ChatSuggestionEngine.
-// POR QUÉ: Comprende desde un simple "hola" hasta párrafos extensos sin respuestas
-//          robóticas o estáticas, proveyendo opciones de respuesta interactivas.
+import 'dart:async';
+// Controlador del flotante: enruta consultas, acciones y descargas.
+// Los tokens invalidan resultados sustituidos; una respuesta del motor no
+// acredita por si sola que una accion externa haya cumplido su objetivo.
 import 'package:flutter/foundation.dart';
-import '../../../../core/services/native_conversational_router.dart';
 import '../domain/chat_suggestion_engine.dart';
 import 'nano_ai_models.dart';
+import 'nano_turn_receipt.dart';
+import 'nano_prepared_attachment.dart';
 import 'nano_media_detector.dart';
 import 'nano_media_downloader.dart';
+
+part 'nano_ai_controller_submission.dart';
+part 'nano_ai_query.dart';
+part 'nano_ai_downloads.dart';
+part 'nano_ai_panel_state.dart';
 
 class NanoAiController extends ChangeNotifier {
   NanoAiController({
     required this.providers,
     required this.nativeApps,
     required this.actions,
-    NanoMediaDetector? mediaDetector, NanoMediaDownloader? mediaDownloader,
-  })  : _mediaDetector = mediaDetector ?? const NanoMediaDetector(),
-        _mediaDownloader = mediaDownloader ?? NanoMediaDownloader();
+    NanoMediaDetector? mediaDetector,
+    NanoMediaDownloader? mediaDownloader,
+    // QUÉ: Callback que el widget conecta al sheet de login.
+    // POR QUÉ: SRP — el controller no importa Flutter UI ni BuildContext.
+    //          Notifica al widget cuándo se requiere acción, con el providerId
+    //          sugerido. El widget puede abrir el sheet, un dialog, etc.
+    this.onLoginRequired,
+  }) : _ownsMediaDownloader = mediaDownloader == null,
+       _mediaDetector = mediaDetector ?? const NanoMediaDetector(),
+       _mediaDownloader = mediaDownloader ?? NanoMediaDownloader();
 
   final List<NanoProvider> providers;
   final NanoNativeAiPort nativeApps;
   final NanoActionPort actions;
   final NanoMediaDetector _mediaDetector;
   final NanoMediaDownloader _mediaDownloader;
+  final bool _ownsMediaDownloader;
+
+  /// Callback opcional: invocado cuando la gateway necesita login del usuario.
+  /// Recibe el [providerId] sugerido (el que falló). El widget debe mostrar UI.
+  /// Devuelve Future<bool>: true = usuario confirmó login, false = canceló.
+  final Future<bool> Function(String providerId)? onLoginRequired;
 
   NanoActivity activity = NanoActivity.idle;
   NanoMode mode = NanoMode.quick;
+  String panelTool = 'Chat';
   List<NanoAnswer> answers = const [];
   List<String> suggestions = const [];
   List<NanoMediaResource> detectedMedia = const [];
   String status = '';
+  NanoPreparedAttachment? attachment;
+
+  /// Preparar o retirar archivo actualiza la vista sin abrir ni enviar WhatsApp.
+  void setAttachment(NanoPreparedAttachment? value) {
+    attachment = value;
+    _emit();
+  }
+
   int _requestId = 0;
   bool _disposed = false;
-  Future<void> _lastQuery = Future<void>.value();
+  bool get isDisposed => _disposed;
+  bool _turnActive = false;
+  bool _preparingFile = false;
+  NanoProvider? _activeProvider;
+
+  /// El bloqueo dura hasta liberar el dueño, aunque se haya pedido detener.
+  bool get isBusy =>
+      _turnActive || _preparingFile || activity == NanoActivity.listening;
   String? _pendingPrompt;
+  bool _pendingIsDictation = false;
   bool _requestExpand = false;
-  bool isVisible = false;
+  bool isVisible = true;
 
-  void queuePrompt(String prompt) { if (prompt.trim().isNotEmpty) { _pendingPrompt = prompt; isVisible = true; _emit(); } }
-  void expand([String? prompt]) { _requestExpand = true; isVisible = true; if (prompt != null && prompt.trim().isNotEmpty) _pendingPrompt = prompt.trim(); _emit(); }
-  void hide() { isVisible = false; _requestExpand = false; _emit(); }
-  void toggle() { isVisible ? hide() : expand(); }
-  bool checkAndClearExpandRequest() { final r = _requestExpand; _requestExpand = false; return r; }
-  String? takePendingPrompt() { final r = _pendingPrompt; _pendingPrompt = null; return r; }
-  void selectMode(NanoMode value) { mode = value; _emit(); }
-  void setActivity(NanoActivity act) { activity = act; _emit(); }
-  void setListening(bool value) { activity = value ? NanoActivity.listening : NanoActivity.idle; _emit(); }
-
-  Future<void> submit(String input, {Iterable<String>? selectedIds}) async {
-    final prompt = input.trim();
-    if (_disposed || prompt.isEmpty) return;
-    if ({NanoActivity.thinking, NanoActivity.comparing,
-      NanoActivity.debating, NanoActivity.acting}.contains(activity)) { return; }
-
-    final token = ++_requestId;
-    answers = const [];
-    suggestions = const [];
-    detectedMedia = const [];
-    activity = switch (mode) {
-      NanoMode.compare => NanoActivity.comparing,
-      NanoMode.debate  => NanoActivity.debating,
-      NanoMode.action  => NanoActivity.acting,
-      _                => NanoActivity.thinking,
+  // Comparar/debatir quedan fuera del flujo: un mensaje conversacional genera una única respuesta.
+  void selectMode(NanoMode value) {
+    if (_turnActive) return;
+    mode = switch (value) {
+      NanoMode.action => NanoMode.action,
+      NanoMode.media => NanoMode.media,
+      _ => NanoMode.quick,
     };
-    status = mode == NanoMode.media ? 'Detectando archivos…' : 'Consultando…';
     _emit();
+  }
 
-    try {
-      if (mode == NanoMode.media) {
-        final items = await _mediaDetector.detect(prompt);
-        if (!_current(token)) return;
-        detectedMedia = items;
-        activity = items.isNotEmpty ? NanoActivity.success : NanoActivity.error;
-        status = items.isNotEmpty ? '${items.length} archivos detectados' : 'No se encontraron archivos en este enlace.';
-        _emit();
-        return;
-      }
+  /// El selector comparte admisión con el motor; no permite otro envío mientras
+  /// el archivo se copia. El dueño debe terminar la preparación en finally.
+  bool beginFilePreparation() {
+    if (_disposed || isBusy || activity == NanoActivity.acting) return false;
+    _preparingFile = true;
+    _emit();
+    return true;
+  }
 
-      if (mode == NanoMode.action) {
-        final result = await actions.executeAuthorizedGoal(prompt);
-        if (!_current(token)) return;
-        status = result;
-        activity = NanoActivity.success;
-        suggestions = ChatSuggestionEngine.derive(result);
-        _emit();
-        return;
-      }
+  void endFilePreparation() {
+    _preparingFile = false;
+    _emit();
+  }
 
-      final localRes = const NativeConversationalRouter().tryResolve(prompt);
-      if (localRes != null && mode == NanoMode.quick) {
-        final prov = providers.firstOrNull ?? const NanoProvider(id: 'nano_local', name: 'Nano', kind: NanoProviderKind.local);
-        answers = [NanoAnswer(provider: prov, requestId: token, round: 1, text: localRes.text)];
-        suggestions = localRes.suggestions;
-        activity = NanoActivity.success;
-        status = 'Listo (Motor local)';
-        _emit();
-        return;
-      }
+  /// Publica información de una operación propia sin fabricar éxito.
+  void reportStatus(String text) {
+    status = text;
+    _emit();
+  }
 
-      final selected = providers.where((p) =>
-          p.supportsProgrammaticQuery && (selectedIds == null || selectedIds.contains(p.id))).toList();
-      if (selected.isEmpty) throw StateError('Sin proveedores disponibles.');
+  void setActivity(NanoActivity act) {
+    activity = act;
+    _emit();
+  }
 
-      final batch = mode == NanoMode.quick ? selected.take(1).toList() : selected;
-      final first = await Future.wait(batch.map((p) => _serialAsk(p, prompt, token, 1)));
-      if (!_current(token)) return;
-      answers = first;
-      status = '${first.where((a) => a.ok).length}/${batch.length} respuestas';
-      _emit();
-
-      if (first.every((a) => !a.ok)) throw StateError('Ningún proveedor respondió.');
-
-      if (mode == NanoMode.debate && first.where((a) => a.ok).length > 1) {
-        final ctx = first.where((a) => a.ok).map((a) => '${a.provider.name}: ${a.text}').join('\n\n');
-        final next = await Future.wait(batch.map((p) => _serialAsk(p, 'Pregunta: $prompt\n\nAnaliza desacuerdos:\n\n$ctx', token, 2)));
-        if (!_current(token)) return;
-        answers = [...first, ...next];
-      }
-
-      final allText = answers.map((a) => a.text).join(' ');
-      suggestions = ChatSuggestionEngine.derive(allText);
-      activity = NanoActivity.success;
-      status = 'Listo';
-    } catch (error) {
-      if (!_current(token)) return;
-      activity = NanoActivity.error;
-      status = error.toString().replaceFirst('StateError: ', '');
-    }
+  void setListening(bool value) {
+    activity = value ? NanoActivity.listening : NanoActivity.idle;
     _emit();
   }
 
@@ -138,48 +119,41 @@ class NanoAiController extends ChangeNotifier {
     return nativeApps.sharePrompt(pkg, prompt.trim());
   }
 
-  Future<int> downloadMedia(List<NanoMediaResource> items) async {
-    if (items.isEmpty) return 0;
-    activity = NanoActivity.acting;
-    status = 'Descargando ${items.length} archivos…';
-    _emit();
-    final downloaded = await _mediaDownloader.downloadBatch(items);
-    activity = downloaded.isNotEmpty ? NanoActivity.success : NanoActivity.error;
-    status = downloaded.isNotEmpty ? 'Guardados ${downloaded.length}/${items.length} en Download/NanoAI/' : 'Error al descargar.';
-    _emit();
-    return downloaded.length;
-  }
-
+  /// Cancela los recursos propios e invalida resultados pendientes del turno.
+  /// Una descarga nativa ya entregada a Android puede continuar fuera de Dart.
   void cancel() {
+    _mediaDownloader.cancelActive();
+    _cancelQuery();
+    final port = actions;
+    if (port is NanoCancellableActionPort) port.cancelActiveAction();
+    final wasAction = activity == NanoActivity.acting;
     ++_requestId;
     activity = NanoActivity.idle;
-    status = 'Consulta descartada';
+    status = wasAction
+        ? 'Detención solicitada; revisa el resultado de cualquier acción iniciada.'
+        : 'Consulta descartada';
     _emit();
   }
 
-  Future<NanoAnswer> _serialAsk(NanoProvider p, String prompt, int id, int round) {
-    // Descartar consultas en cola antes de invocar al proveedor, no solo su resultado.
-    final next = _lastQuery.then<NanoAnswer>((_) => _current(id)
-        ? _ask(p, prompt, id, round)
-        : NanoAnswer(provider: p, requestId: id, round: round, error: 'Consulta descartada'));
-    _lastQuery = next.then((_) {});
-    return next;
-  }
-
-  Future<NanoAnswer> _ask(NanoProvider p, String prompt, int id, int round) async {
-    try {
-      final text = (await p.ask!(prompt)).trim();
-      return NanoAnswer(provider: p, requestId: id, round: round, text: text, error: text.isEmpty ? 'Respuesta vacía' : null);
-    } catch (error) {
-      return NanoAnswer(provider: p, requestId: id, round: round, error: error.toString());
-    }
+  /// Cancelación cooperativa del request propio; nunca apaga el motor compartido.
+  void _cancelQuery() {
+    final cancel = _activeProvider?.cancel;
+    if (cancel != null) unawaited(cancel().catchError((Object _) {}));
   }
 
   bool _current(int id) => !_disposed && id == _requestId;
-  void _emit() { if (!_disposed) notifyListeners(); }
+  void _emit() {
+    if (!_disposed) notifyListeners();
+  }
 
   @override
+  /// Libera el descargador creado aquí; un descargador inyectado conserva dueño.
   void dispose() {
+    _mediaDownloader.cancelActive();
+    _cancelQuery();
+    if (_ownsMediaDownloader) _mediaDownloader.dispose();
+    final port = actions;
+    if (port is NanoCancellableActionPort) port.cancelActiveAction();
     _disposed = true;
     ++_requestId;
     super.dispose();

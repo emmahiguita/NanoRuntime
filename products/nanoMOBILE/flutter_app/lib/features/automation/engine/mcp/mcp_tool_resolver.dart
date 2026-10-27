@@ -1,4 +1,4 @@
-﻿import 'mcp_client_port.dart';
+import 'mcp_client_port.dart';
 import 'mcp_connection_registry.dart';
 
 /// QUÉ HACE:
@@ -23,11 +23,12 @@ class McpToolResolver {
       if (requested.contains('/')) {
         exactSlash = requested;
       } else {
-        final serverIds = registry.servers
-            .map((server) => server.id)
-            .where((id) => requested.startsWith('$id.'))
-            .toList(growable: false)
-          ..sort((a, b) => b.length.compareTo(a.length));
+        final serverIds =
+            registry.servers
+                .map((server) => server.id)
+                .where((id) => requested.startsWith('$id.'))
+                .toList(growable: false)
+              ..sort((a, b) => b.length.compareTo(a.length));
         if (serverIds.isNotEmpty) {
           final serverId = serverIds.first;
           exactSlash = '$serverId/${requested.substring(serverId.length + 1)}';
@@ -60,10 +61,12 @@ class McpToolResolver {
     }
 
     final directMatches = directCatalog
-        .where((tool) =>
-            tool.qualifiedName == requested ||
-            '${tool.serverId}.${tool.name}' == requested ||
-            tool.name == requested)
+        .where(
+          (tool) =>
+              tool.qualifiedName == requested ||
+              '${tool.serverId}.${tool.name}' == requested ||
+              tool.name == requested,
+        )
         .toList(growable: false);
     if (directMatches.length == 1) return directMatches.single;
 

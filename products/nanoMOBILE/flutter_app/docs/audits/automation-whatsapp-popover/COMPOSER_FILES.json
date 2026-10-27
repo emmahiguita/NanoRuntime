@@ -1,0 +1,18 @@
+[
+  "lib/features/automation/presentation/widgets/automation_input_menu.dart",
+  "lib/features/automation/presentation/widgets/automation_input_menu_view.dart",
+  "lib/features/automation/presentation/widgets/automation_input_attachment.dart",
+  "lib/features/automation/presentation/widgets/automation_attachment_picker.dart",
+  "lib/features/automation/presentation/widgets/automation_dashboard.dart",
+  "lib/features/automation/presentation/widgets/automation_dashboard_input.dart",
+  "lib/features/automation/presentation/widgets/automation_dashboard_lifecycle.dart",
+  "lib/features/automation/presentation/widgets/automation_dashboard_execution.dart",
+  "lib/features/automation/presentation/widgets/whatsapp_automation_menu.dart",
+  "lib/features/automation/presentation/widgets/whatsapp_automation_menu_state.dart",
+  "lib/features/automation/presentation/widgets/whatsapp_automation_menu_view.dart",
+  "lib/core/widgets/navigation/nano_input_tool_controls.dart",
+  "lib/core/widgets/navigation/nano_input_context_bar.dart",
+  "lib/core/widgets/navigation/nano_command_launcher.dart",
+  "lib/core/widgets/navigation/nano_nav_search_input_row.dart",
+  "lib/features/automation/engine/planning/whatsapp_automation_input.dart"
+]

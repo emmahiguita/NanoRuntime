@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
-/// Tipos de iconos canónicos del sistema FeatherCore.
-/// Basados en la especificación visual "Nano AI — Concepto FeatherCore".
+import 'navigation/nano_glyph.dart';
+import 'feather_core_tile.dart';
+part 'feather_core_symbol.dart';
+part 'feather_core_assets.part.dart';
+part 'feather_core_mapping.part.dart';
+
+/// Compatibilidad para componentes antiguos: el dibujo real vive en NanoGlyph.
+/// Así cada significado tiene un único icono y no se duplican familias visuales.
 enum FeatherCoreType {
   whatsappBusiness,
   notifications,
@@ -21,6 +27,8 @@ enum FeatherCoreType {
   assistant,
   documents,
   mic,
+  voice,
+  audioSplit,
   calendar,
   home,
   search,
@@ -37,8 +45,6 @@ enum FeatherCoreType {
   personalAgent,
 }
 
-/// Widget de icono profesional FeatherCore con contenedor de cristal líquido,
-/// curvatura squircle orgánica, borde con reflejo y fondo completamente transparente.
 class FeatherCoreIcon extends StatelessWidget {
   const FeatherCoreIcon({
     super.key,
@@ -46,8 +52,9 @@ class FeatherCoreIcon extends StatelessWidget {
     this.size = 42,
     this.accentColor,
     this.glow = false,
-  })  : icon = null,
-        customChild = null;
+    this.framed = true,
+  }) : icon = null,
+       customChild = null;
 
   const FeatherCoreIcon.custom({
     super.key,
@@ -55,8 +62,9 @@ class FeatherCoreIcon extends StatelessWidget {
     this.size = 42,
     this.accentColor,
     this.glow = false,
-  })  : type = null,
-        customChild = null;
+    this.framed = true,
+  }) : type = null,
+       customChild = null;
 
   const FeatherCoreIcon.builder({
     super.key,
@@ -64,8 +72,9 @@ class FeatherCoreIcon extends StatelessWidget {
     this.size = 42,
     this.accentColor,
     this.glow = false,
-  })  : type = null,
-        icon = null;
+    this.framed = true,
+  }) : type = null,
+       icon = null;
 
   final FeatherCoreType? type;
   final IconData? icon;
@@ -73,262 +82,82 @@ class FeatherCoreIcon extends StatelessWidget {
   final double size;
   final Color? accentColor;
   final bool glow;
+  final bool framed;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final primaryAccent = accentColor ??
-        (isDark ? const Color(0xFFFF8C2A) : const Color(0xFFFF6D00));
-    final borderRadius = BorderRadius.circular(size * 0.28);
-
-    if (type == FeatherCoreType.whatsappBusiness) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          boxShadow: [
-            if (glow)
-              BoxShadow(
-                color: const Color(0xFF00FF88).withValues(alpha: 0.35),
-                blurRadius: size * 0.35,
-                spreadRadius: 1,
-              ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: Image.asset(
-            'assets/automation/whatsapp_business_icon.png',
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-          ),
-        ),
-      );
+    final accent = accentColor ?? const Color(0xFF1769C2);
+    if (customChild != null) {
+      return _tile(context, customChild!, accent);
     }
-
-    if (type == FeatherCoreType.personalAgent) {
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          boxShadow: [
-            if (glow)
-              BoxShadow(
-                color: const Color(0xFF25D366).withValues(alpha: 0.35),
-                blurRadius: size * 0.35,
-                spreadRadius: 1,
-              ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: Image.asset(
-            'assets/automation/whatsapp_personal_icon.png',
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        borderRadius: borderRadius,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark
-              ? [
-                  const Color(0x401E293B),
-                  const Color(0x280F172A),
-                ]
-              : [
-                  const Color(0xFFFFFFFF),
-                  const Color(0xFFF1F5F9),
-                ],
-        ),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.18)
-              : const Color(0xFFE2E8F0),
-          width: 1.1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.35)
-                : const Color(0x0C0F172A),
-            blurRadius: size * 0.20,
-            offset: Offset(0, size * 0.05),
-          ),
-          if (glow)
-            BoxShadow(
-              color: primaryAccent.withValues(alpha: isDark ? 0.30 : 0.20),
-              blurRadius: size * 0.35,
-              spreadRadius: 1,
-            ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Reflejo óptico superior de cristal
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: size * 0.45,
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      isDark
-                          ? Colors.white.withValues(alpha: 0.12)
-                          : Colors.white.withValues(alpha: 0.70),
-                      Colors.transparent,
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            // Glifo central
-            _buildGlyph(context, isDark, primaryAccent),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGlyph(BuildContext context, bool isDark, Color accent) {
-    if (customChild != null) return customChild!;
-
     if (icon != null) {
-      return Icon(icon, color: accent, size: size * 0.52);
+      return _tile(
+        context,
+        Icon(icon, color: accent, size: size * .52),
+        accent,
+      );
     }
-
-    final glyphSize = size * 0.56;
-
-    switch (type!) {
-      case FeatherCoreType.whatsappBusiness:
-        return _WhatsAppBusinessGlyph(size: glyphSize, accent: accent, isDark: isDark);
-      case FeatherCoreType.notifications:
-        return Icon(Icons.notifications_active_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.settings:
-        return Icon(Icons.settings_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.devTools:
-        return Icon(Icons.developer_mode_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.chat:
-        return Icon(Icons.chat_bubble_outline_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.terminal:
-        return Icon(Icons.terminal_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.linux:
-        return Icon(Icons.laptop_chromebook_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.automation:
-        return Icon(Icons.account_tree_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.files:
-        return Icon(Icons.folder_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.models:
-        return Icon(Icons.hub_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.system:
-        return Icon(Icons.memory_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.vision:
-        return Icon(Icons.remove_red_eye_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.network:
-        return Icon(Icons.language_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.security:
-        return Icon(Icons.verified_user_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.battery:
-        return Icon(Icons.battery_charging_full_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.assistant:
-        return Icon(Icons.auto_awesome_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.documents:
-        return Icon(Icons.description_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.mic:
-        return Icon(Icons.mic_none_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.calendar:
-        return Icon(Icons.calendar_month_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.home:
-        return Icon(Icons.home_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.search:
-        return Icon(Icons.search_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.code:
-        return Icon(Icons.code_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.analytics:
-        return Icon(Icons.insights_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.cloud:
-        return Icon(Icons.cloud_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.camera:
-        return Icon(Icons.photo_camera_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.businessCatalog:
-        return Icon(Icons.storefront_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.payments:
-        return Icon(Icons.payment_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.delivery:
-        return Icon(Icons.local_shipping_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.hours:
-        return Icon(Icons.schedule_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.location:
-        return Icon(Icons.location_on_outlined, color: accent, size: glyphSize);
-      case FeatherCoreType.rules:
-        return Icon(Icons.rule_rounded, color: accent, size: glyphSize);
-      case FeatherCoreType.personalAgent:
-        return Icon(Icons.smart_toy_outlined, color: accent, size: glyphSize);
+    // Recurso propio FeatherCore con alfa real; no añade otro fondo a la tarjeta.
+    final asset = _featherCoreAssets[type];
+    if (asset != null) {
+      return _tile(
+        context,
+        Image.asset(
+          asset,
+          width: size * (framed ? .75 : 1),
+          height: size * (framed ? .75 : 1),
+          cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).ceil(),
+          filterQuality: FilterQuality.medium,
+        ),
+        accent,
+      );
     }
-  }
-}
-
-/// Glifo vector FeatherCore de WhatsApp Business con transparencia total.
-/// Dibuja la burbuja con cola y el emblema central sin fondos oscuros o bordes opacos.
-class _WhatsAppBusinessGlyph extends StatelessWidget {
-  const _WhatsAppBusinessGlyph({
-    required this.size,
-    required this.accent,
-    required this.isDark,
-  });
-
-  final double size;
-  final Color accent;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    const green = Color(0xFF25D366);
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Icon(
-            Icons.chat_bubble_rounded,
-            size: size,
-            color: isDark ? green.withValues(alpha: 0.90) : green,
+    if (type == FeatherCoreType.whatsappBusiness ||
+        type == FeatherCoreType.personalAgent) {
+      final asset = type == FeatherCoreType.whatsappBusiness
+          ? 'assets/automation/whatsapp_business_icon.png'
+          : 'assets/automation/whatsapp_personal_icon.png';
+      return _tile(
+        context,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(size * .2),
+          child: Image.asset(
+            asset,
+            width: size * .62,
+            height: size * .62,
+            fit: BoxFit.cover,
           ),
-          Positioned(
-            child: Text(
-              'B',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: size * 0.48,
-                height: 1.0,
-                letterSpacing: -0.5,
-              ),
-            ),
-          ),
-        ],
+        ),
+        accent,
+      );
+    }
+    if (FeatherCoreSymbol.supports(type!)) {
+      return _tile(
+        context,
+        FeatherCoreSymbol(
+          type: type!,
+          size: framed ? size * .58 : size * .88,
+          color: accent,
+        ),
+        accent,
+      );
+    }
+    return _tile(
+      context,
+      NanoGlyph(
+        type: _glyphFor(type!),
+        size: size * (framed ? .58 : .82),
+        color: accent,
+        strokeWidth: size < 32 ? 1.55 : 1.8,
       ),
+      accent,
     );
   }
+
+  Widget _tile(BuildContext context, Widget child, Color accent) => framed
+      ? FeatherCoreTile(size: size, accent: accent, glow: glow, child: child)
+      : SizedBox.square(
+          dimension: size,
+          child: Center(child: child),
+        );
 }

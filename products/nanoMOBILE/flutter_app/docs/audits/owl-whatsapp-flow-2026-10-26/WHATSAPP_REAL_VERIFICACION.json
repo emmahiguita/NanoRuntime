@@ -1,0 +1,205 @@
+{
+  "scope": "WhatsApp instalado: respuesta in situ, compartir formulario y petición de ventana",
+  "static_analysis": {
+    "exit_code": 0,
+    "result": "No issues found!",
+    "scope": "nano_everywhere, AutomationEngine, dispatcher, coordinator and affected handlers"
+  },
+  "diff_check": {
+    "exit_code": 0
+  },
+  "build": {
+    "variant": "fullSideloadDebug",
+    "exit_code": 0,
+    "apk": "build/app/outputs/flutter-apk/app-fullsideload-debug.apk",
+    "sha256": "74a84c69b8c2f88ea3f47e9cc505420b244d0e3750187aedb9319ab051058e91",
+    "bytes": 191268287
+  },
+  "installation": {
+    "state": "installed",
+    "device": "VGL7MVFMDYQG8T55",
+    "exit_code": 0,
+    "result": "Performing Streamed Install / Success",
+    "command": "adb install -r",
+    "data_preserving_update": true,
+    "app_launch_performed": false
+  },
+  "read_only_capability_check": {
+    "command": "adb shell pm list features filtered freeform|picture_in_picture",
+    "observed": [
+      "android.software.picture_in_picture"
+    ],
+    "freeform_announced": false,
+    "device_model": "CPH2557"
+  },
+  "automated_tests_executed": false,
+  "ui_navigation_performed": false,
+  "messages_sent": false,
+  "all_affected_sources_under_200_lines": true,
+  "sources": [
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_whatsapp_requests.dart",
+      "lines": 57,
+      "sha256": "e63a67ff5f3c422141ba81d2dcd67cf6792ca892354c28456205d3afe555c8fb"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_prepared_goal.dart",
+      "lines": 11,
+      "sha256": "f2f6a4cae4c42d5bd1be0bea87533b2a47fe2ba5c7b8385fe69c106ebca6f578"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_whatsapp_goal_preparer.dart",
+      "lines": 115,
+      "sha256": "482a00775b0efa00dbadedd5384d53d4f04b706283fe5b0ec1bd59a8017a87a9"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_automation_goal_runner.dart",
+      "lines": 126,
+      "sha256": "1885664fe868c2115f18c70ba0fcc45dcc84c06170ee3cc606e927a06049759d"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_providers.dart",
+      "lines": 80,
+      "sha256": "db1081388f2d5468b94b92810a7500ead2e9fc01f6dbce012524fbc64359d4a9"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_action_input.dart",
+      "lines": 69,
+      "sha256": "addda1d3b874fa49549bacdeda2712e3aa4efb2645a376f13c788973fcefb609"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_attachment_commands.dart",
+      "lines": 30,
+      "sha256": "1bac67d63eec5e3444aded27c7801a0547318077f79abe74dddc0937360dc863"
+    },
+    {
+      "path": "lib/features/automation/engine/platform/whatsapp_window_launcher.dart",
+      "lines": 35,
+      "sha256": "bf185d569eda922944bbca33905580e80196f14570c1ca4d98809fd52974e2d7"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/agent_tool_device_helpers.dart",
+      "lines": 60,
+      "sha256": "380f0ca7416302c689810009962f9780c7cc02183967e6e8f63dccd5ba51aafa"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/agent_dispatcher_dependencies.dart",
+      "lines": 44,
+      "sha256": "613f874d2a847c368f2dc57c5e73c57122b3d08bb5f6f8b8a6c5d98ebb30f457"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/agent_tool_execution_router.dart",
+      "lines": 170,
+      "sha256": "40a9fcd677da1f0faea2d818f61edcca482fa7d3de74e7c469e92b2381d716b3"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/agent_tool_messaging_router.dart",
+      "lines": 114,
+      "sha256": "84d98810ff33f9d7f1429ee45bf5a66ccf128476c3c1d376cc8aca9606a0a1f8"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/agent_dispatcher_runtime.dart",
+      "lines": 66,
+      "sha256": "906cef41fb215c54b6b39a0924514e7337949ffdb1f248a9c55748f393f89c88"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/agent_dispatcher_state.dart",
+      "lines": 175,
+      "sha256": "35d2186d381a0bcd61d1ff0a36911f547332c5d71862967401b56bd470cef9c7"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/plan_execution_state.dart",
+      "lines": 76,
+      "sha256": "fd9e99a2905052060d6814757de665c623c753e5486c678ccab5856ce785e8bd"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/plan_execution_coordinator.dart",
+      "lines": 95,
+      "sha256": "d5cbfed8df1778a85837f3ffa85298c18c00cb56a4ec496e09cea2cb41adba74"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/plan_irreversible.dart",
+      "lines": 196,
+      "sha256": "f73a0e831501207355f0de2e9bd1d3387fa0231593523e14021c0c8552cc85a4"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/plan_owned_execution.dart",
+      "lines": 59,
+      "sha256": "1e8d4f758a680c2e428a1e49607d93c1ac0c5953bc5dbf1268444211fa086bc5"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/handlers/whatsapp_current_chat_sender.dart",
+      "lines": 170,
+      "sha256": "444f886a1ab2a4bb83f75a2cbf858c0011530dda9139e87d7ed0b1cb69a342ea"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/handlers/whatsapp_reply_context.dart",
+      "lines": 57,
+      "sha256": "43b9c9433fe1564c551b6825e99464431d7d9130ea8c222b4a89705a1924a463"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/handlers/whatsapp_text_sender.dart",
+      "lines": 110,
+      "sha256": "8687e25e1cd1916f2ee5f324a92a16da789421d49101cdafa49b27e21f926866"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/handlers/whatsapp_tool_handler.dart",
+      "lines": 190,
+      "sha256": "709183be4b5a5851b1123ac1f0508d0dbace6daff04f2f4a0b53db9ee0e5bd29"
+    },
+    {
+      "path": "lib/features/automation/engine/execution/handlers/whatsapp_chat_opener.dart",
+      "lines": 80,
+      "sha256": "a5e6938efea01931b65e2ab0de0a2a1480cf39e2553c77a4b0945582946aeedc"
+    },
+    {
+      "path": "lib/features/automation/application/automation_engine.dart",
+      "lines": 65,
+      "sha256": "b814f79f0fda9a55a1e1d3af2d7ef4c8407eacfb3945fce3419e3307e5f1e7b4"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/NanoFloatingChannel.kt",
+      "lines": 152,
+      "sha256": "afa79bf2941fe980dfbd9973070e1feb511184626e89a24f80da2b863c389f64"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WindowStrategy.kt",
+      "lines": 61,
+      "sha256": "ab06a937d77dc9dfcf56ddfb3dd81ac98fb38dc4e02ad5cf668aa30c9b4de868"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/NanoWhatsAppWindowRequest.kt",
+      "lines": 94,
+      "sha256": "cb1ef482eaac56cb676ab6a42f0bf3b7579ef798d1505c1884eff5d171765307"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppShareLauncher.kt",
+      "lines": 37,
+      "sha256": "4f1d978df109659509b446d0238e28191f97fa162b5e43be8f19b0644a3e9d33"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppShareMediaBackend.kt",
+      "lines": 179,
+      "sha256": "e9db89f2da21870c5af7a38e6ec200080b3b64f7cd2b51ac42ec8da52efd8774"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppTextSendBackend.kt",
+      "lines": 127,
+      "sha256": "e4814cfde956c5848cfdf7e0ab0902fd1f7990fd610bc447eae9576e75b14db8"
+    }
+  ],
+  "independent_review": "Routing, canonical title collision, exact account, end-to-end cancellation and foreground-window findings corrected; final review read-only, no tests. Visible context fingerprint is not a canonical JID.",
+  "manual_validation_pending": [
+    "Responder en este chat, con borrador y cambios de contexto",
+    "Compartir PDF real y enlace con destinatario autorizado",
+    "Cuenta personal/Business y retorno a Nano",
+    "Ventana flotante en equipo que anuncie freeform"
+  ],
+  "limits": [
+    "Android may ignore bounds; no OEM private flags used",
+    "Current phone does not announce freeform",
+    "Visible context fingerprint does not prove hidden chat identity",
+    "No new model-generated automatic responses or continuous listening",
+    "No remote delivery/read proof"
+  ]
+}

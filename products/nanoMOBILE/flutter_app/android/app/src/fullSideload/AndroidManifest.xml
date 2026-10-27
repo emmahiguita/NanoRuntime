@@ -4,6 +4,10 @@
     <uses-permission android:name="moe.shizuku.manager.permission.API_V23"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+    <!-- Mensajes salientes programados: alarma durable aun con Flutter cerrado.
+         Solo esta variante permite el autoenvío; si Android no concede acceso,
+         el scheduler usa una alarma allow-while-idle aproximada. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application>
         <!-- Proveedor de binding Shizuku para la variante fullSideload -->

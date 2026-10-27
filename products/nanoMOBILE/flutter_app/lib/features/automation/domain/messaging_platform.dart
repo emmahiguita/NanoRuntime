@@ -65,6 +65,13 @@ enum MessagingPlatform {
     primaryColor: Color(0xFF0A66C2),
     gradientColors: [Color(0xFF0A66C2), Color(0xFF004182)],
   ),
+  tiktok(
+    id: 'tiktok',
+    label: 'TikTok',
+    packageName: 'com.zhiliaoapp.musically',
+    primaryColor: Color(0xFF25F4EE),
+    gradientColors: [Color(0xFFFE2C55), Color(0xFF25F4EE)],
+  ),
   other(
     id: 'other',
     label: 'Otras',
@@ -101,13 +108,24 @@ enum MessagingPlatform {
     }
     if (lower.contains('slack')) return MessagingPlatform.slack;
     if (lower.contains('instagram')) return MessagingPlatform.instagram;
-    if (lower.contains('facebook') || lower.contains('katana') || lower.contains('orca')) {
+    if (lower.contains('facebook') ||
+        lower.contains('katana') ||
+        lower.contains('orca')) {
       return MessagingPlatform.facebook;
     }
-    if (lower.contains('twitter') || lower.contains('.x.') || lower.endsWith('.x')) {
+    if (lower.contains('twitter') ||
+        lower.contains('.x.') ||
+        lower.endsWith('.x')) {
       return MessagingPlatform.x;
     }
     if (lower.contains('linkedin')) return MessagingPlatform.linkedin;
+    // TikTok (Lite incluida): zhiliaoapp.musically / trill / tiktok.android
+    if (lower.contains('zhiliaoapp') ||
+        lower.contains('musically') ||
+        lower.contains('trill') ||
+        lower.contains('tiktok')) {
+      return MessagingPlatform.tiktok;
+    }
     return MessagingPlatform.other;
   }
 

@@ -1,0 +1,36 @@
+{
+  "variant": "fullSideloadDebug",
+  "build": "BUILD SUCCESSFUL in 35s",
+  "apk": "build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+  "size_bytes": 190656736,
+  "sha256": "9218b3c875dea07b2635a0d276db5f7e8d697b05075a002879732356c258abde",
+  "assets": [
+    {
+      "asset": "assets/nano/feather_navigation_automation.png",
+      "in_apk": true,
+      "matches_source": true
+    },
+    {
+      "asset": "assets/nano/feather_navigation_models.png",
+      "in_apk": true,
+      "matches_source": true
+    },
+    {
+      "asset": "assets/nano/feather_navigation_settings.png",
+      "in_apk": true,
+      "matches_source": true
+    },
+    {
+      "asset": "assets/nano/feather_navigation_terminal.png",
+      "in_apk": true,
+      "matches_source": true
+    },
+    {
+      "asset": "assets/nano/feather_ocr_document.png",
+      "in_apk": true,
+      "matches_source": true
+    }
+  ],
+  "final_installed": false,
+  "manual_visual_review": "Pending by user preference; initial updated catalog observed before final icon resources."
+}

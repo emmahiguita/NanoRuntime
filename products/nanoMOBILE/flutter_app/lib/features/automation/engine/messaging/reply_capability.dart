@@ -9,6 +9,7 @@
 library;
 
 import '../notifications/notification_object.dart';
+import 'conversation_key.dart';
 
 final class ReplyCapabilityRef {
   /// Key de la StatusBarNotification exacta observada.
@@ -30,6 +31,9 @@ final class ReplyCapabilityRef {
   /// observación (conversationFingerprint + sender + isGroup).
   final String contextFingerprint;
 
+  /// Identidad canónica capturada; un adaptador no usa la referencia en otro hilo.
+  final String conversationId;
+
   const ReplyCapabilityRef({
     required this.notificationKey,
     required this.packageName,
@@ -37,6 +41,7 @@ final class ReplyCapabilityRef {
     required this.actionIndex,
     required this.remoteInputResultKey,
     required this.contextFingerprint,
+    this.conversationId = '',
   });
 
   /// true si la referencia apunta a una capacidad de respuesta realmente
@@ -57,6 +62,7 @@ final class ReplyCapabilityRef {
       actionIndex: n.actionIndex,
       remoteInputResultKey: n.remoteInputKey,
       contextFingerprint: _contextFingerprint(n),
+      conversationId: resolveConversationIdentity(n).key.id,
     );
   }
 

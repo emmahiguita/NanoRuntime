@@ -1,6 +1,6 @@
 package dev.nanoai.mobile.services.whatsapp
 
-import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -36,10 +36,14 @@ class WhatsAppShareMediaBackend(private val context: Context) {
     fun shareMedia(
         filePath: String,
         targetContact: String?,
+        targetAlias: String? = null,
+        recipientKind: String = "direct",
+        recipientVerified: Boolean = false,
         caption: String = "",
         requestedPackage: String = "com.whatsapp",
-        autoSend: Boolean = true
+        autoSend: Boolean = false
     ): Boolean {
+        if (AgentAccessibilityBridge.isAutoSendArmed || WhatsAppReturnController.isReturning) return false
         val resolved = try { File(filePath).canonicalFile } catch (_: Exception) { File(filePath) }
         val file = if (resolved.isFile) resolved else File(filePath)
         if (!file.isFile) {
@@ -60,10 +64,15 @@ class WhatsAppShareMediaBackend(private val context: Context) {
                 if (caption.isNotBlank()) {
                     putExtra(Intent.EXTRA_TEXT, caption)
                 }
-                val digits = targetContact?.replace(Regex("\\D"), "")
-                if (!digits.isNullOrBlank()) {
-                    val jid = if (digits.contains("@")) digits else "$digits@s.whatsapp.net"
-                    putExtra("jid", jid)
+                clipData = ClipData.newUri(context.contentResolver, "Nano media", fileUri)
+                val trustedJid = targetContact?.trim()?.takeIf { raw ->
+                    recipientVerified && when (recipientKind) {
+                        "group" -> raw.endsWith("@g.us", ignoreCase = true)
+                        else -> raw.endsWith("@s.whatsapp.net", ignoreCase = true)
+                    }
+                }
+                if (trustedJid != null) {
+                    putExtra("jid", trustedJid)
                 }
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -76,17 +85,30 @@ class WhatsAppShareMediaBackend(private val context: Context) {
                 } catch (_: Exception) {}
             }
 
-            // Aplicar la estrategia de ventana óptima según el dispositivo (ColorOS, Freeform, Overlay)
-            val windowStrategy = WindowStrategySelector.resolveBest(context)
-            windowStrategy.applyToIntent(intent, context)
-
-            // Armar verificación por accesibilidad si el servicio está activo (desactivado en Play Store)
-            if (!dev.nanoai.mobile.BuildConfig.PLAY_STORE_BUILD && autoSend && AgentAccessibilityBridge.service != null) {
-                armAccessibilityMediaSend(targetContact, requestedPackage)
+            val targetPackage = resolveTargetPackage(intent, requestedPackage)
+            if (targetPackage == null) {
+                Log.e(TAG, "Ninguna versión compatible de WhatsApp puede recibir el archivo")
+                return false
             }
 
-            // Intentar lanzamiento en paquete solicitado con fallback automático
-            return launchWithFallback(intent, requestedPackage)
+            // Armar verificación por accesibilidad si el servicio está activo (desactivado en Play Store)
+            val autoSendArmed = if (
+                !dev.nanoai.mobile.BuildConfig.PLAY_STORE_BUILD &&
+                autoSend &&
+                AgentAccessibilityBridge.service != null &&
+                recipientVerified &&
+                !targetAlias.isNullOrBlank()
+            ) {
+                armAccessibilityMediaSend(targetContact, targetAlias, recipientKind, targetPackage, if (mimeType == "application/pdf") file.name else null)
+            } else {
+                if (autoSend) {
+                    Log.w(TAG, "Autoenvío no disponible; se usará el selector nativo de WhatsApp")
+                }
+                false
+            }
+
+            // Sin autoenvío, Android Sharesheet expone los Direct Share de WhatsApp.
+            return WhatsAppShareLauncher(context).launch(intent, targetPackage, useChooser = !autoSendArmed)
 
         } catch (e: Exception) {
             Log.e(TAG, "Error fatal durante la preparación de envío multimedia: ${e.message}", e)
@@ -98,36 +120,33 @@ class WhatsAppShareMediaBackend(private val context: Context) {
     /**
      * QUÉ HACE: Registra la tarea de verificación y clic en el bridge de Accesibilidad.
      */
-    private fun armAccessibilityMediaSend(targetContact: String?, pkg: String) {
-        val digits = targetContact?.filter { it.isDigit() }?.takeIf { it.length >= 7 }
-        val alias = targetContact?.takeIf { it != digits }
-        AgentAccessibilityBridge.armAutoSendAndReturn(
+    private fun armAccessibilityMediaSend(
+        targetContact: String?,
+        targetAlias: String,
+        recipientKind: String,
+        pkg: String,
+        documentName: String?,
+    ): Boolean {
+        val digits = if (recipientKind == "group") null else targetContact
+            ?.takeUnless { it.startsWith("shortcut:", ignoreCase = true) }
+            ?.filter(Char::isDigit)
+            ?.takeIf { it.length in 7..15 }
+        return AgentAccessibilityBridge.armAutoSendAndReturn(
             targetPkg = pkg,
-            targetContact = digits ?: targetContact,
-            expectedAlias = alias
+            targetContact = digits,
+            expectedAlias = targetAlias,
+            timeoutMs = 25_000L,
+            documentName = documentName,
         )
     }
 
-    /**
-     * QUÉ HACE: Ejecuta el Intent con manejo de excepciones y conmutación entre WhatsApp y WhatsApp Business.
-     */
-    private fun launchWithFallback(intent: Intent, primaryPkg: String): Boolean {
-        return try {
-            intent.setPackage(primaryPkg)
-            context.startActivity(intent)
-            true
-        } catch (e: ActivityNotFoundException) {
-            val fallbackPkg = if (primaryPkg == "com.whatsapp") "com.whatsapp.w4b" else "com.whatsapp"
-            try {
-                Log.w(TAG, "Paquete $primaryPkg no disponible. Intentando fallback: $fallbackPkg")
-                intent.setPackage(fallbackPkg)
-                context.startActivity(intent)
-                true
-            } catch (fallbackEx: ActivityNotFoundException) {
-                Log.e(TAG, "Ninguna versión de WhatsApp está instalada en el dispositivo")
-                AgentAccessibilityBridge.disarmAutoSend()
-                false
-            }
+    private fun resolveTargetPackage(intent: Intent, requestedPackage: String): String? {
+        val candidates = listOf(
+            requestedPackage,
+            if (requestedPackage == "com.whatsapp") "com.whatsapp.w4b" else "com.whatsapp",
+        ).distinct()
+        return candidates.firstOrNull { pkg ->
+            Intent(intent).setPackage(pkg).resolveActivity(context.packageManager) != null
         }
     }
 
@@ -140,7 +159,16 @@ class WhatsAppShareMediaBackend(private val context: Context) {
             "jpg", "jpeg" -> "image/jpeg"
             "png" -> "image/png"
             "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            "heic", "heif" -> "image/heic"
+            "bmp" -> "image/bmp"
             "mp4" -> "video/mp4"
+            "m4v" -> "video/x-m4v"
+            "mov" -> "video/quicktime"
+            "3gp" -> "video/3gpp"
+            "mkv" -> "video/x-matroska"
+            "webm" -> "video/webm"
+            "avi" -> "video/x-msvideo"
             "pdf" -> "application/pdf"
             "ogg" -> "audio/ogg"
             "mp3" -> "audio/mpeg"

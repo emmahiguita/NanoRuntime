@@ -1,4 +1,4 @@
-﻿/// Detector de bucles del plan (C5). Heurística bounded, nunca infinito:
+/// Detector de bucles del plan (C5). Heurística bounded, nunca infinito:
 /// - patrón alternante A→B→A→B (los últimos 4 pasos son dos pares iguales);
 /// - la misma acción 3+ veces en un plan de 5+ pasos.
 class ToolLoopDetector {

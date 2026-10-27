@@ -1,0 +1,232 @@
+// hybrid_retrieval_scorer.dart
+//
+// QUÉ HACE:
+// Motor de puntuación multi-señal para el ranking y recuperación de ejemplos de Nano Personal.
+//
+// CÓMO FUNCIONA:
+// Pondera 8 señales independientes: coincidencia exacta, variante aprendida, FTS4, similitud
+// léxica, similitud semántica, compatibilidad de intención, compatibilidad contextual y prioridad de scope.
+//
+// POR QUÉ:
+// Supera las limitaciones de Jaccard/FTS4 puro sin recurrir a un modelo pesado y permite calibrar
+// pesos de forma centralizada y auditable (SOLID - SRP) en < 200 líneas.
+
+library;
+
+import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:nanoai/features/automation/engine/language/conversational_intent_catalog.dart';
+import 'package:nanoai/features/automation/engine/language/intent_prediction.dart';
+import 'package:nanoai/features/automation/engine/language/semantic_similarity_engine.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/persona_example.dart';
+import 'personal_learning_text.dart' show normalizePersonalLearningText;
+
+final class HybridScorerWeights {
+  final double exact;
+  final double storedVariant;
+  final double fts;
+  final double lexical;
+  final double semantic;
+  final double intent;
+  final double context;
+
+  const HybridScorerWeights({
+    this.exact = 0.25,
+    this.storedVariant = 0.25,
+    this.fts = 0.10,
+    this.lexical = 0.10,
+    this.semantic = 0.15,
+    this.intent = 0.10,
+    this.context = 0.05,
+  });
+}
+
+final class HybridRetrievalScorer {
+  final HybridScorerWeights weights;
+  final SemanticSimilarityEngine similarityEngine;
+
+  const HybridRetrievalScorer({
+    this.weights = const HybridScorerWeights(),
+    this.similarityEngine = const LightweightSemanticSimilarityEngine(),
+  });
+
+  /// Evalúa la afinidad global [0.0..1.0] entre el mensaje entrante y un ejemplo de estilo/par.
+  double score({
+    required String rawInput,
+    required PersonaExample example,
+    required IntentPrediction inputPrediction,
+    double ftsRawScore = 0.0,
+    bool hasContextualContinuity = false,
+  }) => _scoreWithSemantic(
+    rawInput: rawInput,
+    example: example,
+    inputPrediction: inputPrediction,
+    semanticScore: LightweightSemanticSimilarityEngine.compute(
+      rawInput,
+      example.incomingText,
+    ),
+    ftsRawScore: ftsRawScore,
+    hasContextualContinuity: hasContextualContinuity,
+  );
+
+  /// Puntúa candidatos con el encoder inyectado; ante un fallo usa el motor ligero local.
+  Future<List<double>> scoreMany({
+    required String rawInput,
+    required List<PersonaExample> examples,
+    required IntentPrediction inputPrediction,
+  }) async {
+    if (examples.isEmpty) return const [];
+    final fallback = examples
+        .map(
+          (e) => LightweightSemanticSimilarityEngine.compute(
+            rawInput,
+            e.incomingText,
+          ),
+        )
+        .toList();
+    List<double> semantic;
+    try {
+      semantic = await similarityEngine.similarities(
+        rawInput,
+        examples.map((e) => e.incomingText).toList(),
+      );
+      if (semantic.length != examples.length) {
+        debugPrint(
+          '[persona-scorer] semantic batch returned an invalid count; using local fallback',
+        );
+        semantic = fallback;
+      }
+    } catch (error) {
+      debugPrint(
+        '[persona-scorer] semantic inference failed (${error.runtimeType}); using local fallback',
+      );
+      semantic = fallback;
+    }
+    return [
+      for (var i = 0; i < examples.length; i++)
+        _scoreWithSemantic(
+          rawInput: rawInput,
+          example: examples[i],
+          inputPrediction: inputPrediction,
+          semanticScore: semantic[i].isFinite
+              ? semantic[i].clamp(0.0, 1.0).toDouble()
+              : fallback[i],
+        ),
+    ];
+  }
+
+  double _scoreWithSemantic({
+    required String rawInput,
+    required PersonaExample example,
+    required IntentPrediction inputPrediction,
+    required double semanticScore,
+    double ftsRawScore = 0.0,
+    bool hasContextualContinuity = false,
+  }) {
+    final normInput = normalizePersonalLearningText(rawInput);
+    final normStored = normalizePersonalLearningText(example.incomingText);
+    if (normInput.isEmpty) return 0.0;
+
+    // A stored WhatsApp turn often adds a greeting and the recipient's name
+    // before the actual question. Treat that preamble as optional when the
+    // remaining trigger matches exactly.
+    final inputWithoutGreeting = normalizePersonalLearningText(
+      _withoutLeadingGreeting(rawInput),
+    );
+    final storedWithoutGreeting = normalizePersonalLearningText(
+      _withoutLeadingGreeting(example.incomingText),
+    );
+    final greetingMatch =
+        (inputWithoutGreeting != normInput ||
+            storedWithoutGreeting != normStored) &&
+        inputWithoutGreeting.isNotEmpty &&
+        inputWithoutGreeting == storedWithoutGreeting;
+
+    // 1. Coincidencia exacta con el disparador principal
+    final exactMatch = (normStored.isNotEmpty && normInput == normStored)
+        ? 1.0
+        : 0.0;
+
+    // 2. Coincidencia con variantes aprendidas en el Studio
+    var variantMatch = 0.0;
+    for (final v in example.incomingVariants) {
+      final normV = normalizePersonalLearningText(v);
+      if (normV.isNotEmpty && normInput == normV) {
+        variantMatch = 1.0;
+        break;
+      }
+    }
+
+    // 3. Similitud semántica pragmática (paráfrasis / sinónimos)
+    // 4. Similitud léxica basada en tokens significativos
+    final lexicalScore = _computeLexicalOverlap(normInput, normStored);
+
+    // 5. Compatibilidad de intención predicha vs intención almacenada
+    final storedIntent = ConversationalIntentId.fromId(example.tone['intent']);
+    var intentScore =
+        0.50; // Neutral si el ejemplo no tiene intención tipificada
+    if (storedIntent != ConversationalIntentId.unknown) {
+      intentScore = (inputPrediction.intentId == storedIntent.id) ? 1.0 : 0.10;
+    }
+
+    // 6. Contexto y elipsis
+    final contextScore = hasContextualContinuity ? 1.0 : 0.0;
+
+    // Suma ponderada de señales normalizadas con bifurcación de match aprendido vs paráfrasis
+    var totalScore = 0.0;
+    if (exactMatch == 1.0 || variantMatch == 1.0 || greetingMatch) {
+      final base = exactMatch == 1.0
+          ? 0.92
+          : variantMatch == 1.0
+          ? 0.88
+          : 0.90;
+      totalScore = (base + (0.05 * intentScore) + (0.03 * semanticScore)).clamp(
+        0.0,
+        1.0,
+      );
+    } else {
+      totalScore =
+          ((weights.semantic * 2.5 * semanticScore) +
+                  (weights.intent * 3.0 * intentScore) +
+                  (weights.lexical * 1.5 * lexicalScore) +
+                  (weights.fts * ftsRawScore.clamp(0.0, 1.0)) +
+                  (weights.context * contextScore))
+              .clamp(0.0, 1.0);
+    }
+
+    // Penalización estricta por inversión de polaridad ("si voy" vs "no voy")
+    if (example.incomingText.isNotEmpty) {
+      final storedPolarity = IntentPolarity.fromText(example.incomingText);
+      if (inputPrediction.polarity != storedPolarity) {
+        totalScore *= 0.15;
+      }
+    }
+
+    // Guardia de estado vivo (Live State Guard)
+    if (inputPrediction.requiresLiveState &&
+        (example.source != 'live_verified')) {
+      totalScore *= 0.20;
+    }
+
+    return totalScore.clamp(0.0, 1.0);
+  }
+
+  static String _withoutLeadingGreeting(
+    String text,
+  ) => text.trim().replaceFirst(
+    RegExp(
+      r'^(?:hola|hol|ola|holi|holaa|hey|hi|buenas\s+(?:tardes|noches)|buen(?:os)?\s+d[ií]as|buenas|qu[eé]\s+m[aá]s|quiubo)\b(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+,)?[\s,¡!¿?]*',
+      caseSensitive: false,
+    ),
+    '',
+  );
+
+  static double _computeLexicalOverlap(String a, String b) {
+    if (a.isEmpty || b.isEmpty) return 0.0;
+    final setA = a.split(' ').where((t) => t.length > 2).toSet();
+    final setB = b.split(' ').where((t) => t.length > 2).toSet();
+    if (setA.isEmpty || setB.isEmpty) return 0.0;
+    final inter = setA.intersection(setB).length;
+    final union = setA.union(setB).length;
+    return union > 0 ? inter / union : 0.0;
+  }
+}

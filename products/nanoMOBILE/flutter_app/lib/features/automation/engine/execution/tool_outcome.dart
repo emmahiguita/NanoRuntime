@@ -1,4 +1,4 @@
-﻿import '../governance/action_confirmation.dart' show ActionConfirmation;
+import '../governance/action_confirmation.dart' show ActionConfirmation;
 import 'action_path_router.dart' show ExecutionPath;
 import 'tool_call.dart';
 import 'tool_registry.dart' show PolicyVerdict;
@@ -20,11 +20,13 @@ class ToolOutcome {
     required this.verdict,
     required this.feedback,
     this.pendingCall,
+    this.data,
     this.executionStatus = ToolExecutionStatus.notExecuted,
   });
 
   final PolicyVerdict verdict;
   final String feedback;
+  final Map<String, Object?>? data;
   final ToolCall? pendingCall;
   final ToolExecutionStatus executionStatus;
 

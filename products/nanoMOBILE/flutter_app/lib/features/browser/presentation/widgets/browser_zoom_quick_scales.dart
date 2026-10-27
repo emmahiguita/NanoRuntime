@@ -80,20 +80,20 @@ class BrowserZoomQuickScales extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? (isDark ? const Color(0xFF10B981) : const Color(0xFF2563EB))
+                      ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
                       : (isDark
                           ? (isUltraZoomOut
-                              ? const Color(0x2210B981)
+                              ? const Color(0x2238BDF8)
                               : Colors.white.withValues(alpha: 0.06))
                           : (isUltraZoomOut
-                              ? const Color(0x182563EB)
+                              ? const Color(0x18007AFF)
                               : Colors.black.withValues(alpha: 0.05))),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isSelected
                         ? Colors.transparent
                         : (isUltraZoomOut
-                            ? (isDark ? const Color(0x5510B981) : const Color(0x442563EB))
+                            ? (isDark ? const Color(0x5538BDF8) : const Color(0x44007AFF))
                             : Colors.transparent),
                     width: 1,
                   ),

@@ -5,8 +5,14 @@
 /// Signal, Discord, Slack, Teams o cualquier app que publique una notificación
 /// de mensajería contestable.
 ///
-/// Puro Dart: parsea el mapa crudo que expone `listActiveNotifications` (nativo).
 library;
+
+import '../../domain/incoming_attachment.dart';
+import '../../domain/notification_attachment_codec.dart';
+import '../../domain/notification_source_fragment.dart';
+
+part 'notification_object_mapper.part.dart';
+part 'notification_object_copy.part.dart';
 
 /// Objeto de notificación con identidad/estructura real extraída del
 /// MessagingStyle de Android. Campos vacíos = no expuesto por la app origen
@@ -19,6 +25,13 @@ final class NotificationObject {
 
   /// Texto del mensaje individual (MessagingStyle), si existe.
   final String messageText;
+
+  /// El enriquecimiento cambia el contexto, nunca la identidad del evento.
+  final String originalMessageText;
+
+  /// Solo una transcripción real puede sustituir la voz por texto de intención.
+  final String spokenRequest;
+  final List<NotificationSourceFragment> sourceFragments;
 
   /// Timestamp del mensaje individual (MessagingStyle.Message.timestamp).
   /// 0 = la app origen no lo expuso.
@@ -65,12 +78,21 @@ final class NotificationObject {
   final List<String> actions;
   final bool ongoing;
 
+  /// Evidencia nativa que distingue chats reales de estados/avisos del sistema.
+  final String notificationCategory;
+  final bool hasMessagingStyle;
+  final bool isConversationEvent;
+  final List<IncomingAttachment> attachments;
+
   const NotificationObject({
     required this.key,
     required this.packageName,
     required this.title,
     required this.text,
     required this.messageText,
+    this.originalMessageText = '',
+    this.spokenRequest = '',
+    this.sourceFragments = const [],
     required this.messageTimestamp,
     required this.sender,
     required this.senderKey,
@@ -90,6 +112,10 @@ final class NotificationObject {
     required this.actionIndex,
     required this.actions,
     required this.ongoing,
+    this.notificationCategory = '',
+    this.hasMessagingStyle = true,
+    this.isConversationEvent = true,
+    this.attachments = const [],
   });
 
   /// Expand Android's visible message history using each original event's
@@ -100,54 +126,23 @@ final class NotificationObject {
       return [NotificationObject.fromMap(raw)];
     }
     return [
-      for (final message in messages)
-        if (message is Map)
-          NotificationObject.fromMap({...raw, ...message}),
+      for (final m in messages)
+        if (m is Map)
+          NotificationObject.fromMap({
+            ...raw,
+            // Un contenedor no puede prestar su último archivo a todo el replay.
+            'audioPath': '', 'imagePath': '', 'videoPath': '', 'pdfPath': '',
+            ...m,
+            if ((m['sender'] == null || '${m['sender']}'.trim().isEmpty) &&
+                raw['sender'] != null &&
+                '${raw['sender']}'.trim().isNotEmpty)
+              'sender': raw['sender'],
+          }),
     ];
   }
 
-  factory NotificationObject.fromMap(Map<dynamic, dynamic> raw) {
-    final rawSender = '${raw['sender'] ?? ''}'.trim().toLowerCase();
-    final isExplicitSelfSender = rawSender.isNotEmpty &&
-        (rawSender == 'tú' ||
-            rawSender == 'tu' ||
-            rawSender == 'you' ||
-            rawSender == 'yo' ||
-            rawSender == 'me');
-    return NotificationObject(
-      key: '${raw['key'] ?? ''}',
-      packageName: '${raw['package'] ?? ''}',
-      title: '${raw['title'] ?? ''}',
-      text: '${raw['text'] ?? ''}',
-      messageText: '${raw['messageText'] ?? ''}',
-      messageTimestamp: raw['messageTimestamp'] is num
-          ? (raw['messageTimestamp'] as num).toInt()
-          : 0,
-      sender: '${raw['sender'] ?? ''}',
-      senderKey: '${raw['senderKey'] ?? ''}',
-      senderUri: '${raw['senderUri'] ?? ''}',
-      conversationTitle: '${raw['conversationTitle'] ?? ''}',
-      conversationId: '${raw['conversationId'] ?? ''}',
-      shortcutId: '${raw['shortcutId'] ?? ''}',
-      locusId: '${raw['locusId'] ?? ''}',
-      accountHint: '${raw['accountHint'] ?? ''}',
-      isGroup: raw['isGroup'] == true,
-      isSummary: raw['isSummary'] == true,
-      isTruncated: raw['isTruncated'] == true,
-      isSelf: raw['isSelf'] == true || isExplicitSelfSender,
-      postTime: raw['postTime'] is num ? (raw['postTime'] as num).toInt() : 0,
-      canReply: raw['canReply'] == true,
-      remoteInputKey: '${raw['remoteInputKey'] ?? ''}',
-      actionIndex: raw['actionIndex'] is num
-          ? (raw['actionIndex'] as num).toInt()
-          : -1,
-      actions: ((raw['actions'] as List?) ?? const [])
-          .map((a) => '$a')
-          .where((a) => a.isNotEmpty)
-          .toList(),
-      ongoing: raw['ongoing'] == true,
-    );
-  }
+  factory NotificationObject.fromMap(Map<dynamic, dynamic> raw) =>
+      _notificationFromMap(raw);
 
   /// Identidad legible para el modelo/planner: "Juan C. (WhatsApp)".
   String get identity {
@@ -158,6 +153,13 @@ final class NotificationObject {
 
   /// Texto más relevante para interpretar: mensaje individual > texto grande.
   String get interpretableText => messageText.isNotEmpty ? messageText : text;
+
+  /// Mantiene deduplicación y autoría aunque se añada OCR al contexto.
+  String get sourceText =>
+      originalMessageText.isEmpty ? interpretableText : originalMessageText;
+
+  /// Solo una transcripción del evento actual sustituye al texto para intención.
+  String get requestText => spokenRequest.isEmpty ? sourceText : spokenRequest;
 
   /// true si esta notificación se refiere a [recipient] (coincidencia en
   /// sender/conversationTitle/title). Fuente única de matching por remitente:

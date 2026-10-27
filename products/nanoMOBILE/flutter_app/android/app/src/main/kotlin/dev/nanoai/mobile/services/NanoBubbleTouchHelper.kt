@@ -27,6 +27,7 @@ internal class NanoBubbleTouchHelper(
     private var snapping: ValueAnimator? = null
     private var sx = 0f; private var sy = 0f; private var px = 0; private var py = 0
     private var moved = false
+    private var ignoreTapUp = false
     private var lastDownTime = 0L
 
     override fun onTouch(v: View, e: MotionEvent): Boolean {
@@ -35,8 +36,15 @@ internal class NanoBubbleTouchHelper(
                 sx = e.rawX; sy = e.rawY; px = layout.x; py = layout.y
                 moved = false
                 snapping?.cancel()
-                val now = System.currentTimeMillis()
-                if (now - lastDownTime < 280) { onDoubleTap(); return true }
+                val now = android.os.SystemClock.uptimeMillis()
+                if (now - lastDownTime < 280) {
+                    // El UP del segundo toque no debe abrir el panel y deshacer
+                    // el acople que acaba de pedir el doble toque.
+                    ignoreTapUp = true
+                    onDoubleTap()
+                    return true
+                }
+                ignoreTapUp = false
                 lastDownTime = now
                 return true
             }
@@ -50,7 +58,14 @@ internal class NanoBubbleTouchHelper(
                 }
                 return true
             }
+            MotionEvent.ACTION_CANCEL -> {
+                ignoreTapUp = false
+                moved = false
+                snapping?.cancel()
+                return true
+            }
             MotionEvent.ACTION_UP -> {
+                if (ignoreTapUp) { ignoreTapUp = false; return true }
                 if (!moved) onClick() else snapToEdge()
                 return true
             }

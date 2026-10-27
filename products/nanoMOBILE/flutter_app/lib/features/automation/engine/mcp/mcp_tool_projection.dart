@@ -4,24 +4,20 @@ library;
 
 import 'mcp_client_port.dart';
 import 'mcp_tool.dart';
+import 'mcp_local_tool_policy.dart';
 
 class McpToolProjection {
   const McpToolProjection();
 
   McpTool toNanoTool(McpRemoteTool remote) {
-    final annotations = remote.annotations;
-
-    // MCP annotations son hints del servidor, no una autorización. Sólo una
-    // tool declarada explícitamente read-only y no destructiva entra como read.
-    // Todo lo demás degrada conservadoramente a externalWrite.
-    final category = annotations.readOnlyHint && !annotations.destructiveHint
-        ? McpToolCategory.read
-        : McpToolCategory.externalWrite;
+    final category = McpLocalToolPolicy.category(remote);
 
     return McpTool(
       id: remote.qualifiedName,
       name: remote.name,
       category: category,
+      description: remote.description,
+      inputSchema: remote.inputSchema,
     );
   }
 

@@ -1,0 +1,105 @@
+{
+  "date": "2026-10-26",
+  "variant": "fullSideloadDebug",
+  "build": "success",
+  "gradle_seconds": 52.6,
+  "apk": "C:\\Users\\emman\\Desktop\\Proyectos\\Nueva carpeta\\Nanoai\\products\\nanoMOBILE\\flutter_app\\build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+  "apk_bytes": 191197892,
+  "apk_sha256": "56bd70ff37ab9b3bbe6aacd05206932116e0af90f32fc68a134ff6fc128adcb6",
+  "static_analysis": "No issues found",
+  "independent_review": "No concrete findings remaining after corrections; static only",
+  "tests_run": false,
+  "ui_automation_run": false,
+  "visual_result_verified": false,
+  "install": "Success",
+  "sources": [
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_input_menu.dart",
+      "lines": 63,
+      "sha256": "6292761a73aef0590841666a5af773d072d91a9c2e0d2f4dec6160d69d98e0b8"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_input_menu_view.dart",
+      "lines": 132,
+      "sha256": "a9b0a32d12a66f94cac1cb46cf7767d01ff81df026f65a2873495b232bed4e78"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_input_attachment.dart",
+      "lines": 76,
+      "sha256": "e94ed09677c5234887f33c23c549eae3e379d503d45f4f8274add93311e028c1"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_attachment_picker.dart",
+      "lines": 59,
+      "sha256": "499afd5fe0e943ed03b8358d2b6efccb2b69f67af03f12ef20b6fdefdb35048d"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_dashboard.dart",
+      "lines": 196,
+      "sha256": "27e5cae38761a63a4a401b36a4ce37c7bc3ec32a932dbbcc679971f58eee188c"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_dashboard_input.dart",
+      "lines": 116,
+      "sha256": "93ab70959c3cd69bebf82365284cdb6fe445a6111cee6e2100cabbf790b5d5da"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_dashboard_lifecycle.dart",
+      "lines": 35,
+      "sha256": "5b8c548b5c490ababd6e46c5e806ae3d416352311e15e5d4ef7f4badee6929ee"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_dashboard_execution.dart",
+      "lines": 150,
+      "sha256": "1f209049de9cd6050133cb4c108fa21eba6b805ea36c0aa8d5dc95ce918448c2"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/whatsapp_automation_menu.dart",
+      "lines": 36,
+      "sha256": "494e48d9f7f1898a0d6d0c0146e5baa39a0894d7a79c9f4f15c2fae3efe7f0ea"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/whatsapp_automation_menu_state.dart",
+      "lines": 74,
+      "sha256": "aeca924fdc758cea02acedd77639556c4c753de0289209d4370d71590cda4cce"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/whatsapp_automation_menu_view.dart",
+      "lines": 144,
+      "sha256": "35c9f7a36749e357826e5b76d7af4fbcb42906b783518144a19cf39b4797f439"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_input_tool_controls.dart",
+      "lines": 76,
+      "sha256": "fe4dc2a6c027775f5bfd8295c6560b7bb5f4ac715f7c820b79e1475dc8013f2c"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_input_context_bar.dart",
+      "lines": 64,
+      "sha256": "f2be8c3f2475f50b7961def96ceb39e347b809ad13e1ab4f68a65959266d3f8e"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_command_launcher.dart",
+      "lines": 62,
+      "sha256": "dfc4f88c2bcada2b5ee299db30aee4e382ec4f85399d697761a9cbbadf8ada5e"
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_nav_search_input_row.dart",
+      "lines": 152,
+      "sha256": "68c077b94ca9eb0f0da05e61beafd34e22af45b5559e7d1cec379267215a535f"
+    },
+    {
+      "path": "lib/features/automation/engine/planning/whatsapp_automation_input.dart",
+      "lines": 131,
+      "sha256": "7e129603e6b19f356081c812837576f5beda8303d207ebd7c39f269f58459449"
+    }
+  ],
+  "install_mode": "adb install -r",
+  "package_fields": [
+    "versionCode=1 minSdk=26 targetSdk=36",
+    "versionName=1.0.0",
+    "lastUpdateTime=2026-10-26 10:28:28",
+    "firstInstallTime=2026-10-18 11:07:21"
+  ],
+  "connection_recovery": "ADB restarted and offline transport reconnected; no UI actions"
+}

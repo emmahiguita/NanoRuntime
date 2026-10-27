@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:http/http.dart' as http;
@@ -29,7 +30,8 @@ class ModelDownloader {
   Future<File> download({
     required String url,
     required String destPath,
-    required String expectedSha256,
+    String? expectedSha256,
+    String? expectedGitBlobSha1,
     void Function(double progress)? onProgress,
     void Function()? onVerifying,
     Future<bool> Function()? cancelToken,
@@ -96,10 +98,15 @@ class ModelDownloader {
         throw DownloadException.cancelled();
       }
       onVerifying?.call();
-      final actual = await _sha256Of(part);
-      if (actual.toLowerCase() != expectedSha256.toLowerCase()) {
+      if ((expectedSha256 == null) == (expectedGitBlobSha1 == null)) {
+        throw ArgumentError('Indica exactamente un hash SHA-256 o Git blob SHA-1.');
+      }
+      final matches = expectedSha256 != null
+          ? (await _sha256Of(part)).toLowerCase() == expectedSha256.toLowerCase()
+          : (await _gitBlobSha1Of(part)).toLowerCase() == expectedGitBlobSha1!.toLowerCase();
+      if (!matches) {
         await part.delete();
-        throw DownloadException.hashMismatch(actual, expectedSha256);
+        throw DownloadException('El checksum del archivo no coincide con la revisión fijada.');
       }
 
       // Rename atómico: nadie ve un GGUF a medio escribir.
@@ -111,7 +118,9 @@ class ModelDownloader {
           'rename atómico falló para ${dest.path}: ${e.message}',
         );
       }
-      await ModelIntegrity.writeManifest(dest, actual);
+      if (expectedSha256 != null) {
+        await ModelIntegrity.writeManifest(dest, expectedSha256);
+      }
       return dest;
     } on http.RequestAbortedException {
       throw DownloadException.cancelled();
@@ -157,6 +166,18 @@ class ModelDownloader {
 
   Future<String> _sha256Of(File f) async {
     final digest = await crypto.sha256.bind(f.openRead()).first;
+    return digest.toString();
+  }
+
+  /// Verifica archivos pequeños no-LFS contra el Git blob del commit fijado.
+  Future<String> _gitBlobSha1Of(File file) async {
+    final length = await file.length();
+    final header = utf8.encode('blob $length\u0000');
+    Stream<List<int>> combinedStream() async* {
+      yield header;
+      yield* file.openRead();
+    }
+    final digest = await crypto.sha1.bind(combinedStream()).first;
     return digest.toString();
   }
 

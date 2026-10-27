@@ -1,0 +1,53 @@
+{
+  "date": "2026-10-24",
+  "timezone": "America/Bogota",
+  "audit": "interfaz-MCP-terminal",
+  "applicationSourceChanged": false,
+  "configurationChanged": false,
+  "newAppBuild": false,
+  "installationDuringThisAudit": false,
+  "automatedTestsRun": false,
+  "nanoTerminalCommandsExecuted": false,
+  "nanoMcpToolsInvoked": false,
+  "messagesSent": false,
+  "visualNavigationAuthorized": false,
+  "visualNavigationPerformed": false,
+  "visualNavigationBlockedByAutomaticReview": true,
+  "visualBlockReason": "El toque inicial fue rechazado por revisión automática. Después, el usuario confirmó explícitamente: Solo código y capturas actuales. No hay autorización pendiente.",
+  "userSelectedScope": "Solo código y capturas actuales",
+  "additionalDeviceNavigationInScope": false,
+  "observedScreen": "Centro Terminal, vertical, tema claro",
+  "device": {
+    "model": "CPH2557",
+    "resolution": "1080x2400",
+    "density": 480,
+    "nanoAccessibilityEnabled": false,
+    "pidObserved": 17065,
+    "processState": "S<",
+    "directChildProcessesObserved": 0
+  },
+  "sourceInventory": {
+    "files": 72,
+    "filesAtLeast200Lines": 29,
+    "fullFunctionalReviewOfEveryInventoryLine": false
+  },
+  "findings": {
+    "total": 21,
+    "P1": 4,
+    "P2": 16,
+    "P3": 1
+  },
+  "limits": [
+    "No recorrido visual completo",
+    "Sin validación física de modo oscuro, horizontal, teclado o texto ampliado",
+    "Sin prueba de conexiones MCP remotas o comandos PTY",
+    "Sin medición de latencia, memoria o GPU"
+  ],
+  "artifacts": [
+    "README.md",
+    "findings.json",
+    "source-inventory.json",
+    "key-sources.json",
+    "terminal-hub-light.jpg"
+  ]
+}

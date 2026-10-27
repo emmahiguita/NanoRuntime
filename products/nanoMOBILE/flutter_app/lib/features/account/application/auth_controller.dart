@@ -17,11 +17,9 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   final AuthRepository _authRepository;
   final AccountRepository? _accountRepository;
 
-  AuthController(
-    this._authRepository, {
-    AccountRepository? accountRepository,
-  })  : _accountRepository = accountRepository,
-        super(const AsyncValue.data(null));
+  AuthController(this._authRepository, {AccountRepository? accountRepository})
+    : _accountRepository = accountRepository,
+      super(const AsyncValue.data(null));
 
   Future<String?> login({
     required String email,
@@ -62,7 +60,9 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       final user = await _authRepository.registerWithEmailAndPassword(
         email: email,
         password: password,
-        displayName: effectiveName.isNotEmpty ? effectiveName : email.split('@').first,
+        displayName: effectiveName.isNotEmpty
+            ? effectiveName
+            : email.split('@').first,
       );
       if (_accountRepository != null) {
         final profile = await _accountRepository.bootstrapProfile(user);
@@ -72,7 +72,9 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
             lastName: lastName,
             phone: phone,
             country: country,
-            displayName: effectiveName.isNotEmpty ? effectiveName : profile.displayName,
+            displayName: effectiveName.isNotEmpty
+                ? effectiveName
+                : profile.displayName,
           ),
         );
       }
@@ -91,9 +93,15 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
   Future<String?> continueWithGoogle() async {
     state = const AsyncValue.loading();
     try {
-      await _authRepository.signInWithGoogle();
+      final user = await _authRepository.signInWithGoogle();
+      if (_accountRepository != null) {
+        await _accountRepository.bootstrapProfile(user);
+      }
       state = const AsyncValue.data(null);
       return null;
+    } on GoogleSignInCancelledException {
+      state = const AsyncValue.data(null);
+      rethrow;
     } on AccountException catch (e) {
       state = AsyncValue.error(e.message, StackTrace.current);
       return e.message;

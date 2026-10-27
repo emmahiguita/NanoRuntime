@@ -1,8 +1,7 @@
-import 'dart:io';
-
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/models/model_path_support.dart';
 import '../../../core/linux/linux_distribution_registry.dart';
 import '../../../core/services/nano_runtime_api.dart';
 import '../../../core/services/runtime_engine.dart';
@@ -22,6 +21,7 @@ import 'messaging/conv_turn_state.dart'
         conversationStateNotifierProvider,
         isPureGreeting;
 import 'messaging/messaging_package.dart';
+import 'language/runtime_personal_live_context.dart';
 import 'messaging/tone_profile_providers.dart';
 import 'messaging/conversation_memory.dart'
     show ConversationMemoryStore, SqliteConversationMemoryStore;
@@ -88,6 +88,7 @@ import 'model/automation_model.dart' show AutomationModelRole;
 import 'notifications/notification_draft_writer.dart';
 import '../personal_agent/application/persona_context.dart'
     show personaContextProvider;
+import '../personal_agent/application/external_response_experience_learning_service.dart';
 import '../personal_agent/domain/conversation_agent_role.dart'
     show routeConversationAgent;
 import 'planning/candidates/notification_candidate_provider.dart';
@@ -114,6 +115,9 @@ import 'mcp/linux_automation_mcp_client.dart';
 import '../executors/linux/linux_automation_executor_provider.dart';
 import 'mcp/mcp_candidate_provider.dart';
 import 'mcp/mcp_connection_registry.dart';
+import 'mcp/http_mcp_client.dart';
+import 'mcp/mcp_server_persistence.dart';
+import 'mcp/mcp_server_restorer.dart';
 import 'mcp/mcp_tool_adapter.dart';
 import 'mcp/mcp_tool_projection.dart';
 import 'mcp/mcp_tool_registry.dart';
@@ -206,10 +210,18 @@ final currentSituationSourceProvider = Provider<CurrentSituationSource>((ref) {
   };
 });
 
+/// Persistencia de conexiones MCP remotas de Automatización.
+final mcpServerPersistenceProvider = Provider<McpServerPersistence>((ref) {
+  return McpServerPersistence(credentials: FlutterSecureMcpCredentialStore());
+});
+
 /// Registro runtime de conexiones MCP.
 final mcpConnectionRegistryProvider =
     ChangeNotifierProvider<McpConnectionRegistry>((ref) {
       final registry = McpConnectionRegistry();
+      final persistence = ref.watch(mcpServerPersistenceProvider);
+      var active = true;
+      ref.onDispose(() => active = false);
       final appCatalog = ref.watch(installedAppCatalogProvider);
       final client = LocalDeviceMcpClient(
         appCatalog: appCatalog,
@@ -225,7 +237,17 @@ final mcpConnectionRegistryProvider =
       registry.register(client);
       registry.register(mobileClient);
       registry.register(linuxClient);
-      unawaited(registry.refreshTools());
+      unawaited(
+        restorePersistedMcpConnections(
+          registry: registry,
+          persistence: persistence,
+          isActive: () => active,
+          createClient: (saved) => HttpMcpClient(
+            descriptor: saved.descriptor,
+            credentialToken: saved.credentialToken,
+          ),
+        ),
+      );
       return registry;
     });
 
@@ -248,11 +270,12 @@ final alarmToolHandlerProvider = Provider<AlarmToolHandler>((ref) {
 });
 
 /// Detector universal de capacidades del dispositivo (hardware/software agnóstico).
-final universalCapabilityDetectorProvider = Provider<UniversalCapabilityDetector>((ref) {
-  return UniversalCapabilityDetector(
-    inventory: ref.watch(systemInventoryProvider),
-  );
-});
+final universalCapabilityDetectorProvider =
+    Provider<UniversalCapabilityDetector>((ref) {
+      return UniversalCapabilityDetector(
+        inventory: ref.watch(systemInventoryProvider),
+      );
+    });
 
 /// Memoria operativa de tareas multietapa (retención y recuperación de progreso).
 final taskExecutionMemoryProvider = Provider<TaskExecutionMemoryStore>((ref) {
@@ -260,7 +283,9 @@ final taskExecutionMemoryProvider = Provider<TaskExecutionMemoryStore>((ref) {
 });
 
 /// Inspector de aplicaciones (Nano Developer).
-final appInspectorToolHandlerProvider = Provider<AppInspectorToolHandler>((ref) {
+final appInspectorToolHandlerProvider = Provider<AppInspectorToolHandler>((
+  ref,
+) {
   return AppInspectorToolHandler(
     catalog: ref.watch(installedAppCatalogProvider),
     situationSource: ref.watch(currentSituationSourceProvider),
@@ -268,11 +293,12 @@ final appInspectorToolHandlerProvider = Provider<AppInspectorToolHandler>((ref) 
 });
 
 /// Diagnósticos factuales de sistema (Nano Developer).
-final systemDiagnosticsToolHandlerProvider = Provider<SystemDiagnosticsToolHandler>((ref) {
-  return SystemDiagnosticsToolHandler(
-    detector: ref.watch(universalCapabilityDetectorProvider),
-  );
-});
+final systemDiagnosticsToolHandlerProvider =
+    Provider<SystemDiagnosticsToolHandler>((ref) {
+      return SystemDiagnosticsToolHandler(
+        detector: ref.watch(universalCapabilityDetectorProvider),
+      );
+    });
 
 /// Manejador de ADB inalámbrico local (Nano Developer).
 final adbToolHandlerProvider = Provider<AdbToolHandler>((ref) {
@@ -280,7 +306,9 @@ final adbToolHandlerProvider = Provider<AdbToolHandler>((ref) {
 });
 
 /// Ejecutor de benchmark de automatización móvil (comparativo con ARTEMIS/AndroidWorld).
-final automationBenchmarkRunnerProvider = Provider<AutomationBenchmarkRunner>((ref) {
+final automationBenchmarkRunnerProvider = Provider<AutomationBenchmarkRunner>((
+  ref,
+) {
   return AutomationBenchmarkRunner(
     detector: ref.watch(universalCapabilityDetectorProvider),
   );
@@ -567,11 +595,11 @@ final automationModelResolverProvider = Provider<AutomationModelResolver>((
       final livePath = ref.read(chatProvider).activeModelPath;
       if (livePath != null &&
           livePath.trim().isNotEmpty &&
-          File(livePath).existsSync()) {
+          isRunnableModelPath(livePath)) {
         return livePath;
       }
       final settingsPath = ref.read(settingsProvider).chatModelPath;
-      if (settingsPath.trim().isNotEmpty && File(settingsPath).existsSync()) {
+      if (isRunnableModelPath(settingsPath)) {
         return settingsPath;
       }
       // Fallback a modelo detectado/instalado físicamente en disco si existe
@@ -579,13 +607,13 @@ final automationModelResolverProvider = Provider<AutomationModelResolver>((
         final modelsState = ref.read(modelsProvider);
         for (final d in modelsState.detected) {
           final p = d.path;
-          if (p != null && p.trim().isNotEmpty && File(p).existsSync()) {
+          if (isRunnableModelPath(p)) {
             return p;
           }
         }
         for (final m in modelsState.models) {
           final p = m.localPath;
-          if (p != null && p.trim().isNotEmpty && File(p).existsSync()) {
+          if (isRunnableModelPath(p)) {
             return p;
           }
         }
@@ -594,10 +622,10 @@ final automationModelResolverProvider = Provider<AutomationModelResolver>((
     },
     automationModelPath: () {
       final p = ref.read(settingsProvider).automationModelPath;
-      if (p.trim().isNotEmpty && File(p).existsSync()) return p;
+      if (isRunnableModelPath(p)) return p;
       return null;
     },
-    modelPathExists: (path) => File(path).existsSync(),
+    modelPathExists: isRunnableModelPath,
   );
 });
 
@@ -680,7 +708,14 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
   final engine = ref.read(runtimeEngineProvider.notifier);
   final resolver = ref.watch(automationModelResolverProvider);
   return RuntimeNotificationDraftWriter(
+    // Persona se refresca antes: reutilizar su snapshot evita otra lectura SQL.
+    liveContext: RuntimePersonalLiveContext(
+      allowDeclaredAgenda: true,
+      ownerFactsFor: () async =>
+          ref.read(personaContextProvider).ownerFactsSnapshot,
+    ),
     client: engine.client,
+    afterDraft: () => engine.mnn.trimMemoryForExternalDispatch(),
     llmAllowed: () =>
         resolver.resolveFor(AutomationModelRole.draftWriter).llmAllowed,
     ensureReady: (p) => engine.ensureReady(modelPath: p),
@@ -696,7 +731,8 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
       ref.read(businessFactsNotifierProvider),
     ).render(),
     // WA-NATURAL-01 — tono leído EN VIVO ('' si deshabilitado).
-    toneBlock: () => ref.read(toneProfileNotifierProvider).renderBlock(),
+    toneBlock: () =>
+        ref.read(businessToneProfileNotifierProvider).renderBlock(),
     // WA-STATE-01 + CONTEXT-GATE-01 — recuerdo de la consulta anterior de
     // ESTA conversación, gated por el mensaje actual (determinista: sin
     // referencia ni dependencia el recuerdo no entra al prompt).
@@ -729,6 +765,12 @@ final notificationDraftSourceProvider = Provider<NotificationDraftSource>((
           conversationId: conversationId,
           role: role,
         ),
+    // Solo conserva respuestas cloud del agente personal cuando owner y contacto dieron consentimiento.
+    externalResponseLearner:
+        ExternalResponseExperienceLearningService.instance.observe,
+    externalResponseLearningAllowed: (conversationId, sender) => ref
+        .read(personaContextProvider)
+        .allowsStyleLearningFor(sender, conversationId: conversationId),
     // P0-ROUTE — rol del turno ANTES de armar el prompt: el MISMO router
     // determinista del decisionContext (AUTO-02), con la misma evidencia
     // (catálogo real, convstate, personaContext). El writer gatea bloques

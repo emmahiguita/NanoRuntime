@@ -3,6 +3,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
 import 'package:nanoai/features/browser/infrastructure/browser_scripts.dart';
 import 'browser_zoom_quick_scales.dart';
+import 'package:nanoai/core/widgets/nano_glass_window.dart';
 
 /// Control Material de escala por pestaña; usa el estado como única vía de aplicación.
 /// El slider previsualiza el porcentaje y confirma al soltar, sin saturar el canal JS.
@@ -25,11 +26,9 @@ class BrowserZoomSheet extends StatefulWidget {
     required double currentZoom,
     required InAppWebViewController? controller,
     required ValueChanged<double> onZoomChanged,
-  }) => showModalBottomSheet(
+  }) => showNanoGlassWindow(
     context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    useSafeArea: true,
+
     constraints: const BoxConstraints(maxWidth: 440),
     builder: (_) => BrowserZoomSheet(
       tab: tab,
@@ -50,7 +49,9 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
   @override
   void initState() {
     super.initState();
-    _zoom = widget.currentZoom.isFinite ? widget.currentZoom.clamp(0.1, 3.0) : 1;
+    _zoom = widget.currentZoom.isFinite
+        ? widget.currentZoom.clamp(0.1, 3.0)
+        : 1;
   }
 
   void _applyZoom(double value) {
@@ -72,12 +73,13 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
             : BrowserScripts.fitToScreenOverviewScript,
       );
       if (!mounted) return;
-      if (!mobile && result is num && result.isFinite) _applyZoom(result.toDouble());
+      if (!mobile && result is num && result.isFinite)
+        _applyZoom(result.toDouble());
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.maybeOf(
-          context,
-        )?.showSnackBar(const SnackBar(content: Text('La página ya no está disponible.')));
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('La página ya no está disponible.')),
+        );
       }
     } finally {
       if (mounted) setState(() => _adapting = false);
@@ -95,12 +97,18 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
           Row(
             children: [
               Expanded(
-                child: Text('Zoom de página', style: Theme.of(context).textTheme.titleLarge),
+                child: Text(
+                  'Zoom de página',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
-              IconButton(
-                tooltip: 'Cerrar',
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close_rounded),
+              Semantics(
+                label: 'Cerrar',
+                button: true,
+                child: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
               ),
             ],
           ),
@@ -113,10 +121,13 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
           const SizedBox(height: 12),
           Row(
             children: [
-              IconButton(
-                tooltip: 'Reducir',
-                onPressed: _zoom > 0.1 ? () => _applyZoom(_zoom - 0.1) : null,
-                icon: const Icon(Icons.remove_rounded),
+              Semantics(
+                label: 'Reducir zoom',
+                button: true,
+                child: IconButton(
+                  onPressed: _zoom > 0.1 ? () => _applyZoom(_zoom - 0.1) : null,
+                  icon: const Icon(Icons.remove_rounded),
+                ),
               ),
               Expanded(
                 child: Text(
@@ -125,10 +136,13 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
-              IconButton(
-                tooltip: 'Ampliar',
-                onPressed: _zoom < 3 ? () => _applyZoom(_zoom + 0.1) : null,
-                icon: const Icon(Icons.add_rounded),
+              Semantics(
+                label: 'Ampliar zoom',
+                button: true,
+                child: IconButton(
+                  onPressed: _zoom < 3 ? () => _applyZoom(_zoom + 0.1) : null,
+                  icon: const Icon(Icons.add_rounded),
+                ),
               ),
             ],
           ),

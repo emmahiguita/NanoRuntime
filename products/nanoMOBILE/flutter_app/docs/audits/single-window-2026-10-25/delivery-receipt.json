@@ -1,0 +1,15 @@
+{
+  "date_local": "2026-10-25",
+  "variant": "fullSideloadDebug",
+  "package": "dev.nanoai.mobile",
+  "device": "VGL7MVFMDYQG8T55",
+  "installation": "adb install -r: Success",
+  "apk": "build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+  "bytes": 191062135,
+  "sha256": "f69c0810946cf0d93754eaca988e5faf83b07acc57e17daf0d312e18af4f3387",
+  "automated_tests_run": false,
+  "device_conversation_navigation": false,
+  "source_inventory": "source.json",
+  "analysis": "analyze.log",
+  "build": "build.log"
+}

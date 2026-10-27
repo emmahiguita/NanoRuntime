@@ -77,6 +77,21 @@ final class ConversationAddress {
     String ownerId = localOwnerId,
   }) {
     final parts = conversationId.split('/');
+    // Las fuentes remotas guardan su cuenta en la clave, no un paquete Android.
+    // El mismo contacto en Personal y Business conserva ámbitos independientes.
+    if (parts.length == 3 &&
+        (parts.first == 'meta' || parts.first == 'whatsapp-mcp')) {
+      final business = parts.first == 'meta';
+      return ConversationAddress(
+        ownerId: ownerId,
+        channel: business ? 'whatsapp.business' : 'whatsapp',
+        appPackage: business
+            ? MessagingPackage.whatsappBusiness
+            : MessagingPackage.whatsapp,
+        channelAccountId: '${parts.first}:${parts[1]}',
+        conversationId: conversationId,
+      );
+    }
     final channel = parts.isNotEmpty ? parts.first : '';
     final appPackage = parts.length > 1 ? parts[1] : channel;
     final account = parts.length > 2 ? parts[2] : '-';

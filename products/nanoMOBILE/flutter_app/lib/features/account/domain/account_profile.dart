@@ -7,6 +7,7 @@ class AccountProfile {
   final String uid, email, displayName, firstName, lastName, username;
   final String phone, country, stateProvince, city, address, gender, bio, language;
   final String? photoUrl;
+  final String? coverUrl;
   final String status, planTier, entitlementSource;
   final bool syncEnabled;
   final DateTime? birthDate, createdAt, updatedAt, lastLoginAt;
@@ -17,7 +18,7 @@ class AccountProfile {
     this.username = '', this.phone = '', this.country = '',
     this.stateProvince = '', this.city = '', this.address = '',
     this.gender = '', this.bio = '', this.language = 'Español',
-    this.photoUrl, this.status = 'active', this.planTier = 'free',
+    this.photoUrl, this.coverUrl, this.status = 'active', this.planTier = 'free',
     this.entitlementSource = 'none', this.syncEnabled = false,
     this.birthDate, this.createdAt, this.updatedAt, this.lastLoginAt,
   });
@@ -26,7 +27,7 @@ class AccountProfile {
     uid: '', email: '', displayName: '', firstName: '', lastName: '',
     username: '', phone: '', country: '', stateProvince: '', city: '',
     address: '', gender: '', bio: '', language: 'Español',
-    photoUrl: null, status: 'inactive', planTier: 'free',
+    photoUrl: null, coverUrl: null, status: 'inactive', planTier: 'free',
   );
 
   bool get isPro => planTier.toLowerCase() == 'pro' || isBusiness;
@@ -48,10 +49,13 @@ class AccountProfile {
     String? uid, String? email, String? displayName, String? firstName,
     String? lastName, String? username, String? phone, String? country,
     String? stateProvince, String? city, String? address, String? gender,
-    String? bio, String? language, String? photoUrl, String? status,
-    String? planTier, String? entitlementSource, bool? syncEnabled,
-    DateTime? birthDate, DateTime? createdAt, DateTime? updatedAt,
-    DateTime? lastLoginAt,
+    String? bio, String? language, String? photoUrl, String? coverUrl,
+    String? status, String? planTier, String? entitlementSource,
+    bool? syncEnabled, DateTime? birthDate, DateTime? createdAt,
+    DateTime? updatedAt, DateTime? lastLoginAt,
+    // null conserva; esta bandera permite quitar la foto realmente.
+    bool clearPhoto = false,
+    bool clearCover = false,
   }) {
     return AccountProfile(
       uid: uid ?? this.uid, email: email ?? this.email,
@@ -64,7 +68,8 @@ class AccountProfile {
       city: city ?? this.city, address: address ?? this.address,
       gender: gender ?? this.gender, bio: bio ?? this.bio,
       language: language ?? this.language,
-      photoUrl: photoUrl ?? this.photoUrl,
+      photoUrl: clearPhoto ? null : (photoUrl ?? this.photoUrl),
+      coverUrl: clearCover ? null : (coverUrl ?? this.coverUrl),
       status: status ?? this.status, planTier: planTier ?? this.planTier,
       entitlementSource: entitlementSource ?? this.entitlementSource,
       syncEnabled: syncEnabled ?? this.syncEnabled,
@@ -80,8 +85,9 @@ class AccountProfile {
     'firstName': firstName, 'lastName': lastName, 'username': username,
     'phone': phone, 'country': country, 'stateProvince': stateProvince,
     'city': city, 'address': address, 'gender': gender, 'bio': bio,
-    'language': language, 'photoUrl': photoUrl, 'status': status,
-    'planTier': planTier, 'entitlementSource': entitlementSource,
+    'language': language, 'photoUrl': photoUrl, 'coverUrl': coverUrl,
+    'status': status, 'planTier': planTier,
+    'entitlementSource': entitlementSource,
     'syncEnabled': syncEnabled, 'birthDate': birthDate?.toIso8601String(),
     'createdAt': createdAt?.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
@@ -109,6 +115,7 @@ class AccountProfile {
       bio: map['bio'] as String? ?? '',
       language: map['language'] as String? ?? 'Español',
       photoUrl: map['photoUrl'] as String?,
+      coverUrl: map['coverUrl'] as String?,
       status: map['status'] as String? ?? 'active',
       planTier: map['planTier'] as String? ?? 'free',
       entitlementSource: map['entitlementSource'] as String? ?? 'none',

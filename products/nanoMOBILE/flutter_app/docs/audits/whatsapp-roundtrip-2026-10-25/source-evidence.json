@@ -1,0 +1,47 @@
+{
+  "return": {
+    "file": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppAutoSendController.kt",
+    "line": 135,
+    "sha256": "e91a90a8472f55329de6dcf19f73dd48938f4af683939d743510653db28de526"
+  },
+  "share_args": {
+    "file": "lib/features/automation/engine/execution/handlers/whatsapp_tool_handler.dart",
+    "line": 146,
+    "sha256": "342705a4f705a0e0a0fe6092f287c08fb028ccf35befa9c0ef1f1355a50cf1c9"
+  },
+  "share_gate": {
+    "file": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppShareMediaBackend.kt",
+    "line": 69,
+    "sha256": "4991fec4fa94cda0ebfb1828e4413676e8823d86678f6184588a643c8a40c141"
+  },
+  "contact_match": {
+    "file": "lib/features/automation/engine/planning/contact_matcher.dart",
+    "line": 40,
+    "sha256": "923f731c7f822777115aedf1687255f610c7aa2ff314bd1e9b9ce8d3f2d4eea2"
+  },
+  "native_contact": {
+    "file": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/ShareChannelHandler.kt",
+    "line": 370,
+    "sha256": "560653fc2ea97d33ae3750974cb6a09a72ab8a4e426a48cd1ebd6d84cfcab08b"
+  },
+  "native_timeout": {
+    "file": "android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+    "line": 901,
+    "sha256": "4cc5467819f48165337fb5c872299cdcddad45fe214d76f547372dcbb671fd0a"
+  },
+  "header_fallback": {
+    "file": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppMediaVerifier.kt",
+    "line": 78,
+    "sha256": "04d787f9ff1930cfb7590bfb053eca56d470d88eb42bca581a5e5cc2008197ca"
+  },
+  "benchmark_prefixed": {
+    "file": "lib/features/automation/engine/benchmark/automation_benchmark_runner.dart",
+    "line": 104,
+    "sha256": "59f682e85019d5ccc5a4c62be0449d34bfa71051c1b05064d355ca8e3de94c09"
+  },
+  "mock_test": {
+    "file": "test/features/automation/whatsapp_e2e_automation_test.dart",
+    "line": 42,
+    "sha256": "f5e3e7c8c20e2f457f615808faa3646164ec7815bb9609f12f639554a5c3a09b"
+  }
+}

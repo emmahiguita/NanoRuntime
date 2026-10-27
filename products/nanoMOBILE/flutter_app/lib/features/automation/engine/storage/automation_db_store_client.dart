@@ -6,7 +6,7 @@
 /// headless (la base es única por proceso).
 library;
 
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/foundation.dart' show ValueNotifier, debugPrint;
 import 'package:flutter/services.dart';
 
 class AutomationDbStoreClient {
@@ -15,6 +15,33 @@ class AutomationDbStoreClient {
   static final AutomationDbStoreClient instance = AutomationDbStoreClient._();
 
   static const _channel = MethodChannel('com.nanoai/automation_store');
+
+  bool _isHealthy = true;
+  int _failedWriteCount = 0;
+  String? _lastError;
+  final ValueNotifier<bool> isHealthyNotifier = ValueNotifier<bool>(true);
+
+  bool get isHealthy => _isHealthy;
+  int get failedWriteCount => _failedWriteCount;
+  String? get lastError => _lastError;
+
+  void _recordSuccess() {
+    if (!_isHealthy || _failedWriteCount > 0) {
+      _isHealthy = true;
+      _failedWriteCount = 0;
+      _lastError = null;
+      isHealthyNotifier.value = true;
+    }
+  }
+
+  void _recordFailure(Object error) {
+    _failedWriteCount++;
+    _lastError = '$error';
+    if (_isHealthy && _failedWriteCount >= 3) {
+      _isHealthy = false;
+      isHealthyNotifier.value = false;
+    }
+  }
 
   /// Snapshot completo de secciones (load único al arrancar un engine).
   Future<Map<String, String>> loadAll() async {
@@ -38,20 +65,49 @@ class AutomationDbStoreClient {
     }
   }
 
-  Future<String?> requiredSection(String key) => _channel
-      .invokeMethod<String>('get', {'key': key})
-      .timeout(const Duration(seconds: 10));
+  Future<String?> requiredSection(String key) async {
+    for (var attempt = 0; attempt < 8; attempt++) {
+      try {
+        return await _channel
+            .invokeMethod<String>('get', {'key': key})
+            .timeout(const Duration(seconds: 4));
+      } on MissingPluginException {
+        if (attempt == 7) {
+          debugPrint(
+            '[automation-store] requiredSection($key) canal nativo no listo, fallback graceful',
+          );
+          return null;
+        }
+        final delayMs = 40 * (1 << attempt);
+        await Future<void>.delayed(
+          Duration(milliseconds: delayMs.clamp(40, 1000)),
+        );
+      } catch (error) {
+        debugPrint('[automation-store] requiredSection($key) falló: $error');
+        return null;
+      }
+    }
+    return null;
+  }
 
   /// Reemplazo atómico de la sección. false = rechazada (whitelist/tamaño).
   Future<bool> putSection(String key, String json) async {
     try {
-      return await _channel.invokeMethod<bool>('put', {
+      final ok =
+          await _channel.invokeMethod<bool>('put', {
             'key': key,
             'json': json,
           }) ??
           false;
+      if (ok) {
+        _recordSuccess();
+      } else {
+        _recordFailure('put($key) retornó false');
+      }
+      return ok;
     } on Object catch (error) {
       debugPrint('[automation-store] put($key) falló: $error');
+      _recordFailure(error);
       return false;
     }
   }
@@ -86,7 +142,8 @@ class AutomationDbStoreClient {
     String minimalContext = '',
   }) async {
     try {
-      return await _channel.invokeMethod<bool>('conversationAssign', {
+      final ok =
+          await _channel.invokeMethod<bool>('conversationAssign', {
             'addressKey': addressKey,
             'scopeId': scopeId,
             'ownerId': ownerId,
@@ -101,8 +158,15 @@ class AutomationDbStoreClient {
             'minimalContext': minimalContext,
           }) ??
           false;
+      if (ok) {
+        _recordSuccess();
+      } else {
+        _recordFailure('conversationAssign retornó false');
+      }
+      return ok;
     } on Object catch (error) {
       debugPrint('[automation-store] conversationAssign falló: $error');
+      _recordFailure(error);
       return false;
     }
   }
@@ -118,7 +182,8 @@ class AutomationDbStoreClient {
     String ruleId = '',
   }) async {
     try {
-      return await _channel.invokeMethod<bool>('conversationMessageAppend', {
+      final ok =
+          await _channel.invokeMethod<bool>('conversationMessageAppend', {
             'scopeId': scopeId,
             'eventId': eventId,
             'direction': direction,
@@ -129,8 +194,15 @@ class AutomationDbStoreClient {
             'ruleId': ruleId,
           }) ??
           false;
+      if (ok) {
+        _recordSuccess();
+      } else {
+        _recordFailure('conversationMessageAppend retornó false');
+      }
+      return ok;
     } on Object catch (error) {
       debugPrint('[automation-store] conversationMessageAppend falló: $error');
+      _recordFailure(error);
       return false;
     }
   }
@@ -141,14 +213,22 @@ class AutomationDbStoreClient {
     required int updatedAtMs,
   }) async {
     try {
-      return await _channel.invokeMethod<bool>('conversationStatePut', {
+      final ok =
+          await _channel.invokeMethod<bool>('conversationStatePut', {
             'scopeId': scopeId,
             'stateJson': stateJson,
             'updatedAtMs': updatedAtMs,
           }) ??
           false;
+      if (ok) {
+        _recordSuccess();
+      } else {
+        _recordFailure('conversationStatePut retornó false');
+      }
+      return ok;
     } on Object catch (error) {
       debugPrint('[automation-store] conversationStatePut falló: $error');
+      _recordFailure(error);
       return false;
     }
   }
@@ -160,15 +240,10 @@ class AutomationDbStoreClient {
     try {
       final rows = await _channel.invokeListMethod<Map<dynamic, dynamic>>(
         'conversationMessageList',
-        {
-          'scopeId': scopeId,
-          'limit': limit,
-        },
+        {'scopeId': scopeId, 'limit': limit},
       );
       if (rows == null) return const [];
-      return rows
-          .map((r) => r.cast<String, dynamic>())
-          .toList(growable: false);
+      return rows.map((r) => r.cast<String, dynamic>()).toList(growable: false);
     } on Object catch (error) {
       debugPrint('[automation-store] conversationMessageList falló: $error');
       return const [];

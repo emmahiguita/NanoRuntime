@@ -9,6 +9,9 @@ class GoogleAccountProfile {
   final String displayName;
   final String? avatarUrl;
   final bool isConnected;
+
+  /// Procedencia del SDK OAuth, separada de conectividad o permisos de Drive.
+  final bool identityVerified;
   final bool isInternetReachable;
   final DateTime? lastSynced;
   final bool browserAgentEnabled;
@@ -21,6 +24,7 @@ class GoogleAccountProfile {
     this.displayName = '',
     this.avatarUrl,
     this.isConnected = false,
+    this.identityVerified = false,
     this.isInternetReachable = false,
     this.lastSynced,
     this.browserAgentEnabled = false,
@@ -34,6 +38,7 @@ class GoogleAccountProfile {
       displayName = '',
       avatarUrl = null,
       isConnected = false,
+      identityVerified = false,
       isInternetReachable = false,
       lastSynced = null,
       browserAgentEnabled = false,
@@ -60,6 +65,7 @@ class GoogleAccountProfile {
     String? displayName,
     String? avatarUrl,
     bool? isConnected,
+    bool? identityVerified,
     bool? isInternetReachable,
     DateTime? lastSynced,
     bool? browserAgentEnabled,
@@ -72,6 +78,7 @@ class GoogleAccountProfile {
       displayName: displayName ?? this.displayName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       isConnected: isConnected ?? this.isConnected,
+      identityVerified: identityVerified ?? this.identityVerified,
       isInternetReachable: isInternetReachable ?? this.isInternetReachable,
       lastSynced: lastSynced ?? this.lastSynced,
       browserAgentEnabled: browserAgentEnabled ?? this.browserAgentEnabled,
@@ -87,6 +94,7 @@ class GoogleAccountProfile {
       'displayName': displayName,
       'avatarUrl': avatarUrl,
       'isConnected': isConnected,
+      'identityVerified': identityVerified,
       'isInternetReachable': isInternetReachable,
       'lastSynced': lastSynced?.toIso8601String(),
       'browserAgentEnabled': browserAgentEnabled,
@@ -102,6 +110,7 @@ class GoogleAccountProfile {
       displayName: map['displayName'] as String? ?? '',
       avatarUrl: map['avatarUrl'] as String?,
       isConnected: map['isConnected'] as bool? ?? false,
+      identityVerified: map['identityVerified'] as bool? ?? false,
       isInternetReachable: map['isInternetReachable'] as bool? ?? false,
       lastSynced: map['lastSynced'] != null
           ? DateTime.tryParse(map['lastSynced'] as String)

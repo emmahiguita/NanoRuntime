@@ -52,8 +52,8 @@ class UniversalCapabilityDetector {
   UniversalCapabilityDetector({
     SystemInventory? inventory,
     NanoRuntimeApi? runtime,
-  })  : _inventory = inventory,
-        _runtime = runtime ?? NanoRuntimeApi.instance;
+  }) : _inventory = inventory,
+       _runtime = runtime ?? NanoRuntimeApi.instance;
 
   /// Realiza un sondeo completo y factual del entorno Android.
   Future<UniversalDeviceSnapshot> detectCapabilities() async {
@@ -132,7 +132,8 @@ class UniversalCapabilityDetector {
     try {
       // Comprobar si existe proceso de ADB local o puerto de depuración inalámbrica
       final env = Platform.environment;
-      return env.containsKey('ADB_VENDOR_KEYS') || env.containsKey('ANDROID_ADB_SERVER_PORT');
+      return env.containsKey('ADB_VENDOR_KEYS') ||
+          env.containsKey('ANDROID_ADB_SERVER_PORT');
     } catch (_) {
       return false;
     }

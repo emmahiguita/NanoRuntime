@@ -1,24 +1,25 @@
-/// PragmaticFastPath (A07) — motor de diálogo determinista sin LLM (< 190 LOC).
-///
-/// **QUÉ HACE:**
-/// Comprende y resuelve turnos conversacionales cotidianos en < 5ms:
-/// saludos, bienestar, reciprocidad, actividad/planes, situaciones, presencia y ayuda.
-///
-/// **CÓMO FUNCIONA:**
-/// Clasifica intenciones y consulta bancos inmutables de candidatos (> 10 opciones).
-///
-/// **POR QUÉ:**
-/// Arquitectura Android-First y Clean Architecture modular (< 200 LOC por archivo).
+/// PragmaticFastPath — motor de diálogo determinista sin LLM (< 200 LOC).
+/// QUÉ HACE: resuelve turnos conversacionales en < 5ms (saludos, bienestar, reciprocidad).
+/// CÓMO FUNCIONA: clasifica intenciones y consulta bancos inmutables de candidatos (> 10 opciones).
+/// POR QUÉ: arquitectura Android-First y Clean Architecture modular (< 200 LOC).
 library;
 
-import '../../../../core/services/device_metrics.dart' show DeviceMetrics, DeviceMetricsData;
+import '../../../../core/services/device_metrics.dart'
+    show DeviceMetrics, DeviceMetricsData;
+import '../../personal_agent/application/conversation_decision_guards.dart'
+    show ConversationDecisionGuards;
 import '../../personal_agent/domain/conversation_agent_role.dart'
     show correctionPhrases, commercialIntentTokens, supportPhrases;
+import '../../personal_agent/domain/owner_live_fact_guard.dart'
+    show intentNeedsOwnerLiveFact;
 import '../business/fact_selector.dart' show normalizeText, tokenizeText;
-import '../messaging/conv_turn_state.dart' show ClientContextEntry, isPureGreeting;
-import '../messaging/conversation_memory.dart' show ConversationMemory, ConversationMemoryEntryKind;
+import '../messaging/conv_turn_state.dart'
+    show ClientContextEntry, isPureGreeting;
+import '../messaging/conversation_memory.dart'
+    show ConversationMemory, ConversationMemoryEntryKind;
 import '../notifications/conversation_understanding.dart';
 import 'fast_path_models.dart';
+import 'safe_repair_options.dart';
 import 'temporal_location_context.dart';
 import 'turn_complexity_classifier.dart' show turnComplexityClassifier;
 
@@ -47,7 +48,12 @@ final class PragmaticFastPath {
   final String? Function()? ownerName;
   final Future<DeviceMetricsData> Function()? metricsSource;
 
-  const PragmaticFastPath({this.memoryFor, this.contextEntryFor, this.ownerName, this.metricsSource});
+  const PragmaticFastPath({
+    this.memoryFor,
+    this.contextEntryFor,
+    this.ownerName,
+    this.metricsSource,
+  });
 
   static DeviceMetricsData? _cachedMetrics;
   static DateTime? _lastMetricsFetch;
@@ -55,7 +61,9 @@ final class PragmaticFastPath {
 
   Future<DeviceMetricsData?> _getMetrics() async {
     final now = DateTime.now();
-    if (_cachedMetrics != null && _lastMetricsFetch != null && now.difference(_lastMetricsFetch!) < _metricsTtl) {
+    if (_cachedMetrics != null &&
+        _lastMetricsFetch != null &&
+        now.difference(_lastMetricsFetch!) < _metricsTtl) {
       return _cachedMetrics;
     }
     try {
@@ -85,7 +93,10 @@ final class PragmaticFastPath {
     if (_hasCommercialOrCommandSignal(normalized, tokens)) return null;
 
     // 2. Escape de contenido narrativo / sustantivo / estado personal
-    if (_PragmaticFastPathNarrative.hasSubstantiveNarrative(normalized, tokens)) {
+    if (_PragmaticFastPathNarrative.hasSubstantiveNarrative(
+      normalized,
+      tokens,
+    )) {
       return null;
     }
 
@@ -93,57 +104,59 @@ final class PragmaticFastPath {
     final intents = _extractIntents(normalized, tokens);
     if (intents.isEmpty) return null;
 
-    // 4. Si la conversación tiene obligaciones pendientes activas
-    // El compositor puede entregar memoria ya unificada entre nombre y JID.
+    // 4. Ciclo 13: FastPath = optimización, no cerebro conversacional.
     final memory = memoryOverride ?? memoryFor?.call(conversationId);
+    if (intents.any(
+      (i) =>
+          i.routingClass == FastPathRoutingClass.liveStateRequired ||
+          i.routingClass == FastPathRoutingClass.llmRequired,
+    )) {
+      return null;
+    }
+    final hasContextRequired = intents.any(
+      (i) => i.routingClass == FastPathRoutingClass.contextRequired,
+    );
+    if (hasContextRequired &&
+        (intents.length >= 2 ||
+            tokens.length > 5 ||
+            (memory != null && memory.entries.isNotEmpty))) {
+      return null;
+    }
+
+    // 5. Si la conversación tiene obligaciones pendientes activas
     if (memory != null && memory.unresolvedObligations.isNotEmpty) {
-      final isGreeting = intents.contains(ConversationIntent.greeting) || isPureGreeting(raw);
+      final isGreeting =
+          intents.contains(ConversationIntent.greeting) || isPureGreeting(raw);
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       final isStale = memory.lastAtMs > 0 && (nowMs - memory.lastAtMs) > 900000;
       if (!isGreeting && !isStale) return null;
     }
 
-    // 5. Consultar hechos de hardware bajo demanda SOLO si la intención lo pide
     DeviceMetricsData? metrics;
     if (intents.contains(ConversationIntent.askDeviceBattery)) {
       metrics = await _getMetrics();
     }
 
-    // 6. Inspeccionar historial de conversación reciente para anti-repetición y anti-bucle
     final nowMs = DateTime.now().millisecondsSinceEpoch;
     var recentlyGreeted = false;
     String? lastOutboundText;
 
     if (memory != null && memory.entries.isNotEmpty) {
-      final recent = memory.entries.reversed.take(10);
-      for (final entry in recent) {
-        if (entry.kind == ConversationMemoryEntryKind.outboundVerified ||
+      for (final entry in memory.entries.reversed.take(10)) {
+        final isOut =
+            entry.kind == ConversationMemoryEntryKind.outboundVerified ||
             entry.kind == ConversationMemoryEntryKind.outboundDispatched ||
-            entry.kind == ConversationMemoryEntryKind.outboundObservedManual) {
-          lastOutboundText ??= entry.text;
-          if (nowMs - entry.atMs < 900000) recentlyGreeted = true;
-        }
-        if (nowMs - entry.atMs < 900000) {
-          final folded = normalizeText(entry.text);
-          const greetingKeywords = [
-            'hola',
-            'buenas',
-            'buen dia',
-            'buenos dias',
-            'que mas',
-            'quiubo',
-            'como estas',
-            'como te va',
-            'todo bien',
-          ];
-          if (greetingKeywords.any(folded.contains)) {
-            recentlyGreeted = true;
-          }
+            entry.kind == ConversationMemoryEntryKind.outboundObservedManual;
+        if (isOut) lastOutboundText ??= entry.text;
+        if (entry.kind != ConversationMemoryEntryKind.outboundDispatched &&
+            entry.kind != ConversationMemoryEntryKind.effectUnknown &&
+            nowMs - entry.atMs < 900000 &&
+            _isGreetingSnippet(entry.text)) {
+          recentlyGreeted = true;
         }
       }
     }
 
-    // 7. Componer la respuesta unificada y natural
     final result = _composeUnifiedReply(
       intents: intents,
       normalized: normalized,
@@ -157,26 +170,9 @@ final class PragmaticFastPath {
     if (result == null || result.reply.trim().isEmpty) return null;
 
     final actLabel = intents.map((i) => i.name).join('+');
-    const respondingIntents = {
-      ConversationIntent.reciprocalQuestion,
-      ConversationIntent.userWellbeing,
-      ConversationIntent.negation,
-      ConversationIntent.affirmation,
-      ConversationIntent.askRap,
-      ConversationIntent.invitation,
-      ConversationIntent.wellbeingClarification,
-      ConversationIntent.askAvailability,
-      ConversationIntent.askFood,
-      ConversationIntent.askPhysicalLocation,
-      ConversationIntent.askFamily,
-      ConversationIntent.askSleep,
-      ConversationIntent.askMusic,
-      ConversationIntent.askWeatherSocial,
-      ConversationIntent.askCall,
-      ConversationIntent.askLostOrMissing,
-      ConversationIntent.askOpinionSocial,
-    };
-    final isResponse = intents.any(respondingIntents.contains);
+    final needsOwnerFact = intentNeedsOwnerLiveFact(intents.map((i) => i.name));
+    final affirmsActivity = ConversationDecisionGuards.affirmsOwnerActivity(result.reply);
+    final isResponse = intents.any(_isRespondingIntent);
 
     return FastPathCandidate(
       act: actLabel,
@@ -188,9 +184,50 @@ final class PragmaticFastPath {
         intent: actLabel,
         relation: isResponse ? 'responde' : 'nuevo',
         questions: const [],
-        missingFacts: const [],
+        missingFacts: (needsOwnerFact && affirmsActivity)
+            ? const ['estado actual del dueño']
+            : const [],
         requiresAction: false,
       ),
     );
+  }
+
+  static bool _isGreetingSnippet(String text) {
+    final f = normalizeText(text);
+    return const [
+      'hola',
+      'buenas',
+      'buen dia',
+      'buenos dias',
+      'que mas',
+      'quiubo',
+      'como estas',
+      'como te va',
+      'todo bien',
+    ].any(f.contains);
+  }
+
+  static bool _isRespondingIntent(ConversationIntent i) {
+    const responding = {
+      ConversationIntent.reciprocalQuestion,
+      ConversationIntent.userWellbeing,
+      ConversationIntent.socialReassurance,
+      ConversationIntent.userCorrection,
+      ConversationIntent.negation,
+      ConversationIntent.affirmation,
+      ConversationIntent.askRap,
+      ConversationIntent.invitation,
+      ConversationIntent.askAvailability,
+      ConversationIntent.askFood,
+      ConversationIntent.askPhysicalLocation,
+      ConversationIntent.askFamily,
+      ConversationIntent.askSleep,
+      ConversationIntent.askMusic,
+      ConversationIntent.askWeatherSocial,
+      ConversationIntent.askCall,
+      ConversationIntent.askLostOrMissing,
+      ConversationIntent.askOpinionSocial,
+    };
+    return responding.contains(i);
   }
 }

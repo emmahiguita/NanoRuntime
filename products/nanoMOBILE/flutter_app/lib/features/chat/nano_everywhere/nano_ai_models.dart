@@ -38,7 +38,18 @@ class NanoMediaResource {
 }
 
 /// Estado visible del búho animado — dirige sprites y efectos.
-enum NanoActivity { idle, listening, thinking, comparing, debating, acting, success, error, sleep, fly }
+enum NanoActivity {
+  idle,
+  listening,
+  thinking,
+  comparing,
+  debating,
+  acting,
+  success,
+  error,
+  sleep,
+  fly,
+}
 
 /// Categoría de proveedor para controlar qué flujo de consulta se usa.
 enum NanoProviderKind { local, approvedWeb, nativeApp }
@@ -54,6 +65,9 @@ class NanoProvider {
     required this.name,
     required this.kind,
     this.ask,
+    this.cancel,
+    this.isReady,
+    this.unavailableReason,
     this.androidPackage,
   });
 
@@ -63,6 +77,13 @@ class NanoProvider {
 
   /// Callback de consulta programática; null si el proveedor es una app nativa.
   final NanoAsk? ask;
+
+  /// Cancela únicamente la generación propiedad de este proveedor.
+  final Future<void> Function()? cancel;
+
+  /// Consulta estado al despachar; no recrea el controlador por cada token.
+  final bool Function()? isReady;
+  final String Function()? unavailableReason;
 
   /// Paquete Android para handoff con Intent.ACTION_SEND (ej: com.openai.chatgpt).
   final String? androidPackage;
@@ -94,6 +115,17 @@ class NanoAnswer {
   bool get ok => error == null && text.trim().isNotEmpty;
 }
 
+/// Informa al diálogo que se necesita una acción humana, como iniciar sesión.
+@immutable
+class NanoUserActionRequiredException implements Exception {
+  const NanoUserActionRequiredException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Puerto para compartir prompts con apps nativas de IA (ChatGPT, Gemini app…).
 /// No lee respuestas: solo hace handoff vía Intent.ACTION_SEND.
 abstract interface class NanoNativeAiPort {
@@ -104,4 +136,9 @@ abstract interface class NanoNativeAiPort {
 abstract interface class NanoActionPort {
   /// Valida permisos, ejecuta y verifica el objetivo con el motor real.
   Future<String> executeAuthorizedGoal(String goal);
+}
+
+/// Cancelación cooperativa del dueño de una acción, sin cancelar otras tareas.
+abstract interface class NanoCancellableActionPort implements NanoActionPort {
+  void cancelActiveAction();
 }

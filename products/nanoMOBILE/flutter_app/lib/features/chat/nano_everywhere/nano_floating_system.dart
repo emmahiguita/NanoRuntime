@@ -4,26 +4,45 @@
 // POR QUÉ: La interfaz es síncrona desde Flutter; el canal es el único puente.
 //          const constructor — sin estado, reutilizable sin instanciar.
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 /// El overlay nativo vive fuera de la Activity de Nano — pide permiso desde un tap.
 class NanoFloatingSystem {
   const NanoFloatingSystem();
+
+  /// Estado compartido observado; evita dibujar dos orbes en la misma pantalla.
+  static final activeState = ValueNotifier<bool>(false);
   static const _channel = MethodChannel('dev.nanoai/floating');
 
   /// Toma el prompt + modo del overlay nativo (null si no hay pendiente).
   Future<Map<String, dynamic>?> takePendingEntry() async {
-    final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>('takePendingEntry');
+    final raw = await _channel.invokeMethod<Map<dynamic, dynamic>>(
+      'takePendingEntry',
+    );
     return raw?.map((key, value) => MapEntry(key.toString(), value));
   }
 
   Future<bool> get permitted async =>
       await _channel.invokeMethod<bool>('hasPermission') ?? false;
 
+  /// Consulta si la burbuja nativa está realmente creada.
+  Future<bool> get active async {
+    final value = await _channel.invokeMethod<bool>('isActive') ?? false;
+    activeState.value = value;
+    return value;
+  }
+
   Future<void> requestPermission() =>
       _channel.invokeMethod<void>('requestPermission');
 
-  Future<bool> show() async =>
-      await _channel.invokeMethod<bool>('show') ?? false;
+  Future<bool> show() async {
+    final accepted = await _channel.invokeMethod<bool>('show') ?? false;
+    if (accepted) activeState.value = true;
+    return accepted;
+  }
 
-  Future<void> hide() => _channel.invokeMethod<void>('hide');
+  Future<void> hide() async {
+    await _channel.invokeMethod<void>('hide');
+    activeState.value = false;
+  }
 }

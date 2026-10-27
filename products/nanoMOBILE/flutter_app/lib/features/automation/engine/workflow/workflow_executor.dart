@@ -77,9 +77,7 @@ class WorkflowStepResult {
   });
 
   bool get isSuccess =>
-      !outcome.executionFailed &&
-      !outcome.needsConfirmation &&
-      verified;
+      !outcome.executionFailed && !outcome.needsConfirmation && verified;
 }
 
 /// Informe final estructurado de la ejecución de un workflow.
@@ -113,11 +111,11 @@ class WorkflowExecutor {
     AppCapabilityRegistry? capabilityRegistry,
     ActionVerifier? verifier,
     GoalVerifier? goalVerifier,
-  })  : _dispatcher = dispatcher,
-        _waiter = waiter,
-        _capabilityRegistry = capabilityRegistry ?? AppCapabilityRegistry(),
-        _verifier = verifier,
-        _goalVerifier = goalVerifier;
+  }) : _dispatcher = dispatcher,
+       _waiter = waiter,
+       _capabilityRegistry = capabilityRegistry ?? AppCapabilityRegistry(),
+       _verifier = verifier,
+       _goalVerifier = goalVerifier;
 
   final AgentToolDispatcher _dispatcher;
   final EventDrivenWaiter _waiter;
@@ -160,7 +158,8 @@ class WorkflowExecutor {
           status: WorkflowStatus.needsConfirmation,
           stepsExecuted: executed,
           elapsed: stopwatch.elapsed,
-          summary: 'El paso ${i + 1} (${step.description}) requiere confirmación humana.',
+          summary:
+              'El paso ${i + 1} (${step.description}) requiere confirmación humana.',
         );
       }
 
@@ -203,7 +202,8 @@ class WorkflowExecutor {
           status: WorkflowStatus.failed,
           stepsExecuted: executed,
           elapsed: stopwatch.elapsed,
-          summary: 'Fallo en paso ${i + 1} (${step.description}): ${outcome.feedback}',
+          summary:
+              'Fallo en paso ${i + 1} (${step.description}): ${outcome.feedback}',
         );
       }
 
@@ -273,7 +273,8 @@ class WorkflowExecutor {
           status: WorkflowStatus.failed,
           stepsExecuted: executed,
           elapsed: stopwatch.elapsed,
-          summary: 'Los pasos se ejecutaron pero el objetivo final no se satisfizo: ${finalCheck.reason}',
+          summary:
+              'Los pasos se ejecutaron pero el objetivo final no se satisfizo: ${finalCheck.reason}',
         );
       }
     }
@@ -285,7 +286,8 @@ class WorkflowExecutor {
       status: WorkflowStatus.completed,
       stepsExecuted: executed,
       elapsed: stopwatch.elapsed,
-      summary: 'Workflow "${goal.title}" completado con éxito en ${executed.length} pasos (${stopwatch.elapsed.inMilliseconds}ms).',
+      summary:
+          'Workflow "${goal.title}" completado con éxito en ${executed.length} pasos (${stopwatch.elapsed.inMilliseconds}ms).',
     );
   }
 

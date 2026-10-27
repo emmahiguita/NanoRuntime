@@ -1,0 +1,143 @@
+part of 'terminal_screen.dart';
+
+/// Distribuye terminal, editor y pestañas según orientación y teclado.
+extension _TerminalLayout on _TerminalTabScreenState {
+  Widget _buildTerminalLayout(BuildContext context) {
+    final themeColors = NanoThemeExtension.of(context).colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final chrome = isDark ? const Color(0xFF07192B) : themeColors.surface;
+    final fg = isDark ? const Color(0xFF21F2B2) : themeColors.terminalGreen;
+
+    return NanoInputScope(
+      scopeId: 'terminal',
+      controller: _commandController,
+      focusNode: _commandFocusNode,
+      keepFocusOnSubmit: true,
+      keepDockVisible: true,
+      hint: _sessions.isNotEmpty
+          ? 'Comando para ${_sessions[_active].name}...'
+          : 'Escribe un comando de terminal...',
+      onSubmit: (text) {
+        final trimmed = text.trim();
+        if (trimmed.isNotEmpty &&
+            _sessions.isNotEmpty &&
+            _active >= 0 &&
+            _active < _sessions.length) {
+          final state =
+              _sessions[_active].key.currentState as NanoTerminalState?;
+          state?.executeCommand(trimmed);
+          _commandController.clear();
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isLandscape =
+              MediaQuery.orientationOf(context) == Orientation.landscape ||
+              constraints.maxHeight < 500;
+          final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+          final double bottomReserve = isKeyboardOpen
+              ? 0.0
+              : (isLandscape ? 64.0 : kNanoBarScrollReserve);
+
+          final terminalBox = TerminalViewBox(
+            sessions: _sessions,
+            activeIndex: _active,
+            isSquareMode: _isSquareMode,
+            fgColor: fg,
+            isDark: isDark,
+            engine: _engine,
+            commandFocusNode: _commandFocusNode,
+            commandController: _commandController,
+            initialCommand: widget.initialCommand,
+            onTitleChanged: (i, title) {
+              if (title != _sessions[i].name) {
+                _update(() => _sessions[i].name = title);
+              }
+            },
+          );
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(
+                child: RepaintBoundary(
+                  child: BuhoWallpaper(scrimOpacity: isDark ? 0.72 : 0.52),
+                ),
+              ),
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: bottomReserve),
+                  child: Column(
+                    children: [
+                      TerminalTopBar(
+                        sessions: _sessions,
+                        activeIndex: _active,
+                        isSquareMode: _isSquareMode,
+                        chromeColor: chrome,
+                        fgColor: fg,
+                        isDark: isDark,
+                        onSelectTab: (idx) => _update(() => _active = idx),
+                        onCloseTab: _closeTab,
+                        onAddTab: _addNewTab,
+                        onToggleSquare: () {
+                          _update(() {
+                            _isSquareMode = !_isSquareMode;
+                            if (!_isSquareMode && _heightFraction < 0.65) {
+                              _heightFraction = 0.85;
+                            }
+                          });
+                        },
+                      ),
+                      TerminalHeightResizeHandle(
+                        handleColor: fg,
+                        onVerticalDragDelta: (delta) {
+                          _update(() {
+                            _isSquareMode = false;
+                            final deltaFrac = delta / constraints.maxHeight;
+                            _heightFraction = (_heightFraction - deltaFrac)
+                                .clamp(0.35, 1.0);
+                          });
+                        },
+                        onDoubleTap: () {
+                          _update(() {
+                            _heightFraction = _heightFraction > 0.70
+                                ? 0.45
+                                : 0.95;
+                          });
+                        },
+                      ),
+                      if (_isSquareMode)
+                        Expanded(
+                          child: Center(
+                            child: AspectRatio(
+                              aspectRatio: 1.0,
+                              child: terminalBox,
+                            ),
+                          ),
+                        )
+                      else if (_heightFraction >= 0.98)
+                        Expanded(child: terminalBox)
+                      else ...[
+                        Expanded(
+                          flex: (_heightFraction * 100).round().clamp(20, 100),
+                          child: terminalBox,
+                        ),
+                        Spacer(
+                          flex: ((1.0 - _heightFraction) * 100).round().clamp(
+                            1,
+                            80,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}

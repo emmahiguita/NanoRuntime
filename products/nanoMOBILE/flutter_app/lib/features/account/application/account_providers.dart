@@ -26,7 +26,7 @@ import 'subscription_controller.dart';
 /// Permite reemplazar adaptadores en tests o entornos específicos sin tocar la UI.
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return FirebaseAuthAdapter();
+  return LocalAuthAdapter();
 });
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) {
@@ -78,8 +78,5 @@ final deviceControllerProvider =
     StateNotifierProvider<DeviceController, DeviceListState>((ref) {
       final deviceRepo = ref.watch(deviceRepositoryProvider);
       final authState = ref.watch(sessionGateProvider);
-      return DeviceController(
-        repository: deviceRepo,
-        uid: authState.user.uid,
-      );
+      return DeviceController(repository: deviceRepo, uid: authState.user.uid);
     });

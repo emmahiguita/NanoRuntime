@@ -1,0 +1,14 @@
+[
+  {
+    "file": "lib/core/theme/nano_light_colors.part.dart",
+    "lines": 199
+  },
+  {
+    "file": "lib/features/settings/presentation/widgets/appearance_settings_card.dart",
+    "lines": 163
+  },
+  {
+    "file": "lib/features/settings/presentation/widgets/appearance_theme_tile.part.dart",
+    "lines": 103
+  }
+]

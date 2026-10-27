@@ -3,110 +3,59 @@ package dev.nanoai.mobile.services.whatsapp
 import android.app.ActivityOptions
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.os.Build
+import android.os.Bundle
 
-/**
- * QUÉ HACE: Interfaz abstracta para estrategias de posicionamiento de ventana al lanzar WhatsApp.
- * CÓMO FUNCIONA: Aplica flags de Intent y ActivityOptions según las capacidades del dispositivo.
- * POR QUÉ: Android impide embeber WhatsApp en WebViews o layouts Flutter (Activity Embedding sin permiso).
- *          Esta abstracción permite usar ventanas flotantes u overlays según el fabricante (OPPO, Samsung, etc.).
- * SOLID: Cumple Abierto/Cerrado (OCP) e Inversión de Dependencias (DIP).
- */
+/** Separa flags del Intent y opciones de lanzamiento. ActivityOptions se pasa
+ * a startActivity(intent, options), nunca mediante putExtras del Intent. */
 interface WindowStrategy {
     fun applyToIntent(intent: Intent, context: Context)
+    fun launchOptions(context: Context): Bundle? = null
 }
 
-/**
- * QUÉ HACE: Estrategia para posicionar WhatsApp en modo ventana flotante (Freeform) nativo de Android.
- * CÓMO FUNCIONA: Utiliza [ActivityOptions.setLaunchBounds] con un marco centrado en pantalla.
- * POR QUÉ: Si el dispositivo admite Freeform (ej. Android Desktop o Developer Options), WhatsApp abre en ventana reducida.
- */
-class AndroidFreeformStrategy(
-    private val widthPercent: Float = 0.8f,
-    private val heightPercent: Float = 0.7f
-) : WindowStrategy {
-    override fun applyToIntent(intent: Intent, context: Context) {
-        val displayMetrics = context.resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
-        val screenHeight = displayMetrics.heightPixels
-
-        // Cálculo dinámico del rectángulo sin valores hardcodeados
-        val width = (screenWidth * widthPercent).toInt()
-        val height = (screenHeight * heightPercent).toInt()
-        val left = (screenWidth - width) / 2
-        val top = (screenHeight - height) / 2
-
-        val bounds = Rect(left, top, left + width, top + height)
-        val options = ActivityOptions.makeBasic()
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            options.launchBounds = bounds
-        }
-
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        intent.putExtras(options.toBundle())
-    }
-}
-
-/**
- * QUÉ HACE: Estrategia específica para dispositivos OEM (ColorOS/OPPO, MIUI, OneUI).
- * CÓMO FUNCIONA: Inyecta extras propietarios de ventana flotante conocidos de los fabricantes.
- * POR QUÉ: Dispositivos como OPPO CPH2557 (ColorOS) responden a extras OEM para abrir mini-ventanas flotantes.
- */
-class OemFloatingWindowStrategy : WindowStrategy {
+/** Solicita límites públicos de Android. El sistema puede ignorarlos; esta
+ * estrategia no certifica que WhatsApp haya quedado en una ventana reducida. */
+class AndroidFreeformStrategy : WindowStrategy {
+    /** Una Activity externa conserva tarea propia sin extras OEM no documentados. */
     override fun applyToIntent(intent: Intent, context: Context) {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        // Flag propietario de ColorOS / OPPO para forzar ventana flotante Smart Sidebar
-        intent.putExtra("com.oppo.intent.extra.FLOAT_WINDOW", true)
-        // Flag propietario de Samsung Multi-Window / Pop-up view
-        intent.putExtra("com.samsung.android.action.FORCE_WINDOW_MODE", true)
+    }
+
+    /** Calcula tamaño según el espacio real. El Bundle pertenece a ActivityOptions. */
+    override fun launchOptions(context: Context): Bundle? {
+        if (!WindowStrategySelector.supportsFloating(context)) return null
+        val dm = context.resources.displayMetrics
+        val width = (dm.widthPixels * .8f).toInt()
+        val height = (dm.heightPixels * .7f).toInt()
+        val left = (dm.widthPixels - width) / 2
+        val top = (dm.heightPixels - height) / 2
+        return ActivityOptions.makeBasic().apply {
+            launchBounds = Rect(left, top, left + width, top + height)
+        }.toBundle()
     }
 }
 
-/**
- * QUÉ HACE: Estrategia para abrir WhatsApp en pantalla dividida al lado de Nano.
- * CÓMO FUNCIONA: Aplica FLAG_ACTIVITY_LAUNCH_ADJACENT y FLAG_ACTIVITY_NEW_TASK.
- * POR QUÉ: Permite que Nano mantenga su UI visible en un lado mientras WhatsApp opera en el otro.
- */
-class AdjacentMultiWindowStrategy : WindowStrategy {
-    override fun applyToIntent(intent: Intent, context: Context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            intent.addFlags(Intent.FLAG_ACTIVITY_LAUNCH_ADJACENT or Intent.FLAG_ACTIVITY_NEW_TASK)
-        } else {
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-    }
-}
-
-/**
- * QUÉ HACE: Estrategia de respaldo universal (Fallback).
- * CÓMO FUNCIONA: Abre WhatsApp a pantalla completa mientras el Overlay de Accesibilidad de Nano permanece arriba.
- * POR QUÉ: Garantiza compatibilidad al 100% en teléfonos donde el SO ignora solicitudes de ventana flotante.
- */
+/** Apertura normal. El overlay de Nano tiene permisos y ciclo de vida propios;
+ * esta estrategia no afirma que el overlay esté activo ni fuerza mini-ventanas. */
 class FullscreenOverlayStrategy : WindowStrategy {
+    /** Conserva la ruta existente para compartir desde una tarea Android propia. */
     override fun applyToIntent(intent: Intent, context: Context) {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }
 }
 
-/**
- * QUÉ HACE: Selector inteligente de la mejor estrategia de ventana disponible en el dispositivo.
- * CÓMO FUNCIONA: Evalúa la marca del fabricante y soporte de Android para retornar la estrategia óptima.
- * POR QUÉ: Evita fallos en tiempo de ejecución al seleccionar automáticamente la mejor opción según el hardware.
- */
+/** Solo ofrece capacidades publicadas por Android; la marca no demuestra
+ * soporte y no autoriza a inyectar flags privados de Samsung/ColorOS. */
 object WindowStrategySelector {
-    fun resolveBest(context: Context): WindowStrategy {
-        val manufacturer = Build.MANUFACTURER.lowercase()
-        return when {
-            // Samsung soporta flotante nativo Knox/OneUI de forma estable
-            manufacturer.contains("samsung") -> {
-                OemFloatingWindowStrategy()
-            }
-            // En ColorOS/OPPO/Realme/OnePlus y Android 14 moderno, flags propietarios
-            // provocan onTaskVanished por FlexibleTaskController.
-            // Usamos FullscreenOverlayStrategy para garantizar apertura confiable.
-            else -> FullscreenOverlayStrategy()
-        }
-    }
+    /** No confunde soporte PiP de vídeo con poder poner otra app en freeform. */
+    fun supportsFloating(context: Context): Boolean =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+            context.packageManager.hasSystemFeature(PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT)
+
+    /** Mantiene apertura normal salvo petición explícita y capacidad disponible. */
+    fun resolveBest(context: Context, preferFloating: Boolean = false): WindowStrategy =
+        if (preferFloating && supportsFloating(context)) AndroidFreeformStrategy()
+        else FullscreenOverlayStrategy()
 }

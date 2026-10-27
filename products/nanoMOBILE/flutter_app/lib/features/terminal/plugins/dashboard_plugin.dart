@@ -18,10 +18,8 @@ class DashboardPlugin {
         '══ Dashboard ══\n'
         'CPU: $cores cores | RAM: $ramStr\n'
         'Rootfs: ${s.rootfs?.isInstalled == true ? "INSTALADO" : "no instalado"}\n'
-        'Procs: ${c.procs.procs.length} | '
-        'Pkgs: ${c.pkgs.pkgs.where((p) => p.installed).length} | '
-        'Containers: ${c.containers.cons.where((x) => !x.status.startsWith("Exited")).length} | '
-        'Plugins: ${c.plugins.plugs.where((p) => p.enabled).length}',
+        // Las listas de compatibilidad no son un inventario del sistema.
+        'Procesos, paquetes, contenedores y plugins: no consultados',
         Ln.stdout,
       );
     });

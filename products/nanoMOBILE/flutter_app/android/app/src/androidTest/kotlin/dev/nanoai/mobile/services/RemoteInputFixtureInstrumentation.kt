@@ -22,14 +22,48 @@ import java.util.concurrent.atomic.AtomicReference
  * contacto real.
  */
 class RemoteInputFixtureInstrumentation : Instrumentation() {
+    private var nativeProbe = false
+    private var activityOnly = false
+    private var liteProbe = false
+    private var canonicalProbe = false
+    private var liteModel = "qwen"
+    private var liteTemperature = 0.3
+    private var liteBackend = "cpu"
+    private var liteRebuild = false
+    private var liteActivity = false
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
+        liteProbe = arguments?.getString("probe") == "litert"
+        canonicalProbe = arguments?.getString("probe") == "canonical"
+        liteModel = arguments?.getString("model") ?: "qwen"
+        liteTemperature = arguments?.getString("temperature")?.toDoubleOrNull() ?: 0.3
+        liteBackend = if (arguments?.getString("backend") == "gpu") "gpu" else "cpu"
+        liteRebuild = arguments?.getString("rebuild") == "true"
+        liteActivity = arguments?.getString("activity") == "true"
+        activityOnly = arguments?.getString("probe") == "mnn_activity"
+        nativeProbe = activityOnly || arguments?.getString("probe") == "mnn"
         start()
     }
 
     override fun onStart() {
         val output = Bundle()
         try {
+            if (canonicalProbe) {
+                output.putString("stream", CanonicalIsolationFixture.run())
+                finish(Activity.RESULT_OK, output)
+                return
+            }
+            if (liteProbe) {
+                output.putString("stream", NativeLiteConversationFixture.run(targetContext, this,
+                    liteModel, liteTemperature, liteBackend, liteRebuild, liteActivity))
+                finish(Activity.RESULT_OK, output)
+                return
+            }
+            if (nativeProbe) {
+                output.putString("stream", NativeConversationFixture.run(targetContext, this, activityOnly))
+                finish(Activity.RESULT_OK, output)
+                return
+            }
             runFixture(targetContext)
             output.putString("stream", "RemoteInput fixture: PASS\n")
             finish(Activity.RESULT_OK, output)

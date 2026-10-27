@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../domain/messaging_platform.dart';
+import 'tiktok_note_logo.dart';
 
 /// Renderiza el logo/icono oficial y nítido de la plataforma de mensajería
 /// con precisión vectorial, relieves, gradientes auténticos y sombras de marca.
@@ -97,9 +98,7 @@ class MessagingPlatformIcon extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: Center(
-          child: _buildExactPlatformLogo(),
-        ),
+        child: Center(child: _buildExactPlatformLogo()),
       ),
     );
   }
@@ -135,9 +134,7 @@ class MessagingPlatformIcon extends StatelessWidget {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(3),
               ),
-              child: CustomPaint(
-                painter: _GmailEnvelopePainter(),
-              ),
+              child: CustomPaint(painter: _GmailEnvelopePainter()),
             ),
           ],
         );
@@ -218,6 +215,9 @@ class MessagingPlatformIcon extends StatelessWidget {
           ),
         );
 
+      case MessagingPlatform.tiktok:
+        return TikTokNoteLogo(size: s * 0.62);
+
       case MessagingPlatform.other:
         return Icon(
           Icons.more_horiz_rounded,
@@ -238,9 +238,7 @@ class _SlackLogo extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: CustomPaint(
-        painter: _SlackPainter(),
-      ),
+      child: CustomPaint(painter: _SlackPainter()),
     );
   }
 }

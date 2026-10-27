@@ -92,7 +92,8 @@ class _AgentConsoleSectionState extends ConsumerState<AgentConsoleSection> {
         _nodes = snap.visibleNodes
             .take(8)
             .map(
-              (n) => 'd${n.depth} ${n.label} @(${n.bounds.left},${n.bounds.top})',
+              (n) =>
+                  'd${n.depth} ${n.label} @(${n.bounds.left},${n.bounds.top})',
             )
             .toList();
       });

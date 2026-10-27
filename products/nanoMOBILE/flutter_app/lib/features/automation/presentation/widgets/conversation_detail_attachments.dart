@@ -1,93 +1,125 @@
+// conversation_detail_attachments.dart
+//
+// QUÉ HACE:
+// Menú flotante de adjuntos con diseño iOS Context Menu sobre GlassSurface: compacto,
+// profesional y con opciones completas y legibles.
+//
+// CÓMO FUNCIONA:
+// - Despliega showNanoGlassWindow con ancho compacto (300px) y divisores iOS.
+// - Cada opción es una fila compacta de 42px con tipografía nítida y respuesta táctil inmediata.
+// - Conecta con FilePicker y WhatsAppMediaShare para despachar fotos, videos, PDFs y catálogos.
+//
+// POR QUÉ:
+// Optimiza el espacio visual eliminando tarjetas opacas redundantes (< 200 líneas).
+
 part of 'conversation_detail_sheet.dart';
 
-/// [ConversationDetailAttachments]
-///
-/// QUÉ HACE:
-/// Administra la selección y envío de archivos adjuntos (imágenes, videos, documentos PDF
-/// y archivos arbitrarios) hacia WhatsApp para el contacto activo.
-///
-/// CÓMO FUNCIONA:
-/// 1. Abre el selector nativo del sistema (`FilePicker`).
-/// 2. Copia el archivo al catálogo local persistente de la aplicación.
-/// 3. Comparte el archivo mediante `WhatsAppMediaShare.shareFile`.
-/// 4. Registra la entrada en `ConversationMemoryStore` para visualización inmediata en el chat.
-///
-/// POR QUÉ:
-/// Desacopla el manejo de archivos pesados y galerías multimedia del árbol principal de la vista,
-/// manteniendo la separación de responsabilidades y modularidad (< 200 líneas).
 extension ConversationDetailAttachments on _ConversationDetailSheetState {
   void _showAttachmentMenu() {
-    showModalBottomSheet(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showNanoGlassWindow(
       context: context,
-      backgroundColor: const Color(0xFF0F172A),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      useRootNavigator: true,
+      constraints: const BoxConstraints(maxWidth: 310),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _menuRow(
+              ctx,
+              isDark,
+              Icons.photo_library_outlined,
+              'Fotos e imágenes',
+              _attachImage,
+            ),
+            _separator(isDark),
+            _menuRow(
+              ctx,
+              isDark,
+              Icons.videocam_outlined,
+              'Videos',
+              _attachVideo,
+            ),
+            _separator(isDark),
+            _menuRow(
+              ctx,
+              isDark,
+              Icons.picture_as_pdf_outlined,
+              'Documentos PDF',
+              _attachPdf,
+            ),
+            _separator(isDark),
+            _menuRow(
+              ctx,
+              isDark,
+              Icons.folder_open_rounded,
+              'Biblioteca de Nano',
+              _showNanoLibrary,
+            ),
+            _separator(isDark),
+            _menuRow(
+              ctx,
+              isDark,
+              Icons.description_outlined,
+              'Plantillas de texto',
+              _showFormPicker,
+            ),
+            _separator(isDark),
+            _menuRow(
+              ctx,
+              isDark,
+              Icons.attach_file_rounded,
+              'Otros archivos',
+              _attachAndShareFile,
+            ),
+          ],
+        ),
       ),
-      builder: (ctx) => SafeArea(
+    );
+  }
+
+  Widget _menuRow(
+    BuildContext ctx,
+    bool isDark,
+    IconData icon,
+    String title,
+    VoidCallback onTap,
+  ) {
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final iconColor = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF475569);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(ctx).pop();
+          onTap();
+        },
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          child: Row(
             children: [
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFF00FF88),
-                  child: Icon(Icons.image_rounded, color: Colors.black),
+              Icon(icon, size: 19, color: iconColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                    color: textColor,
+                    letterSpacing: -0.2,
+                  ),
                 ),
-                title: const Text('Enviar Imagen / Foto', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Galería o fotos del dispositivo', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _attachImage();
-                },
               ),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFF60A5FA),
-                  child: Icon(Icons.videocam_rounded, color: Colors.white),
-                ),
-                title: const Text('Enviar Video', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Videos y clips multimedia', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _attachVideo();
-                },
-              ),
-              ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFEF4444),
-                  child: Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
-                ),
-                title: const Text('Enviar Documento PDF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Archivos PDF del dispositivo', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _attachPdf();
-                },
-              ),
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  child: const Icon(Icons.assignment_rounded, color: Colors.white),
-                ),
-                title: const Text('Formulario Interactivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Plantilla de registro o encuesta rápida', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _showFormPicker();
-                },
-              ),
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: Colors.white.withValues(alpha: 0.1),
-                  child: const Icon(Icons.attach_file_rounded, color: Colors.white),
-                ),
-                title: const Text('Cualquier archivo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Archivos y documentos', style: TextStyle(color: Colors.white54, fontSize: 12)),
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  _attachAndShareFile();
-                },
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 16,
+                color: isDark ? Colors.white24 : Colors.black26,
               ),
             ],
           ),
@@ -96,82 +128,25 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
     );
   }
 
-  Future<void> _attachImage() => _pickAndShareMedia(type: FileType.image, label: 'imagen');
+  Widget _separator(bool isDark) => Divider(
+    height: 1,
+    thickness: 0.6,
+    indent: 44,
+    endIndent: 0,
+    color: isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.black.withValues(alpha: 0.06),
+  );
 
-  Future<void> _attachVideo() => _pickAndShareMedia(type: FileType.video, label: 'video');
-
+  Future<void> _attachImage() =>
+      _pickAndShareMedia(type: FileType.image, label: 'imagen');
+  Future<void> _attachVideo() =>
+      _pickAndShareMedia(type: FileType.video, label: 'video');
   Future<void> _attachPdf() => _pickAndShareMedia(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        label: 'PDF',
-      );
-
-  Future<void> _attachAndShareFile() => _pickAndShareMedia(type: FileType.any, label: 'archivo');
-
-  Future<void> _pickAndShareMedia({
-    required FileType type,
-    List<String>? allowedExtensions,
-    required String label,
-  }) async {
-    try {
-      final picked = await FilePicker.pickFiles(
-        type: type,
-        allowedExtensions: allowedExtensions,
-      );
-      final file = picked?.files.single;
-      if (file == null || file.path == null) return;
-
-      _safeSetState(() {
-        _busy = true;
-        _statusText = 'Preparando $label para compartir...';
-      });
-
-      const share = WhatsAppMediaShare();
-      final stablePath = await share.copyToCatalog(file.path!) ?? file.path!;
-      final caption = _inputController.text.trim();
-      final contact = widget.item.conversationId.isNotEmpty
-          ? widget.item.conversationId
-          : widget.item.displayName;
-
-      final ok = await share.shareFile(
-        path: stablePath,
-        contact: contact,
-        caption: caption,
-        packageName: widget.item.packageName,
-      );
-
-      if (ok) {
-        _recordSharedMedia(stablePath, caption);
-      }
-
-      _safeSetState(() {
-        _statusText = ok
-            ? 'Abriendo WhatsApp para enviar $label'
-            : 'No se pudo abrir WhatsApp para compartir';
-      });
-    } catch (e) {
-      _safeSetState(() => _statusText = 'Error al adjuntar $label: $e');
-    } finally {
-      _safeSetState(() => _busy = false);
-    }
-  }
-
-  void _recordSharedMedia(String path, String caption) {
-    try {
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      final memoryStore = ref.read(conversationMemoryStoreProvider);
-      final textToSend = caption.isNotEmpty ? '$caption\n$path' : path;
-
-      memoryStore.appendOutbound(
-        canonicalConversationId(widget.item.conversationId),
-        textToSend,
-        kind: ConversationMemoryEntryKind.outboundDispatched,
-        atMs: nowMs,
-      );
-
-      ref.invalidate(conversationHubListProvider);
-      ref.read(conversationHubVersionProvider.notifier).state++;
-      _inputController.clear();
-    } catch (_) {}
-  }
+    type: FileType.custom,
+    allowedExtensions: ['pdf'],
+    label: 'PDF',
+  );
+  Future<void> _attachAndShareFile() =>
+      _pickAndShareMedia(type: FileType.any, label: 'archivo');
 }

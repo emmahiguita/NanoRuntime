@@ -1,4 +1,4 @@
-﻿import '../governance/action_confirmation.dart' show canonicalFingerprint;
+import '../governance/action_confirmation.dart' show canonicalFingerprint;
 
 /// Llamada a herramienta extraída de una respuesta del LLM.
 class ToolCall {

@@ -15,6 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import dev.nanoai.mobile.MainActivity
 import dev.nanoai.mobile.R
 import dev.nanoai.mobile.services.NotificationAutomationBridge
+import dev.nanoai.mobile.services.dismissMessagingNotification
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -144,6 +145,15 @@ class NotificationAutomationChannelHandler(
                 result.success(NotificationAutomationBridge.service?.snapshot(limit) ?: emptyList<Any>())
             }
 
+            "dismiss" -> {
+                val key = call.argument<String>("key").orEmpty()
+                val service = NotificationAutomationBridge.service
+                result.success(
+                    key.isNotBlank() &&
+                        service?.dismissMessagingNotification(key) == true,
+                )
+            }
+
             "showAutomationConfirmation" ->
                 result.success(showAutomationConfirmation())
 
@@ -183,6 +193,10 @@ class NotificationAutomationChannelHandler(
                 val remoteInputKey = call.argument<String>("remoteInputKey").orEmpty()
                 val contextFingerprint = call.argument<String>("contextFingerprint").orEmpty()
                 val postTime = call.argument<Number>("postTime")?.toLong() ?: 0L
+                // Identifica esta pulsación; otra respuesta válida a la misma notificación recibe otro nonce.
+                val attemptNonce = call.argument<String>("attemptNonce")
+                    ?.takeIf { it.length in 8..80 && it.all { char -> char.isLetterOrDigit() || char == '-' || char == '_' } }
+                    ?: java.util.UUID.randomUUID().toString()
                 val reply = service.reply(
                     key,
                     text,
@@ -190,6 +204,7 @@ class NotificationAutomationChannelHandler(
                     expectedRemoteInputKey = remoteInputKey,
                     expectedContextFingerprint = contextFingerprint,
                     expectedPostTime = postTime,
+                    attemptNonce = attemptNonce,
                 )
                 result.success(mapOf("ok" to reply.ok, "code" to reply.code))
             }

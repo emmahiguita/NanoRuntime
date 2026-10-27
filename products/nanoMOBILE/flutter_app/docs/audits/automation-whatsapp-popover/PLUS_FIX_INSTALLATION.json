@@ -1,0 +1,26 @@
+{
+  "variant": "fullSideloadDebug",
+  "cause": "scopesRoute true without explicitChildNodes true",
+  "fix": "explicitChildNodes true on anchored popover semantics",
+  "build_result": "success",
+  "gradle_seconds": 50.6,
+  "install_result": "Success",
+  "install_mode": "adb install -r",
+  "apk_bytes": 191176959,
+  "apk_sha256": "c42e296320ba5668171251bea418527d5c5a387911dd622e0b27f6dc29504856",
+  "package_fields": [
+    "versionCode=1 minSdk=26 targetSdk=36",
+    "versionName=1.0.0",
+    "lastUpdateTime=2026-10-26 09:39:30",
+    "firstInstallTime=2026-10-18 11:07:21"
+  ],
+  "static_analysis": "No issues found",
+  "tests_run": false,
+  "ui_automation_run": false,
+  "whatsapp_actions_run": false,
+  "post_fix_menu_observed": false,
+  "source_files": [
+    "lib/core/widgets/nano_anchored_popover.dart",
+    "lib/core/widgets/error/nano_error_widget_builder.dart"
+  ]
+}

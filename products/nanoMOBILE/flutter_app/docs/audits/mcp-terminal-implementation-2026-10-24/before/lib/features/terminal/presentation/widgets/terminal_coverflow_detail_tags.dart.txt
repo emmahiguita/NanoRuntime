@@ -1,0 +1,99 @@
+part of 'terminal_coverflow_card.dart';
+
+/// Ficha de terminal: detail tags; conserva navegación y tema.
+extension _TerminalTags on TerminalHubDetailCard {
+  Widget _portraitTags(BuildContext context) {
+    final colors = NanoThemeExtension.of(context).colors;
+    final isDark = colors is NanoDarkColors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // -------------------------------------------------------------
+        // 4. ETIQUETA / PILL TAGS ESTILO FICHA
+        // -------------------------------------------------------------
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : colors.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.12)
+                    : colors.borderSecondaryColor,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.storage_rounded, size: 14, color: card.accent),
+                const SizedBox(width: 6),
+                Text(
+                  'Standard Nano AI Case',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    color: colors.textPrimary,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: card.accent.withValues(alpha: isDark ? 0.20 : 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'ARM64',
+                    style: TextStyle(
+                      color: NanoTextColors.forText(card.accent, colors),
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.15)
+                        : colors.surfaceVariant,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'READY',
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  size: 15,
+                  color: colors.textTertiary,
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "variant": "fullSideloadDebug",
+  "build": "success",
+  "gradle_seconds": 37.6,
+  "install": "Success",
+  "mode": "adb install -r",
+  "apk_sha256": "d5bf1c89e0e9c2b9b253e85e38414f695cbec2035ee897e2f10f719bdb355601",
+  "package_fields": [
+    "versionCode=1 minSdk=26 targetSdk=36",
+    "versionName=1.0.0",
+    "lastUpdateTime=2026-10-26 09:53:56",
+    "firstInstallTime=2026-10-18 11:07:21"
+  ],
+  "static_analysis": "No issues found",
+  "independent_review": "No concrete findings; static only",
+  "tests_run": false,
+  "ui_automation_run": false,
+  "visual_result_verified": false,
+  "source_files": [
+    {
+      "path": "lib/core/widgets/nano_anchored_popover.dart",
+      "lines": 170
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/whatsapp_automation_menu.dart",
+      "lines": 36
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/whatsapp_automation_menu_view.dart",
+      "lines": 168
+    }
+  ]
+}

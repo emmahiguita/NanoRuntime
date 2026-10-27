@@ -20,7 +20,13 @@ import '../../engine/messaging/conversation_hub_providers.dart';
 import '../widgets/conversation_detail_sheet.dart';
 import 'messaging_center_banners.dart';
 import 'messaging_center_providers.dart';
+import 'messaging_error_card.dart';
+import 'notification_history_provider.dart'
+    show notificationHistoryConversationsProvider;
 import 'messaging_conversation_card.dart';
+import 'messaging_conversation_actions_sheet.dart';
+import 'messaging_conversation_keys.dart';
+import 'messaging_partial_sources_sliver.dart';
 
 class MessagingConversationsView extends ConsumerWidget {
   const MessagingConversationsView({super.key});
@@ -30,72 +36,139 @@ class MessagingConversationsView extends ConsumerWidget {
     final filteredAsync = ref.watch(filteredConversationsProvider);
     final allHubAsync = ref.watch(allHubConversationsProvider);
     final liveAsync = ref.watch(liveNotificationsProvider);
+    final archivedIds =
+        ref.watch(archivedConversationIdsProvider).value ?? const {};
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = NanoThemeExtension.of(context).colors;
+    final accentColor = isDark ? const Color(0xFF00FF88) : colors.primary;
 
     // 1. Carga inicial
-    if (allHubAsync.isLoading && liveAsync.isLoading) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(color: Color(0xFF00FF88)),
+    // Durante un refresco conserva la última lista visible. Mostrar un spinner
+    // completo en cada evento Web/notificación hacía parecer lento el panel y
+    // permitía que una fila cambiara de posición antes del toque del usuario.
+    final hasVisibleSnapshot = filteredAsync.hasValue;
+    if (!hasVisibleSnapshot &&
+        ((allHubAsync.isLoading && liveAsync.isLoading) ||
+            filteredAsync.isLoading)) {
+      return SliverToBoxAdapter(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: CircularProgressIndicator(color: accentColor),
+          ),
         ),
       );
     }
 
     // 2. Error en ambas fuentes
     if (allHubAsync.hasError && liveAsync.hasError) {
-      return MessagingErrorCard(
-        error: allHubAsync.error.toString(),
-        onRetry: () {
-          ref.invalidate(allHubConversationsProvider);
-          ref.invalidate(liveNotificationsProvider);
-        },
+      return SliverToBoxAdapter(
+        child: MessagingErrorCard(
+          error: allHubAsync.error.toString(),
+          onRetry: () {
+            ref.invalidate(notificationHistoryConversationsProvider);
+            ref.invalidate(allHubConversationsProvider);
+            ref.invalidate(liveNotificationsProvider);
+            ref.read(conversationHubVersionProvider.notifier).state++;
+          },
+        ),
       );
     }
 
-    final hubItems = allHubAsync.value ?? const [];
-    final liveItems = liveAsync.value ?? const [];
+    // El archivo durable falla de forma visible; no se oculta como lista vacía.
+    if (filteredAsync.hasError) {
+      return SliverToBoxAdapter(
+        child: MessagingErrorCard(
+          error: filteredAsync.error.toString(),
+          onRetry: () {
+            ref.invalidate(archivedConversationIdsProvider);
+            ref.invalidate(notificationHistoryConversationsProvider);
+            ref.invalidate(allHubConversationsProvider);
+            ref.invalidate(liveNotificationsProvider);
+            ref.read(conversationHubVersionProvider.notifier).state++;
+          },
+        ),
+      );
+    }
 
-    // 3. Fuente unificada deduplicada
-    final filteredList = filteredAsync.value ?? const [];
+    // Presenta exactamente el resultado filtrado por búsqueda y categoría.
+    final itemsToShow =
+        filteredAsync.value ?? const <ConversationSummaryItem>[];
     // Una búsqueda o pestaña sin coincidencias debe permanecer vacía. El
     // fallback anterior volvía a mostrar todos los chats y hacía que la
     // pestaña "Grupos" incluyera conversaciones directas.
-    final List<ConversationSummaryItem> itemsToShow = filteredList;
-
     if (itemsToShow.isEmpty) {
-      return const MessagingEmptyState();
+      return const MessagingPartialSourcesSliver(
+        child: SliverToBoxAdapter(child: MessagingEmptyState()),
+      );
     }
 
-    final bool showLiveBadge = liveItems.isNotEmpty && filteredList.isEmpty;
-    final liveIds = liveItems.map((l) => l.conversationId).toSet();
+    final liveKeys = <String>{
+      for (final liveItem
+          in liveAsync.valueOrNull ?? const <ConversationSummaryItem>[])
+        ...messagingConversationKeys(liveItem),
+    };
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showLiveBadge && hubItems.isEmpty) ...[
-          MessagingSectionLabel(
-            icon: Icons.circle,
-            iconColor: const Color(0xFF00FF88),
-            label: 'Activas ahora',
-            count: itemsToShow.length,
+    if (isLandscape) {
+      return MessagingPartialSourcesSliver(
+        child: SliverGrid.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisExtent: 72,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 4,
           ),
-          const SizedBox(height: NanoSpacing.xs),
-        ],
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
           itemCount: itemsToShow.length,
-          itemBuilder: (context, index) {
+          itemBuilder: (itemContext, index) {
             final item = itemsToShow[index];
-            final isLive = liveIds.contains(item.conversationId);
+            final isLive = messagingConversationKeys(
+              item,
+            ).any(liveKeys.contains);
+            final isArchived = isMessagingConversationArchived(
+              item,
+              archivedIds,
+            );
             return MessagingConversationCard(
               item: item,
               isLive: isLive,
-              onTap: () => ConversationDetailSheet.show(context, item),
+              onTap: () => ConversationDetailSheet.show(itemContext, item),
+              onMore: () => showMessagingConversationActions(
+                itemContext,
+                ref,
+                item,
+                isArchived: isArchived,
+                currentAgent: item.agentId,
+              ),
             );
           },
         ),
-      ],
+      );
+    }
+
+    // En portrait: Lista fluida directa sin tarjetas ni separadores intermedios
+    return MessagingPartialSourcesSliver(
+      child: SliverList.builder(
+        itemCount: itemsToShow.length,
+        itemBuilder: (itemContext, index) {
+          final item = itemsToShow[index];
+          final isLive = messagingConversationKeys(item).any(liveKeys.contains);
+          final isArchived = isMessagingConversationArchived(item, archivedIds);
+          return MessagingConversationCard(
+            item: item,
+            isLive: isLive,
+            onTap: () => ConversationDetailSheet.show(itemContext, item),
+            onMore: () => showMessagingConversationActions(
+              itemContext,
+              ref,
+              item,
+              isArchived: isArchived,
+              currentAgent: item.agentId,
+            ),
+          );
+        },
+      ),
     );
   }
 }

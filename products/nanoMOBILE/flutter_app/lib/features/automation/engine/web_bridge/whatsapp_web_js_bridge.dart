@@ -1,23 +1,15 @@
-/// WA-WEB-JS-BRIDGE-01 — Scripts de inyección y comunicación para WhatsApp Web.
-///
-/// **QUÉ HACE:**
-/// Provee el código JavaScript que se inyecta en el InAppWebView de WhatsApp Web
-/// para monitorear el estado de la sesión, auto-ajustar el QR y desambiguar la vinculación.
-///
-/// **CÓMO FUNCIONA:**
-/// Inspecciona el DOM de WhatsApp Web, ajusta el viewport y extrae el dataURL del canvas QR
-/// emitiendo eventos reactivos hacia Flutter.
-///
-/// **POR QUÉ:**
-/// Garantiza la lectura del QR sin recortar la pantalla y mantiene la arquitectura desacoplada.
+/// Scripts de sesión, QR y operaciones existentes de WhatsApp Web.
+/// Inspeccionan el DOM real; el feed se delega a su observador independiente.
 library;
+
+import 'whatsapp_web_conversation_scripts.dart';
 
 final class WhatsAppWebJsBridge {
   const WhatsAppWebJsBridge._();
 
   static const String desktopUserAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-      '(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
+      '(KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36';
 
   static const String sessionObserverScript = '''
 (function() {
@@ -109,6 +101,12 @@ final class WhatsAppWebJsBridge {
   notifyFlutter('bridge_ready', { time: Date.now() });
 })();
 ''';
+
+  // Fachada compatible: una sola implementación del observador y su cierre.
+  static const conversationObserverScript =
+      WhatsAppWebConversationScripts.observe;
+  static const stopConversationObserverScript =
+      WhatsAppWebConversationScripts.stop;
 
   static const String switchToPhoneCodeScript = '''
 (function() {

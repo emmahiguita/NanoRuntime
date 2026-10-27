@@ -69,6 +69,13 @@ final class ConversationDecisionContext {
   /// '' = callers legacy sin remitente.
   final String senderName;
 
+  /// true = el dueño activó "Mi agenda de hoy" con su cronograma/estado del día.
+  final bool hasOwnerLiveAgenda;
+  final bool personalAutoReplyAllowed;
+  final bool groupReplyAllowed;
+  final List<String> ownerCurrentActivities;
+  final bool allowCloudMedia;
+
   const ConversationDecisionContext({
     this.humanOwnsConversation = false,
     this.identityConfidence = 1.0,
@@ -77,6 +84,11 @@ final class ConversationDecisionContext {
     this.agentId = ConversationAgentId.personal,
     this.userText = '',
     this.senderName = '',
+    this.hasOwnerLiveAgenda = false,
+    this.personalAutoReplyAllowed = true,
+    this.groupReplyAllowed = true,
+    this.ownerCurrentActivities = const [],
+    this.allowCloudMedia = false,
   });
 }
 

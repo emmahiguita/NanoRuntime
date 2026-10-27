@@ -1,0 +1,12 @@
+{
+  "variant": "fullSideloadDebug",
+  "package": "dev.nanoai.mobile",
+  "device": "VGL7MVFMDYQG8T55",
+  "installed": true,
+  "preserves_data": true,
+  "method": "adb install -r",
+  "evidence": "install.log",
+  "sha256": "2393f5272ba65c71ad458a91a57b9179517a88a4a50e333e62b35779791e7913",
+  "apk": "C:\\Users\\emman\\Desktop\\Proyectos\\Nueva carpeta\\Nanoai\\products\\nanoMOBILE\\flutter_app\\build\\app\\outputs\\apk\\fullSideload\\debug\\app-fullSideload-debug.apk",
+  "recorded_at_utc": "2026-10-26T08:35:00.456447+00:00"
+}

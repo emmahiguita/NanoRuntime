@@ -11,6 +11,9 @@ class BrowserTabModel {
   final bool canGoForward;
   final bool isSecure;
   final double zoomLevel;
+  final bool hasError;
+  final String? errorMessage;
+  final int? errorCode;
 
   const BrowserTabModel({
     required this.id,
@@ -23,6 +26,9 @@ class BrowserTabModel {
     this.canGoForward = false,
     this.isSecure = true,
     this.zoomLevel = 1.0,
+    this.hasError = false,
+    this.errorMessage,
+    this.errorCode,
   });
 
   String get displayHost => BrowserUrlResolver.extractHost(url);
@@ -38,6 +44,10 @@ class BrowserTabModel {
     bool? canGoForward,
     bool? isSecure,
     double? zoomLevel,
+    bool? hasError,
+    String? errorMessage,
+    int? errorCode,
+    bool clearError = false,
   }) {
     return BrowserTabModel(
       id: id ?? this.id,
@@ -50,6 +60,9 @@ class BrowserTabModel {
       canGoForward: canGoForward ?? this.canGoForward,
       isSecure: isSecure ?? this.isSecure,
       zoomLevel: zoomLevel ?? this.zoomLevel,
+      hasError: clearError ? false : (hasError ?? this.hasError),
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      errorCode: clearError ? null : (errorCode ?? this.errorCode),
     );
   }
 }

@@ -23,6 +23,10 @@ enum RuleAction {
   /// Enviar la respuesta (RemoteInput o fallback UI) ("responde '...'").
   reply,
 
+  /// Mensaje saliente programado a uno o varios contactos resueltos de la
+  /// agenda. Solo es válido con [TimeTrigger] y scheduler nativo.
+  sendMessage,
+
   /// WA-MEDIA-01 — abrir WhatsApp con un archivo del catálogo + contacto +
   /// caption ("envíale el catálogo"). Camino A: el usuario da el tap final
   /// de envío en WhatsApp. No es un reply: no marca la conversación leída.
@@ -36,8 +40,26 @@ extension RuleActionLabel on RuleAction {
     RuleAction.reply => 'Responder',
     RuleAction.notify => 'Avisar',
     RuleAction.draft => 'Borrador',
+    RuleAction.sendMessage => 'Enviar mensaje',
     RuleAction.sendMedia => 'Enviar archivo',
   };
+}
+
+/// Destinatario resuelto al crear la regla. Persistir número + etiqueta evita
+/// volver a elegir entre coincidencias ambiguas cuando la alarma se dispara.
+final class ScheduledMessageRecipient {
+  final String name;
+  final String number;
+
+  const ScheduledMessageRecipient({required this.name, required this.number});
+
+  Map<String, dynamic> toJson() => {'name': name, 'number': number};
+
+  factory ScheduledMessageRecipient.fromJson(Map<String, dynamic> json) =>
+      ScheduledMessageRecipient(
+        name: (json['name'] as String?) ?? '',
+        number: (json['number'] as String?) ?? '',
+      );
 }
 
 class ScheduledRule {
@@ -63,6 +85,10 @@ class ScheduledRule {
   /// fija del catálogo (files/nano/catalog/, copiada en la creación). null =
   /// la regla no tiene archivo y falla honesta al disparar.
   final String? mediaPath;
+
+  /// Destinatarios inmutables de un envío programado. Vacío para el resto de
+  /// acciones y para reglas antiguas.
+  final List<ScheduledMessageRecipient> recipients;
 
   final bool enabled;
 
@@ -90,6 +116,7 @@ class ScheduledRule {
     this.message = '',
     this.dynamicReply = false,
     this.mediaPath,
+    this.recipients = const [],
     this.enabled = true,
     required this.createdAt,
     this.lastFiredAt,
@@ -103,6 +130,7 @@ class ScheduledRule {
     String? message,
     bool? dynamicReply,
     String? mediaPath,
+    List<ScheduledMessageRecipient>? recipients,
     bool? enabled,
     DateTime? lastFiredAt,
     String? lastOutcome,
@@ -113,6 +141,7 @@ class ScheduledRule {
     message: message ?? this.message,
     dynamicReply: dynamicReply ?? this.dynamicReply,
     mediaPath: mediaPath ?? this.mediaPath,
+    recipients: recipients ?? this.recipients,
     enabled: enabled ?? this.enabled,
     createdAt: createdAt,
     lastFiredAt: lastFiredAt ?? this.lastFiredAt,
@@ -127,6 +156,7 @@ class ScheduledRule {
     'message': message,
     'dynamicReply': dynamicReply,
     'mediaPath': mediaPath,
+    'recipients': [for (final recipient in recipients) recipient.toJson()],
     'enabled': enabled,
     'createdAt': createdAt.toIso8601String(),
     'lastFiredAt': lastFiredAt?.toIso8601String(),
@@ -141,6 +171,12 @@ class ScheduledRule {
     message: (m['message'] as String?) ?? '',
     dynamicReply: m['dynamicReply'] == true,
     mediaPath: m['mediaPath'] as String?,
+    recipients: [
+      for (final raw in (m['recipients'] as List?) ?? const [])
+        ScheduledMessageRecipient.fromJson(
+          (raw as Map).cast<String, dynamic>(),
+        ),
+    ],
     enabled: m['enabled'] != false,
     createdAt: DateTime.parse(m['createdAt'] as String),
     lastFiredAt: m['lastFiredAt'] == null

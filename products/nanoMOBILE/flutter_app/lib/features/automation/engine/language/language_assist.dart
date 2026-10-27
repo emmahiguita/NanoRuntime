@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 
 import '../../../../core/services/nano_runtime_api.dart';
 import 'language_assist_models.dart';
+import 'conversation_output_cleanup.dart';
 
 export 'language_assist_models.dart';
 
@@ -38,8 +39,8 @@ class LanguageAssistService {
 
   Future<LanguageAssistCapabilities>? _caps;
 
-  Future<LanguageAssistCapabilities> capabilities() => _caps ??=
-      _capabilities().catchError((_) => LanguageAssistCapabilities.unavailable);
+  Future<LanguageAssistCapabilities> capabilities() => _caps ??= _capabilities()
+      .catchError((_) => LanguageAssistCapabilities.unavailable);
 
   Future<LanguageAssistCapabilities> _capabilities() async {
     final map = await _channel
@@ -114,7 +115,9 @@ class LanguageAssistService {
   /// A12 — estado térmico del sistema (PowerManager.getCurrentThermalStatus, API 29+).
   Future<int> thermalStatus() async {
     try {
-      final v = await _channel.invokeMethod<int>('thermalStatus').timeout(normalizeTimeout);
+      final v = await _channel
+          .invokeMethod<int>('thermalStatus')
+          .timeout(normalizeTimeout);
       return v ?? -1;
     } on Object {
       return -1;
@@ -125,10 +128,13 @@ class LanguageAssistService {
   Future<List<ConversationActionHint>> conversationActions(String raw) async {
     if (raw.trim().isEmpty) return const [];
     try {
-      final list = await _channel.invokeListMethod<Object?>('conversationActions', {'text': raw}).timeout(actionsTimeout);
+      final list = await _channel
+          .invokeListMethod<Object?>('conversationActions', {'text': raw})
+          .timeout(actionsTimeout);
       return [
         for (final a in list ?? const <Object?>[])
-          if (a is Map) ConversationActionHint.fromMap(a.cast<Object?, Object?>()),
+          if (a is Map)
+            ConversationActionHint.fromMap(a.cast<Object?, Object?>()),
       ];
     } on Object {
       return const [];
@@ -136,22 +142,16 @@ class LanguageAssistService {
   }
 
   /// Correcciones SAFE y deterministas de la salida de Nano (A10).
-  static String safeCleanOutput(String draft) {
-    var out = draft.trim();
-    if (out.isEmpty) return out;
-    out = out.replaceAll(RegExp(r'\?{2,}'), '?');
-    out = out.replaceAll(RegExp(r'!{2,}'), '!');
-    out = out.replaceAll(RegExp(r',{2,}'), ',');
-    out = out.replaceAll(RegExp(r'\.{3,}'), '...');
-    out = out.replaceAll(RegExp(r'\s+([,.;:!?])'), r'$1');
-    out = out.replaceAll(RegExp(r' {2,}'), ' ');
-    return out.trim();
-  }
+  // Mantiene el contrato público; la limpieza no reescribe hechos ni ortografía.
+  static String safeCleanOutput(String draft) =>
+      ConversationOutputCleanup.clean(draft);
 
   Future<List<SpellFlag>> _spellFlags(String text) async {
     if (text.trim().isEmpty) return const [];
     try {
-      final list = await _channel.invokeListMethod<Object?>('spellCheck', {'text': text}).timeout(spellTimeout);
+      final list = await _channel
+          .invokeListMethod<Object?>('spellCheck', {'text': text})
+          .timeout(spellTimeout);
       final words = list ?? const [];
       return [
         for (final w in words)
@@ -165,7 +165,9 @@ class LanguageAssistService {
   Future<LanguageHint?> _languageHint(String text) async {
     if (text.trim().isEmpty) return null;
     try {
-      final map = await _channel.invokeMapMethod<Object?, Object?>('detectLanguage', {'text': text}).timeout(languageTimeout);
+      final map = await _channel
+          .invokeMapMethod<Object?, Object?>('detectLanguage', {'text': text})
+          .timeout(languageTimeout);
       final hint = LanguageHint.fromMap(map);
       return hint.language.isEmpty ? null : hint;
     } on Object {

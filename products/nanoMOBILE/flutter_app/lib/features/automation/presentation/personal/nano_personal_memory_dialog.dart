@@ -1,102 +1,85 @@
-/// NANO-PERSONAL-MEMORY-DIALOG — Diálogo para añadir o editar hechos de memoria.
-///
-/// QUÉ HACE:
-/// Muestra un modal para registrar aspectos y preferencias personales
-/// ("Ciudad actual", "Café sin azúcar", etc.).
-///
-/// CÓMO FUNCIONA:
-/// Valida campos y genera un [PersonalMemory]. Usa useRootNavigator: true.
-///
-/// POR QUÉ:
-/// Modulariza la lógica del diálogo manteniendo los archivos < 200 líneas.
-library;
-
 import 'package:flutter/material.dart';
 import '../../personal_agent/domain/personal_memory.dart';
-import '../automation_visual_theme.dart';
 
 class NanoPersonalMemoryDialog {
   static Future<PersonalMemory?> show(
     BuildContext context, [
     PersonalMemory? existing,
-  ]) async {
-    final keyController = TextEditingController(text: existing?.key ?? '');
-    final valController = TextEditingController(text: existing?.value ?? '');
+  ]) => showDialog<PersonalMemory>(
+    context: context,
+    builder: (_) => _MemoryEditor(existing: existing),
+  );
+}
 
-    final result = await showDialog<bool>(
-      context: context,
-      useRootNavigator: true,
-      builder: (ctx) {
-        final visual = AutomationVisual.of(ctx);
-        return AlertDialog(
-          backgroundColor: visual.surface,
-          title: Text(
-            existing == null ? 'Nuevo recuerdo o dato' : 'Editar dato',
-            style: TextStyle(color: visual.text, fontSize: 16),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tema o aspecto:',
-                  style: TextStyle(color: visual.textMuted, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                TextField(
-                  controller: keyController,
-                  autofocus: true,
-                  style: TextStyle(color: visual.text, fontSize: 13),
-                  decoration: const InputDecoration(
-                    hintText: 'Ej. Ciudad actual, Café, Deporte',
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Dato o preferencia que Nano debe saber:',
-                  style: TextStyle(color: visual.textMuted, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                TextField(
-                  controller: valController,
-                  maxLines: 2,
-                  style: TextStyle(color: visual.text, fontSize: 13),
-                  decoration: const InputDecoration(
-                    hintText: 'Ej. Vivo en Medellín y no tomo café con azúcar.',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
-    );
+class _MemoryEditor extends StatefulWidget {
+  const _MemoryEditor({this.existing});
+  final PersonalMemory? existing;
+  @override
+  State<_MemoryEditor> createState() => _MemoryEditorState();
+}
 
-    if (result == true) {
-      final key = keyController.text.trim();
-      final val = valController.text.trim();
-      if (key.isNotEmpty && val.isNotEmpty) {
-        return PersonalMemory(
-          id: existing?.id ?? -1,
-          scopeKey: 'owner',
-          key: key,
-          value: val,
-          kind: 'stablePreference',
-          observedAt: DateTime.now().millisecondsSinceEpoch,
-        );
-      }
-    }
-    return null;
+class _MemoryEditorState extends State<_MemoryEditor> {
+  late final _key = TextEditingController(text: widget.existing?.key ?? '');
+  late final _value = TextEditingController(text: widget.existing?.value ?? '');
+  String? _error;
+  @override
+  void dispose() {
+    _key.dispose();
+    _value.dispose();
+    super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.existing == null ? 'Nuevo dato' : 'Editar dato'),
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _key,
+            maxLength: 100,
+            decoration: const InputDecoration(labelText: 'Tema o aspecto'),
+          ),
+          TextField(
+            controller: _value,
+            maxLength: 1000,
+            minLines: 2,
+            maxLines: 5,
+            decoration: const InputDecoration(
+              labelText: 'Dato que Nano debe recordar',
+            ),
+          ),
+          if (_error != null) Text(_error!),
+        ],
+      ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('Cancelar'),
+      ),
+      FilledButton(
+        onPressed: () {
+          if (_key.text.trim().isEmpty || _value.text.trim().isEmpty) {
+            setState(() => _error = 'Completa el tema y el dato.');
+            return;
+          }
+          Navigator.pop(
+            context,
+            PersonalMemory(
+              id: widget.existing?.id ?? -1,
+              scopeKey: widget.existing?.scopeKey ?? 'owner',
+              key: _key.text.trim(),
+              value: _value.text.trim(),
+              kind: widget.existing?.kind ?? 'stablePreference',
+              observedAt: DateTime.now().millisecondsSinceEpoch,
+              metadata: widget.existing?.metadata ?? const {},
+            ),
+          );
+        },
+        child: const Text('Guardar'),
+      ),
+    ],
+  );
 }

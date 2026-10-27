@@ -1,0 +1,27 @@
+[
+  {
+    "path": "lib/core/widgets/nano_glass_window.dart",
+    "lines": 166,
+    "sha256": "d7e964c7b78f16fefb99706082fa2add1253a420995de9bad72512b777e67ce4"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_sheet.dart",
+    "lines": 109,
+    "sha256": "1cc444e73ae7b7bc32aaa647cb911ff32ae6794889752cd96fc240f29618c451"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_state.part.dart",
+    "lines": 86,
+    "sha256": "11c33dbfff4f66c8262e7e9f86462321264ce6e42af2cd500399046943fb21fa"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_header_view.dart",
+    "lines": 149,
+    "sha256": "e52fecff1a37dbf12e13e75dfbf08dbd35abe28d039a130e4d589fd124fcf7d0"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_control_bar.part.dart",
+    "lines": 123,
+    "sha256": "619ed84938b62b3171e9b0b59e1dfbda80ea38705d373f6f20ab6e4b691f0113"
+  }
+]

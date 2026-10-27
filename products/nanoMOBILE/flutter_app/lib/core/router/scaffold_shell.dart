@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/design_tokens.dart';
+import '../providers/chat_provider.dart';
 import '../router/app_router.dart';
 import '../theme/nano_breakpoint.dart';
 import '../widgets/navigation/nano_navigation_panel.dart';
@@ -19,11 +20,6 @@ class ScaffoldShell extends ConsumerWidget {
 
   final StatefulNavigationShell shell;
 
-  // UI-REV-08: el último acceso del panel no es una pestaña del shell — es
-  // el atajo a la pantalla de Automatización (ruta global /automation, la
-  // misma que abre el Inicio). Se navega con push, no con goBranch.
-  static const int _automationShortcutIndex = 5;
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentIndex = shell.currentIndex;
@@ -35,20 +31,26 @@ class ScaffoldShell extends ConsumerWidget {
     final isDark = shellColors is NanoDarkColors;
 
     final location = GoRouterState.of(context).matchedLocation;
-    final isDashboardHome = location == '/dashboard';
+    final isDashboardHome =
+        location == '/dashboard' || location == '/automation';
+    final isBrowser = location.startsWith('/browser');
 
     // Recursos del asistente flotante (Riverpod, sin recrearse en cada frame).
     final webProviders = ref.watch(nanoWebProvidersProvider);
-    final actionPort  = ref.watch(nanoActionPortProvider);
-    final audioLevel  = ref.watch(nanoAudioLevelProvider);
+    final actionPort = ref.watch(nanoActionPortProvider);
+    final audioLevel = ref.watch(nanoAudioLevelProvider);
 
-    final shellContent = MediaQuery.removePadding(
-      context: context,
-      removeTop: false,
-      removeBottom: true,
-      removeLeft: true,
-      removeRight: true,
-      child: shell,
+    // Lee el MediaQuery dentro del viewport: el teclado ya fue consumido allí.
+    // Capturarlo aquí con el contexto padre reintroducía el inset y vaciaba Modelos.
+    final shellContent = Builder(
+      builder: (viewportContext) => MediaQuery.removePadding(
+        context: viewportContext,
+        removeTop: false,
+        removeBottom: true,
+        removeLeft: true,
+        removeRight: true,
+        child: shell,
+      ),
     );
     final boundedContent = Center(
       child: ConstrainedBox(
@@ -78,9 +80,7 @@ class ScaffoldShell extends ConsumerWidget {
             // Por que: elimina el jank y sobrecarga de GPU durante el cambio de pantalla.
             Positioned.fill(
               child: RepaintBoundary(
-                child: BuhoWallpaper(
-                  scrimOpacity: isDark ? 0.45 : 0.22,
-                ),
+                child: BuhoWallpaper(scrimOpacity: isDark ? 0.45 : 0.22),
               ),
             ),
             // DOCK-FLOAT-01: floatOverContent en true garantiza que la pantalla hija
@@ -94,22 +94,23 @@ class ScaffoldShell extends ConsumerWidget {
               transparentDock: true,
               protectTop: !isDashboardHome,
               onDestinationSelected: (index) {
-                if (index == _automationShortcutIndex) {
-                  context.push('/automation');
-                  return;
-                }
                 shell.goBranch(index, initialLocation: index == currentIndex);
               },
               // NANO-EVERYWHERE-02: NanoFloatingWrapper añade el búho flotante
-              // como capa superior dentro del stack de navegación. Escucha el
-              // lifecycle y recupera prompts del overlay nativo Android.
+              // como capa superior dentro del stack de navegación.
+              // En el navegador web se desactiva para mantener el área 100% limpia.
               child: NanoFloatingWrapper(
+                // El panel flotante sigue disponible en el dashboard; ocultarlo
+                // rompería la entrada rápida, la voz y la ventana contextual.
+                enabled: !isBrowser,
                 webProviders: webProviders,
                 actions: actionPort,
                 audioLevel: audioLevel,
+                voiceSession: ref.read(chatProvider.notifier).voiceSession,
                 child: boundedContent,
               ),
             ),
+            // El navegador publica controles en Android solo mientras existe un medio.
           ],
         ),
       ),

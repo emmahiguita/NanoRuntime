@@ -1,18 +1,11 @@
-/// AUTOMATION-AGENT-HEADER — Cabecera de control del asistente.
-///
-/// QUÉ HACE:
-/// Muestra el título del módulo, el badge de autonomía actual y controles de audio/voz.
-///
-/// CÓMO FUNCIONA:
-/// Diseñado de forma compacta con semántica accesible y respuesta táctil.
-///
-/// POR QUÉ:
-/// Centraliza el estado de autonomía sin estorbar el flujo de trabajo del usuario.
-library;
-
+// QUÉ: cabecera principal con marca, autonomía y tres acciones reales.
+// CÓMO: separa identidad de controles y reutiliza los callbacks existentes.
+// POR QUÉ: elimina símbolos ambiguos y desenfoques por botón sin cambiar funciones.
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/feather_core_icon.dart';
 import '../../domain/automation_policy.dart';
-import '../automation_visual_theme.dart';
+import 'automation_header_action.dart';
+import 'automation_header_identity.dart';
 
 class AgentHeaderWidget extends StatelessWidget {
   const AgentHeaderWidget({
@@ -26,137 +19,74 @@ class AgentHeaderWidget extends StatelessWidget {
     this.isConversationActive = false,
     this.isRunning = false,
   });
-
   final AgentAutomationMode mode;
   final VoidCallback onModeTap;
-  final VoidCallback? onDevTap;
-  final VoidCallback? onVoiceOutputTap;
-  final bool isVoiceOutputEnabled;
-  final VoidCallback? onConversationTap;
-  final bool isConversationActive;
-  final bool isRunning;
+  final VoidCallback? onDevTap, onVoiceOutputTap, onConversationTap;
+  final bool isVoiceOutputEnabled, isConversationActive, isRunning;
 
   @override
   Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-
+    final identity = AutomationHeaderIdentity(
+      mode: mode,
+      onModeTap: onModeTap,
+      running: isRunning,
+    );
+    final actions = <Widget>[
+      if (onVoiceOutputTap != null)
+        AutomationHeaderAction(
+          label: isVoiceOutputEnabled
+              ? 'Silenciar salida de voz'
+              : 'Activar salida de voz',
+          type: FeatherCoreType.voice,
+          active: isVoiceOutputEnabled,
+          muted: !isVoiceOutputEnabled,
+          onTap: onVoiceOutputTap,
+        ),
+      if (onConversationTap != null)
+        AutomationHeaderAction(
+          label: isConversationActive
+              ? 'Detener conversación por voz'
+              : 'Iniciar conversación por voz',
+          type: FeatherCoreType.mic,
+          active: isConversationActive,
+          // Detener sigue disponible; iniciar durante una tarea ya era rechazado.
+          onTap: isRunning && !isConversationActive ? null : onConversationTap,
+        ),
+      if (onDevTap != null)
+        AutomationHeaderAction(
+          label: 'Herramientas técnicas',
+          type: FeatherCoreType.devTools,
+          onTap: onDevTap,
+        ),
+    ];
     return Semantics(
       header: true,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: visual.accent.withValues(alpha: 0.12),
-              border: Border.all(color: visual.accent.withValues(alpha: 0.3)),
-            ),
-            child: Icon(Icons.auto_mode_rounded, size: 20, color: visual.accent),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 6,
-              runSpacing: 4,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // En paneles estrechos o con letra ampliada, no comprime los blancos táctiles.
+          final stacked =
+              constraints.maxWidth < 300 ||
+              MediaQuery.textScalerOf(context).scale(14) > 19;
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Automatización',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                Material(
-                  color: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(99),
-                    side: BorderSide(
-                      color: visual.accent.withValues(alpha: 0.45),
-                      width: 1,
-                    ),
-                  ),
-                  child: InkWell(
-                    onTap: onModeTap,
-                    borderRadius: BorderRadius.circular(99),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: visual.accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        mode.label,
-                        style: TextStyle(
-                          color: visual.accent,
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
+                identity,
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(children: actions),
                 ),
               ],
-            ),
-          ),
-          if (onVoiceOutputTap != null)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onVoiceOutputTap,
-              icon: Icon(
-                isVoiceOutputEnabled
-                    ? Icons.volume_up_rounded
-                    : Icons.volume_off_rounded,
-                color: isVoiceOutputEnabled
-                    ? visual.accent
-                    : (visual.isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : visual.textMuted),
-                size: 20,
-              ),
-            ),
-          if (onConversationTap != null)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onConversationTap,
-              icon: Icon(
-                isConversationActive
-                    ? Icons.record_voice_over_rounded
-                    : Icons.voice_chat_outlined,
-                color: isConversationActive
-                    ? visual.accent
-                    : (visual.isDark
-                          ? Colors.white.withValues(alpha: 0.85)
-                          : visual.textMuted),
-                size: 20,
-              ),
-            ),
-          if (onDevTap != null)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(5),
-              constraints: const BoxConstraints(),
-              onPressed: onDevTap,
-              icon: Icon(
-                Icons.smart_toy_outlined,
-                color: visual.accent,
-                size: 21,
-              ),
-            ),
-        ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: identity),
+              const SizedBox(width: 6),
+              ...actions,
+            ],
+          );
+        },
       ),
     );
   }

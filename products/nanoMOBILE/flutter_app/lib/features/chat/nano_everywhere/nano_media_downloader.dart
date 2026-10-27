@@ -5,98 +5,129 @@
 // POR QUÉ: No satura RAM, previene archivos corruptos y cumple Scoped Storage de Android.
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'nano_ai_models.dart';
+import 'nano_media_detector.dart';
+part 'nano_media_download_transfer.dart';
 
 class NanoMediaDownloader {
-  NanoMediaDownloader({http.Client? client, String? basePath})
-      : _client = client ?? http.Client(),
-        _basePath = basePath ?? '/storage/emulated/0/Download/NanoAI';
+  NanoMediaDownloader({
+    http.Client? client,
+    String? basePath,
+    MethodChannel? channel,
+  }) : _ownsClient = client == null,
+       _client = client ?? http.Client(),
+       _basePath = basePath ?? '/storage/emulated/0/Download/NanoAI',
+       _channel = channel ?? const MethodChannel('dev.nanoai/floating');
 
   final http.Client _client;
+  final bool _ownsClient;
   final String _basePath;
+  final MethodChannel _channel;
+  final _operations = <_NanoDownloadOperation>{};
+  bool _disposed = false;
+
+  /// Detiene transferencias Dart y lotes; Android no ofrece cancelación aquí.
+  /// La señal también impide iniciar un fallback tras un resultado incierto.
+  void cancelActive() {
+    for (final operation in _operations) {
+      operation.cancel();
+    }
+  }
+
+  /// Solo cierra el cliente construido aquí; el cliente inyectado tiene dueño.
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    cancelActive();
+    if (_ownsClient) _client.close();
+  }
+
+  /// Registra cada operación para cancelarla sin cerrar clientes compartidos.
+  _NanoDownloadOperation _beginOperation() {
+    if (_disposed) throw StateError('El descargador está cerrado.');
+    final operation = _NanoDownloadOperation();
+    _operations.add(operation);
+    return operation;
+  }
 
   /// Descarga [resource] hacia la subcarpeta correspondiente según su tipo.
-  /// Notifica progreso [0.0..1.0] si [onProgress] es provisto.
+  /// Si proviene de redes sociales (YouTube, FB, X, Instagram, TikTok),
+  /// delega primero al DownloadManager nativo de Android e indexa en Galería.
   Future<File> download(
     NanoMediaResource resource, {
     void Function(double progress)? onProgress,
   }) async {
-    final subfolder = switch (resource.type) {
-      NanoMediaType.video => 'Videos',
-      NanoMediaType.image => 'Imagenes',
-      NanoMediaType.audio => 'Audios',
-      NanoMediaType.document => 'Documentos',
-    };
-
-    final targetDir = Directory('$_basePath/$subfolder');
-    if (!await targetDir.exists()) {
-      await targetDir.create(recursive: true);
+    final operation = _beginOperation();
+    try {
+      return await _download(resource, operation, onProgress: onProgress);
+    } finally {
+      _operations.remove(operation);
     }
-
-    final filename = _sanitizeFilename(resource.title, resource.url, resource.type);
-    final finalFile = File('${targetDir.path}/$filename');
-    final partFile = File('${finalFile.path}.part');
-
-    int downloaded = 0;
-    if (await partFile.exists()) {
-      downloaded = await partFile.length();
-    }
-
-    final req = http.Request('GET', Uri.parse(resource.url));
-    if (downloaded > 0) {
-      req.headers['Range'] = 'bytes=$downloaded-';
-    }
-
-    final response = await _client.send(req);
-    if (response.statusCode != 200 && response.statusCode != 206) {
-      throw HttpException('Error HTTP ${response.statusCode} al descargar.');
-    }
-
-    final total = response.contentLength != null
-        ? response.contentLength! + (response.statusCode == 206 ? downloaded : 0)
-        : null;
-
-    final sink = partFile.openWrite(
-      mode: response.statusCode == 206 ? FileMode.append : FileMode.write,
-    );
-
-    await response.stream.listen((chunk) {
-      sink.add(chunk);
-      downloaded += chunk.length;
-      if (total != null && total > 0 && onProgress != null) {
-        onProgress(downloaded / total);
-      }
-    }).asFuture<void>();
-
-    await sink.flush();
-    await sink.close();
-
-    // Renombrado atómico: de .part a nombre final
-    if (await finalFile.exists()) {
-      await finalFile.delete();
-    }
-    return await partFile.rename(finalFile.path);
   }
 
-  /// Descarga una lista de recursos secuencialmente o con concurrencia controlada.
+  /// Comparte cancelación con el lote y no reintenta una petición nativa enviada.
+  Future<File> _download(
+    NanoMediaResource resource,
+    _NanoDownloadOperation operation, {
+    void Function(double progress)? onProgress,
+  }) async {
+    operation.check();
+    final sourceOrUrl = resource.sourceUrl ?? resource.url;
+    if (NanoMediaDetector.isSocialMediaUrl(sourceOrUrl)) {
+      try {
+        final res = await operation.wait(
+          _channel.invokeMethod<Map<Object?, Object?>>('downloadMedia', {
+            'url': resource.url,
+            'audioOnly': resource.type == NanoMediaType.audio,
+          }),
+        );
+        operation.check();
+        if (res != null && res['ok'] == true) {
+          onProgress?.call(1.0);
+          final nativePath =
+              (res['path'] as String?) ??
+              '$_basePath/${resource.type == NanoMediaType.audio ? "Audios" : "Videos"}/${_sanitizeFilename(resource.title, resource.url, resource.type)}';
+          return File(nativePath);
+        }
+        throw StateError(
+          'Android no confirmó la descarga; revisa su resultado.',
+        );
+      } on MissingPluginException {
+        // No existe receptor nativo: ninguna descarga externa se inició.
+        operation.check();
+      }
+    }
+    return _downloadHttp(resource, operation, onProgress);
+  }
+
+  /// Ejecuta un lote secuencial; cancelar impide despachar los archivos restantes.
   Future<List<File>> downloadBatch(
     List<NanoMediaResource> items, {
     void Function(int current, int total)? onProgressItem,
   }) async {
+    final operation = _beginOperation();
     final results = <File>[];
-    for (int i = 0; i < items.length; i++) {
-      onProgressItem?.call(i + 1, items.length);
-      try {
-        final file = await download(items[i]);
-        results.add(file);
-      } catch (_) {
-        // Continúa con los demás elementos en caso de fallo individual
+    try {
+      for (int i = 0; i < items.length && !operation.cancelled; i++) {
+        onProgressItem?.call(i + 1, items.length);
+        try {
+          final file = await _download(items[i], operation);
+          operation.check();
+          results.add(file);
+        } catch (_) {
+          if (operation.cancelled) break;
+          // Un fallo individual no reintenta el mismo recurso.
+        }
       }
+      return results;
+    } finally {
+      _operations.remove(operation);
     }
-    return results;
   }
 
+  /// Conserva nombres válidos y la extensión resuelta por el tipo del recurso.
   String _sanitizeFilename(String title, String url, NanoMediaType type) {
     var name = title.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
     if (name.isEmpty || name.length > 50) {
@@ -109,6 +140,7 @@ class NanoMediaDownloader {
     return name;
   }
 
+  /// Usa una extensión de URL acotada o el formato canónico del tipo detectado.
   String _resolveExtension(String url, NanoMediaType type) {
     final uri = Uri.tryParse(url);
     if (uri != null && uri.path.contains('.')) {

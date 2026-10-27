@@ -19,9 +19,9 @@ extension ConversationDetailAgentPicker on _ConversationDetailSheetState {
     BuildContext context,
     AutomationVisualPalette visual,
   ) {
-    showModalBottomSheet<void>(
+    showNanoGlassWindow<void>(
       context: context,
-      backgroundColor: Colors.transparent,
+
       builder: (ctx) => Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         padding: const EdgeInsets.all(16),

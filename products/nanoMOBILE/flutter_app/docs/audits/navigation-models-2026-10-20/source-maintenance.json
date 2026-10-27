@@ -1,0 +1,170 @@
+[
+  {
+    "file": "lib/core/widgets/feather_core_assets.part.dart",
+    "lines": 12
+  },
+  {
+    "file": "lib/core/widgets/feather_core_icon.dart",
+    "lines": 163
+  },
+  {
+    "file": "lib/core/widgets/feather_core_mapping.part.dart",
+    "lines": 39
+  },
+  {
+    "file": "lib/core/widgets/feather_core_symbol.dart",
+    "lines": 183
+  },
+  {
+    "file": "lib/core/widgets/feather_core_tile.dart",
+    "lines": 133
+  },
+  {
+    "file": "lib/core/models/catalog_entries_0.dart",
+    "lines": 36
+  },
+  {
+    "file": "lib/core/models/catalog_entries_1.dart",
+    "lines": 50
+  },
+  {
+    "file": "lib/core/models/catalog_entries_2.dart",
+    "lines": 49
+  },
+  {
+    "file": "lib/core/models/catalog_entries_3.dart",
+    "lines": 50
+  },
+  {
+    "file": "lib/core/models/catalog_entries_4.dart",
+    "lines": 143
+  },
+  {
+    "file": "lib/core/models/catalog_entries_5.dart",
+    "lines": 110
+  },
+  {
+    "file": "lib/core/models/catalog_entries_6.dart",
+    "lines": 97
+  },
+  {
+    "file": "lib/core/widgets/navigation/nano_bottom_dock.dart",
+    "lines": 119
+  },
+  {
+    "file": "lib/core/widgets/navigation/nano_multi_use_nav_bar.dart",
+    "lines": 152
+  },
+  {
+    "file": "lib/core/widgets/navigation/nano_nav_destination_item.dart",
+    "lines": 96
+  },
+  {
+    "file": "lib/core/widgets/navigation/nano_nav_mini_pill.dart",
+    "lines": 94
+  },
+  {
+    "file": "lib/core/widgets/navigation/nano_nav_bar_container.dart",
+    "lines": 125
+  },
+  {
+    "file": "lib/core/widgets/navigation/nano_nav_constants.dart",
+    "lines": 23
+  },
+  {
+    "file": "lib/core/widgets/navigation/nano_destination.dart",
+    "lines": 25
+  },
+  {
+    "file": "lib/core/widgets/navigation/nano_nav_search_panel.dart",
+    "lines": 182
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_catalog_types.dart",
+    "lines": 126
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_item_categories.part.dart",
+    "lines": 84
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_item_runtime.part.dart",
+    "lines": 51
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_item_identity.part.dart",
+    "lines": 102
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_item_narrative.part.dart",
+    "lines": 122
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/models_category_grid.dart",
+    "lines": 170
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_floating_window.dart",
+    "lines": 136
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_usage_information.dart",
+    "lines": 78
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_window_facts.dart",
+    "lines": 49
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_window_actions.dart",
+    "lines": 95
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_perspective_front.part.dart",
+    "lines": 157
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_perspective_back.dart",
+    "lines": 119
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/models_list_section.dart",
+    "lines": 142
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/models_catalog_header.dart",
+    "lines": 145
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/models_portrait_view.dart",
+    "lines": 132
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/models_landscape_view.dart",
+    "lines": 150
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/models_screen_actions.dart",
+    "lines": 62
+  },
+  {
+    "file": "lib/features/models/presentation/widgets/model_device_evidence_card.dart",
+    "lines": 77
+  },
+  {
+    "file": "lib/features/models/presentation/screens/models_screen.dart",
+    "lines": 190
+  },
+  {
+    "file": "lib/features/models/presentation/screens/models_screen_actions.part.dart",
+    "lines": 134
+  },
+  {
+    "file": "lib/features/models/data/hugging_face_gguf_import_service.dart",
+    "lines": 184
+  },
+  {
+    "file": "tool/audit_catalog_sources.py",
+    "lines": 71
+  }
+]

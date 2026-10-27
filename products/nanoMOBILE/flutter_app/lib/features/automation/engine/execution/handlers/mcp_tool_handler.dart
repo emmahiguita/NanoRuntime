@@ -2,11 +2,17 @@ import 'dart:convert';
 
 import '../../mcp/mcp_client_port.dart';
 import '../../mcp/mcp_connection_registry.dart';
+import '../../mcp/mcp_tool.dart';
 import '../../mcp/mcp_tool_projection.dart';
 import '../../mcp/mcp_tool_resolver.dart';
 import '../../voice/execution_cancellation.dart';
 import '../tool_call.dart';
 import '../tool_outcome.dart';
+import 'mcp_command_list_formatter.dart';
+import '../tool_execution_report.dart';
+import '../../mcp/mcp_schema_validator.dart';
+import '../../mcp/mcp_result_presenter.dart';
+part 'mcp_human_command.dart';
 
 /// Manejador de herramientas y comandos MCP (Model Context Protocol).
 /// Cumple SRP: descubrimiento y ejecución remota de herramientas MCP.
@@ -16,7 +22,6 @@ class McpToolHandler {
   const McpToolHandler({McpConnectionRegistry? mcpConnectionRegistry})
     : _mcpConnectionRegistry = mcpConnectionRegistry;
 
-  /// Ejecución e inspección directa de servidores y herramientas MCP desde comandos @.
   Future<String> handleMcpCommand(
     String rest, {
     required Future<ToolOutcome> Function(
@@ -28,103 +33,12 @@ class McpToolHandler {
     runGuarded,
     String? executionId,
     ExecutionCancellationToken? cancellation,
-  }) async {
-    final query = rest.trim();
-    final parts = query.split(RegExp(r'\s+'));
-    final sub = parts.isEmpty ? '' : parts.first.toLowerCase();
-
-    final mcpReg = _mcpConnectionRegistry;
-    if (mcpReg == null) {
-      return 'Registro MCP no configurado en este perfil.';
-    }
-
-    if (query.isEmpty || sub == 'list' || sub == 'listar') {
-      final snapshot = await mcpReg.refreshTools();
-      final buf = StringBuffer(
-        '🔌 Servidores y herramientas MCP conectadas:\n',
-      );
-      for (final s in mcpReg.servers) {
-        buf.writeln(
-          '• Servidor "${s.id}" (${s.displayName}) [${s.transport.name}]',
-        );
-      }
-      if (snapshot.tools.isEmpty) {
-        buf.writeln('  (Sin herramientas descubiertas)');
-      } else {
-        for (final entry in snapshot.tools.entries) {
-          buf.writeln('  - ${entry.key}: ${entry.value.description}');
-        }
-      }
-      if (snapshot.failures.isNotEmpty) {
-        buf.writeln('\n⚠️ Fallos de descubrimiento:');
-        for (final f in snapshot.failures) {
-          buf.writeln('  • ${f.serverId}: ${f.reason}');
-        }
-      }
-      return buf.toString().trim();
-    }
-
-    String toolName = '';
-    Map<String, Object?> args = {};
-
-    if (sub == 'call' || sub == 'ejecutar') {
-      if (parts.length < 2) {
-        return 'Sintaxis: @mcp call <tool_name> [json_args]. Ej: @mcp call device.diagnostics';
-      }
-      toolName = parts[1];
-      if (parts.length > 2) {
-        final rawJson = query
-            .substring(query.indexOf(toolName) + toolName.length)
-            .trim();
-        if (rawJson.isNotEmpty) {
-          try {
-            final decoded = jsonDecode(rawJson);
-            if (decoded is Map<String, dynamic>) {
-              args = Map<String, Object?>.from(decoded);
-            }
-          } catch (_) {
-            args = {'input': rawJson};
-          }
-        }
-      }
-    } else {
-      // Tratar sub como nombre de herramienta directo (ej: @mcp device.diagnostics o @mcp diagnostics)
-      toolName = parts.first;
-      if (parts.length > 1) {
-        final rawJson = query
-            .substring(query.indexOf(toolName) + toolName.length)
-            .trim();
-        if (rawJson.isNotEmpty) {
-          try {
-            final decoded = jsonDecode(rawJson);
-            if (decoded is Map<String, dynamic>) {
-              args = Map<String, Object?>.from(decoded);
-            }
-          } catch (_) {
-            args = {'input': rawJson};
-          }
-        }
-      }
-    }
-
-    // Las annotations se proyectan ANTES de entrar al pipeline de governance.
-    // Antes todas las llamadas @mcp se marcaban como read, incluso una tool de
-    // escritura. Tool desconocida degrada fail-closed a externalWrite.
-    final remoteTool = await resolveRemoteTool(mcpReg, toolName);
-    final guardedTool = remoteTool == null
-        ? 'mcp.externalWrite'
-        : 'mcp.${const McpToolProjection().toNanoTool(remoteTool).category.name}';
-    final call = ToolCall(
-      tool: guardedTool,
-      args: {'mcpTool': toolName, ...args},
-    );
-    return (await runGuarded(
-      call,
-      humanInitiated: true,
-      executionId: executionId,
-      cancellation: cancellation,
-    )).feedback;
-  }
+  }) => _handleMcpCommand(
+    rest,
+    runGuarded: runGuarded,
+    executionId: executionId,
+    cancellation: cancellation,
+  );
 
   final McpToolResolver _resolver = const McpToolResolver();
 
@@ -133,84 +47,54 @@ class McpToolHandler {
     String requested,
   ) => _resolver.resolve(registry, requested);
 
-  /// Ejecuta una herramienta MCP a través de McpConnectionRegistry.
-  Future<String> executeMcpTool(ToolCall call) async {
-    final mcpTool =
-        (call.args?['mcpTool'] as String?) ??
-        (call.args?['tool'] as String?) ??
+  /// API legacy: devuelve texto; el dispatcher nuevo consume executeReport.
+  Future<String> executeMcpTool(ToolCall call) async =>
+      (await executeReport(call)).feedback;
+
+  /// Valida identidad, clasificación y JSON Schema antes del único efecto físico.
+  Future<ToolExecutionReport> executeReport(
+    ToolCall call, {
+    ExecutionCancellationToken? cancellation,
+  }) async {
+    ToolExecutionReport fail(String message) =>
+        ToolExecutionReport(message, ToolExecutionStatus.failed);
+    final requested =
+        call.args?['mcpTool'] ??
+        call.args?['tool'] ??
         call.selectorArg ??
-        call.textArg ??
-        '';
-    if (mcpTool.isEmpty) {
-      return '[tool] Llamada MCP requiere argumento "mcpTool".';
+        call.textArg;
+    if (requested is! String || requested.isEmpty) {
+      return fail('Falta el identificador mcpTool.');
     }
-
-    final mcpReg = _mcpConnectionRegistry;
-    if (mcpReg == null) {
-      return '[tool] MCP no disponible: registry no configurado.';
+    final registry = _mcpConnectionRegistry;
+    if (registry == null) return fail('Registro MCP no disponible.');
+    final remote = await resolveRemoteTool(registry, requested);
+    cancellation?.throwIfCancelled();
+    if (remote == null) {
+      return fail('Herramienta MCP ausente o ambigua: $requested.');
     }
-
-    String serverId;
-    String toolName;
-    if (mcpTool.contains('/')) {
-      final split = mcpTool.split('/');
-      serverId = split[0];
-      toolName = split.sublist(1).join('/');
-    } else if (mcpTool.contains('.')) {
-      final serverIds =
-          mcpReg.servers
-              .map((server) => server.id)
-              .where((id) => mcpTool.startsWith('$id.'))
-              .toList(growable: false)
-            ..sort((a, b) => b.length.compareTo(a.length));
-      if (serverIds.isNotEmpty) {
-        serverId = serverIds.first;
-        toolName = mcpTool.substring(serverId.length + 1);
-      } else {
-        final split = mcpTool.split('.');
-        serverId = split[0];
-        toolName = split.sublist(1).join('.');
-      }
-    } else {
-      serverId = 'device';
-      toolName = mcpTool;
+    final projection = const McpToolProjection().toNanoTool(remote);
+    if (call.tool != 'mcp.${projection.category.name}') {
+      return fail(
+        'La clasificación de la herramienta no coincide con su autorización.',
+      );
     }
-
-    var client = mcpReg.client(serverId);
-    if (client == null && mcpReg.servers.isNotEmpty) {
-      client = mcpReg.client(mcpReg.servers.first.id);
-      serverId = mcpReg.servers.first.id;
-    }
-
-    if (client == null) {
-      return '[mcpError] No se encontró servidor MCP para "$serverId".';
-    }
-
-    final toolArgs = Map<String, Object?>.from(call.args ?? {})
-      ..remove('mcpTool');
-
+    final args = Map<String, Object?>.from(call.args ?? {})..remove('mcpTool');
+    final errors = await McpSchemaValidator.validate(remote.inputSchema, args);
+    if (errors.isNotEmpty) return fail(errors.join('\n'));
+    cancellation?.throwIfCancelled();
+    final client = registry.client(remote.serverId);
+    if (client == null) return fail('El servidor ya no está registrado.');
     final result = await client.callTool(
-      McpToolCall(serverId: serverId, toolName: toolName, arguments: toolArgs),
+      McpToolCall(
+        serverId: remote.serverId,
+        toolName: remote.name,
+        arguments: args,
+      ),
     );
-
-    if (!result.success) {
-      return '[mcpError] Error ejecutando $mcpTool: '
-          '${result.message ?? result.errorCode ?? result.status.name}';
-    }
-
-    final textItems = result.content
-        .where((c) => c.text != null && c.text!.isNotEmpty)
-        .map((c) => c.text!)
-        .join('\n');
-
-    if (textItems.isNotEmpty) {
-      return textItems;
-    }
-
-    if (result.structuredContent != null) {
-      return jsonEncode(result.structuredContent);
-    }
-
-    return '[mcpSuccess] Herramienta $mcpTool ejecutada correctamente.';
+    return McpResultPresenter.present(
+      result,
+      mutating: projection.category != McpToolCategory.read,
+    );
   }
 }

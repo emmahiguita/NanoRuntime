@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_type.dart';
+import 'package:nanoai/core/widgets/nano_glass_window.dart';
 
 class CountryInfo {
   final String code;
@@ -29,7 +30,12 @@ const List<CountryInfo> kNanoCountries = [
   CountryInfo(code: 'BR', name: 'Brasil', dialCode: '+55', flag: '🇧🇷'),
   CountryInfo(code: 'PA', name: 'Panamá', dialCode: '+507', flag: '🇵🇦'),
   CountryInfo(code: 'CR', name: 'Costa Rica', dialCode: '+506', flag: '🇨🇷'),
-  CountryInfo(code: 'DO', name: 'República Dominicana', dialCode: '+1', flag: '🇩🇴'),
+  CountryInfo(
+    code: 'DO',
+    name: 'República Dominicana',
+    dialCode: '+1',
+    flag: '🇩🇴',
+  ),
   CountryInfo(code: 'GT', name: 'Guatemala', dialCode: '+502', flag: '🇬🇹'),
   CountryInfo(code: 'BO', name: 'Bolivia', dialCode: '+591', flag: '🇧🇴'),
   CountryInfo(code: 'UY', name: 'Uruguay', dialCode: '+598', flag: '🇺🇾'),
@@ -41,31 +47,20 @@ void showNanoCountryPicker({
   required NanoColors colors,
   required ValueChanged<CountryInfo> onSelected,
 }) {
-  showModalBottomSheet(
+  showNanoGlassWindow(
     context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
     builder: (ctx) {
-      return Container(
+      return SizedBox(
         height: MediaQuery.sizeOf(ctx).height * 0.65,
-        decoration: BoxDecoration(
-          color: colors.backgroundPrimary,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(NanoRadius.large)),
-          border: Border.all(color: colors.glassBorder),
-        ),
         child: Column(
           children: [
-            const SizedBox(height: NanoSpacing.sm),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colors.onSurfaceVariant.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.all(NanoSpacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                NanoSpacing.md,
+                4,
+                NanoSpacing.md,
+                NanoSpacing.sm,
+              ),
               child: Text(
                 'Selecciona tu País',
                 style: NanoType.headline(colors.onSurface),
@@ -74,15 +69,21 @@ void showNanoCountryPicker({
             Expanded(
               child: ListView.separated(
                 itemCount: kNanoCountries.length,
-                separatorBuilder: (_, __) => Divider(
+                separatorBuilder: (_, _) => Divider(
                   height: 1,
-                  color: colors.onSurfaceVariant.withValues(alpha: 0.1),
+                  color: colors.onSurfaceVariant.withValues(alpha: 0.12),
                 ),
                 itemBuilder: (ctx, i) {
                   final country = kNanoCountries[i];
                   return ListTile(
-                    leading: Text(country.flag, style: const TextStyle(fontSize: 24)),
-                    title: Text(country.name, style: NanoType.body(colors.onSurface)),
+                    leading: Text(
+                      country.flag,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    title: Text(
+                      country.name,
+                      style: NanoType.body(colors.onSurface),
+                    ),
                     trailing: Text(
                       country.dialCode,
                       style: TextStyle(

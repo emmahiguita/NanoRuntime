@@ -13,6 +13,8 @@ import 'package:nanoai/features/automation/engine/messaging/incoming_message.dar
 import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
 import 'package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart';
 
+part 'tool_routed_conversation_reply_composer.part.dart';
+
 final class ClassifyConversationArguments implements ToolArguments {
   const ClassifyConversationArguments(this.text);
   factory ClassifyConversationArguments.fromMap(Map<String, dynamic> raw) {
@@ -45,16 +47,20 @@ final class ComposePersonalReplyArguments implements ToolArguments {
   const ComposePersonalReplyArguments({
     required this.notification,
     required this.decisionContext,
+    this.previewOnly = false,
   });
 
   final NotificationObject notification;
-  final ConversationDecisionContext decisionContext;
+  final ConversationDecisionContext? decisionContext;
+  // Vista previa: no consume el inbox ni habilita un envío al contacto.
+  final bool previewOnly;
 
   @override
   Map<String, Object?> toRedactedMap() => {
     'eventKey': notification.key,
     'packageName': notification.packageName,
     'textLength': notification.text.length,
+    'previewOnly': previewOnly,
   };
 }
 
@@ -109,126 +115,69 @@ abstract final class ConversationActions {
     );
   }
 
-  /// Adapter over the canonical production composer. It reuses FastPath,
-  /// memory, style retrieval, knowledge routing, LLM and DecisionEngine.
+  /// Delega al compositor real, diferenciando eventos de vistas previas manuales.
   static RegisteredTool createComposePersonalTool({
     required ConversationReplyComposer composer,
   }) {
-    final tool =
-        ActionToolAdapter<
-          ComposePersonalReplyArguments,
-          ConversationDraftResult?
-        >(
-          definition: const ToolDefinition(
-            id: 'conversation.composePersonal',
-            version: 1,
-            displayName: 'Componer respuesta personal',
-            description:
-                'Ejecuta el compositor conversacional canónico existente.',
-            category: ToolCategory.domainAction,
-            risk: ToolRiskLevel.readOnly,
-            sideEffect: ToolSideEffect.localRead,
-            requiredPermissions: [
-              ToolPermission.messagesRead,
-              ToolPermission.memoryRead,
-            ],
-            allowedRoles: [AgentCallerRole.personal, AgentCallerRole.system],
-            allowedExecutionModes: [
-              ToolExecutionMode.foreground,
-              ToolExecutionMode.background,
-              ToolExecutionMode.headless,
-            ],
-            tags: {'conversation', 'personal', 'composer'},
-          ),
-          onExecute: (context) async {
-            final startedAt = DateTime.now();
-            final draft = await composer.compose(
-              context.arguments.notification,
-              decisionContext: context.arguments.decisionContext,
-            );
-            return ToolResult.success(
-              output: draft,
-              startedAt: startedAt,
-              executionId: context.executionId,
-              evidence: [
-                ToolEvidence(
-                  type: ToolEvidenceType.computation,
-                  source: 'RuntimeConversationReplyComposer',
-                  timestamp: DateTime.now(),
-                  data: {
-                    'draftProduced': draft?.hasReply == true,
-                    'fastPath': draft?.isFastPath == true,
-                  },
-                ),
-              ],
-            );
-          },
+    final tool = ActionToolAdapter<ComposePersonalReplyArguments, Object?>(
+      definition: const ToolDefinition(
+        id: 'conversation.composePersonal',
+        version: 1,
+        displayName: 'Componer respuesta personal',
+        description: 'Ejecuta el compositor conversacional canónico existente.',
+        category: ToolCategory.domainAction,
+        risk: ToolRiskLevel.readOnly,
+        sideEffect: ToolSideEffect.localRead,
+        requiredPermissions: [
+          ToolPermission.messagesRead,
+          ToolPermission.memoryRead,
+        ],
+        allowedRoles: [AgentCallerRole.personal, AgentCallerRole.system],
+        allowedExecutionModes: [
+          ToolExecutionMode.foreground,
+          ToolExecutionMode.background,
+          ToolExecutionMode.headless,
+        ],
+        timeout: Duration(seconds: 180),
+        tags: {'conversation', 'personal', 'composer'},
+      ),
+      onExecute: (context) async {
+        final startedAt = DateTime.now();
+        // No traduce una solicitud de borrador a un evento automático.
+        final args = context.arguments;
+        final Object? output = args.previewOnly
+            ? await composer.composeSuggestions(
+                args.notification,
+                decisionContext: args.decisionContext,
+              )
+            : await composer.compose(
+                context.arguments.notification,
+                decisionContext: context.arguments.decisionContext,
+              );
+        final draft = output is ConversationDraftResult ? output : null;
+        return ToolResult.success(
+          output: output,
+          startedAt: startedAt,
+          executionId: context.executionId,
+          evidence: [
+            ToolEvidence(
+              type: ToolEvidenceType.computation,
+              source: 'RuntimeConversationReplyComposer',
+              timestamp: DateTime.now(),
+              data: {
+                'draftProduced': draft?.hasReply == true,
+                'fastPath': draft?.isFastPath == true,
+              },
+            ),
+          ],
         );
+      },
+    );
     return TypedToolRegistration(
       tool: tool,
       decoder: (_) => throw const FormatException(
         'conversation.composePersonal solo acepta argumentos tipados internos.',
       ),
     );
-  }
-}
-
-/// Production bridge: every conversation composition enters the formal
-/// ToolRouter while the actual intelligence remains in the existing composer.
-final class ToolRoutedConversationReplyComposer
-    implements ConversationReplyComposer {
-  const ToolRoutedConversationReplyComposer(this.router);
-
-  final ToolRouter router;
-
-  @override
-  Future<ConversationDraftResult?> compose(
-    NotificationObject notification, {
-    ConversationDecisionContext? decisionContext,
-  }) async {
-    final identity = resolveConversationIdentity(notification);
-    final eventId = IncomingMessage.fromNotification(notification).eventId;
-    final result = await router.dispatchTyped(
-      TypedToolRequest(
-        toolId: 'conversation.composePersonal',
-        arguments: ComposePersonalReplyArguments(
-          notification: notification,
-          decisionContext:
-              decisionContext ?? const ConversationDecisionContext(),
-        ),
-        caller: const AgentIdentity(role: AgentCallerRole.system),
-        environment: const ToolExecutionEnvironment(
-          mode: ToolExecutionMode.background,
-          userPresent: false,
-        ),
-        conversation: ToolConversationIdentity(
-          id: identity.key.id,
-          platform: notification.packageName,
-          participant: notification.sender,
-        ),
-        correlationId: eventId,
-      ),
-    );
-    if (!result.executionSucceeded) return null;
-    return result.output is ConversationDraftResult
-        ? result.output as ConversationDraftResult
-        : null;
-  }
-
-  @override
-  Future<List<String>> composeSuggestions(
-    NotificationObject notification, {
-    int maxSuggestions = 3,
-    ConversationDecisionContext? decisionContext,
-  }) async {
-    final result = await compose(
-      notification,
-      decisionContext: decisionContext,
-    );
-    if (result == null) return const [];
-    final candidates = result.suggestions.isEmpty
-        ? <String>[result.text]
-        : result.suggestions;
-    return candidates.take(maxSuggestions).toList(growable: false);
   }
 }

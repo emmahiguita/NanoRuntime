@@ -14,11 +14,11 @@ class McpToolAdapter {
   CandidateAction adapt(McpTool tool, Map<String, Object?> args) {
     return CandidateAction(
       id: CandidateId('mcp:${tool.id}'),
-      semanticAction: tool.name,
+      semanticAction: 'mcp.${tool.category.name}',
       // Tool categórico: el effectOfTool (A11) lo mapea a un efecto. El executor
-      // MCP real (futuro) resuelve el id concreto desde args.
+      // MCP resuelve el id concreto y valida su esquema antes del efecto.
       tool: 'mcp.${tool.category.name}',
-      args: {'mcpTool': tool.id, ...args},
+      args: {...args, 'mcpTool': tool.id},
       channel: ActionChannel.mcp,
       groundingConfidence: 1.0, // tool declarada/estructurada (no inventada)
       risk: _riskFor(tool.category),

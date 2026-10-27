@@ -6,9 +6,24 @@ library;
 
 class ConversationalIntentMatcher {
   static const _salutations = [
-    'buenos días', 'buenos dias', 'buenas tardes', 'buenas noches',
-    'buen día', 'buen dia', 'que tal', 'qué tal', 'como estas', 'cómo estás',
-    'hola', 'buenas', 'hey', 'saludos', 'hi', 'hello', 'iniciar', 'empezar',
+    'buenos días',
+    'buenos dias',
+    'buenas tardes',
+    'buenas noches',
+    'buen día',
+    'buen dia',
+    'que tal',
+    'qué tal',
+    'como estas',
+    'cómo estás',
+    'hola',
+    'buenas',
+    'hey',
+    'saludos',
+    'hi',
+    'hello',
+    'iniciar',
+    'empezar',
   ];
 
   static String stripGreeting(String text) {
@@ -25,31 +40,21 @@ class ConversationalIntentMatcher {
   }
 
   static bool isGreetingOnly(String text) {
-    final t = text.trim();
+    // Normaliza mayúsculas y puntuación exterior para aceptar "¡Hola!" sin captar preguntas.
+    final t = text.toLowerCase().replaceAll(RegExp(r'^[¡¿\s]+|[.!¡?¿,;:\s]+$'), '');
     if (_salutations.contains(t)) return true;
-    const pure = [
-      'hola nano', 'hola amigo', 'buenas nano', 'hey nano',
-      'hola que tal', 'hola cómo estás', 'hola como estas',
-    ];
+    const pure = ['hola nano', 'hola amigo', 'buenas nano', 'hey nano', 'hola que tal', 'hola cómo estás', 'hola como estas'];
     return pure.contains(t);
   }
 
-  static bool isGreeting(String text) =>
-      _salutations.contains(text) ||
-      _salutations.any((g) => text.startsWith('$g ') || text.endsWith(' $g'));
+  static bool isGreeting(String text) => _salutations.contains(text) || _salutations.any((g) => text.startsWith('$g ') || text.endsWith(' $g'));
 
-  static bool isThanks(String text) =>
-      text.contains('gracias') || text.contains('muchas gracias') ||
-      text.contains('te lo agradezco') || text.contains('mil gracias') || text.contains('thank');
+  static bool isThanks(String text) => text.contains('gracias') || text.contains('muchas gracias') || text.contains('te lo agradezco') || text.contains('mil gracias') || text.contains('thank');
 
-  static bool isFarewell(String text) => const {
-    'chao', 'adios', 'adiós', 'hasta luego', 'nos vemos', 'bye',
-  }.contains(text);
+  static bool isFarewell(String text) => const {'chao', 'adios', 'adiós', 'hasta luego', 'nos vemos', 'bye'}.contains(text);
 
   static bool isIdentity(String text) =>
-      text.contains('quien eres') || text.contains('quién eres') ||
-      text.contains('como te llamas') || text.contains('cómo te llamas') ||
-      text.contains('que eres') || text.contains('qué eres');
+      text.contains('quien eres') || text.contains('quién eres') || text.contains('como te llamas') || text.contains('cómo te llamas') || text.contains('que eres') || text.contains('qué eres');
 
   static bool isHelpRequest(String text) {
     const q = ['que puedes hacer', 'qué puedes hacer', 'que haces', 'qué haces', 'ayuda', 'help', 'comandos', 'capacidades', 'opciones', 'manual'];
@@ -62,7 +67,34 @@ class ConversationalIntentMatcher {
   }
 
   static bool isAutomationDomain(String text) {
-    const k = ['whatsapp', 'notificacion', 'notificación', 'notificaciones', 'mensaje', 'mensajes', 'enviar', 'envia', 'envía', 'manda', 'mandar', 'escribe', 'escribir', 'responde', 'responder', 'contesta', 'contestar', 'automatiza', 'automatizar', 'automatización', 'automatizacion', 'regla', 'reglas', 'recordatorio', 'recordatorios', 'shizuku'];
+    const k = [
+      'whatsapp',
+      'notificacion',
+      'notificación',
+      'notificaciones',
+      'mensaje',
+      'mensajes',
+      'enviar',
+      'envia',
+      'envía',
+      'manda',
+      'mandar',
+      'escribe',
+      'escribir',
+      'responde',
+      'responder',
+      'contesta',
+      'contestar',
+      'automatiza',
+      'automatizar',
+      'automatización',
+      'automatizacion',
+      'regla',
+      'reglas',
+      'recordatorio',
+      'recordatorios',
+      'shizuku',
+    ];
     return k.any((kw) => text.contains(kw));
   }
 
@@ -82,38 +114,68 @@ class ConversationalIntentMatcher {
   }
 
   static bool isAppControlDomain(String text) =>
-      text.startsWith('abre ') || text.startsWith('abrir ') ||
-      text.startsWith('lanza ') || text.startsWith('lanzar ') ||
-      text.startsWith('ejecuta ') || text.startsWith('ejecutar ') ||
-      text.startsWith('inicia ') || text.startsWith('iniciar ') ||
-      text.startsWith('entra a ') || text.startsWith('ve a ');
+      text.startsWith('abre ') ||
+      text.startsWith('abrir ') ||
+      text.startsWith('lanza ') ||
+      text.startsWith('lanzar ') ||
+      text.startsWith('ejecuta ') ||
+      text.startsWith('ejecutar ') ||
+      text.startsWith('inicia ') ||
+      text.startsWith('iniciar ') ||
+      text.startsWith('entra a ') ||
+      text.startsWith('ve a ');
 
   static bool isSkillsRepoQuery(String text) {
     final t = text.toLowerCase();
     final hasRepo = t.contains('repositorio') || t.contains('repo') || t.contains('github') || t.contains('git ') || t.contains('link') || t.contains('enlace');
-    final hasSkills = t.contains('skill') || t.contains('habilidad') || t.contains('open source') || t.contains('codigo abierto') || t.contains('código abierto') || t.contains('nivel de respuesta') || t.contains('mejorar modelo') || t.contains('alignment') || t.contains('dspy') || t.contains('axolotl');
+    final hasSkills =
+        t.contains('skill') ||
+        t.contains('habilidad') ||
+        t.contains('open source') ||
+        t.contains('codigo abierto') ||
+        t.contains('código abierto') ||
+        t.contains('nivel de respuesta') ||
+        t.contains('mejorar modelo') ||
+        t.contains('alignment') ||
+        t.contains('dspy') ||
+        t.contains('axolotl');
     return (hasRepo && hasSkills) || t.contains('repositorio de skills') || t.contains('repo de skills') || t.contains('skills para modelos');
   }
 
   static bool isWebSearchIntent(String text) {
     final t = text.toLowerCase();
-    return t.startsWith('busca en google') || t.startsWith('buscar en google') ||
-        t.startsWith('busca en internet') || t.startsWith('buscar en internet') ||
-        t.startsWith('buscalo en google') || t.startsWith('búscalo en google') ||
-        t.contains('buscal en google') || t.contains('búscalo en internet') ||
-        t.startsWith('investiga en google') || t.startsWith('investiga en internet');
+    return t.startsWith('busca en google') ||
+        t.startsWith('buscar en google') ||
+        t.startsWith('busca en internet') ||
+        t.startsWith('buscar en internet') ||
+        t.startsWith('buscalo en google') ||
+        t.startsWith('búscalo en google') ||
+        t.contains('buscal en google') ||
+        t.contains('búscalo en internet') ||
+        t.startsWith('investiga en google') ||
+        t.startsWith('investiga en internet');
   }
 
   static bool isIpQuery(String lower) =>
-      lower.contains('mi ip') || lower.contains('cual es mi ip') ||
-      lower.contains('cuál es mi ip') || lower.contains('dirección ip') ||
-      lower.contains('direccion ip') || lower.contains('ip publica') || lower.contains('ip pública');
+      lower.contains('mi ip') ||
+      lower.contains('cual es mi ip') ||
+      lower.contains('cuál es mi ip') ||
+      lower.contains('dirección ip') ||
+      lower.contains('direccion ip') ||
+      lower.contains('ip publica') ||
+      lower.contains('ip pública');
 
   static bool isGoogleAccountQuery(String lower) =>
-      lower.contains('cuenta de google') || lower.contains('mi cuenta google') ||
-      lower.contains('cuenta google') || lower.contains('conectar cuenta') ||
-      lower.contains('conectar google') || lower.contains('quien soy') ||
-      lower.contains('quién soy') || lower == 'mi cuenta' || lower == 'cuenta' || lower.startsWith('mi cuenta');
+      lower.contains('cuenta de google') ||
+      lower.contains('mi cuenta google') ||
+      lower.contains('cuenta google') ||
+      lower.contains('conectar cuenta') ||
+      lower.contains('conectar google') ||
+      lower.contains('quien soy') ||
+      lower.contains('quién soy') ||
+      lower == 'mi cuenta' ||
+      lower == 'cuenta' ||
+      lower.startsWith('mi cuenta');
 
   static bool isWebAccountLoginIntent(String lower) =>
       (lower.contains('iniciar sesion') || lower.contains('iniciar sesión') || lower.contains('mi cuenta') || lower.contains('login') || lower.contains('loguear')) &&

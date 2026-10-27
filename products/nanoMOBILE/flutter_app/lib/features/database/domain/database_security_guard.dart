@@ -29,6 +29,7 @@ class DatabaseSecurityGuard {
     'csv',
     'tsv',
     'txt',
+    'xlsx',
     'sql',
     'sqlite',
     'sqlite3',
@@ -40,14 +41,22 @@ class DatabaseSecurityGuard {
   /// 2. No contiene caracteres nulos o secuencias de control
   /// 3. No accede a rutas sensibles del sistema operativo
   /// 4. Cumple con extensiones aprobadas
-  static String validateAndSanitizePath(String rawPath, {bool allowAnyExtension = false}) {
+  static String validateAndSanitizePath(
+    String rawPath, {
+    bool allowAnyExtension = false,
+  }) {
     final clean = rawPath.trim();
     if (clean.isEmpty) {
-      throw const DatabaseSecurityException('La ruta de archivo no puede estar vacía.');
+      throw const DatabaseSecurityException(
+        'La ruta de archivo no puede estar vacía.',
+      );
     }
 
     // Prohibir secuencias de navegación de directorios (Path Traversal)
-    if (clean.contains('..') || clean.contains('\x00') || clean.contains('\n') || clean.contains('\r')) {
+    if (clean.contains('..') ||
+        clean.contains('\x00') ||
+        clean.contains('\n') ||
+        clean.contains('\r')) {
       throw const DatabaseSecurityException(
         'Intento de Path Traversal bloqueado: la ruta no puede contener ".." ni caracteres de control.',
       );
@@ -84,7 +93,9 @@ class DatabaseSecurityGuard {
   static String validateIdentifier(String identifier) {
     final clean = identifier.trim();
     if (clean.isEmpty) {
-      throw const DatabaseSecurityException('El identificador no puede estar vacío.');
+      throw const DatabaseSecurityException(
+        'El identificador no puede estar vacío.',
+      );
     }
 
     final validPattern = RegExp(r'^[a-zA-Z0-9_]+$');
@@ -96,7 +107,9 @@ class DatabaseSecurityGuard {
 
     // Limitar longitud para evitar abusos de memoria
     if (clean.length > 64) {
-      throw const DatabaseSecurityException('El identificador supera el límite seguro de 64 caracteres.');
+      throw const DatabaseSecurityException(
+        'El identificador supera el límite seguro de 64 caracteres.',
+      );
     }
 
     return clean;
@@ -114,7 +127,10 @@ class DatabaseSecurityGuard {
     final dangerousShellPatterns = [
       RegExp(r'`'),
       RegExp(r'\$\('),
-      RegExp(r';\s*(?:rm|cat|sh|bash|chmod|chown|kill|reboot|su)\b', caseSensitive: false),
+      RegExp(
+        r';\s*(?:rm|cat|sh|bash|chmod|chown|kill|reboot|su)\b',
+        caseSensitive: false,
+      ),
     ];
 
     for (final pattern in dangerousShellPatterns) {

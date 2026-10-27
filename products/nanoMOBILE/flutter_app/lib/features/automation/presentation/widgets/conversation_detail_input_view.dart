@@ -27,10 +27,10 @@ extension ConversationDetailInputView on _ConversationDetailSheetState {
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           padding: EdgeInsets.fromLTRB(
-            12,
-            isLandscape ? 4 : 8,
-            12,
-            isLandscape ? 6 : 12,
+            10,
+            isLandscape ? 4 : 6,
+            10,
+            isLandscape ? 6 : 10,
           ),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: visual.isDark ? 0.04 : 0.40),
@@ -47,7 +47,6 @@ extension ConversationDetailInputView on _ConversationDetailSheetState {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildSuggestionActions(visual, isLandscape: isLandscape),
-              const SizedBox(height: 8),
               _buildComposerRow(visual, isLandscape: isLandscape),
             ],
           ),

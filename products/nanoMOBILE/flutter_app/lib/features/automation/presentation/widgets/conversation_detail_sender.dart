@@ -21,6 +21,7 @@ part of 'conversation_detail_sheet.dart';
 /// eliminando simulaciones y manteniendo la seguridad de confirmación.
 extension ConversationDetailSender on _ConversationDetailSheetState {
   Future<void> _sendReply() async {
+    if (!mounted) return;
     final text = _inputController.text.trim();
     if (text.isEmpty || _busy) return;
     setState(() {
@@ -28,7 +29,16 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       _statusText = 'Enviando mensaje...';
     });
     try {
-      final conversationId = canonicalConversationId(widget.item.conversationId);
+      // Conserva servicios para registrar una aceptación aunque se cierre la UI.
+      // Nunca vuelve a consultar WidgetRef después de ese cierre.
+      final executor = ref.read(notificationExecutorProvider);
+      final sentMemory = ref.read(conversationMemoryStoreProvider);
+      final dedupe = ref.read(eventDedupeStoreProvider);
+      // Solo RemoteInput confirma que Android aceptó la respuesta; abrir una app no prueba envío.
+      var notificationReplyAccepted = false;
+      final conversationId = canonicalConversationId(
+        widget.item.conversationId,
+      );
       final pendingId = widget.item.hasPendingReply
           ? widget.item.pendingReplyId
           : null;
@@ -39,8 +49,9 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
         await pendingStore!.updateDraftText(pendingId!, text);
       }
 
-      final executor = ref.read(notificationExecutorProvider);
+      if (!mounted) return;
       final list = await executor.list(limit: 50);
+      if (!mounted) return;
       final targetNotif = _findMatchingNotification(
         list,
         requireCanReply: true,
@@ -60,12 +71,14 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
         if (mounted) {
           setState(() {
             _inputController.clear();
-            _statusText = 'Mensaje entregado en 2do plano sin abrir WhatsApp';
+            _statusText = 'WhatsApp aceptó el mensaje en segundo plano';
           });
         }
+        notificationReplyAccepted = true;
       } else {
         const share = WhatsAppMediaShare();
         final hasA11y = await share.isAccessibilityEnabled();
+        if (!mounted) return;
         final memoryStore = ref.read(conversationMemoryStoreProvider);
         final personaContext = ref.read(personaContextProvider);
         final whatsAppContacts = ref.read(allWhatsAppContactsProvider).value;
@@ -114,62 +127,63 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
           }
           if (mounted) {
             setState(() {
-              _inputController.clear();
-              _statusText = 'Mensaje despachado y retornado a Nano';
+              // El canal confirma que abrió WhatsApp, no que el toque de envío ocurrió.
+              _statusText =
+                  'WhatsApp abierto; conserva el borrador hasta confirmar el envío';
             });
           }
+          return;
         } else {
           if (mounted) {
             setState(() {
               _busy = false;
               _statusText = 'Acción requerida para enviar sin salir de Nano';
             });
-            final action = await _showNoA11yOptionsModal(
-              context,
-              share,
-              contact,
-              text,
-            );
-            if (action == 'sent_whatsapp' && mounted) {
-              setState(() {
-                _inputController.clear();
-                _statusText = 'Chat abierto en WhatsApp';
-              });
+            final action = await _showNoA11yOptionsModal(context, share);
+            if (!mounted) return;
+            if (action == 'open_whatsapp') {
+              final opened = await share.openChat(
+                contact: contact,
+                text: text,
+                packageName: widget.item.packageName,
+                autoSend: false,
+              );
+              if (mounted) {
+                setState(() {
+                  // En modo manual Nano entrega el borrador; el usuario confirma en WhatsApp.
+                  _statusText = opened
+                      ? 'Borrador abierto en WhatsApp; revisa el contacto y pulsa Enviar allí'
+                      : 'No se pudo abrir WhatsApp; el borrador sigue en Nano';
+                });
+              }
             }
             return;
           }
         }
       }
 
+      // No registrar como enviado un borrador abierto en otra app.
+      if (!notificationReplyAccepted) return;
       final nowMs = DateTime.now().millisecondsSinceEpoch;
-      final memoryStore = ref.read(conversationMemoryStoreProvider);
-      memoryStore.appendOutbound(
+      sentMemory.appendOutbound(
         conversationId,
         text,
         kind: ConversationMemoryEntryKind.outboundDispatched,
         atMs: nowMs,
       );
-      ref
-          .read(eventDedupeStoreProvider)
-          .recordVerifiedOutbound(
-            conversationId,
-            text,
-            atMs: nowMs,
-          );
+      dedupe.recordVerifiedOutbound(conversationId, text, atMs: nowMs);
 
       // Autoaprendizaje de estilo en SQLite FTS4
-      await _recordStyleLearning(text);
+      if (mounted) await _recordStyleLearning(text);
 
       if (pendingId != null) {
         await pendingStore!.markSent(pendingId);
       }
 
-      ref.invalidate(conversationHubListProvider);
-      ref.read(conversationHubVersionProvider.notifier).state++;
-
-      if (widget.item.hasPendingReply && widget.item.pendingReplyId != null) {
-        await Future<void>.delayed(const Duration(milliseconds: 700));
-        if (mounted) Navigator.of(context).pop();
+      // No programa cierres tardíos de rutas: el dueño conserva el chat abierto.
+      if (mounted) {
+        ref.invalidate(conversationHubListProvider);
+        ref.read(conversationHubVersionProvider.notifier).state++;
       }
     } catch (e) {
       if (mounted) {
@@ -179,5 +193,4 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       if (mounted) setState(() => _busy = false);
     }
   }
-
 }

@@ -1,0 +1,132 @@
+[
+  {
+    "path": "lib/features/automation/presentation/business/business_library_bottom_actions.dart",
+    "lines": 40,
+    "sha256": "589b682b0d9ebb1df5bd3f7ec84acc41a6738c020291f8bbd66d5f319b39f1b2"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_bottom_bar.dart",
+    "lines": 88,
+    "sha256": "e91da0065d9a66e441b3718c55c898451b25c7f5a82f22046bb94f06b5f42dca"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_category_filters.dart",
+    "lines": 81,
+    "sha256": "3920ab8095d68031f153976ca0c8a179b254c17d3ef56a2392c39907cdb1ba64"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_content.dart",
+    "lines": 157,
+    "sha256": "9e64503acbf0310ba5c11ba585ce3176c80a113c6d26e154298249bb4ad61a06"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_file_actions.dart",
+    "lines": 65,
+    "sha256": "3eff61237db0efac64c71abbe416abaac220c61f53c379f6e4c3bf5c102255e1"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_file_list.dart",
+    "lines": 136,
+    "sha256": "79608e6d0a1a552658c2fcf1c25649e976d0f4ac98855038183662a890c45be7"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_folders_carousel.dart",
+    "lines": 127,
+    "sha256": "d40dd07cb0e16f1c73d66e7c525b979945a61bf8883ca240a69be124f4f97c8f"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_folder_actions.dart",
+    "lines": 42,
+    "sha256": "d158f5847c2230e8b187e1d8c7a0ca02df10ebad2c39fc4fb53987c29f955337"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_grid_actions.dart",
+    "lines": 49,
+    "sha256": "37fa9ca36b6df9b3253c15c3453bb365018bc9f0ad14dc698e25068976dfd0da"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_grid_card.dart",
+    "lines": 135,
+    "sha256": "74afdf868a181c09f5fef63dff6513d4713abcaecc351337cc244c5ac5a379b1"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_header.dart",
+    "lines": 161,
+    "sha256": "82b593283d973ea8237fce7285bab438fccc6219265346e8a6430b683ae4818b"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_search_bar.dart",
+    "lines": 72,
+    "sha256": "25d9fe4416c696e74776207f9efb1f103443e9a24e9881e57c6a1cc4df3dc71e"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_section_tabs.dart",
+    "lines": 139,
+    "sha256": "97e8cec1278bdc61d12b7c795fba543d765a2588cf2c731d8d1a37e4bc55ca76"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_toolbar.dart",
+    "lines": 185,
+    "sha256": "909f660fc7f4987ea301bcef807eb11fa5a117fb571b260894f48d2806e91d63"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_toolbar_menu.dart",
+    "lines": 86,
+    "sha256": "36a8e6650b27a12e3a04ea85e7a51237cada8ca679a518b998a29af981fac290"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_document_library_dialog.dart",
+    "lines": 166,
+    "sha256": "5feb2600007dcdb33b53a230f5efee70cb1e023a6e09cec48152565ea00012e1"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_document_library_view.dart",
+    "lines": 164,
+    "sha256": "f66c98aa69b1c165de9c88cdb42994f8672f23bce991556c3f1c573dd33a00b5"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/store/business_store_category_filters.dart",
+    "lines": 121,
+    "sha256": "b694169605dbf0c74bb2245a251234e033ce13e7411ce2a68c1a20609776b234"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/store/business_store_empty_state.dart",
+    "lines": 95,
+    "sha256": "d5892e9b1c1a38efe6a69a8f6f471a82d448bb7ff1fdbb644954986f46e233a6"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/store/business_store_product_card.dart",
+    "lines": 152,
+    "sha256": "dd2ef77a22f8ae4c257254f8340919f2ede9f32369b38d67ec4e46cf43ae54c6"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/store/business_store_product_list_row.dart",
+    "lines": 153,
+    "sha256": "7b3a80fa54e02afd01b93352583887e3a3562bcee9d3d4a89c2fb61fd739bc55"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/store/business_store_toolbar.dart",
+    "lines": 105,
+    "sha256": "3fe06dd71b09734a7a5fdbb83691637f5824ab118d3effbb790b5f9688751974"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/store/business_store_product_detail_actions.part.dart",
+    "lines": 51,
+    "sha256": "91495be862246001a8e2286eaf0a8b29a8b7da5ddcdca956b0daa0176b9465bf"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/store/business_store_product_detail_widgets.part.dart",
+    "lines": 141,
+    "sha256": "1d7af3835cd712f5a79da516f6d271bf2ea5e2efc8b66f67a83de463b3440cc3"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_style.dart",
+    "lines": 8,
+    "sha256": "cbd5e7c8e5deed132ce384c46f7e9a87f2f305caff99b7958c29296fc0002641"
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_library_action_menu.dart",
+    "lines": 42,
+    "sha256": "04a469064bb44a642674bae7d278d2ae2271adfc014429abd0119bb4793041d1"
+  }
+]

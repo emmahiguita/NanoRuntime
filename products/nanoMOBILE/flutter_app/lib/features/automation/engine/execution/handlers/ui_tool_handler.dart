@@ -1,4 +1,5 @@
-﻿import '../../browser/chrome_content_extractor.dart' show ChromeContentExtractor;
+import '../../browser/chrome_content_extractor.dart'
+    show ChromeContentExtractor;
 import '../../perception/nano_selector.dart';
 import '../../perception/nano_snapshot.dart' as nano_snapshot;
 import '../../system/system_destination.dart' show SystemDestination;
@@ -15,7 +16,8 @@ class UiToolHandler {
   final AgentVerifier _verifier;
   final AgentLoop _loop;
   final Future<bool> Function(String action) _globalAction;
-  final Future<bool> Function(int x1, int y1, int x2, int y2, {int durationMs}) _swipe;
+  final Future<bool> Function(int x1, int y1, int x2, int y2, {int durationMs})
+  _swipe;
   final Future<bool> Function(int x, int y, {int durationMs}) _longPress;
   final SystemIntentLauncher? _systemIntentLauncher;
 
@@ -24,16 +26,23 @@ class UiToolHandler {
     required AgentVerifier verifier,
     required AgentLoop loop,
     required Future<bool> Function(String action) globalAction,
-    required Future<bool> Function(int x1, int y1, int x2, int y2, {int durationMs}) swipe,
+    required Future<bool> Function(
+      int x1,
+      int y1,
+      int x2,
+      int y2, {
+      int durationMs,
+    })
+    swipe,
     required Future<bool> Function(int x, int y, {int durationMs}) longPress,
     SystemIntentLauncher? systemIntentLauncher,
-  })  : _executor = executor,
-        _verifier = verifier,
-        _loop = loop,
-        _globalAction = globalAction,
-        _swipe = swipe,
-        _longPress = longPress,
-        _systemIntentLauncher = systemIntentLauncher;
+  }) : _executor = executor,
+       _verifier = verifier,
+       _loop = loop,
+       _globalAction = globalAction,
+       _swipe = swipe,
+       _longPress = longPress,
+       _systemIntentLauncher = systemIntentLauncher;
 
   Future<String> describeScreen() async {
     final snap = await _executor.snapshot();
@@ -68,7 +77,8 @@ class UiToolHandler {
       if (web.isNotEmpty) {
         final buffer = StringBuffer('Contenido web en Chrome');
         if (web.title.isNotEmpty) buffer.write(' — "${web.title}"');
-        if (web.url != null && web.url!.isNotEmpty) buffer.write(' (${web.url})');
+        if (web.url != null && web.url!.isNotEmpty)
+          buffer.write(' (${web.url})');
         buffer.write(':\n\n${web.rawText}');
         return buffer.toString();
       }
@@ -106,9 +116,7 @@ class UiToolHandler {
   Future<String> tap(ToolCall call) async {
     final (selector, err) = tryParse(call.selectorArg!);
     if (selector == null) return err!;
-    final expectation = expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
+    final expectation = expectationFor(call).copyWith(mustChangeSnapshot: true);
     final result = await _loop.run([
       AgentStep(
         id: 'tap(${call.selectorArg})',
@@ -163,9 +171,7 @@ class UiToolHandler {
     final pre = await _executor.snapshot();
     final ok = await _globalAction('back');
     if (!ok) return '[gestureFailed] Back falló.';
-    final expectation = expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
+    final expectation = expectationFor(call).copyWith(mustChangeSnapshot: true);
     return verifiedFeedback(
       'Botón atrás ejecutado.',
       expectation,
@@ -177,14 +183,8 @@ class UiToolHandler {
     final pre = await _executor.snapshot();
     final ok = await _globalAction(action);
     if (!ok) return '[gestureFailed] $label falló.';
-    final expectation = expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
-    return verifiedFeedback(
-      '$label ejecutado.',
-      expectation,
-      preSnapshot: pre,
-    );
+    final expectation = expectationFor(call).copyWith(mustChangeSnapshot: true);
+    return verifiedFeedback('$label ejecutado.', expectation, preSnapshot: pre);
   }
 
   Future<String> doSwipe(ToolCall call) async {
@@ -201,9 +201,7 @@ class UiToolHandler {
     final pre = await _executor.snapshot();
     final ok = await _swipe(x1, y1, x2, y2, durationMs: duration);
     if (!ok) return '[gestureFailed] swipe falló.';
-    final expectation = expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
+    final expectation = expectationFor(call).copyWith(mustChangeSnapshot: true);
     return verifiedFeedback(
       'Deslizamiento ejecutado.',
       expectation,
@@ -246,9 +244,7 @@ class UiToolHandler {
       durationMs: 300,
     );
     if (!ok) return '[gestureFailed] scroll falló.';
-    final expectation = expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
+    final expectation = expectationFor(call).copyWith(mustChangeSnapshot: true);
     return verifiedFeedback(
       'Scroll $direction ejecutado.',
       expectation,
@@ -267,9 +263,7 @@ class UiToolHandler {
     final pre = await _executor.snapshot();
     final ok = await _longPress(x, y, durationMs: duration);
     if (!ok) return '[gestureFailed] long_press falló.';
-    final expectation = expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
+    final expectation = expectationFor(call).copyWith(mustChangeSnapshot: true);
     return verifiedFeedback(
       'Pulsación larga ejecutada.',
       expectation,
@@ -294,9 +288,7 @@ class UiToolHandler {
       return '[launchFailed] No se pudo abrir ${destination.description}: '
           '${res.reason}';
     }
-    final expectation = expectationFor(
-      call,
-    ).copyWith(mustChangeSnapshot: true);
+    final expectation = expectationFor(call).copyWith(mustChangeSnapshot: true);
     return verifiedFeedback(
       '${destination.description} abiertos.',
       expectation,

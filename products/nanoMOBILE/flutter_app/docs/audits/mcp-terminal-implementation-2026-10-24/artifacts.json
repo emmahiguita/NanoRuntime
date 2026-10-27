@@ -1,0 +1,14 @@
+[
+  {
+    "path": "build/app/outputs/flutter-apk/app-fullsideload-debug.apk",
+    "bytes": 191082425,
+    "sha256": "3bd89b65645f48dc1f45ef7992c1d1f719d877f9aed1b97c5b942d54c154a21a",
+    "modified": "2026-10-24T15:46:01.620125"
+  },
+  {
+    "path": "build/app/outputs/apk/fullSideload/debug/app-fullSideload-debug.apk",
+    "bytes": 191082425,
+    "sha256": "3bd89b65645f48dc1f45ef7992c1d1f719d877f9aed1b97c5b942d54c154a21a",
+    "modified": "2026-10-24T15:46:01.040800"
+  }
+]

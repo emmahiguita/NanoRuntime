@@ -1,8 +1,10 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/widgets/glass_surface.dart';
 import 'package:nanoai/features/home/buho_wallpaper.dart';
+
+part 'automation_visual_palette.part.dart';
+part 'automation_visual_widgets.part.dart';
 
 /// Lenguaje visual local de Automatización.
 ///
@@ -17,7 +19,10 @@ abstract final class AutomationVisual {
   static AutomationVisualMode modeFromSetting(String themeMode) =>
       switch (themeMode) {
         'Claro' => AutomationVisualMode.lightGlass,
+        'Clásico' => AutomationVisualMode.lightGlass,
         'Oscuro' => AutomationVisualMode.dark,
+        'Grisáceo' => AutomationVisualMode.dark,
+        'Opaco' => AutomationVisualMode.dark,
         _ => AutomationVisualMode.system,
       };
 
@@ -36,9 +41,20 @@ abstract final class AutomationVisual {
     BuildContext context,
     AutomationVisualMode mode,
   ) {
-    final inheritedColors = NanoThemeExtension.of(context).colors;
-    final isDark = inheritedColors is NanoDarkColors;
-    final colors = inheritedColors;
+    // El tema global es la única fuente de verdad. El modo local solo sirve
+    // de respaldo cuando el componente se utiliza fuera de la app de Nano.
+    final inherited = NanoThemeExtension.maybeOf(context);
+    final colors =
+        inherited?.colors ??
+        switch (mode) {
+          AutomationVisualMode.lightGlass => const NanoClassicLightColors(),
+          AutomationVisualMode.dark => const NanoDarkColors(),
+          AutomationVisualMode.system =>
+            Theme.of(context).brightness == Brightness.dark
+                ? const NanoDarkColors()
+                : const NanoClassicLightColors(),
+        };
+    final isDark = NanoPaletteBrightness.isDark(colors);
     final themeExt = NanoThemeExtension.maybeOf(context);
     final glassOpacity = themeExt?.glassOpacity ?? 0.70;
     final glassClarity = themeExt?.glassClarity ?? 0.85;
@@ -46,26 +62,40 @@ abstract final class AutomationVisual {
 
     final darkCardAlphaStart = !glassEnabled
         ? 1.0
-        : ((0.18 + 0.65 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(0.08, 0.98);
+        : ((0.18 + 0.65 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(
+            0.08,
+            0.98,
+          );
     final darkCardAlphaEnd = !glassEnabled
         ? 1.0
-        : ((0.22 + 0.68 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(0.10, 0.98);
+        : ((0.22 + 0.68 * glassOpacity) * (1.15 - glassClarity * 0.40)).clamp(
+            0.10,
+            0.98,
+          );
 
     final lightCardAlphaStart = !glassEnabled
         ? 1.0
-        : ((0.30 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(0.12, 0.98);
+        : ((0.30 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(
+            0.12,
+            0.98,
+          );
     final lightCardAlphaEnd = !glassEnabled
         ? 1.0
-        : ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(0.10, 0.98);
+        : ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35)).clamp(
+            0.10,
+            0.98,
+          );
+
+    final accentColor = colors.accent;
 
     return AutomationVisualPalette(
       resolvedColors: colors,
       isDark: isDark,
-      accent: isDark ? colors.primary : const Color(0xFF1D6FE8),
+      accent: accentColor,
       onAccent: Colors.white,
       accentSoft: isDark
-          ? colors.primary.withValues(alpha: 0.16)
-          : const Color(0xFFDBEAFE), // Blue 100
+          ? colors.primary.withValues(alpha: 0.20)
+          : colors.primaryContainer,
       canvas: colors.backgroundPrimary,
       surface: isDark
           ? colors.glassPrimary.withValues(alpha: 0.72 * glassOpacity)
@@ -89,13 +119,9 @@ abstract final class AutomationVisual {
               alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
             )
           : const Color(0xFFE2E8F0),
-      shadow: isDark
-          ? const Color(0x35000000)
-          : const Color(0x0C0F172A),
-      shadowSoft: isDark
-          ? const Color(0x200D1F4A)
-          : const Color(0x060F172A),
-      success: colors.success,
+      shadow: isDark ? const Color(0x35000000) : const Color(0x0C0F172A),
+      shadowSoft: isDark ? const Color(0x200D1F4A) : const Color(0x060F172A),
+      success: isDark ? const Color(0xFF38BDF8) : const Color(0xFF1D6FE8),
     );
   }
 
@@ -105,513 +131,5 @@ abstract final class AutomationVisual {
   static ThemeData theme(
     BuildContext context, {
     AutomationVisualMode mode = AutomationVisualMode.system,
-  }) {
-    final base = Theme.of(context);
-    final visual = _paletteFor(context, mode);
-    final scheme = base.colorScheme.copyWith(
-      primary: visual.accent,
-      onPrimary: visual.onAccent,
-      surface: visual.surface,
-      onSurface: visual.text,
-      outline: visual.outline,
-      outlineVariant: visual.line,
-    );
-    return base.copyWith(
-      colorScheme: scheme,
-      scaffoldBackgroundColor: visual.canvas,
-      extensions: [
-        ...base.extensions.values.where(
-          (extension) =>
-              extension is! AutomationVisualTheme &&
-              // UI-REV-02: la extensión global se sustituye por la familia
-              // resuelta — fuera la mezcla claro/oscuro de las secciones
-              // que leen NanoThemeExtension.of(context).
-              extension is! NanoThemeExtension,
-        ),
-        NanoThemeExtension(colors: visual.resolvedColors),
-        AutomationVisualTheme(palette: visual),
-      ],
-      textTheme: base.textTheme.apply(
-        bodyColor: visual.text,
-        displayColor: visual.text,
-        fontFamily: 'Inter',
-      ),
-      dividerColor: visual.line,
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: visual.inputFill,
-        hintStyle: TextStyle(color: visual.textMuted.withValues(alpha: 0.72)),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 15,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(22),
-          borderSide: BorderSide(color: visual.line),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(22),
-          borderSide: BorderSide(color: visual.line),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(22),
-          borderSide: BorderSide(color: visual.accent, width: 1.6),
-        ),
-      ),
-      filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          backgroundColor: visual.accent,
-          foregroundColor: visual.onAccent,
-        ),
-      ),
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? Colors.white
-              : const Color(0xFFF4F4F5),
-        ),
-        trackColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? visual.accent
-              : visual.line,
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        labelTextStyle: WidgetStateProperty.resolveWith(
-          (states) => TextStyle(
-            color: states.contains(WidgetState.selected)
-                ? visual.accent
-                : visual.textMuted,
-            fontSize: 9.5,
-            fontWeight: states.contains(WidgetState.selected)
-                ? FontWeight.w700
-                : FontWeight.w500,
-            letterSpacing: -0.25,
-          ),
-        ),
-        iconTheme: WidgetStateProperty.resolveWith(
-          (states) => IconThemeData(
-            color: states.contains(WidgetState.selected)
-                ? visual.accent
-                : visual.textMuted,
-            size: 23,
-          ),
-        ),
-      ),
-      bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: visual.surface,
-        surfaceTintColor: Colors.transparent,
-      ),
-    );
-  }
-}
-
-@immutable
-class AutomationVisualPalette {
-  const AutomationVisualPalette({
-    required this.resolvedColors,
-    required this.isDark,
-    required this.accent,
-    required this.onAccent,
-    required this.accentSoft,
-    required this.canvas,
-    required this.surface,
-    required this.inputFill,
-    required this.text,
-    required this.textMuted,
-    required this.line,
-    required this.outline,
-    required this.cardStart,
-    required this.cardEnd,
-    required this.cardBorder,
-    required this.shadow,
-    required this.shadowSoft,
-    required this.success,
-  });
-
-  /// Familia de colores semánticos resuelta para el scope visual (clara u
-  /// oscura según el modo). Se instala como NanoThemeExtension dentro del
-  /// ThemeData del scope para que los widgets que leen la extensión global
-  /// vean colores coherentes con el canvas del módulo.
-  final NanoColors resolvedColors;
-
-  final bool isDark;
-  final Color accent;
-  final Color onAccent;
-  final Color accentSoft;
-  final Color canvas;
-  final Color surface;
-  final Color inputFill;
-  final Color text;
-  final Color textMuted;
-  final Color line;
-  final Color outline;
-  final Color cardStart;
-  final Color cardEnd;
-  final Color cardBorder;
-  final Color shadow;
-  final Color shadowSoft;
-  final Color success;
-
-  AutomationVisualPalette lerp(AutomationVisualPalette other, double t) =>
-      AutomationVisualPalette(
-        // Lerp campo a campo via _LerpedNanoColors: al animar el cambio de
-        // modo (AnimatedTheme) la familia entera transiciona sin salto.
-        resolvedColors:
-            (NanoThemeExtension(
-                      colors: resolvedColors,
-                    ).lerp(NanoThemeExtension(colors: other.resolvedColors), t)
-                    as NanoThemeExtension)
-                .colors,
-        isDark: t < 0.5 ? isDark : other.isDark,
-        accent: Color.lerp(accent, other.accent, t)!,
-        onAccent: Color.lerp(onAccent, other.onAccent, t)!,
-        accentSoft: Color.lerp(accentSoft, other.accentSoft, t)!,
-        canvas: Color.lerp(canvas, other.canvas, t)!,
-        surface: Color.lerp(surface, other.surface, t)!,
-        inputFill: Color.lerp(inputFill, other.inputFill, t)!,
-        text: Color.lerp(text, other.text, t)!,
-        textMuted: Color.lerp(textMuted, other.textMuted, t)!,
-        line: Color.lerp(line, other.line, t)!,
-        outline: Color.lerp(outline, other.outline, t)!,
-        cardStart: Color.lerp(cardStart, other.cardStart, t)!,
-        cardEnd: Color.lerp(cardEnd, other.cardEnd, t)!,
-        cardBorder: Color.lerp(cardBorder, other.cardBorder, t)!,
-        shadow: Color.lerp(shadow, other.shadow, t)!,
-        shadowSoft: Color.lerp(shadowSoft, other.shadowSoft, t)!,
-        success: Color.lerp(success, other.success, t)!,
-      );
-}
-
-@immutable
-class AutomationVisualTheme extends ThemeExtension<AutomationVisualTheme> {
-  const AutomationVisualTheme({required this.palette});
-
-  final AutomationVisualPalette palette;
-
-  @override
-  AutomationVisualTheme copyWith({AutomationVisualPalette? palette}) =>
-      AutomationVisualTheme(palette: palette ?? this.palette);
-
-  @override
-  AutomationVisualTheme lerp(
-    covariant ThemeExtension<AutomationVisualTheme>? other,
-    double t,
-  ) => other is AutomationVisualTheme
-      ? AutomationVisualTheme(palette: palette.lerp(other.palette, t))
-      : this;
-}
-
-class AutomationSurfaceCard extends StatefulWidget {
-  const AutomationSurfaceCard({
-    super.key,
-    required this.child,
-    this.padding = const EdgeInsets.all(12),
-    this.onTap,
-    this.radius = 24,
-    this.blurSigma = 18,
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final VoidCallback? onTap;
-  final double radius;
-  final double blurSigma;
-
-  @override
-  State<AutomationSurfaceCard> createState() => _AutomationSurfaceCardState();
-}
-
-class _AutomationSurfaceCardState extends State<AutomationSurfaceCard> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    final themeExt = NanoThemeExtension.maybeOf(context);
-    final glassEnabled = themeExt?.glassEnabled ?? true;
-    final glassOpacity = themeExt?.glassOpacity ?? 0.70;
-    final glassClarity = themeExt?.glassClarity ?? 0.85;
-    final glassBlur = themeExt?.glassBlur ?? widget.blurSigma;
-
-    final borderRadius = BorderRadius.circular(widget.radius);
-    final isDark = visual.isDark;
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-
-    final effectiveBlur = (!glassEnabled || reduceMotion)
-        ? 0.0
-        : (glassBlur * (0.6 + 0.4 * (1.0 - glassClarity * 0.35))).clamp(0.0, 40.0);
-
-    // Color de tarjeta y sustrato adaptativo con transparencia y opacidad iOS
-    final cardColor = !glassEnabled
-        ? (isDark ? const Color(0xFF0F172A) : Colors.white)
-        : isDark
-            ? Color.fromRGBO(
-                14,
-                24,
-                45,
-                ((0.15 + 0.70 * glassOpacity) * (1.15 - glassClarity * 0.45))
-                    .clamp(0.04, 0.98),
-              )
-            : Colors.white.withValues(
-                alpha: ((0.25 + 0.65 * glassOpacity) * (1.10 - glassClarity * 0.35))
-                    .clamp(0.08, 0.98),
-              );
-
-    final borderColor = !glassEnabled
-        ? (isDark ? Colors.white12 : Colors.black12)
-        : isDark
-            ? Colors.white.withValues(
-                alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
-              )
-            : Colors.black.withValues(
-                alpha: (0.03 + 0.08 * (1.0 - glassClarity)).clamp(0.02, 0.15),
-              );
-
-    final card = Container(
-      decoration: BoxDecoration(
-        borderRadius: borderRadius,
-        boxShadow: [
-          BoxShadow(
-            color: visual.shadow.withValues(alpha: isDark ? 0.2 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-            spreadRadius: -2,
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: borderRadius,
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: effectiveBlur,
-            sigmaY: effectiveBlur,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: borderRadius,
-              border: Border.all(
-                color: borderColor,
-                width: 0.5,
-              ),
-            ),
-            child: Stack(
-              children: [
-                Material(
-                  color: Colors.transparent,
-                  borderRadius: borderRadius,
-                  child: widget.onTap != null
-                      ? InkWell(
-                          onTap: widget.onTap,
-                          borderRadius: borderRadius,
-                          splashColor: visual.accent.withValues(alpha: 0.12),
-                          highlightColor: visual.accent.withValues(alpha: 0.08),
-                          child: Padding(
-                            padding: widget.padding,
-                            child: widget.child,
-                          ),
-                        )
-                      : Padding(
-                          padding: widget.padding,
-                          child: widget.child,
-                        ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (widget.onTap != null) {
-      return Listener(
-        onPointerDown: (_) => setState(() => _pressed = true),
-        onPointerUp: (_) => setState(() => _pressed = false),
-        onPointerCancel: (_) => setState(() => _pressed = false),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 140),
-          curve: Curves.easeOutCubic,
-          scale: _pressed ? 0.985 : 1.0,
-          child: card,
-        ),
-      );
-    }
-
-    return card;
-  }
-}
-
-class AutomationSectionLabel extends StatelessWidget {
-  const AutomationSectionLabel(this.label, {super.key});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 8, top: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 3,
-            height: 12,
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: visual.accent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              label.toUpperCase(),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: visual.text, // Modificado de textMuted a text para mayor legibilidad
-                fontSize: 11.5,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Marca NANO AI única del módulo (DRY): 'NANO ' en color de texto, 'AI' en
-/// accent. Antes había tres variantes divergentes (Rules usaba texto plano sin
-/// accent; Settings duplicaba el RichText; Dashboard lo repetía inline).
-class AutomationBrand extends StatelessWidget {
-  const AutomationBrand({
-    super.key,
-    this.fontSize = 23,
-    this.letterSpacing = 1.6,
-  });
-
-  final double fontSize;
-  final double letterSpacing;
-
-  @override
-  Widget build(BuildContext context) {
-    final visual = AutomationVisual.of(context);
-    return RichText(
-      text: TextSpan(
-        style: TextStyle(
-          fontFamily: 'Inter',
-          color: visual.text,
-          fontSize: fontSize,
-          fontWeight: FontWeight.w800,
-          letterSpacing: letterSpacing,
-        ),
-        children: [
-          const TextSpan(text: 'NANO '),
-          TextSpan(
-            text: 'AI',
-            // UI-REV-05: naranja crudo sobre fondo claro ≈ 2.9:1 — ilegible
-            // ("NANO AI no se ve"). Variante oscura legible de la familia.
-            style: TextStyle(
-              color: NanoTextColors.forText(
-                visual.accent,
-                visual.resolvedColors,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Cabecera de sub-pantalla del módulo: 52px, botón atrás a la izquierda y
-/// marca alineada al inicio — sin centrado forzado ni contrapesos ciegos
-/// (UI-REV-05: aprovecha el ancho y deja el texto completo visible).
-class AutomationBackHeader extends StatelessWidget {
-  const AutomationBackHeader({super.key, this.onBack});
-
-  /// Si es null, hace Navigator.maybePop() (comportamiento de Settings).
-  final VoidCallback? onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: Row(
-        children: [
-          Semantics(
-            label: 'Atrás',
-            button: true,
-            child: IconButton(
-              visualDensity: VisualDensity.compact,
-              onPressed: onBack ?? () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded, size: 24),
-            ),
-          ),
-          const AutomationBrand(),
-          const Spacer(),
-        ],
-      ),
-    );
-  }
-}
-
-/// Fondo compartido del módulo — fondo de pantalla celestial del Búho en
-/// vertical (assets/automation/automation_bg_portrait.jpg) con gradiente
-/// scrim para contraste y legibilidad óptima de las tarjetas de cristal; y
-/// aurora fluida (LiquidFluidBackground) en horizontal.
-class AutomationBackdrop extends StatelessWidget {
-  const AutomationBackdrop({super.key, this.scrimOpacity});
-
-  /// Opacidad base del scrim protector sobre la imagen.
-  final double? scrimOpacity;
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final landscape = size.width > size.height;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    if (landscape) {
-      return BuhoWallpaper(scrimOpacity: scrimOpacity);
-    }
-
-    final baseScrim = isDark ? 0.35 : 0.52;
-    final scrim = scrimOpacity ?? baseScrim;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.asset(
-          'assets/automation/automation_bg_portrait.jpg',
-          fit: BoxFit.cover,
-          filterQuality: FilterQuality.medium,
-        ),
-        // Scrim atmosférico: en oscuro sutil, en claro más sólido para que
-        // las cards blancas translúcidas sean legibles con buen contraste.
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: isDark
-                  ? [
-                      Colors.black.withValues(alpha: (scrim * 1.5).clamp(0.0, 1.0)),
-                      Colors.black.withValues(alpha: (scrim * 0.9).clamp(0.0, 1.0)),
-                      Colors.black.withValues(alpha: (scrim * 1.6).clamp(0.0, 1.0)),
-                    ]
-                  : [
-                      const Color(0xFFE2E8F0).withValues(alpha: 0.85),
-                      const Color(0xFFF1F5F9).withValues(alpha: 0.75),
-                      const Color(0xFFCBD5E1).withValues(alpha: 0.90),
-                    ],
-              stops: const [0.0, 0.40, 1.0],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  }) => _buildAutomationTheme(context, mode: mode);
 }

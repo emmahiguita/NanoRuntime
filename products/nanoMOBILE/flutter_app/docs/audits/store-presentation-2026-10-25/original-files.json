@@ -1,0 +1,9 @@
+[
+  "lib/features/automation/presentation/business/store/business_store_content.dart",
+  "lib/features/automation/presentation/business/store/business_store_media_view.dart",
+  "lib/features/automation/presentation/business/store/business_store_product_card.dart",
+  "lib/features/automation/presentation/business/store/business_store_product_list_row.dart",
+  "lib/features/automation/presentation/business/store/business_store_product_detail_sheet.dart",
+  "lib/features/automation/presentation/business/store/business_store_product_detail_actions.part.dart",
+  "lib/features/automation/presentation/business/store/business_store_product_detail_widgets.part.dart"
+]

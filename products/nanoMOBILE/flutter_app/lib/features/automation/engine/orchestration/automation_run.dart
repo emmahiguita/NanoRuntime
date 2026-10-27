@@ -36,7 +36,8 @@ final class AutomationRun {
     NavigationHistory? navigationHistory,
     DateTime? startedAt,
   }) : _confirmation = confirmation,
-       cancellation = cancellation ?? ExecutionCancellationToken(),
+       cancellation =
+           cancellation ?? ExecutionCancellationToken(executionId: executionId),
        navigationHistory = navigationHistory ?? NavigationHistory(),
        startedAt = startedAt ?? DateTime.now().toUtc();
 

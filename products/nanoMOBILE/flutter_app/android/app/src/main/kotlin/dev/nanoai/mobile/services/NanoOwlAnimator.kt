@@ -1,18 +1,18 @@
 package dev.nanoai.mobile.services
 
-import android.animation.AnimatorSet
-import android.animation.ObjectAnimator
 import android.os.Handler
 import android.os.Looper
 import android.widget.ImageView
 import dev.nanoai.mobile.R
 import kotlin.random.Random
+import kotlin.math.sin
+import android.os.SystemClock
 
 /**
  * NanoOwlAnimator — Animación del búho nativo en el overlay del sistema.
  *
  * QUÉ: Intercambio de frames (poses) + movimiento de respiración continuo.
- * CÓMO: AnimatorSet aplica scaleX/Y y translationY en loop infinito.
+ * CÓMO: Respiración a 15 Hz y parpadeos; se detiene con la pantalla o panel oculto.
  *       Handler en main looper ejecuta la secuencia de parpadeo aleatorio.
  * POR QUÉ: La articulación 3D real (plumas, ojos independientes) requiere rig Rive.
  *          Esta implementación usa sprites PNG — es honesta y funcional.
@@ -31,18 +31,6 @@ internal class NanoOwlAnimator(private val owl: ImageView) {
     )
     private var blinkStep = 0
 
-    // Respiración viva: escala x/y + flotación vertical en loop.
-    private val breathe = AnimatorSet().apply {
-        val sx = ObjectAnimator.ofFloat(owl, "scaleX", 1f, 1.015f, 1f)
-        val sy = ObjectAnimator.ofFloat(owl, "scaleY", 1f, 1.027f, 1f)
-        val ty = ObjectAnimator.ofFloat(owl, "translationY", 0f, -3f, 0f)
-        listOf(sx, sy, ty).forEach {
-            it.duration = 3200L
-            it.repeatCount = ObjectAnimator.INFINITE
-        }
-        playTogether(sx, sy, ty)
-    }
-
     private val blink = object : Runnable {
         override fun run() {
             if (!running) return
@@ -58,10 +46,25 @@ internal class NanoOwlAnimator(private val owl: ImageView) {
         }
     }
 
+    private var startedAt = 0L
+    // Solo transforma el ImageView: no recarga PNG ni recompone el panel.
+    private val breathe = object : Runnable {
+        override fun run() {
+            if (!running) return
+            val phase = (SystemClock.uptimeMillis() - startedAt) / 3200.0 * Math.PI * 2
+            val wave = sin(phase).toFloat()
+            owl.translationY = wave * owl.resources.displayMetrics.density * 1.8f
+            owl.scaleX = 1f + wave * .012f
+            owl.scaleY = 1f + wave * .012f
+            handler.postDelayed(this, 66)
+        }
+    }
+
     fun start() {
         if (running) return
         running = true
-        breathe.start()
+        startedAt = SystemClock.uptimeMillis()
+        handler.post(breathe)
         handler.postDelayed(blink, 2800)
     }
 
@@ -84,7 +87,9 @@ internal class NanoOwlAnimator(private val owl: ImageView) {
     fun stop() {
         running = false
         handler.removeCallbacks(blink)
-        breathe.cancel()
+        handler.removeCallbacks(breathe)
+        blinkStep = 0
+        owl.setImageResource(pose)
         owl.scaleX = 1f; owl.scaleY = 1f; owl.translationY = 0f
     }
 }

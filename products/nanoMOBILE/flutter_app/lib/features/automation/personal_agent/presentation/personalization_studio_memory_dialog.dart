@@ -11,12 +11,7 @@
 part of 'personalization_studio_screen.dart';
 
 class _MemoryEditDialog extends StatefulWidget {
-  const _MemoryEditDialog({
-    required this.initialScope,
-    required this.scopes,
-    required this.busy,
-    this.memory,
-  });
+  const _MemoryEditDialog({required this.initialScope, required this.scopes, required this.busy, this.memory});
   final PersonalMemory? memory;
   final String initialScope;
   final Map<String, _Scope> scopes;
@@ -43,13 +38,13 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
       ).toIso8601String(),
     );
     _expiry = TextEditingController(
-      text: m?.expiresAt == null
-          ? ''
-          : DateTime.fromMillisecondsSinceEpoch(m!.expiresAt!).toIso8601String(),
+      text: m?.expiresAt == null ? '' : DateTime.fromMillisecondsSinceEpoch(m!.expiresAt!).toIso8601String(),
     );
     kind = personalMemoryKinds.containsKey(m?.kind)
         ? m!.kind
-        : m == null ? 'stablePreference' : 'episodicMemory';
+        : m == null
+        ? 'stablePreference'
+        : 'episodicMemory';
     scope = widget.initialScope;
     enabled = m?.enabled ?? true;
   }
@@ -75,7 +70,9 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
     final k = _key.text.trim(), v = _value.text.trim();
     final at = DateTime.tryParse(_observed.text);
     final until = _expiry.text.trim().isEmpty ? null : DateTime.tryParse(_expiry.text);
-    if (k.isEmpty || v.isEmpty || at == null ||
+    if (k.isEmpty ||
+        v.isEmpty ||
+        at == null ||
         (_expiry.text.trim().isNotEmpty && (until == null || !until.isAfter(at))) ||
         (kind == 'temporaryFact' && (until == null || !until.isAfter(at)))) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -85,15 +82,7 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
     }
     Navigator.pop(
       context,
-      _MemoryResult(
-        scope: scope,
-        key: k,
-        value: v,
-        kind: kind,
-        observedAt: at,
-        expiresAt: until,
-        enabled: enabled,
-      ),
+      _MemoryResult(scope: scope, key: k, value: v, kind: kind, observedAt: at, expiresAt: until, enabled: enabled),
     );
   }
 
@@ -103,14 +92,16 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
     final isLandscape = size.width > size.height;
 
     return AlertDialog(
+      insetPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 8 : 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-      title: const Text('Memoria personal', style: TextStyle(fontWeight: FontWeight.bold)),
+      titlePadding: EdgeInsets.fromLTRB(20, isLandscape ? 10 : 18, 20, isLandscape ? 4 : 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      actionsPadding: EdgeInsets.symmetric(horizontal: 16, vertical: isLandscape ? 4 : 10),
+      title: const Text('Memoria personal', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
       content: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: isLandscape ? 480 : 380,
-          maxHeight: size.height * (isLandscape ? 0.72 : 0.65),
+          maxWidth: isLandscape ? 500 : 380,
+          maxHeight: size.height * (isLandscape ? 0.74 : 0.65),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -124,7 +115,10 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
                 decoration: _deco('Aplicar solamente a'),
                 items: [
                   for (final s in widget.scopes.values)
-                    DropdownMenuItem(value: s.id, child: Text(s.label, overflow: TextOverflow.ellipsis)),
+                    DropdownMenuItem(
+                      value: s.id,
+                      child: Text(s.label, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: widget.busy ? null : (v) => v != null ? setState(() => scope = v) : null,
               ),
@@ -140,22 +134,16 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
                 onChanged: (v) => setState(() => kind = v!),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _key,
-                maxLength: 120,
-                decoration: _deco('Asunto / clave'),
-              ),
+              TextField(controller: _key, maxLength: 120, decoration: _deco('Asunto / clave')),
               const SizedBox(height: 8),
-              TextField(
-                controller: _value,
-                maxLength: 2000,
-                maxLines: 3,
-                decoration: _deco('Dato declarado'),
-              ),
+              TextField(controller: _value, maxLength: 2000, maxLines: 3, decoration: _deco('Dato declarado')),
               const SizedBox(height: 8),
               TextField(controller: _observed, decoration: _deco('Fecha de registro (ISO)')),
               const SizedBox(height: 10),
-              TextField(controller: _expiry, decoration: _deco(kind == 'temporaryFact' ? 'Caduca (obligatorio ISO)' : 'Caduca (opcional ISO)')),
+              TextField(
+                controller: _expiry,
+                decoration: _deco(kind == 'temporaryFact' ? 'Caduca (obligatorio ISO)' : 'Caduca (opcional ISO)'),
+              ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Memoria activa', style: TextStyle(fontSize: 12)),

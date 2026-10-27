@@ -70,24 +70,39 @@ abstract final class ConversationGroupResolver {
     if (isGroupFlag) return true;
     final id = convId.toLowerCase();
     if (id.contains('@g.us') || id.contains('group:')) return true;
-    if (shortcutId != null && shortcutId.toLowerCase().contains('@g.us')) return true;
+    if (shortcutId != null && shortcutId.toLowerCase().contains('@g.us')) {
+      return true;
+    }
     if (rawTitle != null && rawTitle.contains(' @ ')) return true;
-    if (conversationTitle != null && conversationTitle.trim().isNotEmpty) return true;
-    if (getCachedGroupTitle(convId) != null) return true;
-    return false;
+    if (conversationTitle != null && conversationTitle.trim().isNotEmpty) {
+      return true;
+    }
+    return getCachedGroupTitle(convId) != null;
   }
 
   /// Limpia sufijos de cantidad de mensajes y marcadores técnicos
   static String cleanTitle(String raw) {
     var s = raw.trim();
-    for (final p in const ['title:', 'group:', 'conv:', 'live:', 'shortcut:', 'person:', 'jid:']) {
+    for (final p in const [
+      'title:',
+      'group:',
+      'conv:',
+      'live:',
+      'shortcut:',
+      'person:',
+      'jid:',
+    ]) {
       if (s.toLowerCase().startsWith(p)) {
         s = s.substring(p.length).trim();
       }
     }
     // Si viene en formato compuesto "Title|Sender", el título real del grupo SIEMPRE es el primero
     if (s.contains('|')) {
-      final parts = s.split('|').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+      final parts = s
+          .split('|')
+          .map((p) => p.trim())
+          .where((p) => p.isNotEmpty)
+          .toList();
       if (parts.isNotEmpty) {
         s = parts.first;
       }
@@ -103,20 +118,21 @@ abstract final class ConversationGroupResolver {
   static bool isGenericTitle(String? title) {
     if (title == null) return true;
     final lower = title.trim().toLowerCase();
-    if (lower.isEmpty ||
-        lower.startsWith('@') || // Menciones en mensajes (ej: @Infinity)
-        lower == 'grupo de whatsapp' ||
-        lower.startsWith('grupo de whatsapp') ||
+    return lower.isEmpty ||
+        lower == 'tú' ||
+        lower == 'tu' ||
+        lower == 'you' ||
+        lower == 'conversación' ||
+        lower == 'conversacion' ||
+        lower.startsWith('@') ||
         lower == 'grupo' ||
-        lower == 'chat de whatsapp' ||
-        lower.startsWith('contacto whatsapp') ||
-        lower == 'whatsapp' ||
         lower == 'chat' ||
-        RegExp(r'^\d+$').hasMatch(lower) ||
-        lower.contains('@g.us')) {
-      return true;
-    }
-    return false;
+        lower == 'whatsapp' ||
+        lower.startsWith('grupo de whatsapp') ||
+        lower.startsWith('chat de whatsapp') ||
+        lower.startsWith('contacto whatsapp') ||
+        lower.contains('@g.us') ||
+        RegExp(r'^\d+$').hasMatch(lower);
   }
 
   /// Resuelve la tupla (groupTitle, lastSender) a partir de los metadatos disponibles
@@ -156,7 +172,8 @@ abstract final class ConversationGroupResolver {
     }
 
     // 4. Si convId contiene un nombre de grupo (ej: group:THE BOYS)
-    if (resolvedGroup.isEmpty && (convId.contains('title:') || convId.contains('group:'))) {
+    if (resolvedGroup.isEmpty &&
+        (convId.contains('title:') || convId.contains('group:'))) {
       final cleanFromKey = cleanTitle(convId);
       if (cleanFromKey != resolvedSender && !isGenericTitle(cleanFromKey)) {
         resolvedGroup = cleanFromKey;

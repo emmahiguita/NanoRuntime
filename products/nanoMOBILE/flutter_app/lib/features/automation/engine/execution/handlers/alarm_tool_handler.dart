@@ -16,11 +16,11 @@ class AlarmToolHandler implements IToolHandler {
 
   @override
   List<String> get supportedTools => const [
-        'device.set_alarm',
-        'set_alarm',
-        'alarma',
-        'alarm',
-      ];
+    'device.set_alarm',
+    'set_alarm',
+    'alarma',
+    'alarm',
+  ];
 
   @override
   bool supports(String toolName) {
@@ -33,7 +33,8 @@ class AlarmToolHandler implements IToolHandler {
     final args = call.args ?? const {};
     final hour = _parseInt(args['hour']) ?? 8;
     final minutes = _parseInt(args['minutes'] ?? args['minute']) ?? 0;
-    final message = (args['message'] ?? args['label'] ?? 'Alarma Nano').toString();
+    final message = (args['message'] ?? args['label'] ?? 'Alarma Nano')
+        .toString();
     final weekdays = _parseWeekdays(args['weekdays'] ?? args['days']);
     final skipUi = args['skipUi'] != false;
 
@@ -61,7 +62,10 @@ class AlarmToolHandler implements IToolHandler {
     String message = 'Alarma Nano';
 
     // 1. Extraer hora (ej: "8 am", "08:00", "7:30 pm", "20:15")
-    final timeMatch = RegExp(r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)?', caseSensitive: false).firstMatch(input);
+    final timeMatch = RegExp(
+      r'(\d{1,2})(?::(\d{2}))?\s*(am|pm)?',
+      caseSensitive: false,
+    ).firstMatch(input);
     if (timeMatch != null) {
       int parsedHour = int.parse(timeMatch.group(1)!);
       minutes = timeMatch.group(2) != null ? int.parse(timeMatch.group(2)!) : 0;
@@ -82,7 +86,9 @@ class AlarmToolHandler implements IToolHandler {
         lower.contains('entre semana') ||
         lower.contains('dias de semana')) {
       weekdays = [1, 2, 3, 4, 5]; // Lun - Vie (ISO)
-    } else if (lower.contains('fin de semana') || lower.contains('sab-dom') || lower.contains('sabado y domingo')) {
+    } else if (lower.contains('fin de semana') ||
+        lower.contains('sab-dom') ||
+        lower.contains('sabado y domingo')) {
       weekdays = [6, 7]; // Sáb - Dom
     } else if (lower.contains('todos los dias') || lower.contains('diario')) {
       weekdays = [1, 2, 3, 4, 5, 6, 7];
@@ -99,7 +105,10 @@ class AlarmToolHandler implements IToolHandler {
     }
 
     // 3. Extraer mensaje si existe etiqueta "mensaje" o "para"
-    final msgMatch = RegExp(r'(?:mensaje|para|titulo|título)\s+(.+)$', caseSensitive: false).firstMatch(input);
+    final msgMatch = RegExp(
+      r'(?:mensaje|para|titulo|título)\s+(.+)$',
+      caseSensitive: false,
+    ).firstMatch(input);
     if (msgMatch != null) {
       message = msgMatch.group(1)!.trim();
     }
@@ -134,7 +143,8 @@ class AlarmToolHandler implements IToolHandler {
     }
 
     if (result['success'] == true) {
-      final timeFormatted = '${hour.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+      final timeFormatted =
+          '${hour.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
       final daysStr = weekdays != null && weekdays.isNotEmpty
           ? ' para ${_formatWeekdays(weekdays)}'
           : ' (una sola vez)';
@@ -164,7 +174,15 @@ class AlarmToolHandler implements IToolHandler {
     if (listEquals(days, [1, 2, 3, 4, 5])) return 'Lunes a Viernes';
     if (listEquals(days, [6, 7])) return 'Fines de semana';
     if (days.length == 7) return 'Todos los días';
-    const names = {1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 7: 'Dom'};
+    const names = {
+      1: 'Lun',
+      2: 'Mar',
+      3: 'Mié',
+      4: 'Jue',
+      5: 'Vie',
+      6: 'Sáb',
+      7: 'Dom',
+    };
     return days.map((d) => names[d] ?? '$d').join(', ');
   }
 }

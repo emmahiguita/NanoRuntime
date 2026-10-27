@@ -8,66 +8,92 @@ import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
 import android.widget.TextView
 
-/**
- * NanoOverlayStyle — Tokens de diseño Material Expressive 3 Glass para el overlay nativo.
- *
- * QUÉ: Paleta de colores idéntica a Búho AI Hub con degradados esmeralda y aro cyan.
- * CÓMO: object Kotlin singleton; dp() convierte dp→px en tiempo de ejecución.
- * POR QUÉ: Permite que el overlay nativo sobre otras apps sea visualmente idéntico (SOLID).
- */
+/** Tokens del panel Android. Lee la apariencia guardada por Nano al abrir;
+ * no cambia preferencias ni mantiene un proceso de sondeo permanente. */
 internal object NanoOverlayStyle {
-    val bgGlass         = Color.argb(240, 9, 13, 22)     // #F0090D16 — fondo Glass profundo
-    val bgInput         = Color.argb(220, 20, 28, 44)    // #DC141C2C — campo de entrada
-    val borderGlass     = Color.argb(60, 255, 255, 255)  // borde translúcido
-    val onSurface       = Color.rgb(240, 245, 255)       // texto blanco principal
-    val onSurfaceMuted  = Color.argb(160, 200, 215, 235) // texto secundario / hint
-    val emerald         = Color.rgb(16, 185, 129)        // #10B981 — verde esmeralda
-    val cyanGlow        = Color.rgb(56, 189, 248)        // #38BDF8 — aro orbital
-    val amber           = Color.rgb(245, 158, 11)        // #F59E0B — automatización
+    var bgGlass = Color.argb(180, 25, 28, 34); private set
+    var bgInput = Color.argb(42, 255, 255, 255); private set
+    var borderGlass = Color.argb(75, 255, 255, 255); private set
+    var onSurface = Color.WHITE; private set
+    var onSurfaceMuted = Color.rgb(209, 209, 214); private set
+    var activeSegment = Color.argb(36, 65, 180, 112); private set
+    var accent = Color.rgb(42, 160, 96); private set
+    var glassEnabled = true; private set
+    var glassBlur = 18; private set
+
+    /** Usa las mismas claves persistidas por SettingsRepository de Flutter.
+     * Sistema sigue uiMode; Claro y Gris espacial respetan la elección de Nano. */
+    fun configure(ctx: Context) {
+        val raw = ctx.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            .getString("flutter.nanoai_settings", null)
+        val settings = try { org.json.JSONObject(raw ?: "{}") }
+            catch (_: org.json.JSONException) { org.json.JSONObject() }
+        val systemDark = (ctx.resources.configuration.uiMode and
+            android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
+        val dark = when (settings.optString("themeMode", "Oscuro")) {
+            "Claro" -> false
+            "Sistema" -> systemDark
+            else -> true
+        }
+        glassEnabled = settings.optBoolean("glassEnabled", true)
+        glassBlur = settings.optDouble("glassBlur", 18.0).coerceIn(0.0, 42.0).toInt()
+        val density = settings.optDouble("glassOpacity", .70).coerceIn(.05, 1.0)
+        val alpha = if (glassEnabled) (135 + density * 65).toInt() else 255
+        bgGlass = if (dark) Color.argb(alpha, 28, 30, 36)
+            else Color.argb(alpha, 246, 249, 247)
+        bgInput = if (dark) Color.argb(35, 255, 255, 255) else Color.argb(155, 255, 255, 255)
+        borderGlass = if (dark) Color.argb(80, 255, 255, 255) else Color.argb(55, 55, 70, 64)
+        onSurface = if (dark) Color.rgb(245, 245, 247) else Color.rgb(25, 30, 28)
+        onSurfaceMuted = if (dark) Color.rgb(209, 213, 211) else Color.rgb(85, 96, 90)
+        accent = if (dark) Color.rgb(52, 176, 112) else Color.rgb(24, 125, 74)
+    }
 
     fun dp(ctx: Context, n: Int): Int =
         (ctx.resources.displayMetrics.density * n + 0.5f).toInt()
 
-    /** Tarjeta Glass con esquinas de 28dp y borde translúcido. */
-    fun glassCard(ctx: Context, radiusDp: Int = 28): GradientDrawable =
+    /** Tarjeta de cristal líquido con esquinas redondeadas y borde cáustico. */
+    fun glassCard(ctx: Context, radiusDp: Int = 22): GradientDrawable =
         GradientDrawable().apply {
             setColor(bgGlass)
             cornerRadius = dp(ctx, radiusDp).toFloat()
             setStroke(dp(ctx, 1), borderGlass)
         }
 
-    /** Campo de entrada redondeado con borde sutil. */
+    /** Campo de entrada en cristal líquido. */
     fun inputCard(ctx: Context): GradientDrawable =
         GradientDrawable().apply {
             setColor(bgInput)
-            cornerRadius = dp(ctx, 16).toFloat()
-            setStroke(dp(ctx, 1), Color.argb(40, 255, 255, 255))
+            cornerRadius = dp(ctx, 20).toFloat()
+            setStroke(dp(ctx, 1), borderGlass)
         }
 
-    /** Chip de herramienta con color activo o fondo oscuro. */
-    fun chip(ctx: Context, active: Boolean, activeColor: Int = emerald): GradientDrawable =
+    /** Segmento de cristal líquido estilo iOS. */
+    fun chip(ctx: Context, active: Boolean): GradientDrawable =
         GradientDrawable().apply {
-            setColor(if (active) Color.argb(55, Color.red(activeColor), Color.green(activeColor), Color.blue(activeColor)) else Color.argb(25, 255, 255, 255))
-            cornerRadius = dp(ctx, 12).toFloat()
-            setStroke(dp(ctx, if (active) 1 else 1), if (active) activeColor else Color.argb(30, 255, 255, 255))
+            setColor(if (active) activeSegment else Color.TRANSPARENT)
+            cornerRadius = dp(ctx, 8).toFloat()
+            if (active) {
+                setStroke(dp(ctx, 1), Color.argb(80, 255, 255, 255))
+            }
         }
 
-    /** Botón principal con degradado esmeralda idéntico a Flutter. */
+    /** Botón circular de envío Apple blanco puro. */
     fun actionButton(ctx: Context): GradientDrawable =
-        GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-            intArrayOf(Color.rgb(5, 150, 105), emerald, Color.rgb(52, 211, 153))).apply {
-            cornerRadius = dp(ctx, 16).toFloat()
+        GradientDrawable().apply {
+            setColor(accent)
+            shape = GradientDrawable.OVAL
         }
 
-    /** Botón circular de cierre o mic. */
+    /** Botón circular de vidrio suave para acciones de ventana. */
     fun circleBtn(ctx: Context): GradientDrawable =
         GradientDrawable().apply {
-            setColor(Color.argb(35, 255, 255, 255))
+            setColor(Color.argb(38, 255, 255, 255))
             shape = GradientDrawable.OVAL
         }
 
     fun ripple(ctx: Context, bg: GradientDrawable): RippleDrawable =
-        RippleDrawable(android.content.res.ColorStateList.valueOf(Color.argb(70, 16, 185, 129)), bg, null)
+        RippleDrawable(android.content.res.ColorStateList.valueOf(Color.argb(50, 255, 255, 255)), bg, null)
 
     fun text(ctx: Context, text: String, sizeSp: Float = 13f,
              color: Int = onSurface, bold: Boolean = false): TextView =

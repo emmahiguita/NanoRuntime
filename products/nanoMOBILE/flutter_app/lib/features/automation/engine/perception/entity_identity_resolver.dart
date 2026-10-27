@@ -25,10 +25,7 @@ final class EntityIdentity {
 final class EntityIdentityResolver {
   const EntityIdentityResolver();
 
-  EntityIdentity? resolve(
-    ScreenGraph graph,
-    CurrentSurfaceKind surfaceKind,
-  ) {
+  EntityIdentity? resolve(ScreenGraph graph, CurrentSurfaceKind surfaceKind) {
     if (surfaceKind != CurrentSurfaceKind.editable &&
         surfaceKind != CurrentSurfaceKind.content) {
       return null;
@@ -45,17 +42,14 @@ final class EntityIdentityResolver {
     final value = name.text.isNotEmpty ? name.text : name.description;
     final normalized = normalizeNavigationEntity(value);
     if (normalized.isEmpty) return null;
-    return EntityIdentity(
-      normalized,
-      [
-        SituationEvidence(
-          objectId: name.id,
-          role: name.role,
-          confidence: name.confidence,
-          sources: name.evidence,
-        ),
-      ],
-    );
+    return EntityIdentity(normalized, [
+      SituationEvidence(
+        objectId: name.id,
+        role: name.role,
+        confidence: name.confidence,
+        sources: name.evidence,
+      ),
+    ]);
   }
 
   void _collectNames(

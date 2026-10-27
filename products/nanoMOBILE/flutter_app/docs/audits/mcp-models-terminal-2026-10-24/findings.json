@@ -1,0 +1,142 @@
+[
+  {
+    "id": "F01",
+    "priority": "P1",
+    "title": "Política semántica incompleta para MCP",
+    "reference": {
+      "path": "lib/features/automation/engine/execution/tool_registry.dart",
+      "line": 594,
+      "sha256": "12c293dba53d600786197718307c796e009360311e5b22049a866f3599b8d1c5"
+    },
+    "evidence": "Las cuatro categorías mcp están en ToolRegistry pero no en kAutomationSemanticPolicies. ToolDefinition degrada su riesgo a observation y PolicyEngine.requiresConfirmation devuelve false si no encuentra definición, antes de consultar la política inyectada.",
+    "recommendation": "Definir contratos canónicos de lectura, dispositivo, escritura y privilegios; denegar identidades sin contrato. Revisar confirmación y journal juntos antes de ampliar acciones.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F02",
+    "priority": "P1",
+    "title": "Las anotaciones de cualquier servidor deciden si una herramienta es lectura",
+    "reference": {
+      "path": "lib/features/automation/engine/mcp/mcp_tool_projection.dart",
+      "line": 17,
+      "sha256": "b4a96cd48e6484c0cc47a1e6068f0fae22d94ac5a942ccd13cc95432adcbb091"
+    },
+    "evidence": "McpToolProjection clasifica como read por readOnlyHint y destructiveHint sin consultar confianza del servidor ni una política local por herramienta. Un servidor externo puede declarar mal su efecto.",
+    "recommendation": "Añadir confianza explícita y clasificación local; una declaración remota no debe rebajar permisos por sí sola.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F03",
+    "priority": "P2",
+    "title": "El parser rompe la identidad mcp.externalWrite",
+    "reference": {
+      "path": "lib/features/automation/engine/execution/agent_tool_protocol.dart",
+      "line": 144,
+      "sha256": "622ea0fc56a69fc17e592dbd3d845d5fb50dc2630c48142a78964fae81556c30"
+    },
+    "evidence": "AgentToolProtocol pasa nombres a minúsculas y solo restaura dos alias Linux. El registro y el dispatcher esperan mcp.externalWrite con W mayúscula. Una llamada del LLM puede ser rechazada como desconocida.",
+    "recommendation": "Normalizar contra identidades canónicas del registro, conservando nombres remotos sensibles a mayúsculas. Corregir F01 antes de habilitar más escrituras.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F04",
+    "priority": "P2",
+    "title": "Selección natural y argumentos MCP incompletos",
+    "reference": {
+      "path": "lib/features/automation/engine/mcp/mcp_candidate_provider.dart",
+      "line": 39,
+      "sha256": "68c7a5a9b3b600417925f41c036c165eeec15b1fbb3e7ecadf0adf26b4fb8ce2"
+    },
+    "evidence": "El proveedor busca coincidencia literal con tool.name o tool.id y adapta con {}. No deriva argumentos del inputSchema. El ejecutor revalida la categoría, pero no valida el JSON Schema remoto antes de llamar.",
+    "recommendation": "Resolver intención contra descripciones reales, mostrar/proveer esquema de la herramienta elegida, validar argumentos y preguntar por los obligatorios que falten.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F05",
+    "priority": "P2",
+    "title": "Escritura de archivos altera el texto recibido",
+    "reference": {
+      "path": "lib/features/automation/engine/execution/handlers/semantic_linux_tool_handler.dart",
+      "line": 54,
+      "sha256": "f8e74a0300cc3246b433a8a315380e3dcebd374ef3766e7f2d9bb230b53d7184"
+    },
+    "evidence": "SemanticLinuxToolHandler utiliza _extractString para content; ese helper aplica trim(). Puede eliminar espacios y saltos que forman parte de código o documentos. El escritor usa un heredoc y la verificación comprueba presencia/tamaño, no igualdad del contenido.",
+    "recommendation": "Separar lectura de identificadores y lectura literal de contenido; verificar bytes o hash cuando la operación promete escritura exacta.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F06",
+    "priority": "P2",
+    "title": "El supervisor declara inicio verificado antes de confirmar el proceso",
+    "reference": {
+      "path": "lib/features/automation/executors/linux/linux_process_supervisor.dart",
+      "line": 93,
+      "sha256": "e5865a8ac8b822ac08330e26113f920a0e222dcc64caa7049c49cf8e9baed7aa"
+    },
+    "evidence": "startProcess lanza un Future sin esperarlo y devuelve exitCode 0 y process_started inmediatamente. Si falla el arranque, solo llega un log posterior. stopProcess confirma envío de señal, no salida del proceso.",
+    "recommendation": "Distinguir solicitado, lanzado con PID, ejecutándose y terminado; no usar satisfied para una operación aún no observada.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F07",
+    "priority": "P2",
+    "title": "Resultados tipados se convierten en texto y se reclasifican por prefijo",
+    "reference": {
+      "path": "lib/features/automation/engine/execution/plan_execution_coordinator.dart",
+      "line": 98,
+      "sha256": "ff5e8587a1a5a19918154e6d9070d26a1f85f5281ce59097e4f0aaeb3982f401"
+    },
+    "evidence": "El manejador MCP convierte McpToolCallResult en String. PlanExecutionCoordinator considera fallo cualquier prefijo alfabético entre corchetes; una respuesta válida que empiece por [INFO] puede interpretarse como error.",
+    "recommendation": "Mantener estado, contenido y evidencia tipados hasta journal/interfaz. El texto mostrado no debe determinar el resultado de ejecución.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F08",
+    "priority": "P2",
+    "title": "Resultados de imagen/audio MCP no se conectan a una modalidad del modelo",
+    "reference": {
+      "path": "lib/features/automation/engine/mcp/http_mcp_parser.dart",
+      "line": 98,
+      "sha256": "759bfa9f275cc5faa9ad52d963524b804662e6f7085b44545d8f38fc0bf72ed4"
+    },
+    "evidence": "El parser conserva texto/URI/MIME pero no representa binarios de forma utilizable en McpContentItem. Guarda el resultado completo como structuredContent; si no hay texto, el manejador puede serializarlo a JSON, incluido base64, para un consumidor textual.",
+    "recommendation": "Resolver y limitar adjuntos tipados; enrutarlos al adaptador compatible u ofrecer apertura/descarga. No enviar base64 como supuesto entendimiento visual.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F09",
+    "priority": "P2",
+    "title": "El detalle de un nodo puede superar la altura de pantalla",
+    "reference": {
+      "path": "lib/features/automation/presentation/widgets/mcp/mcp_graph_node_details.dart",
+      "line": 22,
+      "sha256": "8bad9c6f91b0bab88fc2cfd5093a4255bee88500152f171d49956a390f58e58e"
+    },
+    "evidence": "La hoja de detalle usa Column de tamaño mínimo y muestra todo el JSON de metadatos/esquema sin un contenedor desplazable ni altura máxima. Un esquema largo puede desbordar, especialmente en horizontal.",
+    "recommendation": "Acotar altura por viewport y poner contenido desplazable, conservando acciones accesibles y colores del tema.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  },
+  {
+    "id": "F10",
+    "priority": "P2",
+    "title": "El parser de llamadas cuenta llaves dentro de cadenas",
+    "reference": {
+      "path": "lib/features/automation/engine/execution/agent_tool_protocol.dart",
+      "line": 144,
+      "sha256": "622ea0fc56a69fc17e592dbd3d845d5fb50dc2630c48142a78964fae81556c30"
+    },
+    "evidence": "El balanceo de objetos/arrays cuenta caracteres sin distinguir cadenas JSON ni escapes. Una cadena que contenga una llave no balanceada puede truncar una llamada válida; el fallback tolerante no conserva todos los argumentos anidados.",
+    "recommendation": "Usar un extractor JSON consciente de cadenas y escapes y rechazar argumentos incompletos sin fabricarlos.",
+    "verification": "source_inspection_only_not_reproduced_on_device",
+    "status": "open_analysis_only"
+  }
+]

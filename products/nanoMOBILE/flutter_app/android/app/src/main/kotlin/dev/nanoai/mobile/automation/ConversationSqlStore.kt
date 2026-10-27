@@ -119,6 +119,7 @@ internal class ConversationSqlStore(
         if (!validId(scopeId) || !validId(eventId)) return false
         if (direction !in DIRECTIONS || deliveryState !in DELIVERY_STATES) return false
         if (body.isBlank() || body.length > MAX_BODY || sender.length > MAX_SENDER || ruleId.length > MAX_ID) return false
+        val db = writable()
         val values = ContentValues().apply {
             put("scope_id", scopeId)
             put("event_id", eventId)
@@ -129,10 +130,22 @@ internal class ConversationSqlStore(
             put("at_ms", atMs)
             put("rule_id", ruleId)
         }
-        return writable().insertWithOnConflict(
+        val inserted = db.insertWithOnConflict(
             MESSAGES, null, values, SQLiteDatabase.CONFLICT_REPLACE,
         ) != -1L
+
+        // Mantiene la copia canónica mediante una frontera única y comprobable.
+        try {
+            CanonicalConversationMirror.append(
+                db, scopeId, eventId, direction, deliveryState, sender, body, atMs, ruleId,
+            )
+        } catch (error: Exception) {
+            android.util.Log.w("NanoCanonical", "mirror failed: ${error.javaClass.simpleName}")
+        }
+
+        return inserted
     }
+
 
     fun putDialogueState(scopeId: String, stateJson: String, updatedAtMs: Long): Boolean {
         if (!validId(scopeId) || stateJson.length > MAX_STATE) return false
@@ -148,28 +161,8 @@ internal class ConversationSqlStore(
 
     fun listMessages(scopeId: String, limit: Int): List<Map<String, Any>> {
         if (!validId(scopeId)) return emptyList()
-        val rows = mutableListOf<Map<String, Any>>()
-        readable().query(
-            MESSAGES,
-            arrayOf("event_id", "direction", "delivery_state", "sender", "body", "at_ms", "rule_id"),
-            "scope_id = ?", arrayOf(scopeId), null, null, "at_ms ASC, id ASC",
-            limit.coerceIn(1, 1000).toString(),
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                rows.add(
-                    mapOf(
-                        "eventId" to cursor.getString(0),
-                        "direction" to cursor.getString(1),
-                        "deliveryState" to cursor.getString(2),
-                        "sender" to cursor.getString(3),
-                        "body" to cursor.getString(4),
-                        "atMs" to cursor.getLong(5),
-                        "ruleId" to cursor.getString(6),
-                    ),
-                )
-            }
-        }
-        return rows
+        // Mantiene validación y API; el lector aplica el límite a los más recientes.
+        return ConversationSqlMessageReader.read(readable(), scopeId, limit)
     }
 
     private fun validId(value: String): Boolean = value.isNotBlank() && value.length <= MAX_SCOPE_ID

@@ -1,0 +1,63 @@
+{
+  "variant": "fullSideloadDebug",
+  "status": "BUILD SUCCESSFUL",
+  "installed": false,
+  "deviceActions": false,
+  "automatedApplicationTests": false,
+  "scopedAnalysis": "No issues found",
+  "globalAnalysis": {
+    "error": 0,
+    "warning": 1,
+    "info": 59
+  },
+  "selectedApk": {
+    "path": "build/app/outputs/flutter-apk/app-fullsideload-debug.apk",
+    "bytes": 190698682,
+    "sha256": "f6aa7535aeb7bc4d4d9c775e6ef9f9b9a8514aee79624730ab035e28b217fc32",
+    "modifiedUtc": "2026-10-24T16:32:52.040468+00:00"
+  },
+  "artifacts": [
+    {
+      "path": "build/app/outputs/flutter-apk/app-fullsideload-debug.apk",
+      "bytes": 190698682,
+      "sha256": "f6aa7535aeb7bc4d4d9c775e6ef9f9b9a8514aee79624730ab035e28b217fc32",
+      "modifiedUtc": "2026-10-24T16:32:52.040468+00:00"
+    },
+    {
+      "path": "build/app/outputs/flutter-apk/app-fullsideload-profile.apk",
+      "bytes": 135272092,
+      "sha256": "759a4f357293db39945822ea10ce6e5ca98626c3dd1ac9bc60718028f68cc24a",
+      "modifiedUtc": "2026-10-16T17:27:29.178114+00:00"
+    },
+    {
+      "path": "build/app/outputs/flutter-apk/app-fullsideload-release.apk",
+      "bytes": 106910587,
+      "sha256": "59afcb7afa64b718e0ee0321dc48f45f8aa13187d0c23b5e2c84f67b3e6e257d",
+      "modifiedUtc": "2026-10-19T01:39:02.928609+00:00"
+    },
+    {
+      "path": "build/app/outputs/apk/fullSideload/debug/app-fullSideload-debug.apk",
+      "bytes": 190698682,
+      "sha256": "f6aa7535aeb7bc4d4d9c775e6ef9f9b9a8514aee79624730ab035e28b217fc32",
+      "modifiedUtc": "2026-10-24T16:32:51.508090+00:00"
+    },
+    {
+      "path": "build/app/outputs/apk/fullSideload/profile/app-fullSideload-profile.apk",
+      "bytes": 135272092,
+      "sha256": "759a4f357293db39945822ea10ce6e5ca98626c3dd1ac9bc60718028f68cc24a",
+      "modifiedUtc": "2026-10-16T17:27:28.118535+00:00"
+    },
+    {
+      "path": "build/app/outputs/apk/fullSideload/release/app-fullSideload-release.apk",
+      "bytes": 106910587,
+      "sha256": "59afcb7afa64b718e0ee0321dc48f45f8aa13187d0c23b5e2c84f67b3e6e257d",
+      "modifiedUtc": "2026-10-19T01:39:02.566607+00:00"
+    },
+    {
+      "path": "build/app/outputs/apk/androidTest/fullSideload/debug/app-fullSideload-debug-androidTest.apk",
+      "bytes": 42797,
+      "sha256": "1b0c0e639c2678671153894dc83f421646424297ceb7c501d0dedf8846592a3b",
+      "modifiedUtc": "2026-10-17T02:21:48.005867+00:00"
+    }
+  ]
+}

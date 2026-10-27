@@ -90,14 +90,17 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
   void updateActiveTab({
     String? url, String? title, String? faviconUrl, bool? isLoading,
     double? progress, bool? canGoBack, bool? canGoForward, bool? isSecure, double? zoomLevel,
+    bool? hasError, String? errorMessage, int? errorCode, bool clearError = false,
   }) {
     updateTabById(state.activeTabId, url: url, title: title, faviconUrl: faviconUrl,
-      isLoading: isLoading, progress: progress, canGoBack: canGoBack, canGoForward: canGoForward, isSecure: isSecure, zoomLevel: zoomLevel);
+      isLoading: isLoading, progress: progress, canGoBack: canGoBack, canGoForward: canGoForward, isSecure: isSecure, zoomLevel: zoomLevel,
+      hasError: hasError, errorMessage: errorMessage, errorCode: errorCode, clearError: clearError);
   }
 
   void updateTabById(String tabId, {
     String? url, String? title, String? faviconUrl, bool? isLoading,
     double? progress, bool? canGoBack, bool? canGoForward, bool? isSecure, double? zoomLevel,
+    bool? hasError, String? errorMessage, int? errorCode, bool clearError = false,
   }) {
     final updatedTabs = state.tabs.map((t) {
       if (t.id == tabId) {
@@ -112,6 +115,10 @@ class BrowserTabNotifier extends StateNotifier<BrowserTabState> {
           canGoForward: canGoForward ?? t.canGoForward,
           isSecure: isSecure ?? BrowserUrlResolver.isSecure(newUrl),
           zoomLevel: zoomLevel ?? t.zoomLevel,
+          hasError: hasError,
+          errorMessage: errorMessage,
+          errorCode: errorCode,
+          clearError: clearError,
         );
       }
       return t;

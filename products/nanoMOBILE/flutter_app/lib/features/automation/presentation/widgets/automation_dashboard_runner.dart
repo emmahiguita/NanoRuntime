@@ -18,6 +18,7 @@ import '../../application/automation_diagnostics.dart';
 import '../../application/automation_engine.dart';
 import '../../application/automation_feedback_presenter.dart';
 import '../../domain/automation_goal.dart';
+import '../../domain/prepared_automation_goal.dart';
 import '../../domain/automation_result.dart';
 import '../../engine/governance/action_confirmation.dart';
 
@@ -45,6 +46,8 @@ class AutomationDashboardRunner {
     required AutomationDiagnostics diagnostics,
     ActionConfirmation? confirmation,
     String? executionId,
+    PreparedAutomationGoal? preparedGoal,
+    bool Function()? isCurrent,
   }) async {
     final goal = text.trim();
     if (goal.isEmpty) return null;
@@ -58,19 +61,21 @@ class AutomationDashboardRunner {
         return await diagnostics.run(goal);
       }
       return await engine.runGoal(
-        AutomationGoal(text: goal),
+        preparedGoal?.goal ?? AutomationGoal(text: goal),
+        plan: preparedGoal?.plan,
         options: AutomationOptions(
           executionId: executionId,
           confirmation: confirmation,
-          confirmed: confirmation != null,
+          isCurrent: isCurrent,
         ),
       );
     } catch (e, stack) {
       debugPrint('[automation_runner] Error al ejecutar tarea: $e\n$stack');
       return AutomationResult(
         executionId: executionId ?? 'err',
-        status: AutomationResultStatus.failed,
-        reason: 'Error al ejecutar la tarea: $e',
+        status: AutomationResultStatus.outcomeUnknown,
+        reason:
+            'No se recibió un resultado final. Revisa la app antes de repetir.',
       );
     }
   }

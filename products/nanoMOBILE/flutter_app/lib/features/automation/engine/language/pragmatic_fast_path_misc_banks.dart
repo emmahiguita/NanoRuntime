@@ -1,4 +1,4 @@
-﻿part of 'pragmatic_fast_path.dart';
+part of 'pragmatic_fast_path.dart';
 
 /// Bancos inmutables de candidatos para consultas misceláneas de tiempo y asistencia.
 ///

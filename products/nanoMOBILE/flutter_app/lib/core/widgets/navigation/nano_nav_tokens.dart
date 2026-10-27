@@ -10,7 +10,7 @@ class NanoNavTokens {
   // Acentos de marca Nano
   static const accentGreen = Color(0xFF10B981); // Modo oscuro Emerald
   static const accentAmber = Color(0xFFFF8C2A); // Modo alternativo
-  static const accentBlue = Color(0xFF1D6FE8);  // Modo claro iOS
+  static const accentBlue = Color(0xFF1D6FE8); // Modo claro iOS
   static const electricBlue = Color(0xFF2563EB);
   static const neonGreen = Color(0xFF10B981);
   static const cyberGreen = Color(0xFF10B981);
@@ -52,20 +52,20 @@ class NanoNavTokens {
 
   /// Retorna el color de acento activo según el brillo del contexto.
   static Color activeAccent(Brightness b) =>
-      b == Brightness.dark ? cyberGreen : accentBlue;
+      b == Brightness.dark ? electricBlue : accentBlue;
 
-  // Gradiente orbital de acento activo — verde cyber/esmeralda noble en oscuro, azul iOS en claro
+  // Gradiente orbital de acento activo — azul en oscuro y claro
   static const activeGradientDark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF34D399), Color(0xFF10B981), Color(0xFF059669)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB), Color(0xFF1D4ED8)],
     stops: [0.0, 0.50, 1.0],
   );
 
   static const activeGradientLight = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF60A5FA), Color(0xFF1D6FE8), Color(0xFF1E40AF)],
+    colors: [Color(0xFF3B82F6), Color(0xFF1D6FE8), Color(0xFF1E40AF)],
     stops: [0.0, 0.50, 1.0],
   );
 
@@ -76,7 +76,7 @@ class NanoNavTokens {
   static const sendButtonGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF34D399), Color(0xFF10B981), Color(0xFF059669)],
+    colors: [Color(0xFF60A5FA), Color(0xFF2563EB), Color(0xFF1D4ED8)],
     stops: [0.0, 0.50, 1.0],
   );
 
@@ -84,23 +84,15 @@ class NanoNavTokens {
   static const shellGradientDark = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0x66183868),
-      Color(0x58122850),
-      Color(0x4D0C1D3E),
-    ],
+    colors: [Color(0x66183868), Color(0x58122850), Color(0x4D0C1D3E)],
     stops: [0.0, 0.50, 1.0],
   );
 
-  // Gradiente exterior de la carcasa en modo claro — Glass Blanco + tinte azul
+  // Gradiente exterior de la carcasa en modo claro — Glass Blanco + tinte sutil esmeralda
   static const shellGradientLight = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      Color(0xB8FFFFFF),
-      Color(0x9CF0F7FF),
-      Color(0x82E0EEFF),
-    ],
+    colors: [Color(0xF5FFFFFF), Color(0xFAF8FAF9), Color(0xF2F0FDF4)],
     stops: [0.0, 0.55, 1.0],
   );
 

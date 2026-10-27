@@ -2,13 +2,13 @@
 ///
 /// Produce CandidateAction grounded para MCP tools read/device que el goal
 /// menciona. NO expone externalWrite/privileged (requieren governance/backend
-/// explícito). El registry arranca vacío (backend MCP futuro); el contrato y la
-/// integración al pipeline Candidate-First quedan listos.
+/// explícito). Usa nombres reales y argumentos observados en la solicitud.
 library;
 
 import '../planning/candidates/candidate_action.dart';
 import '../planning/candidates/candidate_provider.dart';
 import 'mcp_tool.dart';
+import 'mcp_candidate_arguments.dart';
 import 'mcp_tool_adapter.dart';
 import 'mcp_tool_registry.dart';
 
@@ -23,7 +23,6 @@ class McpCandidateProvider implements CandidateProvider {
 
   @override
   Future<List<CandidateAction>> provide(CandidateRequest request) async {
-    final goal = request.goal.trim().toLowerCase();
     final candidates = <CandidateAction>[];
     for (final tool in _registry.all) {
       // Solo read/device se exponen como candidates; externalWrite/privileged
@@ -32,11 +31,9 @@ class McpCandidateProvider implements CandidateProvider {
           tool.category == McpToolCategory.privileged) {
         continue;
       }
-      final matches =
-          goal.contains(tool.name.toLowerCase()) ||
-          goal.contains(tool.id.toLowerCase());
-      if (matches) {
-        candidates.add(_adapter.adapt(tool, const {}));
+      if (McpCandidateArguments.matches(tool, request.goal)) {
+        final args = McpCandidateArguments.extract(tool, request.goal);
+        candidates.add(_adapter.adapt(tool, args));
       }
     }
     return candidates;

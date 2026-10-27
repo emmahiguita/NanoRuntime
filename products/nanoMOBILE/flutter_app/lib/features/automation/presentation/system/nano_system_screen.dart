@@ -46,7 +46,12 @@ class NanoSystemScreen extends ConsumerWidget {
           top: true,
           bottom: false,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, kNanoBarScrollReserve),
+            padding: const EdgeInsets.fromLTRB(
+              16,
+              8,
+              16,
+              kNanoBarScrollReserve,
+            ),
             children: [
               Center(
                 child: ConstrainedBox(
@@ -71,10 +76,13 @@ class NanoSystemScreen extends ConsumerWidget {
                             subtitle:
                                 'Controla cuándo Nano requiere confirmación para actuar',
                             trailing: ValueBadge(
-                              label: settings.agentAutomationMode.label.toUpperCase(),
+                              label: settings.agentAutomationMode.label
+                                  .toUpperCase(),
                             ),
-                            onTap: () =>
-                                AutomationSettingsPickers.pickMode(context, ref),
+                            onTap: () => AutomationSettingsPickers.pickMode(
+                              context,
+                              ref,
+                            ),
                           ),
                           SettingsRow(
                             icon: Icons.psychology_outlined,
@@ -87,8 +95,11 @@ class NanoSystemScreen extends ConsumerWidget {
                                 settings.automationModelMode,
                               ).toUpperCase(),
                             ),
-                            onTap: () => AutomationSettingsPickers
-                                .pickAutomationModelMode(context, ref),
+                            onTap: () =>
+                                AutomationSettingsPickers.pickAutomationModelMode(
+                                  context,
+                                  ref,
+                                ),
                           ),
                           SettingsRow(
                             icon: settings.voiceEnabled
@@ -109,7 +120,9 @@ class NanoSystemScreen extends ConsumerWidget {
                       const SizedBox(height: 20),
 
                       // SECCIÓN 2: HERRAMIENTAS Y EXTENSIONES
-                      const AutomationSectionLabel('Herramientas y Extensiones'),
+                      const AutomationSectionLabel(
+                        'Herramientas y Extensiones',
+                      ),
                       SettingsCard(
                         children: [
                           SettingsRow(

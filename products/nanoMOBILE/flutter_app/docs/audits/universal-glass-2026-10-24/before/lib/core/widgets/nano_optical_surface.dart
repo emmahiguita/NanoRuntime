@@ -1,0 +1,687 @@
+import 'dart:ui';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
+import 'package:nanoai/core/theme/nano_motion.dart';
+
+/// Geometría de superficie óptica permitida en NanoAI (Regla 13).
+enum NanoSurfaceGeometry { roundedRectangle, capsule, circle }
+
+/// Superficie Óptica Central (NanoOpticalSurface).
+/// Arquitectura multicapa:
+/// 1. Sombra ambiental difusa + sombra de contacto
+/// 2. Bisel metálico SweepGradient perimetral
+/// 3. BackdropFilter blur
+/// 4. Sustrato de vidrio blanco translúcido
+/// 5. Refracción azul inferior derecha
+/// 6. Refracción violeta lateral
+/// 7. Reflejo especular blanco superior derecho
+/// 8. Destello móvil opcional (_AnimatedReflection) + curva cáustica
+/// 9. Borde óptico interior
+/// 10. Respuesta elástica y háptica (escala + sombra + bisel + destello)
+class NanoOpticalSurface extends StatefulWidget {
+  const NanoOpticalSurface({
+    super.key,
+    required this.child,
+    this.geometry = NanoSurfaceGeometry.roundedRectangle,
+    this.borderRadius = NanoRadius.large, // 24.0 por defecto
+    this.customBorderRadius,
+    this.padding,
+    this.margin,
+    this.width,
+    this.height,
+    this.blurSigma = 18.0,
+    this.borderStrength = 1.0,
+    this.reflectionStrength = 1.0,
+    this.depth = 1.0,
+    this.accent,
+    this.isActive = false,
+    this.hasBackdropBlur = true,
+    this.reflectionController,
+    this.specularDrift = 0.0,
+    this.glassOpacityScale = 1.0,
+    this.onTap,
+    this.onLongPress,
+    this.tilt = true,
+    this.tiltIntensity = 0.045,
+    this.autoReflect = false,
+  });
+
+  final Widget child;
+  final NanoSurfaceGeometry geometry;
+  final double borderRadius;
+  final BorderRadius? customBorderRadius;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
+  final double? width;
+  final double? height;
+  final double blurSigma;
+  final double borderStrength;
+  final double reflectionStrength;
+  final double depth;
+  final Color? accent;
+  final bool isActive;
+  final bool hasBackdropBlur;
+  final AnimationController? reflectionController;
+  final double specularDrift;
+
+  /// Escala la opacidad del sustrato de vidrio (cards laterales más
+  /// transparentes que la hero). 1.0 = niveles de token originales.
+  final double glassOpacityScale;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+
+  /// Inclina la superficie en 3D (rotationX/Y) siguiendo el puntero,
+  /// imitando el giro de un panel de vidrio bajo la luz. Opt-in para no
+  /// alterar cards estáticas por defecto.
+  final bool tilt;
+
+  /// Radiánes máximos de rotación en el borde (puntero en un extremo).
+  final double tiltIntensity;
+
+  /// Genera internamente un AnimationController en loop para el barrido
+  /// especular ambiental (_AnimatedReflection), sin depender de un
+  /// controller externo pasado por el padre. Opt-in.
+  final bool autoReflect;
+
+  @override
+  State<NanoOpticalSurface> createState() => _NanoOpticalSurfaceState();
+}
+
+class _NanoOpticalSurfaceState extends State<NanoOpticalSurface>
+    with TickerProviderStateMixin {
+  late AnimationController _pressController;
+  AnimationController? _ambientController;
+  late Animation<double> _scaleAnimation;
+  bool _isPointerInside = false;
+  Alignment _pointerLight = Alignment.center;
+
+  @override
+  void initState() {
+    super.initState();
+    _pressController = AnimationController(
+      vsync: this,
+      duration: NanoMotionDurations.press,
+    );
+    _scaleAnimation =
+        Tween<double>(begin: 1.0, end: NanoPressResponse.scaleDown).animate(
+          CurvedAnimation(
+            parent: _pressController,
+            curve: NanoMotionCurves.press,
+            reverseCurve: NanoMotionCurves.glassSpring,
+          ),
+        );
+
+    // Barrido especular ambiental propio: al activar autoReflect la card
+    // genera su propio AnimationController en loop (sin depender del padre),
+    // replicando el destello de luz de las cards de inicio/modelos.
+    _syncAmbientReflection();
+  }
+
+  @override
+  void didUpdateWidget(covariant NanoOpticalSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.autoReflect != widget.autoReflect) {
+      _syncAmbientReflection();
+    }
+  }
+
+  void _syncAmbientReflection() {
+    if (widget.autoReflect) {
+      _ambientController ??= AnimationController(
+        vsync: this,
+        duration: NanoMotionDurations.ambient,
+      );
+      if (!_ambientController!.isAnimating) {
+        _ambientController!.repeat();
+      }
+      return;
+    }
+
+    _ambientController?.dispose();
+    _ambientController = null;
+  }
+
+  @override
+  void dispose() {
+    _pressController.dispose();
+    _ambientController?.dispose();
+    super.dispose();
+  }
+
+  /// Progreso normalizado del press: 0 reposo, 1 comprimido.
+  double get _pressProgress {
+    const span = 1.0 - NanoPressResponse.scaleDown;
+    return ((1.0 - _scaleAnimation.value) / span).clamp(0.0, 1.0);
+  }
+
+  void _handleTapDown(TapDownDetails _) {
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.forward();
+    }
+  }
+
+  void _handleTapUp(TapUpDetails _) {
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.reverse();
+    }
+  }
+
+  void _handleTapCancel() {
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.reverse();
+    }
+  }
+
+  void _handlePointerHover(PointerHoverEvent event) {
+    final nextLight = _lightFromPosition(event.localPosition);
+    if (!_isPointerInside ||
+        (nextLight.x - _pointerLight.x).abs() > 0.035 ||
+        (nextLight.y - _pointerLight.y).abs() > 0.035) {
+      setState(() {
+        _isPointerInside = true;
+        _pointerLight = nextLight;
+      });
+    }
+  }
+
+  void _handlePointerExit(PointerExitEvent _) {
+    if (_isPointerInside) setState(() => _isPointerInside = false);
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    final nextLight = _lightFromPosition(event.localPosition);
+    setState(() {
+      _isPointerInside = true;
+      _pointerLight = nextLight;
+    });
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.forward();
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    final nextLight = _lightFromPosition(event.localPosition);
+    if (!_isPointerInside ||
+        (nextLight.x - _pointerLight.x).abs() > 0.025 ||
+        (nextLight.y - _pointerLight.y).abs() > 0.025) {
+      setState(() {
+        _isPointerInside = true;
+        _pointerLight = nextLight;
+      });
+    }
+  }
+
+  void _handlePointerUp(PointerUpEvent _) {
+    if (_isPointerInside) setState(() => _isPointerInside = false);
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.reverse();
+    }
+  }
+
+  void _handlePointerCancel(PointerCancelEvent _) {
+    if (_isPointerInside) setState(() => _isPointerInside = false);
+    if (widget.onTap != null || widget.onLongPress != null) {
+      _pressController.reverse();
+    }
+  }
+
+  /// Alineación de la luz pendiente, normalizada a [-1,1] desde la posición
+  /// local del puntero (hover de ratón O táctil).
+  Alignment _lightFromPosition(Offset localPosition) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    final size = renderBox?.size;
+    if (size == null || size.isEmpty) return Alignment.center;
+    return Alignment(
+      (localPosition.dx / size.width * 2 - 1).clamp(-1.0, 1.0).toDouble(),
+      (localPosition.dy / size.height * 2 - 1).clamp(-1.0, 1.0).toDouble(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeExt = NanoThemeExtension.maybeOf(context);
+    final colors = themeExt?.colors ??
+        (Theme.of(context).brightness == Brightness.dark
+            ? const NanoDarkColors()
+            : const NanoLightColors());
+    final isDark = colors is NanoDarkColors;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final glassEnabled = themeExt?.glassEnabled ?? true;
+    final glassOpacity = themeExt?.glassOpacity ?? 0.70;
+    final glassClarity = themeExt?.glassClarity ?? 0.85;
+    final glassBlur = themeExt?.glassBlur ?? widget.blurSigma;
+
+    // Resolución de radio según geometría
+    final BorderRadius resolvedRadius;
+    if (widget.geometry == NanoSurfaceGeometry.circle) {
+      resolvedRadius = BorderRadius.circular(999);
+    } else if (widget.geometry == NanoSurfaceGeometry.capsule) {
+      resolvedRadius = BorderRadius.circular(100);
+    } else {
+      resolvedRadius =
+          widget.customBorderRadius ??
+          BorderRadius.circular(widget.borderRadius);
+    }
+
+    final effectiveAccent =
+        widget.accent ??
+        (widget.isActive
+            ? (isDark ? colors.accent : colors.accentCyan)
+            : (isDark ? colors.accent : colors.accentCyan));
+
+    final Widget surface;
+    if (widget.onTap != null || widget.onLongPress != null) {
+      surface = GestureDetector(
+        onTapDown: _handleTapDown,
+        onTapUp: _handleTapUp,
+        onTapCancel: _handleTapCancel,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onTap?.call();
+        },
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          widget.onLongPress?.call();
+        },
+        behavior: HitTestBehavior.opaque,
+        child: AnimatedBuilder(
+          animation: _scaleAnimation,
+          builder: (context, _) {
+            final pressed = reduceMotion ? 0.0 : _pressProgress;
+            return Transform.scale(
+              scale: reduceMotion ? 1.0 : _scaleAnimation.value,
+              child: RepaintBoundary(
+                child: _buildSurface(
+                  colors,
+                  isDark,
+                  reduceMotion,
+                  resolvedRadius,
+                  effectiveAccent,
+                  pressed,
+                  _isPointerInside && !reduceMotion ? _pointerLight : null,
+                  glassEnabled,
+                  glassOpacity,
+                  glassClarity,
+                  glassBlur,
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      surface = RepaintBoundary(
+        child: _buildSurface(
+          colors,
+          isDark,
+          reduceMotion,
+          resolvedRadius,
+          effectiveAccent,
+          0.0,
+          null,
+          glassEnabled,
+          glassOpacity,
+          glassClarity,
+          glassBlur,
+        ),
+      );
+    }
+
+    final Matrix4 targetMatrix;
+    if (widget.tilt && _isPointerInside && !reduceMotion) {
+      targetMatrix = Matrix4.identity()
+        ..setEntry(3, 2, 0.0012)
+        ..rotateY(-_pointerLight.x * widget.tiltIntensity)
+        ..rotateX(_pointerLight.y * widget.tiltIntensity);
+    } else {
+      targetMatrix = Matrix4.identity();
+    }
+
+    final out = AnimatedContainer(
+      duration: _isPointerInside
+          ? const Duration(milliseconds: 140)
+          : const Duration(milliseconds: 320),
+      curve: _isPointerInside
+          ? NanoMotionCurves.press
+          : NanoMotionCurves.glassSpring,
+      transform: targetMatrix,
+      transformAlignment: Alignment.center,
+      child: surface,
+    );
+
+    return Listener(
+      onPointerDown: reduceMotion ? null : _handlePointerDown,
+      onPointerMove: reduceMotion ? null : _handlePointerMove,
+      onPointerUp: reduceMotion ? null : _handlePointerUp,
+      onPointerCancel: reduceMotion ? null : _handlePointerCancel,
+      behavior: HitTestBehavior.translucent,
+      child: MouseRegion(
+        onHover: reduceMotion ? null : _handlePointerHover,
+        onExit: _handlePointerExit,
+        child: out,
+      ),
+    );
+  }
+
+  Widget _buildSurface(
+    NanoColors colors,
+    bool isDark,
+    bool reduceMotion,
+    BorderRadius resolvedRadius,
+    Color effectiveAccent,
+    double pressed,
+    Alignment? pointerLight,
+    bool glassEnabled,
+    double glassOpacity,
+    double glassClarity,
+    double glassBlur,
+  ) {
+    // Respuesta física del press (Regla 23): sombra -15%, bisel +7%,
+    // destello desplazado 3–5px. Todo deriva del mismo _pressProgress.
+    final shadowPressFactor =
+        1.0 - (1.0 - NanoPressResponse.shadowScale) * pressed;
+    final effectiveBorderStrength =
+        widget.borderStrength * (1.0 + 0.07 * pressed);
+    final effectiveSpecularDrift = widget.specularDrift + pressed * 0.015;
+
+    // 1. Sombras multicapa (ambiental + contacto + resplandor sutil)
+    final shadows = [
+      BoxShadow(
+        color: (isDark ? const Color(0xFF020711) : const Color(0xFF7F9AB5))
+            .withValues(
+              alpha: (isDark ? 0.40 : 0.08 * widget.depth) * shadowPressFactor,
+            ),
+        blurRadius: 32,
+        spreadRadius: -6,
+        offset: const Offset(0, 12),
+      ),
+      BoxShadow(
+        color: (isDark ? colors.outlineVariant : const Color(0xFF7F9AB5)).withValues(
+          alpha: (isDark ? 0.08 : 0.04) * widget.depth * shadowPressFactor,
+        ),
+        blurRadius: 24,
+        spreadRadius: -5,
+      ),
+      if (widget.isActive)
+        BoxShadow(
+          color: colors.primary.withValues(
+            alpha: (isDark ? 0.25 : 0.15) * shadowPressFactor,
+          ),
+          blurRadius: 20,
+          spreadRadius: -2,
+        ),
+    ];
+
+    // 2. Bisel perimetral continuo SweepGradient sobrio y neutro estilo Apple
+    final borderGradient = SweepGradient(
+      colors: isDark
+          ? [
+              Colors.white.withValues(alpha: 0.20 * effectiveBorderStrength),
+              colors.outlineVariant.withValues(
+                alpha: 0.35 * effectiveBorderStrength,
+              ),
+              colors.metalSilver.withValues(
+                alpha: 0.20 * effectiveBorderStrength,
+              ),
+              colors.outlineVariant.withValues(
+                alpha: 0.35 * effectiveBorderStrength,
+              ),
+              Colors.white.withValues(alpha: 0.20 * effectiveBorderStrength),
+            ]
+          : [
+              Colors.white.withValues(alpha: 0.90 * effectiveBorderStrength),
+              colors.outlineVariant.withValues(
+                alpha: 0.40 * effectiveBorderStrength,
+              ),
+              colors.metalSilver.withValues(
+                alpha: 0.35 * effectiveBorderStrength,
+              ),
+              colors.outlineVariant.withValues(
+                alpha: 0.40 * effectiveBorderStrength,
+              ),
+              Colors.white.withValues(alpha: 0.90 * effectiveBorderStrength),
+            ],
+    );
+
+    // 3. Sustrato de vidrio templado translúcido iOS con alta fidelidad óptica
+    final opacityScale = widget.glassOpacityScale *
+        (glassEnabled ? (glassOpacity / 0.70) : 1.0);
+    final glassBodyGradient = isDark
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              colors.surface.withValues(alpha: (0.75 * opacityScale).clamp(0.1, 0.95)),
+              colors.surfaceVariant.withValues(alpha: (0.65 * opacityScale).clamp(0.1, 0.92)),
+            ],
+          )
+        : LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white.withValues(alpha: (0.85 * opacityScale).clamp(0.2, 0.98)),
+              const Color(0xFFF8FAFC).withValues(alpha: (0.75 * opacityScale).clamp(0.2, 0.95)),
+            ],
+          );
+
+    final effectiveReflectionController =
+        widget.reflectionController ??
+        (widget.autoReflect ? _ambientController : null);
+
+    Widget opticalStack = Stack(
+      fit: StackFit.passthrough,
+      children: [
+        // Sustrato translúcido
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: resolvedRadius,
+              gradient: glassBodyGradient,
+            ),
+          ),
+        ),
+
+        // Destello especular móvil + curva cáustica (luz líquida)
+        if (effectiveReflectionController != null && !reduceMotion)
+          Positioned.fill(
+            child: _AnimatedReflection(
+              controller: effectiveReflectionController,
+              intensity: widget.reflectionStrength * 0.4,
+              specularDrift: effectiveSpecularDrift,
+              warmColor: colors.warmReflection,
+              cyanColor: colors.accentCyan,
+            ),
+          ),
+
+        // Luz especular sutil en interacción de puntero
+        if (pointerLight != null)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: pointerLight,
+                    radius: 0.72,
+                    colors: [
+                      Colors.white.withValues(alpha: isDark ? 0.08 : 0.14),
+                      effectiveAccent.withValues(alpha: isDark ? 0.03 : 0.02),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.30, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+        // Borde interior de precisión iOS
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: resolvedRadius,
+                border: Border.all(
+                  width: 0.8,
+                  color: isDark
+                      ? colors.outlineVariant.withValues(alpha: 0.35)
+                      : colors.outlineVariant.withValues(alpha: 0.50),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Contenido del usuario con padding
+        Container(
+          width: widget.width,
+          height: widget.height,
+          padding: widget.padding,
+          child: widget.child,
+        ),
+      ],
+    );
+
+    if (widget.hasBackdropBlur) {
+      final effectiveBlur = (!glassEnabled || reduceMotion)
+          ? 0.0
+          : (widget.blurSigma *
+                  (glassBlur / 24.0) *
+                  (0.6 + 0.4 * (1.0 - glassClarity * 0.35)))
+              .clamp(0.0, 45.0);
+      opticalStack = ClipRRect(
+        borderRadius: resolvedRadius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: effectiveBlur,
+            sigmaY: effectiveBlur,
+          ),
+          child: opticalStack,
+        ),
+      );
+    } else {
+      opticalStack = ClipRRect(
+        borderRadius: resolvedRadius,
+        child: opticalStack,
+      );
+    }
+
+    return Container(
+      margin: widget.margin,
+      decoration: BoxDecoration(
+        borderRadius: resolvedRadius,
+        boxShadow: shadows,
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(1.35), // Bisel continuo de 1.35px
+        decoration: BoxDecoration(
+          borderRadius: resolvedRadius,
+          gradient: borderGradient,
+        ),
+        child: opticalStack,
+      ),
+    );
+  }
+}
+
+/// Destello de luz móvil con traslación diagonal y gradiente blanco/cyan,
+/// más una curva cáustica (pearl + warm + cyan edge) en fase desplazada.
+class _AnimatedReflection extends StatelessWidget {
+  final AnimationController controller;
+  final double intensity;
+  final double specularDrift;
+  final Color warmColor;
+  final Color cyanColor;
+
+  const _AnimatedReflection({
+    required this.controller,
+    required this.intensity,
+    this.specularDrift = 0.0,
+    required this.warmColor,
+    required this.cyanColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return AnimatedBuilder(
+            animation: controller,
+            builder: (context, child) {
+              final t = Curves.easeInOutSine.transform(controller.value);
+              final x =
+                  (-constraints.maxWidth * 0.8 +
+                      constraints.maxWidth * 1.8 * t) +
+                  (specularDrift * constraints.maxWidth * 0.15);
+
+              // Curva cáustica: misma inclinación, fase desplazada +0.35,
+              // opacidad muy baja (luz interna del vidrio, no línea fija).
+              final tCaustic = (t + 0.35) % 1.0;
+              final xCaustic =
+                  (-constraints.maxWidth * 0.8 +
+                      constraints.maxWidth * 1.8 * tCaustic) +
+                  (specularDrift * constraints.maxWidth * 0.15);
+
+              Widget band(Widget child, double xOffset) {
+                return Transform.translate(
+                  offset: Offset(xOffset, 0),
+                  child: Transform.rotate(
+                    angle: -0.24,
+                    child: Center(child: child),
+                  ),
+                );
+              }
+
+              return Stack(
+                fit: StackFit.passthrough,
+                children: [
+                  // Banda especular ancha y suave
+                  band(
+                    Container(
+                      width: 90,
+                      height: constraints.maxHeight * 1.5,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            Colors.white.withValues(alpha: 0.015 * intensity),
+                            Colors.white.withValues(alpha: 0.20 * intensity),
+                            cyanColor.withValues(alpha: 0.04 * intensity),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.30, 0.50, 0.62, 1.0],
+                        ),
+                      ),
+                    ),
+                    x,
+                  ),
+                  // Curva cáustica: pearl + warm + borde cyan, delgada
+                  band(
+                    Container(
+                      width: 34,
+                      height: constraints.maxHeight * 1.2,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+                            Colors.white.withValues(alpha: 0.05 * intensity),
+                            warmColor.withValues(alpha: 0.07 * intensity),
+                            cyanColor.withValues(alpha: 0.05 * intensity),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.35, 0.50, 0.65, 1.0],
+                        ),
+                      ),
+                    ),
+                    xCaustic,
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}

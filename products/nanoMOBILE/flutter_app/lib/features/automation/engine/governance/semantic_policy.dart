@@ -5,6 +5,13 @@
 /// rebajar riesgo, confirmación, evidencia o replay.
 library;
 
+part 'semantic_policies_0.dart';
+part 'semantic_policies_1.dart';
+part 'semantic_policies_2.dart';
+part 'semantic_policies_3.dart';
+part 'semantic_policies_4.dart';
+part 'semantic_mcp_policies.dart';
+
 enum SemanticActionRisk {
   observation,
   navigation,
@@ -46,227 +53,12 @@ final class SemanticActionDefinition {
 /// Fuente única de verdad. Incluye herramientas físicas y acciones de alto
 /// nivel porque ambas terminan atravesando el mismo runtime gobernado.
 const kAutomationSemanticPolicies = <String, SemanticActionDefinition>{
-  // Herramientas de observación.
-  'screen': SemanticActionDefinition(risk: SemanticActionRisk.observation),
-  'read_screen': SemanticActionDefinition(risk: SemanticActionRisk.observation),
-  'resolve': SemanticActionDefinition(
-    requiredInputs: ['selector'],
-    risk: SemanticActionRisk.observation,
-  ),
-  'notifications': SemanticActionDefinition(
-    risk: SemanticActionRisk.observation,
-  ),
-  'device_state': SemanticActionDefinition(
-    risk: SemanticActionRisk.observation,
-  ),
-  'linux.list': SemanticActionDefinition(
-    requiredInputs: ['path'],
-    risk: SemanticActionRisk.observation,
-  ),
-  'linux.readFile': SemanticActionDefinition(
-    requiredInputs: ['path'],
-    risk: SemanticActionRisk.observation,
-  ),
-  'shizuku_query_package': SemanticActionDefinition(
-    requiredInputs: ['packageName'],
-    risk: SemanticActionRisk.observation,
-  ),
-
-  // Navegación y control del dispositivo.
-  'tap': SemanticActionDefinition(
-    requiredInputs: ['selector'],
-    risk: SemanticActionRisk.navigation,
-    irreversible: true,
-  ),
-  'back': SemanticActionDefinition(risk: SemanticActionRisk.navigation),
-  'launch_app': SemanticActionDefinition(
-    requiredInputs: ['packageName'],
-    risk: SemanticActionRisk.navigation,
-  ),
-  'home': SemanticActionDefinition(risk: SemanticActionRisk.navigation),
-  'recents': SemanticActionDefinition(risk: SemanticActionRisk.navigation),
-  'open_notifications': SemanticActionDefinition(
-    risk: SemanticActionRisk.navigation,
-  ),
-  'open_quick_settings': SemanticActionDefinition(
-    risk: SemanticActionRisk.navigation,
-  ),
-  'swipe': SemanticActionDefinition(
-    requiredInputs: ['x1', 'y1', 'x2', 'y2'],
-    risk: SemanticActionRisk.navigation,
-  ),
-  'scroll': SemanticActionDefinition(
-    requiredInputs: ['direction'],
-    risk: SemanticActionRisk.navigation,
-  ),
-  'long_press': SemanticActionDefinition(
-    requiredInputs: ['x', 'y'],
-    risk: SemanticActionRisk.navigation,
-  ),
-  'open_system': SemanticActionDefinition(
-    requiredInputs: ['destination'],
-    risk: SemanticActionRisk.navigation,
-  ),
-  'open_url': SemanticActionDefinition(
-    requiredInputs: ['url'],
-    risk: SemanticActionRisk.navigation,
-  ),
-  'fetch_web': SemanticActionDefinition(
-    requiredInputs: ['url'],
-    risk: SemanticActionRisk.observation,
-  ),
-
-  // Escrituras y operaciones privilegiadas.
-  'write': SemanticActionDefinition(
-    requiredInputs: ['selector', 'text'],
-    risk: SemanticActionRisk.reversibleWrite,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-    requiresConfirmation: true,
-  ),
-  'reply_notification': SemanticActionDefinition(
-    requiredInputs: ['key', 'text'],
-    risk: SemanticActionRisk.irreversibleCommit,
-    irreversible: true,
-    requiredEvidence: RequiredEvidence.verified,
-    requiresContextLock: true,
-    requiresConfirmation: true,
-  ),
-  'whatsapp.contacts': SemanticActionDefinition(
-    risk: SemanticActionRisk.observation,
-  ),
-  'whatsapp.open_chat': SemanticActionDefinition(
-    risk: SemanticActionRisk.navigation,
-  ),
-  'whatsapp.send_message': SemanticActionDefinition(
-    requiredInputs: ['contact', 'text'],
-    risk: SemanticActionRisk.reversibleWrite,
-    requiresConfirmation: false,
-  ),
-  'whatsapp.share_file': SemanticActionDefinition(
-    requiredInputs: ['contact', 'path'],
-    risk: SemanticActionRisk.reversibleWrite,
-    requiresConfirmation: false,
-  ),
-  'linux.writeFile': SemanticActionDefinition(
-    requiredInputs: ['path', 'content'],
-    risk: SemanticActionRisk.reversibleWrite,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-    requiresConfirmation: true,
-  ),
-  'linux.run': SemanticActionDefinition(
-    requiredInputs: ['command'],
-    risk: SemanticActionRisk.irreversibleCommit,
-    irreversible: true,
-    requiresConfirmation: true,
-  ),
-  'force_stop_package': SemanticActionDefinition(
-    requiredInputs: ['packageName'],
-    risk: SemanticActionRisk.reversibleWrite,
-    requiresConfirmation: true,
-  ),
-  'install_package': SemanticActionDefinition(
-    requiredInputs: ['apkPath'],
-    risk: SemanticActionRisk.irreversibleCommit,
-    irreversible: true,
-    requiredEvidence: RequiredEvidence.verified,
-    requiresConfirmation: true,
-  ),
-  'grant_specific_permission': SemanticActionDefinition(
-    requiredInputs: ['packageName', 'permission'],
-    risk: SemanticActionRisk.reversibleWrite,
-    requiresConfirmation: true,
-  ),
-
-  // Vocabulario de alto nivel de TaskPlan.
-  'readNotification': SemanticActionDefinition(
-    risk: SemanticActionRisk.observation,
-    rebuildOnResume: true,
-  ),
-  'extractUrl': SemanticActionDefinition(
-    requiredInputs: ['text'],
-    risk: SemanticActionRisk.observation,
-    rebuildOnResume: true,
-  ),
-  'openApp': SemanticActionDefinition(
-    risk: SemanticActionRisk.navigation,
-    rebuildOnResume: true,
-  ),
-  'openUrl': SemanticActionDefinition(
-    requiredInputs: ['url'],
-    risk: SemanticActionRisk.navigation,
-  ),
-  'openConversation': SemanticActionDefinition(
-    risk: SemanticActionRisk.navigation,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-    rebuildOnResume: true,
-  ),
-  // Revela una única superficie transitoria (p. ej. overflow) para que el
-  // target pedido pueda observarse. No activa el target final ni hereda su
-  // autoridad; ese segundo tap conserva la política de activateElement.
-  'revealElement': SemanticActionDefinition(
-    risk: SemanticActionRisk.navigation,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-  ),
-  // Un toque genérico puede confirmar, comprar, eliminar o enviar según la
-  // app. Se clasifica conservadoramente como commit hasta conocer su dominio.
-  // La re-resolución del selector y la verificación del snapshot siguen en el
-  // executor; la confirmación nunca se hereda del origen del plan.
-  'activateElement': SemanticActionDefinition(
-    risk: SemanticActionRisk.irreversibleCommit,
-    irreversible: true,
-    requiredEvidence: RequiredEvidence.verified,
-    requiresConfirmation: true,
-  ),
-  'fillElement': SemanticActionDefinition(
-    risk: SemanticActionRisk.reversibleWrite,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-    requiredEvidence: RequiredEvidence.verified,
-    requiresConfirmation: true,
-  ),
-  'writeMessage': SemanticActionDefinition(
-    risk: SemanticActionRisk.reversibleWrite,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-  ),
-  'sendMessage': SemanticActionDefinition(
-    risk: SemanticActionRisk.irreversibleCommit,
-    irreversible: true,
-    requiredEvidence: RequiredEvidence.verified,
-    requiresContextLock: true,
-    requiresConfirmation: true,
-  ),
-  'writeFile': SemanticActionDefinition(
-    requiredInputs: ['content'],
-    risk: SemanticActionRisk.reversibleWrite,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-  ),
-  'writeQuery': SemanticActionDefinition(
-    risk: SemanticActionRisk.reversibleWrite,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-  ),
-  'submitSearch': SemanticActionDefinition(risk: SemanticActionRisk.navigation),
-  'selectResult': SemanticActionDefinition(risk: SemanticActionRisk.navigation),
-  // GAP-06: vocabulario linux para planes multi-paso del TaskOrchestrator.
-  // El dispatcher los traduce a linux.list/readFile/writeFile/run.
-  'linux_list_files': SemanticActionDefinition(
-    requiredInputs: ['path'],
-    risk: SemanticActionRisk.observation,
-  ),
-  'linux_read_file': SemanticActionDefinition(
-    requiredInputs: ['path'],
-    risk: SemanticActionRisk.observation,
-  ),
-  'linux_write_file': SemanticActionDefinition(
-    requiredInputs: ['path', 'content'],
-    risk: SemanticActionRisk.reversibleWrite,
-    replayPolicy: SemanticReplayPolicy.safeReplace,
-    requiresConfirmation: true,
-  ),
-  'linux_run_command': SemanticActionDefinition(
-    requiredInputs: ['command'],
-    risk: SemanticActionRisk.irreversibleCommit,
-    irreversible: true,
-    requiresConfirmation: true,
-  ),
+  ..._semanticPolicies0,
+  ..._semanticPolicies1,
+  ..._semanticPolicies2,
+  ..._semanticPolicies3,
+  ..._semanticPolicies4,
+  ..._semanticMcpPolicies,
 };
 
 const kTaskSemanticActionNames = <String>{
@@ -289,7 +81,6 @@ const kTaskSemanticActionNames = <String>{
   'linux_write_file',
   'linux_run_command',
 };
-
 
 SemanticActionDefinition? automationSemanticPolicy(String name) =>
     kAutomationSemanticPolicies[name];

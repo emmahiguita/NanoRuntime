@@ -1,0 +1,170 @@
+[
+  {
+    "id": "MCP-01",
+    "priority": "P1",
+    "status": "corrected_in_source",
+    "implementation": "mcp_tool_test_dialog.dart",
+    "change": "El diálogo es de inspección: no ejecuta herramientas ni sustituye el servidor. La ejecución continúa por el agente gobernado.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-02",
+    "priority": "P1",
+    "status": "corrected_in_source",
+    "implementation": "http_mcp_parser.dart",
+    "change": "Distingue resultado inválido, isError y éxito; conserva el diagnóstico remoto.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "TERM-01",
+    "priority": "P1",
+    "status": "corrected_in_source",
+    "implementation": "pty_session_registry.c",
+    "change": "Recoge únicamente PIDs PTY propietarios, reserva slots durante el cierre y conserva PIDs pendientes. EINTR no se interpreta como salida.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "UI-01",
+    "priority": "P1",
+    "status": "corrected_in_source",
+    "implementation": "nano_active_model_glass_card.dart; chat_screen_layout.part.dart",
+    "change": "Elimina modelo y 5.9 t/s ficticios; muestra estado observado y ausencia de medición. Nombre e indicadores se distribuyen de forma adaptable.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "TERM-02",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "PtyChannelHandler.kt",
+    "change": "Despacha JNI por una cola acotada y ordenada con trabajador que expira en reposo, sin retener Activity.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "TERM-03",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "terminal_screen.dart",
+    "change": "Solo reanuda polling cuando coinciden aplicación reanudada, ruta visible y pestaña seleccionada.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "TERM-04",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "dashboard_plugin.dart",
+    "change": "Los inventarios sin fuente real se indican como no consultados, en lugar de mostrar ceros de listas de compatibilidad.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "UI-02",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "terminal_coverflow_small.dart",
+    "change": "El título exterior a la portada usa el color semántico del tema, también en horizontal.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "UI-03",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "terminal_coverflow_detail_portrait.dart",
+    "change": "Retira el botón de opciones vacío; conserva cierre y acceso a la ruta del módulo.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-03",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "mcp_tool_test_dialog.dart",
+    "change": "Al separar inspección y ejecución, desaparecen el FutureBuilder y el resultado vacío que ocultaban errores. Muestra ausencias del catálogo explícitamente.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-04",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "mcp_platform_status.dart; mcp_hub_platform_nodes.dart",
+    "change": "Consulta estado real de accesibilidad, con desconocido si no responde; el Core informa cobertura del catálogo, sin anunciar salud global.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-05",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "http_mcp_catalog.dart",
+    "change": "Recorre cursores con límites de 20 páginas, 1000 herramientas y 30 s de lectura; rechaza ciclos y no publica una cobertura parcial como completa.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-06",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "mcp_bounded_http.dart",
+    "change": "Lee JSON/SSE incrementalmente por ID; limita a 2 MiB y al plazo configurado, cancela su lectura al terminar y libera el transporte.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-07",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "mcp_hub_graph.dart; mcp_hub_server_nodes.dart",
+    "change": "Calcula altura según nodos, asigna una banda por servidor y permite paneo sobre el lienzo completo sin restricciones del viewport.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-08",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "mcp_connection_registry.dart; mcp_registry_discovery.dart",
+    "change": "Añade cierre idempotente del registro y desconexión de sus clientes; las respuestas tardías no notifican tras dispose.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-09",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "mcp_skills_hub_screen.dart; mcp_hub_refresh.dart",
+    "change": "Protege setState con montaje, evita recargas duplicadas y recoge errores de refresco. Los diálogos comprueban montaje tras esperas.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-10",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "mcp_store_connect.dart; mcp_store_connection_operation.dart",
+    "change": "Calcula conexión, fallos y herramientas por servidor; distingue conexión guardada de catálogo no disponible. Revierte solo su propia conexión ante fallos.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-11",
+    "priority": "P3",
+    "status": "corrected_in_source",
+    "implementation": "mcp_hub_journal.dart",
+    "change": "Presenta el journal como instantánea con fecha y actualización manual.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "UI-04",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "terminal_coverflow_card.dart",
+    "change": "El visor respeta movimiento reducido mediante TickerMode y autoRotate, sin cambiar la manipulación directa.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "TERM-05",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "terminal_screen_sessions.dart",
+    "change": "Conserva el ID de sesión activo al eliminar pestañas anteriores. Limita nuevas pestañas a 16 para concordar con el registro nativo.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  },
+  {
+    "id": "MCP-12",
+    "priority": "P2",
+    "status": "corrected_in_source",
+    "implementation": "local_device_inspection.dart",
+    "change": "Sensor ausente se muestra como no disponible; retira la evaluación de salud Óptimo que no se calculaba.",
+    "verification": "static_analysis_and_build; device_review_pending"
+  }
+]

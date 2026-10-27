@@ -71,9 +71,8 @@ class _C14DebugBenchmarkSectionState
         context,
       ).showSnackBar(SnackBar(content: Text('C14 infra error: $e')));
     } finally {
-      try {
-        await NanoRuntimeApi.instance.agentLaunchPackage('dev.nanoai.mobile');
-      } catch (_) {}
+      // C14Benchmark owns app restoration after actual suite execution; a
+      // preflight failure must not issue a redundant accessibility action.
       if (mounted) setState(() => _running = false);
     }
   }
@@ -153,6 +152,7 @@ class _C14DebugBenchmarkSectionState
                 ),
                 const SizedBox(height: NanoSpacing.sm),
                 _preflightStatus(),
+                _accessibilitySetupHelp(),
                 const SizedBox(height: NanoSpacing.sm),
                 Wrap(
                   spacing: 8,
@@ -161,17 +161,26 @@ class _C14DebugBenchmarkSectionState
                     ChoiceChip(
                       label: const Text('Sistema (10)'),
                       selected: _selectedSuite == defaultSuite,
-                      onSelected: _running ? null : (_) => setState(() => _selectedSuite = defaultSuite),
+                      onSelected: _running
+                          ? null
+                          : (_) =>
+                                setState(() => _selectedSuite = defaultSuite),
                     ),
                     ChoiceChip(
                       label: Text('WhatsApp (${whatsAppSuite.tasks.length})'),
                       selected: _selectedSuite == whatsAppSuite,
-                      onSelected: _running ? null : (_) => setState(() => _selectedSuite = whatsAppSuite),
+                      onSelected: _running
+                          ? null
+                          : (_) =>
+                                setState(() => _selectedSuite = whatsAppSuite),
                     ),
                     ChoiceChip(
                       label: Text('Completa (${completeSuite.tasks.length})'),
                       selected: _selectedSuite == completeSuite,
-                      onSelected: _running ? null : (_) => setState(() => _selectedSuite = completeSuite),
+                      onSelected: _running
+                          ? null
+                          : (_) =>
+                                setState(() => _selectedSuite = completeSuite),
                     ),
                   ],
                 ),
@@ -215,14 +224,82 @@ class _C14DebugBenchmarkSectionState
         for (final c in preflight.checks)
           Chip(
             label: Text(
-              '${c.name}: ${c.ok ? 'OK' : 'FAIL'}',
+              '${c.name}: ${c.ok == null
+                  ? 'PENDIENTE'
+                  : c.ok!
+                  ? 'OK'
+                  : 'FAIL'}',
               style: const TextStyle(fontSize: 11),
             ),
-            backgroundColor: (c.ok ? _colors.success : _colors.error)
-                .withValues(alpha: 0.15),
+            backgroundColor:
+                (c.ok == null
+                        ? _colors.onSurfaceVariant
+                        : c.ok!
+                        ? _colors.success
+                        : _colors.error)
+                    .withValues(alpha: 0.15),
             side: BorderSide.none,
           ),
       ],
+    );
+  }
+
+  // Guía el permiso que Android exige habilitar manualmente para automatizar UI.
+  Widget _accessibilitySetupHelp() {
+    final blocked =
+        _result?.preflight.checks.any(
+          (check) => check.name == 'Accesibilidad activa' && check.ok == false,
+        ) ??
+        false;
+    if (!blocked) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: NanoSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Android bloquea este permiso para la APK instalada manualmente. '
+            'Primero abre la ficha de Nano, pulsa ⋮ → Permitir ajustes '
+            'restringidos. Luego activa Nano Mobile Agent en Accesibilidad '
+            '→ General → Aplicaciones descargadas. No actives “Seleccionar '
+            'para pronunciar” ni solo el acceso rápido por teclas.',
+          ),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton.icon(
+                onPressed: _running ? null : _openRestrictedSettings,
+                icon: const Icon(Icons.security_rounded),
+                label: const Text('1. Ficha de Nano'),
+              ),
+              TextButton.icon(
+                onPressed: _running ? null : _openAccessibilitySettings,
+                icon: const Icon(Icons.settings_accessibility_rounded),
+                label: const Text('2. Accesibilidad'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Abre Ajustes sin cambiar el interruptor: Android reserva el consentimiento al usuario.
+  Future<void> _openAccessibilitySettings() async {
+    final opened = await NanoRuntimeApi.instance.openAccessibilitySettings();
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No se pudieron abrir los ajustes.')),
+    );
+  }
+
+  // Android exige permitir explícitamente los ajustes restringidos en APKs sideload.
+  Future<void> _openRestrictedSettings() async {
+    final opened = await NanoRuntimeApi.instance.openAppPermissionSettings();
+    if (!mounted || opened) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No se pudo abrir la ficha de Nano.')),
     );
   }
 
@@ -231,7 +308,9 @@ class _C14DebugBenchmarkSectionState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: NanoSpacing.sm),
-        Text('Progress  ${_progressIndex + 1} / ${_selectedSuite.tasks.length}'),
+        Text(
+          'Progress  ${_progressIndex + 1} / ${_selectedSuite.tasks.length}',
+        ),
         if (_currentGoal.isNotEmpty)
           Text('"$_currentGoal"', style: const TextStyle(fontSize: 12)),
         if (_lastExecution != null)
@@ -260,10 +339,7 @@ class _C14DebugBenchmarkSectionState
           const Divider(),
           Text(
             'Preflight no superado (${r.preflight.failCode?.name ?? 'Error'})',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: _colors.error,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w600, color: _colors.error),
           ),
           const SizedBox(height: NanoSpacing.xs),
           Text(
@@ -307,7 +383,9 @@ class _C14DebugBenchmarkSectionState
             ),
             FilledButton.tonalIcon(
               onPressed: () async {
-                await NanoRuntimeApi.instance.agentLaunchPackage('dev.nanoai.mobile');
+                await NanoRuntimeApi.instance.agentLaunchPackage(
+                  'dev.nanoai.mobile',
+                );
               },
               icon: const Icon(Icons.home_rounded, size: 16),
               label: const Text('Volver a Nano'),

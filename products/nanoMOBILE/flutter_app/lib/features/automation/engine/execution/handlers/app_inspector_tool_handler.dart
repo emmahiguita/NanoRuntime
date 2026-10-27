@@ -16,15 +16,15 @@ class AppInspectorToolHandler implements IToolHandler {
   AppInspectorToolHandler({
     InstalledAppCatalog? catalog,
     CurrentSituationSource? situationSource,
-  })  : _catalog = catalog,
-        _situationSource = situationSource;
+  }) : _catalog = catalog,
+       _situationSource = situationSource;
 
   @override
   List<String> get supportedTools => const [
-        'dev.inspect_app',
-        'inspect_app',
-        'inspeccionar',
-      ];
+    'dev.inspect_app',
+    'inspect_app',
+    'inspeccionar',
+  ];
 
   @override
   bool supports(String toolName) {
@@ -34,13 +34,14 @@ class AppInspectorToolHandler implements IToolHandler {
 
   @override
   Future<String> execute(ToolCall call) async {
-    final target = (call.packageNameArg ??
-            call.textArg ??
-            call.selectorArg ??
-            call.args?['target'] ??
-            '')
-        .toString()
-        .trim();
+    final target =
+        (call.packageNameArg ??
+                call.textArg ??
+                call.selectorArg ??
+                call.args?['target'] ??
+                '')
+            .toString()
+            .trim();
     return inspect(target);
   }
 
@@ -81,7 +82,10 @@ class AppInspectorToolHandler implements IToolHandler {
             '• Habilitada: ${app.enabled ? "Sí" : "No"}\n'
             '• Lanzable: ${app.launchable ? "Sí" : "No"}';
       case AppMatchAmbiguous(:final candidates):
-        final list = candidates.take(3).map((c) => '${c.label} (${c.packageName})').join(', ');
+        final list = candidates
+            .take(3)
+            .map((c) => '${c.label} (${c.packageName})')
+            .join(', ');
         return '[inspector] Múltiples aplicaciones coinciden: $list.';
       case AppMatchNotFound():
         return '[inspector] Aplicación "$target" no encontrada en el dispositivo.';
@@ -89,7 +93,9 @@ class AppInspectorToolHandler implements IToolHandler {
   }
 
   String _formatSituationReport(CurrentSituation situation) {
-    final pkg = situation.packageName.isNotEmpty ? situation.packageName : 'Desconocido';
+    final pkg = situation.packageName.isNotEmpty
+        ? situation.packageName
+        : 'Desconocido';
     final nodes = situation.structuralEvidence.objects.length;
     final surface = situation.surfaceKind.name;
 

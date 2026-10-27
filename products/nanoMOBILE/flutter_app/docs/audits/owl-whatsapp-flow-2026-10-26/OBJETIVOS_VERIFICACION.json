@@ -1,0 +1,94 @@
+{
+  "scope": "Búho to shared AutomationEngine.runGoal",
+  "static_analysis": {
+    "command": "dart analyze lib/features/chat/nano_everywhere",
+    "result": "No issues found!",
+    "exit_code": 0
+  },
+  "build": {
+    "variant": "fullSideloadDebug",
+    "exit_code": 0,
+    "apk": "build/app/outputs/flutter-apk/app-fullsideload-debug.apk",
+    "bytes": 191241292,
+    "sha256": "8731ab881b91734db4f11123965c1924fdd6fe23f250f9b8e4236bbb407720a0"
+  },
+  "independent_review": {
+    "mode": "read-only, no tests",
+    "result": "Routing, pending revocation and quoted identity findings corrected; no further demonstrated blocking defect in reviewed scope"
+  },
+  "sources_under_200_lines": true,
+  "sources": [
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_action_input.dart",
+      "lines": 66,
+      "sha256": "a5f078f73ac21718b67c96360dac95f2bb3ee70eee93f3ba7395b33c4e7d4c71"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_automation_goal_runner.dart",
+      "lines": 113,
+      "sha256": "d77b0c0ccd2e5073d85825e72015699ccda1b75127efff5a0b2719e36bcc0192"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_action_port_adapter.dart",
+      "lines": 169,
+      "sha256": "620af0e4616233e271413de1b15453f8e2d25724e7ced7f1748153a05d8a1d6a"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_providers.dart",
+      "lines": 76,
+      "sha256": "b9797805a4a00ac725b78b14adb0dcbe5f623f338a4df40343d09a917d594945"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_assistant_panel.dart",
+      "lines": 99,
+      "sha256": "cfa276cd1754d37f0be74d163969cd774ff947a54e14be52566bc1f6fcacdee5"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_assistant_panel_actions.dart",
+      "lines": 83,
+      "sha256": "a4bc689183db7732516b7259803668650f68ea04b5079ac5b0460a48a72634ae"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_overlay_runtime.dart",
+      "lines": 125,
+      "sha256": "bf61be4a93a5b68fb86ddff9bbd9f796d4a6ffe6f5507584290bb9eda00c406b"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_turn_receipt.dart",
+      "lines": 60,
+      "sha256": "bffc1ad0ac515c5a05f5d9a7cd9c08fb27fe7b8281b6a891a29428f497ec6270"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoGeminiInputBar.kt",
+      "lines": 156,
+      "sha256": "eb7e04f088b7db5a00fedd7cb68231cf04f996c22da287b167baadc30f34a84d"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoGeminiOverlayView.kt",
+      "lines": 118,
+      "sha256": "860f67bbbdb2a38430587c55877ca3fe1654941b60adc71f1e17bfebe3e316d1"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOverlayActions.kt",
+      "lines": 168,
+      "sha256": "6485a91527e78728059b83616fe8e489c014cbd2f2fdee149bf55f0830c343e0"
+    }
+  ],
+  "device_execution_tests": false,
+  "messages_sent": false,
+  "installation": {
+    "state": "installed",
+    "device": "VGL7MVFMDYQG8T55",
+    "command": "adb install -r",
+    "exit_code": 0,
+    "result": "Performing Streamed Install / Success",
+    "launch_performed": false,
+    "data_preserving_update": true
+  },
+  "limits": [
+    "No new multimodal vision",
+    "No new conversational memory or continuous voice",
+    "Arbitrary free-form task coverage is not certified",
+    "Existing coordinator remains owner of grounding, policy, execution and verification"
+  ]
+}

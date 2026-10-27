@@ -1,8 +1,7 @@
-﻿/// WA-LIVE-STATE-REPAIR-01 — Motor de reparación determinista sin LLM.
+/// WA-LIVE-STATE-REPAIR-01 — Motor de reparación determinista sin LLM.
 ///
 /// **QUÉ HACE:**
-/// Corrige fallos de calidad conversacional (afirmación o espejado de live-state,
-/// muletillas de call-center y preguntas redundantes) usando reemplazos honestos.
+/// Corrige muletillas de call-center y preguntas redundantes con reemplazos seguros.
 ///
 /// **CÓMO FUNCIONA:**
 /// Clasifica el tipo de fallo (RepairCase), extrae intenciones del texto de entrada
@@ -19,9 +18,9 @@ enum RepairCase {
   echoReply,
   callCenterPhrase,
   wrongTurnGreeting,
+  redundantQuestion,
   liveStateAffirmed,
   liveStateQuestionMirror,
-  redundantQuestion,
 }
 
 final class SafeConversationRepair {
@@ -38,12 +37,11 @@ final class SafeConversationRepair {
     String? senderName,
   }) {
     switch (cause) {
-      case RepairCase.liveStateAffirmed:
       case RepairCase.liveStateQuestionMirror:
-        final u = userText?.toLowerCase() ?? '';
-
-        // Detección de preguntas sobre actividad, rutina o planes cotidianos del dueño.
-        final isActivityOrPlans = u.contains('hacer') ||
+      case RepairCase.liveStateAffirmed:
+        final u = userText?.trim().toLowerCase() ?? '';
+        final isActivityOrPlans =
+            u.contains('hacer') ||
             u.contains('haces') ||
             u.contains('haciendo') ||
             u.contains('haras') ||
@@ -57,8 +55,8 @@ final class SafeConversationRepair {
           return _pick(safeRepairActivityOptions, userText);
         }
 
-        // Detección de preguntas de desplazamiento, asistencia o salida física.
-        final isGoingOrOut = u.contains('vas a ir') ||
+        final isGoingOrOut =
+            u.contains('vas a ir') ||
             u.contains('vas ir') ||
             u.contains('iras') ||
             u.contains('vas a salir') ||
@@ -96,9 +94,18 @@ final class SafeConversationRepair {
 
   static String? _repairRedundantQuestion(String reply, {String? userText}) {
     final redundantRegexes = [
-      RegExp(r'¿?(?:y\s+)?(?:que|qué)\s+tal(?:\s+(?:tu|el|su))?\s+d[ií]a\??', caseSensitive: false),
-      RegExp(r'¿?(?:cómo|como)\s+(?:te\s+ha\s+ido|te\s+fue|va\s+tu\s+d[ií]a)\??', caseSensitive: false),
-      RegExp(r'¿?(?:y\s+)?(?:t[uú]|usted)\s+(?:que|qué)\s+tal\??', caseSensitive: false),
+      RegExp(
+        r'¿?(?:y\s+)?(?:que|qué)\s+tal(?:\s+(?:tu|el|su))?\s+d[ií]a\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:cómo|como)\s+(?:te\s+ha\s+ido|te\s+fue|va\s+tu\s+d[ií]a)\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:y\s+)?(?:t[uú]|usted)\s+(?:que|qué)\s+tal\??',
+        caseSensitive: false,
+      ),
     ];
 
     var cleaned = reply;
@@ -117,33 +124,111 @@ final class SafeConversationRepair {
 
   static String? _repairCallCenter(String reply, {String? userText}) {
     final phrases = [
-      RegExp(r'¿?(?:en qué|en que|cómo|como)\s+(?:te|le|nos)?\s*(?:puedo|podemos|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+hoy)?\??', caseSensitive: false),
-      RegExp(r'soy nano,?\s*(?:el asistente(?: de este negocio)?)?\.?', caseSensitive: false),
-      RegExp(r'¿?(?:cómo|como)\s+estás\??\s*¿?(?:cómo|como)\s+puedo\s+ayudar(?:te)?(?:\s+hoy)?\??', caseSensitive: false),
+      RegExp(
+        r'¿?(?:en qué|en que|cómo|como)\s+(?:te|le|nos)?\s*(?:puedo|podemos|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+hoy|\s+en algo)?\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:en qué|en que)\s+(?:te|le)\s+(?:ayudo|colaboro)\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:puedo|te puedo|le puedo)\s+(?:ayudar|colaborar|asistir)(?:te|le|les|nos)?(?:\s+en algo|\s+hoy)?\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:que|qué)\s+(?:puedo\s+)?hacer\s+por\s+(?:ti|usted|vos)\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'puedo\s+hacer\s+por\s+(?:ti|usted|vos)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'hacer\s+por\s+(?:ti|usted|vos)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:que|qué)\s+necesitas\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:deseas|necesitas)\s+algo\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:en qué|en que)\s+m[aá]s\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?algo\s+m[aá]s\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'a\s+(?:su|tu)\s+disposici[oó]n',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'soy nano,?\s*(?:el asistente(?: de este negocio)?)?\.?',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:cómo|como)\s+estás\??\s*¿?(?:cómo|como)\s+puedo\s+ayudar(?:te)?(?:\s+hoy)?\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'¿?(?:en qué|en que|cómo|como)\s+puedo\s+ser(?:te)?\s+[uú]til\??',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'ser(?:te)?\s+[uú]til',
+        caseSensitive: false,
+      ),
     ];
 
     var cleaned = reply;
     for (final p in phrases) {
       cleaned = cleaned.replaceAll(p, '');
     }
+    for (final phrase in [
+      'puedo ayudarte',
+      'en que te ayudo',
+      'en que mas',
+      'algo mas',
+      'deseas algo',
+      'necesitas algo',
+      'ser util',
+      'que necesitas',
+      'puedo hacer por',
+      'hacer por ti',
+      'hacer por usted',
+      'puedo ayudarte en',
+      'como puedo ayudarte',
+      'como puedo ayudar',
+      'en que puedo ayudarte',
+      'en que puedo ayudar',
+      'a su disposicion',
+      'a tu disposicion',
+      'soy nano',
+    ]) {
+      cleaned = cleaned.replaceAll(
+        RegExp(RegExp.escape(phrase), caseSensitive: false),
+        '',
+      );
+    }
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
     cleaned = cleaned.replaceAll(RegExp(r'[,.\s]+$'), '').trim();
 
     final lower = cleaned.toLowerCase();
-    final u = userText?.trim().toLowerCase() ?? '';
-    if (lower == 'hola' || lower == '¡hola!' || lower == 'hola!') {
+    if (lower == 'hola' ||
+        lower == '¡hola!' ||
+        lower == 'hola!' ||
+        cleaned.isEmpty ||
+        cleaned.length < 2) {
       return _pick(safeRepairCallCenterGreetingOptions, userText);
     }
 
-    if (cleaned.isNotEmpty && cleaned.length >= 2) {
-      return cleaned;
-    }
-
-    if (u.contains('hola') || u.contains('buenas') || u.contains('buenos')) {
-      return _pick(safeRepairCallCenterGreetingOptions, userText);
-    }
-
-    return null;
+    return cleaned;
   }
 }
 

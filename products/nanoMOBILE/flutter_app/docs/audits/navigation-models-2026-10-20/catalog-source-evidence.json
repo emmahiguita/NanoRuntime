@@ -1,0 +1,334 @@
+{
+  "checked_at_utc": "2026-10-20T23:38:52.667229+00:00",
+  "scope": "Public metadata only; no inference or device performance verified.",
+  "models": [
+    {
+      "name": "Qwen3-0.6B-Instruct (LiteRT)",
+      "file": "qwen3_0.6b_nothink_q4_block32_ekv1280.litertlm",
+      "url": "https://huggingface.co/litert-community/Qwen3-0.6B-int4/resolve/6aa2daf8aba4aa456797fb8040b36a3948bcfda7/qwen3_0.6b_nothink_q4_block32_ekv1280.litertlm",
+      "expected_sha256": "2df6821ec12702dafd33915e7a1a1adc7c4b053f3672fd9555dfaf3a114c4139",
+      "resolved_revision": "6aa2daf8aba4aa456797fb8040b36a3948bcfda7",
+      "actual_sha256": "2df6821ec12702dafd33915e7a1a1adc7c4b053f3672fd9555dfaf3a114c4139",
+      "actual_size_bytes": 347251840,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen2.5-1.5B-Instruct (LiteRT)",
+      "file": "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+      "url": "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/19edb84c69a0212f29a6ef17ba0d6f278b6a1614/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm",
+      "expected_sha256": "faa60663b333290c1496c499828b21d3e3254a788cacd8cce917ce0f761a2dc9",
+      "resolved_revision": "19edb84c69a0212f29a6ef17ba0d6f278b6a1614",
+      "actual_sha256": "faa60663b333290c1496c499828b21d3e3254a788cacd8cce917ce0f761a2dc9",
+      "actual_size_bytes": 1597931520,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Gemma-4-E2B-it (LiteRT)",
+      "file": "gemma-4-E2B-it.litertlm",
+      "url": "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/6e5c4f1e395deb959c494953478fa5cec4b8008f/gemma-4-E2B-it.litertlm",
+      "expected_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "resolved_revision": "6e5c4f1e395deb959c494953478fa5cec4b8008f",
+      "actual_sha256": "181938105e0eefd105961417e8da75903eacda102c4fce9ce90f50b97139a63c",
+      "actual_size_bytes": 2588147712,
+      "status": "hash_matches"
+    },
+    {
+      "name": "LFM2.5-230M (LiteRT)",
+      "file": "LFM2.5-230M_int8.litertlm",
+      "url": "https://huggingface.co/litert-community/LFM2.5-230M/resolve/bcbead5912c3b7451a01f2bf45a17bbe8733356b/LFM2.5-230M_int8.litertlm",
+      "expected_sha256": "f8bc1a685e07e4f547d0390476b7d21b72c6dba3a7e4a76400b211b3d28628a9",
+      "resolved_revision": "bcbead5912c3b7451a01f2bf45a17bbe8733356b",
+      "actual_sha256": "f8bc1a685e07e4f547d0390476b7d21b72c6dba3a7e4a76400b211b3d28628a9",
+      "actual_size_bytes": 266053344,
+      "status": "hash_matches"
+    },
+    {
+      "name": "DeepSeek-R1-Distill-Qwen-1.5B (LiteRT)",
+      "file": "DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
+      "url": "https://huggingface.co/litert-community/DeepSeek-R1-Distill-Qwen-1.5B/resolve/e34bb88632342d1f9640bad579a45134eb1cf988/DeepSeek-R1-Distill-Qwen-1.5B_multi-prefill-seq_q8_ekv4096.litertlm",
+      "expected_sha256": "69b35f01759eed765641ab4af589bbe98131fd2825662a086d9037409b8c1295",
+      "resolved_revision": "e34bb88632342d1f9640bad579a45134eb1cf988",
+      "actual_sha256": "69b35f01759eed765641ab4af589bbe98131fd2825662a086d9037409b8c1295",
+      "actual_size_bytes": 1833451520,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen2.5-Omni-3B (MNN)",
+      "file": "Qwen2.5-Omni-3B-MNN",
+      "url": "https://huggingface.co/taobao-mnn/Qwen2.5-Omni-3B-MNN",
+      "expected_sha256": "",
+      "resolved_revision": "00dc2e9131a4bb325b43a47f4210dd6450116687",
+      "status": "package_requires_per_file_verification"
+    },
+    {
+      "name": "Whisper-Tiny (Voz Local)",
+      "file": "ggml-tiny.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-tiny.bin",
+      "expected_sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+      "resolved_revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "actual_sha256": "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
+      "actual_size_bytes": 77691713,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Whisper-Base (Voz Local)",
+      "file": "ggml-base.bin",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin",
+      "expected_sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+      "resolved_revision": "5359861c739e955e79d9a303bcbc70fb988958b1",
+      "actual_sha256": "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
+      "actual_size_bytes": 147951465,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen2.5-0.5B-Instruct (GGUF Q4_0)",
+      "file": "qwen2.5-0.5b-instruct-q4_0.gguf",
+      "url": "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/6dd44a1fb35d11b5d1b28902876ce3cc9e882d0e/qwen2.5-0.5b-instruct-q4_0.gguf",
+      "expected_sha256": "7671c0c304e6ce5a7fc577bcb12aba01e2c155cc2efd29b2213c95b18edaf6ed",
+      "resolved_revision": "6dd44a1fb35d11b5d1b28902876ce3cc9e882d0e",
+      "actual_sha256": "7671c0c304e6ce5a7fc577bcb12aba01e2c155cc2efd29b2213c95b18edaf6ed",
+      "actual_size_bytes": 428730208,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen2.5-1.5B-Instruct (GGUF Q4_0)",
+      "file": "qwen2.5-1.5b-instruct-q4_0.gguf",
+      "url": "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/dd26da440ef0330c47919d1ecae0966d24022222/qwen2.5-1.5b-instruct-q4_0.gguf",
+      "expected_sha256": "dcd819ff094852c38faba6873d8ff0c9d51eadb2844539e52042ae5d647bbfdb",
+      "resolved_revision": "dd26da440ef0330c47919d1ecae0966d24022222",
+      "actual_sha256": "dcd819ff094852c38faba6873d8ff0c9d51eadb2844539e52042ae5d647bbfdb",
+      "actual_size_bytes": 1066227232,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Llama-3.2-1B-Instruct (GGUF Q4_0)",
+      "file": "Llama-3.2-1B-Instruct-Q4_0.gguf",
+      "url": "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/7080af622111fe07bb6ce039f744cdb78aaf4973/Llama-3.2-1B-Instruct-Q4_0.gguf",
+      "expected_sha256": "fa0390e7c043f89ae1847bd6682d748041a99d4ef3de0e0b27d33b6af97a8be8",
+      "resolved_revision": "7080af622111fe07bb6ce039f744cdb78aaf4973",
+      "actual_sha256": "fa0390e7c043f89ae1847bd6682d748041a99d4ef3de0e0b27d33b6af97a8be8",
+      "actual_size_bytes": 773025920,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen3.5-0.8B-Instruct (LiteRT)",
+      "file": "Qwen3.5-0.8B_int8.litertlm",
+      "url": "https://huggingface.co/litert-community/Qwen3.5-0.8B/resolve/ff11c109e8e56797cd1ee5befa856975bb465afc/Qwen3.5-0.8B_int8.litertlm",
+      "expected_sha256": "25447e2550082aed6145bbc755ec4da5d535f98f6a0c386865fdae2ccb88aed1",
+      "resolved_revision": "ff11c109e8e56797cd1ee5befa856975bb465afc",
+      "actual_sha256": "25447e2550082aed6145bbc755ec4da5d535f98f6a0c386865fdae2ccb88aed1",
+      "actual_size_bytes": 964566992,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen3.5-0.8B-VL (LiteRT Visión)",
+      "file": "Qwen3.5-0.8B-VL_int8.litertlm",
+      "url": "https://huggingface.co/litert-community/Qwen3.5-0.8B/resolve/ff11c109e8e56797cd1ee5befa856975bb465afc/Qwen3.5-0.8B-VL_int8.litertlm",
+      "expected_sha256": "1ab56460263fe94fde5fec160363d3aacbae9c5ee3638121c11feb51e483e29d",
+      "resolved_revision": "ff11c109e8e56797cd1ee5befa856975bb465afc",
+      "actual_sha256": "1ab56460263fe94fde5fec160363d3aacbae9c5ee3638121c11feb51e483e29d",
+      "actual_size_bytes": 1303671472,
+      "status": "hash_matches"
+    },
+    {
+      "name": "LFM2.5-1.2B-Instruct GPU (LiteRT)",
+      "file": "LFM2.5-1.2B-Instruct_int4_gpu.litertlm",
+      "url": "https://huggingface.co/litert-community/LFM2.5-1.2B-Instruct/resolve/73c3cabdcf10ca251c63c9707e52ee0f6a25ea17/LFM2.5-1.2B-Instruct_int4_gpu.litertlm",
+      "expected_sha256": "8d3a4d73e121166ad377e9c51148d38ee383c223661f4219e01f22a0fe1d4a1a",
+      "resolved_revision": "73c3cabdcf10ca251c63c9707e52ee0f6a25ea17",
+      "actual_sha256": "8d3a4d73e121166ad377e9c51148d38ee383c223661f4219e01f22a0fe1d4a1a",
+      "actual_size_bytes": 736220768,
+      "status": "hash_matches"
+    },
+    {
+      "name": "MiniCPM5-2B-Instruct (LiteRT)",
+      "file": "MiniCPM5-2B_int4.litertlm",
+      "url": "https://huggingface.co/litert-community/MiniCPM5-2B/resolve/af7706eff3e2ede7b02e67eabcdc7f881a3f0a0c/MiniCPM5-2B_int4.litertlm",
+      "expected_sha256": "05b78bb57dd5ded8a76907cc953cbc57d6261ee9fa66fbfca21ae677a897da45",
+      "resolved_revision": "af7706eff3e2ede7b02e67eabcdc7f881a3f0a0c",
+      "actual_sha256": "05b78bb57dd5ded8a76907cc953cbc57d6261ee9fa66fbfca21ae677a897da45",
+      "actual_size_bytes": 1553670064,
+      "status": "hash_matches"
+    },
+    {
+      "name": "EmbeddingGemma-2-Text-270M (LiteRT)",
+      "file": "embeddinggemma-2-text-270m.litertlm",
+      "url": "https://huggingface.co/litert-community/embeddinggemma-2-text-270m-litert-lm/resolve/9be6e8b90982095dc05c2bd162e4b954ee4dbac7/embeddinggemma-2-text-270m.litertlm",
+      "expected_sha256": "2d079ee2f6f066b1f368e8d7c819f55214eaef1d0513b312321901f30ab286fb",
+      "resolved_revision": "9be6e8b90982095dc05c2bd162e4b954ee4dbac7",
+      "actual_sha256": "2d079ee2f6f066b1f368e8d7c819f55214eaef1d0513b312321901f30ab286fb",
+      "actual_size_bytes": 164626432,
+      "status": "hash_matches"
+    },
+    {
+      "name": "EmbeddingGemma-2-740M-Omni (LiteRT)",
+      "file": "embeddinggemma-2-740m.litertlm",
+      "url": "https://huggingface.co/litert-community/embeddinggemma-2-740m-litert-lm/resolve/24d962e906c7d332c6428e71c9676855024569e2/embeddinggemma-2-740m.litertlm",
+      "expected_sha256": "e7a8a2204b91e0f96e92960e84a09a89212e1633dcb7575a9bf3378b4df77f4c",
+      "resolved_revision": "24d962e906c7d332c6428e71c9676855024569e2",
+      "actual_sha256": "e7a8a2204b91e0f96e92960e84a09a89212e1633dcb7575a9bf3378b4df77f4c",
+      "actual_size_bytes": 484622336,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Moonshine-Tiny (Voz Local LiteRT)",
+      "file": "moonshine_tiny_5s_i8.tflite",
+      "url": "https://huggingface.co/litert-community/Moonshine-Tiny/resolve/eb73d789d7eebcd4d3d5f1a851692923a8e76763/moonshine_tiny_5s_i8.tflite",
+      "expected_sha256": "97abdeea122d579229091659c24c59d988c6419d453a200f6471241a53b9a9b9",
+      "resolved_revision": "eb73d789d7eebcd4d3d5f1a851692923a8e76763",
+      "actual_sha256": "97abdeea122d579229091659c24c59d988c6419d453a200f6471241a53b9a9b9",
+      "actual_size_bytes": 51936896,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen3.5-0.8B-Instruct (GGUF Q4_K_M)",
+      "file": "Qwen3.5-0.8B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/6ab461498e2023f6e3c1baea90a8f0fe38ab64d0/Qwen3.5-0.8B-Q4_K_M.gguf",
+      "expected_sha256": "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517",
+      "resolved_revision": "6ab461498e2023f6e3c1baea90a8f0fe38ab64d0",
+      "actual_sha256": "bd258782e35f7f458f8aced1adc053e6e92e89bc735ba3be89d38a06121dc517",
+      "actual_size_bytes": 532517120,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen3.5-2B-Instruct (GGUF Q4_K_M)",
+      "file": "Qwen3.5-2B-Q4_K_M.gguf",
+      "url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf",
+      "expected_sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "resolved_revision": "f6d5376be1edb4d416d56da11e5397a961aca8ae",
+      "actual_sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+      "actual_size_bytes": 1280835840,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Gemma-4-E4B-it (LiteRT)",
+      "file": "gemma-4-E4B-it.litertlm",
+      "url": "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/e6a3892a8c22cf87ff99583996149cf3cb32452b/gemma-4-E4B-it.litertlm",
+      "expected_sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0",
+      "resolved_revision": "e6a3892a8c22cf87ff99583996149cf3cb32452b",
+      "actual_sha256": "0b2a8980ce155fd97673d8e820b4d29d9c7d99b8fa6806f425d969b145bd52e0",
+      "actual_size_bytes": 3659530240,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Gemma-4-12B-it GPU (LiteRT)",
+      "file": "gemma-4-12B-it-gpu.litertlm",
+      "url": "https://huggingface.co/litert-community/gemma-4-12B-it-litert-lm/resolve/7a0b1ce0ea821bcd01c5f72af84155e02191152f/gemma-4-12B-it-gpu.litertlm",
+      "expected_sha256": "fba0ea417fda0eecdcc1e62e0ea7777acf44f171cefb3bc05a642746f39faf39",
+      "resolved_revision": "7a0b1ce0ea821bcd01c5f72af84155e02191152f",
+      "actual_sha256": "fba0ea417fda0eecdcc1e62e0ea7777acf44f171cefb3bc05a642746f39faf39",
+      "actual_size_bytes": 5986074624,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Granite-4.1-3B (LiteRT INT4)",
+      "file": "granite-4.1-3b_int4.litertlm",
+      "url": "https://huggingface.co/litert-community/granite-4.1-3b/resolve/18243dddea72ce4980c873247f3d124d41fe47ae/granite-4.1-3b_int4.litertlm",
+      "expected_sha256": "ba60c191fd33b1ac9d1ab245d4a24fe81e1a520a0dd9720a435a9cc4773d80a9",
+      "resolved_revision": "18243dddea72ce4980c873247f3d124d41fe47ae",
+      "actual_sha256": "ba60c191fd33b1ac9d1ab245d4a24fe81e1a520a0dd9720a435a9cc4773d80a9",
+      "actual_size_bytes": 2191445936,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Granite-4.2-3B (LiteRT INT4)",
+      "file": "granite-4.2-3b_int4.litertlm",
+      "url": "https://huggingface.co/litert-community/granite-4.2-3b/resolve/7b431efd7f81567584a39b244e7733466955f6ec/granite-4.2-3b_int4.litertlm",
+      "expected_sha256": "9859901f6050df5c4616e31462643b76d0aa2bd395a8863cb6162495c1ef517d",
+      "resolved_revision": "7b431efd7f81567584a39b244e7733466955f6ec",
+      "actual_sha256": "9859901f6050df5c4616e31462643b76d0aa2bd395a8863cb6162495c1ef517d",
+      "actual_size_bytes": 2190708656,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Agents-A1-4B (LiteRT INT4)",
+      "file": "Agents-A1-4B_mixed_int4.litertlm",
+      "url": "https://huggingface.co/litert-community/Agents-A1-4B/resolve/f6c427b5760a40a4d0096d1c95c9387d18a4c22f/Agents-A1-4B_mixed_int4.litertlm",
+      "expected_sha256": "13c53e3ada0655ed1af4204aa2b659fe7cd553a1e7d5ef8e8b11d1ed3c15203c",
+      "resolved_revision": "f6c427b5760a40a4d0096d1c95c9387d18a4c22f",
+      "actual_sha256": "13c53e3ada0655ed1af4204aa2b659fe7cd553a1e7d5ef8e8b11d1ed3c15203c",
+      "actual_size_bytes": 2754365536,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Agents-A1-4B (LiteRT INT8)",
+      "file": "Agents-A1-4B_int8.litertlm",
+      "url": "https://huggingface.co/litert-community/Agents-A1-4B/resolve/f6c427b5760a40a4d0096d1c95c9387d18a4c22f/Agents-A1-4B_int8.litertlm",
+      "expected_sha256": "53fb97401682c805694f456ccdc56ded8b9f81b8ac7076e2c6b759ae59727292",
+      "resolved_revision": "f6c427b5760a40a4d0096d1c95c9387d18a4c22f",
+      "actual_sha256": "53fb97401682c805694f456ccdc56ded8b9f81b8ac7076e2c6b759ae59727292",
+      "actual_size_bytes": 4419086560,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Spark-X2.5-4B (LiteRT INT4)",
+      "file": "Spark-X2.5-4B_int4.litertlm",
+      "url": "https://huggingface.co/litert-community/Spark-X2.5-4B/resolve/1b22f5490f8d1239760cd6aa8fcbfa637d8ae6aa/Spark-X2.5-4B_int4.litertlm",
+      "expected_sha256": "ff4fd431693086e44d3c02c338791c90c7197068b06190e1cc2f6a655d83c4f4",
+      "resolved_revision": "1b22f5490f8d1239760cd6aa8fcbfa637d8ae6aa",
+      "actual_sha256": "ff4fd431693086e44d3c02c338791c90c7197068b06190e1cc2f6a655d83c4f4",
+      "actual_size_bytes": 2482196400,
+      "status": "hash_matches"
+    },
+    {
+      "name": "EmbeddingGemma-2-Text-Vision-440M (LiteRT)",
+      "file": "embeddinggemma-2-text-vision-440m.litertlm",
+      "url": "https://huggingface.co/litert-community/embeddinggemma-2-text-vision-440m-litert-lm/resolve/e301f74d5551b0c2641bd5cb4652a76239d5c5f8/embeddinggemma-2-text-vision-440m.litertlm",
+      "expected_sha256": "92dcbea108899e5d6e30d919b0744f90d9967e80c67a4ab5503ac16d54f62eb0",
+      "resolved_revision": "e301f74d5551b0c2641bd5cb4652a76239d5c5f8",
+      "actual_sha256": "92dcbea108899e5d6e30d919b0744f90d9967e80c67a4ab5503ac16d54f62eb0",
+      "actual_size_bytes": 387710976,
+      "status": "hash_matches"
+    },
+    {
+      "name": "PaddleOCR-VL-1.6 (LiteRT Visión)",
+      "file": "PaddleOCR-VL-1.6.litertlm",
+      "url": "https://huggingface.co/litert-community/PaddleOCR-VL-1.6/resolve/eb04490d43ce6197686ddc878e1093eacc7610a2/PaddleOCR-VL-1.6.litertlm",
+      "expected_sha256": "314df8b34d6911990d488e825602550a5bbcc5d6700cb1a8914e853e9043f4f1",
+      "resolved_revision": "eb04490d43ce6197686ddc878e1093eacc7610a2",
+      "actual_sha256": "314df8b34d6911990d488e825602550a5bbcc5d6700cb1a8914e853e9043f4f1",
+      "actual_size_bytes": 1390305472,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen3-ASR-0.6B (Voz Local LiteRT)",
+      "file": "qwen3_asr_0.6b_5s_i8.litertlm",
+      "url": "https://huggingface.co/litert-community/Qwen3-ASR-0.6B/resolve/80384dfbad4a6cd0c698892395c4664fd122c081/qwen3_asr_0.6b_5s_i8.litertlm",
+      "expected_sha256": "d4444d51f0c08142f57e16097673150f3ea02900a00b29a58a41f6e7578db251",
+      "resolved_revision": "80384dfbad4a6cd0c698892395c4664fd122c081",
+      "actual_sha256": "d4444d51f0c08142f57e16097673150f3ea02900a00b29a58a41f6e7578db251",
+      "actual_size_bytes": 959627232,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Qwen3-ASR-1.7B (Voz Local LiteRT)",
+      "file": "Qwen3-ASR-1.7B.litertlm",
+      "url": "https://huggingface.co/litert-community/Qwen3-ASR-1.7B/resolve/184ec0f1ef8c8b5254100e95ec713b5557fb91de/Qwen3-ASR-1.7B.litertlm",
+      "expected_sha256": "6155d5d5f8d57e7a3e50f669fd487ae0d8aed0845bb4091f39a894eea7067b95",
+      "resolved_revision": "184ec0f1ef8c8b5254100e95ec713b5557fb91de",
+      "actual_sha256": "6155d5d5f8d57e7a3e50f669fd487ae0d8aed0845bb4091f39a894eea7067b95",
+      "actual_size_bytes": 2693064192,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Nemotron-3-Diarization-100M (Voz LiteRT)",
+      "file": "nemotron3_diar_encoder_low_latency_fp16.tflite",
+      "url": "https://huggingface.co/litert-community/Nemotron-3-Diarization-LiteRT/resolve/4a6b8c830a7384169f54668d474865b3b4745c32/nemotron3_diar_encoder_low_latency_fp16.tflite",
+      "expected_sha256": "c5685c76a59e115d47d8e3788192582e966a1b19f53add55d34d7841943be3b9",
+      "resolved_revision": "4a6b8c830a7384169f54668d474865b3b4745c32",
+      "actual_sha256": "c5685c76a59e115d47d8e3788192582e966a1b19f53add55d34d7841943be3b9",
+      "actual_size_bytes": 198693728,
+      "status": "hash_matches"
+    },
+    {
+      "name": "Audio8-TTS-Preview-0.6B (Voz LiteRT)",
+      "file": "slow_ar_int4.tflite",
+      "url": "https://huggingface.co/litert-community/Audio8-TTS-Preview-0.6b/resolve/56fcb491ebf03eb3a1a66615fedf6744015dd4c7/slow_ar_int4.tflite",
+      "expected_sha256": "bd2ff1a9b1ec98c064e0e801162e1ae8cd83f928574df527a37be23175625458",
+      "resolved_revision": "56fcb491ebf03eb3a1a66615fedf6744015dd4c7",
+      "actual_sha256": "bd2ff1a9b1ec98c064e0e801162e1ae8cd83f928574df527a37be23175625458",
+      "actual_size_bytes": 386373728,
+      "status": "hash_matches"
+    }
+  ]
+}

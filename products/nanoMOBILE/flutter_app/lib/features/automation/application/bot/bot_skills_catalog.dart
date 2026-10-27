@@ -24,9 +24,15 @@ final class BotSkillsCatalog {
     id: 'skill_linux',
     name: 'Linux & Scripts Locales',
     category: 'Sistema y Archivos',
-    description: 'Ejecución de scripts Python/Bash, procesamiento de datos y utilidades PTY en el sandbox móvil.',
+    description:
+        'Ejecución de scripts Python/Bash, procesamiento de datos y utilidades PTY en el sandbox móvil.',
     icon: Icons.terminal_rounded,
-    toolNames: ['linux.exec', 'linux.file.read', 'linux.file.write', 'linux.script.run'],
+    toolNames: [
+      'linux.exec',
+      'linux.file.read',
+      'linux.file.write',
+      'linux.script.run',
+    ],
     requiresPrivilege: false,
   );
 
@@ -34,7 +40,8 @@ final class BotSkillsCatalog {
     id: 'skill_browser',
     name: 'Navegación & Web',
     category: 'Conectividad',
-    description: 'Apertura de sitios web, búsqueda factual y extracción automatizada de contenido DOM.',
+    description:
+        'Apertura de sitios web, búsqueda factual y extracción automatizada de contenido DOM.',
     icon: Icons.language_rounded,
     toolNames: ['browser.open', 'browser.extract', 'browser.search'],
     requiresPrivilege: false,
@@ -44,7 +51,8 @@ final class BotSkillsCatalog {
     id: 'skill_whatsapp',
     name: 'Mensajería WhatsApp',
     category: 'Comunicación',
-    description: 'Envío de respuestas formateadas, archivos PDF, cotizaciones e inspección de contactos reales.',
+    description:
+        'Envío de respuestas formateadas, archivos PDF, cotizaciones e inspección de contactos reales.',
     icon: Icons.forum_rounded,
     toolNames: ['whatsapp.send', 'whatsapp.sendMedia', 'whatsapp.contacts'],
     requiresPrivilege: false,
@@ -54,9 +62,15 @@ final class BotSkillsCatalog {
     id: 'skill_android_ui',
     name: 'Accesibilidad Android',
     category: 'Automatización UI',
-    description: 'Interacción directa con la pantalla, pulsaciones, gestos y verificación de estado en apps móviles.',
+    description:
+        'Interacción directa con la pantalla, pulsaciones, gestos y verificación de estado en apps móviles.',
     icon: Icons.touch_app_rounded,
-    toolNames: ['android.tap', 'android.scroll', 'android.type', 'android.screenshot'],
+    toolNames: [
+      'android.tap',
+      'android.scroll',
+      'android.type',
+      'android.screenshot',
+    ],
     requiresPrivilege: true,
   );
 
@@ -64,7 +78,8 @@ final class BotSkillsCatalog {
     id: 'skill_catalog',
     name: 'Catálogo & Inventario',
     category: 'Comercio',
-    description: 'Consulta factual de productos, listas de precios, descuentos y verificación real de existencias.',
+    description:
+        'Consulta factual de productos, listas de precios, descuentos y verificación real de existencias.',
     icon: Icons.inventory_2_rounded,
     toolNames: ['catalog.search', 'catalog.getPrice', 'inventory.check'],
     requiresPrivilege: false,
@@ -74,7 +89,8 @@ final class BotSkillsCatalog {
     id: 'skill_memory',
     name: 'Memoria & Estilo Personal',
     category: 'Inteligencia',
-    description: 'Recuperación de ejemplos de respuesta, hechos episódicos y adaptación de registro comunicativo.',
+    description:
+        'Recuperación de ejemplos de respuesta, hechos episódicos y adaptación de registro comunicativo.',
     icon: Icons.psychology_rounded,
     toolNames: ['memory.get', 'memory.save', 'contact.style'],
     requiresPrivilege: false,
@@ -84,7 +100,8 @@ final class BotSkillsCatalog {
     id: 'skill_calendar',
     name: 'Calendario & Citas',
     category: 'Productividad',
-    description: 'Consulta de disponibilidad horaria, agendamiento de citas y recordatorios automáticos.',
+    description:
+        'Consulta de disponibilidad horaria, agendamiento de citas y recordatorios automáticos.',
     icon: Icons.event_available_rounded,
     toolNames: ['calendar.available', 'calendar.book'],
     requiresPrivilege: false,
@@ -94,7 +111,8 @@ final class BotSkillsCatalog {
     id: 'skill_browser_ai',
     name: 'IA Web Externa (Gateway)',
     category: 'Inteligencia',
-    description: 'Razonamiento profundo con ChatGPT, Gemini, Claude y DeepSeek en el navegador.',
+    description:
+        'Razonamiento profundo con ChatGPT, Gemini, Claude y DeepSeek en el navegador.',
     icon: Icons.auto_awesome_rounded,
     toolNames: ['browser.ai.ask', 'browser.ai.providers'],
     requiresPrivilege: false,
@@ -121,13 +139,23 @@ final class BotSkillsCatalog {
   static List<String> defaultSkillsForRole(BotRole role) {
     switch (role) {
       case BotRole.personal:
-        return [skillWhatsApp.id, skillPersonalMemory.id, skillLinux.id, skillBrowser.id];
+        return [
+          skillWhatsApp.id,
+          skillPersonalMemory.id,
+          skillLinux.id,
+          skillBrowser.id,
+        ];
       case BotRole.sales:
         return [skillWhatsApp.id, skillCatalog.id, skillCalendar.id];
       case BotRole.support:
         return [skillWhatsApp.id, skillBrowser.id, skillAndroidUi.id];
       case BotRole.assistant:
-        return [skillWhatsApp.id, skillLinux.id, skillCalendar.id, skillBrowser.id];
+        return [
+          skillWhatsApp.id,
+          skillLinux.id,
+          skillCalendar.id,
+          skillBrowser.id,
+        ];
       case BotRole.custom:
         return [skillWhatsApp.id];
     }

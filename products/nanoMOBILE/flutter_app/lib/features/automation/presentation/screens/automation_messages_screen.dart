@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
-import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';
 import 'package:nanoai/core/widgets/navigation/nano_navigation_panel.dart';
 
@@ -63,32 +62,25 @@ class _AutomationMessagesBody extends StatelessWidget {
                   // shell interior aplastaba el contenido y solapaba componentes
                   // (mismo patrón documentado en Chat).
                   resizeToAvoidBottomInset: false,
-              body: SingleChildScrollView(
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                // NAV-FLOAT-01 — la barra flota sin reservar layout: el
-                // scroll reserva su propio espacio inferior.
-                padding: const EdgeInsets.fromLTRB(
-                  NanoSpacing.md,
-                  NanoSpacing.md,
-                  NanoSpacing.md,
-                  kNanoBarScrollReserve,
-                ),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: AutomationLayout.contentMaxWidth(context),
-                    ),
-                    child: const MessagingCenterView(),
+                  body: LayoutBuilder(
+                    builder: (context, _) {
+                      // El Centro administra un solo scroll perezoso para mensajes.
+                      return Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: AutomationLayout.contentMaxWidth(context),
+                          ),
+                          child: const MessagingCenterView(),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
-      ],
-    ),
-  ),
-);
+      ),
+    );
   }
 }

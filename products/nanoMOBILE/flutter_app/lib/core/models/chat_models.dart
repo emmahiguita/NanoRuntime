@@ -2,7 +2,7 @@
 ///
 /// Extraído de app_providers.dart (SRP). Clases puras sin dependencia de
 /// Riverpod ni persistencia — solo datos e inmutabilidad.
-enum ModelConnectionState { ready, loadingModel, noModel, error }
+enum ModelConnectionState { ready, sleeping, loadingModel, noModel, error }
 
 enum MessageSender { user, ai }
 
@@ -20,7 +20,7 @@ enum MessageSource { model, device }
 enum ChatTemplate { qwen, deepseek, llama, mistral, gemma }
 
 /// Tipo de adjunto pendiente de envío.
-enum ChatAttachmentKind { text, photo, video, document }
+enum ChatAttachmentKind { text, photo, video, audio, document }
 
 /// Adjunto pendiente de envío: un archivo elegido en el composer.
 ///
@@ -37,11 +37,15 @@ class ChatAttachment {
   final ChatAttachmentKind kind;
   final int sizeBytes;
 
+  /// Temporary app-private path retained only while MNN consumes the media.
+  final String? mediaPath;
+
   const ChatAttachment({
     required this.name,
     required this.content,
     this.kind = ChatAttachmentKind.text,
     this.sizeBytes = 0,
+    this.mediaPath,
   });
 }
 

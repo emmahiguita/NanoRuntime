@@ -22,9 +22,22 @@ class NativeConversationalRouter {
     final stripped = ConversationalIntentMatcher.stripGreeting(lower);
     final isPureGreeting = stripped.isEmpty || ConversationalIntentMatcher.isGreetingOnly(lower);
 
+    final target = stripped.isNotEmpty ? stripped : lower;
+
+    // Si hay modelo disponible o activo, TODAS las interacciones conversacionales
+    // (saludos, gracias, identidad, preguntas) deben ir directo al modelo LLM para razonar de verdad.
+    // Solo se interceptan comandos de control de hardware/apps u operaciones del sistema.
+    if (hasModel) {
+      if (ConversationalIntentMatcher.isAppControlDomain(lower) || ConversationalIntentMatcher.isAppControlDomain(target)) {
+        return ConversationalActionResolvers.resolveAppControl(clean, target);
+      }
+      return null;
+    }
+
+    // Modo Nativo Autónomo (ÚNICAMENTE cuando NO hay modelo cargado en RAM ni API configurada)
     // 1. Saludos cotidianos puros (ej: "hola", "buenos días", "hola nano")
     if (isPureGreeting && ConversationalIntentMatcher.isGreeting(lower)) {
-      return ConversationalSystemResolvers.resolveGreeting(hasModel: hasModel);
+      return ConversationalSystemResolvers.resolveGreeting(hasModel: false);
     }
 
     // 2. Agradecimientos
@@ -36,8 +49,6 @@ class NativeConversationalRouter {
     if (ConversationalIntentMatcher.isFarewell(lower)) {
       return ConversationalSystemResolvers.resolveFarewell();
     }
-
-    final target = stripped.isNotEmpty ? stripped : lower;
 
     // 4. Identidad de Nano
     if (ConversationalIntentMatcher.isIdentity(lower) || ConversationalIntentMatcher.isIdentity(target)) {
@@ -52,14 +63,6 @@ class NativeConversationalRouter {
     // 6. Telemetría y estado del hardware
     if (ConversationalIntentMatcher.isSystemStatusRequest(lower) || ConversationalIntentMatcher.isSystemStatusRequest(target)) {
       return ConversationalSystemResolvers.resolveSystemStatus();
-    }
-
-    // Si hay modelo activo, las preguntas generales van al LLM; solo interceptamos control de apps
-    if (hasModel) {
-      if (ConversationalIntentMatcher.isAppControlDomain(lower) || ConversationalIntentMatcher.isAppControlDomain(target)) {
-        return ConversationalActionResolvers.resolveAppControl(clean, target);
-      }
-      return null;
     }
 
     // Modo Nativo Autónomo (sin modelo LLM cargado en RAM)
@@ -118,7 +121,8 @@ class NativeConversationalRouter {
       return ConversationalSemanticResolvers.resolveParagraph(clean, target, hasModel);
     }
 
-    // 18. Fallback conversacional adaptativo (sin frases robóticas)
-    return ConversationalSemanticResolvers.resolveConversationalFallback(clean, target);
+    // 18. Si no es un comando de sistema o diagnóstico operativo reconocido, retornar null
+    // para evitar fallbacks simulados con respuestas robóticas o predeterminadas.
+    return null;
   }
 }

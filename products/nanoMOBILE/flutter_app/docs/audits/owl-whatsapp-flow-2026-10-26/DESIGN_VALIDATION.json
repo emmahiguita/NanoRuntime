@@ -1,0 +1,16 @@
+{
+  "build": "fullSideloadDebug",
+  "build_exit_code": 0,
+  "install_result": "Success",
+  "data_preserved_install": "adb install -r",
+  "apk_sha256": "59be25fab0e199339319fcc0559860c8eb829ffe475fb35b1ae64521cb050355",
+  "apk_bytes": 191210348,
+  "analyze": "No issues found!",
+  "analyze_exit_code": 0,
+  "motion_baseline_files": 53,
+  "motion_changed": [],
+  "independent_review": "No concrete findings; static scope only",
+  "automated_test_suites_run": false,
+  "external_messages_sent_in_design_review": false,
+  "visual_review": "pending"
+}

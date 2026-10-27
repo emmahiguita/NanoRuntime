@@ -1,91 +1,171 @@
-// nano_action_port_adapter.dart — Adaptador inteligente para NanoActionPort.
-// QUÉ: Conecta NanoActionPort con las herramientas reales de AgentToolDispatcher.
-// CÓMO: Si el comando empieza con '@', lo despacha directo. Si es una intención
-//       natural (leer pantalla, enviar WhatsApp, tocar, navegar, etc.), lo mapea
-//       a la herramienta determinista precisa y verificada del agente.
-// POR QUÉ: SOLID (DIP/SRP) — el controlador flotante no conoce el motor de automatización.
-//          Evita alucinaciones y reintentos ciegos; respeta la política de gobernanza.
+import 'nano_action_intent_resolver.dart';
+export 'nano_action_intent_resolver.dart' show NanoActionIntentResolver;
 import 'nano_ai_models.dart';
+import '../../automation/application/automation_artifact_commands.dart';
+import 'nano_action_input.dart';
+import '../../automation/engine/planning/whatsapp_automation_input.dart';
 import '../../automation/engine/execution/agent_tool_dispatcher.dart';
 
-class NanoActionPortAdapter implements NanoActionPort {
-  const NanoActionPortAdapter(this._dispatcher);
+/// Traduce órdenes explícitas del Búho al mismo coordinador y sus permisos.
+/// Cada turno conserva su identidad hasta terminar, incluso al preparar un PDF.
+class NanoActionPortAdapter implements NanoCancellableActionPort {
+  /// Inyecta el coordinador propietario; el dispatcher conserva compatibilidad.
+  NanoActionPortAdapter(
+    this._dispatcher, {
+    Future<String> Function(String)? runCommand,
+    Future<String> Function(String, String)? runOwnedCommand,
+    bool Function(String)? cancelOwnedCommand,
+    Future<String> Function(String, String, bool Function())? runOwnedGoal,
+    void Function()? cancelGoal,
+  }) : _goal = runOwnedGoal,
+       _cancelGoal = cancelGoal,
+       _command = runCommand,
+       _ownedCommand = runOwnedCommand,
+       _cancelOwnedCommand = cancelOwnedCommand;
 
   final AgentToolDispatcher _dispatcher;
+  final Future<String> Function(String)? _command;
+  final Future<String> Function(String, String)? _ownedCommand;
+  final bool Function(String)? _cancelOwnedCommand;
+  final Future<String> Function(String, String, bool Function())? _goal;
+  final void Function()? _cancelGoal;
+  String? _executionId;
+  bool _cancelled = false;
 
+  /// Revalida cancelación inmediatamente antes de cualquier efecto externo.
+  Future<String> _runCommand(String command) {
+    if (_cancelled) return Future.value('[cancelled] Acción cancelada.');
+    return _ownedCommand != null
+        ? _ownedCommand(command, _executionId!)
+        : (_command ?? _dispatcher.runCommand)(command);
+  }
+
+  /// Invalida preparación local y solicita detener solo la ejecución de este Búho.
+  @override
+  void cancelActiveAction() {
+    _cancelled = true;
+    _cancelGoal?.call();
+    final id = _executionId;
+    if (id != null) _cancelOwnedCommand?.call(id);
+  }
+
+  /// Admite un único efecto por turno y publica errores con estado explícito.
   @override
   Future<String> executeAuthorizedGoal(String goal) async {
-    final clean = goal.trim();
-    if (clean.isEmpty) return 'Objetivo vacío.';
-
+    if (_executionId != null) {
+      return '[error] Otra acción del flotante sigue en curso.';
+    }
+    // Otra instrucción revoca la autorización pendiente del objetivo anterior.
+    if (!NanoActionInput.isConfirm(goal)) _cancelGoal?.call();
+    _executionId = 'overlay-${DateTime.now().microsecondsSinceEpoch}';
+    _cancelled = false;
     try {
-      // 1. Comando directo (@pantalla, @whatsapp, @tap, etc.)
-      if (clean.startsWith('@')) {
-        return await _dispatcher.runCommand(clean);
-      }
-
-      final lower = clean.toLowerCase();
-
-      // 2. Comprensión y lectura de pantalla
-      if (lower.contains('leer') || lower.contains('pantalla') || lower.contains('analizar pantalla')) {
-        return await _dispatcher.runCommand('@leer_pantalla');
-      }
-
-      // 3. WhatsApp: enviar o abrir chat
-      if (lower.contains('whatsapp') || lower.contains('mensaje')) {
-        return await _handleWhatsAppIntent(clean);
-      }
-
-      // 4. Navegación global (atrás, inicio, recientes)
-      if (lower == 'atrás' || lower == 'volver' || lower == 'back') {
-        return await _dispatcher.runCommand('@back');
-      }
-      if (lower == 'inicio' || lower == 'home') {
-        return await _dispatcher.runCommand('@home');
-      }
-      if (lower == 'recientes' || lower == 'apps abiertas') {
-        return await _dispatcher.runCommand('@recents');
-      }
-
-      // 5. Tocar o hacer clic en un elemento
-      if (lower.startsWith('toca ') || lower.startsWith('pulsa ') || lower.startsWith('click ')) {
-        final target = clean.substring(clean.indexOf(' ') + 1).trim();
-        return await _dispatcher.runCommand('@tap text="$target"');
-      }
-
-      // 6. Escribir texto
-      if (lower.startsWith('escribe ') || lower.startsWith('escribir ')) {
-        final content = clean.substring(clean.indexOf(' ') + 1).trim();
-        return await _dispatcher.runCommand('@escribir $content | editable=true');
-      }
-
-      // 7. Abrir aplicación
-      if (lower.startsWith('abre ') || lower.startsWith('abrir ')) {
-        final app = clean.substring(clean.indexOf(' ') + 1).trim();
-        return await _dispatcher.runCommand('@abrir $app');
-      }
-
-      // Fallback: intentar resolver la pantalla para contextualizar
-      return await _dispatcher.runCommand('@pantalla');
-    } catch (e) {
-      return 'Error al ejecutar acción: $e';
+      return await _executeGoal(goal.trim());
+    } on FormatException catch (error) {
+      return '[clarification] ${error.message}';
+    } catch (error) {
+      return '[error] Error al ejecutar acción: $error';
+    } finally {
+      _executionId = null;
     }
   }
 
-  Future<String> _handleWhatsAppIntent(String text) async {
-    // Patrón: "envía a [contacto] que [mensaje]" o "mensaje a [contacto]: [mensaje]"
+  /// Resuelve artefactos antes de WhatsApp para no confundir un producto con un contacto.
+  Future<String> _executeGoal(String clean) async {
+    if (clean.isEmpty) return '[clarification] Indica la acción que deseas.';
+    final artifact = await NanoArtifactCommands.execute(
+      clean,
+      runCommand: _runCommand,
+      isCancelled: () => _cancelled,
+    );
+    if (artifact != null) return artifact;
+    final intent = NanoActionIntentResolver.resolve(clean);
+    final goal = _goal;
+    if (goal != null &&
+        intent == NanoActionIntent.whatsApp &&
+        !NanoActionInput.isNavigationSequence(clean)) {
+      String? atomic;
+      try {
+        atomic = WhatsAppAutomationInput.command(clean);
+      } on FormatException {
+        // Solo falla la preparación pura: todavía no hubo ningún efecto.
+        // Una orden de navegación no reconocida aquí pertenece a runGoal.
+      }
+      if (atomic != null && AgentToolDispatcher.isToolCommand(atomic)) {
+        return _runCommand(atomic);
+      }
+    }
+    if (goal != null &&
+        (NanoActionInput.isConfirm(clean) ||
+            NanoActionInput.isNavigationSequence(clean) ||
+            !const {
+              NanoActionIntent.directCommand,
+              NanoActionIntent.navBack,
+              NanoActionIntent.navHome,
+              NanoActionIntent.navRecents,
+              NanoActionIntent.readScreen,
+              NanoActionIntent.telegram,
+              NanoActionIntent.messenger,
+            }.contains(intent))) {
+      final id = _executionId!;
+      return goal(clean, id, () => !_cancelled && _executionId == id);
+    }
+    return switch (intent) {
+      NanoActionIntent.directCommand => await _runCommand(clean),
+      NanoActionIntent.navBack => await _runCommand('@back'),
+      NanoActionIntent.navHome => await _runCommand('@home'),
+      NanoActionIntent.navRecents => await _runCommand('@recents'),
+      NanoActionIntent.readScreen => await _runCommand('@leer_pantalla'),
+      // El normalizador compartido mantiene findContact como @contactos y
+      // conserva nombres completos; nunca envía una búsqueda como mensaje.
+      NanoActionIntent.whatsApp => await _runCommand(
+        WhatsAppAutomationInput.command(clean),
+      ),
+      NanoActionIntent.telegram => await _resolveMessaging(
+        clean,
+        'telegram',
+        r'envía|envia|enviar|manda|telegram|tg',
+      ),
+      NanoActionIntent.messenger => await _resolveMessaging(
+        clean,
+        'messenger',
+        r'envía|envia|enviar|manda|messenger|facebook|fb',
+      ),
+      NanoActionIntent.tapElement => await _runCommand(
+        '@tap text="${_argument(clean)}"',
+      ),
+      NanoActionIntent.typeText => await _runCommand(
+        '@escribir ${_argument(clean)} | editable=true',
+      ),
+      NanoActionIntent.openApp => await _runCommand(
+        '@abrir ${_argument(clean)}',
+      ),
+      NanoActionIntent.unknown =>
+        '[clarification] No reconocí esa acción. Indica qué deseas hacer, '
+            'sobre qué elemento y, si vas a compartir, con quién.',
+    };
+  }
+
+  /// Separa solo el verbo inicial; mantiene espacios internos del argumento.
+  String _argument(String text) => text.replaceFirst(RegExp(r'^\S+\s+'), '');
+
+  /// Conserva las rutas existentes de Telegram y Messenger, sin otro ejecutor.
+  Future<String> _resolveMessaging(
+    String text,
+    String command,
+    String verbs,
+  ) async {
     final match = RegExp(
-      r'(?:enviar|manda|mensaje|whatsapp)\s+(?:a\s+)?([a-zA-Z0-9\s]+?)(?:\s+(?:que|diciendo|:)\s+(.+))?$',
+      '(?:$verbs)\\s+(?:a\\s+)?([a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ\\s@]+?)(?:\\s+(?:que|diciendo|:)\\s+(.+))?\$',
       caseSensitive: false,
     ).firstMatch(text);
-
     if (match != null) {
       final contact = match.group(1)?.trim() ?? '';
       final message = match.group(2)?.trim() ?? '';
       if (contact.isNotEmpty && message.isNotEmpty) {
-        return await _dispatcher.runCommand('@whatsapp $contact $message');
+        return _runCommand('@$command $contact $message');
       }
     }
-    return await _dispatcher.runCommand('@whatsapp $text');
+    return _runCommand('@$command $text');
   }
 }

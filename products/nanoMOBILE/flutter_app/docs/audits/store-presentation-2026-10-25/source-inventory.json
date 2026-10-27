@@ -1,0 +1,94 @@
+[
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_category_filters.dart",
+    "lines": 138
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_content.dart",
+    "lines": 146
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_empty_state.dart",
+    "lines": 103
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_media_image.part.dart",
+    "lines": 70
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_media_state.part.dart",
+    "lines": 82
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_media_view.dart",
+    "lines": 36
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_actions.dart",
+    "lines": 89
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_card.dart",
+    "lines": 105
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_detail_actions.part.dart",
+    "lines": 39
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_detail_body.part.dart",
+    "lines": 50
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_detail_sheet.dart",
+    "lines": 84
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_detail_widgets.part.dart",
+    "lines": 113
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_grid.dart",
+    "lines": 59
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_list_row.dart",
+    "lines": 104
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_product_menu.dart",
+    "lines": 50
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_queries.part.dart",
+    "lines": 58
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_stock_status.dart",
+    "lines": 47
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\business_store_toolbar.dart",
+    "lines": 109
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\parallax\\business_store_parallax_card.dart",
+    "lines": 145
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\parallax\\depth_asset_cache.dart",
+    "lines": 66
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\parallax\\depth_estimator_service.dart",
+    "lines": 104
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\parallax\\device_tilt_service.dart",
+    "lines": 119
+  },
+  {
+    "file": "lib\\features\\automation\\presentation\\business\\store\\parallax\\product_depth_controller.dart",
+    "lines": 118
+  }
+]

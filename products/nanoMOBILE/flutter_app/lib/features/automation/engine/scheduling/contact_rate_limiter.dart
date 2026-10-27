@@ -190,7 +190,10 @@ final class SqliteContactRateLimiter implements ContactRateLimiter {
   // (mismo patrón que el impl de prefs) — la barrera global no la espera.
   Future<void> load() {
     if (_loaded) return Future.value();
-    return _loading ??= _doLoad();
+    return _loading ??= _doLoad().catchError((error) {
+      _loading = null;
+      throw error;
+    });
   }
 
   Future<void> _doLoad() async {

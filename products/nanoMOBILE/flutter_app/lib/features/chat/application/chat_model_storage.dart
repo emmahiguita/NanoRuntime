@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/models/model_path_support.dart';
 
 /// Almacenamiento y persistencia local de la configuración del modelo de chat.
 ///
@@ -25,31 +26,77 @@ class ChatModelStorage {
   Future<({String model, String path})?> loadSavedModel() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      var saved = prefs.getString('nanoai_active_model');
-      var savedPath = prefs.getString('nanoai_active_model_path');
-
-      // Settings es la fuente que consume el arranque headless
-      if ((saved == null || saved.isEmpty) || (savedPath == null || savedPath.trim().isEmpty)) {
-        final rawSettings = prefs.getString('nanoai_settings');
-        if (rawSettings != null && rawSettings.isNotEmpty) {
+      // La configuración actual manda; las claves antiguas solo sirven de respaldo.
+      final rawSettings = prefs.getString('nanoai_settings');
+      if (rawSettings != null && rawSettings.isNotEmpty) {
+        try {
           final settings = (jsonDecode(rawSettings) as Map).cast<String, dynamic>();
-          saved = settings['chatModelId'] as String? ?? saved;
-          savedPath = settings['chatModelPath'] as String? ?? savedPath;
+          final configuredModel = settings['chatModelId'] as String? ?? '';
+          final configuredPath = settings['chatModelPath'] as String?;
+          if (configuredModel.isNotEmpty &&
+              isRunnableModelPath(configuredPath)) {
+            await saveLegacy(configuredModel, configuredPath!);
+            return (model: configuredModel, path: configuredPath);
+          }
+        } on Object catch (error) {
+          debugPrint('[ChatModelStorage] Settings de modelo inválido: ${error.runtimeType}');
         }
       }
-      if (saved == null || saved.isEmpty) return null;
 
-      final exists = savedPath != null && savedPath.trim().isNotEmpty && await File(savedPath).exists();
-      if (!exists) {
+      // Si Settings no apunta a un modelo utilizable, intenta recuperar la selección legacy.
+      var saved = prefs.getString('nanoai_active_model');
+      var savedPath = prefs.getString('nanoai_active_model_path');
+      if (saved != null && saved.isNotEmpty) {
+        if (isRunnableModelPath(savedPath)) {
+          return (model: saved, path: savedPath!);
+        }
         await prefs.remove('nanoai_active_model');
         await prefs.remove('nanoai_active_model_path');
-        return null;
       }
-      return (model: saved, path: savedPath);
+
+      // AUTO-DESCUBRIMIENTO HONESTO: Si no hay modelo seleccionado, buscar en el almacenamiento local
+      final autoModel = await _discoverExistingModel();
+      if (autoModel != null) {
+        await saveLegacy(autoModel.model, autoModel.path);
+        return autoModel;
+      }
+      return null;
     } catch (e) {
       debugPrint('[ChatModelStorage] Error recuperando modelo: $e');
       return null;
     }
+  }
+
+  /// Escanea directorios locales en busca de modelos descargados válidos (.gguf, .litertlm, .bin)
+  Future<({String model, String path})?> _discoverExistingModel() async {
+    try {
+      final probeDirs = <String>[
+        '/sdcard/Model',
+        '/sdcard/NanoAI',
+        '/sdcard/Android/data/dev.nanoai.mobile/files/nano/models',
+      ];
+      for (final dirPath in probeDirs) {
+        final dir = Directory(dirPath);
+        if (!await dir.exists()) continue;
+        await for (final entity in dir.list(followLinks: false)) {
+          if (entity is! File) continue;
+          final name = entity.path.split(Platform.pathSeparator).last;
+          if (name.endsWith('.gguf') || name.endsWith('.litertlm')) {
+            final stat = await entity.stat();
+            if (stat.size > 50 * 1024 * 1024) {
+              // Mayor a 50MB
+              debugPrint(
+                '[ChatModelStorage] Modelo autodescubierto: $name (${entity.path})',
+              );
+              return (model: name, path: entity.path);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[ChatModelStorage] Error en autodescubrimiento: $e');
+    }
+    return null;
   }
 
   /// Guarda en SharedPreferences legacy el modelo y ruta activos.

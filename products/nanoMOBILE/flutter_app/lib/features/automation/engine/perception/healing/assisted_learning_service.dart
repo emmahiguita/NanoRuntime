@@ -29,16 +29,15 @@ final class AssistedLearningResult {
     required this.message,
   }) : success = true;
 
-  const AssistedLearningResult.rejected({
-    required this.message,
-  })  : surface = null,
-        success = false;
+  const AssistedLearningResult.rejected({required this.message})
+    : surface = null,
+      success = false;
 }
 
 /// Servicio de aprendizaje asistido para componentes no resueltos.
 final class AssistedLearningService {
   AssistedLearningService({DynamicSurfaceStore? store})
-      : _store = store ?? globalDynamicSurfaceStore;
+    : _store = store ?? globalDynamicSurfaceStore;
 
   final DynamicSurfaceStore _store;
 
@@ -54,24 +53,29 @@ final class AssistedLearningService {
     if (selectedObject.packageName.isNotEmpty &&
         selectedObject.packageName.trim().toLowerCase() != pkg) {
       return const AssistedLearningResult.rejected(
-        message: 'El elemento seleccionado no pertenece a la aplicación en primer plano.',
+        message:
+            'El elemento seleccionado no pertenece a la aplicación en primer plano.',
       );
     }
 
     // 2. Validar idoneidad funcional según el tipo de superficie requerida
-    if (kind == SurfaceElementKind.messageInput || kind == SurfaceElementKind.searchInput) {
+    if (kind == SurfaceElementKind.messageInput ||
+        kind == SurfaceElementKind.searchInput) {
       if (!selectedObject.editable && !selectedObject.isEditableRole) {
         return const AssistedLearningResult.rejected(
           message: 'El elemento seleccionado no admite entrada de texto.',
         );
       }
-    } else if (kind == SurfaceElementKind.sendAction || kind == SurfaceElementKind.confirmAction) {
-      final isClickable = selectedObject.clickable ||
+    } else if (kind == SurfaceElementKind.sendAction ||
+        kind == SurfaceElementKind.confirmAction) {
+      final isClickable =
+          selectedObject.clickable ||
           selectedObject.role == SemanticRole.button ||
           selectedObject.role == SemanticRole.iconButton;
       if (!isClickable) {
         return const AssistedLearningResult.rejected(
-          message: 'El elemento seleccionado no es un botón ni componente accionable.',
+          message:
+              'El elemento seleccionado no es un botón ni componente accionable.',
         );
       }
     }
@@ -115,7 +119,8 @@ final class AssistedLearningService {
 
     return AssistedLearningResult.success(
       surface: surface,
-      message: 'Componente aprendido exitosamente para $pkg (regla semántica: $selector).',
+      message:
+          'Componente aprendido exitosamente para $pkg (regla semántica: $selector).',
     );
   }
 }

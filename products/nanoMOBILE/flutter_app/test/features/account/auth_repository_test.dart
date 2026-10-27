@@ -4,22 +4,37 @@ import 'package:nanoai/features/account/infrastructure/firebase_auth_adapter.dar
 import 'package:nanoai/features/account/infrastructure/local_account_storage.dart';
 import 'package:nanoai/features/account/infrastructure/secure_storage_adapter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nanoai/features/account/domain/auth_user.dart';
+import 'package:nanoai/features/account/infrastructure/google_auth_adapter.dart';
+
+// Contrato del repositorio con identidad de prueba inyectada. La verificación
+// del SDK y la configuración faltante se prueban en google_identity_flow_test.
+class _GoogleAuthFixture extends Fake implements GoogleAuthAdapter {
+  @override
+  Future<AuthUser> signIn() async => const AuthUser(
+    uid: 'goog_unit_fixture',
+    email: 'fixture@example.com',
+    displayName: 'Prueba de repositorio',
+    isEmailVerified: true,
+  );
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  late FirebaseAuthAdapter adapter;
+  late LocalAuthAdapter adapter;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    adapter = FirebaseAuthAdapter(
+    adapter = LocalAuthAdapter(
       localStorage: LocalAccountStorage(prefs: prefs),
       secureStorage: SecureStorageAdapter(prefs: prefs),
+      googleAuth: _GoogleAuthFixture(),
     );
   });
 
-  group('FirebaseAuthAdapter Tests', () {
+  group('LocalAuthAdapter Tests', () {
     test('Registro exitoso con contraseña válida', () async {
       final user = await adapter.registerWithEmailAndPassword(
         email: 'nuevo@nano.ai',
@@ -33,16 +48,19 @@ void main() {
       expect(user.isEmailVerified, isFalse);
     });
 
-    test('Registro falla si la contraseña tiene menos de 8 caracteres', () async {
-      expect(
-        () => adapter.registerWithEmailAndPassword(
-          email: 'corto@nano.ai',
-          password: '123',
-          displayName: 'Test',
-        ),
-        throwsA(isA<WeakPasswordException>()),
-      );
-    });
+    test(
+      'Registro falla si la contraseña tiene menos de 8 caracteres',
+      () async {
+        expect(
+          () => adapter.registerWithEmailAndPassword(
+            email: 'corto@nano.ai',
+            password: '123',
+            displayName: 'Test',
+          ),
+          throwsA(isA<WeakPasswordException>()),
+        );
+      },
+    );
 
     test('Registro rechaza correos duplicados', () async {
       await adapter.registerWithEmailAndPassword(
@@ -77,21 +95,24 @@ void main() {
       expect(user.displayName, equals('login'));
     });
 
-    test('Login con contraseña incorrecta arroja InvalidCredentialsException', () async {
-      await adapter.registerWithEmailAndPassword(
-        email: 'login@nano.ai',
-        password: 'PasswordSegura123',
-        displayName: 'Usuario Login',
-      );
-
-      expect(
-        () => adapter.signInWithEmailAndPassword(
+    test(
+      'Login con contraseña incorrecta arroja InvalidCredentialsException',
+      () async {
+        await adapter.registerWithEmailAndPassword(
           email: 'login@nano.ai',
-          password: 'PasswordIncorrecta99',
-        ),
-        throwsA(isA<InvalidCredentialsException>()),
-      );
-    });
+          password: 'PasswordSegura123',
+          displayName: 'Usuario Login',
+        );
+
+        expect(
+          () => adapter.signInWithEmailAndPassword(
+            email: 'login@nano.ai',
+            password: 'PasswordIncorrecta99',
+          ),
+          throwsA(isA<InvalidCredentialsException>()),
+        );
+      },
+    );
 
     test('Google Sign-In genera sesión válida e idempotente', () async {
       final u1 = await adapter.signInWithGoogle();

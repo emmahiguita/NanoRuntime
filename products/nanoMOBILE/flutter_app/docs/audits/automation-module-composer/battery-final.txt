@@ -1,0 +1,4 @@
+  USB powered: true
+  status: 5
+  level: 100
+  temperature: 332

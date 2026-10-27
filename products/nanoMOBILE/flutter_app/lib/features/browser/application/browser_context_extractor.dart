@@ -1,5 +1,6 @@
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../infrastructure/browser_security_firewall.dart';
+import 'browser_readability_extractor.dart';
 
 class BrowserContextExtractor {
   /// Extrae el texto actualmente seleccionado por el usuario en la página web.
@@ -19,10 +20,24 @@ class BrowserContextExtractor {
     }
   }
 
-  /// Extrae el texto legible completo del cuerpo de la página web activa.
+  /// Extrae el artículo principal usando Readability sobre una copia del DOM,
+  /// con fallback a texto plano limpio.
   static Future<String?> extractFullPageText(
     InAppWebViewController controller,
   ) async {
+    final article = await BrowserReadabilityExtractor.extractFromController(
+      controller,
+    );
+    if (article != null && article.hasContent) {
+      final header = [
+        if (article.title.isNotEmpty) 'Título: ${article.title}',
+        if (article.byline.isNotEmpty) 'Autor: ${article.byline}',
+        if (article.publishedTime.isNotEmpty) 'Fecha: ${article.publishedTime}',
+      ].join(' | ');
+      return header.isNotEmpty
+          ? '$header\n\n${article.textContent}'
+          : article.textContent;
+    }
     try {
       final jsResult = await controller.evaluateJavascript(
         source: '''

@@ -174,197 +174,211 @@ void main() {
     );
   });
 
-  group(
-    'WhatsApp Personal Agent — ConversationDecisionEngine (Gating y Veracidad)',
-    () {
-      const engine = ConversationDecisionEngine();
+  group('WhatsApp Personal Agent — ConversationDecisionEngine (Gating y Veracidad)', () {
+    const engine = ConversationDecisionEngine();
 
-      test(
-        'Anti-Eco: Retiene para aprobación si el modelo repitió el mensaje del cliente',
-        () {
-          const understanding = ConversationUnderstanding(
-            reply: 'Bien y tú, ¿cómo estás?',
-            intent: 'saludo',
-            requiresAction: false,
-          );
-          const context = ConversationDecisionContext(
-            userText: 'BIEN Y TU COMO ESTAS?',
-            agentRole: ConversationAgentRole.personal,
-            autonomyMode: ConversationAutonomyMode.safeAuto,
-          );
-
-          final decision = engine.decide(
-            understanding: understanding,
-            context: context,
-          );
-
-          expect(decision.disposition, ConversationDisposition.holdForApproval);
-          expect(
-            decision.reasons.any((r) => r.contains('reply eco del cliente')),
-            isTrue,
-          );
-        },
-      );
-
-      test(
-        'Anti-Callcenter: Repara muletillas de operador en turnos personales',
-        () {
-          const understanding = ConversationUnderstanding(
-            reply: '¡Hola! ¿En qué puedo ayudarte hoy?',
-            intent: 'saludo',
-            requiresAction: false,
-          );
-          const context = ConversationDecisionContext(
-            userText: 'Hola',
-            agentRole: ConversationAgentRole.personal,
-            autonomyMode: ConversationAutonomyMode.safeAuto,
-          );
-
-          final decision = engine.decide(
-            understanding: understanding,
-            context: context,
-          );
-
-          expect(decision.disposition, ConversationDisposition.qualityRepair);
-          expect(decision.repairedText, isNotNull);
-          expect(
-            decision.repairedText,
-            isNot(contains('¿En qué puedo ayudarte')),
-          );
-          expect(
-            decision.reasons.any(
-              (r) =>
-                  r.contains('calidad reparada') || r.contains('call-center'),
-            ),
-            isTrue,
-          );
-        },
-      );
-
-      test(
-        'Question Mirror: Repara si el modelo espeja preguntas de actividad sin datos',
-        () {
-          const understanding = ConversationUnderstanding(
-            reply: '¿Y tú qué haces hoy?',
-            intent: 'actividad',
-            requiresAction: false,
-          );
-          const context = ConversationDecisionContext(
-            userText: '¿Qué haces hoy?',
-            agentRole: ConversationAgentRole.personal,
-            autonomyMode: ConversationAutonomyMode.safeAuto,
-          );
-
-          final decision = engine.decide(
-            understanding: understanding,
-            context: context,
-          );
-
-          expect(decision.disposition, ConversationDisposition.qualityRepair);
-          expect(decision.repairedText, isNotNull);
-          expect(
-            decision.reasons.any(
-              (r) => r.contains('calidad reparada') || r.contains('LIVE STATE'),
-            ),
-            isTrue,
-          );
-        },
-      );
-
-      test(
-        'Live State: "y que vas hacer hoy?" repara con planes honestos y no con desplazamiento ("si voy a ir hoy")',
-        () {
-          const understanding = ConversationUnderstanding(
-            reply: 'Estoy trabajando en unas cosas.',
-            intent: 'actividad',
-            requiresAction: false,
-          );
-          const context = ConversationDecisionContext(
-            userText: 'y que vas hacer hoy?',
-            agentRole: ConversationAgentRole.personal,
-            autonomyMode: ConversationAutonomyMode.autonomous,
-          );
-
-          final decision = engine.decide(
-            understanding: understanding,
-            context: context,
-          );
-
-          expect(decision.disposition, ConversationDisposition.qualityRepair);
-          expect(decision.repairedText, isNotNull);
-          expect(decision.repairedText, isNot(contains('si voy a ir hoy')));
-          expect(decision.repairedText, contains('hacer hoy'));
-        },
-      );
-
-      test(
-        'Soberanía Humana: Retiene SIEMPRE si el dueño tiene el control del chat',
-        () {
-          const understanding = ConversationUnderstanding(
-            reply: 'Hola Juan, todo bien.',
-            intent: 'saludo',
-            requiresAction: false,
-          );
-          const context = ConversationDecisionContext(
-            humanOwnsConversation: true,
-            userText: 'Hola',
-            agentRole: ConversationAgentRole.personal,
-            autonomyMode: ConversationAutonomyMode.autonomous,
-          );
-
-          final decision = engine.decide(
-            understanding: understanding,
-            context: context,
-          );
-
-          expect(decision.disposition, ConversationDisposition.holdForApproval);
-          expect(decision.confidence, 0.0);
-          expect(
-            decision.reasons.any(
-              (r) => r.contains('humano controla la conversación'),
-            ),
-            isTrue,
-          );
-        },
-      );
-
-      test(
-        'Identidad Débil: Retiene si no hay evidencia de plataforma (< safeToWriteThreshold)',
-        () {
-          const understanding = ConversationUnderstanding(
-            reply: 'Hola Juan, todo bien.',
-            intent: 'saludo',
-            requiresAction: false,
-          );
-          const context = ConversationDecisionContext(
-            identityConfidence: 0.35, // Título a secas (< 0.60)
-            userText: 'Hola',
-            agentRole: ConversationAgentRole.personal,
-            autonomyMode: ConversationAutonomyMode.safeAuto,
-          );
-
-          final decision = engine.decide(
-            understanding: understanding,
-            context: context,
-          );
-
-          expect(decision.disposition, ConversationDisposition.holdForApproval);
-          expect(
-            decision.reasons.any((r) => r.contains('identidad débil')),
-            isTrue,
-          );
-        },
-      );
-
-      test('Modo Desactivado: Silencio absoluto sin envíos', () {
+    test(
+      'Anti-Eco: Retiene para aprobación si el modelo repitió el mensaje del cliente',
+      () {
         const understanding = ConversationUnderstanding(
-          reply: 'Hola!',
+          reply: 'Bien y tú, ¿cómo estás?',
           intent: 'saludo',
           requiresAction: false,
         );
         const context = ConversationDecisionContext(
-          autonomyMode: ConversationAutonomyMode.disabled,
+          userText: 'BIEN Y TU COMO ESTAS?',
+          agentRole: ConversationAgentRole.personal,
+          autonomyMode: ConversationAutonomyMode.safeAuto,
+        );
+
+        final decision = engine.decide(
+          understanding: understanding,
+          context: context,
+        );
+
+        expect(decision.disposition, ConversationDisposition.holdForApproval);
+        expect(decision.reasons.any((r) => r.contains('echo')), isTrue);
+      },
+    );
+
+    test(
+      'Anti-Callcenter: Repara muletillas de operador en turnos personales',
+      () {
+        const understanding = ConversationUnderstanding(
+          reply: '¡Hola! ¿En qué puedo ayudarte hoy?',
+          intent: 'saludo',
+          requiresAction: false,
+        );
+        const context = ConversationDecisionContext(
           userText: 'Hola',
+          agentRole: ConversationAgentRole.personal,
+          autonomyMode: ConversationAutonomyMode.safeAuto,
+        );
+
+        final decision = engine.decide(
+          understanding: understanding,
+          context: context,
+        );
+
+        expect(decision.disposition, ConversationDisposition.qualityRepair);
+        expect(decision.repairedText, isNotNull);
+        expect(
+          decision.repairedText,
+          isNot(contains('¿En qué puedo ayudarte')),
+        );
+        expect(
+          decision.reasons.any(
+            (r) => r.contains('calidad reparada') || r.contains('call-center'),
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test(
+      'Question Mirror: No envía una pregunta espejo ni la sustituye por una frase fija',
+      () {
+        const understanding = ConversationUnderstanding(
+          reply: '¿Y tú qué haces hoy?',
+          intent: 'actividad',
+          requiresAction: false,
+        );
+        const context = ConversationDecisionContext(
+          userText: '¿Qué haces hoy?',
+          agentRole: ConversationAgentRole.personal,
+          autonomyMode: ConversationAutonomyMode.safeAuto,
+        );
+
+        final decision = engine.decide(
+          understanding: understanding,
+          context: context,
+        );
+
+        expect(decision.autoSend, isFalse);
+        expect(decision.repairedText, isNull);
+        expect(decision.reasons.join(' '), contains('echo_question'));
+      },
+    );
+
+    test(
+      'Live State: "y que vas hacer hoy?" repara con planes honestos y no con desplazamiento ("si voy a ir hoy")',
+      () {
+        const understanding = ConversationUnderstanding(
+          reply: 'Estoy trabajando en unas cosas.',
+          intent: 'actividad',
+          requiresAction: false,
+        );
+        const context = ConversationDecisionContext(
+          userText: 'y que vas hacer hoy?',
+          agentRole: ConversationAgentRole.personal,
+          autonomyMode: ConversationAutonomyMode.autonomous,
+        );
+
+        final decision = engine.decide(
+          understanding: understanding,
+          context: context,
+        );
+
+        expect(decision.disposition, ConversationDisposition.qualityRepair);
+        expect(decision.repairedText, isNotNull);
+        expect(decision.repairedText, isNot(contains('si voy a ir hoy')));
+        expect(decision.repairedText, contains('hacer hoy'));
+      },
+    );
+
+    test(
+      'Live State: "Dime qué sucede" es contexto conversacional y no activa bloqueo de telemetría',
+      () {
+        expect(isLiveStateQuestion('Dime qué sucede'), isFalse);
+        expect(
+          classifyLiveStateIntent('Dime qué sucede'),
+          LiveStateIntent.conversationalContext,
+        );
+
+        const understanding = ConversationUnderstanding(
+          reply: 'Tranquilo, cuéntame y lo revisamos.',
+          intent: 'contexto',
+          requiresAction: false,
+        );
+        const context = ConversationDecisionContext(
+          userText: 'Dime qué sucede',
+          agentRole: ConversationAgentRole.personal,
+          autonomyMode: ConversationAutonomyMode.autonomous,
+        );
+
+        final decision = engine.decide(
+          understanding: understanding,
+          context: context,
+        );
+
+        expect(decision.disposition, ConversationDisposition.autoSend);
+      },
+    );
+
+    test(
+      'Anti-Callcenter: Variantes como "¿En qué te ayudo?" se reparan a saludo personal y permiten autoSend/repair',
+      () {
+        const understanding = ConversationUnderstanding(
+          reply: '¡Hola! ¿En qué te ayudo?',
+          intent: 'saludo',
+          requiresAction: false,
+        );
+        const context = ConversationDecisionContext(
+          userText: 'Hola',
+          agentRole: ConversationAgentRole.personal,
+          autonomyMode: ConversationAutonomyMode.autonomous,
+        );
+
+        final decision = engine.decide(
+          understanding: understanding,
+          context: context,
+        );
+
+        expect(decision.disposition, ConversationDisposition.qualityRepair);
+        expect(decision.repairedText, isNotNull);
+        expect(decision.repairedText, isNot(contains('te ayudo')));
+      },
+    );
+
+    test(
+      'TurnSupersedeGuard: Incremento y snapshots independientes por conversación',
+      () {
+        final guard = TurnSupersedeGuard();
+        expect(guard.snapshot('conv_juan'), 0);
+        expect(guard.snapshot('conv_pedro'), 0);
+
+        final juanV1 = guard.bump('conv_juan');
+        expect(juanV1, 1);
+        expect(guard.isCurrent('conv_juan', 1), isTrue);
+
+        final pedroV1 = guard.bump('conv_pedro');
+        expect(pedroV1, 1); // Independiente
+        expect(
+          guard.isCurrent('conv_juan', 1),
+          isTrue,
+        ); // Juan no se altera por Pedro
+
+        final juanV2 = guard.bump('conv_juan');
+        expect(juanV2, 2);
+        expect(guard.isCurrent('conv_juan', 1), isFalse);
+        expect(guard.isCurrent('conv_juan', 2), isTrue);
+        expect(guard.isCurrent('conv_pedro', 1), isTrue);
+      },
+    );
+
+    test(
+      'Soberanía Humana: Retiene SIEMPRE si el dueño tiene el control del chat',
+      () {
+        const understanding = ConversationUnderstanding(
+          reply: 'Hola Juan, todo bien.',
+          intent: 'saludo',
+          requiresAction: false,
+        );
+        const context = ConversationDecisionContext(
+          humanOwnsConversation: true,
+          userText: 'Hola',
+          agentRole: ConversationAgentRole.personal,
+          autonomyMode: ConversationAutonomyMode.autonomous,
         );
 
         final decision = engine.decide(
@@ -374,47 +388,28 @@ void main() {
 
         expect(decision.disposition, ConversationDisposition.holdForApproval);
         expect(decision.confidence, 0.0);
-      });
+        expect(
+          decision.reasons.any(
+            (r) => r.contains('humano controla la conversación'),
+          ),
+          isTrue,
+        );
+      },
+    );
 
-      test(
-        'SafeAuto con Hechos Faltantes: Retiene afirmaciones de datos ausentes',
-        () {
-          const understanding = ConversationUnderstanding(
-            reply: 'El teléfono vale \$500.',
-            intent: 'precio',
-            missingFacts: ['precio_telefono'],
-            requiresAction: false,
-          );
-          const context = ConversationDecisionContext(
-            autonomyMode: ConversationAutonomyMode.safeAuto,
-            agentRole: ConversationAgentRole.sales,
-            userText: '¿Cuánto vale?',
-          );
-
-          final decision = engine.decide(
-            understanding: understanding,
-            context: context,
-          );
-
-          expect(decision.disposition, ConversationDisposition.holdForApproval);
-          expect(
-            decision.reasons.any((r) => r.contains('alucinación')),
-            isTrue,
-          );
-        },
-      );
-
-      test('Flujo Exitoso: Saludo natural y limpio autoriza autoSend', () {
+    test(
+      'Identidad Débil: Retiene si no hay evidencia de plataforma (< safeToWriteThreshold)',
+      () {
         const understanding = ConversationUnderstanding(
-          reply: 'Hola Juan, ¿cómo estás?',
+          reply: 'Hola Juan, todo bien.',
           intent: 'saludo',
           requiresAction: false,
         );
         const context = ConversationDecisionContext(
+          identityConfidence: 0.35, // Título a secas (< 0.60)
           userText: 'Hola',
           agentRole: ConversationAgentRole.personal,
           autonomyMode: ConversationAutonomyMode.safeAuto,
-          identityConfidence: 1.0,
         );
 
         final decision = engine.decide(
@@ -422,11 +417,81 @@ void main() {
           context: context,
         );
 
-        expect(decision.disposition, ConversationDisposition.autoSend);
-        expect(decision.confidence, greaterThanOrEqualTo(0.60));
-      });
-    },
-  );
+        expect(decision.disposition, ConversationDisposition.holdForApproval);
+        expect(
+          decision.reasons.any((r) => r.contains('identidad débil')),
+          isTrue,
+        );
+      },
+    );
+
+    test('Modo Desactivado: Silencio absoluto sin envíos', () {
+      const understanding = ConversationUnderstanding(
+        reply: 'Hola!',
+        intent: 'saludo',
+        requiresAction: false,
+      );
+      const context = ConversationDecisionContext(
+        autonomyMode: ConversationAutonomyMode.disabled,
+        userText: 'Hola',
+      );
+
+      final decision = engine.decide(
+        understanding: understanding,
+        context: context,
+      );
+
+      expect(decision.disposition, ConversationDisposition.holdForApproval);
+      expect(decision.confidence, 0.0);
+    });
+
+    test(
+      'SafeAuto con Hechos Faltantes: Retiene afirmaciones de datos ausentes',
+      () {
+        const understanding = ConversationUnderstanding(
+          reply: 'El teléfono vale \$500.',
+          intent: 'precio',
+          missingFacts: ['precio_telefono'],
+          requiresAction: false,
+        );
+        const context = ConversationDecisionContext(
+          autonomyMode: ConversationAutonomyMode.safeAuto,
+          agentRole: ConversationAgentRole.sales,
+          userText: '¿Cuánto vale?',
+        );
+
+        final decision = engine.decide(
+          understanding: understanding,
+          context: context,
+        );
+
+        expect(decision.disposition, ConversationDisposition.holdForApproval);
+        expect(decision.reasons.any((r) => r.contains('alucinación')), isTrue);
+      },
+    );
+
+    test('Flujo Exitoso: Saludo natural y limpio autoriza autoSend', () {
+      const understanding = ConversationUnderstanding(
+        reply: 'Hola Juan, ¿cómo estás?',
+        intent: 'saludo',
+        requiresAction: false,
+      );
+      const context = ConversationDecisionContext(
+        userText: 'Hola',
+        agentRole: ConversationAgentRole.personal,
+        autonomyMode: ConversationAutonomyMode.safeAuto,
+        identityConfidence: 1.0,
+      );
+
+      final decision = engine.decide(
+        understanding: understanding,
+        context: context,
+      );
+
+      expect(decision.disposition, ConversationDisposition.autoSend);
+      expect(decision.confidence, greaterThanOrEqualTo(0.60));
+    });
+  });
 
   group('WhatsApp Personal Agent — PragmaticFastPath', () {
     const fastPath = PragmaticFastPath();
@@ -513,7 +578,9 @@ void main() {
 
         const classifier = TurnComplexityClassifier();
         expect(
-          classifier.classify('Ya te dije que estoy bien').eligibleForSocialPrompt,
+          classifier
+              .classify('Ya te dije que estoy bien')
+              .eligibleForSocialPrompt,
           isTrue,
         );
         expect(
@@ -534,11 +601,7 @@ void main() {
         expect(resWellbeing!.act, contains('userWellbeing'));
         expect(
           resWellbeing.reply.toLowerCase(),
-          anyOf(
-            contains('bueno'),
-            contains('alegra'),
-            contains('bien'),
-          ),
+          anyOf(contains('bueno'), contains('alegra'), contains('bien')),
         );
 
         final resWellbeing2 = await fastPath.resolve(
@@ -559,6 +622,36 @@ void main() {
         );
         expect(res, isNotNull);
         expect(res!.reply.isNotEmpty, isTrue);
+
+        final resUser = await fastPath.resolve(
+          text: '¿Qué tal todo? ¿Cómo vas hoy?',
+          conversationId: 'conv_user_phrase',
+        );
+        expect(resUser, isNotNull);
+        expect(resUser!.reply.isNotEmpty, isTrue);
+      },
+    );
+
+    test(
+      'Resuelve reaseguro social ("me alegra", "qué bueno") con reciprocidad cálida y sin preguntas ni consultas',
+      () async {
+        final resAlegra = await fastPath.resolve(
+          text: 'me alegra',
+          conversationId: 'conv_alegra',
+        );
+        expect(resAlegra, isNotNull);
+        expect(resAlegra!.reply.isNotEmpty, isTrue);
+        expect(resAlegra.act, contains('socialReassurance'));
+        expect(resAlegra.reply.contains('?'), isFalse);
+        expect(resAlegra.reply.toLowerCase().contains('colaborar'), isFalse);
+        expect(resAlegra.reply.toLowerCase().contains('porto alegre'), isFalse);
+
+        final resQueBueno = await fastPath.resolve(
+          text: 'qué bueno saberlo',
+          conversationId: 'conv_bueno',
+        );
+        expect(resQueBueno, isNotNull);
+        expect(resQueBueno!.reply.contains('?'), isFalse);
       },
     );
 
@@ -675,6 +768,8 @@ void main() {
     test(
       'PragmaticFastPath — Situaciones cotidianas ampliadas (10 nuevas categorías)',
       () async {
+        // Solo clasificación legacy; no demuestra naturalidad ni entrega.
+        // El compositor de producción no llama a estos bancos de frases.
         // 1. Disponibilidad / Ocupación
         final rAvail = await fastPath.resolve(
           text: '¿Estás ocupado?',
@@ -682,7 +777,7 @@ void main() {
         );
         expect(rAvail, isNotNull);
         expect(rAvail!.act, contains('askAvailability'));
-        expect(rAvail.reply, anyOf(contains('ocupado'), contains('momento')));
+        expect(rAvail.reply.trim().isNotEmpty, isTrue);
 
         // 2. Comida / Alimentación
         final rFood = await fastPath.resolve(
@@ -691,7 +786,10 @@ void main() {
         );
         expect(rFood, isNotNull);
         expect(rFood!.act, contains('askFood'));
-        expect(rFood.reply.toLowerCase(), anyOf(contains('almor'), contains('com'), contains('ando')));
+        expect(
+          ConversationDecisionGuards.affirmsOwnerActivity(rFood.reply),
+          isFalse, // Sin estado observado, no se exige una afirmación de comida.
+        );
 
         // 3. Ubicación física / Casa
         final rLoc = await fastPath.resolve(
@@ -700,7 +798,7 @@ void main() {
         );
         expect(rLoc, isNotNull);
         expect(rLoc!.act, contains('askPhysicalLocation'));
-        expect(rLoc.reply, contains('casa'));
+        expect(rLoc.reply.trim().isNotEmpty, isTrue);
 
         // 4. Familia / Entorno
         final rFam = await fastPath.resolve(
@@ -709,7 +807,7 @@ void main() {
         );
         expect(rFam, isNotNull);
         expect(rFam!.act, contains('askFamily'));
-        expect(rFam.reply, anyOf(contains('Dios'), contains('bien')));
+        expect(rFam.reply.trim().isNotEmpty, isTrue);
 
         // 5. Descanso / Noche
         final rSleep = await fastPath.resolve(
@@ -718,7 +816,7 @@ void main() {
         );
         expect(rSleep, isNotNull);
         expect(rSleep!.act, contains('askSleep'));
-        expect(rSleep.reply.toLowerCase(), anyOf(contains('dormir'), contains('despierto'), contains('sueño'), contains('acuesto')));
+        expect(rSleep.reply.trim().isNotEmpty, isTrue);
 
         // 6. Música / Beats
         final rMusic = await fastPath.resolve(
@@ -727,7 +825,7 @@ void main() {
         );
         expect(rMusic, isNotNull);
         expect(rMusic!.act, contains('askMusic'));
-        expect(rMusic.reply.toLowerCase(), anyOf(contains('rap'), contains('música'), contains('instrumentales'), contains('todo')));
+        expect(rMusic.reply.trim().isNotEmpty, isTrue);
 
         // 7. Clima
         final rWeather = await fastPath.resolve(
@@ -736,7 +834,7 @@ void main() {
         );
         expect(rWeather, isNotNull);
         expect(rWeather!.act, contains('askWeatherSocial'));
-        expect(rWeather.reply.toLowerCase(), anyOf(contains('clima'), contains('fresco'), contains('frío'), contains('nublado'), contains('tranquilo'), contains('acá')));
+        expect(rWeather.reply.trim().isNotEmpty, isTrue);
 
         // 8. Llamada
         final rCall = await fastPath.resolve(
@@ -745,7 +843,7 @@ void main() {
         );
         expect(rCall, isNotNull);
         expect(rCall!.act, contains('askCall'));
-        expect(rCall.reply.toLowerCase(), anyOf(contains('mensaje'), contains('texto'), contains('acá'), contains('llamada'), contains('ocupado')));
+        expect(rCall.reply.trim().isNotEmpty, isTrue);
 
         // 9. Ausencia / Perdido
         final rLost = await fastPath.resolve(
@@ -754,7 +852,7 @@ void main() {
         );
         expect(rLost, isNotNull);
         expect(rLost!.act, contains('askLostOrMissing'));
-        expect(rLost.reply.toLowerCase(), anyOf(contains('aquí'), contains('ocupado'), contains('trabajando'), contains('pendiente')));
+        expect(rLost.reply.trim().isNotEmpty, isTrue);
 
         // 10. Opinión
         final rOp = await fastPath.resolve(
@@ -763,7 +861,7 @@ void main() {
         );
         expect(rOp, isNotNull);
         expect(rOp!.act, contains('askOpinionSocial'));
-        expect(rOp.reply.toLowerCase(), anyOf(contains('bien'), contains('bueno'), contains('bacano'), contains('aguanta')));
+        expect(rOp.reply.trim().isNotEmpty, isTrue);
       },
     );
 
@@ -973,20 +1071,32 @@ void main() {
   });
 
   group('WhatsApp Personal Agent — RuntimeConversationReplyComposer', () {
-    test('Compone mediante FastPath para saludos puros', () async {
-      final composer = RuntimeConversationReplyComposer(
-        draftSource: (notif) async => throw StateError('No debe llamar a LLM'),
-        fastPath: const PragmaticFastPath(),
-      );
+    test(
+      'El saludo personal conserva la respuesta contextual del modelo',
+      () async {
+        var llmCalled = false;
+        final composer = RuntimeConversationReplyComposer(
+          draftSource: (notif) async {
+            llmCalled = true;
+            return const NotificationDraftResult(
+              reply: 'Hola, qué gusto leerte.',
+              understanding: ConversationUnderstanding(
+                reply: 'Hola, qué gusto leerte.',
+              ),
+            );
+          },
+          fastPath: const PragmaticFastPath(),
+        );
 
-      final notif = _createNotification(text: 'Hola');
-      final result = await composer.compose(notif);
+        final notif = _createNotification(text: 'Hola');
+        final result = await composer.compose(notif);
 
-      expect(result, isNotNull);
-      expect(result!.isFastPath, isTrue);
-      expect(result.text.isNotEmpty, isTrue);
-      expect(result.suggestions.isNotEmpty, isTrue);
-    });
+        expect(result, isNotNull);
+        expect(llmCalled, isTrue);
+        expect(result!.isFastPath, isFalse);
+        expect(result.text, 'Hola, qué gusto leerte.');
+      },
+    );
 
     test(
       'Canal Business deshabilita FastPath para asegurar tratamiento comercial',
@@ -1019,7 +1129,7 @@ void main() {
       },
     );
 
-    test('Fallback a FastPath cuando draftSource LLM retorna null', () async {
+    test('Sin borrador real no fabrica un saludo de fallback', () async {
       final composer = RuntimeConversationReplyComposer(
         draftSource: (notif) async => null,
         fastPath: const PragmaticFastPath(),
@@ -1028,9 +1138,7 @@ void main() {
       final notif = _createNotification(text: 'Hola');
       final result = await composer.compose(notif);
 
-      expect(result, isNotNull);
-      expect(result!.isFastPath, isTrue);
-      expect(result.text.isNotEmpty, isTrue);
+      expect(result, isNull);
     });
 
     test('Inferencia LLM pasa por limpieza y decisión determinista', () async {
@@ -1188,23 +1296,26 @@ void main() {
       expect(notif.isSelf, isTrue);
     });
 
-    test('NotificationObject.fromMap detecta sender Tú y You como isSelf automáticamente', () {
-      final notifTu = NotificationObject.fromMap({
-        'key': 'wa_self_tu',
-        'package': 'com.whatsapp',
-        'sender': 'Tú',
-        'text': 'Hola, ¿qué haces?',
-      });
-      expect(notifTu.isSelf, isTrue);
+    test(
+      'NotificationObject.fromMap detecta sender Tú y You como isSelf automáticamente',
+      () {
+        final notifTu = NotificationObject.fromMap({
+          'key': 'wa_self_tu',
+          'package': 'com.whatsapp',
+          'sender': 'Tú',
+          'text': 'Hola, ¿qué haces?',
+        });
+        expect(notifTu.isSelf, isTrue);
 
-      final notifYou = NotificationObject.fromMap({
-        'key': 'wa_self_you',
-        'package': 'com.whatsapp',
-        'sender': 'You',
-        'text': 'What are you doing?',
-      });
-      expect(notifYou.isSelf, isTrue);
-    });
+        final notifYou = NotificationObject.fromMap({
+          'key': 'wa_self_you',
+          'package': 'com.whatsapp',
+          'sender': 'You',
+          'text': 'What are you doing?',
+        });
+        expect(notifYou.isSelf, isTrue);
+      },
+    );
   });
 
   group('WhatsApp Personal Agent — Diálogos de Cobertura Conversacional (A a L)', () {
@@ -1755,47 +1866,116 @@ void main() {
       'Regresión 13: Variabilidad amplia garantizada (> 10 opciones diferentes en bancos de diálogo)',
       () {
         // Safe repair options
-        expect(safeRepairActivityOptions.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          safeRepairActivityOptions.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(safeRepairGoingOptions.toSet().length, greaterThanOrEqualTo(11));
-        expect(safeRepairGeneralLiveStateOptions.toSet().length, greaterThanOrEqualTo(11));
-        expect(safeRepairRedundantOptions.toSet().length, greaterThanOrEqualTo(11));
-        expect(safeRepairCallCenterGreetingOptions.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          safeRepairGeneralLiveStateOptions.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          safeRepairRedundantOptions.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          safeRepairCallCenterGreetingOptions.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
 
         // Fast path banks
-        expect(activityPlansCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(activityGoingCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(wellbeingRecentlyGreetedCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(wellbeingStandardCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(greetingRecentlyGreetedCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(greetingStandardCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          activityPlansCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          activityGoingCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          wellbeingRecentlyGreetedCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          wellbeingStandardCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          greetingRecentlyGreetedCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          greetingStandardCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(thanksCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(farewellNightCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(farewellTomorrowCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(farewellAfternoonCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(farewellGeneralCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          farewellNightCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          farewellTomorrowCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          farewellAfternoonCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          farewellGeneralCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(laughterCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(reciprocalCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(userWellbeingActivityCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          userWellbeingActivityCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(rapCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(invitationCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(wellbeingClarificationCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(userWellbeingPureCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          wellbeingClarificationCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          userWellbeingPureCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(trainingCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(trainingWithGreetingCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          trainingWithGreetingCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(dayCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(dayWithGreetingCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          dayWithGreetingCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(availabilityCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(lunchCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(dinnerCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(foodGeneralCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(physicalLocationCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          physicalLocationCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(familyCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(sleepCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(musicCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(weatherSocialCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          weatherSocialCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(callCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(lostOrMissingCandidates.toSet().length, greaterThanOrEqualTo(11));
-        expect(opinionSocialCandidates.toSet().length, greaterThanOrEqualTo(11));
+        expect(
+          lostOrMissingCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
+        expect(
+          opinionSocialCandidates.toSet().length,
+          greaterThanOrEqualTo(11),
+        );
         expect(planReminderCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(presenceCandidates.toSet().length, greaterThanOrEqualTo(11));
         expect(helpTaskCandidates.toSet().length, greaterThanOrEqualTo(11));

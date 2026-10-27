@@ -1,8 +1,10 @@
 // model_brand_logo.dart — Icono de marca en squircle estilo iOS para modelos neuronales.
-// QUÉ HACE: Renderiza un avatar distintivo (Qwen, DeepSeek, Llama, Gemma, Phi, SD) con gradiente.
+// QUÉ HACE: usa logos originales de Qwen y Gemma; las demás familias usan avatares.
 // CÓMO FUNCIONA: Detecta la familia por prefijo del nombre y dibuja un contenedor óptico compacto.
 // POR QUÉ: Otorga identidad visual inmediata en el catálogo móvil respetando la cota de <200 líneas.
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/qwen_brand_icon.dart';
+import '../../../../core/widgets/gemma_brand_icon.dart';
 
 class ModelBrandLogo extends StatelessWidget {
   final String name;
@@ -18,7 +20,20 @@ class ModelBrandLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Solo el catálogo identifica al proveedor: un archivo desconocido no hereda marca.
+    // DeepSeek destilado de Qwen conserva la identidad de DeepSeek.
+    final lower = name.toLowerCase();
+    if (!isDetected && lower.startsWith('qwen')) {
+      return QwenBrandIcon(size: size);
+    }
+    // El catálogo distingue Gemma y sus embeddings de archivos desconocidos.
+    if (!isDetected &&
+        (lower.startsWith('gemma') || lower.startsWith('embeddinggemma'))) {
+      return GemmaBrandIcon(size: size);
+    }
     final info = _resolveBrand(name, isDetected);
+    // Los demás avatares son identificadores visuales, no logotipos oficiales.
+    const foreground = Colors.white;
     return Container(
       width: size,
       height: size,
@@ -28,7 +43,9 @@ class ModelBrandLogo extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: info.gradient,
         ),
-        borderRadius: BorderRadius.circular(size * 0.28), // Proporción squircle iOS
+        borderRadius: BorderRadius.circular(
+          size * 0.28,
+        ), // Proporción squircle iOS
         boxShadow: [
           BoxShadow(
             color: info.gradient.first.withValues(alpha: 0.28),
@@ -39,14 +56,14 @@ class ModelBrandLogo extends StatelessWidget {
       ),
       child: Center(
         child: info.icon != null
-            ? Icon(info.icon, size: size * 0.52, color: Colors.white)
+            ? Icon(info.icon, size: size * 0.52, color: foreground)
             : Text(
                 info.letter,
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: size * 0.44,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: foreground,
                   letterSpacing: -0.5,
                 ),
               ),
@@ -69,22 +86,10 @@ class ModelBrandLogo extends StatelessWidget {
         letter: 'D',
       );
     }
-    if (lower.contains('qwen')) {
-      return const _BrandInfo(
-        gradient: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
-        letter: 'Q',
-      );
-    }
     if (lower.contains('llama')) {
       return const _BrandInfo(
         gradient: [Color(0xFFEA580C), Color(0xFFF97316)],
         letter: '🦙',
-      );
-    }
-    if (lower.contains('gemma')) {
-      return const _BrandInfo(
-        gradient: [Color(0xFF2563EB), Color(0xFF9333EA)],
-        letter: 'G',
       );
     }
     if (lower.contains('phi')) {
@@ -93,11 +98,47 @@ class ModelBrandLogo extends StatelessWidget {
         letter: 'Φ',
       );
     }
-    if (lower.contains('whisper')) {
+    if (lower.contains('whisper') ||
+        lower.contains('asr') ||
+        lower.contains('audio8')) {
       return const _BrandInfo(
         gradient: [Color(0xFF059669), Color(0xFF34D399)],
         icon: Icons.graphic_eq_rounded,
         letter: 'W',
+      );
+    }
+    if (lower.contains('granite')) {
+      return const _BrandInfo(
+        gradient: [Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+        letter: 'IBM',
+      );
+    }
+    if (lower.contains('paddle')) {
+      return const _BrandInfo(
+        gradient: [Color(0xFF0EA5E9), Color(0xFF2563EB)],
+        icon: Icons.document_scanner_rounded,
+        letter: 'OCR',
+      );
+    }
+    if (lower.contains('nemotron')) {
+      return const _BrandInfo(
+        gradient: [Color(0xFF16A34A), Color(0xFF84CC16)],
+        icon: Icons.record_voice_over_rounded,
+        letter: 'NV',
+      );
+    }
+    if (lower.contains('agents-a1')) {
+      return const _BrandInfo(
+        gradient: [Color(0xFF7C3AED), Color(0xFFEC4899)],
+        icon: Icons.smart_toy_rounded,
+        letter: 'A1',
+      );
+    }
+    if (lower.contains('spark')) {
+      return const _BrandInfo(
+        gradient: [Color(0xFFD97706), Color(0xFFF59E0B)],
+        icon: Icons.bolt_rounded,
+        letter: 'S',
       );
     }
     return const _BrandInfo(
@@ -113,9 +154,5 @@ class _BrandInfo {
   final IconData? icon;
   final String letter;
 
-  const _BrandInfo({
-    required this.gradient,
-    this.icon,
-    required this.letter,
-  });
+  const _BrandInfo({required this.gradient, this.icon, required this.letter});
 }

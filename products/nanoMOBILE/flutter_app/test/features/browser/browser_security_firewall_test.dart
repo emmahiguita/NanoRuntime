@@ -157,7 +157,10 @@ void main() {
       final settings = BrowserSecurityFirewall.defaultWebViewSettings;
 
       // Bloqueo estricto de mixed content
-      expect(settings.mixedContentMode, equals(MixedContentMode.MIXED_CONTENT_NEVER_ALLOW));
+      expect(
+        settings.mixedContentMode,
+        equals(MixedContentMode.MIXED_CONTENT_NEVER_ALLOW),
+      );
 
       // Aislamiento completo de archivos del sistema local
       expect(settings.allowFileAccess, isFalse);
@@ -170,6 +173,202 @@ void main() {
       expect(settings.thirdPartyCookiesEnabled, isTrue);
       expect(settings.saveFormData, isTrue);
     });
+
+    test('evaluatePopupUri solo permite hosts OAuth federados', () {
+      // Google Identity Services (flujo popup de TikTok login)
+      expect(
+        BrowserSecurityFirewall.evaluatePopupUri(
+          Uri.parse('https://accounts.google.com/o/oauth2/v2/auth'),
+          hasUserGesture: true,
+        ).isAllowed,
+        isTrue,
+      );
+      expect(
+        BrowserSecurityFirewall.evaluatePopupUri(
+          Uri.parse('https://appleid.apple.com/auth/authorize'),
+          hasUserGesture: true,
+        ).isAllowed,
+        isTrue,
+      );
+      // Web normal: permitida como navegación pero NUNCA como popup
+      expect(
+        BrowserSecurityFirewall.evaluatePopupUri(
+          Uri.parse('https://www.tiktok.com'),
+          hasUserGesture: true,
+        ).isAllowed,
+        isFalse,
+      );
+      expect(
+        BrowserSecurityFirewall.evaluatePopupUri(
+          Uri.parse('https://example.com'),
+          hasUserGesture: true,
+        ).isAllowed,
+        isFalse,
+      );
+      // Falsificación de host
+      expect(
+        BrowserSecurityFirewall.evaluatePopupUri(
+          Uri.parse('https://accounts.google.com.evil.com'),
+          hasUserGesture: true,
+        ).isAllowed,
+        isFalse,
+      );
+      // Redes privadas y esquemas bloqueados siguen bloqueados como popup
+      expect(
+        BrowserSecurityFirewall.evaluatePopupUri(
+          Uri.parse('http://127.0.0.1'),
+          hasUserGesture: true,
+        ).isAllowed,
+        isFalse,
+      );
+      expect(
+        BrowserSecurityFirewall.evaluatePopupUri(
+          Uri.parse('file:///etc/passwd'),
+          hasUserGesture: true,
+        ).isAllowed,
+        isFalse,
+      );
+    });
+
+    test(
+      'evaluatePopupUri permite popup en blanco solo con gesto de usuario',
+      () {
+        // GIS abre window.open('') al pulsar "Continuar con Google"
+        expect(
+          BrowserSecurityFirewall.evaluatePopupUri(
+            null,
+            hasUserGesture: true,
+          ).isAllowed,
+          isTrue,
+        );
+        expect(
+          BrowserSecurityFirewall.evaluatePopupUri(
+            Uri.parse('about:blank'),
+            hasUserGesture: true,
+          ).isAllowed,
+          isTrue,
+        );
+        // Sin gesto: popup automático de página spam -> bloqueado
+        expect(
+          BrowserSecurityFirewall.evaluatePopupUri(
+            null,
+            hasUserGesture: false,
+          ).isAllowed,
+          isFalse,
+        );
+        expect(
+          BrowserSecurityFirewall.evaluatePopupUri(
+            Uri.parse('about:blank'),
+            hasUserGesture: false,
+          ).isAllowed,
+          isFalse,
+        );
+      },
+    );
+
+    test('settings habilitan popups solo cuando se solicitan', () {
+      final defaultSettings = BrowserSecurityFirewall.defaultWebViewSettings;
+      expect(defaultSettings.supportMultipleWindows, isFalse);
+      expect(defaultSettings.javaScriptCanOpenWindowsAutomatically, isFalse);
+
+      final oauthSettings = BrowserSecurityFirewall.createWebViewSettings(
+        enableOAuthPopups: true,
+      );
+      expect(oauthSettings.supportMultipleWindows, isTrue);
+      expect(oauthSettings.javaScriptCanOpenWindowsAutomatically, isTrue);
+    });
+
+    test('TikTok móvil usa el ancho real sin escala desktop reducida', () {
+      final mobileSettings = BrowserSecurityFirewall.createWebViewSettings(
+        forceMobileLayout: true,
+      );
+
+      expect(mobileSettings.useWideViewPort, isTrue);
+      expect(mobileSettings.loadWithOverviewMode, isFalse);
+      expect(mobileSettings.supportZoom, isTrue);
+    });
+
+    test('isPopupNavigationAllowed permite navegación web pública libre', () {
+      // Proveedor OAuth y retorno al cliente
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('https://accounts.google.com/signin/oauth/consent'),
+        ),
+        isTrue,
+      );
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('https://www.tiktok.com/login/callback#token=x'),
+        ),
+        isTrue,
+      );
+      // Wrappers propios de TikTok para "abrir en app" (tiktokv.com)
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse(
+            'https://app-va.tiktokv.com/redirect/?redirect_url=snssdk1233%3A%2F%2F',
+          ),
+        ),
+        isTrue,
+      );
+      // Cualquier web pública navegable libremente
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('https://example.com'),
+        ),
+        isTrue,
+      );
+      // about:blank siempre permitido (arranque del popup GIS)
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('about:blank'),
+        ),
+        isTrue,
+      );
+      // Lo que SÍ se mantiene bloqueado: redes privadas, puertos y esquemas
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('http://127.0.0.1'),
+        ),
+        isFalse,
+      );
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('http://192.168.1.1'),
+        ),
+        isFalse,
+      );
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('http://example.com:8080'),
+        ),
+        isFalse,
+      );
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('snssdk1340://aweme/detail/123'),
+        ),
+        isFalse,
+      );
+      expect(
+        BrowserSecurityFirewall.isPopupNavigationAllowed(
+          Uri.parse('file:///etc/passwd'),
+        ),
+        isFalse,
+      );
+    });
+
+    test('dominios https de TikTok (tiktokv/tiktokcdn) son web permitida', () {
+      for (final url in const [
+        'https://app-va.tiktokv.com/redirect/?redirect_url=xyz',
+        'https://v16-webapp.tiktok.com/video.mp4',
+        'https://sf16-website-login.neutral.ttwstatic.com/obj/app.js',
+        'https://p16-sign.tiktokcdn.com/img.jpeg',
+      ]) {
+        final eval = BrowserSecurityFirewall.evaluateUrl(url);
+        expect(eval.isAllowed, isTrue, reason: url);
+        expect(eval.code, equals(FirewallSecurityCode.allowed), reason: url);
+      }
+    });
   });
 }
-

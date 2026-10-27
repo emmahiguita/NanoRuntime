@@ -14,8 +14,8 @@ class BrowserAgentToolHandler {
   const BrowserAgentToolHandler({
     ReverseAgentClient client = const ReverseAgentClient(),
     BrowserAiGateway? gateway,
-  })  : _client = client,
-        _gateway = gateway;
+  }) : _client = client,
+       _gateway = gateway;
 
   /// Determina si el texto o comando `@` corresponde a un proveedor de navegador.
   bool matches(String text) {

@@ -1,0 +1,77 @@
+{
+  "accessibility_config": {
+    "file": "android/app/src/main/res/xml/accessibility_service_config.xml",
+    "line": 11,
+    "sha256": "d5d6980729a98b1673a319c3368831773a8f64fad5757a9d8239af317f07c79f"
+  },
+  "native_capture": {
+    "file": "android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+    "line": 660,
+    "sha256": "4cc5467819f48165337fb5c872299cdcddad45fe214d76f547372dcbb671fd0a"
+  },
+  "atomic_capture": {
+    "file": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoAtomicSnapshotter.kt",
+    "line": 78,
+    "sha256": "24b95eac6d993b1e57f4794e017d766f2698bd959b094960990ed95930723ce4"
+  },
+  "on_device_ocr": {
+    "file": "lib/features/automation/engine/agent_dependencies.dart",
+    "line": 561,
+    "sha256": "7d501c0214748d7b53a31a785f8bac773b9ce4bab2c21a43b6f07279791be48e"
+  },
+  "on_device_labels": {
+    "file": "lib/features/automation/engine/perception/mux/mlkit_vision_backend.dart",
+    "line": 14,
+    "sha256": "95612f766ac21eaf1c123ec205d2e77a120d813c2a741036e17abb5a5257f074"
+  },
+  "grounding_heuristic": {
+    "file": "lib/features/automation/engine/perception/visual_grounding_resolver.dart",
+    "line": 42,
+    "sha256": "a08ad136b16dd0cff8f24125f1fcfda86a2e80ba9cf818712b8b7a8384a7b32d"
+  },
+  "shizuku": {
+    "file": "lib/features/automation/engine/execution/handlers/shizuku_tool_handler.dart",
+    "line": 6,
+    "sha256": "804011dbc1b451d8288247b78f88482b55e636fdb3019ccd27920a6aa2f81f45"
+  },
+  "local_suite": {
+    "file": "lib/features/automation/benchmark/c14_benchmark.dart",
+    "line": 90,
+    "sha256": "b029ff5e2af4723f76ef0c1a2591940dec8be4bb78aab1bf5cd91a97ec501065"
+  },
+  "confirmation": {
+    "file": "lib/features/automation/benchmark/c14_benchmark.dart",
+    "line": 171,
+    "sha256": "b029ff5e2af4723f76ef0c1a2591940dec8be4bb78aab1bf5cd91a97ec501065"
+  },
+  "preflight": {
+    "file": "lib/features/automation/benchmark/c14_runner.dart",
+    "line": 140,
+    "sha256": "883f66d9ee12218aba93e3c55b64e80716df8aef26cdef680179419df5f7a87a"
+  },
+  "false_success_metric": {
+    "file": "lib/features/automation/benchmark/c14_metrics.dart",
+    "line": 144,
+    "sha256": "10b02ab058767fa4ec329cb722ec315bd6bdad295804fd8612d922f8b94652d1"
+  },
+  "overflow_suppression": {
+    "file": "integration_test/c14_automation_benchmark_test.dart",
+    "line": 28,
+    "sha256": "b6c06834ced2c29491e82d11815120c2bfb76a3690aeced09fc7456ebf608496"
+  },
+  "test_doubles": {
+    "file": "test/features/automation/whatsapp_e2e_automation_test.dart",
+    "line": 42,
+    "sha256": "f5e3e7c8c20e2f457f615808faa3646164ec7815bb9609f12f639554a5c3a09b"
+  },
+  "goal_expectation": {
+    "file": "lib/features/automation/engine/execution/goal_verifier.dart",
+    "line": 22,
+    "sha256": "c689c6b6c9379a6e705ebf5d97880ac9aaf820ee0f7c2d10f00d620ca0e29df0"
+  },
+  "json_view": {
+    "file": "lib/features/automation/presentation/widgets/c14_debug_benchmark_section.dart",
+    "line": 114,
+    "sha256": "19555eac2a3a42ec8aa2523d36d7ece77e0150532d98cb31f0d4461ae2148a4d"
+  }
+}

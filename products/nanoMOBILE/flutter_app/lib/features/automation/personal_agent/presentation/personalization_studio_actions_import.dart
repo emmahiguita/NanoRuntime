@@ -13,7 +13,8 @@ part of 'personalization_studio_screen.dart';
 /// **POR QUÉ:**
 /// Separa la ingesta de archivos pesados y la gestión de lotes del resto
 /// de acciones para garantizar código mantenible y menor a 200 líneas.
-extension _PersonalizationStudioImportActions on _PersonalizationStudioScreenState {
+extension _PersonalizationStudioImportActions
+    on _PersonalizationStudioScreenState {
   Future<void> _import() async {
     if (!mounted || _working) return;
     final scope = _scopes[_scope]!;
@@ -65,15 +66,21 @@ extension _PersonalizationStudioImportActions on _PersonalizationStudioScreenSta
       if (!mounted) return;
       final selection = await Navigator.of(context).push<_ImportSelection>(
         MaterialPageRoute(
-          builder: (_) => _ImportReview(preview: preview, scopeLabel: scope.label),
+          builder: (_) =>
+              _ImportReview(preview: preview, scopeLabel: scope.label),
         ),
       );
       if (selection == null || !mounted) return;
       await _run(() async {
         final outcome = await _repo.importPersonalization(
-          preview.accepted(selection.indices, ownerVerified: selection.ownerVerified),
+          preview.accepted(
+            selection.indices,
+            ownerVerified: selection.ownerVerified,
+          ),
         );
-        _notice('${outcome['added'] ?? 0} registros guardados; ${outcome['duplicates'] ?? 0} duplicados.');
+        _notice(
+          '${outcome['added'] ?? 0} registros guardados; ${outcome['duplicates'] ?? 0} duplicados.',
+        );
       });
     } catch (error) {
       _notice('No se importó: $error');
@@ -82,7 +89,10 @@ extension _PersonalizationStudioImportActions on _PersonalizationStudioScreenSta
     }
   }
 
-  Future<bool?> _askWhatsAppOwnerName(String scopeLabel, TextEditingController ctrl) {
+  Future<bool?> _askWhatsAppOwnerName(
+    String scopeLabel,
+    TextEditingController ctrl,
+  ) {
     return showDialog<bool>(
       context: context,
       builder: (dialog) => AlertDialog(
@@ -92,21 +102,37 @@ extension _PersonalizationStudioImportActions on _PersonalizationStudioScreenSta
             mainAxisSize: MainAxisSize.min,
             children: [
               Text('Se aplicará a: $scopeLabel'),
-              const Text('TXT de WhatsApp. Escribe tu nombre tal como aparece en el archivo.'),
-              TextField(controller: ctrl, decoration: const InputDecoration(labelText: 'Mi nombre en la exportación')),
+              const Text(
+                'TXT de WhatsApp. Escribe tu nombre tal como aparece en el archivo.',
+              ),
+              TextField(
+                controller: ctrl,
+                decoration: const InputDecoration(
+                  labelText: 'Mi nombre en la exportación',
+                ),
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Analizar')),
+          TextButton(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Analizar'),
+          ),
         ],
       ),
     );
   }
 
   Future<void> _deleteBatch(Map batch) async {
-    if (await _confirm('Retirar lote importado', 'Se eliminarán los ejemplos y memorias de este lote.')) {
+    if (await _confirm(
+      'Retirar lote importado',
+      'Se eliminarán los ejemplos y memorias de este lote.',
+    )) {
       await _run(() async {
         final count = await _repo.deleteImportBatch('${batch['batchId']}');
         _notice('$count registros del lote retirados.');

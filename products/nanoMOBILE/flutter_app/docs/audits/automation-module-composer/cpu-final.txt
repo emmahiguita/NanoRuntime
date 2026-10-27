@@ -1,0 +1,3 @@
+800%cpu  16%user   0%nice  38%sys 731%idle   0%iow  13%irq   3%sirq   0%host
+  PID USER         PR  NI VIRT  RES  SHR S[%CPU] %MEM     TIME+ ARGS
+21899 u0_a460      10 -10  14G 792M 442M S 21.8  10.3  10:18.87 dev.nanoai.mobile

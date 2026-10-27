@@ -2,13 +2,11 @@
 ///
 /// Cada conversación tiene UN dueño. Por defecto el bot es dueño (el runtime
 /// responde solo, paridad con el comportamiento actual). Cuando el humano
-/// toma el control explícitamente, el bot puede preparar drafts pero JAMÁS
+/// toma el control explícitamente, la automatización se pausa y JAMÁS
 /// envía: el DecisionEngine retiene (holdForApproval) mientras `human`
 /// sea el dueño. Soltar la conversación la devuelve al bot.
 ///
-/// La persistencia llega en PERSONA-STORAGE-04 (sección
-/// `conversation_ownership`); mientras tanto el store vive en memoria del
-/// proceso.
+/// Se persiste en SQLite (sección `ownership`), compartida por UI y headless.
 library;
 
 /// Quién maneja la conversación ahora.
@@ -24,23 +22,15 @@ final class ConversationOwnership {
   /// Marca de cuándo cambió por última vez (ms epoch, 0 = nunca).
   final int updatedAtMs;
 
-  /// Tiempo máximo de inactividad humana antes de regresar automáticamente
-  /// el control al bot (30 minutos). Si el humano no ha intervenido en 30 min,
-  /// la conversación ya no se considera tomada activamente.
-  static const int humanOwnershipTimeoutMs = 30 * 60 * 1000;
-
   const ConversationOwnership({
     required this.conversationId,
     required this.owner,
     required this.updatedAtMs,
   });
 
-  bool isHumanActive([int? nowMs]) {
-    if (owner != ConversationOwner.human) return false;
-    if (updatedAtMs <= 0) return true;
-    final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
-    return (now - updatedAtMs) < humanOwnershipTimeoutMs;
-  }
+  /// La pausa no caduca: solo una activación explícita devuelve el chat al bot.
+  /// Mantiene el argumento anterior para no romper los consumidores existentes.
+  bool isHumanActive([int? nowMs]) => owner == ConversationOwner.human;
 
   bool get humanOwns => isHumanActive();
 }

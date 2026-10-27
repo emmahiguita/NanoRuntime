@@ -1,13 +1,21 @@
-// model_catalog_types.dart — Entidades y auxiliares de filtrado para el catálogo neural.
-// QUÉ HACE: Modela el DTO unificado UnifiedModelItem, estados visuales y algoritmo de filtrado.
-// CÓMO FUNCIONA: Combina modelos de catálogo con modelos detectados localmente en SD/almacenamiento.
-// POR QUÉ: Desacopla la lógica de datos de los widgets de presentación y mantiene archivos < 200 líneas.
+// model_catalog_types.dart — DTO unificado + filtrado para el catálogo neural.
+// QUÉ HACE: Modela UnifiedModelItem, estados visuales y algoritmo de filtrado con ordenamiento.
+// CÓMO FUNCIONA: Combina catálogo y modelos detectados; instalados siempre primero.
+// POR QUÉ: Desacopla lógica de datos de los widgets; mantiene < 200 líneas (SOLID/SRP).
 library;
 
+import '../../../../core/models/catalog_models.dart'
+    show ModelKind, ModelBackendType;
 import '../../domain/detected_model.dart';
 import '../../domain/local_model.dart';
 
-/// DTO unificado que representa un modelo de catálogo o un archivo local escaneado.
+part 'model_item_categories.part.dart';
+part 'model_item_runtime.part.dart';
+part 'model_item_identity.part.dart';
+part 'model_item_narrative.part.dart';
+part 'model_qwen_information.part.dart';
+
+/// DTO unificado: modelo de catálogo o archivo local escaneado.
 class UnifiedModelItem {
   final LocalModel? catalog;
   final DetectedModel? detected;
@@ -18,8 +26,8 @@ class UnifiedModelItem {
   bool get isCatalog => catalog != null;
   String get name => isCatalog ? catalog!.name : detected!.name;
   String get fileName => isCatalog ? catalog!.fileName : detected!.name;
-  bool get isDownloading =>
-      catalog?.downloadState == ModelDownloadState.downloading;
+  // Verificar sigue ocupando la descarga: ofrece cancelar, nunca descargar otra vez.
+  bool get isDownloading => catalog?.isDownloading ?? false;
 
   double get sizeGb => isCatalog
       ? catalog!.sizeGb
@@ -32,79 +40,82 @@ class UnifiedModelItem {
   String get format => isCatalog
       ? catalog!.quant
       : (detected!.format == DetectedModelFormat.gguf ? 'GGUF' : 'OTRO');
-
-  String get company {
-    if (!isCatalog) return 'Tarjeta SD / Local';
-    final lower = catalog!.name.toLowerCase();
-    if (lower.contains('deepseek')) return 'DeepSeek AI';
-    if (lower.contains('qwen')) return 'Alibaba Qwen';
-    if (lower.contains('llama')) return 'Meta Llama';
-    if (lower.contains('gemma')) return 'Google Gemma';
-    if (lower.contains('phi')) return 'Microsoft Phi';
-    if (lower.contains('whisper')) return 'OpenAI Whisper';
-    return 'Comunidad AI';
-  }
-
-  String get sectionTitle {
-    if (!isCatalog) return 'ALMACENAMIENTO LOCAL • TARJETA SD';
-    if (catalog!.isVoiceStt) return 'OPENAI WHISPER • TRANSCRIPCIÓN';
-    if (catalog!.isMultimodal) return 'ALIBABA QWEN • VISIÓN ARTIFICIAL';
-    final lower = catalog!.name.toLowerCase();
-    if (lower.contains('coder')) return '$company • PROGRAMACIÓN';
-    if (lower.contains('deepseek') || lower.contains('r1')) {
-      return '$company • RAZONAMIENTO';
-    }
-    return '$company • MODELOS MÓVILES';
-  }
-
-  String get typeTag {
-    if (!isCatalog) return 'SD';
-    if (catalog!.isVoiceStt) return 'VOZ';
-    if (catalog!.isMultimodal) return 'VISIÓN';
-    final lower = catalog!.name.toLowerCase();
-    if (lower.contains('coder')) return 'CODER';
-    if (lower.contains('deepseek') || lower.contains('r1')) return 'RAZÓN';
-    if (lower.contains('instruct')) return 'CHAT';
-    return 'LLM';
-  }
 }
 
-/// Helper para filtrar modelos por término de búsqueda y categoría seleccionada.
+/// Filtrado + ordenamiento: instalados primero, luego recomendados, luego disponibles.
 class ModelFilterHelper {
+  // QUÉ HACE: Filtra por query y categoría; ordena instalados al tope.
+  // CÓMO FUNCIONA: Lista unificada → where() → sort(instalados→recomendados→resto).
+  // POR QUÉ: El usuario ve inmediatamente lo que puede usar sin scrollear.
   static List<UnifiedModelItem> filter({
     required List<LocalModel> catalog,
     required List<DetectedModel> detected,
     required String query,
     required String filter,
+    Set<String>? favorites,
   }) {
     final list = <UnifiedModelItem>[];
     if (filter != 'SD / Local') {
       list.addAll(catalog.map((m) => UnifiedModelItem.catalog(m)));
     }
-    if (filter == 'Todos' || filter == 'SD / Local' || filter == 'Instalados') {
+    if (filter == 'Todos' ||
+        filter == 'SD / Local' ||
+        filter == 'Instalados' ||
+        filter == 'Favoritos') {
       list.addAll(detected.map((d) => UnifiedModelItem.detected(d)));
     }
-    return list.where((item) {
+
+    final filtered = list.where((item) {
+      final q = query.toLowerCase();
       final matches =
-          query.isEmpty ||
-          item.name.toLowerCase().contains(query) ||
-          item.company.toLowerCase().contains(query);
+          q.isEmpty ||
+          item.name.toLowerCase().contains(q) ||
+          item.company.toLowerCase().contains(q);
       if (!matches) return false;
       return switch (filter) {
         'Instalados' => item.installed,
+        'AI Chat' ||
+        'Multimodales' ||
+        'Razonamiento' ||
+        'Programación' ||
+        'Imagen y documentos' ||
+        'Transcripción de audio' ||
+        'Síntesis de voz' ||
+        'Separación de hablantes' ||
+        'Memoria y RAG' ||
+        'Agentes y acciones' => item.categoryLabel == filter,
+        'Favoritos' => favorites?.contains(item.name) ?? false,
+        'Descargas' =>
+          item.isDownloading ||
+              item.catalog?.downloadState == ModelDownloadState.failed,
         'Qwen' => item.company.contains('Qwen'),
-        'DeepSeek' => item.company.contains('DeepSeek'),
-        'Llama' => item.company.contains('Llama'),
         'Gemma' => item.company.contains('Gemma'),
-        'Phi' => item.company.contains('Phi'),
+        'Granite' => item.company.contains('Granite'),
+        'Liquid AI' => item.company == 'Liquid AI',
+        'DeepSeek' => item.company == 'DeepSeek AI',
+        'Visión / OCR' =>
+          item.isCatalog &&
+              (item.catalog!.isMultimodal ||
+                  item.catalog!.kind == ModelKind.imageOcr),
+        'OCR de documentos' =>
+          item.isCatalog && item.catalog!.kind == ModelKind.imageOcr,
+        'RAG' => item.isCatalog && item.catalog!.kind == ModelKind.embedding,
+        'Voz' => item.isCatalog && item.catalog!.isVoiceStt,
         'SD / Local' => !item.isCatalog,
         _ => true,
       };
     }).toList();
+
+    // Instalados primero; dentro de cada grupo se conserva el orden del catálogo.
+    filtered.sort((a, b) {
+      if (a.installed != b.installed) return a.installed ? -1 : 1;
+      return 0;
+    });
+    return filtered;
   }
 }
 
-/// Estados visuales de cada tarjeta en el catálogo
+/// Estados visuales de cada tarjeta en el catálogo.
 enum ModelUiStatus {
   active,
   installed,

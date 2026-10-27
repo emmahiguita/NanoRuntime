@@ -46,13 +46,14 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
     _action = rule.action;
     _message = TextEditingController(text: rule.message);
     _dynamicReply = rule.dynamicReply;
-    final time = rule.trigger is TimeTrigger ? rule.trigger as TimeTrigger : null;
+    final time = rule.trigger is TimeTrigger
+        ? rule.trigger as TimeTrigger
+        : null;
     _time = TimeOfDay(hour: time?.hour ?? 9, minute: time?.minute ?? 0);
     _weekdays = Set.of(time?.weekdays ?? const <int>{});
-    final notif =
-        rule.trigger is NotificationTrigger
-            ? rule.trigger as NotificationTrigger
-            : null;
+    final notif = rule.trigger is NotificationTrigger
+        ? rule.trigger as NotificationTrigger
+        : null;
     _packageName = notif?.packageName;
     _contact = TextEditingController(text: notif?.senderMatch ?? '');
     _textMatch = TextEditingController(text: notif?.textMatch ?? '');
@@ -90,13 +91,14 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
         hour: _time.hour,
         minute: _time.minute,
         weekdays: Set.of(_weekdays),
+        timeZoneId: (rule.trigger as TimeTrigger).timeZoneId,
+        recurring:
+            _weekdays.isNotEmpty || (rule.trigger as TimeTrigger).recurring,
       );
     } else if (_isNotification) {
       trigger = NotificationTrigger(
         packageName: _packageName,
-        senderMatch: _contact.text.trim().isEmpty
-            ? null
-            : _contact.text.trim(),
+        senderMatch: _contact.text.trim().isEmpty ? null : _contact.text.trim(),
         textMatch: _textMatch.text.trim().isEmpty
             ? null
             : _textMatch.text.trim(),
@@ -117,6 +119,15 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
         () => _error =
             'Responder y enviar archivos necesitan un remitente: con hora '
             'solo puedo avisarte. Usa un disparo de notificación.',
+      );
+      return;
+    }
+    if (_action == RuleAction.sendMessage &&
+        (rule.recipients.isEmpty || _message.text.trim().isEmpty)) {
+      setState(
+        () => _error = rule.recipients.isEmpty
+            ? 'Crea el envío desde el campo de lenguaje natural para resolver los contactos.'
+            : 'Escribe el texto exacto que se enviará.',
       );
       return;
     }
@@ -162,6 +173,9 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
         // null explícito: si la acción ya no envía archivo, se suelta el
         // viejo (copyWith no permite "limpiar" con null).
         mediaPath: mediaPath,
+        recipients: _action == RuleAction.sendMessage
+            ? rule.recipients
+            : const [],
         enabled: rule.enabled,
         createdAt: rule.createdAt,
         lastFiredAt: rule.lastFiredAt,
@@ -183,7 +197,9 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
         : _newMediaPath!.split('/').last;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: Column(
@@ -222,7 +238,11 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.schedule_rounded, size: 18, color: visual.accent),
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 18,
+                        color: visual.accent,
+                      ),
                       const SizedBox(width: 10),
                       Text(
                         timeLabel,
@@ -316,7 +336,9 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
               const _FieldLabel('Contacto (vacío = cualquier contacto)'),
               _EditorField(controller: _contact, hint: 'Juan'),
               const SizedBox(height: 12),
-              const _FieldLabel('Palabras clave / Keywords (vacío = cualquier texto)'),
+              const _FieldLabel(
+                'Palabras clave / Keywords (vacío = cualquier texto)',
+              ),
               _EditorField(
                 controller: _textMatch,
                 hint: 'ej: noche, precio, salir (separadas por comas)',
@@ -335,6 +357,15 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
                 style: TextStyle(color: visual.textMuted, fontSize: 12),
               ),
               const SizedBox(height: 16),
+            ],
+            if (_action == RuleAction.sendMessage &&
+                rule.recipients.isNotEmpty) ...[
+              const _FieldLabel('Destinatarios verificados'),
+              Text(
+                rule.recipients.map((recipient) => recipient.name).join(', '),
+                style: TextStyle(color: visual.text, fontSize: 13),
+              ),
+              const SizedBox(height: 12),
             ],
             const _FieldLabel('Acción'),
             DropdownButtonFormField<RuleAction>(
@@ -366,6 +397,8 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
               _FieldLabel(
                 _action == RuleAction.sendMedia
                     ? 'Texto del mensaje (caption)'
+                    : _action == RuleAction.sendMessage
+                    ? 'Texto exacto del mensaje'
                     : 'Texto de la respuesta',
               ),
               _EditorField(
@@ -413,7 +446,11 @@ class _RuleEditSheetState extends State<RuleEditSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.attach_file_rounded, size: 18, color: visual.accent),
+                      Icon(
+                        Icons.attach_file_rounded,
+                        size: 18,
+                        color: visual.accent,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(

@@ -131,10 +131,14 @@ class ConversationListTile extends StatelessWidget {
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFF9500).withValues(alpha: 0.18),
+                              color: const Color(
+                                0xFFFF9500,
+                              ).withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: const Color(0xFFFF9500).withValues(alpha: 0.45),
+                                color: const Color(
+                                  0xFFFF9500,
+                                ).withValues(alpha: 0.45),
                               ),
                             ),
                             child: const Row(
@@ -180,9 +184,7 @@ class ConversationListTile extends StatelessWidget {
   Widget _buildAvatar(AutomationVisualPalette visual) {
     final statusColor = item.humanOwns
         ? visual.accent
-        : (item.hasPendingReply
-            ? const Color(0xFFFF9500)
-            : visual.success);
+        : (item.hasPendingReply ? const Color(0xFFFF9500) : visual.success);
 
     return Stack(
       children: [
@@ -206,7 +208,9 @@ class ConversationListTile extends StatelessWidget {
             ),
           ),
           child: Text(
-            item.displayName.isNotEmpty ? item.displayName[0].toUpperCase() : '?',
+            item.displayName.isNotEmpty
+                ? item.displayName[0].toUpperCase()
+                : '?',
             style: TextStyle(
               color: visual.accent,
               fontFamily: 'Inter',
@@ -225,10 +229,7 @@ class ConversationListTile extends StatelessWidget {
             decoration: BoxDecoration(
               color: statusColor,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: visual.canvas,
-                width: 2,
-              ),
+              border: Border.all(color: visual.canvas, width: 2),
             ),
           ),
         ),

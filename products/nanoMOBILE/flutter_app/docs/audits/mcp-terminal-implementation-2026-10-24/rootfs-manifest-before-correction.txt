@@ -1,0 +1,5 @@
+bootstrap-2026.08.30-r1+apt.android-7
+abi=aarch64
+sha256=7e92f4c435d16207cdda63d5629e666ab98441f09eefa6a8423037ef13263346
+compat=1
+minAndroid=26

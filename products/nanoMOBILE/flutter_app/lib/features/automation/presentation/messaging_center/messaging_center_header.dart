@@ -1,117 +1,180 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:nanoai/core/providers/settings_provider.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/theme/nano_type.dart';
+import '../business/meta_inbox_screen.dart';
+import '../whatsapp_web/whatsapp_web_screen.dart';
+import 'messaging_center_providers.dart';
 import 'messaging_channel_sheet.dart';
+import 'messaging_glass_icon_button.dart';
+import 'messaging_theme_sheet.dart';
 
-/// Encabezado principal del Centro de Mensajería con título y botón de conexión.
+/// QUÉ HACE: Encabezado del Centro de Mensajería WhatsApp con diseño iOS Glassed.
+/// CÓMO FUNCIONA: Usa FittedBox y Text.rich para eliminar desbordes horizontales (overflow).
+/// POR QUÉ: Evita errores de "Right Overflowed" y permite alternar tema visual directamente.
 class MessagingCenterHeader extends ConsumerWidget {
   final VoidCallback? onConnectApp;
+  final VoidCallback? onOpenLibrary;
 
-  const MessagingCenterHeader({super.key, this.onConnectApp});
+  const MessagingCenterHeader({
+    super.key,
+    this.onConnectApp,
+    this.onOpenLibrary,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = NanoThemeExtension.of(context).colors;
+    final unreadCount = ref.watch(pendingRepliesCountProvider);
     final canPop = Navigator.of(context).canPop();
-    final compact = MediaQuery.sizeOf(context).width < 390;
+    final unreadText = unreadCount > 0 ? '$unreadCount sin leer' : 'Al día';
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        if (canPop) ...[
-          Semantics(
-            label: 'Volver',
-            button: true,
-            child: IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-              onPressed: () {
-                Navigator.of(context).maybePop();
-              },
-            ),
-          ),
-          const SizedBox(width: 4),
-        ],
-        // Icono principal estilizado con resplandor verde original (#00FF88)
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: const Color(0xFF00FF88).withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFF00FF88).withValues(alpha: 0.35),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00FF88).withValues(alpha: 0.25),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+    final currentThemeMode =
+        ref.watch(settingsProvider.select((s) => s.themeMode));
+    final (themeIcon, themeLabel, themeColor) = switch (currentThemeMode) {
+      'Claro' => (Icons.wb_sunny_rounded, 'Modo Claro', const Color(0xFFF59E0B)),
+      'Grisáceo' || 'Opaco' => (Icons.layers_rounded, 'Modo Grisáceo', const Color(0xFF38BDF8)),
+      'Oscuro' => (Icons.dark_mode_rounded, 'Modo Oscuro', const Color(0xFF818CF8)),
+      _ => (Icons.brightness_auto_rounded, 'Tema Sistema', const Color(0xFF10B981)),
+    };
+
+    return Hero(
+      tag: 'nano_messaging_hero',
+      child: Material(
+        type: MaterialType.transparency,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (canPop) ...[
+              Semantics(
+                label: 'Volver',
+                button: true,
+                child: IosGlassIconButton(
+                  icon: Icons.arrow_back_ios_new_rounded,
+                  size: 34,
+                  iconSize: 16,
+                  onTap: () => Navigator.of(context).maybePop(),
+                ),
               ),
+              const SizedBox(width: 6),
             ],
-          ),
-          child: const Center(
-            child: Icon(Icons.forum_rounded, color: Color(0xFF00FF88), size: 22),
-          ),
-        ),
-        const SizedBox(width: NanoSpacing.sm + 4),
-        // Título y subtítulo descriptivo
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Centro de Mensajería',
-                style: NanoType.title(
-                  colors.onSurface,
-                ).copyWith(fontWeight: FontWeight.w800, fontSize: 18, letterSpacing: -0.3),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                'Gestión multicanal activa y privada',
-                style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 11.5),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: NanoSpacing.xs),
-        // Abre controles reales; en ancho compacto conserva una zona táctil amplia.
-        InkWell(
-          onTap: onConnectApp ?? () => showMessagingChannelSheet(context, ref),
-          customBorder: const CircleBorder(),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            padding: EdgeInsets.symmetric(horizontal: compact ? 9 : 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFF00FF88).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFF00FF88).withValues(alpha: 0.30),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.add_rounded, size: 14, color: Color(0xFF00FF88)),
-                if (!compact) ...[
-                  const SizedBox(width: 4),
-                  const Text(
-                    'Canales',
-                    style: TextStyle(
-                      color: Color(0xFF00FF88),
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'WhatsApp',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        fontSize: 25,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.6,
+                        height: 1.1,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 1.5),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'Personal y Negocio',
+                          style: TextStyle(
+                            color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        TextSpan(
+                          text: ' · ',
+                          style: TextStyle(
+                            color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        WidgetSpan(
+                          alignment: PlaceholderAlignment.middle,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 3.5),
+                            child: Container(
+                              width: 5.5,
+                              height: 5.5,
+                              decoration: BoxDecoration(color: colors.primary, shape: BoxShape.circle),
+                            ),
+                          ),
+                        ),
+                        TextSpan(
+                          text: unreadText,
+                          style: TextStyle(
+                            color: isDark ? colors.primary : colors.onSurfaceVariant,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
-              ],
+              ),
             ),
-          ),
+            const SizedBox(width: 4),
+            IosGlassIconButton(
+              icon: themeIcon,
+              iconColor: themeColor,
+              tooltip: 'Tema ($themeLabel)',
+              onTap: () => showMessagingThemeSheet(context, ref),
+              onLongPress: () {
+                HapticFeedback.heavyImpact();
+                final next = switch (currentThemeMode) {
+                  'Oscuro' => 'Grisáceo',
+                  'Grisáceo' || 'Opaco' => 'Claro',
+                  'Claro' => 'Sistema',
+                  _ => 'Oscuro',
+                };
+                ref.read(settingsProvider.notifier).setThemeMode(next);
+              },
+            ),
+            const SizedBox(width: 4),
+            IosGlassIconButton(
+              icon: Icons.cloud_done_rounded,
+              tooltip: 'API Oficial WhatsApp (Meta Cloud)',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const MetaInboxScreen()),
+              ),
+            ),
+            const SizedBox(width: 4),
+            IosGlassIconButton(
+              icon: Icons.public_rounded,
+              iconSize: 16,
+              tooltip: 'WhatsApp Web Mobile',
+              onTap: () => WhatsAppWebScreen.navigateTo(context),
+            ),
+            const SizedBox(width: 4),
+            if (onOpenLibrary != null) ...[
+              IosGlassIconButton(
+                icon: Icons.folder_open_rounded,
+                tooltip: 'Biblioteca PDF',
+                onTap: onOpenLibrary!,
+              ),
+              const SizedBox(width: 4),
+            ],
+            IosGlassIconButton(
+              icon: Icons.tune_rounded,
+              tooltip: 'Canales y permisos',
+              onTap: onConnectApp ?? () => showMessagingChannelSheet(context, ref),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

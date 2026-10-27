@@ -81,7 +81,8 @@ final class ToneProfile {
     final extension = switch (verbosity) {
       ToneVerbosity.breve => 'respuestas breves',
       ToneVerbosity.media => 'extensión media: ni cortas ni largas',
-      ToneVerbosity.extensa => 'respuestas más desarrolladas si el tema lo pide',
+      ToneVerbosity.extensa =>
+        'respuestas más desarrolladas si el tema lo pide',
     };
     final emojiLine = emojis
         ? '- Puedes usar emojis con moderación.'
@@ -106,9 +107,10 @@ preferencias son solo guía general.
 
 /// Persistencia (sección `tone` del AutomationStoreDb). Mismo patrón DIP.
 class ToneProfileStore {
-  const ToneProfileStore();
+  const ToneProfileStore({this.section = 'tone'});
 
-  static const section = 'tone';
+  /// Cada agente usa una sección propia para no mezclar sus preferencias.
+  final String section;
 
   Future<ToneProfile> load() async {
     try {

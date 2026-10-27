@@ -15,8 +15,8 @@ enum WhatsAppAction { findContact, openChat, sendMessage, shareFile }
 @immutable
 class WhatsAppIntent {
   final WhatsAppAction action;
-  final String contact;   // Nombre o número del destinatario
-  final String? message;  // Texto del mensaje (si aplica)
+  final String contact; // Nombre o número del destinatario
+  final String? message; // Texto del mensaje (si aplica)
   final String? filePath; // Ruta del archivo a compartir (si aplica)
 
   const WhatsAppIntent({
@@ -45,7 +45,6 @@ abstract final class WhatsAppIntentParser {
     caseSensitive: false,
   );
 
-
   static final _fileKeywords = RegExp(
     r'\b(?:archivo|pdf|documento|foto|imagen|video|video\s+de|audio)\b|\.(?:pdf|png|jpe?g|mp4|docx?|xlsx?)\b',
     caseSensitive: false,
@@ -58,13 +57,15 @@ abstract final class WhatsAppIntentParser {
     var g = goal.trim();
 
     // Normalizar prefijos contextuales como "desde llamadas (en whatsapp)..."
-    g = g.replaceFirst(
-      RegExp(
-        r'^(?:desde|en)\s+(?:las\s+)?llamadas(?:\s+(?:en|de)\s+whatsapp)?\s*',
-        caseSensitive: false,
-      ),
-      '',
-    ).trim();
+    g = g
+        .replaceFirst(
+          RegExp(
+            r'^(?:desde|en)\s+(?:las\s+)?llamadas(?:\s+(?:en|de)\s+whatsapp)?\s*',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .trim();
 
     // Intención combinada de buscar contacto y enviar mensaje/archivo (2 paréntesis: contacto y contenido)
     final hasSendIntent = RegExp(
@@ -95,7 +96,10 @@ abstract final class WhatsAppIntentParser {
     if (_searchVerbs.hasMatch(g)) {
       final contact = _extractAfterVerb(_searchVerbs, g);
       if (contact.isEmpty) return null;
-      return WhatsAppIntent(action: WhatsAppAction.findContact, contact: contact);
+      return WhatsAppIntent(
+        action: WhatsAppAction.findContact,
+        contact: contact,
+      );
     }
 
     // 2. Abrir chat: 'abre el chat de (Poke Suela)' / 'abrir chat de Carlos'
@@ -120,7 +124,10 @@ abstract final class WhatsAppIntentParser {
     final m = _paren.firstMatch(rest);
     if (m != null) return m.group(1)!.trim();
     return rest
-        .replaceAll(RegExp(r'\s+(?:en|de|por|para)\s+whatsapp.*$', caseSensitive: false), '')
+        .replaceAll(
+          RegExp(r'\s+(?:en|de|por|para)\s+whatsapp.*$', caseSensitive: false),
+          '',
+        )
         .replaceAll(RegExp(r'[.!?]+$'), '')
         .trim();
   }
@@ -149,7 +156,10 @@ abstract final class WhatsAppIntentParser {
         content = rest.substring(pEnd + 1).trim();
       } else {
         // Contacto antes de paréntesis -> envíale a Contacto (Mensaje)
-        contact = rest.substring(0, pStart).replaceFirst(RegExp(r'^a\s+', caseSensitive: false), '').trim();
+        contact = rest
+            .substring(0, pStart)
+            .replaceFirst(RegExp(r'^a\s+', caseSensitive: false), '')
+            .trim();
         content = insideParen;
       }
     }
@@ -165,7 +175,9 @@ abstract final class WhatsAppIntentParser {
         content = sepMatch.group(2)!.trim();
       } else {
         // Fallback: primera palabra tras 'a' como contacto, el resto como mensaje
-        final words = rest.replaceFirst(RegExp(r'^a\s+', caseSensitive: false), '').split(RegExp(r'\s+'));
+        final words = rest
+            .replaceFirst(RegExp(r'^a\s+', caseSensitive: false), '')
+            .split(RegExp(r'\s+'));
         if (words.length >= 2) {
           contact = words.first.trim();
           content = words.sublist(1).join(' ').trim();
@@ -176,16 +188,32 @@ abstract final class WhatsAppIntentParser {
     if (contact.isEmpty) return null;
 
     // Limpia colas de "en whatsapp"
-    contact = contact.replaceAll(RegExp(r'\s+(?:en|por)\s+whatsapp.*$', caseSensitive: false), '').trim();
-    content = content.replaceAll(RegExp(r'\s+(?:en|por)\s+whatsapp.*$', caseSensitive: false), '').trim();
+    contact = contact
+        .replaceAll(
+          RegExp(r'\s+(?:en|por)\s+whatsapp.*$', caseSensitive: false),
+          '',
+        )
+        .trim();
+    content = content
+        .replaceAll(
+          RegExp(r'\s+(?:en|por)\s+whatsapp.*$', caseSensitive: false),
+          '',
+        )
+        .trim();
 
     // Determina si es compartir archivo o texto directo
-    final isShare = _fileKeywords.hasMatch(text) || _fileKeywords.hasMatch(content);
+    final isShare =
+        _fileKeywords.hasMatch(text) || _fileKeywords.hasMatch(content);
     if (isShare) {
-      final cleanPath = content.replaceFirst(
-        RegExp(r'^(?:el\s+)?(?:archivo|documento|foto|imagen|video|pdf|audio)\s+(?:de\s+)?', caseSensitive: false),
-        '',
-      ).trim();
+      final cleanPath = content
+          .replaceFirst(
+            RegExp(
+              r'^(?:el\s+)?(?:archivo|documento|foto|imagen|video|pdf|audio)\s+(?:de\s+)?',
+              caseSensitive: false,
+            ),
+            '',
+          )
+          .trim();
       return WhatsAppIntent(
         action: WhatsAppAction.shareFile,
         contact: contact,
@@ -194,11 +222,12 @@ abstract final class WhatsAppIntentParser {
       );
     }
 
-
+    // Sin texto explícito no existe autorización para inventar un saludo.
+    if (content.isEmpty) return null;
     return WhatsAppIntent(
       action: WhatsAppAction.sendMessage,
       contact: contact,
-      message: content.isNotEmpty ? content : 'Hola desde NanoAI',
+      message: content,
     );
   }
 }

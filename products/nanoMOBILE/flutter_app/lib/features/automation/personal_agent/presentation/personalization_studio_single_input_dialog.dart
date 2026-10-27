@@ -1,4 +1,4 @@
-﻿part of 'personalization_studio_screen.dart';
+part of 'personalization_studio_screen.dart';
 
 /// PERSONALIZATION-STUDIO-SINGLE-INPUT-DIALOG — Diálogo con ciclo de vida seguro.
 ///
@@ -97,7 +97,9 @@ class _SingleInputDialogState extends State<_SingleInputDialog> {
           style: FilledButton.styleFrom(
             backgroundColor: const Color(0xFF00E676),
             foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
           onPressed: () {
             final val = _controller.text.trim();

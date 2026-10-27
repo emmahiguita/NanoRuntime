@@ -1,0 +1,34 @@
+{
+  "date_local": "2026-10-25",
+  "variant": "fullSideloadDebug",
+  "device": "VGL7MVFMDYQG8T55",
+  "installation": "adb install -r: Success",
+  "apk": "build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+  "sha256": "7c899cf2523a14e9d655d4d2f055af6b315bc9176ea0852b9ab5ba536f8d9fab",
+  "appearance_after_install": {
+    "themeMode": "Claro",
+    "glassEnabled": true,
+    "glassOpacity": 0.8,
+    "glassClarity": 0.45,
+    "glassBlur": 18.0
+  },
+  "source": [
+    {
+      "file": "lib/core/theme/nano_light_colors.part.dart",
+      "lines": 199,
+      "sha256": "70f60b0f510c9fdeb3f364792ee2e7c5bab69a0b24559d800ea474d1dcc563c7"
+    },
+    {
+      "file": "lib/features/settings/presentation/widgets/appearance_settings_card.dart",
+      "lines": 163,
+      "sha256": "dc201c2ee191bd8537530ac52463365eb9f49fd9fabd99132ef4120ea874bbc2"
+    },
+    {
+      "file": "lib/features/settings/presentation/widgets/appearance_theme_tile.part.dart",
+      "lines": 103,
+      "sha256": "c4668641a5441b1bf71186669748d8cb16f8f362d7b2d1bf2514579fedbf4ca0"
+    }
+  ],
+  "automated_tests_run": false,
+  "manual_light_theme_ui_review": false
+}

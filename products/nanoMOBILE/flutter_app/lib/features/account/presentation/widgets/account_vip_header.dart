@@ -36,7 +36,12 @@ class AccountVipHeader extends StatelessWidget {
 
     return NanoOpticalSurface(
       borderRadius: NanoRadius.large,
-      padding: const EdgeInsets.fromLTRB(NanoSpacing.md, NanoSpacing.md, NanoSpacing.xl + 4, NanoSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        NanoSpacing.md,
+        NanoSpacing.md,
+        NanoSpacing.xl + 4,
+        NanoSpacing.md,
+      ),
       child: Row(
         children: [
           Stack(
@@ -46,7 +51,9 @@ class AccountVipHeader extends StatelessWidget {
                 backgroundColor: colors.primary.withValues(alpha: 0.16),
                 child: Text(
                   effectiveInitials,
-                  style: NanoType.headline(colors.primary).copyWith(fontWeight: FontWeight.w700),
+                  style: NanoType.headline(
+                    colors.primary,
+                  ).copyWith(fontWeight: FontWeight.w700),
                 ),
               ),
               Positioned(
@@ -74,13 +81,18 @@ class AccountVipHeader extends StatelessWidget {
                     Flexible(
                       child: Text(
                         effectiveName,
-                        style: NanoType.title(colors.onSurface).copyWith(fontWeight: FontWeight.w700),
+                        style: NanoType.title(
+                          colors.onSurface,
+                        ).copyWith(fontWeight: FontWeight.w700),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: colors.primary.withValues(alpha: 0.14),
                         borderRadius: BorderRadius.circular(999),
@@ -88,7 +100,7 @@ class AccountVipHeader extends StatelessWidget {
                       child: Text(
                         plan.toUpperCase(),
                         style: NanoType.caption(colors.primary).copyWith(
-                          fontSize: 10,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
                         ),
@@ -107,11 +119,17 @@ class AccountVipHeader extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.tag_rounded, size: 12, color: colors.onSurfaceVariant),
+                      Icon(
+                        Icons.tag_rounded,
+                        size: 12,
+                        color: colors.onSurfaceVariant,
+                      ),
                       const SizedBox(width: 2),
                       Text(
                         uid.length > 16 ? '${uid.substring(0, 16)}...' : uid,
-                        style: NanoType.caption(colors.onSurfaceVariant).copyWith(fontSize: 10),
+                        style: NanoType.caption(
+                          colors.onSurfaceVariant,
+                        ).copyWith(fontSize: 10),
                       ),
                       const SizedBox(width: 4),
                       Icon(Icons.copy_rounded, size: 10, color: colors.primary),

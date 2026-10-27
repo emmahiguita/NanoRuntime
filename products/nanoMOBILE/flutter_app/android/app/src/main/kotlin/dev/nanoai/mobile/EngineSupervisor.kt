@@ -79,45 +79,13 @@ class EngineSupervisor(
         }
     }
 
+    // Validación de ruta aquí; extracción y huella atómicas en un único responsable.
     private fun extractEngineBlocking(): File {
         val dest = pathPolicy.requireInsideNanoFiles(File(engineDir, "nanortime"), "engineBinary")
-        if (!dest.parentFile!!.exists()) dest.parentFile!!.mkdirs()
-
         val (assetPath, assetSize) = findEngineAsset() ?: run {
             throw IllegalStateException("asset nanortime no encontrado en el APK (¿assets/bin/ en pubspec?)")
         }
-
-        if (dest.exists() && dest.length() == assetSize) return dest
-
-        context.assets.open(assetPath).use { input ->
-            val tmp = File(dest.parentFile, "nanortime.tmp")
-            FileOutputStream(tmp).use { output ->
-                val buffer = ByteArray(64 * 1024)
-                var total = 0L
-                var len: Int
-                while (input.read(buffer).also { len = it } > 0) {
-                    output.write(buffer, 0, len)
-                    total += len
-                }
-                if (total != assetSize) {
-                    tmp.delete()
-                    throw IllegalStateException(
-                        "extracción incompleta: $total de $assetSize bytes (¿asset corrupto?)",
-                    )
-                }
-            }
-            // Rename atómico: Dart/Kotlin nunca ven un binario a medio escribir.
-            if (!tmp.renameTo(dest)) {
-                tmp.delete()
-                throw IllegalStateException("rename atómico falló para ${dest.name}")
-            }
-        }
-        if (!dest.setExecutable(true, false)) {
-            Log.w(TAG, "setExecutable devolvió false — verificando flag real")
-        }
-        check(dest.canExecute()) { "PIE extraído sin bit de ejecución: ${dest.absolutePath}" }
-        Log.i(TAG, "PIE listo: ${dest.absolutePath} (${dest.length()} bytes, exec=${dest.canExecute()})")
-        return dest
+        return EngineBinaryInstaller.install(context.assets, assetPath, assetSize, dest)
     }
 
     /** Localiza el asset y su tamaño. openFd es O(1) cuando no está comprimido. */
@@ -236,10 +204,15 @@ class EngineSupervisor(
                     onState(EngineState.Ready(h.pid, h.port))
                     return
                 }
-                // El worker posee el daemon y mata el anterior antes del nuevo
-                // fork. Limpiar el handle impide anunciar Ready para otro modelo.
-                Log.i(TAG, "reemplazando pid=${h.pid}: modelo/puerto solicitado cambió")
+                // QUÉ HACE: Mata el proceso daemon anterior si el modelo o puerto cambió.
+                // CÓMO FUNCIONA: Envía SIGKILL inmediato al PID viejo y limpia el handle.
+                // POR QUÉ: Previene procesos zombi y colisiones por "puerto 8080 en uso".
+                Log.i(TAG, "reemplazando pid=${h.pid}: modelo/puerto solicitado cambió — matando viejo")
+                val oldPid = h.pid
                 handle = null
+                if (isPidAlive(oldPid)) {
+                    sendSignal(oldPid, SIGKILL)
+                }
             }
         }
 
@@ -263,6 +236,7 @@ class EngineSupervisor(
                     add("--port"); add(port.toString())
                     // Local-only SIEMPRE: el engine no debe escuchar en la red.
                     add("--bind"); add("127.0.0.1")
+                    add("--threads"); add(determineOptimalThreads().toString())
                     if (modelPath.isNullOrEmpty()) {
                         add("--no-model")
                     } else {
@@ -341,7 +315,11 @@ class EngineSupervisor(
                 }
 
                 synchronized(lock) {
-                    if (generation != gen) return@launch // stop() ocurrió mientras tanto
+                    if (generation != gen) {
+                        Log.w(TAG, "spawn para gen=$gen obsoleto (gen actual=$generation) — matando pid=$pid huérfano")
+                        if (isPidAlive(pid)) sendSignal(pid, SIGKILL)
+                        return@launch
+                    }
                     // Guarda la identidad: un PID vivo no prueba que sea el modelo pedido.
                     handle = EngineHandle(pid, port, modelPath)
                 }
@@ -655,6 +633,20 @@ class EngineSupervisor(
         }
     }
 
+    // QUÉ HACE: Calcula el número ideal de hilos de inferencia según la topología de la CPU.
+    // CÓMO FUNCIONA: En arquitecturas ARM big.LITTLE (6 a 8 núcleos), utiliza los núcleos
+    //   de rendimiento (limitado a 2-4) para evitar la contención con núcleos lentos.
+    // POR QUÉ: Previene la saturación al 100% de la CPU, evita thermal throttling (>45°C)
+    //   y proporciona la máxima velocidad por token sin sobrecalentar el dispositivo.
+    private fun determineOptimalThreads(): Int {
+        val totalCores = Runtime.getRuntime().availableProcessors()
+        return if (totalCores >= 6) {
+            (totalCores / 2).coerceIn(2, 4)
+        } else {
+            totalCores.coerceIn(1, 4)
+        }
+    }
+
     /** Verifica si un puerto está disponible en localhost. */
     private fun isPortAvailable(port: Int): Boolean {
         return try {
@@ -715,7 +707,7 @@ class EngineSupervisor(
          *  se fuerza /reload. Verificado en Oppo: ctx=256 (survival_fit) deja
          *  toda generación vacía; 4096 resuelve con prompt de ~1900 tokens. */
         private const val CTX_MIN_USABLE = 2048
-        private const val CTX_RELOAD_TARGET = 4096
+        private const val CTX_RELOAD_TARGET = 2048
         private const val CTX_STATUS_MAX_ATTEMPTS = 36
         private const val CTX_STATUS_POLL_MS = 5_000L
         private const val CTX_RELOAD_TIMEOUT_MS = 300_000

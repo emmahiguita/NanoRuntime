@@ -68,7 +68,9 @@ class _WhatsAppOnboardingScreenState
         });
       }
     } catch (e) {
-      debugPrint('[WhatsAppOnboardingScreen] Error refreshing background status: $e');
+      debugPrint(
+        '[WhatsAppOnboardingScreen] Error refreshing background status: $e',
+      );
     }
   }
 
@@ -82,7 +84,9 @@ class _WhatsAppOnboardingScreenState
 
     final status = _automationStatus;
     final notifAvailable =
-        (graph?.availabilityOf(SystemCapability.readNotifications).isAvailable ??
+        (graph
+                ?.availabilityOf(SystemCapability.readNotifications)
+                .isAvailable ??
             false) ||
         (status?['listenerGranted'] == true);
 
@@ -95,8 +99,7 @@ class _WhatsAppOnboardingScreenState
         modelsState.detected.isNotEmpty;
     final waActive = registry.isWhatsAppRuleActive(MessagingPackage.whatsapp);
 
-    final allReady =
-        notifAvailable && isBatteryExempt && bgEnabled && hasModel;
+    final allReady = notifAvailable && isBatteryExempt && bgEnabled && hasModel;
 
     return Scaffold(
       body: Stack(
@@ -112,7 +115,8 @@ class _WhatsAppOnboardingScreenState
                 body: LayoutBuilder(
                   builder: (context, constraints) {
                     final isDeviceLandscape =
-                        MediaQuery.orientationOf(context) == Orientation.landscape;
+                        MediaQuery.orientationOf(context) ==
+                        Orientation.landscape;
                     final isLandscape =
                         isDeviceLandscape && constraints.maxWidth >= 560;
 
@@ -151,9 +155,7 @@ class _WhatsAppOnboardingScreenState
                                     'Automatización WhatsApp',
                                     style: NanoType.title(
                                       colors.onSurface,
-                                    ).copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    ).copyWith(fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
@@ -220,13 +222,13 @@ class _WhatsAppOnboardingScreenState
                           backgroundColor: waActive
                               ? const Color(0xFF25D366)
                               : (allReady
-                                  ? visual.accent
-                                  : colors.surfaceVariant),
+                                    ? visual.accent
+                                    : colors.surfaceVariant),
                           foregroundColor: waActive
                               ? Colors.white
                               : (allReady
-                                  ? Colors.white
-                                  : colors.onSurfaceVariant),
+                                    ? Colors.white
+                                    : colors.onSurfaceVariant),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
@@ -297,8 +299,9 @@ class _WhatsAppOnboardingScreenState
                         isComplete: bgEnabled,
                         actionLabel: bgEnabled ? 'Activo' : 'Activar',
                         onAction: () async {
-                          await NanoRuntimeApi.instance
-                              .setBackgroundAutomation(!bgEnabled);
+                          await NanoRuntimeApi.instance.setBackgroundAutomation(
+                            !bgEnabled,
+                          );
                           await _refreshStatus();
                         },
                       ),
@@ -339,7 +342,8 @@ class _WhatsAppOnboardingScreenState
                               Expanded(
                                 flex: 4,
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     headerCard,
                                     const SizedBox(height: NanoSpacing.md),
@@ -353,7 +357,8 @@ class _WhatsAppOnboardingScreenState
                               Expanded(
                                 flex: 5,
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     Text(
                                       'CHECKLIST DE ACTIVACIÓN',
@@ -446,24 +451,21 @@ class _ChecklistTile extends StatelessWidget {
               height: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color:
-                    isComplete
-                        ? const Color(0xFF25D366).withValues(alpha: 0.18)
-                        : colors.surfaceVariant.withValues(alpha: 0.4),
+                color: isComplete
+                    ? const Color(0xFF25D366).withValues(alpha: 0.18)
+                    : colors.surfaceVariant.withValues(alpha: 0.4),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color:
-                      isComplete
-                          ? const Color(0xFF25D366).withValues(alpha: 0.4)
-                          : colors.outline.withValues(alpha: 0.2),
+                  color: isComplete
+                      ? const Color(0xFF25D366).withValues(alpha: 0.4)
+                      : colors.outline.withValues(alpha: 0.2),
                 ),
               ),
               child: Icon(
                 isComplete ? Icons.check_rounded : icon,
-                color:
-                    isComplete
-                        ? const Color(0xFF25D366)
-                        : colors.onSurfaceVariant,
+                color: isComplete
+                    ? const Color(0xFF25D366)
+                    : colors.onSurfaceVariant,
                 size: 20,
               ),
             ),
@@ -474,9 +476,9 @@ class _ChecklistTile extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: NanoType.body(colors.onSurface).copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: NanoType.body(
+                      colors.onSurface,
+                    ).copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 2),
                   Text(

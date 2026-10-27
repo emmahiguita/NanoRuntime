@@ -14,9 +14,6 @@ import '../../services/rootfs_manager.dart';
 class TermuxDistribution implements LinuxDistribution {
   final RootfsManager _rootfsManager;
 
-  // Caché de estado para evitar llamadas repetidas al filesystem
-  bool? _cachedInstalled;
-
   TermuxDistribution({RootfsManager? rootfsManager})
     : _rootfsManager = rootfsManager ?? RootfsManager.instance;
 
@@ -36,11 +33,15 @@ class TermuxDistribution implements LinuxDistribution {
   String get defaultShell => '/bin/bash';
 
   @override
-  List<String> get initialEnvironment => [
-    'HOME=/data/data/com.termux/files/home',
-    'TERM=xterm-256color',
-    'COLORTERM=truecolor',
-  ];
+  List<String> get initialEnvironment {
+    // Usa la carpeta privada de Nano; com.termux pertenece a otra aplicación.
+    final usr = _rootfsManager.usrDir;
+    return [
+      if (usr != null) 'HOME=${Directory(usr).parent.path}/home',
+      'TERM=xterm-256color',
+      'COLORTERM=truecolor',
+    ];
+  }
 
   @override
   Uri get rootfsUri => Uri.parse(NanoRootfsManifest.bootstrapUrl);
@@ -51,12 +52,8 @@ class TermuxDistribution implements LinuxDistribution {
 
   @override
   Future<bool> isInstalled() async {
-    // Usar caché si está disponible
-    if (_cachedInstalled != null) return _cachedInstalled!;
-
-    // Delegar a RootfsManager existente
-    _cachedInstalled = await _rootfsManager.checkInstalled();
-    return _cachedInstalled!;
+    // Otra ruta puede instalar o reparar Linux; comprueba siempre su estado real.
+    return _rootfsManager.checkInstalled();
   }
 
   @override
@@ -65,16 +62,23 @@ class TermuxDistribution implements LinuxDistribution {
   }) async {
     // Crear un RootfsManager temporal con callback de progreso
     final manager = RootfsManager(onProgress: onProgress);
-    await manager.install();
-    _cachedInstalled = true; // Actualizar caché
+    final installed = await manager.install();
+    // Descargar o extraer no basta: el motor compartido debe comprobar el shell.
+    if (!installed || !await _rootfsManager.checkInstalled()) {
+      throw StateError(
+        'Linux no quedó instalado. Revisa la descarga y la extracción.',
+      );
+    }
   }
 
   @override
   Future<void> repair() async {
     // Termux no tiene repair específico — reinstalar si está corrupto
     final manager = RootfsManager(onProgress: (stage, pct) {});
-    await manager.install();
-    _cachedInstalled = true;
+    final installed = await manager.install();
+    if (!installed || !await _rootfsManager.checkInstalled()) {
+      throw StateError('No se pudo verificar la reparación de Linux.');
+    }
   }
 
   @override
@@ -84,7 +88,6 @@ class TermuxDistribution implements LinuxDistribution {
     if (usrDir != null && Directory(usrDir).existsSync()) {
       Directory(usrDir).deleteSync(recursive: true);
     }
-    _cachedInstalled = false;
   }
 
   @override

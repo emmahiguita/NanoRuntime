@@ -1,143 +1,179 @@
-/// NANO-PERSONAL-CONTACT-DIALOG — Diálogo para agregar o editar contacto.
-///
-/// QUÉ HACE:
-/// Despliega modal para configurar relación, estilo y auto-reply de un contacto.
-///
-/// CÓMO FUNCIONA:
-/// Valida campos y genera un mapa con name, relation, style, autoReply.
-/// Usa useRootNavigator: true.
-///
-/// POR QUÉ:
-/// Modulariza la lógica del diálogo manteniendo los archivos < 200 líneas.
-library;
-
 import 'package:flutter/material.dart';
 import '../../personal_agent/domain/persona_profile.dart';
-import '../automation_visual_theme.dart';
+import '../../personal_agent/domain/personal_contact_policy.dart';
 
-class ContactConfigResult {
-  final String name;
-  final String relationship;
-  final String styleRegister;
+class PersonalContactEdit {
+  const PersonalContactEdit(
+    this.name,
+    this.conversations,
+    this.groups,
+    this.style,
+    this.autoReply,
+  );
+  final String name, style;
+  final List<String> conversations, groups;
   final bool autoReply;
-
-  const ContactConfigResult({
-    required this.name,
-    required this.relationship,
-    required this.styleRegister,
-    required this.autoReply,
-  });
 }
 
-class NanoPersonalContactDialog {
-  static Future<ContactConfigResult?> show(
-    BuildContext context, [
-    PersonaProfile? existing,
-  ]) async {
-    final nameController =
-        TextEditingController(text: existing?.displayName ?? '');
-    String relation = existing?.facts['relationship'] ?? 'Amigos';
-    String style = existing?.facts['styleRegister'] ?? 'Cercano';
-    bool autoReply = existing?.facts['autoReply'] != 'false';
+Future<PersonalContactEdit?> showPersonalContactEditor(
+  BuildContext context, {
+  RelationshipProfile? existing,
+  required Map<String, String> conversations,
+}) => showDialog<PersonalContactEdit>(
+  context: context,
+  builder: (_) =>
+      _ContactEditor(existing: existing, conversations: conversations),
+);
 
-    final result = await showDialog<bool>(
-      context: context,
-      useRootNavigator: true,
-      builder: (ctx) {
-        final visual = AutomationVisual.of(ctx);
-        return StatefulBuilder(
-          builder: (dialogCtx, setDialogState) {
-            return AlertDialog(
-              backgroundColor: visual.surface,
-              title: Text(
-                existing == null ? 'Nuevo contacto' : 'Editar contacto',
-                style: TextStyle(color: visual.text, fontSize: 16),
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: nameController,
-                      style: TextStyle(color: visual.text, fontSize: 13),
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre del contacto',
-                        hintText: 'Ej. Mamá, Juan Pérez',
+class _ContactEditor extends StatefulWidget {
+  const _ContactEditor({this.existing, required this.conversations});
+  final RelationshipProfile? existing;
+  final Map<String, String> conversations;
+  @override
+  State<_ContactEditor> createState() => _ContactEditorState();
+}
+
+class _ContactEditorState extends State<_ContactEditor> {
+  late final _name = TextEditingController(
+    text: widget.existing?.displayName ?? '',
+  );
+  late final Set<String> _ids = widget.existing == null
+      ? <String>{}
+      : PersonalContactPolicy.conversations(widget.existing!).toSet();
+  late final Set<String> _groups = {
+    ...PersonalContactPolicy.list(widget.existing?.facts['groups']),
+  };
+  late String _style = PersonalContactPolicy.normalizeStyle(
+    widget.existing?.facts['styleRegister'],
+  );
+  late bool _auto = widget.existing?.facts['autoReply'] == 'true';
+  String? _error;
+  bool get _batch => widget.existing == null;
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final choices = {
+      ...widget.conversations,
+      for (final id in _ids)
+        if (!widget.conversations.containsKey(id)) id: 'Conversación vinculada',
+    };
+    return AlertDialog(
+      title: Text(_batch ? 'Agregar contactos a grupos' : 'Editar contacto'),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!_batch)
+                TextField(
+                  controller: _name,
+                  maxLength: 100,
+                  decoration: const InputDecoration(
+                    labelText: 'Nombre o apodo del contacto',
+                  ),
+                ),
+              const Text('Grupos de organización'),
+              Wrap(
+                spacing: 6,
+                children: PersonalContactPolicy.groups
+                    .map(
+                      (group) => FilterChip(
+                        label: Text(group),
+                        selected: _groups.contains(group),
+                        onSelected: (v) => setState(() {
+                          v ? _groups.add(group) : _groups.remove(group);
+                        }),
                       ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Relación:',
-                      style: TextStyle(color: visual.textMuted, fontSize: 12),
-                    ),
-                    // Dropdown blindado: asegura que 'relation' esté siempre presente en los items
-                    DropdownButton<String>(
-                      value: relation,
-                      isExpanded: true,
-                      dropdownColor: visual.surface,
-                      items: {'Familia', 'Amigos', 'Trabajo', 'Cliente', relation}
-                          .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) setDialogState(() => relation = v);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Estilo de respuesta:',
-                      style: TextStyle(color: visual.textMuted, fontSize: 12),
-                    ),
-                    // Dropdown blindado: asegura que 'style' esté siempre presente en los items
-                    DropdownButton<String>(
-                      value: style,
-                      isExpanded: true,
-                      dropdownColor: visual.surface,
-                      items: {'Cercano', 'Formal', 'Breve', style}
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                          .toList(),
-                      onChanged: (v) {
-                        if (v != null) setDialogState(() => style = v);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Responder automáticamente'),
-                      subtitle: const Text('Si está apagado, solo genera borrador'),
-                      value: autoReply,
-                      onChanged: (v) => setDialogState(() => autoReply = v),
-                    ),
-                  ],
-                ),
+                    )
+                    .toList(),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: const Text('Cancelar'),
+              DropdownButtonFormField<String>(
+                initialValue: _style,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Estilo'),
+                items: const [
+                  DropdownMenuItem(
+                    value: 'inherit',
+                    child: Text('Según los grupos'),
+                  ),
+                  DropdownMenuItem(value: 'formal', child: Text('Formal')),
+                  DropdownMenuItem(value: 'close', child: Text('Cercano')),
+                  DropdownMenuItem(value: 'casual', child: Text('Natural')),
+                  DropdownMenuItem(value: 'brief', child: Text('Breve')),
+                ],
+                onChanged: (v) => setState(() => _style = v ?? 'inherit'),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Permitir respuestas automáticas'),
+                subtitle: const Text(
+                  'También se respetan supervisión, pausas y horario nocturno.',
                 ),
-                FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: const Text('Guardar'),
+                value: _auto,
+                onChanged: (v) => setState(() => _auto = v),
+              ),
+              const Text(
+                'Conversaciones reales. No se unen personas por nombre.',
+              ),
+              if (choices.isEmpty)
+                const Text(
+                  'Aún no hay conversaciones observadas. Recibe un mensaje del contacto y actualiza la lista.',
                 ),
-              ],
+              for (final entry in choices.entries)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(entry.value),
+                  value: _ids.contains(entry.key),
+                  onChanged: (v) => setState(() {
+                    v == true ? _ids.add(entry.key) : _ids.remove(entry.key);
+                  }),
+                ),
+              if (_error != null)
+                Text(
+                  _error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if ((_batch && _ids.isEmpty) ||
+                (!_batch && _name.text.trim().isEmpty)) {
+              setState(
+                () => _error = _batch
+                    ? 'Selecciona al menos una conversación.'
+                    : 'Escribe el nombre.',
+              );
+              return;
+            }
+            Navigator.pop(
+              context,
+              PersonalContactEdit(
+                _name.text.trim(),
+                _ids.toList(),
+                _groups.toList(),
+                _style,
+                _auto,
+              ),
             );
           },
-        );
-      },
+          child: const Text('Guardar'),
+        ),
+      ],
     );
-
-    if (result == true) {
-      final name = nameController.text.trim();
-      if (name.isNotEmpty) {
-        return ContactConfigResult(
-          name: name,
-          relationship: relation,
-          styleRegister: style,
-          autoReply: autoReply,
-        );
-      }
-    }
-    return null;
   }
 }

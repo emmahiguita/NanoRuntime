@@ -1,0 +1,32 @@
+﻿[
+    {
+        "path":  "lib/features/automation/presentation/screens/mcp_skills_hub_screen.dart",
+        "lines":  879,
+        "sha256":  "4405fe38765e7e8136b02b8543397da2ffc02c5a3d80113f0793131e81ff2e12"
+    },
+    {
+        "path":  "lib/features/automation/engine/agent_dependencies.dart",
+        "lines":  903,
+        "sha256":  "7d501c0214748d7b53a31a785f8bac773b9ce4bab2c21a43b6f07279791be48e"
+    },
+    {
+        "path":  "lib/core/router/app_router.dart",
+        "lines":  261,
+        "sha256":  "fe68d5540b88f37a0d9846f4bef3496f2a01fd8b0be0193091ec0827280bf904"
+    },
+    {
+        "path":  "lib/core/services/pty_shell.dart",
+        "lines":  327,
+        "sha256":  "2ed2d31aac280d7abe3963f93b28407f084c3dfa8f800a086523d115b5bb3ee0"
+    },
+    {
+        "path":  "lib/features/terminal/presentation/screens/terminal_screen.dart",
+        "lines":  296,
+        "sha256":  "a545d2761b9d94a565d748e9f95d03440fceb0e05877033b066db3c61dbf761a"
+    },
+    {
+        "path":  "lib/features/chat/presentation/widgets/nano_active_model_glass_card.dart",
+        "lines":  186,
+        "sha256":  "9046e0fb0e7fbf90bcb5f6504c3312e8ea637b7dd154d5d32530beb3bcae192d"
+    }
+]

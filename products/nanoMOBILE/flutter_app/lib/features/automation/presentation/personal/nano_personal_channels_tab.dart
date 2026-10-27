@@ -7,10 +7,12 @@ import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/widgets/feather_core_icon.dart';
 import '../../application/automation_coordinator_provider.dart'
     show ruleRegistryProvider;
+import '../../domain/automation_policy.dart' show AgentAutomationMode;
 import '../../engine/messaging/messaging_package.dart';
 import '../../personal_agent/domain/conversation_autonomy_mode.dart';
 import '../automation_visual_theme.dart';
 import '../widgets/settings_tile_components.dart';
+import 'nano_personal_cloud_api_card.dart';
 
 class NanoPersonalChannelsTab extends ConsumerWidget {
   const NanoPersonalChannelsTab({super.key});
@@ -19,17 +21,20 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final visual = AutomationVisual.of(context);
     final ruleRegistry = ref.watch(ruleRegistryProvider);
-    final isWppActive =
-        ruleRegistry.isWhatsAppRuleActive(MessagingPackage.whatsapp);
+    final isWppActive = ruleRegistry.isWhatsAppRuleActive(
+      MessagingPackage.whatsapp,
+    );
 
     final settings = ref.watch(settingsProvider);
     final settingsNotifier = ref.read(settingsProvider.notifier);
-    final autonomyMode =
-        ConversationAutonomyModeName.fromName(settings.waAutonomyMode);
+    final autonomyMode = ConversationAutonomyModeName.fromName(
+      settings.waAutonomyMode,
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       children: [
+        const NanoPersonalCloudApiCard(),
         // 1. Modo de Supervisión
         const AutomationSectionLabel('Modo de Supervisión y Envío'),
         Container(
@@ -48,30 +53,68 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               SegmentedButton<ConversationAutonomyMode>(
+                showSelectedIcon: false,
+                style: ButtonStyle(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: WidgetStateProperty.all(
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  ),
+                ),
                 segments: const [
                   ButtonSegment(
                     value: ConversationAutonomyMode.suggestions,
-                    label: Text('Borrador', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      'Borrador',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     icon: Icon(Icons.edit_note_rounded, size: 16),
                   ),
                   ButtonSegment(
                     value: ConversationAutonomyMode.safeAuto,
-                    label: Text('Seguro', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      'Seguro',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     icon: Icon(Icons.shield_outlined, size: 16),
                   ),
                   ButtonSegment(
                     value: ConversationAutonomyMode.autonomous,
-                    label: Text('Autónomo', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      'Autónomo',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     icon: Icon(Icons.bolt_rounded, size: 16),
                   ),
                 ],
                 selected: {
                   autonomyMode == ConversationAutonomyMode.disabled
                       ? ConversationAutonomyMode.suggestions
-                      : autonomyMode
+                      : autonomyMode,
                 },
                 onSelectionChanged: (set) {
-                  settingsNotifier.setWaAutonomyMode(set.first.name);
+                  final mode = set.first;
+                  settingsNotifier.setWaAutonomyMode(mode.name);
+                  settingsNotifier.setAgentAutomationMode(
+                    mode == ConversationAutonomyMode.autonomous
+                        ? AgentAutomationMode.autonomous
+                        : AgentAutomationMode.assisted,
+                  );
                 },
               ),
               const SizedBox(height: 8),
@@ -79,7 +122,7 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
                 autonomyMode.description,
                 style: TextStyle(
                   color: visual.accent,
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -96,19 +139,19 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
               featherType: FeatherCoreType.personalAgent,
               title: 'WhatsApp Personal',
               subtitle: isWppActive
-                  ? 'Activo · Atiende chats personales'
+                  ? 'Regla habilitada · Requiere acceso a notificaciones y un motor listo'
                   : 'Inactivo · Toca para activar atención',
               trailing: Switch(
                 value: isWppActive,
                 onChanged: (v) {
                   if (v) {
-                    ref.read(ruleRegistryProvider).seedWhatsAppRule(
-                          MessagingPackage.whatsapp,
-                        );
+                    ref
+                        .read(ruleRegistryProvider)
+                        .seedWhatsAppRule(MessagingPackage.whatsapp);
                   } else {
-                    ref.read(ruleRegistryProvider).removeWhatsAppRule(
-                          MessagingPackage.whatsapp,
-                        );
+                    ref
+                        .read(ruleRegistryProvider)
+                        .removeWhatsAppRule(MessagingPackage.whatsapp);
                   }
                 },
               ),
@@ -117,14 +160,14 @@ class NanoPersonalChannelsTab extends ConsumerWidget {
             const SettingsRow(
               icon: Icons.send_rounded,
               title: 'Telegram',
-              subtitle: 'Listo para vincular bot o cuenta de Telegram',
-              trailing: ValueBadge(label: 'DISPONIBLE'),
+              subtitle: 'Sin conexión configurada desde esta pantalla',
+              trailing: ValueBadge(label: 'NO CONFIGURADO'),
             ),
             const SettingsRow(
               icon: Icons.mail_outline_rounded,
               title: 'Gmail / Correo',
-              subtitle: 'Lectura y redacción de respuestas a correos',
-              trailing: ValueBadge(label: 'DISPONIBLE'),
+              subtitle: 'Sin conexión configurada desde esta pantalla',
+              trailing: ValueBadge(label: 'NO CONFIGURADO'),
             ),
           ],
         ),

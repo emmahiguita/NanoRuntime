@@ -55,11 +55,23 @@ class _PersonalizationStudioDiagramState extends State<_PersonalizationStudioDia
                   const Expanded(
                     child: Text(
                       'DIAGRAMA DE FLUJO · ARQUITECTURA EMMA',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.3, color: Color(0xFF00E676)),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.3,
+                        color: Color(0xFF00E676),
+                      ),
                     ),
                   ),
-                  Text(_expanded ? 'Ocultar' : 'Ver flujo', style: const TextStyle(fontSize: 9.5, color: Colors.white60)),
-                  Icon(_expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded, size: 14, color: Colors.white60),
+                  Text(
+                    _expanded ? 'Ocultar' : 'Ver flujo',
+                    style: const TextStyle(fontSize: 9.5, color: Colors.white60),
+                  ),
+                  Icon(
+                    _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                    size: 14,
+                    color: Colors.white60,
+                  ),
                 ],
               ),
             ),
@@ -112,7 +124,10 @@ class _PersonalizationStudioDiagramState extends State<_PersonalizationStudioDia
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: const Color(0x66FFD54F), width: 0.6),
                             ),
-                            child: const Text('Probar 🎲', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFFFFD54F))),
+                            child: const Text(
+                              'Probar 🎲',
+                              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Color(0xFFFFD54F)),
+                            ),
                           ),
                         ),
                       ],
@@ -140,8 +155,17 @@ class _PersonalizationStudioDiagramState extends State<_PersonalizationStudioDia
           children: [
             Icon(i, size: 11, color: c),
             const SizedBox(height: 2),
-            Text(t, style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: c), maxLines: 1),
-            Text(d, style: const TextStyle(fontSize: 6.5, color: Colors.white54), maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(
+              t,
+              style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: c),
+              maxLines: 1,
+            ),
+            Text(
+              d,
+              style: const TextStyle(fontSize: 6.5, color: Colors.white54),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ),
       ),

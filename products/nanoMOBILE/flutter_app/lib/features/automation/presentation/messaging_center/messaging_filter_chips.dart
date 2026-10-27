@@ -1,121 +1,186 @@
+// messaging_filter_chips.dart
+//
+// QUÉ HACE:
+// Barra de pestañas de filtrado por categoría (Todos, No leídos, Grupos, Contactos, etc.)
+// con estética iOS Frosted Glass, micro-bordes metálicos y badges reactivos.
+//
+// CÓMO FUNCIONA:
+// - Despliega pestañas horizontales compactas con animación suave al cambiar de filtro.
+// - Conecta con selectedCategoryTabProvider para filtrar conversaciones en tiempo real.
+//
+// POR QUÉ:
+// Provee una segmentación rápida y táctil del hub con estilo Apple Liquid Glass (< 160 líneas).
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../application/whatsapp_contacts_provider.dart';
 import '../../domain/messaging_platform.dart';
 import 'messaging_center_providers.dart';
 
-/// Pestañas de categoría (Todos, No leídos, Personales, Negocios, Contactos, etc.).
 class MessagingFilterChips extends ConsumerWidget {
   const MessagingFilterChips({super.key});
+
+  static const _tabOrder = [
+    MessagingCategoryFilter.all,
+    MessagingCategoryFilter.unread,
+    MessagingCategoryFilter.groups,
+    MessagingCategoryFilter.contacts,
+    MessagingCategoryFilter.personal,
+    MessagingCategoryFilter.business,
+    MessagingCategoryFilter.archived,
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeTab = ref.watch(selectedCategoryTabProvider);
     final totalUnread = ref.watch(pendingRepliesCountProvider);
-    final contactsCount = ref.watch(allWhatsAppContactsProvider).value?.length ?? 0;
+    final archivedCount =
+        ref.watch(categoryCountsProvider)[MessagingCategoryFilter.archived] ??
+        0;
+    final contactsCount =
+        ref.watch(allWhatsAppContactsProvider).value?.length ?? 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return SizedBox(
-      height: 36,
+      height: 38,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: MessagingCategoryFilter.values.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemCount: _tabOrder.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
-          final tab = MessagingCategoryFilter.values[index];
+          final tab = _tabOrder[index];
           final isSelected = activeTab == tab;
+          final badgeCount = switch (tab) {
+            MessagingCategoryFilter.unread => totalUnread,
+            MessagingCategoryFilter.contacts => contactsCount,
+            MessagingCategoryFilter.archived => archivedCount,
+            _ => 0,
+          };
+
+          final borderGradient = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isSelected
+                ? (isDark
+                      ? [
+                          Colors.white.withValues(alpha: 0.90),
+                          const Color(0xFF38BDF8).withValues(alpha: 0.60),
+                          const Color(0xFF818CF8).withValues(alpha: 0.45),
+                          Colors.white.withValues(alpha: 0.20),
+                        ]
+                      : [
+                          Colors.white.withValues(alpha: 0.84),
+                          const Color(0xFF38BDF8).withValues(alpha: 0.75),
+                          const Color(0xFF94A3B8),
+                        ])
+                : (isDark
+                      ? [
+                          Colors.white.withValues(alpha: 0.24),
+                          Colors.white.withValues(alpha: 0.08),
+                          Colors.white.withValues(alpha: 0.03),
+                        ]
+                      : [
+                          Colors.white.withValues(alpha: 0.72),
+                          Colors.white.withValues(alpha: 0.34),
+                          const Color(0xFFCBD5E1).withValues(alpha: 0.42),
+                        ]),
+          );
+
+          final bgGradient = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isSelected
+                ? (isDark
+                      ? [
+                          const Color(0xFF334155).withValues(alpha: 0.85),
+                          const Color(0xFF1E293B).withValues(alpha: 0.90),
+                          const Color(0xFF0F172A).withValues(alpha: 0.95),
+                        ]
+                      : [
+                          Colors.white.withValues(alpha: 0.70),
+                          const Color(0xFFF1F5F9).withValues(alpha: 0.46),
+                        ])
+                : (isDark
+                      ? [
+                          const Color(0xFF1E293B).withValues(alpha: 0.50),
+                          const Color(0xFF0F172A).withValues(alpha: 0.60),
+                        ]
+                      : [
+                          Colors.white.withValues(alpha: 0.42),
+                          const Color(0xFFF8FAFC).withValues(alpha: 0.24),
+                        ]),
+          );
+
+          final textColor = isSelected
+              ? (isDark ? Colors.white : const Color(0xFF0F172A))
+              : (isDark ? Colors.white70 : const Color(0xFF475569));
 
           return GestureDetector(
             onTap: () {
+              HapticFeedback.selectionClick();
               ref.read(selectedCategoryTabProvider.notifier).state = tab;
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
               decoration: BoxDecoration(
-                gradient: isSelected
-                    ? const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0x3800FF88), Color(0x1F00FF88)],
-                      )
-                    : LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF1E293B).withValues(alpha: 0.35),
-                          const Color(0xFF0F172A).withValues(alpha: 0.20),
-                        ],
-                      ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF00FF88).withValues(alpha: 0.25),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF00FF88).withValues(alpha: 0.70)
-                      : Colors.white.withValues(alpha: 0.12),
-                  width: 1.0,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    tab.label,
-                    style: TextStyle(
-                      color: isSelected
-                          ? const Color(0xFF00FF88)
-                          : Colors.white.withValues(alpha: 0.75),
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                borderRadius: BorderRadius.circular(19),
+                gradient: borderGradient,
+                boxShadow: [
+                  if (isSelected)
+                    BoxShadow(
+                      color: const Color(0xFF38BDF8).withValues(alpha: isDark ? 0.25 : 0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 1.5),
                     ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isSelected ? (isDark ? 0.30 : 0.05) : (isDark ? 0.15 : 0.02)),
+                    blurRadius: isSelected ? 5 : 3,
+                    offset: Offset(0, isSelected ? 2 : 1),
                   ),
-                  if (tab == MessagingCategoryFilter.unread && totalUnread > 0) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00FF88),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$totalUnread',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (tab == MessagingCategoryFilter.contacts && contactsCount > 0) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? const Color(0xFF00FF88)
-                            : Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$contactsCount',
-                        style: TextStyle(
-                          color: isSelected ? Colors.black : Colors.white,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
+              ),
+              padding: EdgeInsets.all(isSelected ? 1.2 : 0.9),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 7),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), gradient: bgGradient),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      tab.label,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 12,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    if (badgeCount > 0) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4.5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? (isDark ? const Color(0xFF38BDF8).withValues(alpha: 0.35) : const Color(0xFF0284C7).withValues(alpha: 0.15))
+                              : (isDark ? Colors.white.withValues(alpha: 0.15) : const Color(0xFFE2E8F0)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$badgeCount',
+                          style: TextStyle(
+                            color: isSelected
+                                ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1))
+                                : (isDark ? Colors.white70 : const Color(0xFF334155)),
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           );

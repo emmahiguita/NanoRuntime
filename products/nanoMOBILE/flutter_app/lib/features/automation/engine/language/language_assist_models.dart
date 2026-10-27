@@ -136,7 +136,11 @@ final class LanguageAssistInput {
   static LanguageAssistInput passthrough(String raw) => LanguageAssistInput(
     raw: raw,
     normalized: raw.trim(),
-    wordCount: raw.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length,
+    wordCount: raw
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .length,
     sentenceCount: raw.trim().isEmpty ? 0 : 1,
   );
 }

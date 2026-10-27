@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../theme/design_tokens.dart';
 
@@ -15,7 +16,9 @@ class NanoScreenShell extends StatelessWidget {
     this.hideHeaderInPortrait = false,
     this.hideHeader = false,
     this.showBack,
+    this.onBack,
     this.resizeToAvoidBottomInset = false,
+    this.backgroundColor,
   });
 
   final String title;
@@ -24,11 +27,17 @@ class NanoScreenShell extends StatelessWidget {
   final bool hideHeaderInPortrait;
   final bool hideHeader;
 
+  /// Color de fondo del Scaffold. Si es null, por defecto es transparente.
+  final Color? backgroundColor;
+
   /// Muestra botón de retroceso. Por defecto (null): automático — visible
-  /// solo si hay una ruta a la que volver (`Navigator.canPop`). Las rutas
+  /// solo si hay una ruta a la que volver (`Navigator.canPop` o `context.canPop`). Las rutas
   /// top-level empujadas (p.ej. /automation, /terminal/shell) lo muestran;
   /// las pestañas del shell no (el back del sistema cambia de pestaña).
   final bool? showBack;
+
+  /// Callback opcional para manejar la navegación atrás de forma explícita.
+  final VoidCallback? onBack;
 
   /// Si el body se encoge cuando el teclado abre (viewInsets). Chat pasa
   /// `false`: su Scaffold exterior (donde vive la barra universal) ya se
@@ -46,72 +55,81 @@ class NanoScreenShell extends StatelessWidget {
     final isCompactLandscape = isLandscape && screenSize.height < 520;
 
     final showHeader = !hideHeader && (isLandscape || !hideHeaderInPortrait);
-    final back = showBack ?? Navigator.of(context).canPop();
+    final canGoBack = Navigator.of(context).canPop() || context.canPop();
+    final back = showBack ?? canGoBack;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: backgroundColor ?? Colors.transparent,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (showHeader)
-            Padding(
-              padding: isCompactLandscape
-                  ? const EdgeInsets.fromLTRB(12, 4, 12, 4)
-                  : isLandscape
-                  ? const EdgeInsets.fromLTRB(16, 6, 16, 6)
-                  : const EdgeInsets.fromLTRB(18, 8, 18, 6),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (back) ...[
-                    Semantics(
-                      label: 'Atrás',
-                      button: true,
-                      child: IconButton(
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: Icon(
-                          Icons.arrow_back_rounded,
-                          size: isCompactLandscape ? 18 : 20,
+      body: SafeArea(
+        top: true,
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showHeader)
+              Padding(
+                padding: isCompactLandscape
+                    ? const EdgeInsets.fromLTRB(12, 4, 12, 4)
+                    : isLandscape
+                    ? const EdgeInsets.fromLTRB(16, 6, 16, 6)
+                    : const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (back) ...[
+                      Semantics(
+                        label: 'Atrás',
+                        button: true,
+                        child: IconButton(
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            if (onBack != null) {
+                              onBack!();
+                            } else if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            } else if (context.canPop()) {
+                              context.pop();
+                            } else {
+                              context.go('/dashboard');
+                            }
+                          },
+                          icon: Icon(
+                            Icons.arrow_back_rounded,
+                            size: isCompactLandscape ? 18 : 20,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    // Título limpio de la pantalla sin redundancia de marca
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
                           color: colors.textPrimary,
+                          fontSize: isCompactLandscape
+                              ? 15
+                              : (isLandscape ? 16 : 17),
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.4,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    if (trailing != null) ...[
+                      const SizedBox(width: 8),
+                      trailing!,
+                    ],
                   ],
-                  // Título limpio de la pantalla sin redundancia de marca
-                  Expanded(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        color: colors.textPrimary,
-                        fontSize: isCompactLandscape
-                            ? 15
-                            : (isLandscape ? 16 : 18),
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                  ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: 8),
-                    Flexible(
-                      flex: 3,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: trailing!,
-                      ),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
-          Expanded(child: body),
-        ],
+            Expanded(child: body),
+          ],
+        ),
       ),
     );
   }

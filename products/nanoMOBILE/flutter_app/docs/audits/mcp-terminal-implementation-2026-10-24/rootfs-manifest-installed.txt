@@ -1,0 +1,6 @@
+bootstrap-2026.10.18-r1+apt.android-7
+abi=aarch64
+sha256=7b170ff5ef0befe501d01febc61382f3c6e34456521853cff9ba0b277aa52fe9
+compat=1
+minAndroid=26
+provenance=verified-debug-installer-audit

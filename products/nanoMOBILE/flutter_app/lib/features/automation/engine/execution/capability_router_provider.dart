@@ -4,8 +4,9 @@ import 'capability_router.dart';
 import 'handlers/semantic_linux_tool_handler.dart';
 
 /// Proveedor del manejador de herramientas semánticas Linux (nano.linux.*).
-final semanticLinuxToolHandlerProvider =
-    Provider<SemanticLinuxToolHandler>((ref) {
+final semanticLinuxToolHandlerProvider = Provider<SemanticLinuxToolHandler>((
+  ref,
+) {
   return SemanticLinuxToolHandler(
     executor: ref.watch(linuxAutomationExecutorProvider),
   );
@@ -17,7 +18,5 @@ final semanticLinuxToolHandlerProvider =
 /// a la vía más determinista y eficiente (API -> Linux -> Browser -> A11y -> Vision).
 final capabilityRouterProvider = Provider<CapabilityRouter>((ref) {
   final linuxExec = ref.watch(linuxAutomationExecutorProvider);
-  return CapabilityRouter(
-    isLinuxAvailable: () => linuxExec.isAvailable,
-  );
+  return CapabilityRouter(isLinuxAvailable: () => linuxExec.isAvailable);
 });

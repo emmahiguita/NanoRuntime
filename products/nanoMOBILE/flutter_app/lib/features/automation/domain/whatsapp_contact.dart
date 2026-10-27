@@ -7,6 +7,12 @@ final class WhatsAppContact {
   final String number;
   final String jid;
   final bool isBusiness;
+  final bool isGroup;
+  final String packageName;
+  final String accountType;
+  final String verificationSource;
+  // Distingue una cuenta enlazada a WhatsApp de un teléfono común de la agenda.
+  final bool isWhatsAppVerified;
 
   const WhatsAppContact({
     required this.id,
@@ -14,6 +20,11 @@ final class WhatsAppContact {
     required this.number,
     required this.jid,
     this.isBusiness = false,
+    this.isGroup = false,
+    this.packageName = '',
+    this.accountType = '',
+    this.verificationSource = 'unknown',
+    this.isWhatsAppVerified = false,
   });
 
   factory WhatsAppContact.fromMap(Map<dynamic, dynamic> map) {
@@ -23,6 +34,11 @@ final class WhatsAppContact {
       number: map['number']?.toString() ?? '',
       jid: map['jid']?.toString() ?? '',
       isBusiness: map['isBusiness'] == true,
+      isGroup: map['isGroup'] == true,
+      packageName: map['packageName']?.toString() ?? '',
+      accountType: map['accountType']?.toString() ?? '',
+      verificationSource: map['verificationSource']?.toString() ?? 'unknown',
+      isWhatsAppVerified: map['isWhatsAppVerified'] == true,
     );
   }
 
@@ -32,6 +48,11 @@ final class WhatsAppContact {
     'number': number,
     'jid': jid,
     'isBusiness': isBusiness,
+    'isGroup': isGroup,
+    'packageName': packageName,
+    'accountType': accountType,
+    'verificationSource': verificationSource,
+    'isWhatsAppVerified': isWhatsAppVerified,
   };
 
   @override
@@ -39,11 +60,16 @@ final class WhatsAppContact {
       identical(this, other) ||
       other is WhatsAppContact &&
           runtimeType == other.runtimeType &&
-          jid == other.jid;
+          _identityKey == other._identityKey;
 
   @override
-  int get hashCode => jid.hashCode;
+  int get hashCode => _identityKey.hashCode;
+
+  // Los números de agenda no tienen JID verificado; el teléfono mantiene su identidad estable.
+  String get _identityKey => jid.isNotEmpty ? jid : number;
 
   @override
-  String toString() => 'WhatsAppContact(name: $name, jid: $jid, isBusiness: $isBusiness)';
+  String toString() =>
+      'WhatsAppContact(name: $name, jid: $jid, isBusiness: $isBusiness, '
+      'isGroup: $isGroup, verified: $isWhatsAppVerified, source: $verificationSource)';
 }

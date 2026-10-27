@@ -2,13 +2,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/theme/design_tokens.dart';
+import '../../../../core/theme/nano_status_badge.dart';
 import '../google_account_provider.dart';
 import 'google_account_dialog.dart';
 
-/// Card Glassmórfica limpia oficial de Cuenta de Google para el Dashboard de Nano AI.
-///
-/// Muestra en tiempo real la identidad del usuario autenticado, estado de conexión viva
-/// y accesos rápidos directos al Navegador Web Real y servicios cloud.
+/// Card Glassmórfica oficial iOS de Cuenta de Google / Servicios Cloud.
 class GoogleAccountDashboardCard extends ConsumerWidget {
   const GoogleAccountDashboardCard({super.key});
 
@@ -16,73 +15,62 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(googleAccountProvider);
     final notifier = ref.read(googleAccountProvider.notifier);
+    final colors = NanoThemeExtension.of(context).colors;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0D1527).withValues(alpha: 0.65),
-            borderRadius: BorderRadius.circular(22),
+            color: colors.surface.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
-              width: 1.1,
+              color: colors.outlineVariant.withValues(alpha: 0.50),
+              width: 0.9,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF4285F4).withValues(alpha: 0.12),
-                blurRadius: 24,
-                spreadRadius: -2,
+                color: colors.onSurface.withValues(alpha: 0.03),
+                blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
-                  // Avatar con Borde Cuádruple Oficial de Google
                   Container(
-                    width: 44,
-                    height: 44,
-                    decoration: const BoxDecoration(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: SweepGradient(
-                        colors: [
-                          Color(0xFF4285F4),
-                          Color(0xFFEA4335),
-                          Color(0xFFFBBC05),
-                          Color(0xFF34A853),
-                          Color(0xFF4285F4),
-                        ],
-                      ),
+                      color: colors.surfaceVariant,
+                      border: Border.all(color: colors.outlineVariant),
                     ),
                     padding: const EdgeInsets.all(2.2),
                     child: Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Color(0xFF0F172A),
+                        color: colors.surface,
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         profile.initials,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Inter',
-                          fontSize: 16,
+                          fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                          letterSpacing: 0.5,
+                          color: colors.onSurface,
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-
-                  // Nombre y Correo
+                  const SizedBox(width: 11),
                   Expanded(
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
@@ -99,63 +87,26 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                               Flexible(
                                 child: Text(
                                   profile.displayName,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 15,
+                                    fontSize: 14.5,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    letterSpacing: 0.2,
+                                    color: colors.onSurface,
+                                    letterSpacing: -0.2,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: profile.isConnected
-                                      ? const Color(0xFF10B981)
-                                          .withValues(alpha: 0.20)
-                                      : const Color(0xFFEF4444)
-                                          .withValues(alpha: 0.20),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: profile.isConnected
-                                        ? const Color(0xFF10B981)
-                                            .withValues(alpha: 0.5)
-                                        : const Color(0xFFEF4444)
-                                            .withValues(alpha: 0.5),
-                                    width: 0.8,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: profile.isConnected
-                                            ? const Color(0xFF34D399)
-                                            : const Color(0xFFF87171),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      profile.isConnected ? 'Google' : 'Offline',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w700,
-                                        color: profile.isConnected
-                                            ? const Color(0xFF34D399)
-                                            : const Color(0xFFF87171),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              const SizedBox(width: 6),
+                              NanoStatusBadge(
+                                label: profile.isConnected
+                                    ? 'Conectado'
+                                    : 'Sin conexión',
+                                indicatorColor: profile.isConnected
+                                    ? colors.success
+                                    : colors.error,
+                                compact: true,
                               ),
                             ],
                           ),
@@ -165,8 +116,8 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                             style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.72),
-                              fontWeight: FontWeight.w400,
+                              color: colors.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -175,78 +126,35 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
                       ),
                     ),
                   ),
-
-                  // Botón Sincronizar en vivo
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  _HeaderIconButton(
+                    icon: Icons.sync_rounded,
+                    colors: colors,
                     onTap: () async {
                       HapticFeedback.lightImpact();
                       await notifier.syncNow();
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.sync_rounded,
-                        size: 20,
-                        color: notifier.isSyncing
-                            ? const Color(0xFF38BDF8)
-                            : Colors.white70,
-                      ),
-                    ),
                   ),
                   const SizedBox(width: 6),
-
-                  // Botón Ajustes de cuenta
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  _HeaderIconButton(
+                    icon: Icons.tune_rounded,
+                    colors: colors,
                     onTap: () {
                       HapticFeedback.lightImpact();
                       GoogleAccountDialog.show(context);
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.12),
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.settings_outlined,
-                        size: 20,
-                        color: Colors.white70,
-                      ),
-                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
-
-              // Chip de Estado de Sincronización con Google
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: [
-                    _AccountActionChip(
-                      icon: Icons.bolt_rounded,
-                      label: profile.syncStatus,
-                      isActive: profile.isConnected,
-                      activeColor: const Color(0xFFFBBF24),
-                      onTap: () async {
-                        HapticFeedback.lightImpact();
-                        await notifier.syncNow();
-                      },
-                    ),
-                  ],
+              const SizedBox(height: 9),
+              GestureDetector(
+                onTap: () async {
+                  HapticFeedback.lightImpact();
+                  await notifier.syncNow();
+                },
+                child: NanoStatusBadge(
+                  label: profile.syncStatus,
+                  indicatorColor: profile.isConnected ? colors.primary : null,
+                  compact: true,
                 ),
               ),
             ],
@@ -257,58 +165,33 @@ class GoogleAccountDashboardCard extends ConsumerWidget {
   }
 }
 
-class _AccountActionChip extends StatelessWidget {
+class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final bool isActive;
-  final Color activeColor;
+  final NanoColors colors;
   final VoidCallback onTap;
 
-  const _AccountActionChip({
+  const _HeaderIconButton({
     required this.icon,
-    required this.label,
-    required this.isActive,
-    required this.activeColor,
+    required this.colors,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor =
-        isActive ? activeColor : Colors.white.withValues(alpha: 0.45);
-
-    return InkWell(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+        padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
-          color: isActive
-              ? effectiveColor.withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.05),
+          color: colors.surfaceVariant.withValues(alpha: 0.70),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isActive
-                ? effectiveColor.withValues(alpha: 0.45)
-                : Colors.white.withValues(alpha: 0.10),
-            width: 0.8,
+            color: colors.outlineVariant.withValues(alpha: 0.45),
+            width: 0.7,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 13, color: effectiveColor),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: effectiveColor,
-              ),
-            ),
-          ],
-        ),
+        child: Icon(icon, size: 18, color: colors.onSurfaceVariant),
       ),
     );
   }

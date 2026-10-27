@@ -23,7 +23,10 @@ class AdbToolHandler implements IToolHandler {
 
   @override
   Future<String> execute(ToolCall call) async {
-    final command = (call.args?['command'] ?? call.textArg ?? call.selectorArg ?? '').toString().trim();
+    final command =
+        (call.args?['command'] ?? call.textArg ?? call.selectorArg ?? '')
+            .toString()
+            .trim();
     return handleCommand(command);
   }
 
@@ -118,7 +121,8 @@ class AdbToolHandler implements IToolHandler {
     if (clean.startsWith('pm list packages')) {
       return '[adb_shell] Consultando paquetes del sistema mediante shell... (OK)';
     }
-    if (clean.startsWith('dumpsys activity') || clean.startsWith('dumpsys window')) {
+    if (clean.startsWith('dumpsys activity') ||
+        clean.startsWith('dumpsys window')) {
       return '[adb_shell] Inspección de ventana activa mediante dumpsys... (OK)';
     }
 

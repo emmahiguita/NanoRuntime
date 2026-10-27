@@ -1,4 +1,4 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import '../../domain/bot/bot_definition.dart';
 import '../../domain/bot/bot_event.dart';
 
@@ -25,8 +25,8 @@ class BotExecutionContext {
     this.memoryFacts = const {},
     List<String>? logs,
     int? startedAtMs,
-  })  : executionLogs = logs ?? [],
-        startedAtMs = startedAtMs ?? DateTime.now().millisecondsSinceEpoch;
+  }) : executionLogs = logs ?? [],
+       startedAtMs = startedAtMs ?? DateTime.now().millisecondsSinceEpoch;
 
   /// Registra un paso en la traza de auditoría del ciclo agéntico.
   void log(String step) {
@@ -38,8 +38,7 @@ class BotExecutionContext {
   }
 
   /// Retorna el tiempo transcurrido total en milisegundos.
-  int get elapsedMs =>
-      DateTime.now().millisecondsSinceEpoch - startedAtMs;
+  int get elapsedMs => DateTime.now().millisecondsSinceEpoch - startedAtMs;
 
   /// Obtiene un hecho de memoria o un valor por defecto.
   T? getFact<T>(String key) {

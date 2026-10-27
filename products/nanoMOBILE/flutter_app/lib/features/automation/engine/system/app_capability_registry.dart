@@ -113,8 +113,7 @@ class AppProfile {
 /// Registro central de capacidades de aplicaciones con resolución contra
 /// [InstalledAppCatalog] y catálogos semánticos de Intents.
 class AppCapabilityRegistry {
-  AppCapabilityRegistry({InstalledAppCatalog? catalog})
-      : _catalog = catalog;
+  AppCapabilityRegistry({InstalledAppCatalog? catalog}) : _catalog = catalog;
 
   final InstalledAppCatalog? _catalog;
 
@@ -135,7 +134,8 @@ class AppCapabilityRegistry {
           type: AppCapabilityType.composeMessage,
           description: 'Enviar mensaje a contacto o número telefónico',
           intentAction: 'android.intent.action.VIEW',
-          uriTemplate: 'https://api.whatsapp.com/send?phone={phone}&text={text}',
+          uriTemplate:
+              'https://api.whatsapp.com/send?phone={phone}&text={text}',
           maturity: AppMaturityLevel.automatable,
         ),
         AppCapability(

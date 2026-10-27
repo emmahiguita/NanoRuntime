@@ -15,12 +15,7 @@ library;
 import 'dart:typed_data';
 
 /// Tipo de contenido multimedia soportado para envío en WhatsApp.
-enum WhatsAppMediaType {
-  image,
-  video,
-  audio,
-  document,
-}
+enum WhatsAppMediaType { image, video, audio, document }
 
 /// Estado del ciclo de vida de la sesión de WhatsApp Web vinculada.
 enum WhatsAppWebSessionStatus {
@@ -47,7 +42,10 @@ final class WhatsAppMediaPayload {
     this.caption,
     required this.fileName,
     required this.type,
-  }) : assert(filePath != null || bytes != null, 'Debe proveer filePath o bytes');
+  }) : assert(
+         filePath != null || bytes != null,
+         'Debe proveer filePath o bytes',
+       );
 
   WhatsAppMediaPayload copyWith({
     String? filePath,

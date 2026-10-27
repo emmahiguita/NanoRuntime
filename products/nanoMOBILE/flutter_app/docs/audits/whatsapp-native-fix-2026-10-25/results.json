@@ -1,0 +1,92 @@
+{
+  "scope": "Nano → WhatsApp instalado → Nano",
+  "device": "VGL7MVFMDYQG8T55",
+  "cases": [
+    {
+      "id": "WA-01",
+      "requirement": "Abrir por nombre desde Automatización",
+      "result": "physical_pass",
+      "evidence": [
+        "command-focused-ui.xml",
+        "open-final.xml"
+      ],
+      "observed": "WhatsApp instalado com.whatsapp, cabecera Emm."
+    },
+    {
+      "id": "WA-02",
+      "requirement": "Abrir por número desde Automatización",
+      "result": "physical_pass",
+      "evidence": [
+        "phone-command.xml",
+        "phone-open.xml"
+      ],
+      "observed": "Orden exacta desde la barra de Nano; cabecera Emm."
+    },
+    {
+      "id": "WA-03",
+      "requirement": "Texto autorizado y regreso automático",
+      "result": "physical_pass",
+      "evidence": [
+        "text-result.xml",
+        "text-attempt.log",
+        "message-proof.xml"
+      ],
+      "observed": "Una burbuja con texto exacto; clic y regreso observados. Entrada de producción submitPrompt → chat → mismo handler; no se escribió el texto Unicode mediante ADB input."
+    },
+    {
+      "id": "WA-04",
+      "requirement": "PDF neutro y regreso automático",
+      "result": "physical_pass",
+      "evidence": [
+        "document-live.log",
+        "document-real-result.xml",
+        "phone-open.xml"
+      ],
+      "observed": "Archivo real visible en chat. Clic 18:01:49.223 y regreso 18:01:49.874 en reloj del teléfono. Entrada submitPrompt; ningún clic de envío ejecutado por ADB."
+    },
+    {
+      "id": "WA-05",
+      "requirement": "Abrir por usuario exacto",
+      "result": "physical_pass",
+      "evidence": [
+        "username-before.xml",
+        "username-actual-result.xml",
+        "username-actual-profile.xml"
+      ],
+      "observed": "Partiendo de Nano visible, la orden por usuario abre Emm y el perfil expone @AIemmaDev. No se prueba un envío adicional por usuario."
+    },
+    {
+      "id": "WA-06",
+      "requirement": "Auto del panel nativo flotante",
+      "result": "physical_pass",
+      "evidence": [
+        "float-before-action.xml",
+        "float-command.xml",
+        "float-open-result.xml",
+        "float-result-panel.xml"
+      ],
+      "observed": "Orden @whatsapp Emm desde Auto. Se abre com.whatsapp y el panel muestra resultado del ejecutor."
+    },
+    {
+      "id": "WA-07",
+      "requirement": "Volver con Abrir Nano completo de la burbuja",
+      "result": "physical_pass",
+      "evidence": [
+        "float-return-main.xml"
+      ],
+      "observed": "Se observa dev.nanoai.mobile al volver mediante el control nativo."
+    },
+    {
+      "id": "WA-08",
+      "requirement": "Enviar por usuario con clave, desconocidos, grupos y otros formatos",
+      "result": "not_executed",
+      "evidence": [],
+      "observed": "No se declaran soportados universalmente. La cuenta, la versión de WhatsApp, permisos y evidencia del destinatario condicionan el flujo."
+    }
+  ],
+  "unit_regression": {
+    "passed": 25,
+    "evidence": "regression-final-passed.log",
+    "uses_explicit_test_doubles": true
+  }
+}

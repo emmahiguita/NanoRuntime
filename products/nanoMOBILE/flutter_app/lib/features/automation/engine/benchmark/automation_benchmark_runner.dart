@@ -36,7 +36,8 @@ class AutomationBenchmarkReport {
     required this.details,
   });
 
-  double get successRate => totalTests == 0 ? 0.0 : (passedTests / totalTests) * 100.0;
+  double get successRate =>
+      totalTests == 0 ? 0.0 : (passedTests / totalTests) * 100.0;
 
   Map<String, dynamic> toJson() => {
     'total_tests': totalTests,
@@ -67,9 +68,10 @@ class AutomationBenchmarkRunner {
     UniversalCapabilityDetector? detector,
     VisualGroundingResolver? groundingResolver,
     TaskExecutionMemoryStore? taskMemory,
-  })  : _detector = detector ?? UniversalCapabilityDetector(),
-        _groundingResolver = groundingResolver ?? const VisualGroundingResolver(),
-        _taskMemory = taskMemory ?? TaskExecutionMemoryStore();
+  }) : _detector = detector ?? UniversalCapabilityDetector(),
+       _groundingResolver =
+           groundingResolver ?? const VisualGroundingResolver(),
+       _taskMemory = taskMemory ?? TaskExecutionMemoryStore();
 
   /// Ejecuta la suite de pruebas y mide latencias y consumo con alta precisión.
   Future<AutomationBenchmarkReport> runBenchmark() async {
@@ -88,7 +90,9 @@ class AutomationBenchmarkRunner {
     latencies.add(sw1.elapsedMilliseconds);
     if (profile.manufacturer.isNotEmpty) {
       passed++;
-      details.add('Capacidades: Fabricante ${profile.manufacturer}, SDK ${profile.sdkInt}, Tier: ${profile.activeTier.name} (${sw1.elapsedMilliseconds}ms)');
+      details.add(
+        'Capacidades: Fabricante ${profile.manufacturer}, SDK ${profile.sdkInt}, Tier: ${profile.activeTier.name} (${sw1.elapsedMilliseconds}ms)',
+      );
     } else {
       details.add('Capacidades: Fallo en sondeo');
     }
@@ -103,9 +107,12 @@ class AutomationBenchmarkRunner {
     );
     sw2.stop();
     latencies.add(sw2.elapsedMilliseconds);
-    if (groundEvidence.role == VisualRole.send && groundEvidence.confidence > 0.5) {
+    if (groundEvidence.role == VisualRole.send &&
+        groundEvidence.confidence > 0.5) {
       passed++;
-      details.add('Visual Grounding: Detección de botón envío con confianza ${(groundEvidence.confidence * 100).toInt()}% (${sw2.elapsedMilliseconds}ms)');
+      details.add(
+        'Visual Grounding: Detección de botón envío con confianza ${(groundEvidence.confidence * 100).toInt()}% (${sw2.elapsedMilliseconds}ms)',
+      );
     } else {
       details.add('Visual Grounding: Error clasificando elemento interactivo');
     }
@@ -125,13 +132,17 @@ class AutomationBenchmarkRunner {
       actionTaken: 'probe',
       evidence: 'tier=${profile.activeTier.name}',
     );
-    final isPersisted = _taskMemory.hasActiveTask && _taskMemory.activeTask?.completedSteps.isNotEmpty == true;
+    final isPersisted =
+        _taskMemory.hasActiveTask &&
+        _taskMemory.activeTask?.completedSteps.isNotEmpty == true;
     _taskMemory.completeTask();
     sw3.stop();
     latencies.add(sw3.elapsedMilliseconds);
     if (isPersisted) {
       passed++;
-      details.add('Memoria Operativa: Paso con evidencia guardado y verificado (${sw3.elapsedMilliseconds}ms)');
+      details.add(
+        'Memoria Operativa: Paso con evidencia guardado y verificado (${sw3.elapsedMilliseconds}ms)',
+      );
     } else {
       details.add('Memoria Operativa: Error de persistencia');
     }
@@ -150,14 +161,20 @@ class AutomationBenchmarkRunner {
     final bool healed = healingEvidence.role == VisualRole.search;
     if (healed) {
       passed++;
-      details.add('Auto-Reparación: Recuperación de SearchBox sin metadata (${sw4.elapsedMilliseconds}ms)');
+      details.add(
+        'Auto-Reparación: Recuperación de SearchBox sin metadata (${sw4.elapsedMilliseconds}ms)',
+      );
     } else {
-      details.add('Auto-Reparación: No se pudo resolver componente alternativo');
+      details.add(
+        'Auto-Reparación: No se pudo resolver componente alternativo',
+      );
     }
 
     // Fase 5: Telemetría de Dispositivo
     final metrics = await DeviceMetrics.fetch();
-    final avgLatency = latencies.isEmpty ? 0.0 : latencies.reduce((a, b) => a + b) / latencies.length;
+    final avgLatency = latencies.isEmpty
+        ? 0.0
+        : latencies.reduce((a, b) => a + b) / latencies.length;
     final healingRate = healed ? 100.0 : 0.0;
 
     return AutomationBenchmarkReport(

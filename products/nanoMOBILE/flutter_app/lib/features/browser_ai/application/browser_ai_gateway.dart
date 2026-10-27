@@ -1,28 +1,42 @@
+// browser_ai_gateway.dart — Puerta de enlace serializada para consultas de IA vía navegador.
+// QUÉ HACE: Enruta prompts a proveedores web oficiales preservando sesiones persistentes.
+// CÓMO FUNCIONA: Usa BrowserAiSynchronizer para exclusión mutua, verifica login y extrae respuestas.
+// POR QUÉ: Permite respuestas de alta inteligencia sin API key ni consumo de RAM local.
+library;
+
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../browser/application/browser_tab_notifier.dart';
 import '../domain/browser_ai_query.dart';
 import '../domain/browser_ai_response.dart';
 import '../domain/browser_ai_sanitizer.dart';
+import '../infrastructure/browser_ai_preferences.dart';
 import 'browser_ai_provider_registry.dart';
 import 'browser_ai_session_manager.dart';
+import 'browser_ai_synchronizer.dart';
 
-/// QUÉ HACE:
-/// Puerta de enlace serializada para consultas de IA vía navegador integrado.
-///
-/// CÓMO FUNCIONA:
-/// 1. Serializa el acceso por proveedor (evita cruce de prompts y respuestas).
-/// 2. Obtiene el controlador de WebView y valida la sesión activa.
-/// 3. Sanitiza PII, registra conteo base y observa la estabilización del nuevo turno.
-///
-/// POR QUÉ:
-/// Garantiza concurrencia segura sin mezclar respuestas de distintas conversaciones.
 class BrowserAiGateway {
   final Ref _ref;
   final BrowserAiProviderRegistry _registry;
   final BrowserAiSessionManager _sessionManager;
   final BrowserAiSanitizer _sanitizer;
-  final Map<String, Future<void>> _providerLocks = {};
+  final BrowserAiSynchronizer _synchronizer = BrowserAiSynchronizer();
+
+  /// Espera acotada a que el proveedor confirme sesión activa (delegado en BrowserAiSynchronizer).
+  static Future<bool> waitUntilLoggedIn(
+    Future<bool> Function() check, {
+    List<Duration> retryDelays = const [
+      Duration(milliseconds: 400),
+      Duration(milliseconds: 800),
+      Duration(milliseconds: 1200),
+      Duration(milliseconds: 1600),
+    ],
+    Duration timeout = const Duration(seconds: 4),
+  }) => BrowserAiSynchronizer.waitUntilLoggedIn(
+    check,
+    retryDelays: retryDelays,
+    timeout: timeout,
+  );
 
   BrowserAiGateway(
     this._ref, {
@@ -30,40 +44,39 @@ class BrowserAiGateway {
     BrowserAiSessionManager? sessionManager,
     BrowserAiSanitizer sanitizer = const BrowserAiSanitizer(),
   }) : _registry = registry ?? _ref.read(browserAiProviderRegistryProvider),
-       _sessionManager =
-           sessionManager ?? _ref.read(browserAiSessionManagerProvider),
+       _sessionManager = sessionManager ?? _ref.read(browserAiSessionManagerProvider),
        _sanitizer = sanitizer;
 
-  /// Ejecuta una consulta hacia un proveedor web de IA garantizando exclusión mutua.
+  /// Ejecuta una consulta hacia un proveedor web de IA con exclusión mutua.
   Future<BrowserAiResponse> query(BrowserAiQuery query) async {
-    final providerId = query.providerId == 'auto'
-        ? 'deepseek'
-        : query.providerId;
-    final provider = _registry.getProvider(providerId);
+    // Si es 'auto', resolver con el proveedor preferido o fallback a 'deepseek'
+    String targetId = query.providerId;
+    if (targetId == 'auto') {
+      final preferred = _ref.read(preferredAiProviderStateProvider);
+      targetId = preferred == 'auto' ? 'deepseek' : preferred;
+    }
 
+    final provider = _registry.getProvider(targetId) ?? _registry.getProvider('deepseek');
     if (provider == null) {
       return BrowserAiResponse.failure(
-        providerId: providerId,
-        error: 'Proveedor "$providerId" no registrado.',
+        providerId: targetId,
+        error: 'Proveedor "$targetId" no registrado en Nano AI.',
         requestId: query.requestId,
       );
     }
 
-    return await _synchronized(provider.id, () async {
+    return await _synchronizer.synchronized(provider.id, () async {
       try {
-        final controller = await _sessionManager.getOrCreateController(
-          provider,
-        );
+        final controller = await _sessionManager.getOrCreateController(provider);
         if (controller == null) {
           return BrowserAiResponse.failure(
             providerId: provider.id,
-            error:
-                'No se pudo inicializar la pestaña para ${provider.displayName}.',
+            error: 'No se pudo inicializar la pestaña para ${provider.displayName}.',
             requestId: query.requestId,
           );
         }
 
-        final ready = await waitUntilLoggedIn(
+        final ready = await BrowserAiSynchronizer.waitUntilLoggedIn(
           () => provider.isLoggedIn(controller),
         );
 
@@ -73,12 +86,9 @@ class BrowserAiGateway {
           if (session?.tabId != null) {
             _ref.read(browserTabProvider.notifier).selectTab(session!.tabId!);
           }
-
           return BrowserAiResponse.userActionRequired(
             providerId: provider.id,
-            reason:
-                'Inicia sesión en ${provider.displayName} (se abrió la pestaña). '
-                'Cuando termines, vuelve al chat y reenvía tu mensaje.',
+            reason: 'Inicia sesión en ${provider.displayName} para continuar.',
             duration: Duration.zero,
             requestId: query.requestId,
           );
@@ -90,8 +100,7 @@ class BrowserAiGateway {
         if (!submitted) {
           return BrowserAiResponse.failure(
             providerId: provider.id,
-            error:
-                'No se encontró el campo de texto en ${provider.displayName}.',
+            error: 'No se encontró el campo de texto en ${provider.displayName}.',
             requestId: query.requestId,
           );
         }
@@ -110,51 +119,6 @@ class BrowserAiGateway {
         );
       }
     });
-  }
-
-  /// Espera acotada y con backoff a que el DOM de sesión quede disponible.
-  /// La fecha límite también cubre una comprobación JavaScript que no responda.
-  static Future<bool> waitUntilLoggedIn(
-    Future<bool> Function() check, {
-    List<Duration> retryDelays = const [
-      Duration(milliseconds: 200),
-      Duration(milliseconds: 400),
-      Duration(milliseconds: 600),
-    ],
-    Duration timeout = const Duration(milliseconds: 1500),
-  }) async {
-    final deadline = DateTime.now().add(timeout);
-
-    Future<bool> checkBeforeDeadline() async {
-      final remaining = deadline.difference(DateTime.now());
-      if (remaining <= Duration.zero) return false;
-      return check().timeout(remaining, onTimeout: () => false);
-    }
-
-    if (await checkBeforeDeadline()) return true;
-    for (final delay in retryDelays) {
-      final remaining = deadline.difference(DateTime.now());
-      if (remaining <= Duration.zero) return false;
-      await Future<void>.delayed(delay < remaining ? delay : remaining);
-      if (await checkBeforeDeadline()) return true;
-    }
-    return false;
-  }
-
-  Future<T> _synchronized<T>(String key, Future<T> Function() action) async {
-    while (_providerLocks.containsKey(key)) {
-      try {
-        await _providerLocks[key];
-      } catch (_) {}
-    }
-    final completer = Completer<void>();
-    _providerLocks[key] = completer.future;
-    try {
-      return await action();
-    } finally {
-      _providerLocks.remove(key);
-      if (!completer.isCompleted) completer.complete();
-    }
   }
 
   /// Lista el estado de todos los proveedores registrados.
@@ -179,14 +143,12 @@ class BrowserAiGateway {
     if (provider == null) return false;
 
     final controller = await _sessionManager.getOrCreateController(provider);
-    if (controller != null) {
-      final session = _sessionManager.getSession(provider.id);
-      if (session?.tabId != null) {
-        _ref.read(browserTabProvider.notifier).selectTab(session!.tabId!);
-        return true;
-      }
+    final session = _sessionManager.getSession(provider.id);
+    if (session?.tabId != null) {
+      _ref.read(browserTabProvider.notifier).selectTab(session!.tabId!);
+      return true;
     }
-    return false;
+    return controller != null;
   }
 }
 

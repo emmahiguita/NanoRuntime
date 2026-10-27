@@ -1,15 +1,14 @@
-// nano_owl_alive.dart — Búho animado con secuencias reales de sprites.
-// QUÉ: Poses activas y secuencias multi-frame para dormir, volar y parpadear.
-// CÓMO: 1° Frames reales de sueño (6 cuadros) y vuelo (7 cuadros) vía AnimationController.
-//       2° Parpadeo natural con los 5 cuadros fisiológicos de assets/owl/blink/.
-//       3° Inactividad de 22s pasa a sueño profundo y despierta al interactuar.
-// POR QUÉ: Sustituye el escalado estático "trucado" por animación biológica real
-//          sin procesos zombis ni consumo innecesario de batería.
+// Personaje basado en sprites: parpadeo, reposo, sueno y vuelo.
+// Los relojes pertenecen al State y se suspenden con la politica de visibilidad.
+// Los frames son imagenes; no hay un modelo 3D ni sensores en este componente.
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../core/widgets/nano_owl_state.dart';
 import 'nano_ai_models.dart';
+import 'nano_animation_policy.dart';
+part 'nano_owl_alive_view.dart';
+part 'nano_owl_alive_policy.dart';
 
 class NanoOwlAlive extends StatefulWidget {
   const NanoOwlAlive({super.key, required this.activity, this.size = 106});
@@ -20,79 +19,80 @@ class NanoOwlAlive extends StatefulWidget {
 }
 
 class _NanoOwlAliveState extends State<NanoOwlAlive>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with SingleTickerProviderStateMixin, NanoAnimationPolicy {
   late final AnimationController motion;
   final random = math.Random();
   Timer? blinkTimer;
   Timer? sleepInactivityTimer;
   int blinkStep = -1;
-  bool foreground = true;
-  bool reduced = false;
   bool isAutoSleeping = false;
 
-  bool get animate => foreground && !reduced;
+  /// Enters the existing sleep sequence after the owned inactivity timeout.
+  void _enterSleep() {
+    setState(() {
+      isAutoSleeping = true;
+      _applyActivityPolicy();
+    });
+  }
+
+  bool get animate => motionEnabled;
   bool get isSleep => widget.activity == NanoActivity.sleep || isAutoSleeping;
   bool get isFly => widget.activity == NanoActivity.fly;
 
+  /// Owns sprite and inactivity clocks; policy starts them after dependencies.
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    motion = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200))..repeat();
+    motion = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 3200),
+    );
     _applyActivityPolicy();
     _resetInactivityTimer();
   }
 
+  /// Stops every clock offscreen and reapplies the current sprite policy on return.
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    reduced = MediaQuery.disableAnimationsOf(context) || !TickerMode.of(context);
+  void onMotionPolicyChanged() {
     _applyActivityPolicy();
     _resetInactivityTimer();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    foreground = state == AppLifecycleState.resumed;
-    _applyActivityPolicy();
+  /// Pointer events also reach this listener when an ancestor owns the drag.
+  void _wakeOnInteraction(PointerDownEvent event) {
+    if (isAutoSleeping) {
+      setState(() => isAutoSleeping = false);
+      _applyActivityPolicy();
+    }
     _resetInactivityTimer();
-  }
-
-  void _applyActivityPolicy() {
-    if (!mounted) return;
-    blinkTimer?.cancel();
-    blinkTimer = null;
-    blinkStep = -1;
-    motion.stop();
-    if (!animate) return;
-    // Reiniciar la simulación aplica la duración nueva, no solo cambia el campo.
-    motion.duration = Duration(milliseconds: isSleep ? 2000 : isFly ? 560 : 3200);
-    motion.repeat(reverse: isSleep);
-    if (!isSleep && !isFly) _scheduleBlink();
-  }
-
-  void _resetInactivityTimer() {
-    sleepInactivityTimer?.cancel();
-    if (!animate || isAutoSleeping || widget.activity != NanoActivity.idle) return;
-    sleepInactivityTimer = Timer(const Duration(seconds: 22), () {
-      if (!mounted || !animate || widget.activity != NanoActivity.idle) return;
-      setState(() { isAutoSleeping = true; _applyActivityPolicy(); });
-    });
   }
 
   void _scheduleBlink() {
     if (!animate || isSleep || isFly) return;
     blinkTimer?.cancel();
-    blinkTimer = Timer(Duration(milliseconds: 2400 + random.nextInt(3200)), _runBlink);
+    blinkTimer = Timer(
+      Duration(milliseconds: 2400 + random.nextInt(3200)),
+      _runBlink,
+    );
   }
 
   void _runBlink() {
     if (!animate || !mounted || isSleep || isFly) return;
     var idx = 0;
     blinkTimer = Timer.periodic(const Duration(milliseconds: 45), (t) {
-      if (!mounted || !animate || idx >= NanoOwlFrames.blinkFrames.length) {
-        t.cancel(); blinkTimer = null;
-        if (mounted) { setState(() => blinkStep = -1); _scheduleBlink(); }
+      // BLINK-RACE-FIX: si el estado cambió a sleep/fly mientras el blink
+      // estaba corriendo, cancelar inmediatamente y resetear el step.
+      if (!mounted ||
+          !animate ||
+          isSleep ||
+          isFly ||
+          idx >= NanoOwlFrames.blinkFrames.length) {
+        t.cancel();
+        blinkTimer = null;
+        if (mounted) {
+          setState(() => blinkStep = -1);
+          if (!isSleep && !isFly) _scheduleBlink();
+        }
         return;
       }
       setState(() => blinkStep = idx++);
@@ -111,7 +111,6 @@ class _NanoOwlAliveState extends State<NanoOwlAlive>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     blinkTimer?.cancel();
     sleepInactivityTimer?.cancel();
     motion.dispose();
@@ -123,45 +122,32 @@ class _NanoOwlAliveState extends State<NanoOwlAlive>
       return NanoOwlFrames.blinkFrames[blinkStep];
     }
     if (isSleep) {
-      final idx = (motion.value * (NanoOwlFrames.sleepFrames.length - 1)).round();
-      return NanoOwlFrames.sleepFrames[idx.clamp(0, NanoOwlFrames.sleepFrames.length - 1)];
+      final idx = (motion.value * (NanoOwlFrames.sleepFrames.length - 1))
+          .round();
+      return NanoOwlFrames.sleepFrames[idx.clamp(
+        0,
+        NanoOwlFrames.sleepFrames.length - 1,
+      )];
     }
     if (isFly) {
       final idx = (motion.value * (NanoOwlFrames.flyFrames.length - 1)).round();
-      return NanoOwlFrames.flyFrames[idx.clamp(0, NanoOwlFrames.flyFrames.length - 1)];
+      return NanoOwlFrames.flyFrames[idx.clamp(
+        0,
+        NanoOwlFrames.flyFrames.length - 1,
+      )];
     }
     return switch (widget.activity) {
-      NanoActivity.listening => 'assets/owl/listening.png',
-      NanoActivity.thinking || NanoActivity.debating ||
-      NanoActivity.comparing || NanoActivity.acting => 'assets/owl/think.png',
-      NanoActivity.success => 'assets/owl/welcome.png',
-      NanoActivity.error => 'assets/owl/surprised.png',
-      _ => 'assets/owl/idle.png',
+      NanoActivity.listening => NanoOwlFrames.listening,
+      NanoActivity.thinking ||
+      NanoActivity.debating ||
+      NanoActivity.comparing ||
+      NanoActivity.acting => NanoOwlFrames.thinking,
+      NanoActivity.success => NanoOwlFrames.success,
+      NanoActivity.error => NanoOwlFrames.error,
+      _ => NanoOwlFrames.idle,
     };
   }
 
   @override
-  Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: AnimatedBuilder(
-        animation: motion,
-        builder: (context, child) {
-          final p = animate ? motion.value * 2 * math.pi : 0.0;
-          final rise = isFly ? math.sin(p) * 4.2 : (isSleep ? 0.0 : math.sin(p) * 2.6);
-          final tilt = widget.activity == NanoActivity.listening ? math.sin(p) * .024 : 0.0;
-
-          return Transform.translate(
-            offset: Offset(0, rise),
-            // Elegir el sprite en cada tick; como child quedaba congelado.
-            child: Transform.rotate(angle: tilt, child: SizedBox(
-              width: widget.size, height: widget.size,
-              child: Image.asset(_currentAsset(), fit: BoxFit.contain,
-                gaplessPlayback: true, filterQuality: FilterQuality.medium,
-                cacheWidth: (widget.size * MediaQuery.devicePixelRatioOf(context)).round().clamp(96, 768)),
-            )),
-          );
-        },
-      ),
-    );
-  }
+  Widget build(BuildContext context) => buildView(context);
 }

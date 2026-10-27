@@ -1,0 +1,26 @@
+[
+  {
+    "url": "https://api.github.com/repos/termux/termux-packages/releases/latest",
+    "tag": "bootstrap-2026.10.18-r1+apt.android-7",
+    "assets": [
+      {
+        "name": "bootstrap-aarch64.zip",
+        "size": 33071189,
+        "digest": "sha256:7b170ff5ef0befe501d01febc61382f3c6e34456521853cff9ba0b277aa52fe9",
+        "url": "https://github.com/termux/termux-packages/releases/download/bootstrap-2026.10.18-r1%2Bapt.android-7/bootstrap-aarch64.zip"
+      }
+    ]
+  },
+  {
+    "url": "https://api.github.com/repos/termux/termux-packages/releases/tags/bootstrap-2026.08.30-r1%2Bapt.android-7",
+    "tag": "bootstrap-2026.08.30-r1+apt.android-7",
+    "assets": [
+      {
+        "name": "bootstrap-aarch64.zip",
+        "size": 32675461,
+        "digest": "sha256:7e92f4c435d16207cdda63d5629e666ab98441f09eefa6a8423037ef13263346",
+        "url": "https://github.com/termux/termux-packages/releases/download/bootstrap-2026.08.30-r1%2Bapt.android-7/bootstrap-aarch64.zip"
+      }
+    ]
+  }
+]

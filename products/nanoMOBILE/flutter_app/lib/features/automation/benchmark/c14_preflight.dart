@@ -20,7 +20,8 @@ enum PreflightCode {
 
 class PreflightCheck {
   final String name;
-  final bool ok;
+  // null means the check depends on a service that is currently unavailable.
+  final bool? ok;
   final String detail;
   const PreflightCheck({
     required this.name,
@@ -66,14 +67,18 @@ class C14Preflight {
         ok: effectiveRuntime,
         detail: runtimeAlive
             ? 'engine /health OK'
-            : (requiresLlm ? 'engine muerto o no respondió' : 'catálogo determinista OK'),
+            : (requiresLlm
+                  ? 'engine muerto o no respondió'
+                  : 'catálogo determinista OK'),
       ),
       PreflightCheck(
         name: 'Modelo cargado',
         ok: effectiveModel,
         detail: modelLoaded
             ? 'GGUF cargado'
-            : (requiresLlm ? 'sin modelo (degraded / no GGUF)' : 'suite determinista nativa'),
+            : (requiresLlm
+                  ? 'sin modelo (degraded / no GGUF)'
+                  : 'suite determinista nativa'),
       ),
       PreflightCheck(
         name: 'Accesibilidad activa',
@@ -94,17 +99,22 @@ class C14Preflight {
       ),
       PreflightCheck(
         name: 'Device desbloqueado',
-        ok: deviceUnlocked,
-        detail: deviceUnlocked ? 'keyguard off' : 'pantalla bloqueada',
+        ok: accessibilityEnabled ? deviceUnlocked : null,
+        detail: !accessibilityEnabled
+            ? 'activa Nano Mobile Agent para comprobarlo'
+            : (deviceUnlocked ? 'keyguard off' : 'pantalla bloqueada'),
       ),
       PreflightCheck(
         name: 'Pantalla interactiva',
-        ok: screenInteractive,
-        detail: screenInteractive ? 'interactive/awake' : 'no interactiva',
+        ok: accessibilityEnabled ? screenInteractive : null,
+        detail: !accessibilityEnabled
+            ? 'activa Nano Mobile Agent para comprobarlo'
+            : (screenInteractive ? 'árbol UI disponible' : 'sin árbol UI'),
       ),
     ];
 
-    final failIndex = checks.indexWhere((c) => !c.ok);
+    // Pendiente no equivale a error; solo un false detiene la suite.
+    final failIndex = checks.indexWhere((c) => c.ok == false);
     return C14PreflightResult(
       pass: failIndex == -1,
       checks: checks,

@@ -1,4 +1,4 @@
-﻿/// GAP-02 — LinuxCandidateProvider: adapta [LinuxVoiceCommandParser] al
+/// GAP-02 — LinuxCandidateProvider: adapta [LinuxVoiceCommandParser] al
 /// contrato de [CandidateProvider] para que el [CandidateFirstPlanner] pueda
 /// resolver goals Linux deterministas SIN invocar el LLM.
 ///
@@ -30,10 +30,7 @@ class LinuxCandidateProvider implements CandidateProvider {
 
   @override
   Future<List<CandidateAction>> provide(CandidateRequest request) async {
-    final parsed = _parser.parse(
-      request.goal,
-      lastFilePath: _lastFilePath,
-    );
+    final parsed = _parser.parse(request.goal, lastFilePath: _lastFilePath);
     if (parsed == null) return const [];
 
     final call = parsed.call;

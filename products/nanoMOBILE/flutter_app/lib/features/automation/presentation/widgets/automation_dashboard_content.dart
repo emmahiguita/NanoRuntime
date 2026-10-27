@@ -18,9 +18,11 @@ import '../../../../core/widgets/navigation/nano_navigation_panel.dart';
 import '../../domain/automation_result.dart';
 import '../automation_layout.dart';
 import 'automation_active_card.dart';
+import 'automation_compact_status.dart';
 import 'automation_agent_header.dart';
 import 'automation_dashboard_actions.dart';
 import 'engine_status_card.dart';
+import 'automation_history_card.dart';
 
 class AutomationDashboardContent extends StatelessWidget {
   const AutomationDashboardContent({
@@ -30,8 +32,8 @@ class AutomationDashboardContent extends StatelessWidget {
     required this.lastStatus,
     required this.lastGoal,
     required this.lastReason,
+    this.compactExecution = false,
     required this.conversationActive,
-    required this.pendingDraftsCount,
     required this.rulesCount,
     required this.businessProductsCount,
     required this.isW4bActive,
@@ -46,18 +48,22 @@ class AutomationDashboardContent extends StatelessWidget {
     this.onBusinessTap,
     this.onRulesTap,
     this.onSettingsTap,
-    this.onBotStudioTap,
-    this.onSkillsMcpTap,
-    this.onTimeRuleTap,
+    this.onMcpTap,
+    this.onModelsTap,
+    this.onAiWebTap,
+    this.onBrowserTap,
+    this.onChatTap,
+    this.onTerminalTap,
+    this.onWhatsAppWebTap,
   });
 
   final SettingsState settings;
   final bool running;
+  final bool compactExecution;
   final AutomationResultStatus? lastStatus;
   final String lastGoal;
   final String lastReason;
   final bool conversationActive;
-  final int pendingDraftsCount;
   final int rulesCount;
   final int businessProductsCount;
   final bool isW4bActive;
@@ -69,13 +75,17 @@ class AutomationDashboardContent extends StatelessWidget {
   final VoidCallback? onConfirmTask;
   final VoidCallback? onDevTap;
   final VoidCallback? onMessagesTap;
-  final VoidCallback? onPersonalAgentTap;
-  final VoidCallback? onBusinessTap;
+  final ValueChanged<BuildContext>? onPersonalAgentTap;
+  final ValueChanged<BuildContext>? onBusinessTap;
   final VoidCallback? onRulesTap;
   final VoidCallback? onSettingsTap;
-  final VoidCallback? onBotStudioTap;
-  final VoidCallback? onSkillsMcpTap;
-  final VoidCallback? onTimeRuleTap;
+  final VoidCallback? onMcpTap;
+  final VoidCallback? onModelsTap;
+  final VoidCallback? onAiWebTap;
+  final VoidCallback? onBrowserTap;
+  final VoidCallback? onChatTap;
+  final VoidCallback? onTerminalTap;
+  final VoidCallback? onWhatsAppWebTap;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +94,9 @@ class AutomationDashboardContent extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, kNanoBarScrollReserve),
       child: Center(
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: AutomationLayout.contentMaxWidth(context)),
+          constraints: BoxConstraints(
+            maxWidth: AutomationLayout.contentMaxWidth(context),
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -100,15 +112,26 @@ class AutomationDashboardContent extends StatelessWidget {
               ),
               if (running || lastStatus != null) ...[
                 const SizedBox(height: NanoSpacing.lg),
-                ActiveExecutionCard(
-                  goal: lastGoal,
-                  running: running,
-                  status: lastStatus,
-                  reason: lastReason,
-                  onConfirm: onConfirmTask,
-                ),
+                if (compactExecution)
+                  AutomationCompactStatus(
+                    goal: lastGoal,
+                    running: running,
+                    status: lastStatus,
+                    reason: lastReason,
+                    onConfirm: onConfirmTask,
+                  )
+                else
+                  ActiveExecutionCard(
+                    goal: lastGoal,
+                    running: running,
+                    status: lastStatus,
+                    reason: lastReason,
+                    onConfirm: onConfirmTask,
+                  ),
               ],
-              const SizedBox(height: 18),
+              const SizedBox(height: 6),
+              const AutomationHistoryCard(),
+              const SizedBox(height: 6),
               QuickAutomationActions(
                 onRun: onRunTask,
                 onMessagesTap: onMessagesTap,
@@ -116,10 +139,13 @@ class AutomationDashboardContent extends StatelessWidget {
                 onBusinessTap: onBusinessTap,
                 onRulesTap: onRulesTap,
                 onSettingsTap: onSettingsTap,
-                onBotStudioTap: onBotStudioTap,
-                onSkillsMcpTap: onSkillsMcpTap,
-                onTimeRuleTap: onTimeRuleTap,
-                pendingDraftsCount: pendingDraftsCount,
+                onMcpTap: onMcpTap,
+                onModelsTap: onModelsTap,
+                onAiWebTap: onAiWebTap,
+                onBrowserTap: onBrowserTap,
+                onChatTap: onChatTap,
+                onTerminalTap: onTerminalTap,
+                onWhatsAppWebTap: onWhatsAppWebTap,
                 activeRulesCount: rulesCount,
                 businessProductsCount: businessProductsCount,
                 isW4bActive: isW4bActive,

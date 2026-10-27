@@ -40,7 +40,9 @@ final linuxProcessSupervisorProvider = Provider<LinuxProcessSupervisor>((ref) {
 ///
 /// Expone el motor Linux al cerebro de automatización (Koog/Planner/Dispatcher)
 /// garantizando 100% Clean Architecture, Inversión de Dependencias y cero cuellos de botella.
-final linuxAutomationExecutorProvider = Provider<ILinuxAutomationExecutor>((ref) {
+final linuxAutomationExecutorProvider = Provider<ILinuxAutomationExecutor>((
+  ref,
+) {
   return NanoshellLinuxAutomationExecutor(
     binExecutor: ref.watch(binExecutorProvider),
     securityPolicy: ref.watch(linuxSecurityPolicyProvider),

@@ -1,71 +1,86 @@
+library;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'nano_ai_models.dart';
 
-/// Modos excluyentes con semántica Material; evita otra animación ornamental.
-class NanoAssistantModeBar extends StatelessWidget {
-  const NanoAssistantModeBar({
-    super.key,
-    required this.currentMode,
-    required this.onSelect,
-    this.enabled = true,
-  });
-  final NanoMode currentMode;
-  final ValueChanged<NanoMode> onSelect;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: [
-        for (final mode in NanoMode.values)
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: ChoiceChip(
-              label: Text(switch (mode) {
-                NanoMode.quick => 'Web AI',
-                NanoMode.action => 'Automatizar',
-                NanoMode.compare => 'Comparar',
-                NanoMode.media => 'Media',
-                NanoMode.debate => 'Debate',
-              }),
-              selected: mode == currentMode,
-              onSelected: enabled ? (_) => onSelect(mode) : null,
-            ),
-          ),
-      ],
-    ),
-  );
-}
-
-/// Las respuestas comparten el scroll del panel: sin listas anidadas diminutas.
+/// Tarjetas de respuestas en cristal líquido translúcido con alto contraste.
 class NanoAssistantAnswersView extends StatelessWidget {
-  const NanoAssistantAnswersView({super.key, required this.answers});
+  const NanoAssistantAnswersView({
+    super.key,
+    required this.answers,
+    this.onSpeak,
+  });
   final List<NanoAnswer> answers;
+  final ValueChanged<String>? onSpeak;
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: answers
-        .map(
-          (answer) => Card(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (final answer in answers)
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface.withValues(alpha: .65),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outlineVariant,
+              width: 0.9,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.20),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SelectableText(
+                answer.ok
+                    ? answer.text
+                    : 'No pude generar una respuesta. Revisa la conexión e inténtalo de nuevo.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 13.5,
+                  height: 1.48,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Text(answer.provider.name, style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 6),
-                  SelectableText(
-                    answer.error ?? answer.text,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                  if (onSpeak != null && answer.ok)
+                    IconButton(
+                      tooltip: 'Leer o detener respuesta',
+                      onPressed: () => onSpeak!(answer.text),
+                      icon: const Icon(Icons.volume_up_outlined, size: 18),
+                    ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Copiar',
+                    icon: Icon(
+                      Icons.copy_rounded,
+                      size: 14,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: !answer.ok
+                        ? null
+                        : () {
+                            Clipboard.setData(ClipboardData(text: answer.text));
+                            HapticFeedback.lightImpact();
+                          },
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-        )
-        .toList(),
+        ),
+    ],
   );
 }

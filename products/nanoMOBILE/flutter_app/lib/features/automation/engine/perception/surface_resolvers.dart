@@ -41,8 +41,14 @@ String surfaceSelectorFor(NanoUiObject o) {
 
 /// Contrato de respaldo para auto-reparación cuando los selectores estáticos fallan (DIP).
 abstract interface class SurfaceHealerFallback {
-  ResolvedSurface? tryHealInput(ScreenGraph graph, {required InputSurfaceKind kind});
-  ResolvedSurface? tryHealAction(ScreenGraph graph, {required String actionKind});
+  ResolvedSurface? tryHealInput(
+    ScreenGraph graph, {
+    required InputSurfaceKind kind,
+  });
+  ResolvedSurface? tryHealAction(
+    ScreenGraph graph, {
+    required String actionKind,
+  });
 }
 
 /// Instancia global activa para auto-reparación perceptual ante cambios de interfaz.

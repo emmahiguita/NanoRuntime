@@ -1,0 +1,32 @@
+{
+  "serial": "VGL7MVFMDYQG8T55",
+  "model": "CPH2557",
+  "package": "dev.nanoai.mobile",
+  "installedLastUpdate": "2026-10-24 11:38:42",
+  "installedVersion": "1.0.0",
+  "mode": "read-only; no navigation, tool execution, message sending or installation",
+  "modelFiles": [
+    {
+      "name": "embeddinggemma-2-text-270m.litertlm",
+      "bytes": 164626432
+    },
+    {
+      "name": "gemma-4-E2B-it.litertlm",
+      "bytes": 2588147712
+    },
+    {
+      "name": "qwen3_0.6b_nothink_q4_block32_ekv1280.litertlm",
+      "bytes": 347251840
+    }
+  ],
+  "linux": {
+    "bootstrapAliasesPresent": true,
+    "engineFile": "files/nano/engine/nanortime",
+    "fullRootfsBinPresent": false,
+    "gitInExpectedLocation": false,
+    "bashInExpectedRootfsLocation": false
+  },
+  "runtimeToolsExecuted": false,
+  "inferenceExecuted": false,
+  "logScope": "600 most recent app-PID records; only aggregate technical keyword counts retained"
+}

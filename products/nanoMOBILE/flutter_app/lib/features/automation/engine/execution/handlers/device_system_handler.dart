@@ -1,4 +1,4 @@
-﻿import '../../../../../core/services/device_metrics.dart';
+import '../../../../../core/services/device_metrics.dart';
 import '../../../../../core/services/nano_runtime_api.dart';
 import '../../system/capabilities_report.dart';
 import '../../system/installed_app_catalog.dart';
@@ -32,15 +32,15 @@ class DeviceSystemHandler {
     InstalledAppCatalog? installedAppCatalog,
     WebToolHandler? webHandler,
     ShizukuToolHandler? shizukuHandler,
-  })  : _runtime = runtime ?? NanoRuntimeApi.instance,
-        _systemGraphSource = systemGraphSource,
-        _devicePermissionsSource = devicePermissionsSource,
-        _shizukuStatusSource = shizukuStatusSource,
-        _openPermissionSource = openPermissionSource,
-        _voiceOutputEnabled = voiceOutputEnabled ?? _defaultVoice,
-        _installedAppCatalog = installedAppCatalog,
-        _webHandler = webHandler ?? WebToolHandler(),
-        _shizukuHandler = shizukuHandler ?? ShizukuToolHandler();
+  }) : _runtime = runtime ?? NanoRuntimeApi.instance,
+       _systemGraphSource = systemGraphSource,
+       _devicePermissionsSource = devicePermissionsSource,
+       _shizukuStatusSource = shizukuStatusSource,
+       _openPermissionSource = openPermissionSource,
+       _voiceOutputEnabled = voiceOutputEnabled ?? _defaultVoice,
+       _installedAppCatalog = installedAppCatalog,
+       _webHandler = webHandler ?? WebToolHandler(),
+       _shizukuHandler = shizukuHandler ?? ShizukuToolHandler();
 
   static bool _defaultVoice() => true;
 
@@ -62,8 +62,9 @@ class DeviceSystemHandler {
       final bluetooth = btRaw == true
           ? 'activo'
           : (btRaw == false ? 'inactivo' : 'no consultable');
-      final media =
-          system['mediaPlaying'] == true ? 'reproduciendo' : 'inactivo';
+      final media = system['mediaPlaying'] == true
+          ? 'reproduciendo'
+          : 'inactivo';
 
       final String red;
       if (wifiConnected) {
@@ -160,7 +161,8 @@ class DeviceSystemHandler {
       bool humanInitiated,
       String? executionId,
       ExecutionCancellationToken? cancellation,
-    }) runGuarded,
+    })
+    runGuarded,
     String? executionId,
     ExecutionCancellationToken? cancellation,
   }) async {
@@ -177,7 +179,8 @@ class DeviceSystemHandler {
         query.endsWith('.net') ||
         query.endsWith('.io') ||
         query.endsWith('.co')) {
-      final fullUrl = (query.startsWith('http://') || query.startsWith('https://'))
+      final fullUrl =
+          (query.startsWith('http://') || query.startsWith('https://'))
           ? query
           : 'https://$query';
       return _webHandler.openUrl(fullUrl);

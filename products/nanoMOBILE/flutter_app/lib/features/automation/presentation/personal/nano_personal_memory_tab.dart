@@ -29,6 +29,8 @@ class NanoPersonalMemoryTab extends StatefulWidget {
 class _NanoPersonalMemoryTabState extends State<NanoPersonalMemoryTab> {
   List<PersonalMemory> _memories = [];
   bool _loading = true;
+  bool _writing = false;
+  String? _error;
 
   @override
   void initState() {
@@ -38,28 +40,60 @@ class _NanoPersonalMemoryTabState extends State<NanoPersonalMemoryTab> {
 
   Future<void> _loadMemories() async {
     try {
-      final list = await PersonaRepository.instance.listPersonalMemories(scopeKey: 'owner');
+      final list = await PersonaRepository.instance.listPersonalMemories(
+        scopeKey: 'owner',
+      );
       if (!mounted) return;
       setState(() {
         _memories = list;
         _loading = false;
+        _error = null;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'No se pudieron leer las memorias.';
+        });
+      }
     }
   }
 
   Future<void> _addOrEditMemory([PersonalMemory? existing]) async {
+    if (_writing) return;
     final memory = await NanoPersonalMemoryDialog.show(context, existing);
-    if (memory != null) {
-      await PersonaRepository.instance.savePersonalMemory(memory);
-      await _loadMemories();
+    if (memory != null && mounted) {
+      setState(() => _writing = true);
+      try {
+        await PersonaRepository.instance.savePersonalMemory(memory);
+        await _loadMemories();
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se pudo guardar el dato.')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _writing = false);
+      }
     }
   }
 
   Future<void> _deleteMemory(PersonalMemory memory) async {
-    await PersonaRepository.instance.deletePersonalMemory(memory.id);
-    await _loadMemories();
+    if (_writing) return;
+    setState(() => _writing = true);
+    try {
+      await PersonaRepository.instance.deletePersonalMemory(memory.id);
+      await _loadMemories();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo eliminar el dato.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _writing = false);
+    }
   }
 
   @override
@@ -70,6 +104,12 @@ class _NanoPersonalMemoryTabState extends State<NanoPersonalMemoryTab> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
       children: [
+        if (_writing) const LinearProgressIndicator(),
+        if (_error != null)
+          TextButton(
+            onPressed: _loadMemories,
+            child: Text('$_error Reintentar'),
+          ),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -92,7 +132,7 @@ class _NanoPersonalMemoryTabState extends State<NanoPersonalMemoryTab> {
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: () => _addOrEditMemory(),
+          onPressed: _writing ? null : () => _addOrEditMemory(),
           icon: const Icon(Icons.add_rounded, size: 18),
           label: const Text('Agregar nuevo dato sobre mí'),
           style: FilledButton.styleFrom(
@@ -153,9 +193,13 @@ class _NanoPersonalMemoryTabState extends State<NanoPersonalMemoryTab> {
             ),
           ),
           IconButton(
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            onPressed: _writing ? null : () => _addOrEditMemory(m),
+          ),
+          IconButton(
             icon: const Icon(Icons.delete_outline, size: 18),
             color: visual.textMuted,
-            onPressed: () => _deleteMemory(m),
+            onPressed: _writing ? null : () => _deleteMemory(m),
           ),
         ],
       ),

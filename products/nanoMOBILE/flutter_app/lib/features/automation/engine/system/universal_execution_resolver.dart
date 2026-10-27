@@ -68,7 +68,8 @@ class UniversalExecutionResolver {
       return const ExecutionResolution(
         mechanism: ExecutionMechanism.nativeAndroid,
         isDegraded: true,
-        rationale: 'Privilegios elevados no activos. Degradando a flujo estándar de Intent.',
+        rationale:
+            'Privilegios elevados no activos. Degradando a flujo estándar de Intent.',
       );
     }
 
@@ -83,7 +84,8 @@ class UniversalExecutionResolver {
       return const ExecutionResolution(
         mechanism: ExecutionMechanism.nativeAndroid,
         isDegraded: true,
-        rationale: 'Accesibilidad no concedida. Degradando a navegación básica por Intent.',
+        rationale:
+            'Accesibilidad no concedida. Degradando a navegación básica por Intent.',
       );
     }
 
@@ -92,7 +94,8 @@ class UniversalExecutionResolver {
       return const ExecutionResolution(
         mechanism: ExecutionMechanism.accessibility,
         isDegraded: true,
-        rationale: 'Captura visual no soportada por SDK (<30). Fallback a árbol accesible.',
+        rationale:
+            'Captura visual no soportada por SDK (<30). Fallback a árbol accesible.',
       );
     }
 

@@ -1,0 +1,434 @@
+﻿[
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/api_provider_settings_card.dart",
+        "lines":  427,
+        "sha256":  "67cada13209e56917a1412dd973982fd33c1593df370d8870eaf14d35d1e1363"
+    },
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_connected_servers_section.dart",
+        "lines":  84,
+        "sha256":  "65cbffa2673e478d5f1b0473ca928c5a02ed5c2452d569f704e0a631f3e94d32"
+    },
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_graph_components.dart",
+        "lines":  309,
+        "sha256":  "7e05145d0b720ec6f45fe3d77088ec15e73f71f7b59e1c3fa22ae07913a7d4c3"
+    },
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_hot_injection_dialog.dart",
+        "lines":  348,
+        "sha256":  "6f17c3a8bea2f7f9f58c67ba0265d585ff840ee59b9fb1fc5a6f652e3d33e824"
+    },
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_registry_catalog_section.dart",
+        "lines":  171,
+        "sha256":  "ad5a89cb83060636b541ef4151c33db7bf9c50b95621b6a3e21bed07b8d1a4a8"
+    },
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_registry_entry_card.dart",
+        "lines":  115,
+        "sha256":  "b903b4d5e4c28cdbf66d6da05e6edd07ca586648720177fbc6822757d61af08e"
+    },
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_store_components.dart",
+        "lines":  621,
+        "sha256":  "43da6dfaa0645212091337f588d26e048974388845a51fd43949b9d84dff12e3"
+    },
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_telemetry_components.dart",
+        "lines":  107,
+        "sha256":  "c9a6d5b871373476f618f9e0f56dfd618786d3fb44faf68c1bf77198160bdbea"
+    },
+    {
+        "group":  "mcpUi",
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_tool_test_dialog.dart",
+        "lines":  120,
+        "sha256":  "abcdb97fdfb90c60508cc5cf06808d08ae062b0fc968a253a2fb1e95e2bc49c5"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/adaptive_swipe_calculator.dart",
+        "lines":  102,
+        "sha256":  "a6171715ff6978a90cfac0b1a18f3c8ecf004f2a16663c36aa6e85173e7d3ac4"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/http_mcp_client.dart",
+        "lines":  325,
+        "sha256":  "0d2bb9ec44a011ac1a1435cbf2eeed74c862c5af21ec4324082595adc41b9fc5"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/http_mcp_parser.dart",
+        "lines":  79,
+        "sha256":  "85949985b19fb3382b14b658b4edaf3c10776d9b79183ca2972a4536fa0cc99d"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/http_mcp_tool_caller.dart",
+        "lines":  143,
+        "sha256":  "bdc03e23fcd616d0abc2dba18809e4828d57ca09ff9e5a27e7ff63cc1eb01efd"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/linux_automation_mcp_client.dart",
+        "lines":  200,
+        "sha256":  "681935012b2d655796e9a306de6a7c6d493c60cfd2eca863d3a2ebac07f9c2ab"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/local_device_mcp_client.dart",
+        "lines":  635,
+        "sha256":  "44031629b6091385990c0207df5a0b86139854efc68304a78cbe21d464a64a87"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_candidate_provider.dart",
+        "lines":  44,
+        "sha256":  "68c7a5a9b3b600417925f41c036c165eeec15b1fbb3e7ecadf0adf26b4fb8ce2"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_client_port.dart",
+        "lines":  179,
+        "sha256":  "a5e11aa2b531d53fb0f43dbe345f7662c9ae63c40172eb599158cc473daf807d"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_connection_registry.dart",
+        "lines":  217,
+        "sha256":  "d977f18f9af7f37cb7e66cd91559c6a1d7d6eb70b7ffb89f0144da59de5e296d"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_http_diagnostics.dart",
+        "lines":  87,
+        "sha256":  "ea197a2c751b5d4807c119b09c32fb73505c854ae51c88a2d5c3a60e27aaed02"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_registry_catalog_source.dart",
+        "lines":  194,
+        "sha256":  "175de8fb32a61efadaf2bf42af186effffdce87f2383f632f3966250b2cf8b25"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_server_persistence.dart",
+        "lines":  198,
+        "sha256":  "8e6eb713c3cf4260fc25b5ead81f30ea1e3dc568928cc42fe21217d0f62a166f"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_server_restorer.dart",
+        "lines":  114,
+        "sha256":  "324197c0da5ffa5e0684fbe15f7f3a43a8170a4079c3cdc1fb2cdc7540684794"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_store_catalog.dart",
+        "lines":  140,
+        "sha256":  "ffa60c789775080947dd25204a56cb7c72292f7099210546de56c33fa341548d"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_tool.dart",
+        "lines":  17,
+        "sha256":  "c5b24667760c0bac73f3e6b3793fd9dad46997eb10e08484432c3d6afd3527f8"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_tool_adapter.dart",
+        "lines":  52,
+        "sha256":  "8102fe4e7cff0ad6ffcb7e6ac5906f04e11c43b9e488aedfa03f2ff3a4679f56"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_tool_projection.dart",
+        "lines":  36,
+        "sha256":  "b4a96cd48e6484c0cc47a1e6068f0fae22d94ac5a942ccd13cc95432adcbb091"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_tool_registry.dart",
+        "lines":  22,
+        "sha256":  "2759e3733e5c94fede93bc71a87e0a48249cdba861512b9b140d8a4a65bf0df6"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mcp_tool_resolver.dart",
+        "lines":  76,
+        "sha256":  "1b2b44321deb4c53d0168b27525738e5d0e74d21baa00691cc9754e7fba3c86b"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mobile_automation_executor.dart",
+        "lines":  198,
+        "sha256":  "379a2a96dd8448d452d9ea6c0af677ef302a0435c4e0468266b6009efe5c86f7"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mobile_automation_mcp_client.dart",
+        "lines":  150,
+        "sha256":  "db574d177544c3b7022d7645f8d9a37a5ecc5d00bb5c36050b8930d1b50bdede"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mobile_automation_tool_catalog.dart",
+        "lines":  207,
+        "sha256":  "91ea4f95a5f158e1650ea83754ca6739de289ef35246446ba554991cb0c5828a"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/mobile_gesture_executor.dart",
+        "lines":  372,
+        "sha256":  "4bf85c2c6dd7a057fdb9d285ae766a653850db505f1b3cf47bd95047627819ea"
+    },
+    {
+        "group":  "mcpEngine",
+        "path":  "lib/features/automation/engine/mcp/whatsapp_mcp_delta_sync.dart",
+        "lines":  152,
+        "sha256":  "d0c11d46705cccd57d1fb9cd93ae95621898e5b54d80ee7859c242a6cd18475f"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/ansi_parser.dart",
+        "lines":  445,
+        "sha256":  "333767f3ecd79e11c6c733f1d7179f13ff748bb8bd403afe2928fb9089212eaa"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/ansi_terminal.dart",
+        "lines":  501,
+        "sha256":  "1959114a0397eafee4cd344ad30ac5db2e77cf29427709eaaa547eff0af9857e"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/command_dispatcher.dart",
+        "lines":  405,
+        "sha256":  "4292db2be88c44df96862899a6341c2265603890726d2b97516e734b31543d0f"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/command_executor.dart",
+        "lines":  521,
+        "sha256":  "3cc8a227deb57f28470451f8d173916d67510b9a2978fccde7b401f157278dc5"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/command_tagger.dart",
+        "lines":  50,
+        "sha256":  "34df9d7c7870e95e72be8225017a3c4971661c743863a213a5bea87b6c779c1e"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/cron_scheduler.dart",
+        "lines":  134,
+        "sha256":  "3492c317b181f9b88a09bcb1f4edad51da99e1fd721507b2989567bf07c9571c"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/i_bin_executor.dart",
+        "lines":  79,
+        "sha256":  "47af84d0d79331a2b4626a33f159baa91c04be2dddbe172a3384ecdd43a5327c"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/keyboard_mapper.dart",
+        "lines":  98,
+        "sha256":  "0cf755702238d271df2a6901c973e7d2952fdfcfa433989766f7d756e4c7654d"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/noar_builtin_commands.dart",
+        "lines":  158,
+        "sha256":  "35facf227323c11eb2aee5c508c86f8a7d3481e29f03ed37791109dc9876081c"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/noar_panel.dart",
+        "lines":  659,
+        "sha256":  "b329c5302c17609c9a4c937071a7053cae2900a27646803a500450b622630191"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/noar_persistence.dart",
+        "lines":  42,
+        "sha256":  "aff9b977bcca936c839224b6140e26042df002465154212ce21cd26d265a4cf4"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/pty_manager.dart",
+        "lines":  390,
+        "sha256":  "988c8755519c2135df71b7582e5c64ed8f7228ab6392593a99e91f5bf9297e89"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/real_fs_shell.dart",
+        "lines":  924,
+        "sha256":  "a7b1e353073c3d669de35e1fca983615510dce14324fd28cd3c4dfb15ea3d98b"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/terminalservices.dart",
+        "lines":  122,
+        "sha256":  "8193b24c1a21126079e82c168f622adfcbd845ac7a01fe757a2a3cf458b2b098"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/terminal_core.dart",
+        "lines":  1462,
+        "sha256":  "3b3fc3d3696d09735977bd885fd7d440addfd2273224a7008774f0eea8d54e08"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/terminal_manual.dart",
+        "lines":  560,
+        "sha256":  "6983d65c8fbf8e07a6790196fa85337cb83aa80030b7d29e4e25794fece1a511"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/terminal_modifier_bar.dart",
+        "lines":  334,
+        "sha256":  "a5802d1d80f69062115b2bbf8a5462aea030be914562eb06827883661efc9574"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/terminal_session_controller.dart",
+        "lines":  40,
+        "sha256":  "cef405d4642bbe22cc4326b750b48e7b52e595297b10494e43cc5864456a9a99"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/terminal_types.dart",
+        "lines":  229,
+        "sha256":  "7665d5f33117ec200be45b582f3aa7455876d6e24742b1bcb2d748f922931125"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/term_screen.dart",
+        "lines":  566,
+        "sha256":  "135c4dae6486c2cae5225a705397fbcb753f98cca4ca923b10a55f39cff0b9ba"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/domain/terminal_hub_card.dart",
+        "lines":  28,
+        "sha256":  "a85a4566c4983c62319aab3b64f986d950bd5510941c363d49eb184efdd6ee2d"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/plugins/dashboard_plugin.dart",
+        "lines":  118,
+        "sha256":  "501b7f5133926b52eef8aaf0dcbd5990253ec4616d5c954eaf5b15f4c28758a2"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/plugins/devops_plugin.dart",
+        "lines":  421,
+        "sha256":  "2506addc7a39ec1939bac8efb557e78376abbe66f083a550815f3389bbbe16d1"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/plugins/monitor_plugin.dart",
+        "lines":  162,
+        "sha256":  "7e521852eeb08b00a4dfa94d2983d43e9bc824e2069cfa81f90136f65856d5b0"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/plugins/network_plugin.dart",
+        "lines":  106,
+        "sha256":  "24d9a69c5db92895f3e4a2572492869029197547d699ef95f91570f6d4352c1d"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/plugins/pkg_plugin.dart",
+        "lines":  107,
+        "sha256":  "f3b87ba7c84c26b03475d53f27d29bd614315300d190d4dcadff4004cd40f508"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/plugins/process_plugin.dart",
+        "lines":  92,
+        "sha256":  "a2f075c1d23325ae6127b8bed3e9a25109fbae8d233bdd3853dbb761601fecda"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/plugins/system_plugin.dart",
+        "lines":  265,
+        "sha256":  "ff64e0eed7dba431cc832d99716be05524e8ce167689ab9da1222759b007d17c"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/screens/terminal_hub_screen.dart",
+        "lines":  305,
+        "sha256":  "56740f73cd51620205f400edc1858b5b26586655e2fd95e56bb44d8ff443b4b7"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/screens/terminal_screen.dart",
+        "lines":  296,
+        "sha256":  "a545d2761b9d94a565d748e9f95d03440fceb0e05877033b066db3c61dbf761a"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/interactive_3d_turntable_box.dart",
+        "lines":  1505,
+        "sha256":  "778b898f4b17fcdb2ef0f2f0119c8a5baa586f246c633047a6bb904b6bda5502"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/perspective_carousel_item.dart",
+        "lines":  48,
+        "sha256":  "023ddb92e205198956b1ee10d6bceef22ef93fc851ac00b1fb62e64e85b0bd03"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/perspective_hero_flight.dart",
+        "lines":  65,
+        "sha256":  "f36f892690cf582936224167ceb37a897f05e809c89304615840d7c1c0c2190d"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/terminal_coverflow_card.dart",
+        "lines":  903,
+        "sha256":  "693144f210757b53871d3092543d455c52b34fca866a1d4801a125415312e428"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/terminal_height_resize_handle.dart",
+        "lines":  53,
+        "sha256":  "216e07bf01e303ec5c2495f4092cdacffce667a0f59af571875c96cc8664f9c9"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/terminal_output_view.dart",
+        "lines":  36,
+        "sha256":  "98eb77b44b69e91a4c4e26c4e57e365fe613daa407144c96254bead901e9e089"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/terminal_session_item.dart",
+        "lines":  40,
+        "sha256":  "7c52e2d890972616e3382e80d044b9a7d007c65eb033521eb9791aa95af6181d"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/terminal_top_bar.dart",
+        "lines":  220,
+        "sha256":  "98d427cf5ed2e3a6e5013fc61889abe90542532f65ca9ac1f11ba226f56580fa"
+    },
+    {
+        "group":  "terminal",
+        "path":  "lib/features/terminal/presentation/widgets/terminal_view_box.dart",
+        "lines":  100,
+        "sha256":  "9fd23c14878baf4f526a758547fc4a446bdfb5dc4b2d3c376fa5dc89434136d9"
+    }
+]

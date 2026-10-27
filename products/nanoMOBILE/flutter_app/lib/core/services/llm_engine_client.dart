@@ -2,6 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
+import 'inference_media_input.dart';
+import 'execution_budget.dart';
+import '../../features/automation/engine/model/inference_telemetry.dart'
+    show InferenceTelemetry;
 
 /// Cliente HTTP hacia el motor llama.cpp real desplegado localmente en el
 /// dispositivo (binario `nan`, libs en `llama_libs/`, modelos `.gguf`).
@@ -12,8 +16,17 @@ import 'package:flutter/foundation.dart';
 /// La app se conecta a 127.0.0.1 (loopback). SSE streaming vía POST /completion
 /// (compatible con la API del servidor HTTP+SSE integrado en nanortime-cli).
 class LLMEngineClient {
-  final String baseUrl;
+  String baseUrl;
+  String? apiKey;
   final Duration timeout;
+
+  void updateEndpoint({required String baseUrl, String? apiKey}) {
+    this.baseUrl = baseUrl;
+    this.apiKey = apiKey;
+  }
+
+  // El router puede ampliar la espera de prefill según el motor sin cambiar el contrato del chat.
+  Duration get streamIdleTimeout => const Duration(seconds: 45);
   final http.Client _client;
   // Fábrica del client de streaming (uno nuevo por stream para poder cerrarlo
   // en cancelación sin afectar el client compartido). Inyectable en tests.
@@ -23,16 +36,15 @@ class LLMEngineClient {
   /// Señal local para que el watchdog no compita con decode/prefill.
   bool get hasActiveStreamRequest => _activeStreamRequests > 0;
 
+  Map<String, String> get _authHeaders => {
+    if (apiKey != null && apiKey!.isNotEmpty) 'Authorization': 'Bearer $apiKey',
+    if (apiKey != null && apiKey!.isNotEmpty) 'X-Nano-API-Key': apiKey!,
+  };
+
   LLMEngineClient({
     this.baseUrl = 'http://127.0.0.1:8080',
-    this.timeout = const Duration(
-      seconds: 240,
-    ), // Medido en Oppo (1.5B Q4_K_M, ctx 4096): prefill ~125s + decode ~12s
-    // ≈ 137s por borrador CON historial de memoria en el prompt. Con 120s el
-    // cliente cortaba justo antes de la respuesta; el retry chocaba con el
-    // modelo aún ocupado (generation_failed instantáneo) y el borrador ya
-    // generado se perdía en el socket muerto. 240s cubre el peor caso con las
-    // 8 entradas máximas de historial (~950 tokens de prompt).
+    this.apiKey,
+    this.timeout = const Duration(seconds: 240),
     http.Client? client,
     http.Client Function()? streamClientFactory,
   }) : _client = client ?? http.Client(),
@@ -61,7 +73,7 @@ class LLMEngineClient {
     for (var i = 0; i < attemptCount; i++) {
       try {
         final r = await _client
-            .get(Uri.parse('$baseUrl/health'))
+            .get(Uri.parse('$baseUrl/health'), headers: _authHeaders)
             .timeout(requestTimeout);
         if (r.statusCode == 200) {
           final body = r.body;
@@ -96,10 +108,27 @@ class LLMEngineClient {
   Future<bool> hasModel() async {
     try {
       final r = await _client
-          .get(Uri.parse('$baseUrl/api/status'))
+          .get(Uri.parse('$baseUrl/api/status'), headers: _authHeaders)
           .timeout(const Duration(seconds: 3));
-      return r.statusCode == 200;
-    } catch (_) {
+      // QUÉ HACE: Distingue fallo HTTP, carga pendiente y modelo realmente listo.
+      // CÓMO FUNCIONA: Lee model_loaded y conserva state/error sin registrar prompts.
+      // POR QUÉ: El diagnóstico anterior ocultaba el motivo y confundía salud con capacidad de inferencia.
+      final decoded = jsonDecode(r.body);
+      final status = decoded is Map ? decoded : const <String, dynamic>{};
+      final loaded = r.statusCode == 200 && status['model_loaded'] == true;
+      if (!loaded) {
+        final state = status['state'] ?? status['status'] ?? 'unknown';
+        final cause =
+            status['reason'] ?? status['error'] ?? 'model_loaded=false';
+        final detail = cause.toString().replaceAll(RegExp(r'[\r\n]+'), ' ');
+        debugPrint(
+          '[llm] readiness=false http=${r.statusCode} state=$state '
+          'cause=${detail.length <= 240 ? detail : detail.substring(0, 240)}',
+        );
+      }
+      return loaded;
+    } catch (error) {
+      debugPrint('[llm] readiness request failed: ${error.runtimeType}');
       return false;
     }
   }
@@ -111,7 +140,7 @@ class LLMEngineClient {
   /// Lanza [LLMEngineException] si el motor no responde.
   Future<RuntimeStatus> getStatus() async {
     final r = await _client
-        .get(Uri.parse('$baseUrl/api/status'))
+        .get(Uri.parse('$baseUrl/api/status'), headers: _authHeaders)
         .timeout(const Duration(seconds: 5));
     if (r.statusCode != 200) {
       throw LLMEngineException('HTTP ${r.statusCode}: ${r.body}');
@@ -129,7 +158,7 @@ class LLMEngineClient {
     final r = await _client
         .post(
           Uri.parse('$baseUrl/api/viability'),
-          headers: {'Content-Type': 'application/json'},
+          headers: {'Content-Type': 'application/json', ..._authHeaders},
           body: jsonEncode({'model_size_bytes': modelSizeBytes}),
         )
         .timeout(const Duration(seconds: 5));
@@ -144,18 +173,33 @@ class LLMEngineClient {
   ///
   /// Devuelve el texto y, si el motor lo reporta, el tps real.
   /// Lanza [LLMEngineException] si falla o agota el tiempo.
+  /// [requestId] y [queuedAtMs] son OPCIONALES (telemetría LOOP-1): si se
+  /// pasan, el turno queda correlacionado con la cola del draft writer.
   Future<LLMResult> generate({
     required String prompt,
     double temperature = 0.7,
     int maxTokens = 256,
     String? sessionId,
+    String? context,
+    List<Map<String, String>>? history,
+    Duration? requestTimeout,
+    List<InferenceMediaInput> mediaInputs = const [],
+    String? requestId,
+    int? queuedAtMs,
   }) async {
     // WA-LIVE-02 — request_id SIEMPRE presente (antes solo en streaming):
     // tras un timeout el cliente corta el socket y llama /cancel con este id.
     // Evidencia device: sin cancel, el worker del motor quedaba en
     // "Model temporarily unavailable (streaming in progress)" PERMANENTE
     // (active_requests=0 pero todo POST posterior fallaba o salía vacío).
-    final requestId = newRequestId();
+    final effectiveRequestId = (requestId != null && requestId.isNotEmpty)
+        ? requestId
+        : newRequestId();
+    // Cancelar la vista previa cancela ESTE request HTTP, no el modelo compartido.
+    // El registro se libera al completar, evitando retener clientes terminados.
+    final detachBudget = ExecutionBudget.current?.register(() {
+      unawaited(cancelRequest(effectiveRequestId));
+    });
     final body = jsonEncode({
       'prompt': prompt,
       'n_predict': maxTokens,
@@ -169,21 +213,28 @@ class LLMEngineClient {
         '<｜end▁of▁sentence｜>',
       ],
       'stream': false,
-      'request_id': requestId,
-      // Sesión estable por conversación: el motor reutiliza el KV del turno
-      // anterior (gate R5) y el prefill solo procesa los tokens nuevos en
-      // vez del prompt completo cada vez. Sin sesión, cada turno paga el
-      // prefill entero (~125s en Oppo).
+      'request_id': effectiveRequestId,
       if (sessionId != null && sessionId.isNotEmpty) 'session_id': sessionId,
+      if (context != null && context.isNotEmpty) 'context': context,
+      if (history != null && history.isNotEmpty) 'history': history,
     });
+    // LOOP-1-TELEMETRY — arranque del turno: solo números, sin contenido.
+    final inferenceWatch = Stopwatch()..start();
+    InferenceTelemetry.begin(
+      conversationId: sessionId ?? '',
+      requestId: effectiveRequestId,
+      promptChars: prompt.length,
+      historyEntries: history?.length ?? 0,
+      queuedAtMs: queuedAtMs ?? DateTime.now().millisecondsSinceEpoch,
+    );
     try {
       final response = await _client
           .post(
             Uri.parse('$baseUrl/completion'),
-            headers: {'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json', ..._authHeaders},
             body: body,
           )
-          .timeout(timeout);
+          .timeout(requestTimeout ?? timeout);
       if (response.statusCode != 200) {
         throw LLMEngineException(
           'HTTP ${response.statusCode}: ${response.body}',
@@ -198,29 +249,75 @@ class LLMEngineClient {
       final text = (map['content'] as String? ?? '').trim();
       double? tps;
       final timings = map['timings'];
-      if (timings is Map<String, dynamic>) {
-        final perSecond = timings['predicted_per_second'];
-        final perTokenMs = timings['predicted_per_token_ms'];
+      final timingsMap = timings is Map<String, dynamic> ? timings : null;
+      if (timingsMap != null) {
+        final perSecond = timingsMap['predicted_per_second'];
+        final perTokenMs = timingsMap['predicted_per_token_ms'];
         if (perSecond is num && perSecond > 0) {
           tps = perSecond.toDouble();
         } else if (perTokenMs is num && perTokenMs > 0) {
           tps = 1000.0 / perTokenMs.toDouble();
         }
       }
-      return LLMResult(text: text, tps: tps);
+      inferenceWatch.stop();
+      InferenceTelemetry.complete(
+        requestId: effectiveRequestId,
+        prefillMs: _timingMs(timingsMap, const [
+          'prefill_ms',
+          'prompt_ms',
+          'ttft_ms',
+        ]),
+        decodeMs: _timingMs(timingsMap, const ['decode_ms', 'predicted_ms']),
+        generatedTokens: _timingInt(timingsMap, const [
+          'predicted_n',
+          'tokens_predicted',
+          'n_predict_out',
+        ]),
+      );
+      return LLMResult(text: text, tps: tps, timings: timingsMap);
     } on TimeoutException {
-      await cancelRequest(requestId);
+      InferenceTelemetry.markDiscarded(effectiveRequestId);
+      await cancelRequest(effectiveRequestId);
       throw LLMEngineException('Timeout al generar la respuesta');
     } on http.ClientException catch (error) {
-      await cancelRequest(requestId);
+      InferenceTelemetry.markDiscarded(effectiveRequestId);
+      await cancelRequest(effectiveRequestId);
       throw LLMEngineException(
         'No se pudo contactar al motor: ${error.message}',
       );
     } on FormatException catch (error) {
+      InferenceTelemetry.markDiscarded(effectiveRequestId);
       throw LLMEngineException(
         'Respuesta inválida del motor: ${error.message}',
       );
+    } on LLMEngineException {
+      InferenceTelemetry.markDiscarded(effectiveRequestId);
+      rethrow;
+    } finally {
+      detachBudget?.call();
     }
+  }
+
+  /// Extrae un campo numérico de timings por candidatos; 0 si ausente.
+  /// Sin fabricar datos: solo refleja lo que el motor reporta.
+  static int _timingMs(Map<String, dynamic>? timings, List<String> keys) {
+    if (timings == null) return 0;
+    for (final key in keys) {
+      final v = timings[key];
+      if (v is num) return v.round();
+      if (v is String) return int.tryParse(v) ?? 0;
+    }
+    return 0;
+  }
+
+  static int _timingInt(Map<String, dynamic>? timings, List<String> keys) {
+    if (timings == null) return 0;
+    for (final key in keys) {
+      final v = timings[key];
+      if (v is num) return v.round();
+      if (v is String) return int.tryParse(v) ?? 0;
+    }
+    return 0;
   }
 
   /// Genera respuesta streaming contra /completion (modo SSE token-por-token).
@@ -245,6 +342,7 @@ class LLMEngineClient {
     String? context,
     List<Map<String, String>>? history,
     String? requestId,
+    List<InferenceMediaInput> mediaInputs = const [],
   }) {
     final client = _streamClientFactory?.call() ?? http.Client();
     final controller = StreamController<LLMStreamToken>();
@@ -282,16 +380,18 @@ class LLMEngineClient {
   /// cliente antes) dejaba la generación corriendo en el worker con KV a
   /// medias. Devuelve true si el server confirmó la cancelación.
   Future<bool> cancelRequest(String requestId) async {
+    InferenceTelemetry.markCancelRequested(requestId);
     try {
       final r = await _client
           .post(
             Uri.parse('$baseUrl/cancel'),
-            headers: {'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json', ..._authHeaders},
             body: jsonEncode({'request_id': requestId}),
           )
           .timeout(const Duration(seconds: 5));
       final ok = r.statusCode == 200;
       debugPrint('[llm] cancel $requestId -> HTTP ${r.statusCode}');
+      InferenceTelemetry.markCancelCompleted(requestId);
       return ok;
     } catch (e) {
       debugPrint(
@@ -322,6 +422,7 @@ class LLMEngineClient {
       );
       final request = http.Request('POST', Uri.parse('$baseUrl/completion'));
       request.headers['Content-Type'] = 'application/json';
+      request.headers.addAll(_authHeaders);
       // El prompt viaja CRUDO (sin template): el motor nanortime aplica el
       // chat template real del GGUF. `context` es el system prompt del
       // cliente y `history` los turnos previos (role/content) — el core los
@@ -476,7 +577,10 @@ class LLMStreamToken {
 class LLMResult {
   final String text;
   final double? tps;
-  const LLMResult({required this.text, this.tps});
+
+  /// LOOP-1-TELEMETRY — timings crudos del motor (solo números, sin texto).
+  final Map<String, dynamic>? timings;
+  const LLMResult({required this.text, this.tps, this.timings});
 }
 
 class LLMEngineException implements Exception {

@@ -119,16 +119,14 @@ class ConversationalActionResolvers {
   static NativeConversationalResponse resolveGoogleAccount() =>
       const NativeConversationalResponse(
         text:
-            '### 👤 Cuenta de Google Conectada en Nano AI\n\n'
-            '• **Titular:** Emmanuel Higuita\n'
-            '• **Correo:** emmanuel.higuita.gomez@gmail.com\n'
-            '• **Estado:** 🟢 Conectado y Sincronizado en Vivo\n'
+            '### 👤 Gestión de Cuentas y Servicios en Nano AI\n\n'
+            '• **Identidad del Dispositivo:** Autenticación local y almacenamiento cifrado en el dispositivo.\n'
             '• **Servicios Vinculados:**\n'
-            '  - ⚡ Google Gemini Cloud AI (Activo)\n'
-            '  - 🔍 Búsqueda Web Google (Activo)\n'
-            '  - ☁️ Sincronización On-Device (Activo)\n\n'
-            '💡 *Gestiona tu cuenta o fuerza sincronización con las opciones abajo:*',
-        suggestions: ['@cuenta', '@url https://myaccount.google.com', '@url https://gemini.google.com', '⚡ Estado del Dispositivo'],
+            '  - ⚡ Motores Locales GGUF / MNN (Inferencia soberana en hardware)\n'
+            '  - 🌐 Proveedores en la Nube (APIs configurables según tus credenciales)\n'
+            '  - 🛡️ Gobernanza On-Device (Seguridad de datos sin telemetría no deseada)\n\n'
+            '💡 *Puedes administrar tu perfil, sincronización o credenciales desde el panel de Cuenta:*',
+        suggestions: ['@cuenta', '⚡ Estado del Dispositivo', '🤖 Catálogo de Modelos', '⚙️ Ajustes'],
       );
 
   static NativeConversationalResponse resolveWebAccountLogin(String lower) {

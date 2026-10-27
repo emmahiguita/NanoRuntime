@@ -1,19 +1,20 @@
-// account_center_screen.dart — Pantalla estándar de gestión de perfil personal.
-// QUÉ HACE: Permite ver y editar fotografía, datos personales, ubicación y contacto del usuario.
-// CÓMO FUNCIONA: Orquesta widgets modulares con persistencia local y sincronizable sin métricas de sistema.
-// POR QUÉ: Otorga una experiencia humana, limpia y profesional idéntica a apps ejecutivas.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/theme/nano_type.dart';
 import '../../application/account_providers.dart';
-import '../widgets/nano_danger_dialog.dart';
-import '../widgets/profile_avatar_header.dart';
-import '../widgets/profile_contact_fields.dart';
-import '../widgets/profile_location_fields.dart';
-import '../widgets/profile_personal_fields.dart';
+import '../controllers/profile_editor_draft.dart';
+import '../controllers/profile_media_picker.dart';
+import '../widgets/profile_form_sections.dart';
+import '../widgets/profile_social_cover.dart';
 
+/// Pantalla de perfil profesional completo con estética iOS Frosted Glass.
+///
+/// - QUÉ HACE: Centraliza la visualización y edición del perfil del usuario soberano.
+/// - CÓMO FUNCIONA: Gestiona un borrador reactivo ([ProfileEditorDraft]) y delega
+///   el guardado único a la acción en la barra de navegación superior.
+/// - POR QUÉ: Sigue el patrón canónico de Apple iOS, eliminando botones redundantes.
 class AccountCenterScreen extends ConsumerStatefulWidget {
   const AccountCenterScreen({super.key});
 
@@ -22,167 +23,163 @@ class AccountCenterScreen extends ConsumerStatefulWidget {
 }
 
 class _AccountCenterScreenState extends ConsumerState<AccountCenterScreen> {
-  late final TextEditingController _nameCtrl, _usernameCtrl, _bioCtrl;
-  late final TextEditingController _countryCtrl, _stateCtrl, _cityCtrl, _addressCtrl;
-  late final TextEditingController _phoneCtrl, _emailCtrl;
-  String? _photoPath;
-  DateTime? _birthDate;
-  String _gender = '', _language = 'Español';
-  bool _isSaving = false;
+  final _formKey = GlobalKey<FormState>();
+  late final ProfileEditorDraft _draft;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    final p = ref.read(sessionGateProvider).profile, u = ref.read(sessionGateProvider).user;
-    _nameCtrl = TextEditingController(text: p.displayName.isNotEmpty ? p.displayName : u.displayName);
-    _usernameCtrl = TextEditingController(text: p.username.isNotEmpty ? p.username : '@emmanuel');
-    _bioCtrl = TextEditingController(text: p.bio);
-    _countryCtrl = TextEditingController(text: p.country.isNotEmpty ? p.country : 'Colombia');
-    _stateCtrl = TextEditingController(text: p.stateProvince.isNotEmpty ? p.stateProvince : 'Antioquia');
-    _cityCtrl = TextEditingController(text: p.city.isNotEmpty ? p.city : 'Medellín');
-    _addressCtrl = TextEditingController(text: p.address);
-    _phoneCtrl = TextEditingController(text: p.phone);
-    _emailCtrl = TextEditingController(text: p.email.isNotEmpty ? p.email : u.email);
-    _photoPath = p.photoUrl;
-    _birthDate = p.birthDate;
-    _gender = p.gender;
-    _language = p.language.isNotEmpty ? p.language : 'Español';
+    final session = ref.read(sessionGateProvider);
+    _draft = ProfileEditorDraft(session.profile, session.user);
   }
 
   @override
   void dispose() {
-    _nameCtrl.dispose(); _usernameCtrl.dispose(); _bioCtrl.dispose();
-    _countryCtrl.dispose(); _stateCtrl.dispose(); _cityCtrl.dispose();
-    _addressCtrl.dispose(); _phoneCtrl.dispose(); _emailCtrl.dispose();
+    _draft.dispose();
     super.dispose();
   }
 
-  void _showSnack(String msg, {bool isError = false}) {
-    if (!mounted) return;
+  Future<void> _save() async {
+    if (_saving || !(_formKey.currentState?.validate() ?? false)) return;
+    FocusScope.of(context).unfocus();
+    HapticFeedback.mediumImpact();
+    setState(() => _saving = true);
+    try {
+      final profile = ref.read(sessionGateProvider).profile;
+      await ref.read(sessionGateProvider.notifier).updateProfile(_draft.applyTo(profile));
+      if (mounted) _notify('Perfil profesional guardado exitosamente.');
+    } catch (e) {
+      if (mounted) _notify('No se pudo guardar el perfil: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _notify(String message) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
-        backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+        content: Text(message, style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w500)),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(NanoRadius.small)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
-  Future<void> _handleSave() async {
-    setState(() => _isSaving = true);
-    final p = ref.read(sessionGateProvider).profile;
-    final updated = p.copyWith(
-      displayName: _nameCtrl.text.trim(), username: _usernameCtrl.text.trim(),
-      bio: _bioCtrl.text.trim(), country: _countryCtrl.text.trim(),
-      stateProvince: _stateCtrl.text.trim(), city: _cityCtrl.text.trim(),
-      address: _addressCtrl.text.trim(), phone: _phoneCtrl.text.trim(),
-      email: _emailCtrl.text.trim(), photoUrl: _photoPath,
-      birthDate: _birthDate, gender: _gender, language: _language,
+  Future<void> _pickMedia({required bool isAvatar}) async {
+    final result = await ProfileMediaPicker.pickImage(
+      context: context,
+      title: isAvatar ? 'avatar' : 'portada',
+      hasExisting: (isAvatar ? _draft.photoPath : _draft.coverPath)?.isNotEmpty ?? false,
     );
-    await ref.read(sessionGateProvider.notifier).updateProfile(updated);
-    if (mounted) {
-      setState(() => _isSaving = false);
-      _showSnack('Perfil guardado exitosamente');
-    }
+    if (!mounted || result == null) return;
+    setState(() {
+      if (isAvatar) {
+        _draft.photoPath = result.isEmpty ? null : result;
+      } else {
+        _draft.coverPath = result.isEmpty ? null : result;
+      }
+    });
+    final profile = ref.read(sessionGateProvider).profile;
+    await ref.read(sessionGateProvider.notifier).updateProfile(_draft.applyTo(profile));
+    if (mounted) _notify(result.isEmpty ? 'Imagen eliminada.' : 'Imagen actualizada.');
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
+    final session = ref.watch(sessionGateProvider);
+    final profile = session.profile;
 
     return Scaffold(
       backgroundColor: colors.background,
       appBar: AppBar(
-        backgroundColor: colors.background,
-        elevation: 0, scrolledUnderElevation: 0,
-        title: Text('Mi perfil', style: NanoType.headline(colors.onSurface)),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: colors.onSurface),
-          onPressed: () => context.pop(),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: Text(
+          'Mi perfil',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+            color: colors.onSurface,
+          ),
         ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        children: [
-          ProfileAvatarHeader(
-            displayName: _nameCtrl.text,
-            username: _usernameCtrl.text,
-            photoPath: _photoPath,
-            onPhotoChanged: (path) => setState(() => _photoPath = path),
-          ),
-          const SizedBox(height: 24),
-          ProfilePersonalFields(
-            nameController: _nameCtrl,
-            usernameController: _usernameCtrl,
-            bioController: _bioCtrl,
-            birthDate: _birthDate,
-            gender: _gender,
-            onBirthDateChanged: (d) => setState(() => _birthDate = d),
-            onGenderChanged: (g) => setState(() => _gender = g),
-          ),
-          const SizedBox(height: 24),
-          ProfileLocationFields(
-            countryController: _countryCtrl,
-            stateController: _stateCtrl,
-            cityController: _cityCtrl,
-            addressController: _addressCtrl,
-          ),
-          const SizedBox(height: 24),
-          ProfileContactFields(
-            phoneController: _phoneCtrl,
-            emailController: _emailCtrl,
-            language: _language,
-            onLanguageChanged: (l) => setState(() => _language = l),
-          ),
-          const SizedBox(height: 28),
-          FilledButton.icon(
-            onPressed: _isSaving ? null : _handleSave,
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(NanoRadius.medium)),
+        leading: IconButton(
+          tooltip: 'Volver',
+          icon: const Icon(Icons.arrow_back_rounded),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/settings'),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: TextButton(
+              onPressed: _saving ? null : _save,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: _saving
+                  ? SizedBox.square(dimension: 16, child: CircularProgressIndicator(strokeWidth: 2, color: colors.primary))
+                  : Text(
+                      'Guardar',
+                      style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 15, color: colors.primary),
+                    ),
             ),
-            icon: _isSaving
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.check_circle_outline_rounded, size: 20),
-            label: Text(_isSaving ? 'Guardando...' : 'Guardar cambios',
-                style: NanoType.title(Colors.white).copyWith(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              TextButton.icon(
-                onPressed: () async {
-                  await ref.read(authControllerProvider.notifier).signOut();
-                  if (context.mounted) context.go('/auth/login');
-                },
-                icon: Icon(Icons.logout_rounded, size: 16, color: colors.onSurfaceVariant),
-                label: Text('Cerrar sesión', style: NanoType.caption(colors.onSurfaceVariant)),
-              ),
-              const SizedBox(width: 16),
-              TextButton.icon(
-                onPressed: () async {
-                  final confirmed = await NanoDangerDialog.show(
-                    context: context,
-                    title: '¿Eliminar cuenta?',
-                    message: 'Esta acción borrará tus datos de perfil permanentemente.',
-                    confirmLabel: 'Sí, eliminar',
-                  );
-                  if (confirmed == true && context.mounted) {
-                    await ref.read(authControllerProvider.notifier).deleteAccount();
-                    if (context.mounted) context.go('/auth/login');
-                  }
-                },
-                icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Color(0xFFEF4444)),
-                label: Text('Eliminar cuenta', style: NanoType.caption(const Color(0xFFEF4444))),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
         ],
+      ),
+      body: DefaultTextStyle(
+        style: TextStyle(fontFamily: 'Inter', color: colors.onSurface, decoration: TextDecoration.none),
+        child: Form(
+          key: _formKey,
+          child: AbsorbPointer(
+            absorbing: _saving,
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 680),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ListenableBuilder(
+                        listenable: Listenable.merge([_draft.name, _draft.username, _draft.bio, _draft.city, _draft.country]),
+                        builder: (ctx, _) => ProfileSocialCover(
+                          displayName: _draft.name.text,
+                          username: _draft.username.text,
+                          bio: _draft.bio.text,
+                          photoPath: _draft.photoPath,
+                          coverPath: _draft.coverPath,
+                          city: _draft.city.text,
+                          country: _draft.country.text,
+                          language: _draft.language,
+                          gender: _draft.gender,
+                          planTier: profile.planTier,
+                          age: _draft.birthDate != null ? _draft.applyTo(profile).calculatedAge : profile.calculatedAge,
+                          onEditAvatar: () => _pickMedia(isAvatar: true),
+                          onEditCover: () => _pickMedia(isAvatar: false),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ProfileFormSections(
+                        draft: _draft,
+                        saving: _saving,
+                        onSave: _save,
+                        onFeedback: _notify,
+                        onBirthDateChanged: (d) => mounted ? setState(() => _draft.birthDate = d) : null,
+                        onGenderChanged: (g) => mounted ? setState(() => _draft.gender = g) : null,
+                        onLanguageChanged: (l) => mounted ? setState(() => _draft.language = l) : null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

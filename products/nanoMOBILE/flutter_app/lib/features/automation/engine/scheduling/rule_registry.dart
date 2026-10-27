@@ -5,100 +5,14 @@
 /// (nunca este registry). Puro + persistencia desacoplada ([RuleStore] DIP).
 library;
 
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart' show debugPrint, ChangeNotifier;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../messaging/messaging_package.dart';
+import 'rule_store.dart';
 import 'scheduled_rule.dart';
 import 'trigger.dart';
 
-/// Persistencia de reglas (DIP). Producción = shared_prefs JSON; tests = memoria.
-abstract interface class RuleStore {
-  Future<List<ScheduledRule>> load();
-  Future<void> save(List<ScheduledRule> rules);
-}
-
-/// Store en memoria (tests/preview). Determinista.
-class MemoryRuleStore implements RuleStore {
-  MemoryRuleStore([List<ScheduledRule>? seed])
-    : _rules = List.of(seed ?? const []);
-  List<ScheduledRule> _rules;
-
-  @override
-  Future<List<ScheduledRule>> load() async => List.of(_rules);
-
-  @override
-  Future<void> save(List<ScheduledRule> rules) async => _rules = List.of(rules);
-}
-
-/// Persistencia de reglas en shared_preferences (JSON). Producción.
-class SharedPrefsRuleStore implements RuleStore {
-  static const _key = 'automation.scheduled_rules.v1';
-  static const _eligiblePackagesKey = 'automation.eligible_packages';
-
-  @override
-  Future<List<ScheduledRule>> load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null || raw.isEmpty) return const [];
-    try {
-      final list = jsonDecode(raw) as List;
-      final rules = [
-        for (final m in list)
-          ScheduledRule.fromJson((m as Map).cast<String, dynamic>()),
-      ];
-      final expectedMirror = computeEligiblePackages(rules);
-      if (prefs.getString(_eligiblePackagesKey) != expectedMirror) {
-        await prefs.setString(_eligiblePackagesKey, expectedMirror);
-      }
-      return rules;
-    } on Object {
-      // Never seed enabled defaults over unreadable user configuration.
-      rethrow;
-    }
-  }
-
-  static String computeEligiblePackages(List<ScheduledRule> rules) {
-    final enabledNotificationRules = rules.where(
-      (r) => r.enabled && r.trigger is NotificationTrigger,
-    );
-    final hasCatchAll = enabledNotificationRules.any(
-      (r) => (r.trigger as NotificationTrigger).packageName == null,
-    );
-    if (hasCatchAll) {
-      return '*';
-    } else {
-      final pkgs = enabledNotificationRules
-          .map((r) => (r.trigger as NotificationTrigger).packageName!)
-          .where((p) => p.isNotEmpty)
-          .toSet();
-      return pkgs.join(',');
-    }
-  }
-
-  @override
-  Future<void> save(List<ScheduledRule> rules) async {
-    final prefs = await SharedPreferences.getInstance();
-    final saved = await prefs.setString(
-      _key,
-      jsonEncode([for (final r in rules) r.toJson()]),
-    );
-    if (!saved) throw StateError('Rule persistence rejected');
-
-    // NATIVE-ADMISSION-01: Sincroniza paquetes elegibles para que Kotlin descarte
-    // ruido (<1ms) sin despertar FGS/FlutterEngine headless cuando la UI está cerrada.
-    final eligiblePackages = computeEligiblePackages(rules);
-    final mirrorSaved = await prefs.setString(
-      _eligiblePackagesKey,
-      eligiblePackages,
-    );
-    if (!mirrorSaved) {
-      throw StateError('Rule admission mirror persistence rejected');
-    }
-  }
-}
+export 'rule_store.dart';
 
 class RuleRegistry with ChangeNotifier {
   RuleRegistry(this._store);
@@ -139,46 +53,44 @@ class RuleRegistry with ChangeNotifier {
     _rules
       ..clear()
       ..addAll(unique);
-    // WA-FILTER-01: Garantizar que la regla de WhatsApp responda ÚNICAMENTE a Emm / Emma / Emma Hg
-    for (var i = 0; i < _rules.length; i++) {
-      final r = _rules[i];
-      if (r.id == universalWhatsAppRuleId && r.trigger is NotificationTrigger) {
-        final nt = r.trigger as NotificationTrigger;
-        if (nt.senderMatch != 'Emm') {
-          _rules[i] = r.copyWith(
-            trigger: NotificationTrigger(
-              packageName: nt.packageName,
-              senderMatch: 'Emm',
-              textMatch: nt.textMatch,
-              excludedSenderMatch: nt.excludedSenderMatch,
-            ),
-          );
-        }
-      }
-    }
+
+    // No crea reglas implícitas: WhatsApp exige el opt-in del dueño en la UI.
     _loaded = true;
+    _persist();
     notifyListeners();
   }
 
-  /// WA-CONSENT-01 — siembra la regla universal de WhatsApp para el paquete.
-  static String ruleIdForPackage(String packageName) =>
-      packageName == MessagingPackage.whatsappBusiness
-          ? universalWhatsAppBusinessRuleId
-          : universalWhatsAppRuleId;
+  /// UNI-CONSENT — siembra la regla universal para el paquete dado.
+  static String ruleIdForPackage(String packageName) {
+    if (packageName == MessagingPackage.whatsappBusiness) {
+      return universalWhatsAppBusinessRuleId;
+    }
+    if (packageName == MessagingPackage.telegram ||
+        packageName == MessagingPackage.telegramOrg ||
+        packageName == 'org.telegram.plus') {
+      return 'telegram_universal_conversation';
+    }
+    if (packageName == MessagingPackage.instagram) {
+      return 'instagram_universal_conversation';
+    }
+    return universalWhatsAppRuleId;
+  }
 
-  /// WA-CONSENT-01 — siembra o reactiva la regla universal de WhatsApp para el paquete.
-  void seedWhatsAppRule(String packageName) {
+  /// Siembra o reactiva la regla universal de mensajería para el paquete.
+  void seedChannelRule(String packageName, {String? senderMatch}) {
     final id = ruleIdForPackage(packageName);
     final matches = _rules.where((r) => r.id == id).toList();
     if (matches.isNotEmpty) {
       _rules.removeWhere((r) => r.id == id);
-      _rules.add(matches.first.copyWith(
-        enabled: true,
-        trigger: NotificationTrigger(
-          packageName: packageName,
-          senderMatch: packageName == MessagingPackage.whatsapp ? 'Emm' : null,
+      _rules.add(
+        matches.first.copyWith(
+          enabled: true,
+          trigger: NotificationTrigger(
+            packageName: packageName,
+            senderMatch: senderMatch,
+          ),
         ),
-      ));
+      );
       _persist();
       return;
     }
@@ -186,7 +98,7 @@ class RuleRegistry with ChangeNotifier {
       id: id,
       trigger: NotificationTrigger(
         packageName: packageName,
-        senderMatch: packageName == MessagingPackage.whatsapp ? 'Emm' : null,
+        senderMatch: senderMatch,
       ),
       action: RuleAction.reply,
       dynamicReply: true,
@@ -195,23 +107,22 @@ class RuleRegistry with ChangeNotifier {
       createdByUser: true,
     );
     _rules.add(rule);
-    debugPrint(
-      '[rules] seed WhatsApp rule id=$id pkg=$packageName (responder a Emm)',
-    );
+    debugPrint('[rules] seed channel rule id=$id pkg=$packageName');
     _persist();
   }
 
-  /// WA-CONSENT-01 — elimina la regla universal de WhatsApp para el paquete.
-  void removeWhatsAppRule(String packageName) {
-    remove(ruleIdForPackage(packageName));
-  }
+  void removeChannelRule(String packageName) => remove(ruleIdForPackage(packageName));
 
-  /// WA-CONSENT-01 — true si la regla universal de [packageName] existe y
-  /// está habilitada. Usado por la UI para reflejar el estado del toggle.
-  bool isWhatsAppRuleActive(String packageName) {
+  bool isChannelRuleActive(String packageName) {
     final id = ruleIdForPackage(packageName);
     return _rules.any((r) => r.id == id && r.enabled);
   }
+
+  // Aliases retrocompatibles para WhatsApp
+  void seedWhatsAppRule(String packageName, {String? senderMatch}) =>
+      seedChannelRule(packageName, senderMatch: senderMatch);
+  void removeWhatsAppRule(String packageName) => removeChannelRule(packageName);
+  bool isWhatsAppRuleActive(String packageName) => isChannelRuleActive(packageName);
 
   void add(ScheduledRule rule) {
     final index = _rules.indexWhere((r) => r.id == rule.id);

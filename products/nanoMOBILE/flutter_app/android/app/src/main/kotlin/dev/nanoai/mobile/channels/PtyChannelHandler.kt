@@ -4,6 +4,10 @@ import android.util.Log
 import dev.nanoai.mobile.NanoshellBridge
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.RejectedExecutionException
 
 /**
  * Handler dedicado para el canal PTY (pseudo-terminal).
@@ -14,9 +18,30 @@ class PtyChannelHandler : MethodChannel.MethodCallHandler {
     companion object {
         private const val TAG = "PtyChannel"
         const val CHANNEL_NAME = "com.nanoai/pty"
+        // Conserva el orden JNI sin bloquear Flutter. No retiene Activity.
+        // El hilo termina después de 30 s sin trabajo; la cola es acotada.
+        private val worker = ThreadPoolExecutor(
+            1, 1, 30L, TimeUnit.SECONDS, ArrayBlockingQueue<Runnable>(128),
+            { task -> Thread(task, "NanoPtyWorker") }
+        ).apply { allowCoreThreadTimeOut(true) }
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        try {
+            worker.execute {
+                try {
+                    dispatch(call, result)
+                } catch (error: Exception) {
+                    result.error("pty_failed", "La operación PTY no pudo completarse", null)
+                }
+            }
+        } catch (error: RejectedExecutionException) {
+            result.error("pty_busy", "La cola PTY está ocupada", null)
+        }
+    }
+
+    // MethodChannel.Result permite completar desde este trabajador.
+    private fun dispatch(call: MethodCall, result: MethodChannel.Result) {
         if (!NanoshellBridge.ensureLoaded()) {
             result.error("jni_unavailable", "libnanoshell.so no cargada", null)
             return

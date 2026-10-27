@@ -1,30 +1,15 @@
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
-import 'package:nanoai/core/services/device_metrics.dart';
 import 'package:nanoai/core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/services/runtime_engine.dart';
-import 'package:nanoai/core/tools/application/tool_policy_gate.dart';
-import 'package:nanoai/core/tools/application/tool_registry.dart';
-import 'package:nanoai/core/tools/application/tool_router.dart';
-import 'package:nanoai/core/tools/domain/tool_permission.dart';
-import 'package:nanoai/core/tools/infrastructure/shared_preferences_tool_audit_trail.dart';
-import 'package:nanoai/features/actions/conversation/conversation_actions.dart';
-import 'package:nanoai/features/actions/personal/personal_actions.dart';
-import 'package:nanoai/features/actions/whatsapp/whatsapp_reply_action.dart';
 import 'package:nanoai/features/automation/engine/agent_dependencies.dart';
 import 'package:nanoai/features/automation/engine/business/business_facts_providers.dart';
-import 'package:nanoai/features/automation/engine/language/language_assist.dart';
-import 'package:nanoai/features/automation/engine/language/pragmatic_fast_path.dart';
 import 'package:nanoai/features/automation/engine/messaging/conv_turn_state.dart';
-import 'package:nanoai/features/automation/engine/messaging/conversation_key.dart'
-    show resolveConversationIdentity;
-import 'package:nanoai/features/automation/engine/messaging/conversation_agent.dart';
 import 'package:nanoai/features/automation/engine/messaging/tone_profile_providers.dart';
 import 'package:nanoai/features/automation/engine/execution/agent_tool_dispatcher.dart'
     show ToolCall, ToolExecutionStatus, ToolOutcome;
 import 'package:nanoai/features/automation/engine/memory/object_memory.dart';
-import 'package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart';
 import 'package:nanoai/features/automation/engine/orchestration/task_decomposer.dart';
 import 'package:nanoai/features/automation/engine/orchestration/commit_guard.dart';
 import 'package:nanoai/features/automation/engine/orchestration/execution_journal.dart'
@@ -40,45 +25,32 @@ import 'package:nanoai/features/automation/engine/perception/semantic/screen_gra
 import 'package:nanoai/features/automation/engine/perception/surface_resolvers.dart';
 import 'package:nanoai/features/automation/engine/perception/healing/assisted_learning_service.dart';
 import 'package:nanoai/features/automation/engine/perception/search_result_resolver.dart';
-import 'package:nanoai/features/automation/personal_agent/application/conversation_decision_engine.dart';
 import 'package:nanoai/features/automation/personal_agent/application/conversation_ownership_store.dart';
 import 'package:nanoai/features/automation/personal_agent/application/persona_context.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/conversation_agent_role.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/conversation_owner.dart';
+import 'package:nanoai/features/automation/personal_agent/domain/conversation_agent_message_classifier.dart'
+    show isCorrectionMessage;
 
-import 'package:nanoai/features/automation/personal_agent/domain/conversation_decision.dart';
 import 'package:nanoai/features/automation/engine/scheduling/contact_rate_limiter.dart';
 import 'package:nanoai/features/automation/engine/scheduling/event_dedupe_store.dart';
 import 'package:nanoai/features/automation/engine/scheduling/burst_turn_gate.dart';
+import 'package:nanoai/features/automation/engine/scheduling/burst_durability.dart'
+    show BurstShadowStore;
 import 'package:nanoai/features/automation/engine/scheduling/notification_event_router.dart';
 import 'package:nanoai/features/automation/engine/scheduling/turn_supersede_guard.dart';
-import 'package:nanoai/features/automation/engine/scheduling/rule_dispatcher.dart';
-import 'package:nanoai/features/automation/engine/scheduling/rule_engine.dart';
-import 'package:nanoai/features/automation/engine/scheduling/rule_pipeline.dart';
 import 'package:nanoai/features/automation/engine/scheduling/rule_registry.dart';
 import 'package:nanoai/features/automation/engine/scheduling/time_tick_scheduler.dart';
 import 'package:nanoai/features/automation/engine/system/installed_app_catalog.dart';
-import 'package:nanoai/features/browser_ai/application/browser_ai_gateway.dart';
-import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply.dart';
 import 'package:nanoai/features/automation/engine/messaging/pending_reply_store.dart';
 import 'package:nanoai/features/automation/engine/storage/automation_db_store_client.dart';
-import 'package:nanoai/features/automation/engine/conversation/conversation_reply_composer.dart';
-import 'package:nanoai/features/automation/engine/conversation/persona_style_resolver.dart';
-import 'package:nanoai/features/automation/engine/conversation/personal_style_formatter.dart';
-import 'package:nanoai/features/automation/engine/conversation/turn_knowledge_router.dart';
-import 'package:nanoai/features/automation/personal_agent/application/persona_retriever.dart';
-import 'package:nanoai/features/automation/engine/messaging/conversation_hub_providers.dart'
-    show conversationHubVersionProvider;
-import 'package:nanoai/features/automation/engine/messaging/reply_transport.dart';
-import 'package:nanoai/features/automation/engine/notifications/notification_object.dart';
-import 'package:nanoai/features/skills/personal_agent/respond_personal_whatsapp_skill.dart';
 
-import '../domain/automation_goal.dart' show AutomationOptions;
 import '../ledger/action_ledger_provider.dart';
 import 'automation_coordinator.dart';
 import 'automation_planner_provider.dart';
+// Import permite usar el pipeline aquí; export mantiene sus consumidores previos.
+// Las directivas Dart deben ir antes de declarar providers.
+import 'conversation_pipeline_providers.dart';
+export 'conversation_pipeline_providers.dart';
 
 /// Coordinator del módulo con el planner LLM REAL inyectado — el motor
 /// AUTÓNOMO reutilizable. Las fuentes de objetivo (chat, notificaciones, voz,
@@ -472,6 +444,7 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
     ref.read(conversationMemoryStoreProvider).load(),
     ref.read(businessFactsNotifierProvider.notifier).ready,
     ref.read(toneProfileNotifierProvider.notifier).ready,
+    ref.read(businessToneProfileNotifierProvider.notifier).ready,
     ref.read(conversationStateNotifierProvider.notifier).ready,
     // PERSONA-STORAGE-04 — ownership hidratado antes de decidir.
     ref.read(conversationOwnershipStoreProvider).load(),
@@ -481,192 +454,6 @@ final automationStoresHydratedProvider = Provider<Future<void>>((ref) async {
     // WA-DRAFT-01 — bandeja de borradores hidratada y reconciliada antes del primer evento.
     ref.read(pendingReplyStoreProvider).init(),
   ]);
-});
-
-/// Helper canónico para construir el contexto de decisión factual del turno.
-ConversationDecisionContext _buildConversationDecisionContext(
-  Ref ref,
-  NotificationObject notif,
-) {
-  final identity = resolveConversationIdentity(notif);
-  final ownership = ref
-      .read(conversationOwnershipStoreProvider)
-      .ownershipFor(identity.key.id);
-  final entry = ref.read(conversationStateNotifierProvider)[identity.key.id];
-  final hasActiveProduct =
-      entry != null && entry.product != null && entry.topicStatus == 'active';
-  final hasPendingQuestion = entry != null && entry.pendingQuestion.isNotEmpty;
-  final routing = routeConversationAgent(
-    messageText: notif.text,
-    facts: ref.read(businessFactsNotifierProvider),
-    hasRelationship: ref
-        .read(personaContextProvider)
-        .hasRelationshipFor(
-          notif.sender,
-          conversationId: resolveConversationIdentity(notif).key.id,
-        ),
-    hasActiveProduct: hasActiveProduct,
-    ownerName: ref.read(personaContextProvider).ownerName,
-    hasPendingQuestion: hasPendingQuestion,
-    isBusinessChannel: notif.packageName == MessagingPackage.whatsappBusiness,
-  );
-  final assignedAgent = ref
-      .read(conversationAssignmentStoreProvider)
-      .agentForConversationId(identity.key.id);
-  final effectiveRole = switch (assignedAgent) {
-    ConversationAgentId.personal => ConversationAgentRole.personal,
-    ConversationAgentId.business =>
-      routing.role == ConversationAgentRole.personal
-          ? ConversationAgentRole.general
-          : routing.role,
-  };
-  final settings = ref.read(settingsProvider);
-  final mode = ConversationAutonomyModeName.fromName(
-    settings.waAutonomyMode,
-  );
-  final targetMode = settings.waTargetContactsMode;
-  final bool effectiveHumanOwns = targetMode == 'selected'
-      ? ownership?.owner != ConversationOwner.bot
-      : (ownership?.humanOwns ?? false);
-
-  debugPrint(
-    '[agent] agente=${assignedAgent.name} rol=${effectiveRole.name} modo=${mode.name} '
-    'targetMode=$targetMode humanOwns=$effectiveHumanOwns '
-    '${routing.reasons.join(' | ')}',
-  );
-  return ConversationDecisionContext(
-    humanOwnsConversation: effectiveHumanOwns,
-    identityConfidence: identity.confidence,
-    autonomyMode: mode,
-    agentRole: effectiveRole,
-    agentId: assignedAgent,
-    userText: notif.text,
-    senderName: notif.sender,
-  );
-}
-
-/// Proveedor de resolución de estilo personal sin LLM.
-final personaStyleResolverProvider = Provider<PersonaStyleResolver>((ref) {
-  return RuntimePersonaStyleResolver(retriever: PersonaRetriever());
-});
-
-/// Proveedor de enrutador de conocimiento fáctico externo (Web/Bridge/BrowserAi).
-final turnKnowledgeRouterProvider = Provider<TurnKnowledgeRouter>((ref) {
-  return RuntimeTurnKnowledgeRouter(
-    browserAiGateway: ref.watch(browserAiGatewayProvider),
-  );
-});
-
-/// Proveedor único del compositor conversacional canónico para toda la aplicación.
-/// Orquesta FastPath, PersonaStyleResolver, KnowledgeRouter, LLM Fallback y
-/// ConversationDecisionEngine con la misma identidad, memoria y persona.
-final canonicalConversationReplyComposerProvider =
-    Provider<ConversationReplyComposer>((ref) {
-      return RuntimeConversationReplyComposer(
-        draftSource: ref.watch(notificationDraftSourceProvider),
-        fastPath: PragmaticFastPath(
-          memoryFor: (id) =>
-              ref.read(conversationMemoryStoreProvider).memoryFor(id),
-          contextEntryFor: (id) =>
-              ref.read(conversationStateNotifierProvider)[id],
-          ownerName: () => ref.read(personaContextProvider).ownerName,
-          metricsSource: DeviceMetrics.fetch,
-        ),
-        styleResolver: ref.watch(personaStyleResolverProvider),
-        knowledgeRouter: ref.watch(turnKnowledgeRouterProvider),
-        styleFormatter: const RuntimePersonalStyleFormatter(),
-        memoryStore: ref.watch(conversationMemoryStoreProvider),
-        decisionEngine: const ConversationDecisionEngine(),
-        thermalStatus: () => LanguageAssistService().thermalStatus(),
-        decisionContext: (notif) =>
-            _buildConversationDecisionContext(ref, notif),
-      );
-    });
-
-/// Formal capability runtime used by production conversation composition and
-/// available for typed Skills. The registry is frozen after this bootstrap.
-final formalToolRouterProvider = Provider<ToolRouter>((ref) {
-  final registry = ToolRegistry();
-  final router = ToolRouter(
-    registry: registry,
-    policyGate: ToolPolicyGate(
-      registry: registry,
-      permissionProvider: const StaticPermissionProvider({
-        ToolPermission.messagesRead,
-        ToolPermission.memoryRead,
-        ToolPermission.notificationReply,
-      }),
-    ),
-    auditTrail: const SharedPreferencesToolAuditTrail(),
-  );
-  registry.register(ConversationActions.createClassifyTool());
-  registry.register(PersonalActions.createGetStyleTool());
-  registry.register(PersonalActions.createFindExamplesTool());
-  registry.register(
-    ConversationActions.createComposePersonalTool(
-      composer: ref.watch(canonicalConversationReplyComposerProvider),
-    ),
-  );
-  registry.register(
-    WhatsAppActions.createReplyTool(
-      transport: NotificationReplyTransport(NanoRuntimeApi.instance),
-    ),
-  );
-  registry.register(RespondPersonalWhatsAppSkill.createSkill(router: router));
-  registry.freeze();
-  return router;
-});
-
-/// Public composer: same production intelligence, now routed through policy,
-/// timeout, correlation and durable audit rather than a parallel direct path.
-final conversationReplyComposerProvider = Provider<ConversationReplyComposer>((
-  ref,
-) {
-  return ToolRoutedConversationReplyComposer(
-    ref.watch(formalToolRouterProvider),
-  );
-});
-
-/// Pipeline WhatsApp-first (T3.3): notificación → dedupe → match → coordinator.
-/// El dispatcher ejecuta el goal por el MISMO coordinator (nunca un motor aparte).
-final rulePipelineProvider = Provider<RulePipeline>((ref) {
-  return RulePipeline(
-    registry: ref.read(ruleRegistryProvider),
-    engine: const RuleEngine(),
-    dedupe: ref.watch(eventDedupeStoreProvider),
-    memory: ref.watch(conversationMemoryStoreProvider),
-    assignments: ref.watch(conversationAssignmentStoreProvider),
-    rateLimiter: ref.watch(contactRateLimiterProvider),
-    readiness: ref.watch(automationStoresHydratedProvider),
-    supersedeGuard: ref.watch(turnSupersedeGuardProvider),
-    // WA-HUB-REACTIVE-01: cada mensaje entrante incrementa la señal reactiva
-    // del hub para que la UI de Centro de Conversaciones se reconstruya.
-    onInboundMessage: (_) {
-      final notifier = ref.read(conversationHubVersionProvider.notifier);
-      notifier.state = notifier.state + 1;
-    },
-    dispatcher: RuleDispatcher(
-      (goal, {AutomationOptions? options}) => ref
-          .read(automationCoordinatorProvider)
-          .execute(goal, options: options),
-      composer: ref.watch(conversationReplyComposerProvider),
-      supersedeGuard: ref.watch(turnSupersedeGuardProvider),
-      // WA-DELAY-01 — pausa de reply leída EN VIVO al despachar (closure,
-      // no watch: el dispatcher es estable y el delay cambia por llamada).
-      replyDelay: () =>
-          Duration(seconds: ref.read(settingsProvider).waReplyDelaySeconds),
-      pendingReplyStore: ref.watch(pendingReplyStoreProvider),
-      decisionContext: (notif) => _buildConversationDecisionContext(ref, notif),
-      // NOTIFY-01: RuleAction.notify materializa un aviso local real (canal
-      // nano_rule_notices). Fallo honesto si el sistema lo rechaza.
-      notifyLocal: (title, body) =>
-          NanoRuntimeApi.instance.notifyRuleEvent(title: title, body: body),
-      // WA-MEDIA-01: RuleAction.sendMedia abre WhatsApp con el archivo del
-      // catálogo (Camino A, 1 tap del usuario).
-      shareMedia: (path, contact, caption) => const WhatsAppMediaShare()
-          .shareFile(path: path, contact: contact, caption: caption),
-    ),
-  );
 });
 
 /// WA-CONV-03 — versión por conversación (instancia única del engine): el
@@ -691,6 +478,9 @@ final conversationOwnershipStoreProvider =
 /// turnos por chat. La usa el router de eventos vivos Y el drenado headless.
 final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
   final gate = BurstTurnGate(
+    // LOOP-2 — sombra durable metadata-first: un kill durante la ventana de
+    // asentamiento no pierde la identidad de la ráfaga (sin texto).
+    durability: ref.read(burstShadowStoreProvider),
     // WA-CONV-03: cada mensaje REAL (incluido el que llega mientras un turno
     // corre) incrementa la versión → supersede del draft en curso.
     onInbound: (conversationId) =>
@@ -720,15 +510,24 @@ final burstTurnGateProvider = Provider<BurstTurnGate>((ref) {
   return gate;
 });
 
+/// LOOP-2 — sombra durable de ráfagas en ventana (metadata-first, sin texto).
+/// Reutiliza el MISMO AutomationDbStoreClient que inbox/reglas/dedupe.
+final burstShadowStoreProvider = Provider<BurstShadowStore>((ref) {
+  return BurstShadowStore(db: AutomationDbStoreClient.instance);
+});
+
 /// Router de eventos en vivo de notificación (T3.2): EventChannel nativo →
 /// BurstTurnGate (agregación por conversación) → RulePipeline. Arranca al
 /// leerse por primera vez (escucha de por vida).
 final notificationEventRouterProvider = Provider<NotificationEventRouter>((
   ref,
 ) {
+  // QUÉ: crea un único router por contenedor, aunque cambien settings/memoria.
+  // CÓMO: lee dependencias estables sin suscribirse a sus reconstrucciones.
+  // POR QUÉ: recrearlo repetía el snapshot Android y duplicaba trabajo/métricas.
   final router = NotificationEventRouter(
-    pipeline: ref.watch(rulePipelineProvider),
-    gate: ref.watch(burstTurnGateProvider),
+    pipeline: ref.read(rulePipelineProvider),
+    gate: ref.read(burstTurnGateProvider),
   )..start();
   ref.onDispose(router.stop);
   return router;
@@ -758,6 +557,8 @@ final pendingRepliesProvider = FutureProvider.autoDispose<List<PendingReply>>((
 });
 
 /// A15 — Servicio de aprendizaje asistido para componentes no resueltos.
-final assistedLearningServiceProvider = Provider<AssistedLearningService>((ref) {
+final assistedLearningServiceProvider = Provider<AssistedLearningService>((
+  ref,
+) {
   return AssistedLearningService();
 });

@@ -4,7 +4,7 @@
 /// Muestra los modales para programar aviso por hora y cambiar modo de autonomía.
 ///
 /// CÓMO FUNCIONA:
-/// Usa [showTimePicker] y [showModalBottomSheet] con restricciones seguras.
+/// Usa [showTimePicker] y [showNanoGlassWindow] con restricciones seguras.
 ///
 /// POR QUÉ:
 /// Modulariza la presentación de diálogos manteniendo los archivos < 200 líneas.
@@ -18,6 +18,7 @@ import '../../domain/automation_policy.dart';
 import '../../engine/scheduling/scheduled_rule.dart';
 import '../../engine/scheduling/trigger.dart';
 import '../automation_visual_theme.dart';
+import 'package:nanoai/core/widgets/nano_glass_window.dart';
 
 class AutomationDashboardDialogs {
   static Future<void> createTimeRule({
@@ -54,7 +55,8 @@ class AutomationDashboardDialogs {
               child: const Text('Cancelar'),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(messageController.text.trim()),
+              onPressed: () =>
+                  Navigator.of(ctx).pop(messageController.text.trim()),
               child: const Text('Crear'),
             ),
           ],
@@ -84,10 +86,9 @@ class AutomationDashboardDialogs {
     required AgentAutomationMode currentMode,
     required ValueChanged<AgentAutomationMode> onSelected,
   }) async {
-    await showModalBottomSheet<void>(
+    await showNanoGlassWindow<void>(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
+
       builder: (ctx) => SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(NanoSpacing.lg),
@@ -97,7 +98,11 @@ class AutomationDashboardDialogs {
             options: const [
               ChoiceOption('manual', 'Manual', Icons.pan_tool_alt_rounded),
               ChoiceOption('assisted', 'Asistido', Icons.assistant_rounded),
-              ChoiceOption('autonomous', 'Autónomo', Icons.auto_awesome_rounded),
+              ChoiceOption(
+                'autonomous',
+                'Autónomo',
+                Icons.auto_awesome_rounded,
+              ),
             ],
             selectedValue: currentMode.name,
             onSelected: (value) {

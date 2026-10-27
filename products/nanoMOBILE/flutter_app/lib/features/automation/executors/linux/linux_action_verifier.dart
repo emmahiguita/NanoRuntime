@@ -11,7 +11,7 @@ class LinuxActionVerifier {
   final IBinExecutor _binExecutor;
 
   const LinuxActionVerifier({required IBinExecutor binExecutor})
-      : _binExecutor = binExecutor;
+    : _binExecutor = binExecutor;
 
   /// Verifica que un archivo existe en el sistema de archivos.
   Future<LinuxVerificationDetail> verifyExists(String path) async {
@@ -46,8 +46,16 @@ class LinuxActionVerifier {
     // 2. Verificar tamaño mínimo si se solicita
     if (minBytes != null && minBytes > 0) {
       final statRes = await _binExecutor.toybox(['wc', '-c', path]);
+      if (statRes.exitCode != 0) {
+        return LinuxVerificationDetail.failed(
+          'size_unavailable',
+          'No se pudo comprobar el tamaño del archivo escrito.',
+        );
+      }
       if (statRes.exitCode == 0) {
-        final size = int.tryParse(statRes.stdout.trim().split(RegExp(r'\s+')).first) ?? 0;
+        final size =
+            int.tryParse(statRes.stdout.trim().split(RegExp(r'\s+')).first) ??
+            0;
         if (size < minBytes) {
           return LinuxVerificationDetail.failed(
             'min_size',
@@ -60,6 +68,12 @@ class LinuxActionVerifier {
     // 3. Verificar hash SHA-256 si se solicita
     if (expectedSha256 != null && expectedSha256.isNotEmpty) {
       final shaRes = await _binExecutor.toybox(['sha256sum', path]);
+      if (shaRes.exitCode != 0) {
+        return LinuxVerificationDetail.failed(
+          'sha256_unavailable',
+          'No se pudo comprobar el hash del archivo escrito.',
+        );
+      }
       if (shaRes.exitCode == 0) {
         final hash = shaRes.stdout.trim().split(RegExp(r'\s+')).first;
         if (hash.toLowerCase() != expectedSha256.toLowerCase()) {
@@ -100,7 +114,11 @@ class LinuxActionVerifier {
     final flag = gzip ? '-tzf' : '-tf';
     final res = await _binExecutor.toybox(['tar', flag, archivePath]);
     if (res.exitCode == 0) {
-      final entries = res.stdout.trim().split('\n').where((s) => s.isNotEmpty).length;
+      final entries = res.stdout
+          .trim()
+          .split('\n')
+          .where((s) => s.isNotEmpty)
+          .length;
       return LinuxVerificationDetail.satisfied(
         'archive_valid',
         'Archivo comprimido "$archivePath" válido con $entries entradas verificadas.',

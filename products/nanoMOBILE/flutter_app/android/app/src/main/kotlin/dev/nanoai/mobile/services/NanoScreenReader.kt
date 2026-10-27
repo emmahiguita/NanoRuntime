@@ -24,9 +24,18 @@ internal object NanoScreenReader {
 
     fun readCurrentScreen(): ScreenData? {
         val service = AgentAccessibilityBridge.service ?: return null
-        val roots = service.windows.orEmpty().mapNotNull { it.root }.ifEmpty {
-            listOfNotNull(service.rootInActiveWindow)
+        // Lee una sola app objetivo; excluye teclado, sistema y controles Nano.
+        val candidates = service.windows.orEmpty()
+            .filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
+            .sortedWith(compareByDescending<android.view.accessibility.AccessibilityWindowInfo> { it.isFocused }
+                .thenByDescending { it.isActive }.thenByDescending { it.layer })
+        var targetRoot: AccessibilityNodeInfo? = null
+        for (window in candidates) {
+            val root = window.root ?: continue
+            if (targetRoot == null && root.packageName?.toString() != service.packageName) targetRoot = root
+            else root.recycle()
         }
+        val roots = listOfNotNull(targetRoot)
         if (roots.isEmpty()) return null
 
         val texts = mutableListOf<String>()

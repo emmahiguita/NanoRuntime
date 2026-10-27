@@ -243,7 +243,8 @@ final class GoalDirectedNavigator {
     // a la superficie objetivo en transiciones verificadas. Cada sugerencia
     // se traduce a una acción grounded actual; el ciclo SIEMPRE reobserva y
     // verifica después.
-    final suggestions = memory?.suggest(
+    final suggestions =
+        memory?.suggest(
           packageName: observedCurrent.packageName,
           fromSurface: observedCurrent.surfaceKind,
           targetSurface: goal.targetSurface,

@@ -413,20 +413,36 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
           terms: ['buscar', 'search'],
         ),
         SurfaceElementKind.sendAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['enviar mensaje', 'send message'],
         ),
         SurfaceElementKind.searchAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['buscar', 'search'],
           allowClickableContainer: true,
         ),
         SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['atrás', 'atras', 'volver', 'navegar hacia arriba', 'back'],
         ),
         SurfaceElementKind.navigationDismissAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['cerrar', 'cancelar', 'close', 'cancel'],
         ),
         SurfaceElementKind.navigationOverflowAction: SurfaceElementProfile(
@@ -445,10 +461,7 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
     ),
     ConversationSurfaceProfile(
       id: 'telegram-conversation',
-      packageNames: {
-        MessagingPackage.telegram,
-        MessagingPackage.telegramOrg,
-      },
+      packageNames: {MessagingPackage.telegram, MessagingPackage.telegramOrg},
       elements: {
         SurfaceElementKind.messageInput: SurfaceElementProfile(
           roles: {SemanticRole.textField},
@@ -459,11 +472,19 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
           terms: ['buscar', 'search'],
         ),
         SurfaceElementKind.sendAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['enviar', 'send', 'enviar mensaje'],
         ),
         SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['atrás', 'atras', 'volver', 'back'],
         ),
         SurfaceElementKind.conversationHomeAction: SurfaceElementProfile(
@@ -482,50 +503,71 @@ final class SurfaceProfileRegistry implements SurfaceProfileSource {
       elements: {
         SurfaceElementKind.messageInput: SurfaceElementProfile(
           roles: {SemanticRole.textField},
-          terms: ['mensaje de texto', 'text message', 'escribe un mensaje', 'chat'],
+          terms: [
+            'mensaje de texto',
+            'text message',
+            'escribe un mensaje',
+            'chat',
+          ],
         ),
         SurfaceElementKind.sendAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['enviar sms', 'send sms', 'enviar', 'send'],
         ),
         SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['atrás', 'atras', 'volver', 'navegar hacia arriba', 'back'],
         ),
       },
     ),
     ConversationSurfaceProfile(
       id: 'instagram-conversation',
-      packageNames: {
-        MessagingPackage.instagram,
-      },
+      packageNames: {MessagingPackage.instagram},
       elements: {
         SurfaceElementKind.messageInput: SurfaceElementProfile(
           roles: {SemanticRole.textField},
           terms: ['enviar mensaje', 'message...', 'escribe un mensaje'],
         ),
         SurfaceElementKind.sendAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['enviar', 'send'],
         ),
         SurfaceElementKind.navigationBackAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['atrás', 'atras', 'volver', 'back'],
         ),
       },
     ),
     ConversationSurfaceProfile(
       id: 'signal-conversation',
-      packageNames: {
-        MessagingPackage.signal,
-      },
+      packageNames: {MessagingPackage.signal},
       elements: {
         SurfaceElementKind.messageInput: SurfaceElementProfile(
           roles: {SemanticRole.textField},
           terms: ['mensaje de signal', 'signal message', 'escribe un mensaje'],
         ),
         SurfaceElementKind.sendAction: SurfaceElementProfile(
-          roles: {SemanticRole.button, SemanticRole.iconButton, SemanticRole.image},
+          roles: {
+            SemanticRole.button,
+            SemanticRole.iconButton,
+            SemanticRole.image,
+          },
           terms: ['enviar', 'send'],
         ),
       },

@@ -15,7 +15,11 @@ import '../../../features/browser/domain/browser_url_resolver.dart';
 class NanoSearchDispatcher {
   const NanoSearchDispatcher._();
 
-  static void dispatch(BuildContext context, String rawQuery, {WidgetRef? ref}) {
+  static void dispatch(
+    BuildContext context,
+    String rawQuery, {
+    WidgetRef? ref,
+  }) {
     final query = rawQuery.trim();
     if (query.isEmpty) return;
 
@@ -35,14 +39,22 @@ class NanoSearchDispatcher {
             lower == 'chatgpt' ||
             lower == 'deepseek') ||
         _isUrlOrDomain(query)) {
-      final cleanUrl = query.replaceFirst(RegExp(r'^(web:|search:)\s*', caseSensitive: false), '').trim();
-      final resolvedUrl = BrowserUrlResolver.resolveUrl(cleanUrl.isEmpty ? query : cleanUrl);
+      final cleanUrl = query
+          .replaceFirst(RegExp(r'^(web:|search:)\s*', caseSensitive: false), '')
+          .trim();
+      final resolvedUrl = BrowserUrlResolver.resolveUrl(
+        cleanUrl.isEmpty ? query : cleanUrl,
+      );
       try {
         if (ref != null) {
-          ref.read(browserTabProvider.notifier).updateActiveTab(url: resolvedUrl, isLoading: true);
+          ref
+              .read(browserTabProvider.notifier)
+              .updateActiveTab(url: resolvedUrl, isLoading: true);
         } else {
           final container = ProviderScope.containerOf(context, listen: false);
-          container.read(browserTabProvider.notifier).updateActiveTab(url: resolvedUrl, isLoading: true);
+          container
+              .read(browserTabProvider.notifier)
+              .updateActiveTab(url: resolvedUrl, isLoading: true);
         }
       } catch (_) {}
       context.push('/browser?url=${Uri.encodeComponent(resolvedUrl)}');
@@ -55,30 +67,47 @@ class NanoSearchDispatcher {
         query.startsWith('\$') ||
         _isTerminalCommand(lower)) {
       final cleanCmd = query.replaceFirst(RegExp(r'^[/ >\$]+'), '').trim();
-      context.push('/terminal/shell?cmd=${Uri.encodeComponent(cleanCmd.isEmpty ? query : cleanCmd)}');
+      context.push(
+        '/terminal/shell?cmd=${Uri.encodeComponent(cleanCmd.isEmpty ? query : cleanCmd)}',
+      );
       return;
     }
 
     // 3. Navegación directa a Terminal / Shell
-    if ((lower == 'terminal' || lower == 'consola' || lower == 'shell' || lower == 'kali') && query.length < 20) {
+    if ((lower == 'terminal' ||
+            lower == 'consola' ||
+            lower == 'shell' ||
+            lower == 'kali') &&
+        query.length < 20) {
       context.push('/terminal/shell');
       return;
     }
 
     // 3. Comandos directos de navegación rápida a Ajustes
-    if ((lower == 'ajustes' || lower == 'configuración' || lower == 'config' || lower == 'tema') && query.length < 20) {
+    if ((lower == 'ajustes' ||
+            lower == 'configuración' ||
+            lower == 'config' ||
+            lower == 'tema') &&
+        query.length < 20) {
       context.go('/settings');
       return;
     }
 
     // 4. Comandos directos de navegación rápida a Modelos
-    if ((lower == 'modelos' || lower == 'descargar modelos' || lower == 'llm') && query.length < 25) {
+    if ((lower == 'modelos' ||
+            lower == 'descargar modelos' ||
+            lower == 'llm') &&
+        query.length < 25) {
       context.go('/models');
       return;
     }
 
     // 5. Comandos directos a Automatización
-    if ((lower == 'automatización' || lower == 'automatizacion' || lower == 'automation' || lower == 'whatsapp') && query.length < 25) {
+    if ((lower == 'automatización' ||
+            lower == 'automatizacion' ||
+            lower == 'automation' ||
+            lower == 'whatsapp') &&
+        query.length < 25) {
       context.push('/automation');
       return;
     }
@@ -95,7 +124,7 @@ class NanoSearchDispatcher {
     } catch (_) {
       // Fallback seguro si no hay ProviderScope en contexto
     }
-    context.go('/chat');
+    context.push('/chat');
   }
 
   static bool _isTerminalCommand(String text) {

@@ -1,4 +1,4 @@
-﻿/// BOT-EVENT-04 — Eventos de entrada y disparadores del Nano Bot Runtime.
+/// BOT-EVENT-04 — Eventos de entrada y disparadores del Nano Bot Runtime.
 ///
 /// **QUÉ HACE:**
 /// Modela los estímulos a los que un bot puede reaccionar (mensajes, imágenes,
@@ -59,14 +59,14 @@ final class BotEvent {
   String? get mimeType => payload['mimeType']?.toString();
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'type': type.key,
-        'channel': channel,
-        'senderId': senderId,
-        'senderName': senderName,
-        'payload': payload,
-        'timestamp': timestamp.millisecondsSinceEpoch,
-      };
+    'id': id,
+    'type': type.key,
+    'channel': channel,
+    'senderId': senderId,
+    'senderName': senderName,
+    'payload': payload,
+    'timestamp': timestamp.millisecondsSinceEpoch,
+  };
 
   factory BotEvent.fromMap(Map<dynamic, dynamic> map) {
     return BotEvent(
@@ -77,7 +77,9 @@ final class BotEvent {
       senderName: map['senderName']?.toString() ?? '',
       payload: (map['payload'] as Map?)?.cast<String, dynamic>() ?? const {},
       timestamp: DateTime.fromMillisecondsSinceEpoch(
-        map['timestamp'] is num ? (map['timestamp'] as num).toInt() : DateTime.now().millisecondsSinceEpoch,
+        map['timestamp'] is num
+            ? (map['timestamp'] as num).toInt()
+            : DateTime.now().millisecondsSinceEpoch,
       ),
     );
   }

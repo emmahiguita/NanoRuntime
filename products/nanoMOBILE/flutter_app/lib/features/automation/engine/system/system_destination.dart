@@ -23,7 +23,10 @@ enum SystemDestination {
   batterySaverSettings('battery_saver_settings', 'Ajustes de Batería y Ahorro'),
   applicationSettings('application_settings', 'Ajustes de Aplicaciones'),
   dateSettings('date_settings', 'Ajustes de Fecha y Hora'),
-  internalStorageSettings('internal_storage_settings', 'Ajustes de Almacenamiento'),
+  internalStorageSettings(
+    'internal_storage_settings',
+    'Ajustes de Almacenamiento',
+  ),
   nfcSettings('nfc_settings', 'Ajustes de NFC y Conexiones'),
   networkOperatorSettings('network_operator_settings', 'Ajustes de Red Móvil'),
   deviceInfoSettings('device_info_settings', 'Información del Teléfono'),

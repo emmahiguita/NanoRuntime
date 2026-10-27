@@ -28,6 +28,8 @@ abstract final class MessagingPackage {
   static const String instagram = 'com.instagram.android';
   static const String messenger = 'com.facebook.orca';
   static const String messengerLite = 'com.facebook.mlite';
+  static const String facebook = 'com.facebook.katana';
+  static const String facebookLite = 'com.facebook.lite';
   static const String googleMessages = 'com.google.android.apps.messaging';
   static const String androidMms = 'com.android.mms';
   static const String samsungMessages = 'com.samsung.android.messaging';
@@ -47,6 +49,8 @@ abstract final class MessagingPackage {
     instagram,
     messenger,
     messengerLite,
+    facebook,
+    facebookLite,
     googleMessages,
     androidMms,
     samsungMessages,

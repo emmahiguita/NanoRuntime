@@ -1,0 +1,667 @@
+[
+  {
+    "path": "lib/core/linux/distributions/termux_distribution.dart",
+    "lines": 163,
+    "sha256": "a2beb7c3e52a502d19b66d45a7864029869b1e77bee31e3c99a718b48f730bf2"
+  },
+  {
+    "path": "lib/core/services/rootfs_download_metadata.dart",
+    "lines": 95,
+    "sha256": "d9e7b286897d9519f28965f1766cc6fafe59ac347cb1691e5d5d46797bdb7934"
+  },
+  {
+    "path": "lib/core/services/rootfs_file_operations.dart",
+    "lines": 37,
+    "sha256": "2ea2016e720d837e8bc6987b5b81588e6a4617ed83976ddbc5b2467bce864456"
+  },
+  {
+    "path": "lib/core/services/rootfs_installation.dart",
+    "lines": 100,
+    "sha256": "472396a40e9aa33b240cc982aaff5a14ea25ea557a5b679da66dc47f8eff49e5"
+  },
+  {
+    "path": "lib/core/services/rootfs_manager.dart",
+    "lines": 144,
+    "sha256": "42bfb195826df513c4be91a204aa4ef259ca5979545513a62c7f23419f659a46"
+  },
+  {
+    "path": "lib/core/services/rootfs_manifest.dart",
+    "lines": 41,
+    "sha256": "7d3fb6c16edf41250b6b3ff690e22574ffe34a4069ca13370fc6ff1cfcee1e0e"
+  },
+  {
+    "path": "lib/core/services/rootfs_provenance.dart",
+    "lines": 27,
+    "sha256": "5688048a091db26e324494a67c12ad8772a0f0bf491e877663919b5c544afb03"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_input_scope.dart",
+    "lines": 52,
+    "sha256": "4a2afaf0bb3c21d58c99bce549e83dd4f63af6312693881ee78f60f3acbc7d27"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_input_scope_state.dart",
+    "lines": 109,
+    "sha256": "a50856e38dbb0d91ead13c45ad9f9ec3bbf87c792b9c85b0b257e3ae35755972"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_universal_input.dart",
+    "lines": 10,
+    "sha256": "4a03cfbd8ada2d79312cdec95040061125f4444f2da5db330f7887626179fad9"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_universal_input_config.dart",
+    "lines": 125,
+    "sha256": "875ebea5824a362fb21eab166407f4d55204455f4cab5f1983ba23cd0de3fe84"
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_universal_input_notifier.dart",
+    "lines": 73,
+    "sha256": "baf063f1d2eb243373bd1bc54e1a7f85b346c857e96dfc61d412ee4766a3e3ad"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_dispatcher_commands.dart",
+    "lines": 62,
+    "sha256": "33df154e6e1d077b079470154d73d242e027056fc12f8b9e260396ad03413184"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_dispatcher_guard.dart",
+    "lines": 139,
+    "sha256": "bd9f65eadf86d09a0358e27a27d34baac3887e411d0af37e359537009608046a"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_dispatcher_guard_api.dart",
+    "lines": 50,
+    "sha256": "67bc028d7dc66946efdbc8e7fe25808eff2427c147d79008d0a8571e7b241ef6"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_dispatcher_operations.dart",
+    "lines": 41,
+    "sha256": "f3f5f27e0b8281d66a36ca6cd88cec4d1f7adab2cdc965d6e4b731d6f4db71ba"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_dispatcher_plans.dart",
+    "lines": 34,
+    "sha256": "3572f67fe39c1146aaaf7f98a008dffb4d2497c4e02463acf2955f8331419520"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_dispatcher_runtime.dart",
+    "lines": 66,
+    "sha256": "6136adad62d603da582c1e517f61a3afcb110567954ce1f56424f5cff1888f26"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_dispatcher_state.dart",
+    "lines": 168,
+    "sha256": "ec01f3383cd879ea254b1cce6fcbadfee58c45841a7bd176e0b02c115f602f6f"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_json_payload.dart",
+    "lines": 51,
+    "sha256": "b6c74b3cb9ea4c191b1ee911ef55e0aff73d0ab78a0648199bdf7034f8a55183"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_tool_command_router.dart",
+    "lines": 187,
+    "sha256": "de99997e2f5c7537be98bc108a782fe9f08a01e19e9a548080e7838023aa0c39"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_tool_device_helpers.dart",
+    "lines": 51,
+    "sha256": "fd520efe578d78ea012bfa2d27a68165ac5744f1d099b95b38b57f34bcdc70c9"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+    "lines": 70,
+    "sha256": "257a981918fa6c936e52caf404c2d9400b094cf32398c2f964da3ec399f77c45"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_tool_execution_router.dart",
+    "lines": 165,
+    "sha256": "625f095e0e2f1c6112f283c43bbfee0861b285d5806ef958eee57a13bbf02e8b"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_tool_messaging_router.dart",
+    "lines": 109,
+    "sha256": "94615fdfab994f9cd667ed5fcc3bbb5456a2c0cf0a580f9ca254ec20f616ca90"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/agent_tool_protocol.dart",
+    "lines": 68,
+    "sha256": "6489ddf3e64b0ccd42876e24426fffe1aea1c2051c4661384b48a6999df417af"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/handlers/browser_agent_tool_handler.dart",
+    "lines": 182,
+    "sha256": "806a4a34d294db815ea9e4980aabb5d608197ba5b20991a0f2d7df17d9d892b8"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/handlers/mcp_human_command.dart",
+    "lines": 64,
+    "sha256": "24283c932558342ee51b6078dc4b4df1e290224ef8b83b047b99d064cd56bfe6"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/handlers/mcp_tool_handler.dart",
+    "lines": 100,
+    "sha256": "21f81c0b0f952d6896892bc61c22e1bc75305d7d7ca948a54aab78769978a2e5"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/handlers/semantic_linux_remaining.dart",
+    "lines": 124,
+    "sha256": "6ceb62aea65123ce860f4688186e9c605b14f7399ebcc05654fc22752ceee346"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/handlers/semantic_linux_tool_handler.dart",
+    "lines": 129,
+    "sha256": "8b3dc3d25c1c1d319a43fbbfe7e5d62a619716b9c0bb6d9cc0e7caec875cc44d"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/handlers/universal_messaging_tool_handler.dart",
+    "lines": 198,
+    "sha256": "9746543f80117c8d59fb2dda494de69032ee14559002ba4586af16c9094864df"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/plan_confirmation.dart",
+    "lines": 105,
+    "sha256": "191d8ef7e9d96a7875c47b1627b12e0985e52dadf335313db5cd99735c64f6e3"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/plan_execution_coordinator.dart",
+    "lines": 93,
+    "sha256": "905fa9493b215825f13494049e916fe274f2eb4dd4d3c04fd3832886386dc424"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/plan_execution_state.dart",
+    "lines": 73,
+    "sha256": "2a7809082b0fbd2840fab45f4cee300d2d0c9aff2ffdcbb5358b6c1387ca1b90"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/plan_fingerprint.dart",
+    "lines": 28,
+    "sha256": "a1f95e00ba9c7d5961e1a8ac356eb5acf7ab301a5b7c79d53dd4ce4567521b92"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/plan_irreversible.dart",
+    "lines": 184,
+    "sha256": "1d739192aab18c5e100b41ba1c80474bc7829743a65f256e687401b609caeefe"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/plan_record.dart",
+    "lines": 45,
+    "sha256": "22dee4ef6386bfa0896a45dadc581d596bbc06ad5619b703d280e612edec5a36"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/plan_run.dart",
+    "lines": 165,
+    "sha256": "4672b2dc97d777f98377fba125abafe9b3dba24100985d923248087e21b6e5f1"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_definition.dart",
+    "lines": 73,
+    "sha256": "716d7ce0567e7cdbbae86bf6cf48f0d54b3e7a4a06722bb7e0a7a343105d2545"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_definitions_0.dart",
+    "lines": 61,
+    "sha256": "a30f4315d26c6e098dc29ddf47be352371e6fc53fc0d81530b5a2a719a5a0aad"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_definitions_1.dart",
+    "lines": 75,
+    "sha256": "78fc660fd67efe3519cde8d49642939cc7ccceba6ada24400354937887944ee0"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_definitions_2.dart",
+    "lines": 63,
+    "sha256": "f0796df4fc2ba4b2ebd836889fd6c3d648ffd7afa0832959190142eac261a59d"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_definitions_3.dart",
+    "lines": 64,
+    "sha256": "86652ef4712d1242645c9bb8e5a37744318cfcd571a3cad949370efda4c2dd3e"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_definitions_4.dart",
+    "lines": 63,
+    "sha256": "3d0fb2c6b310970ad28e7db8ae91f584736301693b59855aa168d0bd50662058"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_definitions_5.dart",
+    "lines": 53,
+    "sha256": "007f0c8dbe6b1ccfb2e8fd798be969b44f033cf9f8f623391483ec2bda0527ed"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_execution_report.dart",
+    "lines": 23,
+    "sha256": "8f3c08b7dc509c20f5527ace3b22637281191a382cdcc14a4215000f92879ba6"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_outcome.dart",
+    "lines": 80,
+    "sha256": "a8b1dd076408b9703d1ac9f2c461547a65c81637ffc0b6515ba06d7fe1b31d9c"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_policy_engine.dart",
+    "lines": 119,
+    "sha256": "ccb37b8317a5d6812ee5db0615252cff99d4b0f471e72c0b0e1fc2e26031561b"
+  },
+  {
+    "path": "lib/features/automation/engine/execution/tool_registry.dart",
+    "lines": 136,
+    "sha256": "c85bdcb303ebe3a0a457e91206acfacc648560afe7d34af73b0f1c5cac1dc59f"
+  },
+  {
+    "path": "lib/features/automation/engine/governance/semantic_mcp_policies.dart",
+    "lines": 68,
+    "sha256": "0f06f00e5b32291f4451c1ee23d95dafcbefb83508691d25fd34c871d3c6f02b"
+  },
+  {
+    "path": "lib/features/automation/engine/governance/semantic_policies_0.dart",
+    "lines": 42,
+    "sha256": "bff10cd54ffbec500ede0e0d8de8a4e74882803386455ac5b9846b63efdd42d5"
+  },
+  {
+    "path": "lib/features/automation/engine/governance/semantic_policies_1.dart",
+    "lines": 55,
+    "sha256": "f05f8f1c5cfa7a3944406c0797781a6c64c3a76df3a5d6e7d92fa0d56ea53a1c"
+  },
+  {
+    "path": "lib/features/automation/engine/governance/semantic_policies_2.dart",
+    "lines": 71,
+    "sha256": "46093f078269107689121d04fc9d2e262501d4f59fadd1f5493fefda66add1f9"
+  },
+  {
+    "path": "lib/features/automation/engine/governance/semantic_policies_3.dart",
+    "lines": 73,
+    "sha256": "96ef7c34c8c72989733c3cfec36dcaa13e856033bfa75a449ef4427501ba0558"
+  },
+  {
+    "path": "lib/features/automation/engine/governance/semantic_policies_4.dart",
+    "lines": 45,
+    "sha256": "66585e6add96765aecd45dece73d4b0e7778e5edbd9d021f43b6cd2b6a9e6b59"
+  },
+  {
+    "path": "lib/features/automation/engine/governance/semantic_policy.dart",
+    "lines": 91,
+    "sha256": "55b2c163ec04780d89a4a3c924fbc1fc3c5d7da5d49f9f7f71b65db01d69777f"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/http_mcp_parser.dart",
+    "lines": 103,
+    "sha256": "6fd7ba0215be7f7b3e7313d589a0166abcfd6a0b4a036f123135800f9c7b2cba"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/linux_automation_mcp_client.dart",
+    "lines": 126,
+    "sha256": "8b030ff1f4d40fab1a2edb09539ad1692391ac9b6bbeee80ac41d1fe8919b544"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/linux_mcp_catalog.dart",
+    "lines": 119,
+    "sha256": "ee36efe829cffdf838f4ce11a9004294673f25f0f649f6aa0147a927d6f34e4d"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/linux_mcp_dispatch.dart",
+    "lines": 96,
+    "sha256": "c968667cdd5ffc34e1332cf870b486a60d4e9b2b94b800e261a9f9e00001f161"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/linux_mcp_result.dart",
+    "lines": 33,
+    "sha256": "2f010e4d66e2eed0d3fec442cc85d725f24c922d59370572e2142ed75df8683f"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_candidate_arguments.dart",
+    "lines": 65,
+    "sha256": "725aca40ca03128e857e4e20434fa9335cfb662aededc1cf0e9a576c61f6389f"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_candidate_provider.dart",
+    "lines": 41,
+    "sha256": "1e343bea838601c3c10b0b8fb644213cd7f2e3417170b5972437f31fc1782b46"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_client_port.dart",
+    "lines": 180,
+    "sha256": "5a71b922cd6248eeed6e95279f3086860af44b966c91bda4dc4972e7468a23de"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_local_tool_policy.dart",
+    "lines": 49,
+    "sha256": "2739c463e35b9abef8054a994a721571e6f14e1a4954920f2e859caff77be64e"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_result_presenter.dart",
+    "lines": 57,
+    "sha256": "503d08466bc0f41645976e5c45e5dcb782354169af4d0a7e80fe8f3d97dfd50a"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_schema_validator.dart",
+    "lines": 107,
+    "sha256": "0fffc7cf029b5261e91ca847928f60e48c6cb685c158b3453332c47d7d547818"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_store_catalog.dart",
+    "lines": 140,
+    "sha256": "9c28e50a3d15e98d55c39b0ed84819f7c2adecdf569dcd1b4376f65b6ec38e66"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_tool.dart",
+    "lines": 25,
+    "sha256": "233d083599463c11fa46d7d34ec5ee5fe62a63f8f60df62b99a97e7b0bcd548d"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_tool_adapter.dart",
+    "lines": 52,
+    "sha256": "23a0892b9f0c84ec8edb8d78a2c4e88eab56699e4fd1bb80c942ce65cbec7fd4"
+  },
+  {
+    "path": "lib/features/automation/engine/mcp/mcp_tool_projection.dart",
+    "lines": 32,
+    "sha256": "c8310c504813d313bf71fa84f8158db21e09ee589b888f0ea7be21623ed64065"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_action_verifier.dart",
+    "lines": 151,
+    "sha256": "3dbd842cd82a7f12c7978d6fba2cc6b4845c5f19a0c2597942a07e09a4c71f31"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_executor_archive.dart",
+    "lines": 30,
+    "sha256": "77e03a60d913afdc5253c1c6fb5d438ed6ade8a61546bd4a479186448e06aee8"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_executor_execution.dart",
+    "lines": 74,
+    "sha256": "3363125dae62890d2c19a6f62cf5781972020609f1f3be5ee8a66a11bc5bd16b"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_executor_fs.dart",
+    "lines": 78,
+    "sha256": "1acb5ccbf3c6cbefe8ab29e26caf32419652f2c99c81d805ae342ef5756e20f2"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_executor_git.dart",
+    "lines": 35,
+    "sha256": "367125713a449b0a574203d49c7fa24b1168dcd7000ca0a7624bcdf7b92636c0"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_executor_process.dart",
+    "lines": 77,
+    "sha256": "c1c0de373b84a09cb98cdc77c5e00dc3f20c2bb36514078a4c8bfeebd5591ea6"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_executor_state.dart",
+    "lines": 48,
+    "sha256": "2d8ae6b2c83f1b51cd2b0f331db16ff4c79f7be1579cb2abe63a32b4e2cb51b7"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_fs_read.dart",
+    "lines": 128,
+    "sha256": "fe892048f490c0119750618dd9fc87b80e45858afc3a823b7a352ad0ce8f0022"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_fs_state.dart",
+    "lines": 27,
+    "sha256": "c84e6a619f3bfd97273eaf0aca1e76114f553021857c9dc44d133bd5b7bbc7b6"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_fs_transfer.dart",
+    "lines": 68,
+    "sha256": "b52c96e153a196e5ecc8795423e2253d3c31930fcf2012972004b6b7a5312e3a"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_fs_write.dart",
+    "lines": 83,
+    "sha256": "89ac954a37d64c669404076bb24e82dc4fc194da268228a1fe295d6ac696f3a1"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_process_observation.dart",
+    "lines": 28,
+    "sha256": "5a3fc39d0956985648a3617f8ee884c93ca8c12a1fd8b90551263f122748b261"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/linux_process_supervisor.dart",
+    "lines": 161,
+    "sha256": "10aeb5a57164882feb943f42ae9a74a86510f2af98f2c7f9abdac4936920a2c0"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/nanoshell_linux_automation_executor.dart",
+    "lines": 33,
+    "sha256": "26c904d6af72cdcd44ea73772ccc6f279b9d51b3525cf9b9dd763817016ebd2b"
+  },
+  {
+    "path": "lib/features/automation/executors/linux/nanoshell_linux_fs_operations.dart",
+    "lines": 23,
+    "sha256": "b1c68ef6d2df8b084d3cf28452bb29742e84b4647ebe09b9629e2a93cb1f5420"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_chrome.dart",
+    "lines": 121,
+    "sha256": "e661d45f690f39501f42d6bbf420a16406bf8fe3ff845994e5692c3d966f088b"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_graph.dart",
+    "lines": 95,
+    "sha256": "ce08552219c6bce3184faa96f3bb58765217ef62845aa55b3b565d0578985ea4"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_graph_controls.dart",
+    "lines": 51,
+    "sha256": "f9e8236aba54369b1a081fd701bf304a7c1559579f41c5425f8f02f3b5b87401"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_journal.dart",
+    "lines": 103,
+    "sha256": "693867687519235770a9b325f51b85f312dca61f042e31a13f73d585c86cfe40"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_platform_nodes.dart",
+    "lines": 133,
+    "sha256": "e9ffb6382950ebe03c785023126fefe57e694c608426ea48dbc1c0145976ad42"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_refresh.dart",
+    "lines": 38,
+    "sha256": "d4791f4630bc1e907bd4ad0272e143f2141bd59476b76a4661ecf3b4486c18d7"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_server_nodes.dart",
+    "lines": 88,
+    "sha256": "b817d992d11368bcb319b8b964245ac88747aed8fc76026baa52bbf1ad1d7a9f"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_store.dart",
+    "lines": 132,
+    "sha256": "e6d85973b7b2768c834309fe78a07aed4aa8f46cab9503a8f03f7beb4056009f"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_hub_store_filters.dart",
+    "lines": 94,
+    "sha256": "5c92906449bd43dbff1e85ed51c6c61195557667bcad15068e9b861b6b70caba"
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/mcp_skills_hub_screen.dart",
+    "lines": 142,
+    "sha256": "f21d42a1210acbfe3137f8a8ea8f886947103350573384850e973811eb646185"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_graph_node_details.dart",
+    "lines": 165,
+    "sha256": "33586a0cb38fd89f7089aaa1eab88a7658f929096fc058bce12f13950cf350dd"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_tool_preparation.dart",
+    "lines": 135,
+    "sha256": "ad7684549874fa247dd722f84eb2383d1fd5ffcfe68101533035ce6f3e4170b4"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_tools_browser.dart",
+    "lines": 141,
+    "sha256": "df1982033ae259b5df86288fab607d0849d4146a76c353bf9ee625184325bd47"
+  },
+  {
+    "path": "lib/features/terminal/ansi_cell_metrics.part.dart",
+    "lines": 62,
+    "sha256": "0b53d97cc2749e50ba0c4ce3a7f6e60769d47d6bd8a455d83b426d6d45d91cea"
+  },
+  {
+    "path": "lib/features/terminal/ansi_terminal.dart",
+    "lines": 64,
+    "sha256": "e4a5c6feb4c8a25c8ae337bad4a8ecdbc979290d0d76d4f5a6b189aa06e7b36e"
+  },
+  {
+    "path": "lib/features/terminal/ansi_terminal_buffer.part.dart",
+    "lines": 116,
+    "sha256": "91bfd02b42460499135a3fe68480e38a81b7e41c2e34368d57c32741b9ff8fcd"
+  },
+  {
+    "path": "lib/features/terminal/ansi_terminal_line.part.dart",
+    "lines": 141,
+    "sha256": "9814717247d11c97c45ff3d24d69ad6dca6b85988f817ecb193bf70a3b80dda1"
+  },
+  {
+    "path": "lib/features/terminal/ansi_terminal_view.part.dart",
+    "lines": 11,
+    "sha256": "cb7e0de543b8cae24d9de0379d13121b9afb212d6c67d35431e4dde569345a1c"
+  },
+  {
+    "path": "lib/features/terminal/ansi_terminal_view_state.part.dart",
+    "lines": 142,
+    "sha256": "681ca5950a3766c31856fe9997bd5bd6eeebdf854f0454e64b23d507ace0a9e6"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_hub_cards.part.dart",
+    "lines": 83,
+    "sha256": "83cb310b4e7b28ea95e46676c1cf2ca8aae3b0f6ef5d2d03d2d910cbd8ba5a46"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_hub_screen.dart",
+    "lines": 53,
+    "sha256": "a3ca686ea0c5cadbed54fcac4c88e852deafff2907264025b04bb712f51ca6a8"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_hub_view.part.dart",
+    "lines": 185,
+    "sha256": "2950cd71a6860093b9022ec63c52b695b8f0fd364c4474c76bbe29ef4d8688ba"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_screen.dart",
+    "lines": 102,
+    "sha256": "9b3ba5202b1bee6c276d2a30ebd8aa66d45523c4b89471b2d3febadd74466cae"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_screen_layout.dart",
+    "lines": 90,
+    "sha256": "c3b942c0d13eac72248b87f116d871578f9a6bce5dfb47423eefd0f549acb669"
+  },
+  {
+    "path": "lib/features/terminal/presentation/screens/terminal_screen_sessions.dart",
+    "lines": 103,
+    "sha256": "c9cbcea447c6e9f0189f8435f5cb5bcab611b5d9dc91f3061413e9c3ab4ee0e4"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_command_bar.dart",
+    "lines": 64,
+    "sha256": "d619e2c1b35bd47a56526fdd3168e88fc7c10d9d90fa424c766041473c3f0566"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_coverflow_detail_tags.dart",
+    "lines": 99,
+    "sha256": "a1388733f0854269714abf22a4f37339222ccd7eade2b116b68bee9c6f6b9196"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_keys_row.dart",
+    "lines": 35,
+    "sha256": "e9d10bf5ce63d26e524d272e9f95770a4b2dc8621cd860416d80ebf2ac8376c5"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_text_style.dart",
+    "lines": 9,
+    "sha256": "8c1f0667ff9c8b7ebd16d30702eade8059361b78b356f4c4c54eefcbcb8949ad"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_top_bar.dart",
+    "lines": 134,
+    "sha256": "663cebeed1b6bab983e957e912913ab690ccca68ab0eb8a157eedb7c9e32e832"
+  },
+  {
+    "path": "lib/features/terminal/presentation/widgets/terminal_view_box.dart",
+    "lines": 75,
+    "sha256": "fd8b8828d773edc9b42c09bf70ceb4b01fe913cce8b25ca91c8582f37d5ef972"
+  },
+  {
+    "path": "lib/features/terminal/terminal_commands.part.dart",
+    "lines": 84,
+    "sha256": "0775a93751898fde7a4fc5251effe77d9c4e78b9d3df5b09d30eb64b400fd2e6"
+  },
+  {
+    "path": "lib/features/terminal/terminal_console.part.dart",
+    "lines": 93,
+    "sha256": "bf174c2cebe84a14ddf5d0c8e205e7f4efb22e42167c78b2a5b38d621ddcc635"
+  },
+  {
+    "path": "lib/features/terminal/terminal_core.dart",
+    "lines": 108,
+    "sha256": "3a9283957c7ecfc72cab52e9dbed7e50e037195c7d5fdde988ba6e05cbc23456"
+  },
+  {
+    "path": "lib/features/terminal/terminal_diagnostics.part.dart",
+    "lines": 93,
+    "sha256": "ccb5dddd5bec1d0352591e0a00c7e19e3a8985c3301728df6e0f5751e0ace402"
+  },
+  {
+    "path": "lib/features/terminal/terminal_history.part.dart",
+    "lines": 43,
+    "sha256": "9e4091c4b17821433d5b9c8288efe478ac349b5c60f908b6c90670fbb9faaf5a"
+  },
+  {
+    "path": "lib/features/terminal/terminal_inference.part.dart",
+    "lines": 68,
+    "sha256": "cf73a41eafbd6683c633419f8bb6930329ec63bfe5f9ebad89cd1c57876794e5"
+  },
+  {
+    "path": "lib/features/terminal/terminal_keyboard.part.dart",
+    "lines": 95,
+    "sha256": "cc4f3dc1392728ace8d259644468bd6e0ad217dbee4980454cc5683da6b1957d"
+  },
+  {
+    "path": "lib/features/terminal/terminal_lifecycle.part.dart",
+    "lines": 123,
+    "sha256": "ac82d095acd5c006825ada52b4c42e1cb293e4f61f12762fd8cdb470048729da"
+  },
+  {
+    "path": "lib/features/terminal/terminal_operations.dart",
+    "lines": 49,
+    "sha256": "8231368bb7e1d5d3b8441a694478be749a23f07ca4561029b89007f498dd2cc2"
+  },
+  {
+    "path": "lib/features/terminal/terminal_parsing.part.dart",
+    "lines": 55,
+    "sha256": "da0c2d3a9e107317b1913c7aa91e5d33aaeef20c6076cf3397b29dc0641c864b"
+  },
+  {
+    "path": "lib/features/terminal/terminal_pty.part.dart",
+    "lines": 76,
+    "sha256": "94589a32fb821864db3c1fe81fcd8167746dea74a792451fc6f3052492d15341"
+  },
+  {
+    "path": "lib/features/terminal/terminal_registry.part.dart",
+    "lines": 33,
+    "sha256": "6b50c602953c052bff93eb21c654efb0f68c8ff017b0467605881be277636e08"
+  },
+  {
+    "path": "lib/features/terminal/terminal_shell_init.part.dart",
+    "lines": 137,
+    "sha256": "d0018aadd1221b6ac4cf15f29e7ffdbac93b2f0a6ea3af561e2860e54d57023d"
+  },
+  {
+    "path": "lib/features/terminal/terminal_state_base.dart",
+    "lines": 140,
+    "sha256": "d1709e6c82c96a26a1ef145527ed0a85eb0fcd46bbb70936a042aef075a6f04e"
+  },
+  {
+    "path": "lib/features/terminal/terminal_tuning.part.dart",
+    "lines": 82,
+    "sha256": "4624b4a7e64ba8c8bf0330fa2b78275ad2127646ef88d2c2f0534ebe69eaa801"
+  }
+]

@@ -1,0 +1,120 @@
+{
+    "flavor":  "fullSideloadDebug",
+    "build":  "BUILD SUCCESSFUL in 1m 26s",
+    "apk":  "C:\\Users\\emman\\Desktop\\Proyectos\\Nueva carpeta\\Nanoai\\products\\nanoMOBILE\\flutter_app\\build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+    "sha256":  "98aa5d908c7e804e679da9f9792a8856036c06da05ca8b8a72ea7d6bbf864a49",
+    "bytes":  190683005,
+    "apkLastWriteUtc":  "2026-10-21T05:21:54.2690052Z",
+    "gradleApkMatchesFlutterApk":  true,
+    "staticAnalysis":  "No issues found",
+    "automatedTestsRun":  false,
+    "installed":  false,
+    "deviceAccessed":  false,
+    "promptPoliciesChanged":  true,
+    "modifiedCodeFiles":  20,
+    "maxModifiedFileLines":  195,
+    "graphIndexUpdated":  false,
+    "sourceFiles":  [
+                        {
+                            "path":  "lib/core/services/personal_prompt_policy.dart",
+                            "lines":  17,
+                            "sha256":  "83a9aba69518ab1079a616831dd1d52693b616bb97bdbe176a268fceaffe0146"
+                        },
+                        {
+                            "path":  "lib/core/services/personal_profile_output_guard.dart",
+                            "lines":  29,
+                            "sha256":  "c4d7dfbc3d0774eccc22b504129837582783f96efbff702ada75a0831d533f36"
+                        },
+                        {
+                            "path":  "lib/core/services/conversation_reply_quality.dart",
+                            "lines":  76,
+                            "sha256":  "c42d71fb6f65909dd5b2155308f0da4671fb55578ab52d9eb5f2cb826de37477"
+                        },
+                        {
+                            "path":  "lib/features/automation/personal_agent/domain/personal_context_query.dart",
+                            "lines":  7,
+                            "sha256":  "e0fc9226c6497159ec7ce49799b691999ebd12fc1ab62a8831d6a845e97a9c3c"
+                        },
+                        {
+                            "path":  "lib/features/automation/personal_agent/domain/personal_turn_continuity.dart",
+                            "lines":  34,
+                            "sha256":  "30ce5a234fc346410e32c4bc2fb8f6366ab2c62d4aa878169385951a12c9f2b7"
+                        },
+                        {
+                            "path":  "lib/features/automation/personal_agent/domain/personal_conversation_analyzer.dart",
+                            "lines":  149,
+                            "sha256":  "ac1bb1201e61e4afa952d9b339a5a9af3c681531d65aa331513afafe20b10075"
+                        },
+                        {
+                            "path":  "lib/features/automation/personal_agent/application/persona_prompt_builder_body.part.dart",
+                            "lines":  191,
+                            "sha256":  "463ba60342740bd4488425af48356b9a4feb1e3d1f7fc7644b47c39abfb01225"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/messaging/inbound_deduplicator.dart",
+                            "lines":  87,
+                            "sha256":  "0527350b8f4279111bb7c930338614dcb3ecb90b97d0e22bb3db61f6707117d4"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/notifications/notification_draft_writer.dart",
+                            "lines":  186,
+                            "sha256":  "8a55c5024c2d41362ab080834073303e64105bcbf1070bb37b06df8b635a044f"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/notifications/notification_draft_writer_prompt.part.dart",
+                            "lines":  169,
+                            "sha256":  "9c488b56f8210f10e71910fc2c1a9e006f29b69a5f04330a26865edea6067923"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/notifications/notification_draft_writer_prepared.part.dart",
+                            "lines":  35,
+                            "sha256":  "d21171168f2e1212207359e922486c4d738d96a8b22ae722a39c7f386fa88516"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/notifications/notification_draft_writer_personal_prompt.part.dart",
+                            "lines":  133,
+                            "sha256":  "58e18eff0527c04656325dd7fe21aacc2961c0537b70b95279450a76a6ab2e04"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/notifications/notification_draft_writer_capacity.part.dart",
+                            "lines":  68,
+                            "sha256":  "359a2320b171dba0d221a0a2f7c31f2be9a4809db1066c67c7ff45800e0f0dc9"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/notifications/notification_draft_prompt.dart",
+                            "lines":  195,
+                            "sha256":  "e574a1942c608d8ded072516dd0662131795cd1e769b3533fc75efb38ef26095"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/notifications/conversation_prompt_templates.dart",
+                            "lines":  149,
+                            "sha256":  "ef5b631512082924af46376924d9702fc42fd502fcb1651598e8f61fb8a4e1e6"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/conversation/conversation_reply_composer.dart",
+                            "lines":  162,
+                            "sha256":  "e090989c81aa81fb6e55341b591153df2fd3a17ac731495c584d70199d173725"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/conversation/conversation_reply_flow.dart",
+                            "lines":  138,
+                            "sha256":  "1ee72d98581d0e5c3b72e83d9d78639b4ed7b4dd87186c39277ee4b4043d40e5"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/conversation/conversation_personal_intake.dart",
+                            "lines":  79,
+                            "sha256":  "16edcc8847770f8f5fce5823591f053ea8ba8a2dff98b02c877c8f82982bc43f"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/conversation/conversation_dialogue_evidence.dart",
+                            "lines":  40,
+                            "sha256":  "72d3f51aa81197708dd405d1ff882f31dd8509fddfda650640f51c927d542a9a"
+                        },
+                        {
+                            "path":  "lib/features/automation/engine/conversation/personal_style_formatter.dart",
+                            "lines":  90,
+                            "sha256":  "3e6d1d104805560776e6c9c0f6f7e3f630effb0f31ca452b131ef3a7dbf2243d"
+                        }
+                    ],
+    "buildLog":  "nano-personal-prompts-fixes-2026-10-21-gradle.log"
+}

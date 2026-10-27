@@ -37,14 +37,14 @@ class SettingsRepository {
     }
     try {
       final m = jsonDecode(json) as Map<String, dynamic>;
-      // DARK-ONLY (decisión del dueño, 2026-09-05, confirmada en validación):
-      // cualquier valor que no sea 'Oscuro' (ausente, 'Sistema' de defaults
-      // viejos o 'Claro' guardado) se carga como 'Oscuro'. El dispositivo
-      // quedó en claro por valores heredados y el usuario percibía las
-      // superficies claras como "pantalla gris" al navegar. El selector de
-      // tema sigue disponible en Ajustes para cambios futuros conscientes.
+      // TEMA: Carga 'Oscuro', 'Grisáceo' (Opaco / Space Gray), 'Claro' (Pure Frost) o 'Sistema'.
+      // Default: 'Oscuro' si no hay valor previo configurado.
+      final savedTheme = m['themeMode'] as String? ?? 'Oscuro';
+      final validTheme = (savedTheme == 'Claro' || savedTheme == 'Grisáceo' || savedTheme == 'Opaco' || savedTheme == 'Clásico' || savedTheme == 'Sistema')
+          ? (savedTheme == 'Opaco' || savedTheme == 'Clásico' ? 'Grisáceo' : savedTheme)
+          : 'Oscuro';
       return SettingsState(
-        themeMode: 'Oscuro',
+        themeMode: validTheme,
         temperature: (m['temperature'] as num?)?.toDouble() ?? 0.7,
         topP: (m['topP'] as num?)?.toDouble() ?? 0.9,
         maxTokens: (m['maxTokens'] as num?)?.toInt() ?? 512,
@@ -68,11 +68,15 @@ class SettingsRepository {
         waStyleEnabled: m['waStyleEnabled'] as bool? ?? false,
         waStyleText: m['waStyleText'] as String? ?? '',
         waReplyDelaySeconds: (m['waReplyDelaySeconds'] as num?)?.toInt() ?? 0,
-        waTargetContactsMode: m['waTargetContactsMode'] as String? ?? 'all',
-        // AUTONOMY FAIL-SAFE (PROD-02): key ausente/legacy → null (jamás
-        // 'autonomous' por defecto). La conversión segura la hace
-        // ConversationAutonomyModeName.fromName (null → safeAuto).
-        waAutonomyMode: m['waAutonomyMode'] as String?,
+        waTargetContactsMode: m['waTargetContactsMode'] as String? ?? 'selected',
+        // QUÉ HACE: Sincroniza waAutonomyMode con el modo de agente autónomo principal.
+        // CÓMO: Si agentAutomationMode es 'autonomous' y el canal quedó en 'suggestions', se eleva a 'autonomous'.
+        // POR QUÉ: Elimina el bloqueo donde el usuario cree que el bot está activo pero el sub-canal retiene borradores.
+        waAutonomyMode: (AgentAutomationMode.fromName(m['agentAutomationMode'] as String?) ==
+                    AgentAutomationMode.autonomous &&
+                m['waAutonomyMode'] == 'suggestions')
+            ? 'autonomous'
+            : (m['waAutonomyMode'] as String? ?? 'autonomous'),
         glassEnabled: m['glassEnabled'] as bool? ?? true,
         glassOpacity: (m['glassOpacity'] as num?)?.toDouble() ?? 0.70,
         glassClarity: (m['glassClarity'] as num?)?.toDouble() ?? 0.85,
@@ -199,8 +203,8 @@ class SettingsState {
     this.waStyleEnabled = false,
     this.waStyleText = '',
     this.waReplyDelaySeconds = 0,
-    this.waTargetContactsMode = 'all',
-    this.waAutonomyMode,
+    this.waTargetContactsMode = 'selected',
+    this.waAutonomyMode = 'autonomous',
     this.glassEnabled = true,
     this.glassOpacity = 0.70,
     this.glassClarity = 0.85,
@@ -397,11 +401,13 @@ final settingsProvider = StateNotifierProvider<SettingsNotifier, SettingsState>(
 /// Provider derivado que sincroniza automáticamente el ThemeMode con settings
 final themeModeProvider = Provider<ThemeMode>((ref) {
   final settings = ref.watch(settingsProvider);
-  return settings.themeMode == 'Oscuro'
+  return (settings.themeMode == 'Oscuro' ||
+          settings.themeMode == 'Grisáceo' ||
+          settings.themeMode == 'Opaco')
       ? ThemeMode.dark
-      : settings.themeMode == 'Claro'
-      ? ThemeMode.light
-      : ThemeMode.system;
+      : (settings.themeMode == 'Claro')
+          ? ThemeMode.light
+          : ThemeMode.system;
 });
 
 /// Deserializa AutomationModelMode por nombre, degradando a sameAsChat si el

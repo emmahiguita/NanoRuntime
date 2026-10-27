@@ -39,7 +39,10 @@ final class BotDefinition {
     required this.role,
     this.description = '',
     this.goal = '',
-    this.tone = const ToneProfile(enabled: true, verbosity: ToneVerbosity.breve),
+    this.tone = const ToneProfile(
+      enabled: true,
+      verbosity: ToneVerbosity.breve,
+    ),
     this.enabled = true,
     this.channels = const ['whatsapp'],
     this.skillIds = const [],
@@ -80,23 +83,26 @@ final class BotDefinition {
   }
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'name': name,
-        'role': role.key,
-        'description': description,
-        'goal': goal,
-        'tone': jsonEncode(tone.toJson()),
-        'enabled': enabled ? 1 : 0,
-        'channels': jsonEncode(channels),
-        'skillIds': jsonEncode(skillIds),
-        'permissions': jsonEncode(permissions.toMap()),
-        'policies': jsonEncode(policies),
-        'createdAt': createdAt.millisecondsSinceEpoch,
-        'updatedAt': updatedAt.millisecondsSinceEpoch,
-      };
+    'id': id,
+    'name': name,
+    'role': role.key,
+    'description': description,
+    'goal': goal,
+    'tone': jsonEncode(tone.toJson()),
+    'enabled': enabled ? 1 : 0,
+    'channels': jsonEncode(channels),
+    'skillIds': jsonEncode(skillIds),
+    'permissions': jsonEncode(permissions.toMap()),
+    'policies': jsonEncode(policies),
+    'createdAt': createdAt.millisecondsSinceEpoch,
+    'updatedAt': updatedAt.millisecondsSinceEpoch,
+  };
 
   factory BotDefinition.fromMap(Map<dynamic, dynamic> map) {
-    ToneProfile t = const ToneProfile(enabled: true, verbosity: ToneVerbosity.breve);
+    ToneProfile t = const ToneProfile(
+      enabled: true,
+      verbosity: ToneVerbosity.breve,
+    );
     if (map['tone'] case final String raw when raw.isNotEmpty) {
       try {
         t = ToneProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
@@ -122,11 +128,13 @@ final class BotDefinition {
     }
 
     Map<String, String> decodeMap(dynamic raw) {
-      if (raw is Map) return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+      if (raw is Map)
+        return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
       if (raw is String && raw.isNotEmpty) {
         try {
           final dec = jsonDecode(raw);
-          if (dec is Map) return dec.map((k, v) => MapEntry(k.toString(), v.toString()));
+          if (dec is Map)
+            return dec.map((k, v) => MapEntry(k.toString(), v.toString()));
         } catch (_) {}
       }
       return const {};
@@ -145,10 +153,14 @@ final class BotDefinition {
       permissions: p,
       policies: decodeMap(map['policies']),
       createdAt: DateTime.fromMillisecondsSinceEpoch(
-        map['createdAt'] is num ? (map['createdAt'] as num).toInt() : DateTime.now().millisecondsSinceEpoch,
+        map['createdAt'] is num
+            ? (map['createdAt'] as num).toInt()
+            : DateTime.now().millisecondsSinceEpoch,
       ),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(
-        map['updatedAt'] is num ? (map['updatedAt'] as num).toInt() : DateTime.now().millisecondsSinceEpoch,
+        map['updatedAt'] is num
+            ? (map['updatedAt'] as num).toInt()
+            : DateTime.now().millisecondsSinceEpoch,
       ),
     );
   }

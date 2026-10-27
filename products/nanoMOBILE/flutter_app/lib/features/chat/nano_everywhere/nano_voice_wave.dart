@@ -25,14 +25,18 @@ class _NanoVoiceWaveState extends State<NanoVoiceWave>
   @override
   void initState() {
     super.initState();
-    phase = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+    phase = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _reduceMotion = MediaQuery.disableAnimationsOf(context) || !TickerMode.of(context);
+    _reduceMotion =
+        MediaQuery.disableAnimationsOf(context) || !TickerMode.of(context);
     _syncMotion();
   }
 
@@ -70,8 +74,9 @@ class _NanoVoiceWaveState extends State<NanoVoiceWave>
         height: 29,
         child: AnimatedBuilder(
           animation: Listenable.merge([phase, widget.audioLevel]),
-          builder: (context, child) =>
-              CustomPaint(painter: _WavePainter(phase.value, widget.audioLevel.value)),
+          builder: (context, child) => CustomPaint(
+            painter: _WavePainter(phase.value, widget.audioLevel.value),
+          ),
         ),
       ),
     );
@@ -93,12 +98,18 @@ class _WavePainter extends CustomPainter {
     for (var i = 0; i < bars; i++) {
       final x = i * size.width / (bars - 1);
       final envelope = math.sin(math.pi * i / (bars - 1));
-      final phaseWave = .55 + .45 * math.sin(phase * 2 * math.pi + i * .63).abs();
+      final phaseWave =
+          .55 + .45 * math.sin(phase * 2 * math.pi + i * .63).abs();
       final h = 3 + volume * 23 * envelope * phaseWave;
-      canvas.drawLine(Offset(x, (size.height - h) / 2), Offset(x, (size.height + h) / 2), pen);
+      canvas.drawLine(
+        Offset(x, (size.height - h) / 2),
+        Offset(x, (size.height + h) / 2),
+        pen,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant _WavePainter old) => old.phase != phase || old.level != level;
+  bool shouldRepaint(covariant _WavePainter old) =>
+      old.phase != phase || old.level != level;
 }

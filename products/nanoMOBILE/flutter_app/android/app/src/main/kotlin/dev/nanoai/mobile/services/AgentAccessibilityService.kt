@@ -1,7 +1,6 @@
 package dev.nanoai.mobile.services
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.content.Intent
 import android.graphics.Bitmap
@@ -53,6 +52,8 @@ class AgentAccessibilityService : AccessibilityService() {
 
     private val executor = Executors.newSingleThreadExecutor()
     internal val mainThreadHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var accessibilityButtonCallback:
+        android.accessibilityservice.AccessibilityButtonController.AccessibilityButtonCallback? = null
 
     private data class TraversalState(
         var nodeLimitReached: Boolean = false,
@@ -67,6 +68,7 @@ class AgentAccessibilityService : AccessibilityService() {
         // eventTypes, canRetrieveWindowContent) ya viene de
         // res/xml/accessibility_service_config.xml.
         AgentAccessibilityBridge.onConnected(this)
+        NanoAtomicSnapshotter.start()
         Log.i(TAG, "AgentAccessibilityService conectado")
         // U-10: vector resurrección — tras un cached-kill de ColorOS el
         // sistema re-vincula este service él mismo (los accessibility
@@ -87,10 +89,10 @@ class AgentAccessibilityService : AccessibilityService() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                serviceInfo = serviceInfo.apply {
-                    flags = flags or AccessibilityServiceInfo.FLAG_REQUEST_ACCESSIBILITY_BUTTON
-                }
-                accessibilityButtonController.registerAccessibilityButtonCallback(
+                // flagRequestAccessibilityButton ya viene del XML. Reasignar
+                // serviceInfo aquí puede desvincular el bridge durante un envío.
+                releaseAccessibilityButtonCallback()
+                val callback =
                     object : android.accessibilityservice.AccessibilityButtonController.AccessibilityButtonCallback() {
                         override fun onClicked(controller: android.accessibilityservice.AccessibilityButtonController) {
                             Log.i(TAG, "Botón de accesibilidad presionado — dirigiendo a Nano Everywhere")
@@ -119,7 +121,8 @@ class AgentAccessibilityService : AccessibilityService() {
                             }
                         }
                     }
-                )
+                accessibilityButtonCallback = callback
+                accessibilityButtonController.registerAccessibilityButtonCallback(callback)
             } catch (e: Exception) {
                 Log.w(TAG, "AccessibilityButtonCallback error: ${e.message}")
             }
@@ -137,14 +140,29 @@ class AgentAccessibilityService : AccessibilityService() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         Log.i(TAG, "onUnbind — service se desvincula, bridge null temporal")
-        AgentAccessibilityBridge.onDisconnected()
+        releaseAccessibilityButtonCallback()
+        AgentAccessibilityBridge.onDisconnected(this)
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
-        AgentAccessibilityBridge.onDisconnected()
+        releaseAccessibilityButtonCallback()
+        AgentAccessibilityBridge.onDisconnected(this)
+        NanoAtomicSnapshotter.shutdown()
         executor.shutdownNow()
         super.onDestroy()
+    }
+
+    private fun releaseAccessibilityButtonCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val callback = accessibilityButtonCallback ?: return
+        try {
+            accessibilityButtonController.unregisterAccessibilityButtonCallback(callback)
+        } catch (error: Exception) {
+            Log.w(TAG, "No se pudo liberar AccessibilityButtonCallback: ${error.message}")
+        } finally {
+            accessibilityButtonCallback = null
+        }
     }
 
     // ── Lectura del árbol ────────────────────────────────────────────────────
@@ -708,7 +726,9 @@ class AgentAccessibilityService : AccessibilityService() {
                 node.getChild(i)?.let { stack.add(it) }
             }
         }
-        root.recycle()
+        // BUG-03 FIX: Si found == root (nodo raíz es clickable), no reciclarlo.
+        // AccessibilityNodeInfo reciclado causa crash nativo en el caller.
+        if (found !== root) root.recycle()
         return found
     }
 
@@ -726,11 +746,15 @@ class AgentAccessibilityService : AccessibilityService() {
             node.getBoundsInScreen(bounds)
             val idMatches = targetResourceId.isBlank() ||
                 node.viewIdResourceName == targetResourceId
+            // BUG-09 FIX: Usar tolerancia ±8px igual que TargetMatchPolicy.
+            // La comparación exacta (==) nunca coincide en dispositivos con DPI
+            // fraccionario donde los bounds difieren ±1px entre frames.
+            val tol = 8
             val boundsMatch = targetBounds.size == 4 &&
-                bounds.left == targetBounds[0] &&
-                bounds.top == targetBounds[1] &&
-                bounds.right == targetBounds[2] &&
-                bounds.bottom == targetBounds[3]
+                Math.abs(bounds.left   - targetBounds[0]) <= tol &&
+                Math.abs(bounds.top    - targetBounds[1]) <= tol &&
+                Math.abs(bounds.right  - targetBounds[2]) <= tol &&
+                Math.abs(bounds.bottom - targetBounds[3]) <= tol
             if (node.isEditable && node.isFocused && idMatches && boundsMatch) {
                 found = node
                 break
@@ -739,7 +763,8 @@ class AgentAccessibilityService : AccessibilityService() {
                 node.getChild(i)?.let { stack.add(it) }
             }
         }
-        root.recycle()
+        // Mismo guard que findFirstClickableByText: no reciclar el nodo devuelto.
+        if (found !== root) root.recycle()
         return found
     }
 
@@ -759,10 +784,12 @@ class AgentAccessibilityService : AccessibilityService() {
     fun performAutoSendAndReturn(
         targetPkg: String? = null,
         targetContact: String? = null,
-        expectedAlias: String? = null
+        expectedAlias: String? = null,
+        expectedText: String? = null,
+        documentName: String? = null
     ): Boolean {
         return dev.nanoai.mobile.services.whatsapp.WhatsAppAutoSendController.performAutoSendAndReturn(
-            this, targetPkg, targetContact, expectedAlias
+            this, targetPkg, targetContact, expectedAlias, expectedText, documentName
         )
     }
 }
@@ -791,114 +818,3 @@ fun interface AccessibilityEventListener {
  * una referencia estática es suficiente y evita IPC. Se limpia en onUnbind/
  * onDestroy para no colgar el GC.
  */
-object AgentAccessibilityBridge {
-    @Volatile
-    var service: AgentAccessibilityService? = null
-        private set
-
-    @Volatile
-    var lastEvent: WindowEventSnapshot? = null
-        private set
-
-    @Volatile
-    var isAutoSendArmed: Boolean = false
-        private set
-
-    @Volatile
-    private var autoSendDeadlineMs: Long = 0L
-
-    @Volatile
-    private var autoSendTargetPkg: String? = null
-
-    @Volatile
-    private var autoSendTargetContact: String? = null
-
-    @Volatile
-    private var autoSendExpectedAlias: String? = null
-
-    private val autoSendRunnable = object : Runnable {
-        override fun run() {
-            if (!isAutoSendArmed) return
-            val s = service
-            if (s == null || System.currentTimeMillis() > autoSendDeadlineMs) {
-                isAutoSendArmed = false
-                return
-            }
-
-            val executed = s.performAutoSendAndReturn(autoSendTargetPkg, autoSendTargetContact, autoSendExpectedAlias)
-            if (executed) {
-                isAutoSendArmed = false
-            } else {
-                s.mainThreadHandler.postDelayed(this, 120)
-            }
-        }
-    }
-
-    private val listeners = java.util.concurrent.CopyOnWriteArrayList<AccessibilityEventListener>()
-
-    fun addListener(listener: AccessibilityEventListener) {
-        listeners.add(listener)
-    }
-
-    fun removeListener(listener: AccessibilityEventListener) {
-        listeners.remove(listener)
-    }
-
-    fun onConnected(s: AgentAccessibilityService) {
-        service = s
-    }
-
-    fun onDisconnected() {
-        disarmAutoSend()
-        service = null
-        lastEvent = null
-        listeners.clear()
-    }
-
-    fun armAutoSendAndReturn(
-        targetPkg: String? = null,
-        targetContact: String? = null,
-        expectedAlias: String? = null,
-        timeoutMs: Long = 5000L
-    ) {
-        val s = service ?: return
-        isAutoSendArmed = true
-        autoSendDeadlineMs = System.currentTimeMillis() + timeoutMs
-        autoSendTargetPkg = targetPkg
-        autoSendTargetContact = targetContact
-        autoSendExpectedAlias = expectedAlias
-        s.mainThreadHandler.removeCallbacks(autoSendRunnable)
-        // Revisar tras un breve lapso para que la ventana de WhatsApp inicie
-        s.mainThreadHandler.postDelayed(autoSendRunnable, 150)
-    }
-
-    fun disarmAutoSend() {
-        isAutoSendArmed = false
-        autoSendTargetContact = null
-        autoSendExpectedAlias = null
-        service?.mainThreadHandler?.removeCallbacks(autoSendRunnable)
-    }
-
-    fun notifyEvent(eventType: Int, packageName: String, className: String, timestamp: Long) {
-        val snapshot = WindowEventSnapshot(eventType, packageName, className, timestamp)
-        lastEvent = snapshot
-
-        if (isAutoSendArmed && packageName.contains("whatsapp", ignoreCase = true)) {
-            service?.let { s ->
-                s.mainThreadHandler.post {
-                    if (isAutoSendArmed && s.performAutoSendAndReturn(autoSendTargetPkg, autoSendTargetContact, autoSendExpectedAlias)) {
-                        isAutoSendArmed = false
-                    }
-                }
-            }
-        }
-
-        for (listener in listeners) {
-            try {
-                listener.onEvent(snapshot)
-            } catch (e: Exception) {
-                Log.w("nanoagent", "Error notificando listener de a11y: ${e.message}")
-            }
-        }
-    }
-}

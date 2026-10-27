@@ -1,14 +1,10 @@
-// floating_assistant_section.dart — Control del Asistente Flotante fuera de Nano AI (estilo Gemini).
-// QUÉ HACE: Permite al usuario activar o desactivar el búho flotante del sistema sobre otras apps.
-// CÓMO FUNCIONA: Consulta y solicita SYSTEM_ALERT_WINDOW vía NanoFloatingSystem y gestiona el ciclo del servicio.
-// POR QUÉ: Otorga al usuario control directo y transparente para usar la IA en WhatsApp, navegador o cualquier app.
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/theme/nano_type.dart';
+import '../../../automation/presentation/automation_visual_theme.dart';
 import '../../../chat/nano_everywhere/nano_floating_system.dart';
 
+/// Control del Asistente Flotante fuera de Nano AI estilo iOS.
 class FloatingAssistantSection extends StatefulWidget {
   const FloatingAssistantSection({super.key});
 
@@ -44,12 +40,17 @@ class _FloatingAssistantSectionState extends State<FloatingAssistantSection>
   }
 
   Future<void> _checkStatus() async {
-    final permitted = await _system.permitted;
-    if (mounted) {
-      setState(() {
-        _hasPermission = permitted;
-        if (!permitted) _isActive = false;
-      });
+    try {
+      final permitted = await _system.permitted;
+      final active = permitted && await _system.active;
+      if (mounted) {
+        setState(() {
+          _hasPermission = permitted;
+          _isActive = active;
+        });
+      }
+    } catch (_) {
+      if (mounted) _showError();
     }
   }
 
@@ -70,75 +71,98 @@ class _FloatingAssistantSectionState extends State<FloatingAssistantSection>
         await _system.hide();
         if (mounted) setState(() => _isActive = false);
       }
+    } catch (_) {
+      if (mounted) _showError();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
+  void _showError() => ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'No se pudo actualizar el asistente flotante.',
+        style: TextStyle(fontFamily: 'Inter', decoration: TextDecoration.none),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
 
-    return Semantics(
-      container: true,
-      label: 'Asistente flotante fuera de Nano AI',
-      child: Container(
-        padding: const EdgeInsets.all(NanoSpacing.md),
-        decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.65),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: _isActive
-                ? const Color(0xFF10B981).withValues(alpha: 0.5)
-                : colors.outlineVariant.withValues(alpha: 0.2),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const AutomationSectionLabel('Asistente superpuesto'),
+        AutomationSurfaceCard(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colors.surfaceVariant.withValues(alpha: 0.50),
+                    border: Border.all(
+                      color: colors.outlineVariant.withValues(alpha: 0.30),
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.auto_awesome_rounded,
+                    color: colors.primary,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Asistente flotante',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: colors.onSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        _isActive
+                            ? 'Activo: Orbe en pantalla para consultar desde cualquier app.'
+                            : 'Accede a Nano AI fuera de la app con el orbe interactivo.',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          color: colors.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Transform.scale(
+                  scale: 0.85,
+                  child: Switch(
+                    value: _isActive,
+                    onChanged: _busy ? null : _toggleAssistant,
+                    activeThumbColor: colors.primary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    const Color(0xFF38BDF8).withValues(alpha: 0.25),
-                    const Color(0xFF10B981).withValues(alpha: 0.25),
-                  ],
-                ),
-                border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
-              ),
-              child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF38BDF8), size: 22),
-            ),
-            const SizedBox(width: NanoSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Búho Flotante (Tipo Gemini)',
-                    style: NanoType.body(colors.onSurface).copyWith(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _isActive
-                        ? 'Activo: Toca el búho en pantalla para consultar desde cualquier app.'
-                        : 'Accede a Nano AI fuera de la app con el asistente en pantalla.',
-                    style: NanoType.caption(colors.onSurfaceVariant),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: NanoSpacing.sm),
-            Switch(
-              value: _isActive,
-              onChanged: _busy ? null : _toggleAssistant,
-              activeThumbColor: const Color(0xFF10B981),
-            ),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

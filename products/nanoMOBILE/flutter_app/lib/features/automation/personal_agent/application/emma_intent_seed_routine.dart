@@ -41,9 +41,15 @@ const emmaRoutineSeeds = <EmmaIntentSeed>[
     category: 'Planes · encuentro',
     intent: 'plans_check',
     incomingVariants: [
+      'Vas a salir hoy?',
+      'Vas a salir hoy ?',
+      'Vas a salir?',
       'Vas a salir más tarde?',
       'Hay planes hoy?',
       'Qué haces hoy más tarde?',
+      'O estarás en casa?',
+      'Estarás en casa?',
+      'Te vas a quedar en casa?',
     ],
     responses: [
       PersonaResponseOption(

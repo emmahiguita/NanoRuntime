@@ -13,7 +13,11 @@ class AutomationInboxHalo extends StatefulWidget {
   final Color color;
   final BorderRadius borderRadius;
 
-  const AutomationInboxHalo({super.key, required this.color, required this.borderRadius});
+  const AutomationInboxHalo({
+    super.key,
+    required this.color,
+    required this.borderRadius,
+  });
 
   @override
   State<AutomationInboxHalo> createState() => _AutomationInboxHaloState();
@@ -30,7 +34,8 @@ class _AutomationInboxHaloState extends State<AutomationInboxHalo>
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Respeta la preferencia del sistema y evita animación/batería innecesaria.
-    final reduceMotion = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     if (reduceMotion) {
       _controller
         ..stop()
@@ -70,7 +75,11 @@ class _HaloPainter extends CustomPainter {
   final Color color;
   final BorderRadius radius;
 
-  const _HaloPainter({required this.progress, required this.color, required this.radius});
+  const _HaloPainter({
+    required this.progress,
+    required this.color,
+    required this.radius,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {

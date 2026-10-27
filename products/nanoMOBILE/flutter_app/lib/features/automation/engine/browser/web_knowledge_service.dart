@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'chrome_content_extractor.dart';
+import 'structured_search_client.dart';
 import '../perception/nano_snapshot.dart';
 
 /// Cita de una fuente web consultada.
@@ -100,14 +101,27 @@ class WebKnowledgeService {
       );
     }
 
-    // Consulta concurrente a múltiples fuentes independientes (Wikipedia + DuckDuckGo)
+    final structuredClient = StructuredSearchClient(
+      clientFactory: _clientFactory,
+    );
+
+    // Consulta concurrente a múltiples fuentes independientes (SearXNG/Brave + Wikipedia + DuckDuckGo)
     final responses = await Future.wait([
       _fetchWikipediaSummary(cleanQuery, lang: 'es').catchError((_) => null),
       _fetchDuckDuckGo(cleanQuery).catchError((_) => null),
+      structuredClient.search(cleanQuery).catchError((_) => null),
     ]);
 
     var wikiRes = responses[0];
     final ddgRes = responses[1];
+    final structuredRes = responses[2];
+
+    if (structuredRes != null &&
+        structuredRes.found &&
+        structuredRes.summary.trim().isNotEmpty &&
+        (wikiRes == null || wikiRes.summary.isEmpty)) {
+      return structuredRes;
+    }
 
     // Si Wikipedia en español no arrojó extracto directo, intentar en inglés
     if (wikiRes == null) {

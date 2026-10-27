@@ -1,0 +1,132 @@
+part of 'mcp_skills_hub_screen.dart';
+
+/// Presentación MCP: store; no ejecuta herramientas.
+extension _McpHubStore on _McpSkillsHubScreenState {
+  Widget _buildStoreTab(AutomationVisualPalette visual) {
+    final mcpRegistry = ref.watch(mcpConnectionRegistryProvider);
+    final connectedServerIds = mcpRegistry.connectedServerIds;
+    final items = _catalog.query(
+      searchQuery: _storeSearchQuery,
+      category: _selectedStoreCategory,
+    );
+
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      children: [
+        const Text('Modelo de conversación'),
+        const Text(
+          'Configura el proveedor del agente. Sus credenciales no vinculan servidores MCP.',
+        ),
+        const McpApiProviderSettingsCard(),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.auto_awesome_outlined),
+            label: const Text('Administrar e importar skills'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SkillManagerScreen(),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildStoreFilters(visual),
+        McpHotInjectionBanner(
+          visual: visual,
+          registry: mcpRegistry,
+          persistence: ref.read(mcpServerPersistenceProvider),
+          onInjected: (msg) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(msg)));
+          },
+        ),
+        const SizedBox(height: 16),
+        McpConnectedServersSection(
+          registry: mcpRegistry,
+          persistence: ref.read(mcpServerPersistenceProvider),
+          visual: visual,
+        ),
+        const SizedBox(height: 20),
+        McpRegistryCatalogSection(
+          visual: visual,
+          onConnect: (item) => showMcpStoreConnectDialog(
+            context: context,
+            item: item,
+            registry: mcpRegistry,
+            persistence: ref.read(mcpServerPersistenceProvider),
+            visual: visual,
+            onConnected: (message) => ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(message))),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Conectores incluidos por Nano (${items.length})',
+                style: TextStyle(
+                  color: visual.text,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${connectedServerIds.length} activos',
+              style: TextStyle(
+                color: visual.accent,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (items.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            alignment: Alignment.center,
+            child: Text(
+              'No se encontraron servidores o skills para "$_storeSearchQuery"',
+              style: TextStyle(color: visual.textMuted, fontSize: 13),
+            ),
+          )
+        else
+          for (final item in items)
+            McpStoreItemCard(
+              item: item,
+              visual: visual,
+              isConnected: connectedServerIds.contains(item.id),
+              onConnect: () => showMcpStoreConnectDialog(
+                context: context,
+                item: item,
+                registry: mcpRegistry,
+                persistence: ref.read(mcpServerPersistenceProvider),
+                visual: visual,
+                onConnected: (msg) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(msg)));
+                },
+              ),
+              onDisconnect: () => disconnectMcpStoreServer(
+                context: context,
+                serverId: item.id,
+                serverName: item.name,
+                registry: mcpRegistry,
+                persistence: ref.read(mcpServerPersistenceProvider),
+              ),
+            ),
+      ],
+    );
+  }
+}

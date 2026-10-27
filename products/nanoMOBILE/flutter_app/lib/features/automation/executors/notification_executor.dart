@@ -2,145 +2,9 @@ import 'package:nanoai/core/services/nano_runtime_api.dart';
 
 import '../engine/conversation/conversation_reply_composer.dart';
 import '../engine/messaging/reply_capability.dart';
-import '../engine/notifications/notification_object.dart';
+import 'device_notification.dart';
 
-class DeviceNotification {
-  final String key;
-  final String packageName;
-  final String title;
-  final String text;
-  final DateTime postedAt;
-  final bool canReply;
-  final bool ongoing;
-  final bool isGroup;
-
-  /// Campos de identidad y estructura canónica de conversación.
-  final String sender;
-  final String senderKey;
-  final String conversationTitle;
-  final String conversationId;
-  final String shortcutId;
-  final String locusId;
-  final String accountHint;
-
-  /// Campos de fidelidad canónica 1-to-1 con NotificationObject.
-  final String messageText;
-  final int messageTimestamp;
-  final String senderUri;
-  final bool isSummary;
-  final bool isTruncated;
-  final String remoteInputKey;
-  final int actionIndex;
-  final List<String> actions;
-  final List<Map<String, dynamic>> rawMessages;
-  final List<String> allowedDataTypes;
-
-  const DeviceNotification({
-    required this.key,
-    required this.packageName,
-    required this.title,
-    required this.text,
-    required this.postedAt,
-    required this.canReply,
-    required this.ongoing,
-    this.isGroup = false,
-    this.sender = '',
-    this.senderKey = '',
-    this.conversationTitle = '',
-    this.conversationId = '',
-    this.shortcutId = '',
-    this.locusId = '',
-    this.accountHint = '',
-    this.messageText = '',
-    this.messageTimestamp = 0,
-    this.senderUri = '',
-    this.isSummary = false,
-    this.isTruncated = false,
-    this.remoteInputKey = '',
-    this.actionIndex = -1,
-    this.actions = const [],
-    this.rawMessages = const [],
-    this.allowedDataTypes = const [],
-  });
-
-  factory DeviceNotification.fromMap(Map<dynamic, dynamic> map) {
-    final epoch = (map['postTime'] is num) ? (map['postTime'] as num).toInt() : 0;
-    final msgs = ((map['messages'] as List?) ?? const [])
-        .whereType<Map>()
-        .map((m) => Map<String, dynamic>.from(m))
-        .toList();
-    final dataTypes = ((map['allowedDataTypes'] as List?) ?? const [])
-        .map((e) => '$e')
-        .toList();
-
-    return DeviceNotification(
-      key: map['key'] as String? ?? '',
-      packageName: (map['package'] ?? map['packageName']) as String? ?? '',
-      title: map['title'] as String? ?? '',
-      text: map['text'] as String? ?? '',
-      postedAt: DateTime.fromMillisecondsSinceEpoch(epoch),
-      canReply: map['canReply'] as bool? ?? false,
-      ongoing: map['ongoing'] as bool? ?? false,
-      isGroup: map['isGroup'] as bool? ?? false,
-      sender: map['sender'] as String? ?? '',
-      senderKey: map['senderKey'] as String? ?? '',
-      conversationTitle: map['conversationTitle'] as String? ?? '',
-      conversationId: map['conversationId'] as String? ?? '',
-      shortcutId: map['shortcutId'] as String? ?? '',
-      locusId: map['locusId'] as String? ?? '',
-      accountHint: map['accountHint'] as String? ?? '',
-      messageText: map['messageText'] as String? ?? '',
-      messageTimestamp: (map['messageTimestamp'] is num)
-          ? (map['messageTimestamp'] as num).toInt()
-          : 0,
-      senderUri: map['senderUri'] as String? ?? '',
-      isSummary: map['isSummary'] as bool? ?? false,
-      isTruncated: map['isTruncated'] as bool? ?? false,
-      remoteInputKey: map['remoteInputKey'] as String? ?? '',
-      actionIndex: (map['actionIndex'] is num)
-          ? (map['actionIndex'] as num).toInt()
-          : -1,
-      actions: ((map['actions'] as List?) ?? const [])
-          .map((a) => '$a')
-          .where((a) => a.isNotEmpty)
-          .toList(),
-      rawMessages: msgs,
-      allowedDataTypes: dataTypes,
-    );
-  }
-
-  /// Adaptador unidireccional estricto (One-Way Adapter):
-  /// DeviceNotification -> NotificationObject con preservación total de evidencia.
-  NotificationObject toNotificationObject() {
-    return NotificationObject(
-      key: key,
-      packageName: packageName,
-      title: title,
-      text: text,
-      messageText: messageText.isNotEmpty ? messageText : text,
-      messageTimestamp: messageTimestamp > 0
-          ? messageTimestamp
-          : postedAt.millisecondsSinceEpoch,
-      sender: sender,
-      senderKey: senderKey,
-      senderUri: senderUri,
-      conversationTitle: conversationTitle,
-      conversationId: conversationId,
-      shortcutId: shortcutId,
-      locusId: locusId,
-      accountHint: accountHint,
-      isGroup: isGroup,
-      isSummary: isSummary,
-      isTruncated: isTruncated,
-      postTime: postedAt.millisecondsSinceEpoch,
-      canReply: canReply,
-      remoteInputKey: remoteInputKey,
-      actionIndex: actionIndex,
-      actions: actions,
-      ongoing: ongoing,
-    );
-  }
-}
+export 'device_notification.dart';
 
 class NotificationAccessStatus {
   final bool accessGranted;
@@ -174,9 +38,14 @@ sealed class NotificationReplyResult {
 
   factory NotificationReplyResult.fromMap(Map<dynamic, dynamic> map) {
     final ok = map['ok'] == true;
-    final code = (map['code'] as String?) ?? (ok ? 'REMOTE_INPUT_ACCEPTED' : 'UNKNOWN');
+    final code =
+        (map['code'] as String?) ?? (ok ? 'REMOTE_INPUT_ACCEPTED' : 'UNKNOWN');
     final reason = map['reason'] as String?;
-    return _NotificationReplyResultImpl(accepted: ok, code: code, reason: reason);
+    return _NotificationReplyResultImpl(
+      accepted: ok,
+      code: code,
+      reason: reason,
+    );
   }
 }
 
@@ -234,7 +103,9 @@ class NotificationExecutor {
     if (result != null && result.hasReply) {
       return result.text;
     }
-    throw StateError('No se pudo generar un borrador contextual con la información disponible.');
+    throw StateError(
+      'No se pudo generar un borrador contextual con la información disponible.',
+    );
   }
 
   /// Genera sugerencias de respuesta a partir de la MISMA comprensión única.
@@ -268,9 +139,12 @@ class NotificationExecutor {
       text: clean,
       confirmed: true,
       actionIndex: capability?.actionIndex ?? notification.actionIndex,
-      remoteInputKey: capability?.remoteInputResultKey ?? notification.remoteInputKey,
+      remoteInputKey:
+          capability?.remoteInputResultKey ?? notification.remoteInputKey,
       contextFingerprint: capability?.contextFingerprint,
-      postTime: capability?.observedAt ?? notification.postedAt.millisecondsSinceEpoch,
+      postTime:
+          capability?.observedAt ??
+          notification.postedAt.millisecondsSinceEpoch,
     );
     return NotificationReplyResult.fromMap(result);
   }

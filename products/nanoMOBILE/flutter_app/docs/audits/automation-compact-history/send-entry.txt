@@ -1,0 +1,8 @@
+Starting: Intent { cmp=dev.nanoai.mobile/.MainActivity (has extras) }
+Warning: Activity not started, its current task has been brought to the front
+Status: ok
+LaunchState: HOT
+Activity: dev.nanoai.mobile/.MainActivity
+TotalTime: 253
+WaitTime: 286
+Complete

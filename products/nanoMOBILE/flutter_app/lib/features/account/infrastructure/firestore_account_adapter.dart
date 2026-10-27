@@ -4,15 +4,15 @@ import '../domain/auth_user.dart';
 import 'local_account_storage.dart';
 
 /// QUÉ HACE:
-/// Adaptador de perfil de cuenta conectado a Firestore y almacenamiento local.
+/// Perfil de cuenta persistido en este dispositivo. El nombre Firestore se
+/// conserva por compatibilidad; esta clase no realiza sincronización de nube.
 ///
 /// CÓMO FUNCIONA:
-/// Gestiona la entidad [AccountProfile] en el documento `users/{uid}`.
-/// Opera con persistencia dual (Caché local-first + Firestore en la nube).
+/// Gestiona [AccountProfile] mediante LocalAccountStorage, con acceso por uid.
 ///
 /// POR QUÉ:
 /// Garantiza idempotencia estricta en el bootstrap de la cuenta: crear la cuenta
-/// múltiples veces nunca destruye el documento original ni corrompe el plan activo.
+/// múltiples veces no reemplaza el perfil existente ni su plan registrado.
 class FirestoreAccountAdapter implements AccountRepository {
   final LocalAccountStorage _localStorage;
 

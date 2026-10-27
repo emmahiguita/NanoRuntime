@@ -1,37 +1,34 @@
 part of 'conversation_detail_sheet.dart';
 
-/// [ConversationDetailController]
-///
-/// QUÉ HACE:
-/// Administra el estado de propiedad de la conversación (Humano vs Bot), la transferencia
-/// entre agentes especializados y la generación de sugerencias IA locales multimodales.
-///
-/// CÓMO FUNCIONA:
-/// 1. `_toggleOwnership`: Alterna y persiste en SQLite si la conversación está en manos del
-///    dueño humano o si Nano AI tiene autorización de responder automáticamente.
-/// 2. `_transferAgent`: Cambia el bot/agente asignado (ej: Ventas, Soporte, Personal) migrando
-///    únicamente el contexto imprescindible para evitar contaminación cruzada de memoria.
-/// 3. `_generateAiSuggestion`: prioriza el compositor contextual; el generador
-///    determinista solo agrega variantes cuando existen hechos comerciales reales.
-///
-/// POR QUÉ:
-/// Desacopla la lógica de control y generación IA de la presentación gráfica, manteniendo
-/// cada archivo con una sola responsabilidad y por debajo del límite de 200 líneas.
+/// Gestiona el dueño del chat, la transferencia de agente y sugerencias.
+/// Cada acción persiste su estado y usa el compositor de respuestas real.
 extension ConversationDetailController on _ConversationDetailSheetState {
+  // Repara al reabrir la conversación el vínculo Bot → regla de notificación.
+  void _restoreWhatsAppAutomation() {
+    if (_isHumanOwned) return;
+    unawaited(
+      _ensureWhatsAppRule().catchError((Object error) {
+        if (mounted) setState(() => _statusText = 'IA no activada: $error');
+      }),
+    );
+  }
+
   Future<void> _toggleOwnership(bool human) async {
-    if (_isHumanOwned == human) return;
+    if (!mounted) return;
+    if (human) _suggestionBudget?.cancel();
     final previous = _isHumanOwned;
     setState(() {
       _isHumanOwned = human;
-      _statusText = human ? 'Activando control humano...' : 'Devolviendo el control a Nano...';
+      _statusText = human
+          ? 'Activando control humano...'
+          : 'Devolviendo el control a Nano...';
     });
     try {
-      final store = ref.read(conversationOwnershipStoreProvider);
-      await store.load();
-      await store.setOwner(
-        canonicalConversationId(widget.item.conversationId),
-        human ? ConversationOwner.human : ConversationOwner.bot,
-      );
+      final newOwner = human ? ConversationOwner.human : ConversationOwner.bot;
+      // Lista y detalle comparten bloqueo, aliases, invalidación y persistencia.
+      await ref
+          .read(conversationHubActionControllerProvider)
+          .setOwnership(widget.item, newOwner);
       if (!mounted) return;
       setState(() {
         _statusText = human
@@ -43,23 +40,34 @@ extension ConversationDetailController on _ConversationDetailSheetState {
     } on Object catch (error) {
       if (!mounted) return;
       setState(() {
-        _isHumanOwned = previous;
+        // Al fallar una escritura, el store deja el chat cerrado al bot.
+        _isHumanOwned = human || previous;
         _statusText = 'No se pudo cambiar el control: $error';
       });
     }
   }
 
+  // Sincroniza el Bot visible con la regla que admite notificaciones reales.
+  Future<void> _ensureWhatsAppRule() async {
+    await ref
+        .read(conversationHubActionControllerProvider)
+        .ensureWhatsAppReady(widget.item.packageName);
+  }
+
   Future<void> _transferAgent(ConversationAgentId target) async {
-    if (target == _agentId || _busy) return;
+    if (!mounted || target == _agentId || _busy) return;
     final conversationId = canonicalConversationId(widget.item.conversationId);
     setState(() {
       _busy = true;
       _statusText = 'Transfiriendo a ${target.displayName}...';
     });
     try {
-      final memory = ref.read(conversationMemoryStoreProvider).memoryFor(conversationId);
+      final memory = ref
+          .read(conversationMemoryStoreProvider)
+          .memoryFor(conversationId);
       final minimalContext = <String>[
-        if (memory?.activeTopic?.isNotEmpty == true) 'tema=${memory!.activeTopic}',
+        if (memory?.activeTopic?.isNotEmpty == true)
+          'tema=${memory!.activeTopic}',
         if (memory?.unresolvedObligations.isNotEmpty == true)
           'pendiente=${memory!.unresolvedObligations.take(2).join(' | ')}',
       ].join('; ');
@@ -88,69 +96,57 @@ extension ConversationDetailController on _ConversationDetailSheetState {
     }
   }
 
+  // Solicita borradores reales sin consumir deduplicación ni enviar al contacto.
   Future<void> _generateAiSuggestion() async {
+    if (!mounted || _busy) return;
     setState(() {
       _busy = true;
-      _statusText = 'Generando opciones con IA local...';
+      _statusText = 'Generando borrador con el modelo configurado...';
     });
+    // La hoja es dueña de esta solicitud y la cancela en dispose.
+    final budget = ExecutionBudget(const Duration(seconds: 180));
+    _suggestionBudget = budget;
     try {
       final executor = ref.read(notificationExecutorProvider);
       final composer = ref.read(conversationReplyComposerProvider);
 
-      final list = await executor.list(limit: 10);
-      final targetNotif = list
-          .where((n) => n.text == widget.item.lastMessage || n.sender == widget.item.displayName)
-          .firstOrNull;
+      final list = await executor.list(limit: 50);
+      if (!mounted) return;
+      // Reutiliza identidad/aliases y paquete: nunca basta un nombre parecido.
+      final targetNotif = _findMatchingNotification(list);
 
       final notifObj = targetNotif != null
           ? targetNotif.toNotificationObject()
-          : notificationFromConversationSummary(widget.item);
+          : notificationFromConversationSummary(
+              widget.item,
+              latestInbound: _liveEntries
+                  .where(
+                    (entry) =>
+                        entry.kind == ConversationMemoryEntryKind.inbound,
+                  )
+                  .lastOrNull,
+            );
 
-      final draftResult = await composer.compose(notifObj);
-      final allOptions = <String>[];
-
-      if (draftResult != null && draftResult.hasReply) {
-        allOptions.add(draftResult.text.trim());
-        for (final s in draftResult.suggestions) {
-          final clean = s.trim();
-          if (clean.isNotEmpty && !allOptions.contains(clean)) {
-            allOptions.add(clean);
-          }
-        }
-      }
-
-      // El generador local no interpreta conversación personal: únicamente
-      // agrega opciones si FactSelection encontró catálogo real aplicable.
-      final rawMsg = widget.item.lastMessage.trim();
-      final businessFacts = ref.read(businessFactsNotifierProvider);
-      final generated = dynamicReplyGenerator.generateOptions(
-        incomingText: rawMsg,
-        facts: businessFacts,
-        senderName: widget.item.displayName,
+      final allOptions = await budget.run(
+        () => composer.composeSuggestions(notifObj),
       );
-      for (final opt in generated) {
-        if (!allOptions.contains(opt)) {
-          allOptions.add(opt);
-        }
-      }
-
-      final uniqueOptions = <String>[];
-      for (final opt in allOptions) {
-        final clean = opt.trim();
-        if (clean.isNotEmpty && !uniqueOptions.contains(clean)) {
-          uniqueOptions.add(clean);
-        }
-        if (uniqueOptions.length >= 6) break;
-      }
+      final uniqueOptions = allOptions
+          .map((o) => o.trim())
+          .where((o) => o.isNotEmpty)
+          .toSet()
+          .take(3)
+          .toList();
 
       if (mounted) {
         setState(() {
           _suggestions = uniqueOptions;
-          if (uniqueOptions.isNotEmpty) {
+          // No sobrescribe un texto que el dueño ya estaba redactando.
+          if (uniqueOptions.isNotEmpty &&
+              _inputController.text.trim().isEmpty) {
             _inputController.text = uniqueOptions.first;
           }
           _statusText = uniqueOptions.isEmpty
-              ? 'Sin respuesta fiable. Instala o activa un modelo real.'
+              ? 'El modelo no devolvió un borrador utilizable. Revisa su estado.'
               : uniqueOptions.length > 1
               ? '${uniqueOptions.length} opciones contextuales'
               : '1 opción contextual';
@@ -161,6 +157,8 @@ extension ConversationDetailController on _ConversationDetailSheetState {
         setState(() => _statusText = 'No se pudo generar borrador: $e');
       }
     } finally {
+      budget.cancel();
+      if (identical(_suggestionBudget, budget)) _suggestionBudget = null;
       if (mounted) setState(() => _busy = false);
     }
   }

@@ -12,6 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// - POR QUÉ: Sin esto cada navegación al Home recrearía el WebView y cortaría el audio.
 ///   La pausa por vista preserva las otras pestañas y el audio activo.
 class BrowserWebViewRegistry {
+  /// Avisa al dueño multimedia antes de liberar una pestaña nativa.
+  void Function(String sourceId)? onMediaSourceRemoved;
   final Map<String, InAppWebViewKeepAlive> _keepAlives = {};
   final Map<String, InAppWebViewController> _controllers = {};
   final Set<String> _initializedTabs = {};
@@ -66,6 +68,7 @@ class BrowserWebViewRegistry {
 
   /// Elimina la pestaña y libera su keep-alive nativo.
   Future<void> removeTab(String tabId) async {
+    onMediaSourceRemoved?.call(tabId);
     _pauseRequests.remove(tabId);
     _controllers.remove(tabId);
     _initializedTabs.remove(tabId);

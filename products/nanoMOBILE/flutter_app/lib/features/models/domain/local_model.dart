@@ -39,6 +39,8 @@ class LocalModel {
   final double progress; // 0..1 durante downloading/verifying
   final String url;
   final String sha256;
+  final ModelBackendType backendType;
+  final String? packageRevision;
   final String? localPath; // ruta absoluta del GGUF cuando installed
   final String? error; // mensaje honesto del último fallo
   final bool active;
@@ -63,6 +65,8 @@ class LocalModel {
     required this.progress,
     required this.url,
     required this.sha256,
+    this.backendType = ModelBackendType.gguf,
+    this.packageRevision,
     this.localPath,
     this.error,
     required this.active,
@@ -73,6 +77,9 @@ class LocalModel {
   });
 
   bool get installed => downloadState == ModelDownloadState.installed;
+  // La verificación pertenece a la misma operación; evita botones de reintento prematuros.
+  bool get isDownloading => downloadState == ModelDownloadState.downloading ||
+      downloadState == ModelDownloadState.verifying;
 
   /// Indica si es un modelo multimodal con visión artificial.
   bool get isMultimodal => kind == ModelKind.multimodalVision;
@@ -105,6 +112,8 @@ class LocalModel {
       progress: progress ?? this.progress,
       url: url,
       sha256: sha256,
+      backendType: backendType,
+      packageRevision: packageRevision,
       localPath: localPath ?? this.localPath,
       error: clearError ? null : (error ?? this.error),
       active: active ?? this.active,

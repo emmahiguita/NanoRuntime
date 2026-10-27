@@ -1,0 +1,2 @@
+Starting: Intent { cmp=dev.nanoai.mobile/.MainActivity (has extras) }
+Warning: Activity not started, intent has been delivered to currently running top-most instance.

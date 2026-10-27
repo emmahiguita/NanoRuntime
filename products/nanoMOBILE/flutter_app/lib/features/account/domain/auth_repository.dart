@@ -30,7 +30,7 @@ abstract class AuthRepository {
     required String displayName,
   });
 
-  /// Autenticación unificada mediante Credential Manager / Google Sign-In.
+  /// Abre OAuth real; la identidad no se toma de un email ingresado por UI.
   Future<AuthUser> signInWithGoogle();
 
   /// Envía correo de recuperación de contraseña.

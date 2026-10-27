@@ -1,0 +1,262 @@
+[
+  {
+    "path": "lib/features/terminal/terminal_history.part.dart",
+    "lines": 43,
+    "part": "terminal_core.dart"
+  },
+  {
+    "path": "lib/features/models/presentation/widgets/inference_benchmark_sheet.dart",
+    "lines": 88,
+    "part": null
+  },
+  {
+    "path": "lib/features/models/presentation/widgets/remote_inference_dialog.dart",
+    "lines": 198,
+    "part": null
+  },
+  {
+    "path": "lib/features/linux/presentation/screens/mobile_linux_screen.dart",
+    "lines": 826,
+    "part": null
+  },
+  {
+    "path": "lib/features/desktop/presentation/widgets/desktop_sheets.dart",
+    "lines": 1406,
+    "part": null
+  },
+  {
+    "path": "lib/features/database/presentation/widgets/database_html_viewer.dart",
+    "lines": 73,
+    "part": null
+  },
+  {
+    "path": "lib/features/database/presentation/widgets/database_pdf_dialog.dart",
+    "lines": 190,
+    "part": null
+  },
+  {
+    "path": "lib/features/chat/nano_everywhere/browser_ai_login_sheet.dart",
+    "lines": 197,
+    "part": null
+  },
+  {
+    "path": "lib/features/chat/nano_everywhere/nano_assistant_panel_sections.dart",
+    "lines": 79,
+    "part": null
+  },
+  {
+    "path": "lib/features/chat/presentation/screens/chat_screen_history.part.dart",
+    "lines": 174,
+    "part": "chat_screen.dart"
+  },
+  {
+    "path": "lib/features/chat/presentation/screens/chat_screen_menu.part.dart",
+    "lines": 171,
+    "part": "chat_screen.dart"
+  },
+  {
+    "path": "lib/features/chat/presentation/widgets/chat_messages_actions.part.dart",
+    "lines": 180,
+    "part": "chat_messages.dart"
+  },
+  {
+    "path": "lib/features/chat/presentation/widgets/nano_siata_radar_sheet.dart",
+    "lines": 329,
+    "part": null
+  },
+  {
+    "path": "lib/features/browser_ai/presentation/sheets/ai_web_sessions_sheet.dart",
+    "lines": 200,
+    "part": null
+  },
+  {
+    "path": "lib/features/browser/presentation/widgets/browser_credentials_sheet.dart",
+    "lines": 193,
+    "part": null
+  },
+  {
+    "path": "lib/features/browser/presentation/widgets/browser_history_bookmarks_dialog.dart",
+    "lines": 141,
+    "part": null
+  },
+  {
+    "path": "lib/features/browser/presentation/widgets/browser_zoom_sheet.dart",
+    "lines": 166,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/bot_studio/bot_editor_dialog.dart",
+    "lines": 193,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/business/business_document_library_dialog.dart",
+    "lines": 187,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/business/meta_attachment_choice.dart",
+    "lines": 53,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/business/whatsapp_media_library.dart",
+    "lines": 177,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/connectors/business_connectors_sheet.dart",
+    "lines": 125,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/messaging_center/messaging_channel_sheet.dart",
+    "lines": 186,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/messaging_center/messaging_conversation_actions_sheet.dart",
+    "lines": 174,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/screens/automation_rules_actions.dart",
+    "lines": 352,
+    "part": "automation_rules_screen.dart"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/automation_dashboard_dialogs.dart",
+    "lines": 118,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/automation_settings_pickers.dart",
+    "lines": 322,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_agent_picker.dart",
+    "lines": 73,
+    "part": "conversation_detail_sheet.dart"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_attachments.dart",
+    "lines": 188,
+    "part": "conversation_detail_sheet.dart"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_dialogs.dart",
+    "lines": 135,
+    "part": "conversation_detail_sheet.dart"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_form_picker.dart",
+    "lines": 76,
+    "part": "conversation_detail_sheet.dart"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_detail_sheet.dart",
+    "lines": 112,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_inapp_player.dart",
+    "lines": 62,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/conversation_pdf_viewer.dart",
+    "lines": 210,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/engine_status_card.dart",
+    "lines": 468,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/whatsapp_integration_cards.dart",
+    "lines": 374,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/whatsapp_qr_scanner_dialog.dart",
+    "lines": 312,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/dialogs/business_presets_sheet.dart",
+    "lines": 173,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/mcp/mcp_graph_node_details.dart",
+    "lines": 165,
+    "part": "mcp_graph_components.dart"
+  },
+  {
+    "path": "lib/features/automation/presentation/widgets/personal_agent/personal_contacts_selector_sheet.dart",
+    "lines": 215,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/business/proposals/pdf_product_review_dialog.dart",
+    "lines": 188,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/presentation/business/store/business_store_product_detail_sheet.dart",
+    "lines": 201,
+    "part": null
+  },
+  {
+    "path": "lib/features/automation/personal_agent/presentation/personalization_studio_actions_dialogs.dart",
+    "lines": 285,
+    "part": "personalization_studio_screen.dart"
+  },
+  {
+    "path": "lib/features/automation/personal_agent/presentation/personalization_studio_contacts_tab.dart",
+    "lines": 153,
+    "part": "personalization_studio_screen.dart"
+  },
+  {
+    "path": "lib/features/automation/personal_agent/presentation/personalization_studio_imports_tab.dart",
+    "lines": 139,
+    "part": "personalization_studio_screen.dart"
+  },
+  {
+    "path": "lib/features/automation/personal_agent/presentation/personalization_studio_memories_tab.dart",
+    "lines": 147,
+    "part": "personalization_studio_screen.dart"
+  },
+  {
+    "path": "lib/features/account/presentation/controllers/profile_media_picker.dart",
+    "lines": 67,
+    "part": null
+  },
+  {
+    "path": "lib/features/account/presentation/widgets/google_sign_in_sheet.dart",
+    "lines": 196,
+    "part": null
+  },
+  {
+    "path": "lib/features/account/presentation/widgets/profile_avatar_header.dart",
+    "lines": 125,
+    "part": null
+  },
+  {
+    "path": "lib/features/account/presentation/widgets/profile_choice_field.dart",
+    "lines": 65,
+    "part": null
+  },
+  {
+    "path": "lib/features/account/presentation/widgets/register_country_picker.dart",
+    "lines": 106,
+    "part": null
+  },
+  {
+    "path": "lib/core/widgets/navigation/nano_attach_sheet.dart",
+    "lines": 598,
+    "part": null
+  }
+]

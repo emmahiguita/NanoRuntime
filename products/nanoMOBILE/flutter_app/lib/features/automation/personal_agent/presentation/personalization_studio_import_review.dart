@@ -27,7 +27,8 @@ class _ImportReviewState extends State<_ImportReview> {
   @override
   Widget build(BuildContext context) {
     final needsOwner = _selected.any(
-      (i) => !{'template', 'memory'}.contains(widget.preview.candidates[i].kind),
+      (i) =>
+          !{'template', 'memory'}.contains(widget.preview.candidates[i].kind),
     );
     return Scaffold(
       appBar: AppBar(title: const Text('Revisar antes de guardar')),
@@ -45,7 +46,9 @@ class _ImportReviewState extends State<_ImportReview> {
                 ),
                 if (widget.preview.warnings.isNotEmpty)
                   ExpansionTile(
-                    title: Text('${widget.preview.warnings.length} avisos de importación'),
+                    title: Text(
+                      '${widget.preview.warnings.length} avisos de importación',
+                    ),
                     children: [
                       Padding(
                         padding: const EdgeInsets.all(12),
@@ -55,22 +58,33 @@ class _ImportReviewState extends State<_ImportReview> {
                   ),
                 CheckboxListTile(
                   title: const Text('Seleccionar todos los candidatos'),
-                  value: widget.preview.candidates.isNotEmpty &&
+                  value:
+                      widget.preview.candidates.isNotEmpty &&
                       _selected.length == widget.preview.candidates.length,
-                  onChanged: widget.preview.candidates.isEmpty ? null : (v) {
-                    setState(() {
-                      _selected.clear();
-                      if (v == true) {
-                        _selected.addAll(List.generate(widget.preview.candidates.length, (i) => i));
-                      }
-                    });
-                  },
+                  onChanged: widget.preview.candidates.isEmpty
+                      ? null
+                      : (v) {
+                          setState(() {
+                            _selected.clear();
+                            if (v == true) {
+                              _selected.addAll(
+                                List.generate(
+                                  widget.preview.candidates.length,
+                                  (i) => i,
+                                ),
+                              );
+                            }
+                          });
+                        },
                 ),
                 if (needsOwner)
                   CheckboxListTile(
-                    title: const Text('Confirmo que las respuestas seleccionadas las escribí yo'),
+                    title: const Text(
+                      'Confirmo que las respuestas seleccionadas las escribí yo',
+                    ),
                     value: _ownerVerified,
-                    onChanged: (v) => setState(() => _ownerVerified = v ?? false),
+                    onChanged: (v) =>
+                        setState(() => _ownerVerified = v ?? false),
                   ),
               ],
             ),

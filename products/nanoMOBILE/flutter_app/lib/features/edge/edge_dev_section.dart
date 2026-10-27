@@ -313,10 +313,13 @@ class _ConversationMirrorCardState
                   ),
                 ),
                 const SizedBox(width: NanoSpacing.sm),
-                IconButton(
-                  onPressed: _search,
-                  icon: const Icon(Icons.search),
-                  tooltip: 'Buscar',
+                Semantics(
+                  label: 'Buscar',
+                  button: true,
+                  child: IconButton(
+                    onPressed: _search,
+                    icon: const Icon(Icons.search),
+                  ),
                 ),
               ],
             ),

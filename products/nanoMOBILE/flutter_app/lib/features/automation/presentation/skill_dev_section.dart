@@ -133,16 +133,10 @@ class _SkillDevSectionState extends ConsumerState<SkillDevSection> {
           style: NanoType.body(colors.onSurface),
         ),
         const SizedBox(height: NanoSpacing.xs),
-        Text(
-          steps,
-          style: NanoType.caption(colors.onSurfaceVariant),
-        ),
+        Text(steps, style: NanoType.caption(colors.onSurfaceVariant)),
         if (post.isNotEmpty) ...[
           const SizedBox(height: NanoSpacing.xs),
-          Text(
-            'post: $post',
-            style: NanoType.caption(colors.onSurfaceVariant),
-          ),
+          Text('post: $post', style: NanoType.caption(colors.onSurfaceVariant)),
         ],
         const SizedBox(height: NanoSpacing.xs),
         Text(

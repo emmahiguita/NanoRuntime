@@ -27,9 +27,11 @@ class NanoBusinessPaymentsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final visual = AutomationVisual.of(context);
     final facts = ref.watch(businessFactsNotifierProvider);
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+      padding: EdgeInsets.fromLTRB(16, 6, 16, isLandscape ? 24 : 90),
       children: [
         Container(
           padding: const EdgeInsets.all(12),
@@ -57,12 +59,12 @@ class NanoBusinessPaymentsTab extends ConsumerWidget {
                 final text = await showDialog<String>(
                   context: context,
                   useRootNavigator: true,
-                  builder: (_) => PaymentMethodsDialog(
-                    initial: facts.payments,
-                  ),
+                  builder: (_) => PaymentMethodsDialog(initial: facts.payments),
                 );
                 if (text != null) {
-                  ref.read(businessFactsNotifierProvider.notifier).setPayments(text);
+                  ref
+                      .read(businessFactsNotifierProvider.notifier)
+                      .setPayments(text);
                 }
               },
             ),

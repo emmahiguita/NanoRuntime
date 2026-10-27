@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 
 /// BUHO-WALLPAPER-01 — Fondo cósmico del Búho (Shell y Navegación).
@@ -21,18 +22,49 @@ import 'package:nanoai/core/widgets/nano_ambient_background.dart';
 /// en segundo plano que consumían CPU y batería en reposo. Se garantiza
 /// que el fondo sea 100% idéntico, continuo y estable en toda la aplicación.
 class BuhoWallpaper extends StatelessWidget {
-  const BuhoWallpaper({super.key, this.scrimOpacity});
+  const BuhoWallpaper({
+    super.key,
+    this.scrimOpacity,
+    this.useImage = false,
+  });
 
-  /// Ruta oficial de la imagen única vertical solicitada por el usuario.
+  /// Ruta oficial de la imagen única vertical solicitada por el usuario cuando se activa el modo wallpaper.
   static const String portraitImagePath =
       'assets/buho/portrait/buho_portrait_main.jpg';
 
   /// Opacidad del velo oscuro sobre la imagen (0 = sin velo).
   final double? scrimOpacity;
 
+  /// Cuando es false (por defecto), renderiza un fondo serio, limpio y optimizado
+  /// (OLED dark / Slate light) sin cargar ni decodificar texturas pesadas, eliminando
+  /// el sobregiro de GPU (overdraw) y haciendo que las tarjetas (Cards) sean las protagonistas.
+  final bool useImage;
+
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).extension<NanoThemeExtension>()?.colors;
     final dark = Theme.of(context).brightness == Brightness.dark;
+
+    if (!useImage) {
+      final topColor = colors?.backgroundPrimary ?? (dark ? const Color(0xFF07080B) : const Color(0xFFF8FAFC));
+      final midColor = colors?.backgroundSecondary ?? (dark ? const Color(0xFF0C0E14) : const Color(0xFFF1F5F9));
+      final botColor = colors?.backgroundElevated ?? (dark ? const Color(0xFF08090D) : const Color(0xFFE2E8F0));
+
+      return ColoredBox(
+        color: topColor,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [topColor, midColor, botColor],
+              stops: const [0.0, 0.45, 1.0],
+            ),
+          ),
+        ),
+      );
+    }
+
     final scrim = scrimOpacity ?? (dark ? 0.45 : 0.30);
 
     // Aspecto REAL de la pantalla, no orientationOf: si el dispositivo quedó con

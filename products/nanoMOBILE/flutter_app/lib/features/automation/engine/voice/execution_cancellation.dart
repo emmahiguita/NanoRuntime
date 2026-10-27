@@ -15,7 +15,10 @@ class ExecutionCancelled implements Exception {
 
 /// Token de cancelación cooperativo perteneciente a una sola ejecución.
 class ExecutionCancellationToken {
-  ExecutionCancellationToken({this.isCurrent});
+  ExecutionCancellationToken({this.isCurrent, this.executionId});
+
+  /// Identidad del propietario para observaciones; no concede autoridad.
+  final String? executionId;
 
   final bool Function()? isCurrent;
   bool _cancelled = false;

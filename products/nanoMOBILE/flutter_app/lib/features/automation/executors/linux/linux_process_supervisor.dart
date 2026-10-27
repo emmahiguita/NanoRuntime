@@ -1,35 +1,34 @@
+import 'dart:async';
 import 'dart:collection';
 import '../../../terminal/i_bin_executor.dart';
 import 'linux_automation_types.dart';
+part 'linux_process_observation.dart';
 
-/// Supervisor de procesos en streaming y segundo plano para el motor Linux.
-///
-/// Gestiona tareas de larga duración (servidores, compilaciones, pipelines)
-/// evitando colisiones de tags, fugas de memoria y procesos zombis.
+/// Supervisa solicitudes y su finalización real. Solicitar no demuestra arranque.
 class LinuxProcessSupervisor {
-  final IBinExecutor _binExecutor;
-  final int maxLogLines;
-
-  final Map<String, LinuxProcessHandle> _activeHandles = {};
-  final Map<String, Queue<String>> _outputLogs = {};
-  final Set<String> _runningTags = {};
-
   LinuxProcessSupervisor({
     required IBinExecutor binExecutor,
     this.maxLogLines = 300,
   }) : _binExecutor = binExecutor;
+  final IBinExecutor _binExecutor;
+  final int maxLogLines;
+  final _activeHandles = <String, LinuxProcessHandle>{};
+  final _outputLogs = <String, Queue<String>>{};
+  final _runningTags = <String>{};
+  final _completion = <String, Future<int>>{};
+  final _states = <String, String>{};
+  final _exitCodes = <String, int>{};
 
-  /// Lista los handles de procesos actualmente supervisados.
-  List<LinuxProcessHandle> get activeProcesses => _activeHandles.values.toList();
+  List<LinuxProcessHandle> get activeProcesses => _activeHandles.entries
+      .where((entry) => _runningTags.contains(entry.key))
+      .map((entry) => entry.value)
+      .toList();
+  // Compatibilidad: tarea pendiente; el estado observable vive en inspect().
+  bool isRunning(String tag) => _runningTags.contains(tag);
+  List<String> getLogs(String tag) => _outputLogs[tag]?.toList() ?? const [];
+  Map<String, Object?> inspect(String tag) => _inspect(tag);
+  void purgeInactive() => _purgeInactive();
 
-  /// Indica si un tag de proceso específico sigue en ejecución activa.
-  bool isRunning(String trackTag) => _runningTags.contains(trackTag);
-
-  /// Retorna las líneas de log acumuladas para un proceso.
-  List<String> getLogs(String trackTag) =>
-      _outputLogs[trackTag]?.toList() ?? const [];
-
-  /// Inicia un proceso en streaming supervisado bajo un tag único.
   Future<LinuxActionResult<LinuxProcessHandle>> startProcess({
     required String command,
     List<String> arguments = const [],
@@ -39,97 +38,124 @@ class LinuxProcessSupervisor {
     Duration timeout = const Duration(minutes: 30),
   }) async {
     final started = DateTime.now();
-
-    if (_runningTags.contains(trackTag)) {
+    if (_runningTags.contains(trackTag) || _runningTags.length >= 8) {
       return LinuxActionResult(
         exitCode: -1,
         duration: Duration.zero,
-        stderr: 'Ya existe un proceso activo con trackTag: "$trackTag"',
         verification: LinuxVerificationDetail.failed(
-          'unique_track_tag',
-          'Conflicto de trackTag activo.',
+          'process_capacity',
+          'Tag ocupado o límite de ocho tareas pendientes.',
         ),
       );
     }
-
+    // Conserva como máximo 32 historiales; nunca mata tareas para liberar espacio.
+    if (_activeHandles.length >= 32) _purgeInactive();
     final handle = LinuxProcessHandle(
       trackTag: trackTag,
       command: command,
       arguments: arguments,
       startedAt: started,
     );
-
     _activeHandles[trackTag] = handle;
     _outputLogs[trackTag] = Queue<String>();
+    _states[trackTag] = 'requested';
+    _exitCodes.remove(trackTag);
     _runningTags.add(trackTag);
+    void observe(String line, String source) {
+      if (!identical(_activeHandles[trackTag], handle)) return;
+      if (_runningTags.contains(trackTag)) _states[trackTag] = 'outputObserved';
+      _appendLog(trackTag, '$source $line');
+    }
 
-    // Disparar en streaming asíncrono
-    _binExecutor.stream(
-      command,
-      arguments,
-      workDir: workDir,
-      env: environment,
-      trackTag: trackTag,
-      timeout: timeout,
-      onOut: (line) => _appendLog(trackTag, '[OUT] $line'),
-      onErr: (line) => _appendLog(trackTag, '[ERR] $line'),
-    ).then((exitCode) {
-      _runningTags.remove(trackTag);
-      _appendLog(trackTag, '[SYS] Proceso finalizado con código $exitCode');
-    }).catchError((error) {
-      _runningTags.remove(trackTag);
-      _appendLog(trackTag, '[SYS] Error de ejecución: $error');
-    });
-
+    final operation = Future<int>.sync(
+      () => _binExecutor.stream(
+        command,
+        arguments,
+        workDir: workDir,
+        env: environment,
+        trackTag: trackTag,
+        timeout: timeout,
+        onOut: (line) => observe(line, '[OUT]'),
+        onErr: (line) => observe(line, '[ERR]'),
+      ),
+    );
+    // El futuro compartido se completa también en fallos de arranque.
+    final tracked = operation.then(
+      (code) {
+        if (identical(_activeHandles[trackTag], handle)) {
+          _runningTags.remove(trackTag);
+          _exitCodes[trackTag] = code;
+          _states[trackTag] = code == 0 ? 'completed' : 'failed';
+          _appendLog(trackTag, '[SYS] Finalizó con código $code');
+        }
+        return code;
+      },
+      onError: (Object error) {
+        if (identical(_activeHandles[trackTag], handle)) {
+          _runningTags.remove(trackTag);
+          _states[trackTag] = 'failed';
+          _exitCodes[trackTag] = -1;
+          _appendLog(trackTag, '[SYS] No se pudo completar el proceso.');
+        }
+        return -1;
+      },
+    );
+    _completion[trackTag] = tracked;
     return LinuxActionResult(
       data: handle,
       exitCode: 0,
       duration: DateTime.now().difference(started),
-      verification: LinuxVerificationDetail.satisfied(
-        'process_started',
-        'Proceso iniciado y supervisado bajo tag "$trackTag".',
+      verification: LinuxVerificationDetail.failed(
+        'process_requested',
+        'Solicitud registrada; consulta el tag para conocer su resultado. No hay PID verificado.',
       ),
     );
   }
 
-  /// Detiene y mata un proceso supervisado.
-  Future<LinuxActionResult<bool>> stopProcess(String trackTag) async {
+  Future<LinuxActionResult<bool>> stopProcess(String tag) async {
     final started = DateTime.now();
-    final killed = _binExecutor.killTracked(trackTag);
-    _runningTags.remove(trackTag);
-
-    return LinuxActionResult(
-      data: killed,
-      exitCode: killed ? 0 : 1,
-      duration: DateTime.now().difference(started),
-      verification: killed
-          ? LinuxVerificationDetail.satisfied(
-              'process_killed',
-              'Señal de terminación enviada con éxito a "$trackTag".',
-            )
-          : LinuxVerificationDetail.failed(
-              'process_killed',
-              'No se encontró un proceso activo con trackTag "$trackTag".',
-            ),
-    );
+    final completion = _completion[tag];
+    final signalled =
+        _runningTags.contains(tag) && _binExecutor.killTracked(tag);
+    if (!signalled || completion == null) {
+      return LinuxActionResult(
+        data: false,
+        exitCode: -1,
+        duration: Duration.zero,
+        verification: LinuxVerificationDetail.failed(
+          'process_not_signalled',
+          'No se encontró un proceso nativo para ese tag.',
+        ),
+      );
+    }
+    _states[tag] = 'stopping';
+    try {
+      await completion.timeout(const Duration(seconds: 3));
+      return LinuxActionResult(
+        data: true,
+        exitCode: 0,
+        duration: DateTime.now().difference(started),
+        verification: LinuxVerificationDetail.satisfied(
+          'process_exited',
+          'Se confirmó la finalización de la tarea tras solicitar su parada.',
+        ),
+      );
+    } on TimeoutException {
+      return LinuxActionResult(
+        data: false,
+        exitCode: 0,
+        duration: DateTime.now().difference(started),
+        verification: LinuxVerificationDetail.failed(
+          'process_stop_pending',
+          'Se envió la señal; la finalización aún no está confirmada.',
+        ),
+      );
+    }
   }
 
-  void _appendLog(String trackTag, String line) {
-    final queue = _outputLogs.putIfAbsent(trackTag, () => Queue<String>());
-    if (queue.length >= maxLogLines) {
-      queue.removeFirst();
-    }
-    queue.addLast(line);
-  }
-
-  /// Limpia registros de procesos ya finalizados.
-  void purgeInactive() {
-    final inactiveTags = _activeHandles.keys
-        .where((tag) => !_runningTags.contains(tag))
-        .toList();
-    for (final tag in inactiveTags) {
-      _activeHandles.remove(tag);
-      _outputLogs.remove(tag);
-    }
+  void _appendLog(String tag, String line) {
+    final queue = _outputLogs.putIfAbsent(tag, () => Queue<String>());
+    if (queue.length >= maxLogLines.clamp(1, 1000)) queue.removeFirst();
+    queue.addLast(line.length > 4096 ? '${line.substring(0, 4096)}…' : line);
   }
 }
