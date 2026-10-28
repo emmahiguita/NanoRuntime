@@ -87,11 +87,20 @@ internal final class NanoPermissionsHandler: NanoChannelHandler {
       }
 
     case "photos":
-      switch PHPhotoLibrary.authorizationStatus() {
-      case .authorized, .limited: return "authorized"
-      case .denied, .restricted: return "denied"
-      case .notDetermined: return "not_determined"
-      @unknown default: return "unknown"
+      if #available(iOS 14, *) {
+        switch PHPhotoLibrary.authorizationStatus() {
+        case .authorized, .limited: return "authorized"
+        case .denied, .restricted: return "denied"
+        case .notDetermined: return "not_determined"
+        @unknown default: return "unknown"
+        }
+      } else {
+        switch PHPhotoLibrary.authorizationStatus() {
+        case .authorized: return "authorized"
+        case .denied, .restricted: return "denied"
+        case .notDetermined: return "not_determined"
+        @unknown default: return "unknown"
+        }
       }
 
     default:
@@ -114,8 +123,14 @@ internal final class NanoPermissionsHandler: NanoChannelHandler {
         DispatchQueue.main.async { completion(status == .authorized) }
       }
     case "photos":
-      PHPhotoLibrary.requestAuthorization { status in
-        DispatchQueue.main.async { completion(status == .authorized || status == .limited) }
+      if #available(iOS 14, *) {
+        PHPhotoLibrary.requestAuthorization { status in
+          DispatchQueue.main.async { completion(status == .authorized || status == .limited) }
+        }
+      } else {
+        PHPhotoLibrary.requestAuthorization { status in
+          DispatchQueue.main.async { completion(status == .authorized) }
+        }
       }
     default:
       completion(false)
