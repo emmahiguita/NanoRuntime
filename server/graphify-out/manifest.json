@@ -1,0 +1,182 @@
+{
+  "main.py": {
+    "mtime": 1788643569.9612026,
+    "ast_hash": "fb5e4fe0580d94894c537a61ead2eb2b",
+    "semantic_hash": ""
+  },
+  "whatsapp_templates_api.py": {
+    "mtime": 1791946288.1094553,
+    "ast_hash": "aba795c64ff386a1236b7b29fa189fcc",
+    "semantic_hash": ""
+  },
+  "whatsapp_webhook_api.py": {
+    "mtime": 1791926945.4227834,
+    "ast_hash": "9b0b428f2f2e4a18fc24f6286a61b4e1",
+    "semantic_hash": ""
+  },
+  "whatsapp_webhook_events.py": {
+    "mtime": 1791860617.6149662,
+    "ast_hash": "f18cf00895fcb2b60e0367556dc3417b",
+    "semantic_hash": ""
+  },
+  "whatsapp_webhook_normalizer.py": {
+    "mtime": 1791860617.871556,
+    "ast_hash": "44b0cbd1e965d59152fa044b1b24125e",
+    "semantic_hash": ""
+  },
+  "whatsapp_webhook_security.py": {
+    "mtime": 1791860472.570204,
+    "ast_hash": "8977a5cb6f49a34f7d94fbfdbb589969",
+    "semantic_hash": ""
+  },
+  "whatsapp_webhook_store.py": {
+    "mtime": 1791926945.663876,
+    "ast_hash": "c7cf65371b7f98dfab918cbc74c11bb7",
+    "semantic_hash": ""
+  },
+  "README_WHATSAPP_TEMPLATES.md": {
+    "mtime": 1791909104.290275,
+    "ast_hash": "85282dddc552933c21475b8b6e67a7cc",
+    "semantic_hash": ""
+  },
+  "README_WHATSAPP_WEBHOOK.md": {
+    "mtime": 1791860382.3512242,
+    "ast_hash": "b0de0e08e01351449892aac0c417ddfa",
+    "semantic_hash": ""
+  },
+  "whatsapp_gateway_health.py": {
+    "mtime": 1791908646.255962,
+    "ast_hash": "b3e92987cad248a5c57d886c8f051bf9",
+    "semantic_hash": ""
+  },
+  "whatsapp_local_controller.py": {
+    "mtime": 1791929835.5828178,
+    "ast_hash": "7e40f74ae5a712ea63d817e6fba340cb",
+    "semantic_hash": ""
+  },
+  "whatsapp_local_panel.py": {
+    "mtime": 1791948276.3397515,
+    "ast_hash": "39cae074ab2569cf2d236094adf648b0",
+    "semantic_hash": ""
+  },
+  "whatsapp_local_server.py": {
+    "mtime": 1791929795.4606626,
+    "ast_hash": "4dcb2380d250f1065d21484b77df2ef7",
+    "semantic_hash": ""
+  },
+  "whatsapp_local_settings.py": {
+    "mtime": 1791946288.3436706,
+    "ast_hash": "2d027da711d28f1609912f2c608bae35",
+    "semantic_hash": ""
+  },
+  "windows_dpapi.py": {
+    "mtime": 1791908645.798459,
+    "ast_hash": "a9483fc1724b150b23ca44026a5f0d16",
+    "semantic_hash": ""
+  },
+  "README_WHATSAPP_LOCAL.md": {
+    "mtime": 1791908771.966752,
+    "ast_hash": "acfad2beeee613e7bf2fd192ec3cfdd1",
+    "semantic_hash": ""
+  },
+  "requirements-whatsapp.txt": {
+    "mtime": 1791930854.8300285,
+    "ast_hash": "b6486d8f3595be12fdc925a96bbd4210",
+    "semantic_hash": ""
+  },
+  "whatsapp_gateway_auth.py": {
+    "mtime": 1791946287.6930864,
+    "ast_hash": "5f9499bb08477263c2622a71df6d9e6d",
+    "semantic_hash": ""
+  },
+  "whatsapp_history_api.py": {
+    "mtime": 1791927379.5705283,
+    "ast_hash": "0ece57944987945fd11e01c0505f60fe",
+    "semantic_hash": ""
+  },
+  "whatsapp_history_models.py": {
+    "mtime": 1791927378.978968,
+    "ast_hash": "2e3f814e0557430839852c0e959fff16",
+    "semantic_hash": ""
+  },
+  "whatsapp_history_store.py": {
+    "mtime": 1791927379.2485528,
+    "ast_hash": "75bf77e37c909ce1b95732cd50a3fc2e",
+    "semantic_hash": ""
+  },
+  "whatsapp_gateway_boundary.py": {
+    "mtime": 1791946287.8973634,
+    "ast_hash": "b48e48c95fb8e57f28ba3a19d3acafca",
+    "semantic_hash": ""
+  },
+  "whatsapp_private_fields.py": {
+    "mtime": 1791946288.5622137,
+    "ast_hash": "e35a3ed57e21276ec94fbdc2fa3b2f49",
+    "semantic_hash": ""
+  },
+  "README_WHATSAPP_HISTORY.md": {
+    "mtime": 1791927876.177615,
+    "ast_hash": "58bea1c599e7b3b5d39f28059bb55c43",
+    "semantic_hash": ""
+  },
+  "README_WHATSAPP_HTTPS.md": {
+    "mtime": 1791931160.029997,
+    "ast_hash": "e84160cfeb8baf02fb3b64389ee026c4",
+    "semantic_hash": ""
+  },
+  "whatsapp_graph_transport.py": {
+    "mtime": 1791930658.0015233,
+    "ast_hash": "bef7b806b1a0b677f976decefe6f4802",
+    "semantic_hash": ""
+  },
+  "whatsapp_local_check.py": {
+    "mtime": 1791948070.3949146,
+    "ast_hash": "545c9c22ab4b682cad6253eb8c6a8321",
+    "semantic_hash": ""
+  },
+  "whatsapp_mcp.py": {
+    "mtime": 1791930853.71586,
+    "ast_hash": "74daa16609c38ec689f8f64a10509963",
+    "semantic_hash": ""
+  },
+  "whatsapp_mcp_check.py": {
+    "mtime": 1791948070.5958438,
+    "ast_hash": "a897ed136d2a6215d88a09f82716de13",
+    "semantic_hash": ""
+  },
+  "README_WHATSAPP_MCP.md": {
+    "mtime": 1791947011.6249592,
+    "ast_hash": "8072b58bdf3ddcad35ff0f8bb4520ad9",
+    "semantic_hash": ""
+  },
+  "whatsapp_webhook_check.py": {
+    "mtime": 1791948070.815187,
+    "ast_hash": "2b55e688605aa3b41cc1396ded6a3b56",
+    "semantic_hash": ""
+  },
+  "README_WHATSAPP_PERMISSIONS.md": {
+    "mtime": 1791947172.187647,
+    "ast_hash": "887932ae65563d075c5b7fa58b8d06f9",
+    "semantic_hash": ""
+  },
+  "whatsapp_check_result.py": {
+    "mtime": 1791948069.7650864,
+    "ast_hash": "e1e88f213599a5b526326fc7f3c6b985",
+    "semantic_hash": ""
+  },
+  "whatsapp_panel_status.py": {
+    "mtime": 1791948593.4980094,
+    "ast_hash": "023840de9eaa8ad08e736a2840507b1f",
+    "semantic_hash": ""
+  },
+  "whatsapp_panel_view.py": {
+    "mtime": 1791948594.2399955,
+    "ast_hash": "74439b81cb033afb7d139b71a27dec1e",
+    "semantic_hash": ""
+  },
+  "README_WHATSAPP_PANEL_STATUS.md": {
+    "mtime": 1791948594.943938,
+    "ast_hash": "13dd765b6197df83f8ca5811d7bd0727",
+    "semantic_hash": ""
+  }
+}

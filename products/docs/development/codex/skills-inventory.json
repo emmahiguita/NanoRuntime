@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-26",
+  "scope": "Codex development for Nano",
+  "files": [
+    {
+      "name": "flutter-fix-layout-issues",
+      "source": "https://github.com/flutter/agent-plugins/blob/main/skills/flutter-fix-layout-issues/SKILL.md",
+      "reviewed_git_blob": "3804a3c1d9fd2b88ee1ddc74716799cf2cd770c1",
+      "sha256": "e82c82b4245ef502bd93bc543d4f5968f4ee8043fa7556ffebcb34f30651fc9b",
+      "path": ".agents/skills/flutter-fix-layout-issues/SKILL.md"
+    },
+    {
+      "name": "flutter-build-responsive-layout",
+      "source": "https://github.com/flutter/agent-plugins/blob/main/skills/flutter-build-responsive-layout/SKILL.md",
+      "reviewed_git_blob": "b85bfd7e82e30ac676d2140ddb436bfebd0992cb",
+      "sha256": "c7a5d18071c625137cad2def9b13f3579d9bdf0aae29621a1825f12b560394c0",
+      "path": ".agents/skills/flutter-build-responsive-layout/SKILL.md"
+    },
+    {
+      "name": "dart-write-documentation",
+      "source": "https://github.com/dart-lang/skills/blob/main/skills/dart-write-documentation/SKILL.md",
+      "reviewed_git_blob": "e5fc042aa237954f5291b86d455c8b675204664e",
+      "sha256": "0629abbb9e0c0bb9aee2237b6617600a01499015bb4484a20b81ee96857d67ef",
+      "path": ".agents/skills/dart-write-documentation/SKILL.md"
+    },
+    {
+      "name": "AGENTS.md",
+      "path": "AGENTS.md",
+      "sha256": "5d762a74f9a50659f1a66b4949c15e60493e08f1c9b7f6577d44ea42efdee5b7"
+    },
+    {
+      "name": "SKILL.md",
+      "path": ".agents/skills/nano-development-workflow/SKILL.md",
+      "sha256": "686c4a954c1794aaf5322c40acd3c015345cec4c22815ddd78c6ca1845294c7f"
+    },
+    {
+      "name": "config.toml",
+      "path": ".codex/config.toml",
+      "sha256": "bbe608c8cb919481af152ec1f696145725166b9b439e26483f47d6a37ff7fb30"
+    },
+    {
+      "name": "INTEGRACION.md",
+      "path": "docs/development/codex/INTEGRACION.md",
+      "sha256": "4e4036e6b9d1b5586491ab8f3a871330a7e2dc4f8e89b300900eeb3d57ea385b"
+    }
+  ]
+}

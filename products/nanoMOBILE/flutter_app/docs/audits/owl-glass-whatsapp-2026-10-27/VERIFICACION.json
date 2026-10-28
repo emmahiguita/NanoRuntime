@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-27",
+  "scope": "Búho visual + auditoría estática de su flujo WhatsApp",
+  "userRestriction": "Después de la instrucción NO AUTOMATICES no se ejecutaron recorridos, órdenes, benchmarks ni nuevas pruebas en WhatsApp.",
+  "staticAnalysis": {
+    "result": "No issues found!",
+    "exitCode": 0,
+    "artifact": "analisis-final.log"
+  },
+  "build": {
+    "variant": "fullSideloadDebug",
+    "target": "android-arm64",
+    "exitCode": 0,
+    "seconds": 74.6,
+    "artifact": "compilacion.log",
+    "sha256": "60E63018294008DFD3A1DE122EC54D2A00E4967E80408B6958B3CF59CF5D5FD2"
+  },
+  "installation": {
+    "serial": "VGL7MVFMDYQG8T55",
+    "model": "OPPO CPH2557",
+    "command": "adb install -r",
+    "result": "Success",
+    "artifact": "instalacion.log",
+    "dataPreserved": true,
+    "openedAfterInstall": false
+  },
+  "priorTests": {
+    "passed": 42,
+    "artifact": "regresion.log",
+    "kind": "Lógica y widgets con dobles explícitos, ejecutados antes de la última restricción",
+    "doesNotProve": "WhatsApp real, diseño final o entrega de mensajes"
+  },
+  "earlierDeviceExploration": {
+    "scope": "Antes de la última prohibición",
+    "observed": [
+      "Esfera Android inicial instalada sobre WhatsApp",
+      "Ruta oficial Más opciones → Más → Exportar chat → Sin archivos → selector Guardar en Archivos"
+    ],
+    "notObserved": [
+      "Ejecución final del plan de exportación desde Búho",
+      "Diseño final instalado",
+      "Análisis integral de TXT/ZIP exportado",
+      "Pruebas QA completas generadas y ejecutadas desde el búho"
+    ]
+  },
+  "manualGuide": "PRUEBAS_MANUALES.md",
+  "audit": "AUDITORIA.md",
+  "inventory": "INVENTARIO.json",
+  "manualTestsStatus": "Pendientes, sin resultados inventados",
+  "remaining": [
+    "Unificación literal de la UI Flutter/Android",
+    "Retirar atajo visual Android manualmente si se desea una sola esfera, sin desactivar servicio",
+    "Identidad final de apertura y casos usuario/grupos/Business",
+    "Exportación guardada/importación TXT-ZIP y lectura completa",
+    "Captura/OCR/VLM del WhatsApp activo",
+    "QA determinista con evidencias desde Búho",
+    "Recuperación de proceso/estado durable y plazos del puente",
+    "Revisión manual de diseño final y orientación",
+    "Tres fachadas heredadas aún superan 200 líneas"
+  ],
+  "review": {
+    "independent": true,
+    "result": "Contexto llega hasta ACTION_CLICK nativo; sin fallback de coordenadas. Avatar corregido a hit48/imagen32."
+  }
+}

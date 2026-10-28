@@ -1,0 +1,1050 @@
+{
+  "scope": "Inventario de tamaño de lib Dart y Kotlin propio; no es auditoría funcional completa ni orden de refactorización masiva. Excluye generados g.dart/freezed.dart.",
+  "sources_counted": 2163,
+  "sources_at_least_200_lines": [
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/DesktopSessionManager.kt",
+      "lines": 1765
+    },
+    {
+      "path": "lib/features/desktop/presentation/screens/vnc_screen.dart",
+      "lines": 1682
+    },
+    {
+      "path": "lib/features/terminal/presentation/widgets/interactive_3d_turntable_box.dart",
+      "lines": 1505
+    },
+    {
+      "path": "lib/core/services/nano_runtime_api.dart",
+      "lines": 1394
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+      "lines": 1143
+    },
+    {
+      "path": "lib/features/desktop/presentation/screens/desktop_launch_screen.dart",
+      "lines": 1142
+    },
+    {
+      "path": "lib/features/desktop/vnc_client.dart",
+      "lines": 1031
+    },
+    {
+      "path": "lib/features/desktop/vnc_des.dart",
+      "lines": 997
+    },
+    {
+      "path": "lib/features/terminal/real_fs_shell.dart",
+      "lines": 924
+    },
+    {
+      "path": "lib/features/automation/engine/agent_dependencies.dart",
+      "lines": 903
+    },
+    {
+      "path": "lib/features/automation/engine/scheduling/rule_pipeline.dart",
+      "lines": 899
+    },
+    {
+      "path": "lib/features/automation/application/automation_coordinator.dart",
+      "lines": 888
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_glyph.dart",
+      "lines": 832
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NotificationAutomationService.kt",
+      "lines": 828
+    },
+    {
+      "path": "lib/features/automation/engine/orchestration/task_orchestrator_steps.dart",
+      "lines": 827
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/DebInstaller.kt",
+      "lines": 823
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+      "lines": 820
+    },
+    {
+      "path": "lib/core/services/shell_executor.dart",
+      "lines": 803
+    },
+    {
+      "path": "lib/features/automation/engine/orchestration/task_orchestrator.dart",
+      "lines": 768
+    },
+    {
+      "path": "lib/features/automation/engine/scheduling/rule_dispatcher.dart",
+      "lines": 733
+    },
+    {
+      "path": "lib/features/desktop/presentation/widgets/desktop_controls_overlay.dart",
+      "lines": 723
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/EngineSupervisor.kt",
+      "lines": 722
+    },
+    {
+      "path": "lib/features/automation/engine/orchestration/task_orchestrator_actions.dart",
+      "lines": 720
+    },
+    {
+      "path": "lib/features/automation/engine/perception/surface_resolvers.dart",
+      "lines": 708
+    },
+    {
+      "path": "lib/core/services/llm_engine_client.dart",
+      "lines": 705
+    },
+    {
+      "path": "lib/features/automation/engine/scheduling/event_dedupe_store.dart",
+      "lines": 639
+    },
+    {
+      "path": "lib/core/services/api_provider_service.dart",
+      "lines": 619
+    },
+    {
+      "path": "lib/features/desktop/presentation/screens/desktop_audit_screen.dart",
+      "lines": 617
+    },
+    {
+      "path": "lib/features/automation/engine/orchestration/execution_journal.dart",
+      "lines": 610
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "lines": 602
+    },
+    {
+      "path": "lib/features/automation/engine/perception/surface_profiles.dart",
+      "lines": 598
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/SpeechChannelHandler.kt",
+      "lines": 583
+    },
+    {
+      "path": "lib/features/terminal/term_screen.dart",
+      "lines": 566
+    },
+    {
+      "path": "lib/features/automation/application/automation_coordinator_provider.dart",
+      "lines": 564
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/rule_edit_sheet.dart",
+      "lines": 561
+    },
+    {
+      "path": "lib/features/terminal/terminal_manual.dart",
+      "lines": 560
+    },
+    {
+      "path": "lib/features/automation/engine/conversation/turn_knowledge_fetcher_body.part.dart",
+      "lines": 557
+    },
+    {
+      "path": "lib/features/database/application/database_studio_source_actions.dart",
+      "lines": 555
+    },
+    {
+      "path": "lib/features/automation/engine/navigation/goal_directed_navigator.dart",
+      "lines": 552
+    },
+    {
+      "path": "lib/features/automation/presentation/screens/whatsapp_onboarding_screen.dart",
+      "lines": 535
+    },
+    {
+      "path": "lib/core/services/docker_manager.dart",
+      "lines": 524
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+      "lines": 523
+    },
+    {
+      "path": "lib/features/terminal/command_executor.dart",
+      "lines": 521
+    },
+    {
+      "path": "lib/features/automation/application/automation_coordinator_execution.dart",
+      "lines": 519
+    },
+    {
+      "path": "lib/features/automation/presentation/screens/automation_settings_screen.dart",
+      "lines": 518
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/ExecBinChannelHandler.kt",
+      "lines": 518
+    },
+    {
+      "path": "lib/core/services/boot_orchestrator.dart",
+      "lines": 517
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/DevicePermissionsChannelHandler.kt",
+      "lines": 510
+    },
+    {
+      "path": "lib/features/desktop/presentation/widgets/desktop_stream_chrome.dart",
+      "lines": 501
+    },
+    {
+      "path": "lib/features/automation/presentation/agent_console_section.dart",
+      "lines": 495
+    },
+    {
+      "path": "lib/features/models/application/models_notifier.dart",
+      "lines": 492
+    },
+    {
+      "path": "lib/features/automation/engine/scheduling/burst_turn_gate.dart",
+      "lines": 489
+    },
+    {
+      "path": "lib/core/services/external_ai_provider.dart",
+      "lines": 489
+    },
+    {
+      "path": "lib/features/automation/engine/system/app_alias_catalog.dart",
+      "lines": 488
+    },
+    {
+      "path": "lib/features/automation/engine/execution/action_verifier.dart",
+      "lines": 485
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/WorkerClient.kt",
+      "lines": 467
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/NanoshellWorkerService.kt",
+      "lines": 456
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/ModelStorageChannelHandler.kt",
+      "lines": 448
+    },
+    {
+      "path": "lib/features/terminal/ansi_parser.dart",
+      "lines": 445
+    },
+    {
+      "path": "lib/features/automation/engine/perception/selector_engine.dart",
+      "lines": 441
+    },
+    {
+      "path": "lib/core/services/pdf_report_service.dart",
+      "lines": 441
+    },
+    {
+      "path": "lib/features/browser/presentation/widgets/browser_webview_navigation_guard.dart",
+      "lines": 438
+    },
+    {
+      "path": "lib/features/browser/infrastructure/browser_security_firewall.dart",
+      "lines": 432
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/mcp/api_provider_settings_card.dart",
+      "lines": 427
+    },
+    {
+      "path": "lib/features/chat/presentation/widgets/nano_siata_floating_window.dart",
+      "lines": 426
+    },
+    {
+      "path": "lib/features/automation/engine/language/conversational_intent_classifier.dart",
+      "lines": 425
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/LanguageAssistChannelHandler.kt",
+      "lines": 425
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/capability_status_card.dart",
+      "lines": 424
+    },
+    {
+      "path": "lib/features/terminal/plugins/devops_plugin.dart",
+      "lines": 421
+    },
+    {
+      "path": "lib/features/chat/presentation/widgets/nano_siata_radar_card.dart",
+      "lines": 421
+    },
+    {
+      "path": "lib/core/providers/settings_provider.dart",
+      "lines": 420
+    },
+    {
+      "path": "lib/core/widgets/live_animations.dart",
+      "lines": 412
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/ShareChannelHandler.kt",
+      "lines": 411
+    },
+    {
+      "path": "lib/features/automation/engine/messaging/social_context_retriever.dart",
+      "lines": 410
+    },
+    {
+      "path": "lib/features/automation/engine/orchestration/task_planner.dart",
+      "lines": 409
+    },
+    {
+      "path": "lib/features/automation/engine/perception/nano_snapshot.dart",
+      "lines": 406
+    },
+    {
+      "path": "lib/features/terminal/command_dispatcher.dart",
+      "lines": 405
+    },
+    {
+      "path": "lib/features/automation/engine/browser/web_knowledge_service.dart",
+      "lines": 400
+    },
+    {
+      "path": "lib/features/automation/engine/orchestration/commit_guard.dart",
+      "lines": 400
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/c14_debug_benchmark_section.dart",
+      "lines": 398
+    },
+    {
+      "path": "lib/features/terminal/pty_manager.dart",
+      "lines": 390
+    },
+    {
+      "path": "lib/core/context/nano_context_hub.dart",
+      "lines": 382
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/NotificationAutomationChannelHandler.kt",
+      "lines": 376
+    },
+    {
+      "path": "lib/features/automation/presentation/personal/nano_personal_phrase_dialog.dart",
+      "lines": 374
+    },
+    {
+      "path": "lib/features/automation/engine/mcp/mobile_gesture_executor.dart",
+      "lines": 372
+    },
+    {
+      "path": "lib/features/automation/engine/execution/handlers/ui_tool_handler.dart",
+      "lines": 372
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/TarExtractor.kt",
+      "lines": 366
+    },
+    {
+      "path": "lib/features/automation/engine/system/app_capability_registry.dart",
+      "lines": 357
+    },
+    {
+      "path": "lib/features/settings/presentation/widgets/device_permissions_section.dart",
+      "lines": 353
+    },
+    {
+      "path": "lib/features/automation/engine/language/hybrid_intent_classifier.dart",
+      "lines": 352
+    },
+    {
+      "path": "lib/core/services/proot_manager.dart",
+      "lines": 352
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/mcp/mcp_hot_injection_dialog.dart",
+      "lines": 348
+    },
+    {
+      "path": "lib/features/database/application/google_sheets_sync_service.dart",
+      "lines": 347
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/XServerBackend.kt",
+      "lines": 347
+    },
+    {
+      "path": "lib/features/automation/engine/perception/perception_mux.dart",
+      "lines": 339
+    },
+    {
+      "path": "lib/features/automation/engine/planning/message_intent_parser.dart",
+      "lines": 339
+    },
+    {
+      "path": "lib/features/automation/engine/storage/automation_db_store_client.dart",
+      "lines": 338
+    },
+    {
+      "path": "lib/features/edge/edge_dev_section.dart",
+      "lines": 337
+    },
+    {
+      "path": "lib/features/terminal/terminal_modifier_bar.dart",
+      "lines": 334
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/automation/DurableInbox.kt",
+      "lines": 334
+    },
+    {
+      "path": "lib/features/automation/presentation/messaging_center/messaging_platform_icon.dart",
+      "lines": 330
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/conversation_list_tile.dart",
+      "lines": 329
+    },
+    {
+      "path": "lib/features/automation/engine/memory/object_memory.dart",
+      "lines": 327
+    },
+    {
+      "path": "lib/core/services/pty_shell.dart",
+      "lines": 327
+    },
+    {
+      "path": "lib/features/automation/engine/execution/agent_executor.dart",
+      "lines": 323
+    },
+    {
+      "path": "lib/features/automation/engine/conversation/conversation_topic_extractor.dart",
+      "lines": 318
+    },
+    {
+      "path": "lib/core/services/kali_manager.dart",
+      "lines": 317
+    },
+    {
+      "path": "lib/core/tools/application/tool_router.dart",
+      "lines": 312
+    },
+    {
+      "path": "lib/features/chat/application/chat_send_use_case.dart",
+      "lines": 311
+    },
+    {
+      "path": "lib/core/services/ubuntu_manager.dart",
+      "lines": 311
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/voice_note_player_card.dart",
+      "lines": 301
+    },
+    {
+      "path": "lib/core/widgets/nano_components.dart",
+      "lines": 300
+    },
+    {
+      "path": "lib/features/automation/engine/orchestration/task_plan.dart",
+      "lines": 298
+    },
+    {
+      "path": "lib/features/automation/presentation/bot_studio/bot_studio_screen.dart",
+      "lines": 297
+    },
+    {
+      "path": "lib/features/automation/engine/workflow/workflow_executor.dart",
+      "lines": 297
+    },
+    {
+      "path": "lib/features/automation/engine/planning/candidates/candidate_providers.dart",
+      "lines": 297
+    },
+    {
+      "path": "lib/features/account/presentation/widgets/login_access_form.dart",
+      "lines": 297
+    },
+    {
+      "path": "lib/features/automation/personal_agent/presentation/personalization_studio_style_dialog.dart",
+      "lines": 295
+    },
+    {
+      "path": "lib/features/automation/personal_agent/presentation/personalization_studio_header.dart",
+      "lines": 287
+    },
+    {
+      "path": "lib/features/automation/engine/planning/candidates/screen_graph_candidate_provider.dart",
+      "lines": 287
+    },
+    {
+      "path": "lib/features/automation/engine/scheduling/contact_rate_limiter.dart",
+      "lines": 286
+    },
+    {
+      "path": "lib/features/automation/presentation/personal/nano_personal_example_card.dart",
+      "lines": 284
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/parsed_media_message.dart",
+      "lines": 278
+    },
+    {
+      "path": "lib/features/browser/domain/browser_navigation_policy.dart",
+      "lines": 277
+    },
+    {
+      "path": "lib/features/automation/presentation/bot_studio/bot_card.dart",
+      "lines": 277
+    },
+    {
+      "path": "lib/core/widgets/nano_ambient_background.dart",
+      "lines": 277
+    },
+    {
+      "path": "lib/features/database/presentation/widgets/database_data_grid.dart",
+      "lines": 276
+    },
+    {
+      "path": "lib/core/services/nanoshell_ffi.dart",
+      "lines": 275
+    },
+    {
+      "path": "lib/features/automation/engine/planning/koog_supervisor.dart",
+      "lines": 274
+    },
+    {
+      "path": "lib/features/settings/presentation/widgets/account_profile_card.part.dart",
+      "lines": 271
+    },
+    {
+      "path": "lib/features/automation/engine/model/inference_telemetry.dart",
+      "lines": 270
+    },
+    {
+      "path": "lib/features/edge/panels/conversation_mirror.dart",
+      "lines": 269
+    },
+    {
+      "path": "lib/features/terminal/plugins/system_plugin.dart",
+      "lines": 265
+    },
+    {
+      "path": "lib/features/account/presentation/widgets/google_account_dialog.dart",
+      "lines": 265
+    },
+    {
+      "path": "lib/features/automation/engine/browser/web_content_formatter.dart",
+      "lines": 262
+    },
+    {
+      "path": "lib/features/automation/engine/language/pragmatic_fast_path_intents_basic.dart",
+      "lines": 261
+    },
+    {
+      "path": "lib/core/router/app_router.dart",
+      "lines": 261
+    },
+    {
+      "path": "lib/features/automation/engine/memory/nano_transcript_ledger.dart",
+      "lines": 260
+    },
+    {
+      "path": "lib/features/automation/personal_agent/presentation/personalization_studio_actions.dart",
+      "lines": 258
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/spotlight_flip_ad_card.dart",
+      "lines": 256
+    },
+    {
+      "path": "lib/features/automation/engine/execution/handlers/notification_tool_handler.dart",
+      "lines": 256
+    },
+    {
+      "path": "lib/features/automation/engine/perception/nano_selector.dart",
+      "lines": 255
+    },
+    {
+      "path": "lib/features/database/presentation/widgets/database_google_sheet_dialog.dart",
+      "lines": 253
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_media_detector.dart",
+      "lines": 253
+    },
+    {
+      "path": "lib/core/models/chat_models.dart",
+      "lines": 253
+    },
+    {
+      "path": "lib/features/chat/presentation/widgets/nano_rich_weather_card.dart",
+      "lines": 252
+    },
+    {
+      "path": "lib/features/automation/presentation/personal/nano_personal_agenda_card.dart",
+      "lines": 251
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/whatsapp_web_link_view.dart",
+      "lines": 251
+    },
+    {
+      "path": "lib/features/automation/personal_agent/domain/conversation_agent_role.dart",
+      "lines": 250
+    },
+    {
+      "path": "lib/features/automation/engine/perception/semantic/semantic_normalizer.dart",
+      "lines": 250
+    },
+    {
+      "path": "lib/features/database/presentation/widgets/database_studio_actions.dart",
+      "lines": 248
+    },
+    {
+      "path": "lib/features/automation/presentation/personal/nano_personal_contacts_tab.dart",
+      "lines": 247
+    },
+    {
+      "path": "lib/features/automation/engine/planning/candidate_first_planner.dart",
+      "lines": 247
+    },
+    {
+      "path": "lib/features/automation/engine/system/installed_app_catalog.dart",
+      "lines": 247
+    },
+    {
+      "path": "lib/features/desktop/presentation/widgets/desktop_pip_view.dart",
+      "lines": 246
+    },
+    {
+      "path": "lib/features/automation/personal_agent/presentation/personalization_studio_example_dialog.dart",
+      "lines": 246
+    },
+    {
+      "path": "lib/features/automation/engine/conversation/turn_knowledge_router.dart",
+      "lines": 246
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/settings_tile_components.dart",
+      "lines": 245
+    },
+    {
+      "path": "lib/features/automation/engine/conversation/understanding_frame.dart",
+      "lines": 244
+    },
+    {
+      "path": "lib/features/automation/presentation/messaging_center/messaging_app_tile.dart",
+      "lines": 242
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/LiteRtGeneration.kt",
+      "lines": 241
+    },
+    {
+      "path": "lib/features/automation/engine/scheduling/trigger_parser.dart",
+      "lines": 240
+    },
+    {
+      "path": "lib/features/automation/engine/messaging/conv_turn_state.dart",
+      "lines": 238
+    },
+    {
+      "path": "lib/features/automation/presentation/messaging_center/messaging_contacts_policy_bar.dart",
+      "lines": 237
+    },
+    {
+      "path": "lib/features/automation/personal_agent/presentation/personalization_studio_whatsapp_picker.dart",
+      "lines": 237
+    },
+    {
+      "path": "lib/features/automation/engine/planning/generic_ui_intent_parser.dart",
+      "lines": 237
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_active_card.dart",
+      "lines": 235
+    },
+    {
+      "path": "lib/features/automation/engine/language/safe_conversation_repair.dart",
+      "lines": 235
+    },
+    {
+      "path": "lib/features/automation/headless/automation_headless_runner.dart",
+      "lines": 233
+    },
+    {
+      "path": "lib/features/automation/engine/language/dialogue_act_classifier.dart",
+      "lines": 233
+    },
+    {
+      "path": "lib/features/automation/engine/language/pragmatic_fast_path.dart",
+      "lines": 233
+    },
+    {
+      "path": "lib/features/automation/engine/planning/whatsapp_intent_parser.dart",
+      "lines": 233
+    },
+    {
+      "path": "lib/features/chat/application/chat_notifier_actions.dart",
+      "lines": 232
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/conversation_detail_composer_view.dart",
+      "lines": 232
+    },
+    {
+      "path": "lib/features/automation/personal_agent/application/hybrid_retrieval_scorer.dart",
+      "lines": 232
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/conversation_link_card.dart",
+      "lines": 231
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/floating_video_overlay.dart",
+      "lines": 231
+    },
+    {
+      "path": "lib/features/automation/engine/system/capability_probes.dart",
+      "lines": 231
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/ContactsChannelHandler.kt",
+      "lines": 231
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/controllers/DesktopController.kt",
+      "lines": 231
+    },
+    {
+      "path": "lib/features/automation/engine/language/linguistic_analyzer.dart",
+      "lines": 230
+    },
+    {
+      "path": "lib/features/automation/engine/perception/current_situation.dart",
+      "lines": 230
+    },
+    {
+      "path": "lib/features/terminal/terminal_types.dart",
+      "lines": 229
+    },
+    {
+      "path": "lib/features/automation/engine/execution/goal_verifier.dart",
+      "lines": 228
+    },
+    {
+      "path": "lib/features/automation/engine/system/app_fuzzy_matcher.dart",
+      "lines": 228
+    },
+    {
+      "path": "lib/features/terminal/noar_panel_card.part.dart",
+      "lines": 227
+    },
+    {
+      "path": "lib/features/automation/engine/language/runtime_personal_live_context.dart",
+      "lines": 227
+    },
+    {
+      "path": "lib/features/account/presentation/widgets/profile_social_cover.dart",
+      "lines": 227
+    },
+    {
+      "path": "lib/features/automation/personal_agent/application/personal_memory_fact_helpers.dart",
+      "lines": 224
+    },
+    {
+      "path": "lib/features/automation/engine/language/candidate_selector.dart",
+      "lines": 224
+    },
+    {
+      "path": "lib/core/services/device_info.dart",
+      "lines": 224
+    },
+    {
+      "path": "lib/features/automation/presentation/messaging_center/messaging_contact_selection_list.dart",
+      "lines": 223
+    },
+    {
+      "path": "lib/features/automation/engine/perception/healing/surface_auto_healer.dart",
+      "lines": 223
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/conversation_video_sheet.dart",
+      "lines": 222
+    },
+    {
+      "path": "lib/features/automation/engine/platform/whatsapp_media_share.dart",
+      "lines": 222
+    },
+    {
+      "path": "lib/core/services/terminal_dependencies.dart",
+      "lines": 222
+    },
+    {
+      "path": "lib/core/widgets/liquid_fluid_background.dart",
+      "lines": 222
+    },
+    {
+      "path": "lib/features/automation/engine/orchestration/automation_context.dart",
+      "lines": 221
+    },
+    {
+      "path": "lib/features/automation/engine/scheduling/trigger.dart",
+      "lines": 221
+    },
+    {
+      "path": "lib/features/automation/engine/language/semantic_similarity_engine.dart",
+      "lines": 220
+    },
+    {
+      "path": "lib/features/automation/engine/universal/universal_instruction_parser.dart",
+      "lines": 220
+    },
+    {
+      "path": "lib/core/theme/nano_lerped_colors.part.dart",
+      "lines": 220
+    },
+    {
+      "path": "lib/features/browser/presentation/widgets/browser_history_bookmarks_dialog.dart",
+      "lines": 219
+    },
+    {
+      "path": "lib/features/browser/presentation/widgets/single_browser_instance_widget.dart",
+      "lines": 219
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/dialogs/product_dialog_form.dart",
+      "lines": 219
+    },
+    {
+      "path": "lib/features/automation/engine/execution/platform_verification_router.dart",
+      "lines": 219
+    },
+    {
+      "path": "lib/features/automation/engine/scheduling/burst_durability.dart",
+      "lines": 219
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/whatsapp/WhatsAppSharePickerController.kt",
+      "lines": 219
+    },
+    {
+      "path": "lib/features/models/data/model_downloader.dart",
+      "lines": 218
+    },
+    {
+      "path": "lib/features/automation/presentation/messaging_center/whatsapp_contact_card.dart",
+      "lines": 218
+    },
+    {
+      "path": "lib/features/automation/engine/perception/search_result_resolver.dart",
+      "lines": 218
+    },
+    {
+      "path": "lib/features/automation/engine/execution/handlers/device_system_handler.dart",
+      "lines": 218
+    },
+    {
+      "path": "lib/features/browser/presentation/widgets/browser_options_sheet.dart",
+      "lines": 217
+    },
+    {
+      "path": "lib/features/automation/engine/navigation/navigation_history.dart",
+      "lines": 217
+    },
+    {
+      "path": "lib/features/automation/engine/messaging/conversation_hub_providers.dart",
+      "lines": 213
+    },
+    {
+      "path": "lib/core/services/whisper_stt_service.dart",
+      "lines": 213
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoAtomicSnapshotter.kt",
+      "lines": 213
+    },
+    {
+      "path": "lib/features/browser/presentation/widgets/browser_options_content.dart",
+      "lines": 212
+    },
+    {
+      "path": "lib/features/automation/engine/planning/candidates/candidate_action.dart",
+      "lines": 212
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/runtime/NanoModelRuntimeSupervisor.kt",
+      "lines": 212
+    },
+    {
+      "path": "lib/features/automation/presentation/screens/automation_rules_card.dart",
+      "lines": 211
+    },
+    {
+      "path": "lib/features/automation/engine/business/business_conversation_resolver.dart",
+      "lines": 211
+    },
+    {
+      "path": "lib/features/automation/engine/perception/composite_locator.dart",
+      "lines": 211
+    },
+    {
+      "path": "lib/features/automation/application/automation_coordinator_results.dart",
+      "lines": 210
+    },
+    {
+      "path": "lib/features/automation/engine/messaging/pending_reply.dart",
+      "lines": 210
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_navigation_panel.dart",
+      "lines": 210
+    },
+    {
+      "path": "lib/features/automation/presentation/personal/nano_personal_memory_tab.dart",
+      "lines": 208
+    },
+    {
+      "path": "lib/features/automation/presentation/system/nano_system_screen.dart",
+      "lines": 208
+    },
+    {
+      "path": "lib/features/automation/engine/conversation/turn_context_router.dart",
+      "lines": 208
+    },
+    {
+      "path": "lib/features/automation/personal_agent/presentation/personalization_studio_example_card.dart",
+      "lines": 207
+    },
+    {
+      "path": "lib/features/automation/engine/mcp/mobile_automation_tool_catalog.dart",
+      "lines": 207
+    },
+    {
+      "path": "lib/features/automation/engine/messaging/pending_reply_store.dart",
+      "lines": 207
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NotificationMediaCache.kt",
+      "lines": 207
+    },
+    {
+      "path": "lib/features/settings/presentation/widgets/desktop_vnc_settings_card.dart",
+      "lines": 206
+    },
+    {
+      "path": "lib/features/browser/presentation/widgets/browser_webview_lifecycle_handler.dart",
+      "lines": 206
+    },
+    {
+      "path": "lib/features/automation/personal_agent/domain/conversation_agent_tokens.dart",
+      "lines": 206
+    },
+    {
+      "path": "lib/features/automation/engine/language/turn_complexity_classifier.dart",
+      "lines": 206
+    },
+    {
+      "path": "lib/features/account/presentation/screens/register_screen.dart",
+      "lines": 206
+    },
+    {
+      "path": "lib/core/providers/chat_provider.dart",
+      "lines": 206
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/BrowserCompatibilityChannelHandler.kt",
+      "lines": 206
+    },
+    {
+      "path": "lib/features/models/data/mnn_omni_package.dart",
+      "lines": 205
+    },
+    {
+      "path": "lib/features/automation/engine/planning/automation_planner.dart",
+      "lines": 205
+    },
+    {
+      "path": "lib/features/automation/engine/planning/candidates/notification_candidate_provider.dart",
+      "lines": 205
+    },
+    {
+      "path": "lib/features/automation/application/conversation_pipeline_providers.dart",
+      "lines": 204
+    },
+    {
+      "path": "lib/features/automation/presentation/business/business_folder_actions.dart",
+      "lines": 204
+    },
+    {
+      "path": "lib/features/automation/engine/execution/agent_loop.dart",
+      "lines": 203
+    },
+    {
+      "path": "lib/core/theme/nano_space_gray_colors.part.dart",
+      "lines": 203
+    },
+    {
+      "path": "lib/features/automation/presentation/business/nano_business_catalog_tab.dart",
+      "lines": 202
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/conversation_detail_header_view.dart",
+      "lines": 202
+    },
+    {
+      "path": "lib/features/automation/engine/messaging/conv_turn_state_gating.dart",
+      "lines": 202
+    },
+    {
+      "path": "lib/core/models/catalog_models.dart",
+      "lines": 202
+    },
+    {
+      "path": "lib/core/theme/nano_classic_light_colors.part.dart",
+      "lines": 202
+    },
+    {
+      "path": "lib/core/theme/nano_dark_colors.part.dart",
+      "lines": 202
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/automation/ScheduledWhatsAppAlarmScheduler.kt",
+      "lines": 202
+    },
+    {
+      "path": "lib/features/automation/benchmark/c14_benchmark.dart",
+      "lines": 201
+    },
+    {
+      "path": "lib/features/browser/presentation/widgets/browser_address_field.dart",
+      "lines": 200
+    },
+    {
+      "path": "lib/features/automation/benchmark/c14_metrics.dart",
+      "lines": 200
+    },
+    {
+      "path": "lib/features/automation/presentation/messaging_center/messaging_search_bar.dart",
+      "lines": 200
+    },
+    {
+      "path": "lib/features/automation/engine/messaging/conversation_group_resolver.dart",
+      "lines": 200
+    },
+    {
+      "path": "lib/core/services/routed_llm_engine_client.dart",
+      "lines": 200
+    },
+    {
+      "path": "lib/core/widgets/navigation/nano_attach_sheet_tiles.part.dart",
+      "lines": 200
+    }
+  ]
+}

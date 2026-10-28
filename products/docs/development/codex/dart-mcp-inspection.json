@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-26",
+  "server": {
+    "name": "dart and flutter tooling",
+    "version": "0.1.1"
+  },
+  "protocol": "2024-11-05",
+  "root": "file:///C:/Users/emman/Desktop/Proyectos/Nueva%20carpeta/Nanoai/products/nanoMOBILE/flutter_app",
+  "roots_result": {
+    "content": [
+      {
+        "text": "Success",
+        "type": "text"
+      }
+    ]
+  },
+  "tools": [
+    "launch_app",
+    "stop_app",
+    "list_devices",
+    "get_app_logs",
+    "list_running_apps",
+    "connect_dart_tooling_daemon",
+    "get_runtime_errors",
+    "hot_restart",
+    "hot_reload",
+    "get_widget_tree",
+    "get_selected_widget",
+    "set_widget_selection_mode",
+    "get_active_location",
+    "flutter_driver",
+    "pub_dev_search",
+    "remove_roots",
+    "add_roots",
+    "dart_fix",
+    "dart_format",
+    "run_tests",
+    "create_project",
+    "pub"
+  ],
+  "tools_called": [
+    "add_roots"
+  ],
+  "app_launched": false,
+  "tests_run": false
+}

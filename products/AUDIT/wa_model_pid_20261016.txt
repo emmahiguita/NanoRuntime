@@ -1,0 +1,19 @@
+--------- beginning of main
+10-16 15:52:25.943 18010 18010 I NanoThermalMonitor: Cambio de estado térmico: 2 (MODERATE)
+10-16 15:52:25.945 18010 18010 W NanoPerformanceEngine: Alerta térmica MODERATE: reduciendo objetivo de sesión a BALANCED.
+10-16 15:52:25.945 18010 18010 I NanoThermalMonitor: Cambio de estado térmico: 2 (MODERATE)
+10-16 15:52:25.945 18010 18010 W NanoPerformanceEngine: Alerta térmica MODERATE: reduciendo objetivo de sesión a BALANCED.
+10-16 15:52:42.277 18010 18017 I v.nanoai.mobile: Background young concurrent mark compact GC freed 5008KB AllocSpace bytes, 3(72KB) LOS objects, 38% free, 8103KB/12MB, paused 787us,6.385ms total 43.500ms
+10-16 15:52:55.935 18010 18010 I NanoThermalMonitor: Cambio de estado térmico: 1 (LIGHT)
+10-16 15:52:55.935 18010 18010 I NanoThermalMonitor: Cambio de estado térmico: 1 (LIGHT)
+10-16 15:53:02.344 18010 18010 I flutter : [scheduler] time_tick 15:53 cargadas=2 matcheadas=0
+10-16 15:53:13.343 18010 18010 V AutofillManager: requestHideFillUi(null): anchor = null
+10-16 15:53:13.506 18010 18010 D ViewRootImplExtImpl: the up motion event handled by client, just return
+10-16 15:53:17.847 18010 18010 V AutofillManager: requestHideFillUi(null): anchor = null
+10-16 15:53:19.867 18010 18017 I v.nanoai.mobile: NativeAlloc concurrent mark compact GC freed 385KB AllocSpace bytes, 0(0B) LOS objects, 49% free, 6619KB/12MB, paused 929us,9.305ms total 85.716ms
+10-16 15:53:20.062 18010 18010 I ScrollIdentify: on fling
+10-16 15:53:20.062 18010 18010 D ViewRootImplExtImpl: the up motion event handled by client, just return
+10-16 15:53:20.256 18010 18017 I v.nanoai.mobile: NativeAlloc concurrent mark compact GC freed 533KB AllocSpace bytes, 0(0B) LOS objects, 49% free, 6583KB/12MB, paused 755us,8.149ms total 57.457ms
+10-16 15:53:20.404 18010 18010 V AutofillManager: requestHideFillUi(null): anchor = null
+10-16 15:53:20.836 18010 18010 I ScrollIdentify: on fling
+10-16 15:53:20.836 18010 18010 D ViewRootImplExtImpl: the up motion event handled by client, just return

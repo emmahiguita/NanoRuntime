@@ -1,0 +1,13 @@
+﻿
+10-27 02:53:47.667 26248 26248 D callGcSupression: java.lang.NullPointerException: Attempt to invoke virtual method 
+'java.lang.Object java.lang.reflect.Method.invoke(java.lang.Object, java.lang.Object[])' on a null object reference
+10-27 02:53:47.671 26248 26248 D callGcSupression: java.lang.NullPointerException: Attempt to invoke virtual method 
+'java.lang.Object java.lang.reflect.Method.invoke(java.lang.Object, java.lang.Object[])' on a null object reference
+10-27 02:53:48.495 26248 26248 D callGcSupression: java.lang.NullPointerException: Attempt to invoke virtual method 
+'java.lang.Object java.lang.reflect.Method.invoke(java.lang.Object, java.lang.Object[])' on a null object reference
+10-27 02:53:48.507 26248 26248 D callGcSupression: java.lang.NullPointerException: Attempt to invoke virtual method 
+'java.lang.Object java.lang.reflect.Method.invoke(java.lang.Object, java.lang.Object[])' on a null object reference
+10-27 02:53:49.498 26248 26248 I flutter : [runtime] agentLaunchPackage error: PlatformException(SERVICE_OFF, 
+AgentAccessibilityService no conectado — activarlo en Ajustes → Accesibilidad, null, null)
+
+

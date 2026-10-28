@@ -1,0 +1,162 @@
+{
+  "schema": 1,
+  "checked_at": "2026-10-17",
+  "models": [
+    {
+      "id": "qwen35-4b",
+      "title": "Qwen3.5 4B",
+      "origin": "Qwen/Qwen3.5-4B",
+      "repo": "unsloth/Qwen3.5-4B-GGUF",
+      "revision": "e87f176479d0855a907a41277aca2f8ee7a09523",
+      "files": [
+        {
+          "filename": "Qwen3.5-4B-Q4_K_M.gguf",
+          "size": 2740937888,
+          "sha256": "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+          "role": "model"
+        },
+        {
+          "filename": "mmproj-F16.gguf",
+          "size": 672423616,
+          "sha256": "cd88edcf8d031894960bb0c9c5b9b7e1fea6ebee02b9f7ce925a00d12891f864",
+          "role": "asset"
+        }
+      ],
+      "use": "Texto e imágenes. Razonamiento, redacción y código.",
+      "parameters": "4B",
+      "quantization": "Q4_K_M",
+      "license": "apache-2.0",
+      "capability_note": "Texto pendiente de prueba en Nano. Imágenes, audio y vídeo aún no integrados en Desktop.",
+      "verified": false
+    },
+    {
+      "id": "gemma4-e2b",
+      "title": "Gemma 4 E2B",
+      "origin": "google/gemma-4-E2B-it",
+      "repo": "ggml-org/gemma-4-E2B-it-GGUF",
+      "revision": "b4243c156154b6dca9324415f8c7ccc098b4aed1",
+      "files": [
+        {
+          "filename": "gemma-4-E2B-it-Q4_0.gguf",
+          "size": 2841481184,
+          "sha256": "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52",
+          "role": "model"
+        },
+        {
+          "filename": "mmproj-gemma-4-E2B-it-Q8_0.gguf",
+          "size": 557368064,
+          "sha256": "9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292",
+          "role": "asset"
+        }
+      ],
+      "use": "Texto, imágenes y audio de entrada; salida de texto. Vídeo por fotogramas.",
+      "parameters": "5.1B totales · 2.3B efectivos",
+      "quantization": "Q4_0",
+      "license": "apache-2.0",
+      "capability_note": "Texto pendiente de prueba en Nano. Imágenes, audio y vídeo aún no integrados en Desktop.",
+      "verified": false
+    },
+    {
+      "id": "gemma4-e4b",
+      "title": "Gemma 4 E4B",
+      "origin": "google/gemma-4-E4B-it",
+      "repo": "ggml-org/gemma-4-E4B-it-GGUF",
+      "revision": "b8093469224f83f5c38f691eb906c380e9e63114",
+      "files": [
+        {
+          "filename": "gemma-4-E4B-it-Q4_0.gguf",
+          "size": 4590807392,
+          "sha256": "a555b900214b477d8880e7832e0b8925e139b0159640036b09fe472b6f2097f2",
+          "role": "model"
+        },
+        {
+          "filename": "mmproj-gemma-4-E4B-it-Q8_0.gguf",
+          "size": 559874816,
+          "sha256": "197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1",
+          "role": "asset"
+        }
+      ],
+      "use": "Texto, imágenes y audio de entrada; salida de texto. Vídeo por fotogramas.",
+      "parameters": "8B totales · 4.5B efectivos",
+      "quantization": "Q4_0",
+      "license": "apache-2.0",
+      "capability_note": "Texto pendiente de prueba en Nano. Imágenes, audio y vídeo aún no integrados en Desktop.",
+      "verified": false
+    },
+    {
+      "id": "minicpm-o45",
+      "title": "MiniCPM-o 4.5",
+      "origin": "openbmb/MiniCPM-o-4_5",
+      "repo": "openbmb/MiniCPM-o-4_5-gguf",
+      "revision": "db25077c33951fe163b42986fba0132e279872a2",
+      "files": [
+        {
+          "filename": "MiniCPM-o-4_5-Q4_K_M.gguf",
+          "size": 5026714400,
+          "sha256": "1237a97ee081b8abebc47aa7dad565701e8f5f904cdc92f6723ac4281bbc0932",
+          "role": "model"
+        },
+        {
+          "filename": "audio/MiniCPM-o-4_5-audio-F16.gguf",
+          "size": 660167904,
+          "sha256": "d5b188ac7feaf98e17175c3f9bd14bf269301bfd187439fdaa3e3a494fc32ef7",
+          "role": "asset"
+        },
+        {
+          "filename": "token2wav-gguf/encoder.gguf",
+          "size": 151339008,
+          "sha256": "7f8d265da594eaf5e1de2db8f5f1867dbcb0bb75ef5878fadf2952347116f4d0",
+          "role": "asset"
+        },
+        {
+          "filename": "token2wav-gguf/flow_extra.gguf",
+          "size": 13663328,
+          "sha256": "c67611aa7d02500fe395a7798bf0bfdfb55c74d37ba93934ca74d82b4e63f78d",
+          "role": "asset"
+        },
+        {
+          "filename": "token2wav-gguf/flow_matching.gguf",
+          "size": 458250240,
+          "sha256": "eda6069f3edeb5dd3a87fbf2aedb2ddd1b46f3273926c4fcf09b24476a39cab8",
+          "role": "asset"
+        },
+        {
+          "filename": "token2wav-gguf/hifigan2.gguf",
+          "size": 83242816,
+          "sha256": "1b8b3bf5d8d3066aeee4324fdcdd41aefce170d0ee907645858de408d82835c2",
+          "role": "asset"
+        },
+        {
+          "filename": "token2wav-gguf/prompt_cache.gguf",
+          "size": 211613152,
+          "sha256": "81fe6f541ebe0b67db06a1e395df928da47991dc9637c2cf47d6c59d5b979f2c",
+          "role": "asset"
+        },
+        {
+          "filename": "tts/MiniCPM-o-4_5-projector-F16.gguf",
+          "size": 14948640,
+          "sha256": "4b1b5b377358a5e594a304ff6ea5d52df606a9ba7d886c4299d232f0c67dd1fd",
+          "role": "asset"
+        },
+        {
+          "filename": "tts/MiniCPM-o-4_5-tts-F16.gguf",
+          "size": 1157244416,
+          "sha256": "c7be3748a863dd6966ae7eed42600b7f41ca67affb03729ff245247f0e5ea088",
+          "role": "asset"
+        },
+        {
+          "filename": "vision/MiniCPM-o-4_5-vision-F16.gguf",
+          "size": 1095113184,
+          "sha256": "1453678cc4e4fe18de241952962e234f265cb8dda780773526103ab8ba82f421",
+          "role": "asset"
+        }
+      ],
+      "use": "Texto, visión, comprensión y generación de voz. Requiere un pipeline adicional para audio y conversación audiovisual.",
+      "parameters": "9B paquete completo",
+      "quantization": "Q4_K_M",
+      "license": "apache-2.0",
+      "capability_note": "Texto pendiente de prueba en Nano. Imágenes, audio y vídeo aún no integrados en Desktop.",
+      "verified": false
+    }
+  ]
+}

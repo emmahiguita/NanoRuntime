@@ -1,0 +1,22 @@
+{
+  "0": "whatsapp_webhook_api.py",
+  "1": "whatsapp_templates_api.py",
+  "2": "main.py",
+  "3": "whatsapp_webhook_api.py",
+  "4": "whatsapp_webhook_normalizer.py",
+  "5": "Nano · recepción oficial de WhatsApp (sprint 2)",
+  "6": "ConnectionManager",
+  "7": "WebhookInbox",
+  "8": "Nano Desktop · gateway local de WhatsApp",
+  "9": "LocalGatewayPanel",
+  "10": "HTTPS de prueba y configuración manual del webhook",
+  "11": "gateway_health",
+  "12": "Bandeja oficial: lectura y sincronización",
+  "13": "MetaWebhookScope",
+  "14": "whatsapp_webhook_normalizer.py",
+  "15": "whatsapp_panel_view.py",
+  "16": "whatsapp_graph_transport.py",
+  "17": "Estados visibles del servidor de WhatsApp",
+  "18": "whatsapp_gateway_health.py",
+  "19": "McpGatewayEndpoint"
+}

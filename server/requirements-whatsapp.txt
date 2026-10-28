@@ -1,0 +1,6 @@
+# Versiones ya instaladas y verificadas en este PC; no instala otro runtime de IA.
+fastapi==0.139.0
+uvicorn==0.50.0
+# SDK oficial v1 con parche de seguridad HTTP (CVE/GHSA < 1.29.1); evita salto incompatible a v2.
+mcp>=1.29.1,<2
+

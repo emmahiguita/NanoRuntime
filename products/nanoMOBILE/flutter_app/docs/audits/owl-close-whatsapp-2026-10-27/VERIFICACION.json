@@ -1,0 +1,105 @@
+{
+  "date": "2026-10-27",
+  "device": {
+    "serial": "VGL7MVFMDYQG8T55",
+    "model": "OPPO CPH2557",
+    "android": 15
+  },
+  "edited": [
+    "lib/features/chat/nano_everywhere/nano_assistant_header.dart",
+    "lib/features/chat/nano_everywhere/nano_assistant_panel.dart",
+    "lib/features/chat/nano_everywhere/nano_assistant_panel_view.dart",
+    "lib/features/chat/nano_everywhere/nano_floating_assistant_view.dart",
+    "lib/features/chat/nano_everywhere/nano_floating_assistant.dart",
+    "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoGeminiHeaderView.kt",
+    "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoGeminiOverlayView.kt",
+    "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoFloatingService.kt",
+    "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoPanelIcon.kt",
+    "test/features/chat/nano_owl_visibility_test.dart"
+  ],
+  "staticAnalysis": {
+    "command": "dart analyze lib/features/chat/nano_everywhere",
+    "exitCode": 0,
+    "result": "No issues found!",
+    "artifact": "analisis.log"
+  },
+  "tests": {
+    "passed": 34,
+    "exitCode": 0,
+    "kind": "Lógica y widgets; dobles identificados, sin acreditar ejecución externa",
+    "artifact": "regresion.log"
+  },
+  "build": {
+    "variant": "fullSideloadDebug",
+    "architecture": "arm64",
+    "exitCode": 0,
+    "artifact": "compilacion.log",
+    "apk": "build/app/outputs/flutter-apk/app-fullsideload-debug.apk",
+    "sha256": "10136F3FD5D101FC82E75D00044E2CC27C8C070EC899E20ADBE3913AEF1D5821"
+  },
+  "install": {
+    "method": "adb install -r",
+    "result": "Success",
+    "preserveData": true
+  },
+  "observations": [
+    {
+      "id": "native_minimize",
+      "result": "observed",
+      "detail": "El botón Contraer a burbuja retiró el panel; quedó Asistente Nano sobre otras apps y foco WhatsApp Conversation."
+    },
+    {
+      "id": "native_close",
+      "result": "observed",
+      "detail": "Cerrar asistente retiró panel y burbuja. dumpsys sin NanoFloatingService. Atajo Android conservado."
+    },
+    {
+      "id": "android15_back",
+      "result": "observed",
+      "detail": "KEYCODE_BACK con IME cerrado contrajo el panel tras conectar OnBackInvokedDispatcher."
+    },
+    {
+      "id": "ime_back_first",
+      "result": "observed",
+      "detail": "IME visible antes; primer Atrás mInputShown=false y panel Búho AI aún visible."
+    },
+    {
+      "id": "read_screen",
+      "result": "observed",
+      "detail": "Leer pantalla devolvió Texto accesible de com.whatsapp, incluido nombre Emm. Lectura local, sin visión de imágenes."
+    },
+    {
+      "id": "open_chat_from_owl",
+      "result": "observed_with_runtime_limit",
+      "detail": "Desde WhatsApp HomeActivity se ejecutó Abre el chat de +573203527283 en editor nativo Búho. Después Conversation, encabezado Emm, burbuja reducida. Motor: completedUnverified; no verifica número final.",
+      "receipt": "[completedUnverified] Android aceptó abrir el chat de \"Emm\" (573203527283); destino final sin verificar."
+    },
+    {
+      "id": "return_nano",
+      "result": "observed",
+      "detail": "Abrir Nano en avatar devolvió MainActivity; sin panel Búho ni burbuja externa sobre Nano; cabecera Abrir Búho AI disponible."
+    },
+    {
+      "id": "external_sends",
+      "result": "not_run",
+      "detail": "No se enviaron nuevos textos ni archivos en este ciclo. La autorización de envío anterior no se reutilizó."
+    }
+  ],
+  "evidence": [
+    "01-panel-externo.jpg",
+    "02-cerrado-con-atajo-conservado.jpg",
+    "03-chat-abierto-desde-buho.jpg",
+    "04-recibo-real.jpg"
+  ],
+  "limits": [
+    "Sin nueva prueba de envío o compartición de archivos.",
+    "Sin pruebas de voz o de todas las aplicaciones.",
+    "No se midió temperatura, FPS ni consumo.",
+    "La apertura no verifica automáticamente el número final del perfil.",
+    "No se probó horizontal ni Android anterior a 13 en dispositivo."
+  ],
+  "review": {
+    "agent": "owl_visibility_review",
+    "result": "Sin defecto adicional demostrado; revisión independiente, sin editar ni actuar en teléfono."
+  }
+}

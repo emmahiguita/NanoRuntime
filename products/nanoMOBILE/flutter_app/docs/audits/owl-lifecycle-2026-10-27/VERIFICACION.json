@@ -1,0 +1,97 @@
+{
+  "sources": [
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_ai_controller.dart",
+      "lines": 162,
+      "sha256": "f40f2cf47b11b53cb3bb7ffa38f7272b296e1862d2d544454a2df032623e595d"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_ai_panel_state.dart",
+      "lines": 65,
+      "sha256": "cc203a529086f1c9c1622772f8be5fb3e1b54c08fc81e04c1f69bd5ee974cea1"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_floating_wrapper.dart",
+      "lines": 161,
+      "sha256": "7891521403b4c245685c17feafc18e5288ab38c22a2f0d5e5b7bda5e9f2c4053"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_floating_wrapper_entry.dart",
+      "lines": 43,
+      "sha256": "723bee0f88d209fcbc070c045de00f0a3a3c35d9e9702c04108abd22d22234b5"
+    },
+    {
+      "path": "lib/features/chat/nano_everywhere/nano_floating_assistant.dart",
+      "lines": 176,
+      "sha256": "dcca17ed02ac5114fa5e6884a77665de545984f9d434e838543a0d4f1cb719f9"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_agent_header.dart",
+      "lines": 96,
+      "sha256": "cca117aee8b636b7e95306aa1310cc0e97bcb2cc29a0a038a15c58d7b5367c3b"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_header_identity.dart",
+      "lines": 100,
+      "sha256": "8fc08166018145fb1177eeefdeb4a217cb8343235fc0138601b866a4b4bf0871"
+    },
+    {
+      "path": "lib/features/automation/presentation/widgets/automation_dashboard_content.dart",
+      "lines": 165,
+      "sha256": "64587766714b8ccdd8b8ea04b657616af1822dd633a062c7f82b928166b9f83f"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoFloatingService.kt",
+      "lines": 172,
+      "sha256": "2ac66b2f2e1b35fabaedd821d766cc0be12344fa8b7ff96ac55fa87b12764a2a"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOverlayHostVisibility.kt",
+      "lines": 58,
+      "sha256": "eba0391d3dc254f24855dee6fbf5c6568b26bbd54a9899e15a86b9e887646ecb"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOverlayWindowLayout.kt",
+      "lines": 56,
+      "sha256": "5beb0139a4afbbf1a3ff95bb8874a2d1092a77533cf6eda0d48adfa08d83a8d8"
+    },
+    {
+      "path": "android/app/src/main/kotlin/dev/nanoai/mobile/channels/NanoFloatingChannel.kt",
+      "lines": 156,
+      "sha256": "bbb808ca834adff811e2e28402f73acf5b7f28907c3517da1b1a92189a9e8659"
+    },
+    {
+      "path": "test/features/chat/nano_owl_visibility_test.dart",
+      "lines": 157,
+      "sha256": "8aba82845862cb3ed700967c6f63f6c1c037c404f98f40288368d3d8fd67b3e5"
+    },
+    {
+      "path": "test/features/chat/nano_owl_entry_test.dart",
+      "lines": 51,
+      "sha256": "3e1afd3db11ee4feb8094e96096700dcae19d0d10b6f8111dd0caf4e0bbe9fc8"
+    },
+    {
+      "path": "test/features/chat/support/nano_owl_test_ports.dart",
+      "lines": 42,
+      "sha256": "c7d4a4ff1bbc244b84a132ac9b862a5f1b7601a23023ca931077a877a3959f75"
+    }
+  ],
+  "under_200_lines": true,
+  "static_analysis": "No issues found!",
+  "tests": {
+    "passed": 34,
+    "failed": 0,
+    "new_cases": 5,
+    "existing_whatsapp_cases": 29,
+    "explicit_test_doubles": true
+  },
+  "build": {
+    "variant": "fullSideloadDebug",
+    "exit_code": 0,
+    "sha256": "2708bb09652b52e52e8e6b8005a685eb23a2c747fbe357772f63900511d3f730",
+    "bytes": 191284598
+  },
+  "final_installation": "pending_offline_device",
+  "no_messages_sent_this_cycle": true,
+  "independent_review": "Two initial findings fixed; no remaining demonstrated issue in their immediate dependencies."
+}

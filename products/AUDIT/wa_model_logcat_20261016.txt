@@ -1,0 +1,54 @@
+10-16 15:52:21.212 22368 22368 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libaol_jni.oplus.so:libbleoffload_jni.oplus.so:libSloganJni.oplus.so:libsuperNight.oplus.so:libAPSClient-cmd-jni-extension.oplus.so:libsatellite_audio_jni.oplus.so:libortc_so.oplus.so:libsoundtouch.oplus.so:libsoundtouch_jni.oplus.so:libOplusStringJNI-extension.oplus.so:libapssuspend-jni.oplus.so
+10-16 15:52:21.608  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:52:22.011  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:52:22.150  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:22.277  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:22.451  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:22.464  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:52:22.631  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:22.672 22612 22612 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libaol_jni.oplus.so:libbleoffload_jni.oplus.so:libSloganJni.oplus.so:libsuperNight.oplus.so:libAPSClient-cmd-jni-extension.oplus.so:libsatellite_audio_jni.oplus.so:libortc_so.oplus.so:libsoundtouch.oplus.so:libsoundtouch_jni.oplus.so:libOplusStringJNI-extension.oplus.so:libapssuspend-jni.oplus.so
+10-16 15:52:22.783  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:23.037  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:52:23.219  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:23.528  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:52:23.817  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:23.858  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:24.076  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:52:25.342 22721 22721 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libaol_jni.oplus.so:libbleoffload_jni.oplus.so:libSloganJni.oplus.so:libsuperNight.oplus.so:libAPSClient-cmd-jni-extension.oplus.so:libsatellite_audio_jni.oplus.so:libortc_so.oplus.so:libsoundtouch.oplus.so:libsoundtouch_jni.oplus.so:libOplusStringJNI-extension.oplus.so:libapssuspend-jni.oplus.so
+10-16 15:52:25.943 18010 18010 I NanoThermalMonitor: Cambio de estado térmico: 2 (MODERATE)
+10-16 15:52:25.945 18010 18010 W NanoPerformanceEngine: Alerta térmica MODERATE: reduciendo objetivo de sesión a BALANCED.
+10-16 15:52:25.945 18010 18010 I NanoThermalMonitor: Cambio de estado térmico: 2 (MODERATE)
+10-16 15:52:25.945 18010 18010 W NanoPerformanceEngine: Alerta térmica MODERATE: reduciendo objetivo de sesión a BALANCED.
+10-16 15:52:26.039 26328 27096 W Battery : ThermalControllHandler: tempLevel=[8],userMode=2,gameUserMode=7,appType=-1,envTempType=0,appStates=[],appSwitchSafetyMode=false,split=[],float=[],full=[dev.nanoai.mobile], tempGear=[8],configItemName=common_config
+10-16 15:52:28.616  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:52:35.623  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:52:42.277 18010 18017 I v.nanoai.mobile: Background young concurrent mark compact GC freed 5008KB AllocSpace bytes, 3(72KB) LOS objects, 38% free, 8103KB/12MB, paused 787us,6.385ms total 43.500ms
+10-16 15:52:42.631  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:52:47.500  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:52:47.607  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:47.626  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:48.603  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:52:49.638  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:52:52.499  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:52:55.434 22830 22830 D nativeloader: Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libaol_jni.oplus.so:libbleoffload_jni.oplus.so:libSloganJni.oplus.so:libsuperNight.oplus.so:libAPSClient-cmd-jni-extension.oplus.so:libsatellite_audio_jni.oplus.so:libortc_so.oplus.so:libsoundtouch.oplus.so:libsoundtouch_jni.oplus.so:libOplusStringJNI-extension.oplus.so:libapssuspend-jni.oplus.so
+10-16 15:52:55.935 18010 18010 I NanoThermalMonitor: Cambio de estado térmico: 1 (LIGHT)
+10-16 15:52:55.935 18010 18010 I NanoThermalMonitor: Cambio de estado térmico: 1 (LIGHT)
+10-16 15:52:55.953 26328 27096 W Battery : ThermalControllHandler: tempLevel=[7],userMode=2,gameUserMode=7,appType=-1,envTempType=0,appStates=[],appSwitchSafetyMode=false,split=[],float=[],full=[dev.nanoai.mobile], tempGear=[7],configItemName=common_config
+10-16 15:52:56.646  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:52:57.053  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:52:58.134  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:53:02.344 18010 18010 I flutter : [scheduler] time_tick 15:53 cargadas=2 matcheadas=0
+10-16 15:53:03.650  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:53:10.655  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:53:13.863  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:53:13.937  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:53:14.057  1315  1315 I BufferQueueProducer: [dev.nanoai.mobile/dev.nanoai.mobile.MainActivity#156061](this:0xb400007cc37c79e0,id:-1,api:0,p:-1,c:1315) queueBuffer: fps=0.00 dur=262018.90 max=262018.90 min=262018.90
+10-16 15:53:14.072  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:53:14.119  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:53:14.947  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:53:15.166  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:53:17.659  3018  3444 D CommonApp-466-10438: scene=COMMON pn=dev.nanoai.mobile
+10-16 15:53:18.027  1315  1315 I BufferQueueProducer: [dev.nanoai.mobile/dev.nanoai.mobile.MainActivity#156061](this:0xb400007cc37c79e0,id:-1,api:0,p:-1,c:1315) queueBuffer: fps=0.25 dur=3970.00 max=3970.00 min=3970.00
+10-16 15:53:18.407  1961  3158 D ActivityTaskManager: pre-Filtered:dev.nanoai.mobile # 
+10-16 15:53:18.490  1215  1215 I MTK_APPList: [notifyAPPstate] multi_resumed_app_info[0] dev.nanoai.mobile/dev.nanoai.mobile.MainActivity, pid:18010, activityId:205273, fps:-1, isMultiWindow:0
+10-16 15:53:19.028  1315  1315 I BufferQueueProducer: [dev.nanoai.mobile/dev.nanoai.mobile.MainActivity#156061](this:0xb400007cc37c79e0,id:-1,api:0,p:-1,c:1315) queueBuffer: fps=20.97 dur=1001.30 max=67.25 min=32.81

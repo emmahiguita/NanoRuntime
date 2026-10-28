@@ -1,0 +1,52 @@
+/* El ancho disponible determina columnas; no se comprimen cuatro zonas a la fuerza. */
+@media (max-width: 1439px) {
+  .nano-desktop-refined .wa-workspace .wa-container-three-col { grid-template-columns: 290px minmax(0, 1fr); }
+  .nano-desktop-refined .wa-workspace .wa-col-context { display: none; }
+  .nano-desktop-refined .wa-workspace .wa-toggle-details { display: inline-flex; }
+}
+@container messaging (max-width: 1040px) {
+  .nano-desktop-refined .wa-workspace .wa-container-three-col { grid-template-columns: 290px minmax(0, 1fr); }
+  .nano-desktop-refined .wa-workspace .wa-col-context { display: none; }
+  .nano-desktop-refined .wa-workspace .wa-toggle-details { display: inline-flex; }
+}
+/* Se abre el mismo panel contextual dentro del área útil, sin otra ruta o instancia. */
+.nano-desktop-refined .wa-workspace.wa-details-open .wa-col-context {
+  display: flex;
+  position: absolute;
+  right: 0;
+  top: var(--wa-toolbar-height);
+  bottom: 0;
+  width: min(var(--wa-details-width), 100%);
+  z-index: 3;
+  box-shadow: var(--shadow-md);
+  border-left: 1px solid var(--nano-border);
+}
+/* El menú compacto conserva los nombres accesibles de los botones existentes. */
+@media (max-width: 1199px) {
+  body.nano-desktop-refined:has(#nav-whatsapp.active) { --nano-sidebar-width: 74px; }
+  .nano-desktop-refined:has(#nav-whatsapp.active) #sidebar { padding: 18px 10px; }
+  .nano-desktop-refined:has(#nav-whatsapp.active) :is(.nano-brand-copy, .sidebar-hardware-chip, .btn-sidebar-collapse, .sidebar-nav-item .label) { display: none !important; }
+  .nano-desktop-refined:has(#nav-whatsapp.active) .sidebar-nav-item { justify-content: center !important; padding: 0 !important; }
+  .nano-desktop-refined:has(#nav-whatsapp.active) .nano-brand { justify-content: center; padding: 0; }
+}
+/* Lista y conversación son estados internos al faltar espacio, no pantallas duplicadas. */
+@media (max-width: 899px) {
+  .nano-desktop-refined .wa-workspace .wa-container-three-col { grid-template-columns: minmax(0, 1fr); }
+  .nano-desktop-refined .wa-workspace .wa-col-conversation { display: none; }
+  .nano-desktop-refined .wa-workspace.wa-thread-selected .wa-col-sidebar { display: none; }
+  .nano-desktop-refined .wa-workspace.wa-thread-selected .wa-col-conversation { display: flex; }
+  .nano-desktop-refined .wa-workspace.wa-thread-selected .wa-back-list { display: inline-flex; }
+  .nano-desktop-refined .wa-workspace .wa-source-label { display: none; }
+}
+@container messaging (max-width: 650px) {
+  .nano-desktop-refined .wa-workspace .wa-container-three-col { grid-template-columns: minmax(0, 1fr); }
+  .nano-desktop-refined .wa-workspace .wa-col-conversation { display: none; }
+  .nano-desktop-refined .wa-workspace.wa-thread-selected .wa-col-sidebar { display: none; }
+  .nano-desktop-refined .wa-workspace.wa-thread-selected .wa-col-conversation { display: flex; }
+  .nano-desktop-refined .wa-workspace.wa-thread-selected .wa-back-list { display: inline-flex; }
+  .nano-desktop-refined .wa-workspace .wa-source-label { display: none; }
+  .nano-desktop-refined .wa-workspace .wa-workspace-heading strong { font-size: 14px; }
+  .nano-desktop-refined .wa-workspace .wa-workspace-toolbar { gap: var(--space-2); padding: var(--space-2); }
+  .nano-desktop-refined .wa-workspace .wa-btn-new-chat { padding: 0 var(--space-2); }
+  .nano-desktop-refined .wa-workspace .wa-bubble { max-width: 85%; }
+}

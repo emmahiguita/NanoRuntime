@@ -212,3 +212,32 @@ platforms/mobile/flutter_app/find_reals.py
 # Live test and debug captures
 products/live_*.png
 products/old_home.dart
+
+# Live test and debug captures & artifacts
+products/*.png
+products/nanoMOBILE/flutter_app/*.png
+*.png
+!**/assets/**/*.png
+!**/brand/**/*.png
+!**/Animaciones/**/*.png
+
+# Temporary debug artifacts & binary builds
+*.ipa
+build_ios_artifacts/
+.gradle-local/
+FlutterSharedPreferences.xml
+logcat*.txt
+replay_pid*.log
+hs_err_pid*.log
+temp_debs/
+test_permisos/
+test_artifacts/
+nanoMOBILE/flutter_app/temp_debs/
+nanoMOBILE/flutter_app/test_permisos/
+nanoMOBILE/flutter_app/test_artifacts/
+nanoMOBILE/flutter_app/*.tar.gz
+nanoMOBILE/flutter_app/*.log
+*.log
+
+# Third party speech models & clones
+whisper.cpp/

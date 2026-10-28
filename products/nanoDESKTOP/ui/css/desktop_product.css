@@ -1,0 +1,116 @@
+/* Desktop product layer: shared palette, density and affordances across modules. */
+body.nano-desktop-refined {
+  --nano-font: 'Segoe UI', Inter, -apple-system, sans-serif;
+  --nano-sidebar-width: 224px;
+  --nano-bg: #f6f7f9; --nano-bg-elevated: #fbfcfd;
+  --nano-surface: #fff; --nano-surface-soft: #f2f4f7; --nano-surface-hover: #eaf0f5;
+  --nano-text-primary: #202b38; --nano-text-secondary: #4a5869;
+  --nano-text-muted: #657386; --nano-text-faint: #788697;
+  --nano-border: #dde2e8; --nano-border-soft: #e8ecf1; --nano-border-active: #7491b3;
+  --nano-blue-50: #ebf0f6; --nano-blue-100: #e3ebf5;
+  --nano-blue-500: #49719e; --nano-blue-600: #365f8e; --nano-blue-700: #284b74;
+  --nano-success: #237251; --nano-warning: #936519; --nano-danger: #b83a40;
+  --nano-gradient-primary: #365f8e; --nano-gradient-ice: var(--nano-surface);
+  --shadow-xs: 0 1px 2px #18263806; --shadow-sm: 0 2px 6px #18263808;
+  --shadow-md: 0 6px 18px #18263810; --shadow-blue: none;
+  --nano-font-signature: var(--nano-font);
+  color: var(--nano-text-primary);
+}
+[data-theme="dark"] body.nano-desktop-refined {
+  --nano-bg: #181c22; --nano-bg-elevated: #1c2128;
+  --nano-surface: #222831; --nano-surface-soft: #292f39; --nano-surface-hover: #303a47;
+  --nano-text-primary: #e7ebf1; --nano-text-secondary: #c0c9d5;
+  --nano-text-muted: #a0adbd; --nano-text-faint: #8c9aac;
+  --nano-border: #39414d; --nano-border-soft: #303843; --nano-border-active: #85a6cc;
+  --nano-blue-50: #29394d; --nano-blue-100: #30445d;
+  --nano-blue-500: #85a6cc; --nano-blue-600: #94b6de; --nano-blue-700: #aec9e8;
+  --nano-success: #79c3a2; --nano-warning: #ddba78; --nano-danger: #ef9b9f;
+  --nano-gradient-primary: #365f8e; --shadow-sm: none;
+}
+.nano-desktop-refined .nano-icon { stroke-width: 1.65; flex-shrink: 0; vertical-align: middle; }
+.nano-desktop-refined #sidebar { padding: 18px 12px 12px; border-right: 1px solid var(--nano-border); }
+.nano-desktop-refined .nano-brand { margin-bottom: 22px; height: 48px; }
+.nano-desktop-refined .brand-name { font-size: 22px; }
+.nano-desktop-refined .nano-brand-tagline { font-size: 11px; }
+.nano-desktop-refined .sidebar-nav-item { height: 40px; min-height: 40px; border-radius: 6px; gap: 11px; font-size: 13px; }
+.nano-desktop-refined .sidebar-nav-item.active { background: var(--nano-blue-50); color: var(--nano-blue-600); box-shadow: none; }
+[data-theme] .nano-desktop-refined .nano-topbar { background: var(--nano-surface); backdrop-filter: none; }
+.nano-desktop-refined .nano-model-selector,
+.nano-desktop-refined .model-dropdown-menu { background: var(--nano-surface); backdrop-filter: none; border: 1px solid var(--nano-border); color: var(--nano-text-primary); }
+.nano-desktop-refined .nano-model-selector:hover { background: var(--nano-surface-soft); border-color: var(--nano-border-active); }
+.nano-desktop-refined .workspace-panels::after { display: none; }
+.nano-desktop-refined .nano-home-view { background: var(--nano-bg); }
+.nano-desktop-refined .nano-hero { display: block; width: 100%; max-width: 824px; margin: auto; padding: 24px 32px; }
+.nano-desktop-refined .workspace-eyebrow { display: block; color: var(--nano-text-muted); font-size: 10px; font-weight: 600; letter-spacing: .12em; margin-bottom: 18px; }
+.nano-desktop-refined .nano-hero-title { font-size: 26px; font-weight: 600; line-height: 1.25; letter-spacing: -.025em; margin: 0 0 8px; }
+.nano-desktop-refined .nano-hero-subtitle { font-size: 13px; line-height: 1.6; margin: 0 0 20px; }
+.nano-desktop-refined .nano-home-grid { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.nano-desktop-refined .nano-feature-card { display: inline-flex; align-items: center; width: auto; min-height: 32px; height: 32px; padding: 0 8px; gap: 7px; border: 0; border-radius: 5px; background: transparent; box-shadow: none; font-size: 12px; color: var(--nano-text-secondary); }
+.nano-desktop-refined .nano-feature-card .nano-icon-tile { background: none; color: var(--nano-text-secondary); width: 24px; height: 24px; border-radius: 0; }
+.nano-desktop-refined .nano-feature-card:hover { transform: none; box-shadow: none; background: var(--nano-surface-hover); color: var(--nano-text-primary); }
+.nano-desktop-refined .nano-feature-card-title { font-size: 12.5px; }
+.nano-desktop-refined .nano-feature-card-description { font-size: 11.5px; }
+.nano-desktop-refined .nano-composer-box { border-radius: 12px; border: 1px solid var(--nano-border); box-shadow: var(--shadow-sm); }
+.nano-desktop-refined .chat-bubble-user { background: var(--nano-blue-50); color: var(--nano-text-primary); border: 1px solid var(--nano-border); }
+.nano-desktop-refined .settings-sections-grid { display: flex; flex-direction: column; width: 100%; max-width: 840px; gap: 0; align-items: stretch; }
+.nano-desktop-refined .settings-card { padding: 18px 0; border: 0; border-bottom: 1px solid var(--nano-border); border-radius: 0; gap: 10px; background: transparent; box-shadow: none; }
+.nano-desktop-refined .settings-card h3 { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+.nano-desktop-refined .settings-card p { font-size: 12px; line-height: 1.7; margin: 0; }
+.nano-desktop-refined .settings-card label { font-size: 12px; }
+.nano-desktop-refined :is(.settings-select,.settings-input,.form-input,.form-select,.form-textarea) { border-radius: 6px; min-height: 36px; }
+.nano-desktop-refined :is(.settings-btn-save,.files-btn-upload,.btn-primary-action,.btn-submit-agent) { background: #365f8e; color: #fff; border-radius: 6px; box-shadow: none; font-weight: 500; }
+.nano-desktop-refined :is(.settings-btn-save,.files-btn-upload,.btn-primary-action):hover { background: #284b74; }
+.nano-desktop-refined :is(.auto-card,.auto-metrics-banner,.auto-logs-section,.sys-metric-box,.model-ivory-card) { background: var(--nano-surface); border: 1px solid var(--nano-border); border-radius: 8px; box-shadow: none; }
+.nano-desktop-refined .auto-card:hover { transform: none; box-shadow: none; }
+.nano-desktop-refined :is(.auto-card-icon,.settings-card-icon) { background: var(--nano-surface-soft); color: var(--nano-text-secondary); }
+.nano-desktop-refined :is(.log-status-badge,.param-val,.agent-stats > span,.checkbox-pill > span) { display: inline-flex; align-items: center; gap: 5px; }
+.nano-desktop-refined :is(.automation-header h2,.sys-header-left h2,.files-title-group h2,.settings-header-row h2) { font-size: 20px; font-weight: 600; letter-spacing: -.025em; }
+.nano-desktop-refined .files-table-container { overflow-x: auto; }
+.nano-desktop-refined .files-table { table-layout: fixed; width: 100%; }
+.nano-desktop-refined .files-table th:first-child { width: 32%; }
+.nano-desktop-refined .files-table th:last-child { width: 100px; }
+.nano-desktop-refined .files-table td { overflow-wrap: anywhere; }
+.nano-desktop-refined .terminal-dots { display: none; }
+.nano-desktop-refined .wa-workspace { --ng-bg: var(--nano-bg); --ng-chat: var(--nano-bg); --ng-glass: var(--nano-surface); --ng-field: var(--nano-surface-soft); --ng-text: var(--nano-text-primary); --ng-muted: var(--nano-text-muted); --ng-border: var(--nano-border); --ng-accent: var(--nano-blue-600); --ng-selected: var(--nano-blue-50); --ng-outbound: var(--nano-blue-50); --ng-shadow: none; }
+.nano-desktop-refined .wa-workspace :is(.wa-workspace-toolbar,.wa-col-sidebar,.wa-conversation-header,.wa-composer-wrapper) { backdrop-filter: none; }
+.nano-desktop-refined .terminal-container-view { border-radius: 8px; }
+.nano-desktop-refined :is(.nano-window-statusbar,.sidebar-hardware-chip) { background: var(--nano-bg-elevated); box-shadow: none; }
+.nano-desktop-refined .status-indicator-dot { background: var(--nano-text-muted); box-shadow: none; animation: none; }
+.nano-desktop-refined button:disabled { opacity: .55; cursor: default; }
+.nano-desktop-refined :is(button,input,select,textarea):focus-visible { outline: 2px solid var(--nano-border-active); outline-offset: 3px; }
+@media (max-width:1039px) { body.nano-desktop-refined { --nano-sidebar-width: 74px; } }
+@media (prefers-reduced-motion:reduce) { .nano-desktop-refined *, .nano-desktop-refined *::before, .nano-desktop-refined *::after { animation: none !important; transition: none !important; } }
+
+/* Compact controls and flat sections replace decorative card containers. */
+.nano-desktop-refined .home-utilities { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--nano-border-soft); }
+.nano-desktop-refined .home-utilities button { display: inline-flex; align-items: center; gap: 7px; border: 0; padding: 4px 0; background: transparent; color: var(--nano-text-muted); font-size: 11px; cursor: pointer; }
+.nano-desktop-refined .home-utilities button:hover { color: var(--nano-blue-600); }
+.nano-desktop-refined .nano-composer-box { max-width: 760px; padding: 10px 14px 8px; box-shadow: none; border-radius: 8px; }
+.nano-desktop-refined .nano-composer-wrap { padding: 10px 24px 18px; }
+.nano-desktop-refined .settings-card :is(select,input) { width: min(100%,420px); }
+.nano-desktop-refined .settings-card .settings-btn-save { min-height: 30px; padding: 5px 10px; font-size: 12px; }
+.nano-desktop-refined .sys-metrics-cards { display: flex; flex-wrap: wrap; gap: 24px; margin: 12px 0 24px; }
+.nano-desktop-refined .sys-metric-box { flex: 0 1 320px; min-height: 0; background: transparent; border: 0; border-radius: 0; padding: 8px 0; box-shadow: none; }
+.nano-desktop-refined .sys-box-val { font-size: 22px; }
+.nano-desktop-refined .models-ivory-grid { display: flex; flex-direction: column; gap: 0; }
+.nano-desktop-refined .model-ivory-card { display: grid; grid-template-columns: minmax(0,1fr) auto; column-gap: 20px; row-gap: 7px; padding: 14px 0; border: 0; border-bottom: 1px solid var(--nano-border); border-radius: 0; background: transparent; box-shadow: none; }
+.nano-desktop-refined .model-card-header { grid-column: 1; margin: 0; }
+.nano-desktop-refined .model-chip-path { grid-column: 1; margin: 0; }
+.nano-desktop-refined .model-card-actions { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin: 0; }
+.nano-desktop-refined .auto-grid-section { display: flex; flex-direction: column; gap: 0; }
+.nano-desktop-refined .auto-card { padding: 14px 0; border: 0; border-bottom: 1px solid var(--nano-border); border-radius: 0; background: transparent; box-shadow: none; gap: 8px; }
+.nano-desktop-refined .auto-card-desc { margin: 4px 0; }
+.nano-desktop-refined .auto-card-parameters { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 8px 0; background: transparent; border: 0; }
+.nano-desktop-refined .auto-card-footer { padding-top: 8px; }
+.nano-desktop-refined .auto-metrics-banner { padding: 12px 0; border: 0; border-bottom: 1px solid var(--nano-border); border-radius: 0; background: transparent; }
+.nano-desktop-refined .auto-logs-section { border: 0; border-radius: 0; background: transparent; }
+.nano-desktop-refined .nano-system-status { padding: 10px 0; border: 0; border-radius: 0; background: transparent; }
+.nano-desktop-refined .btn-nanoruntime-pill { border: 0; border-radius: 0; background: transparent; padding: 0; }
+@media (max-width:900px) { .nano-desktop-refined .nano-hero { padding: 20px 24px; } .nano-desktop-refined .model-card-actions { grid-column: 1; grid-row: auto; justify-content: flex-start; } }
+@media (max-height:700px) { .nano-desktop-refined .nano-hero { padding-top: 16px; padding-bottom: 16px; } .nano-desktop-refined .nano-hero-title { font-size: 24px; } }
+/* Keep the empty-chat actions and input together; populated threads retain their scroll layout. */
+.nano-desktop-refined .chat-wrapper-clean:has(.hero-mode) { justify-content: center; overflow-y: auto; }
+.nano-desktop-refined .chat-stream-container.hero-mode { flex: 0 0 auto; height: auto; min-height: 0; padding: 0; overflow: visible; }
+.nano-desktop-refined .hero-mode .nano-home-view { height: auto; min-height: 0; overflow: visible; }
+.nano-desktop-refined .hero-mode .nano-hero { margin: 0 auto; padding-bottom: 14px; }
+.nano-desktop-refined .chat-wrapper-clean:has(.hero-mode) .nano-composer-wrap { margin-top: 0; }

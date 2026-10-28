@@ -1,0 +1,233 @@
+/* Presentación de escritorio: reutiliza la estructura existente sin duplicar componentes. */
+body.nano-desktop-refined {
+  --nano-sidebar-width: clamp(240px, 18.5vw, 292px);
+  --nano-topbar-height: 52px;
+  --nano-gradient-primary: linear-gradient(135deg, #1769ff, #377cff);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+/* Tres filas explícitas evitan que el pie desborde la ventana o recorte el compositor. */
+.nano-desktop-refined #main-view {
+  grid-template-rows: var(--nano-topbar-height) minmax(0, 1fr) 36px;
+  height: 100%;
+}
+.nano-desktop-refined .workspace-panels { overflow: hidden; }
+.nano-desktop-refined .workspace-panels::after { position: absolute; opacity: .035; }
+.nano-desktop-refined #sidebar {
+  height: 100%;
+  padding: 22px 18px 18px;
+  background: var(--nano-bg-elevated);
+  backdrop-filter: none;
+}
+.nano-desktop-refined #sidebar.collapsed { width: var(--nano-sidebar-collapsed); padding: 18px 10px; }
+
+/* Marca legible: el azul identifica Nano; los textos secundarios mantienen un tono neutro. */
+.nano-desktop-refined .nano-brand { height: 62px; margin-bottom: 22px; }
+.nano-desktop-refined .brand-owl-container { width: 48px; height: 48px; background: none; border: 0; box-shadow: none; display: flex; align-items: center; justify-content: center; }
+.nano-desktop-refined .brand-owl-img { width: 46px; height: 46px; border: 0; background: none; box-shadow: none; border-radius: 11px; object-fit: cover; }
+.nano-desktop-refined .brand-name { font-size: 24px; letter-spacing: -.04em; }
+.nano-desktop-refined .nano-brand-tagline { font-size: 12px; margin-top: 5px; }
+.nano-desktop-refined .sidebar-nav-item { height: 46px; border-radius: 10px; gap: 13px; font-weight: 500; color: var(--nano-text-secondary); }
+.nano-desktop-refined .sidebar-nav-item.active { color: var(--nano-blue-600); background: var(--nano-blue-50); }
+[data-theme="dark"] .nano-desktop-refined .sidebar-nav-item.active { background: var(--nano-surface-hover); }
+
+/* La cabecera reserva espacio a controles reales; nombres largos se truncarán, no se superponen. */
+.nano-desktop-refined .nano-topbar {
+  padding: 0 20px;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+  border-bottom: 1px solid var(--nano-border);
+}
+[data-theme="dark"] .nano-desktop-refined .nano-topbar {
+  background: rgba(14, 22, 34, 0.78);
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+.nano-desktop-refined .top-bar-left { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; }
+.nano-desktop-refined .top-bar-right { flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+.nano-desktop-refined .model-picker-dropdown { min-width: 0; position: relative; }
+
+/* Selector de modelo ultraligero y compacto iOS/macOS */
+.nano-desktop-refined .nano-model-selector {
+  max-width: 290px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  gap: 7px;
+  border-radius: 9px;
+  border: 1px solid rgba(100, 120, 150, 0.16);
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 1px 2px rgba(20, 30, 50, 0.03);
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--nano-text-primary);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.nano-desktop-refined .nano-model-selector:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(78, 143, 239, 0.35);
+  box-shadow: 0 2px 6px rgba(20, 30, 50, 0.06);
+}
+.nano-desktop-refined .nano-model-selector:active {
+  transform: scale(0.98);
+}
+[data-theme="dark"] .nano-desktop-refined .nano-model-selector {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.09);
+  color: #E2ECF8;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+[data-theme="dark"] .nano-desktop-refined .nano-model-selector:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(102, 152, 255, 0.35);
+}
+
+.nano-desktop-refined .nano-model-selector span[data-nano-icon="brain"] {
+  display: inline-flex;
+  align-items: center;
+  color: #5D7290;
+  opacity: 0.9;
+}
+[data-theme="dark"] .nano-desktop-refined .nano-model-selector span[data-nano-icon="brain"] {
+  color: #9AB0CD;
+}
+
+.nano-desktop-refined .nano-model-selector strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+}
+
+.nano-desktop-refined .nano-model-selector .nano-model-badge,
+.nano-desktop-refined .nano-model-selector .model-tag-pill {
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: rgba(78, 143, 239, 0.09);
+  color: #356FC4;
+  border: 1px solid rgba(78, 143, 239, 0.18);
+  margin-left: 2px;
+}
+[data-theme="dark"] .nano-desktop-refined .nano-model-selector .nano-model-badge,
+[data-theme="dark"] .nano-desktop-refined .nano-model-selector .model-tag-pill {
+  background: rgba(102, 152, 255, 0.12);
+  color: #92B9FF;
+  border-color: rgba(102, 152, 255, 0.22);
+}
+
+.nano-desktop-refined .nano-model-selector span[data-nano-icon="chevronDown"] {
+  color: #7B8CA4;
+  opacity: 0.8;
+  margin-left: -1px;
+}
+
+.nano-desktop-refined .nano-model-selector > span { flex-shrink: 0; }
+.nano-desktop-refined .model-dropdown-menu {
+  width: min(340px, calc(100vw - 110px));
+  max-height: 320px;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px) saturate(120%);
+  -webkit-backdrop-filter: blur(24px) saturate(120%);
+  border: 1px solid rgba(100, 120, 150, 0.18);
+  box-shadow: 0 8px 28px rgba(20, 30, 50, 0.10);
+  padding: 6px;
+}
+[data-theme="dark"] .nano-desktop-refined .model-dropdown-menu {
+  background: rgba(18, 27, 40, 0.92);
+  border-color: rgba(255, 255, 255, 0.10);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+}
+
+.nano-desktop-refined .model-opt-title { overflow-wrap: anywhere; gap: 8px; font-size: 12.5px; font-weight: 550; }
+.nano-desktop-refined .model-opt-desc { line-height: 1.4; font-size: 11px; opacity: 0.75; }
+.nano-desktop-refined .btn-topbar-new-chat {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.nano-desktop-refined .btn-top-action {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border-color: transparent;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  color: #647187;
+  transition: all 120ms;
+}
+.nano-desktop-refined .btn-top-action:hover {
+  background: rgba(30, 60, 100, 0.06);
+  color: var(--nano-text-primary);
+}
+[data-theme="dark"] .nano-desktop-refined .btn-top-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.nano-desktop-refined .user-avatar-badge {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  background: rgba(100, 120, 150, 0.10);
+  color: var(--nano-text-primary);
+  border: 1px solid var(--nano-border);
+  box-shadow: none;
+}
+
+/* Cuatro columnas para cuatro datos: corrige valores de RAM que antes caían en otra fila. */
+.nano-desktop-refined .nano-system-status { border-radius: 14px; background: var(--nano-surface); padding: 14px 12px; box-shadow: none; }
+.nano-desktop-refined .hw-capsule-label { color: var(--nano-text-secondary); font-weight: 500; }
+.nano-desktop-refined .nano-meter { display: grid; grid-template-columns: 28px minmax(22px, 1fr) auto 28px; gap: 6px; }
+.nano-desktop-refined .nano-meter span:not(.meter-pct) { font-variant-numeric: tabular-nums; font-size: 10px; }
+.nano-desktop-refined .nano-meter .meter-pct { width: auto; font-size: 10px; }
+.nano-desktop-refined .hw-tps-row { font-size: 11px; }
+.nano-desktop-refined .hw-tps-row .tps-value { font-family: var(--nano-font); font-size: 10px; font-weight: 500; }
+.nano-desktop-refined .btn-nanoruntime-pill { background: var(--nano-surface-soft); font-size: 11px; padding: 0 8px; }
+.nano-desktop-refined .nano-window-statusbar { height: 36px; background: var(--nano-surface); padding: 0 28px; }
+.nano-desktop-refined .statusbar-motto { text-transform: none; letter-spacing: 0; }
+
+/* Foco visible y coherente con teclado; no modifica los colores propios de iconos de marca. */
+.nano-desktop-refined button:focus-visible { outline: 2px solid var(--nano-blue-600); outline-offset: 3px; }
+.nano-desktop-refined .nano-chip .chip-dot { box-shadow: none; }
+
+/* Un escritorio de 1180 px conserva etiquetas; el carril compacto empieza al faltar espacio real. */
+@media (min-width: 1040px) {
+  .nano-desktop-refined #sidebar:not(.collapsed) .sidebar-nav-item span.label { display: inline; }
+  .nano-desktop-refined #sidebar:not(.collapsed) .sidebar-hardware-chip { display: block; }
+  .nano-desktop-refined #sidebar:not(.collapsed) .sidebar-section-title-sm { display: block; }
+  .nano-desktop-refined #sidebar:not(.collapsed) .sidebar-nav-item { justify-content: flex-start; padding: 0 14px; }
+}
+@media (max-width: 1350px) { .nano-desktop-refined .top-bar-center { display: none; } }
+@media (max-width: 1039px) {
+  body.nano-desktop-refined { --nano-sidebar-width: 74px; }
+  .nano-desktop-refined #sidebar { padding: 18px 10px; }
+  .nano-desktop-refined .nano-brand-copy { display: none; }
+  .nano-desktop-refined .nano-brand { justify-content: center; padding: 0; }
+  .nano-desktop-refined .btn-sidebar-collapse { display: none; }
+  .nano-desktop-refined .nano-model-selector { max-width: 320px; }
+}
+@media (max-height: 620px) {
+  body.nano-desktop-refined { --nano-topbar-height: 58px; }
+  .nano-desktop-refined .nano-topbar { height: 58px; }
+  .nano-desktop-refined .nano-brand { margin-bottom: 10px; }
+  .nano-desktop-refined .sidebar-nav-item { height: 40px; }
+}

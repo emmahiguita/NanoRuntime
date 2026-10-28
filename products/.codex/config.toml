@@ -1,0 +1,23 @@
+# Herramientas de desarrollo de Nano para este equipo.
+# Codex carga este archivo solo en proyectos confiables; recargar tras editar.
+[mcp_servers.dart_flutter]
+command = "C:/src/flutter/flutter/bin/cache/dart-sdk/bin/dart.exe"
+args = ["--suppress-analytics", "mcp-server", "--flutter-sdk", "C:/src/flutter/flutter"]
+cwd = "C:/Users/emman/Desktop/Proyectos/Nueva carpeta/Nanoai/products/nanoMOBILE/flutter_app"
+enabled = true
+startup_timeout_sec = 30
+tool_timeout_sec = 60
+# Solo consulta y diagnóstico; sin pruebas, ejecución ni modificación de la app.
+enabled_tools = [
+  "add_roots",
+  "remove_roots",
+  "pub_dev_search",
+  "list_devices",
+  "list_running_apps",
+  "get_app_logs",
+  "connect_dart_tooling_daemon",
+  "get_runtime_errors",
+  "get_widget_tree",
+  "get_selected_widget",
+  "get_active_location",
+]

@@ -1,0 +1,52 @@
+﻿[
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_header.dart",
+        "lines":  82,
+        "sha256":  "01235CB81D8A6B1F77ADD77FDBF939481E8D39B536145BAF30F242EA228CBA9F"
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_panel.dart",
+        "lines":  101,
+        "sha256":  "659D509328FAA0C21B6C3D8216132EBBCE5673D83B1F65AC1E4759617328E1EB"
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_panel_view.dart",
+        "lines":  140,
+        "sha256":  "0CC097D0A22B404B03A7AF9B40897D53940F3DD24DAE94A98C721F16BFFDEE95"
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_floating_assistant_view.dart",
+        "lines":  130,
+        "sha256":  "CF45016C34762BA0D565829098B00C8E91C9B7D0ADE2A48759D2706271FC708B"
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_floating_assistant.dart",
+        "lines":  179,
+        "sha256":  "026513466E0C6CA9C658E277D1B6E77157A273A9061B78C2AD0D2C6CAB99B5E0"
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoGeminiHeaderView.kt",
+        "lines":  52,
+        "sha256":  "7DC3884447E596553C39064DCD7E20FB5A51FF3E0C6BCB45CAB00CC32FCA3E4D"
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoGeminiOverlayView.kt",
+        "lines":  155,
+        "sha256":  "5D6091936B66C925E4ADB340510F90706084E2854F0227AAD15E15027E9E9134"
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoFloatingService.kt",
+        "lines":  174,
+        "sha256":  "FFCB77F1C5C05A4B9A0739A402500CBADEE3C3E18419C812358045DE0B969C59"
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoPanelIcon.kt",
+        "lines":  59,
+        "sha256":  "F3577A2FADA53FE60291D59C92744328C6B45E604D13696AD5D931D53F12E8B1"
+    },
+    {
+        "path":  "test/features/chat/nano_owl_visibility_test.dart",
+        "lines":  173,
+        "sha256":  "65CCCBCFB4E38E9074453AAB6F160B72852A46F240259D18A31E0E0F5CDE81E2"
+    }
+]

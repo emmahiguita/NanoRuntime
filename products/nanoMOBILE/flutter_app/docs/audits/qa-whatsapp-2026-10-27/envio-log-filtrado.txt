@@ -1,0 +1,29 @@
+﻿
+10-27 02:46:29.810 26248 26248 D ResourcesManagerExtImpl: applyConfigurationToAppResourcesLocked app.getDisplayId() 
+return callback.displayId:0
+10-27 02:58:30.399 26248 26248 D ResourcesManagerExtImpl: applyConfigurationToAppResourcesLocked app.getDisplayId() 
+return callback.displayId:0
+10-27 03:00:11.596 26248 26248 D ViewRootImplExtImpl: the up motion event handled by client, just return
+10-27 03:01:28.276 26248 26248 D ViewRootImplExtImpl: the up motion event handled by client, just return
+10-27 03:01:28.473 26248 26248 W WindowOnBackDispatcher: sendCancelIfRunning: isInProgress=false 
+callback=ImeCallback=ImeOnBackInvokedCallback@168557532 
+Callback=android.window.IOnBackInvokedCallback$Stub$Proxy@f6839f8
+10-27 03:01:28.975 26248 26248 D nanoagent_autosend: Ventana de WhatsApp no lista o no visible aún
+10-27 03:01:29.219 26248 26248 W AccessibilityInteractionClient: return null for 348
+10-27 03:01:29.219 26248 26248 D nanoagent_autosend: Ventana de WhatsApp no lista o no visible aún
+10-27 03:01:29.450 26248 26248 D nanoagent_autosend: Ventana de WhatsApp no lista o no visible aún
+10-27 03:01:29.733 26248 26248 D nanoagent_win: Ventana de destino localizada: com.whatsapp (id=550)
+10-27 03:01:30.098 26248 26248 D nanoagent_autosend: Destinatario aún no coincide en la UI de WhatsApp
+10-27 03:01:30.359 26248 26248 D nanoagent_win: Ventana de destino localizada: com.whatsapp (id=551)
+10-27 03:01:30.798 26248 26248 I nanoagent_verif: Destinatario confirmado en el encabezado de WhatsApp
+10-27 03:01:30.837 26248 26248 I nanoagent_verif: Envío ejecutado por Resource ID: com.whatsapp:id/send
+10-27 03:01:30.837 26248 26248 I nanoagent_autosend: Acción de envío pulsada; entrega no confirmada por WhatsApp
+10-27 03:01:30.838 26248 26248 I nanoagent_autosend: Autoenvío finalizado: success=true, detalle=Acción de envío 
+pulsada; entrega no confirmada por WhatsApp.
+10-27 03:01:31.279 26248 26248 D ResourcesManagerExtImpl: applyConfigurationToAppResourcesLocked app.getDisplayId() 
+return callback.displayId:0
+10-27 03:01:31.319 26248 28189 D VRI[MainActivity]: Received frameCommittedCallback lastAttemptedDrawFrameNum=1 
+didProduceBuffer=true syncBuffer=false
+10-27 03:01:31.769 26248 26248 I nanoagent_autosend: Regreso verificado a Nano: true
+
+

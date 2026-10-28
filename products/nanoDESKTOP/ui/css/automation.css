@@ -1,0 +1,134 @@
+/*
+ * automation.css — Estilos del Panel de Automatización en Modo Claro y Modo Oscuro (< 200 LOC)
+ * QUÉ HACE: Estiliza la cabecera, banner de métricas, filtros, tarjetas de agentes y acciones.
+ * CÓMO FUNCIONA: Utiliza variables semánticas (`--bg-surface`, `--text-primary`, `--border-normal`, `--accent-blue`)
+ *                definidas tanto en `:root` (Modo Claro) como en `[data-theme="dark"]` (Modo Oscuro).
+ * POR QUÉ: Corrige el fallo visual del panel de Automatización donde faltaban tokens en Modo Claro y contrastes en Modo Oscuro.
+ */
+
+.automation-view-container {
+  padding: 24px 32px; overflow-y: auto; height: 100%; width: 100%;
+  display: flex; flex-direction: column; gap: 20px;
+  background: var(--bg-primary); color: var(--text-primary);
+}
+.automation-view-container::-webkit-scrollbar { width: 6px; }
+.automation-view-container::-webkit-scrollbar-thumb { background: var(--border-normal); border-radius: var(--radius-full); }
+
+.automation-header {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  border-bottom: 1px solid var(--border-normal); padding-bottom: 16px;
+}
+.auto-header-left h2 {
+  font-size: 20px; font-weight: 700; color: var(--text-primary);
+  display: flex; align-items: center; gap: 10px;
+}
+.auto-header-left h2 svg { color: var(--accent-blue); }
+.auto-header-caption { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+.btn-primary-action {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--nano-gradient-primary); color: #FFFFFF;
+  border: 0; border-radius: var(--radius-sm); padding: 9px 16px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: var(--shadow-blue);
+}
+.btn-primary-action:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+/* Banner de Métricas Globales */
+.auto-metrics-banner {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: center; gap: 16px; background: var(--bg-surface);
+  border: 1px solid var(--border-normal); border-radius: var(--radius-md);
+  padding: 16px 22px; box-shadow: var(--shadow-xs);
+}
+.auto-metric-sep { display: none; }
+.auto-metric-item { display: flex; flex-direction: column; gap: 4px; padding-right: 12px; border-right: 1px solid var(--border-subtle); }
+.auto-metric-item:last-child { border-right: 0; }
+.metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); font-weight: 600; }
+.metric-value { font-size: 17px; color: var(--text-primary); }
+.metric-value strong { font-weight: 700; }
+.metric-value strong.color-active { color: var(--accent-status); }
+.metric-value strong.color-warning { color: #D97706; }
+[data-theme="dark"] .metric-value strong.color-warning { color: #FBBF24; }
+.metric-value small { font-size: 11.5px; color: var(--text-secondary); margin-left: 5px; }
+.color-neutral { color: var(--text-primary); }
+
+/* Pestañas de Filtro */
+.auto-filter-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.filter-tab {
+  padding: 6px 14px; border-radius: var(--radius-pill);
+  background: var(--bg-surface); border: 1px solid var(--border-normal);
+  color: var(--text-secondary); font-size: 12.5px; font-weight: 550;
+  cursor: pointer; transition: all var(--transition-fast);
+}
+.filter-tab:hover { background: var(--bg-hover); color: var(--text-primary); }
+.filter-tab.active {
+  background: var(--accent-soft-blue); color: var(--accent-blue);
+  border-color: var(--border-active); font-weight: 650;
+}
+
+/* Cuadrícula de Tarjetas de Agentes */
+.auto-grid-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.auto-card {
+  background: var(--bg-surface); border: 1px solid var(--border-normal);
+  border-radius: var(--radius-md); padding: 18px;
+  display: flex; flex-direction: column; gap: 12px;
+  box-shadow: var(--shadow-sm); transition: all var(--transition-fast);
+}
+.auto-card:hover { border-color: var(--border-active); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.auto-card.card-paused { opacity: 0.82; }
+.auto-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.auto-card-top-left { display: flex; align-items: flex-start; gap: 10px; }
+.auto-card-icon {
+  width: 34px; height: 34px; border-radius: var(--radius-sm);
+  background: var(--accent-soft-blue); color: var(--accent-blue);
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border-subtle); flex-shrink: 0;
+}
+.auto-card-category { font-size: 10px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em; color: var(--text-tertiary); }
+.auto-card-title { font-size: 14.5px; font-weight: 650; color: var(--text-primary); margin-top: 2px; }
+
+.auto-card-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: var(--radius-full);
+}
+.auto-card-status .status-dot { width: 6px; height: 6px; border-radius: 50%; }
+.auto-card-status.status-active { background: rgba(16, 185, 129, 0.14); color: var(--accent-status); }
+.auto-card-status.status-active .status-dot { background: var(--accent-status); box-shadow: 0 0 6px var(--accent-status); }
+.auto-card-status.status-paused { background: var(--bg-hover); color: var(--text-tertiary); }
+.auto-card-status.status-paused .status-dot { background: var(--text-tertiary); }
+
+.auto-card-desc { font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+.auto-card-parameters {
+  display: flex; flex-direction: column; gap: 6px;
+  background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+  padding: 10px 12px; border-radius: var(--radius-sm); font-size: 11.5px;
+}
+.param-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.param-label { color: var(--text-tertiary); }
+.param-val { color: var(--text-primary); font-weight: 600; }
+.param-val.highlight { font-family: var(--font-mono); color: var(--accent-blue); }
+.param-val.color-active { color: var(--accent-status); }
+.param-val.color-warning { color: #D97706; }
+
+.auto-card-tools-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.tool-tag {
+  font-size: 11px; font-family: var(--font-mono); padding: 2px 8px;
+  border-radius: var(--radius-xs); background: var(--bg-hover);
+  border: 1px solid var(--border-normal); color: var(--text-secondary);
+}
+.auto-card-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid var(--border-subtle); padding-top: 12px; margin-top: auto;
+}
+.agent-stats { font-size: 11.5px; color: var(--text-tertiary); }
+.agent-actions-group { display: flex; align-items: center; gap: 6px; }
+.btn-card-action {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px;
+  border-radius: var(--radius-xs); border: 1px solid var(--border-normal);
+  background: var(--bg-surface); color: var(--text-primary);
+  font-size: 11.5px; font-weight: 550; cursor: pointer; transition: all var(--transition-fast);
+}
+.btn-card-action:hover:not(:disabled) { background: var(--accent-soft-blue); color: var(--accent-blue); border-color: var(--border-active); }
+.btn-card-action.btn-delete-agent:hover { background: rgba(240, 68, 85, 0.14); color: var(--accent-error); border-color: var(--accent-error); }

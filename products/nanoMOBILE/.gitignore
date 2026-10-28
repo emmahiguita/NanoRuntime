@@ -1,0 +1,29 @@
+*.log
+hs_err_*.log
+replay_*.log
+*.pyc
+__pycache__/
+
+# Flutter artifacts
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins-dependencies
+flutter_app/temp_debs/
+flutter_app/extracted_payload/
+flutter_app/test_artifacts/
+flutter_app/test_permisos/
+flutter_app/artifacts/
+flutter_app/buildtools/
+flutter_app/graphify-out/
+flutter_app/.idea/
+flutter_app/*.deb
+flutter_app/*.apk
+flutter_app/*.tar*
+flutter_app/*.png
+flutter_app/*.jpg
+
+# Gradle / KMP artifacts
+.gradle/
+nanocore-kmp/build/
+nanocore-kmp/.gradle/
+ux_r08_1.png

@@ -1,0 +1,147 @@
+﻿[
+    {
+        "file":  "lib/core/services/native_ui_context.dart",
+        "lines":  17,
+        "sha256":  "A9333996601AEC9236227CC8DFD748FDAEE97A422E57C77BDBC9ECD04E92B2C3"
+    },
+    {
+        "file":  "lib/core/services/nano_runtime_api.dart",
+        "lines":  1396,
+        "sha256":  "5C78F5CE6A8BCF6A2B3438CB7DAE0DB1A2925938254AC7A2E1C968A0857361A5"
+    },
+    {
+        "file":  "lib/features/chat/nano_everywhere/nano_assistant_header.dart",
+        "lines":  77,
+        "sha256":  "949A19764E51661870542A532DEDCFDBB9C6614D10807E80CED98F3100279C73"
+    },
+    {
+        "file":  "lib/features/chat/nano_everywhere/nano_assistant_panel_view.dart",
+        "lines":  129,
+        "sha256":  "F04E34036557041398F651403C34BFA6C10DEDE207592F12624AFF3FC6B6BA98"
+    },
+    {
+        "file":  "lib/features/chat/nano_everywhere/nano_overlay_runtime.dart",
+        "lines":  145,
+        "sha256":  "3D664B83413FD2DB96BA962C17EDEE9C26B6CA35026AD249DB94AF4C53388FDD"
+    },
+    {
+        "file":  "lib/features/automation/application/whatsapp_chat_export_preparer.dart",
+        "lines":  111,
+        "sha256":  "0A6F693DB590BB5FF43823FD90BDB581C22953CBE5A0E72FFDF66EFBFE4AC4C7"
+    },
+    {
+        "file":  "lib/features/automation/application/whatsapp_ui_goal_preparer.dart",
+        "lines":  145,
+        "sha256":  "1AC4273AA8BC1999889F2237B81F8B72B27B912A580740C8CDE992E931A9D429"
+    },
+    {
+        "file":  "lib/features/automation/engine/planning/whatsapp_component_requests.dart",
+        "lines":  129,
+        "sha256":  "7979951A7E584075AB680630FBBB52675A07B85A5D12E7CEC4D5710CA78C7F17"
+    },
+    {
+        "file":  "lib/features/automation/engine/planning/whatsapp_automation_input.dart",
+        "lines":  145,
+        "sha256":  "1ECDD66D5B6105AFAC1BF8C6A65D17FCD4F58807E020F8FF153F37A8DAB3B926"
+    },
+    {
+        "file":  "lib/features/automation/engine/execution/agent_tool_dispatcher.dart",
+        "lines":  73,
+        "sha256":  "537C32E9CEFF400FE44AA7F1EA3B2C613E70B971E33DB02B658725B6686BE9EA"
+    },
+    {
+        "file":  "lib/features/automation/engine/execution/agent_tool_execution_router.dart",
+        "lines":  184,
+        "sha256":  "EE431C7FF68F686F22CE68EBB9ECB4F3D3E71CD9D8337F93072D24871ADEBD85"
+    },
+    {
+        "file":  "lib/features/automation/engine/execution/ui_context_guard.dart",
+        "lines":  41,
+        "sha256":  "2689597EB083E99DF5B439F9BC587D73AC2F26E6C99F3EB39ADE5CD8BA169063"
+    },
+    {
+        "file":  "lib/features/automation/engine/execution/handlers/benchmark_tool_handler.dart",
+        "lines":  77,
+        "sha256":  "A4F46B731E6DC5655E928E494A68F5EEF91421F0ADC2F958A8ADEB35D6DC5715"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOwlGlassDrawable.kt",
+        "lines":  61,
+        "sha256":  "73E7CD6723D253E9DCA1D178EAE952F944B3AF2FA525650738E77D8FAC66B01B"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoFloatingService.kt",
+        "lines":  180,
+        "sha256":  "A8063D7943A31114E3948BB83086A6568988490B1FEA4D46A45613BB2F4BC66D"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOverlaySession.kt",
+        "lines":  30,
+        "sha256":  "770EDEF9BCBFE91032B1AF0A1B9426CE825E639D6A0A0CB629848AAB74FE4714"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOverlayActions.kt",
+        "lines":  169,
+        "sha256":  "C862EB3A253E18D58A1C89BE0C4E5B2F2AEE9876AF44DADD4FA28AD1203BDCEF"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoClickContextGuard.kt",
+        "lines":  31,
+        "sha256":  "EE1BAE08AC265B7A6B8D51899696DCE20147CEF1AA0EF536A4B4E8A0D04B06A9"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/AgentAccessibilityService.kt",
+        "lines":  828,
+        "sha256":  "8BFDD10D5643CCB772E53902FA124FBB961FC7D006BD77BAEE6578C3B0606B1E"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/channels/AgentChannelHandler.kt",
+        "lines":  524,
+        "sha256":  "279ADE9256BC09E1EDCC95AB57711614CD157D90A99B40EB11CBFB40FAB6FAC8"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOverlayStyle.kt",
+        "lines":  150,
+        "sha256":  "D87978D1F381D392E7249EC2B7797AFD7F8BC76C80019E1E31204CC606213AB6"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOverlayWindowLayout.kt",
+        "lines":  56,
+        "sha256":  "29CAAAC6C58D27F949C5CA3DDBC6D44A81C3FA24A7394C994E3618A835D4D44A"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoGeminiHeaderView.kt",
+        "lines":  51,
+        "sha256":  "F8109699B1448923C9AEDC1C6661D5E1E945E2F03D0E8B1B9354D48B6BC590F4"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoGeminiInputBar.kt",
+        "lines":  151,
+        "sha256":  "21A9FB2EA96E3C41D964FC4F336B58E0A5CB41A1BC8A65C116C74546986AFC2B"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoPanelVoiceInput.kt",
+        "lines":  144,
+        "sha256":  "A892CC7CA5753479A44EAAA93412803840235517016FC4CD5BC6244DFB8E141F"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoPanelIcon.kt",
+        "lines":  64,
+        "sha256":  "3005D74D7D554C29E4C35DBF12B32B1ED38B46F12DA660F681E37AF690586AAD"
+    },
+    {
+        "file":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoPanelScreenContext.kt",
+        "lines":  35,
+        "sha256":  "9D17913429DFD2F08DEE74E641B98363CEB0F64C054C7364FA127135B641E4F1"
+    },
+    {
+        "file":  "test/features/automation/whatsapp_chat_export_test.dart",
+        "lines":  136,
+        "sha256":  "102615F58D613191896D62ECF1496D39612ECD407E14F6D1DAF725FF181E573B"
+    },
+    {
+        "file":  "test/features/automation/native_ui_context_test.dart",
+        "lines":  67,
+        "sha256":  "37362D6385C3E1494DB70562030B429F892AD201116D604AA084B97D91B3F2C4"
+    }
+]

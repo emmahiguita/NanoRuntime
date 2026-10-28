@@ -1,0 +1,101 @@
+﻿/* Typography and semantic states shared by the professional desktop. */
+body.nano-desktop-refined {
+  --nano-font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --nano-blue-50: #ededee; --nano-blue-100: #e5e5e7;
+  --nano-blue-500: #45474c; --nano-blue-600: #27292e; --nano-blue-700: #141619;
+  font-family: var(--nano-font); font-size: 14px; line-height: 1.5;
+}
+[data-theme="dark"] body.nano-desktop-refined {
+  --nano-blue-50: #303237; --nano-blue-100: #383b41;
+  --nano-blue-500: #c6c8ce; --nano-blue-600: #eeeeef; --nano-blue-700: #ffffff;
+}
+.nano-desktop-refined :is(button,input,textarea,select) { font-family: var(--nano-font); }
+.nano-desktop-refined .sidebar-nav-item { font-size: 14px; }
+.nano-desktop-refined :is(.composer-textarea,.msg-bubble) { font-size: 15px; line-height: 1.65; }
+.nano-desktop-refined .settings-card p { font-size: 13px; }
+.nano-desktop-refined .settings-sublabel { font-size: 12px; }
+.nano-desktop-refined .sys-bar-progress { background: var(--nano-text-secondary); }
+
+/* Automation workspace: one reading column, flat rows and real execution history. */
+.automation-workspace { width:100%; max-width:1120px; margin:0 auto; padding:28px 32px; overflow-y:auto; color:var(--nano-text-primary); font:14px/1.5 var(--nano-font); }
+.automation-workspace *, .automation-dialog * { box-sizing:border-box; }
+.automation-page-header { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; margin-bottom:26px; }
+.automation-page-header h2 { font-size:22px; line-height:1.3; font-weight:600; letter-spacing:-.025em; margin:0 0 6px; }
+.automation-page-header p { color:var(--nano-text-muted); font-size:14px; margin:0; }
+.automation-workspace button, .automation-dialog button { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:34px; padding:6px 11px; border:1px solid var(--nano-border); border-radius:6px; background:var(--nano-surface); color:var(--nano-text-primary); font:500 13px/1.4 var(--nano-font); cursor:pointer; box-shadow:none; transition:background 120ms, border-color 120ms; }
+.automation-workspace button:hover, .automation-dialog button:hover { background:var(--nano-surface-hover); border-color:var(--nano-border-active); }
+.automation-workspace .automation-primary, .automation-dialog .automation-primary { background:var(--nano-text-primary); color:var(--nano-surface); border-color:var(--nano-text-primary); }
+.automation-workspace .automation-primary:hover, .automation-dialog .automation-primary:hover { opacity:.88; }
+.automation-toolbar { display:flex; justify-content:space-between; gap:16px; align-items:center; border-bottom:1px solid var(--nano-border); }
+.automation-tabs { display:flex; gap:20px; }
+.automation-tabs button { min-height:42px; padding:8px 0; border:0; border-bottom:2px solid transparent; border-radius:0; background:none; font-size:14px; color:var(--nano-text-muted); }
+.automation-tabs button[aria-selected="true"] { border-bottom-color:var(--nano-text-primary); color:var(--nano-text-primary); }
+.automation-tabs span { font-size:12px; color:var(--nano-text-muted); font-variant-numeric:tabular-nums; }
+#scheduler-state { font-size:12px; color:var(--nano-text-muted); }
+.automation-list-tools { display:flex; gap:12px; justify-content:space-between; margin:18px 0 4px; }
+.automation-search { display:flex; align-items:center; gap:8px; max-width:380px; width:100%; }
+.automation-search input { min-width:0; width:100%; border:0; background:transparent; color:var(--nano-text-primary); padding:8px 0; font:14px var(--nano-font); outline:none; }
+.automation-search:focus-within { outline:2px solid var(--nano-border-active); outline-offset:3px; border-radius:4px; }
+.automation-list-tools select { min-height:34px; max-width:170px; padding:6px 10px; border:1px solid var(--nano-border); border-radius:6px; background:var(--nano-surface); color:var(--nano-text-secondary); font:13px var(--nano-font); }
+.task-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:20px; padding:20px 0; border-bottom:1px solid var(--nano-border-soft); }
+.task-main { min-width:0; }
+.task-main h3 { margin:0 0 5px; font-size:15px; font-weight:600; line-height:1.4; overflow-wrap:anywhere; }
+.task-main > p { margin:0 0 9px; font-size:14px; color:var(--nano-text-secondary); max-width:660px; overflow-wrap:anywhere; }
+.task-meta { display:flex; flex-wrap:wrap; gap:6px 16px; color:var(--nano-text-muted); font-size:12px; }
+.task-controls { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
+.task-buttons { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.task-buttons .icon-button { padding:6px; width:34px; border-color:transparent; background:transparent; }
+.task-state { display:inline-flex; align-items:center; gap:7px; color:var(--nano-text-secondary); font-size:12px; white-space:nowrap; }
+.task-state[data-state="pending"] { color:var(--nano-warning); }
+.task-state[data-state="error"], .task-state[data-state="partial_success"] { color:var(--nano-danger); }
+.task-main .task-blocker { display:flex; gap:7px; align-items:flex-start; margin-top:10px; margin-bottom:0; font-size:12px; color:var(--nano-text-muted); }
+.automation-notice, .automation-approvals { display:flex; align-items:center; gap:10px; padding:11px 13px; margin-top:16px; border:1px solid var(--nano-border); border-radius:6px; background:var(--nano-surface-soft); font-size:13px; animation:automation-reveal 140ms ease-out; }
+.automation-notice[data-kind="error"] { border-left:3px solid var(--nano-danger); }
+.automation-approvals { border-left:3px solid var(--nano-warning); }
+.automation-approvals button { margin-left:auto; }
+.automation-workspace [hidden], .automation-dialog [hidden] { display:none!important; }
+.automation-empty { padding:56px 16px; text-align:center; color:var(--nano-text-muted); }
+.automation-empty > svg { margin-bottom:12px; }
+.automation-empty h3 { color:var(--nano-text-primary); font-size:16px; font-weight:600; margin:0 0 8px; }
+.automation-empty p { font-size:14px; margin:0 0 18px; }
+.execution-row { padding:20px 0; border-bottom:1px solid var(--nano-border); }
+.execution-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.execution-heading strong { font-size:14px; font-weight:600; }
+.execution-time { color:var(--nano-text-muted); font-size:12px; margin-left:12px; }
+.execution-summary { font-size:14px; margin:9px 0; overflow-wrap:anywhere; }
+.execution-steps { display:flex; flex-wrap:wrap; gap:10px; color:var(--nano-text-muted); font-size:12px; margin:12px 0; }
+.execution-steps > span+span { border-left:1px solid var(--nano-border); padding-left:10px; }
+.approval-context, .execution-note { font-size:13px; color:var(--nano-text-secondary); line-height:1.6; margin:10px 0; }
+.execution-actions { display:flex; gap:8px; margin-top:12px; }
+.execution-row details { margin-top:14px; }
+.execution-row summary { color:var(--nano-text-secondary); font-size:13px; cursor:pointer; padding:4px 0; }
+.execution-row pre, .automation-dialog pre { font:14px/1.65 var(--nano-font); white-space:pre-wrap; overflow-wrap:anywhere; background:var(--nano-surface-soft); border:1px solid var(--nano-border-soft); padding:14px; border-radius:5px; margin:10px 0; max-height:440px; overflow:auto; }
+.execution-row details p { font-size:12px; color:var(--nano-text-muted); }
+.automation-footnote { color:var(--nano-text-muted); font-size:12px; line-height:1.6; margin-top:24px; }
+.activity-spinner { width:12px; height:12px; border:1.5px solid var(--nano-border); border-top-color:var(--nano-text-secondary); border-radius:50%; animation:automation-spin 800ms linear infinite; }
+
+/* The editor follows the same typography, with three explicit configuration steps. */
+.nano-overlay-card.automation-dialog { width:min(560px,calc(100vw - 40px)); max-height:calc(100vh - 48px); border-radius:10px; border:1px solid var(--nano-border); background:var(--nano-surface); box-shadow:0 12px 42px #0002; color:var(--nano-text-primary); }
+.automation-dialog .nano-overlay-header { padding:18px 22px; border-bottom:1px solid var(--nano-border); }
+.automation-dialog .nano-overlay-title { font:600 18px/1.4 var(--nano-font); }
+.automation-dialog .nano-overlay-body { padding:0 22px 20px; }
+.task-editor { font:14px/1.5 var(--nano-font); }
+.editor-description { margin:16px 0 0; color:var(--nano-text-muted); font-size:13px; }
+.editor-section { display:flex; flex-direction:column; gap:8px; padding:18px 0; border-bottom:1px solid var(--nano-border-soft); }
+.editor-section h4 { font:600 13px/1.4 var(--nano-font); margin:0 0 5px; color:var(--nano-text-secondary); }
+.editor-section label { font-size:13px; margin-top:4px; font-weight:500; }
+.editor-section input,.editor-section textarea,.editor-section select { width:100%; padding:9px 10px; min-height:38px; border:1px solid var(--nano-border); border-radius:5px; background:var(--nano-surface); color:var(--nano-text-primary); font:14px/1.5 var(--nano-font); }
+.editor-section textarea { resize:vertical; }
+.editor-section > div { display:flex; flex-direction:column; gap:8px; }
+.editor-help { font-size:12px; line-height:1.6; margin:0; color:var(--nano-text-muted); }
+.editor-error { font-size:13px; color:var(--nano-danger); margin:14px 0; }
+.automation-dialog .modal-footer { margin-top:18px; padding-top:0; display:flex; justify-content:flex-end; gap:8px; border:0; }
+.automation-workspace button:disabled,.automation-dialog button:disabled { opacity:.45; cursor:default; }
+@keyframes automation-spin { to {transform:rotate(360deg)} }
+@keyframes automation-reveal { from {opacity:0;transform:translateY(-3px)} to {opacity:1;transform:translateY(0)} }
+@media(max-width:950px){ .automation-workspace{padding:22px 24px} .task-row{grid-template-columns:minmax(0,1fr)} .task-controls{flex-direction:row;align-items:center;justify-content:space-between} .task-buttons{justify-content:flex-start} #scheduler-state{display:none} }
+@media(prefers-reduced-motion:reduce){.activity-spinner,.automation-notice,.automation-approvals{animation:none}.automation-workspace button,.automation-dialog button{transition:none}}
+/* Opaque workspace surfaces remove the legacy ambient blue/violet gradients. */
+[data-theme] .nano-desktop-refined :is(.workspace-panels,.nano-workspace) { background:var(--nano-bg); }
+.automation-workspace { height:100%; min-height:0; }
+.nano-overlay-backdrop:has(.automation-dialog) { backdrop-filter:none; background:#0005; }

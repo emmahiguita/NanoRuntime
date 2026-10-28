@@ -1,0 +1,567 @@
+{
+  "dev_server.py": {
+    "mtime": 1791938459.1419632,
+    "ast_hash": "1c300534b9bbac9e21892c71cc535837",
+    "semantic_hash": ""
+  },
+  "local_model_catalog.py": {
+    "mtime": 1791911984.8136568,
+    "ast_hash": "2ec49ac3dd0a61100617926c4ef34fe7",
+    "semantic_hash": ""
+  },
+  "local_model_routes.py": {
+    "mtime": 1791938441.8610969,
+    "ast_hash": "e7f15e30902108427b96ed36173082e2",
+    "semantic_hash": ""
+  },
+  "local_runtime_bridge.py": {
+    "mtime": 1791912413.1910696,
+    "ast_hash": "23c6a166714b7a3865cc0fff6abb3d30",
+    "semantic_hash": ""
+  },
+  "src-tauri/build.rs": {
+    "mtime": 1789424259.45875,
+    "ast_hash": "1be34a5c61c2c35365de3dab14298f0b",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/schemas/acl-manifests.json": {
+    "mtime": 1789424737.3124442,
+    "ast_hash": "69c4a0c70be2f0653b35d8c1afe233dc",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/schemas/capabilities.json": {
+    "mtime": 1789424737.3360138,
+    "ast_hash": "99914b932bd37a50b983c5e7c90ae93b",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/schemas/desktop-schema.json": {
+    "mtime": 1789424737.3283238,
+    "ast_hash": "12a9bd4087a0e4ab28a9aaa4bb880f57",
+    "semantic_hash": ""
+  },
+  "src-tauri/gen/schemas/windows-schema.json": {
+    "mtime": 1789424737.3283238,
+    "ast_hash": "12a9bd4087a0e4ab28a9aaa4bb880f57",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/chat_commands.rs": {
+    "mtime": 1791913030.1589205,
+    "ast_hash": "059a1845655947156dc21559a33075e7",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/mod.rs": {
+    "mtime": 1790008003.885321,
+    "ast_hash": "677e5cf3f09a3468dc4974cb62ec7960",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/shell_commands.rs": {
+    "mtime": 1790007996.33247,
+    "ast_hash": "70634a2cc109b93d7f9ff1e4cb90fa53",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/commands/system_commands.rs": {
+    "mtime": 1791912846.115625,
+    "ast_hash": "e45c6f123ce632945b44f60df53807ab",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/lib.rs": {
+    "mtime": 1790008011.2468102,
+    "ast_hash": "64b55781e711ecf0be4fd097f3ef9715",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/main.rs": {
+    "mtime": 1789424712.6336877,
+    "ast_hash": "84664ccec6f91dcb5011cf65aac7e958",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/runtime/mod.rs": {
+    "mtime": 1790007744.3513844,
+    "ast_hash": "be1f46c9fb7206e7c5e30ce6e6580269",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/runtime/service.rs": {
+    "mtime": 1791912625.2981138,
+    "ast_hash": "da13f6b25530360520bd30114c60cbb8",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/runtime/supervisor.rs": {
+    "mtime": 1790007914.5304642,
+    "ast_hash": "da7fbcfc382cb987d1ed462ec7565014",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/shell/adapter.rs": {
+    "mtime": 1790007946.836047,
+    "ast_hash": "b93030e71b3fb1a212c2ee591d252858",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/shell/manager.rs": {
+    "mtime": 1790007972.2615366,
+    "ast_hash": "301da71068a5cb66e61a1917efe70092",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/shell/mod.rs": {
+    "mtime": 1790007990.689185,
+    "ast_hash": "09cbff18f6d125bb8b05db5b2bc13e47",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/shell/native_pty.rs": {
+    "mtime": 1790007962.93043,
+    "ast_hash": "be9051755f68351bf616d8f904f1372f",
+    "semantic_hash": ""
+  },
+  "src-tauri/src/shell/session.rs": {
+    "mtime": 1790007954.5347013,
+    "ast_hash": "7e6612dc03a7e98119c8517e2090e672",
+    "semantic_hash": ""
+  },
+  "src-tauri/tauri.conf.json": {
+    "mtime": 1789424312.0308247,
+    "ast_hash": "24bc6a85b4d29328d3b22ebfd8b5e004",
+    "semantic_hash": ""
+  },
+  "test/automation_suite.test.mjs": {
+    "mtime": 1791773900.3782964,
+    "ast_hash": "cd87a2387aeb2f31dc5018d5db902b77",
+    "semantic_hash": ""
+  },
+  "ui/js/app.js": {
+    "mtime": 1791997931.9153528,
+    "ast_hash": "e93fccee39ad95ff58042710cda8debe",
+    "semantic_hash": ""
+  },
+  "ui/js/components/hardware_status.js": {
+    "mtime": 1791912557.226421,
+    "ast_hash": "0f818145af2e41cf6de594bb527d5462",
+    "semantic_hash": ""
+  },
+  "ui/js/components/local_model_selector.js": {
+    "mtime": 1791924251.4119487,
+    "ast_hash": "03d5e718872198b006f92667647a9c7d",
+    "semantic_hash": ""
+  },
+  "ui/js/components/nano_command_bar.js": {
+    "mtime": 1789429079.631763,
+    "ast_hash": "a873205e02a1bd83c03ac55e7a058ddf",
+    "semantic_hash": ""
+  },
+  "ui/js/components/nano_icon.js": {
+    "mtime": 1790033342.3629556,
+    "ast_hash": "c9ed44df9602349f67cd71e548893234",
+    "semantic_hash": ""
+  },
+  "ui/js/components/nano_overlay.js": {
+    "mtime": 1789950234.3075783,
+    "ast_hash": "1685b9696f0cf36633a88e21536b3811",
+    "semantic_hash": ""
+  },
+  "ui/js/components/nano_owl_avatar.js": {
+    "mtime": 1791394579.5865197,
+    "ast_hash": "6e555a45eac087cec17b94d496e447c0",
+    "semantic_hash": ""
+  },
+  "ui/js/components/nano_top_bar.js": {
+    "mtime": 1791924550.3349879,
+    "ast_hash": "240dfb1942e77a32bf716444d47cc224",
+    "semantic_hash": ""
+  },
+  "ui/js/components/owl/owl_config.js": {
+    "mtime": 1791394325.833841,
+    "ast_hash": "fee69df80fb4ba26e49fefaa328650fa",
+    "semantic_hash": ""
+  },
+  "ui/js/components/owl/owl_physics.js": {
+    "mtime": 1791394550.0075588,
+    "ast_hash": "e79b7403ab5b9b70b0d432f706ff866c",
+    "semantic_hash": ""
+  },
+  "ui/js/components/owl/owl_state_machine.js": {
+    "mtime": 1791394521.2054784,
+    "ast_hash": "a5d9f1ef1f3489be217d17d21cc1b813",
+    "semantic_hash": ""
+  },
+  "ui/js/core/local_model_api.js": {
+    "mtime": 1791912139.7020383,
+    "ast_hash": "a42bac6005bcb9a29fa1c15889784437",
+    "semantic_hash": ""
+  },
+  "ui/js/core/mock_cognitive.js": {
+    "mtime": 1790007628.8034105,
+    "ast_hash": "2682b7670d7f9bd3e08c3275649d5dae",
+    "semantic_hash": ""
+  },
+  "ui/js/core/model_fitter.js": {
+    "mtime": 1790007622.7056105,
+    "ast_hash": "a81d1bac928edad6fc6dcc11eb42b30d",
+    "semantic_hash": ""
+  },
+  "ui/js/core/session_persistence.js": {
+    "mtime": 1791912413.4252174,
+    "ast_hash": "29003d59be9379a5cca3a8b4f123d415",
+    "semantic_hash": ""
+  },
+  "ui/js/core/state.js": {
+    "mtime": 1791912139.2272606,
+    "ast_hash": "6d132a1cd9e799d6305ed86115939529",
+    "semantic_hash": ""
+  },
+  "ui/js/core/transport.js": {
+    "mtime": 1791913355.8126147,
+    "ast_hash": "e79c09520748997c5911fc86322adc36",
+    "semantic_hash": ""
+  },
+  "ui/js/core/transport_native_stream.js": {
+    "mtime": 1791912140.4485953,
+    "ast_hash": "4565c6be888b76f3587d5e89c9bcf36c",
+    "semantic_hash": ""
+  },
+  "ui/js/core/transport_streaming.js": {
+    "mtime": 1791913000.7615933,
+    "ast_hash": "efda77430414a24fb41382dd450f15e8",
+    "semantic_hash": ""
+  },
+  "ui/js/core/utils.js": {
+    "mtime": 1789968385.5333638,
+    "ast_hash": "79bb358f1c9e5b8a02caa3a0502990ef",
+    "semantic_hash": ""
+  },
+  "ui/js/core/web_search_helper.js": {
+    "mtime": 1790007616.1747355,
+    "ast_hash": "5dd0116f4af5b4bd860c218ba6482970",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/agent_execution.js": {
+    "mtime": 1791825698.3853426,
+    "ast_hash": "27537ed237e39177a8e3301176be4287",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/agent_executor.js": {
+    "mtime": 1791825698.2438915,
+    "ast_hash": "2a5353a291e4aa816ad203eb9484e67c",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/agent_model_options.js": {
+    "mtime": 1791827057.3258178,
+    "ast_hash": "c34443e1a743f1cbc6486cf1fc4adc43",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/agent_persistence.js": {
+    "mtime": 1791826821.5868537,
+    "ast_hash": "0a2efb57d0dd7a2ff3f882511bb30267",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/agent_service.js": {
+    "mtime": 1791827057.772082,
+    "ast_hash": "36e4429d3764c45407231eab0a9eb73e",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/automation_agent_card.js": {
+    "mtime": 1791827058.1869533,
+    "ast_hash": "da38680ff9a707cf19c8f43afc7039af",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/automation_defaults.js": {
+    "mtime": 1791826828.4960067,
+    "ast_hash": "cd62238eae373fc40cb0188469c2a9f2",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/automation_log_row.js": {
+    "mtime": 1791773832.153613,
+    "ast_hash": "504c562b194e63d298d5b769d024441f",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/automation_modals.js": {
+    "mtime": 1791827057.5453875,
+    "ast_hash": "f54e608aee574145b7ba0b4c9e8c5c29",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/automation_view.js": {
+    "mtime": 1791827058.4136932,
+    "ast_hash": "5184f71e6a166754c3b19253783498fe",
+    "semantic_hash": ""
+  },
+  "ui/js/features/automation/tool_registry.js": {
+    "mtime": 1791827057.9925551,
+    "ast_hash": "7cb1e9c5df04e88044be372d3e55e9a1",
+    "semantic_hash": ""
+  },
+  "ui/js/features/chat/chat_composer.js": {
+    "mtime": 1790032277.5562136,
+    "ast_hash": "2fd4f8adb3812f5da80374abc74c8c33",
+    "semantic_hash": ""
+  },
+  "ui/js/features/chat/chat_hero_view.js": {
+    "mtime": 1791924250.5537539,
+    "ast_hash": "3f1c55faf324c9d9f809f98eb84d50ee",
+    "semantic_hash": ""
+  },
+  "ui/js/features/chat/chat_message_renderer.js": {
+    "mtime": 1791912789.3382087,
+    "ast_hash": "ffe6ac48304e181aa637a617c06b159a",
+    "semantic_hash": ""
+  },
+  "ui/js/features/chat/chat_service.js": {
+    "mtime": 1791912413.636367,
+    "ast_hash": "7ff36b097389cb51522dfe46cf72dc9d",
+    "semantic_hash": ""
+  },
+  "ui/js/features/chat/chat_view.js": {
+    "mtime": 1791497870.1567104,
+    "ast_hash": "2a561d0f0a6d264b5aac6af961b9b78d",
+    "semantic_hash": ""
+  },
+  "ui/js/features/files/files_view.js": {
+    "mtime": 1791491827.185881,
+    "ast_hash": "6c6f79aec8dd6c9724d342fb5ff2ccbb",
+    "semantic_hash": ""
+  },
+  "ui/js/features/settings/settings_view.js": {
+    "mtime": 1791491846.7569144,
+    "ast_hash": "bd29d1b306c9431ab1d2acf189ba0af8",
+    "semantic_hash": ""
+  },
+  "ui/js/features/system/system_service.js": {
+    "mtime": 1789425735.4706542,
+    "ast_hash": "b7f7cf8bbe38ae501a2f2656d83b6046",
+    "semantic_hash": ""
+  },
+  "ui/js/features/system/system_view.js": {
+    "mtime": 1791912845.8584704,
+    "ast_hash": "2daa314a23e1ca416257083c21bd2e5f",
+    "semantic_hash": ""
+  },
+  "ui/js/features/terminal/terminal_service.js": {
+    "mtime": 1790008064.56572,
+    "ast_hash": "27129996a743a11210700040e29ea102",
+    "semantic_hash": ""
+  },
+  "ui/js/features/terminal/terminal_view.js": {
+    "mtime": 1790008074.5462644,
+    "ast_hash": "bef06c4b0c92d4bc3307399df344bd90",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/domain/whatsapp_events.js": {
+    "mtime": 1789950190.3016648,
+    "ast_hash": "14166860a44fe37369e7ceeb390e9b0d",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/domain/whatsapp_types.js": {
+    "mtime": 1791925944.8573112,
+    "ast_hash": "76cc1f4e9daf826b3aea10d33c4e474a",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/services/whatsapp_ai_agent.js": {
+    "mtime": 1791925910.5157766,
+    "ast_hash": "7ffcaefa98a753177d8df01e304e3f48",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/services/whatsapp_dispatcher.js": {
+    "mtime": 1791925901.834342,
+    "ast_hash": "af45cb2d05c1d8f6b6c368bcbfbdfa15",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/services/whatsapp_session_manager.js": {
+    "mtime": 1791925897.3645177,
+    "ast_hash": "2e87de1c15b20c83149544ecdaf13273",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/services/whatsapp_storage.js": {
+    "mtime": 1791925944.6042378,
+    "ast_hash": "09dca1126bdb59ea6e4fffb6c1769998",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/ui/whatsapp_chat_conversation.js": {
+    "mtime": 1791994826.9593332,
+    "ast_hash": "59a9d1334178f4ff8c7c9fe4dea9dc60",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/ui/whatsapp_chat_list.js": {
+    "mtime": 1791994827.3550546,
+    "ast_hash": "9ec960e0573c10ef7e1f4b5fea5ce4ab",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/ui/whatsapp_composer.js": {
+    "mtime": 1791998892.1182718,
+    "ast_hash": "063351085d2d4c8e53d758b225c632f8",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/ui/whatsapp_context_panel.js": {
+    "mtime": 1791994935.4061773,
+    "ast_hash": "20de822d439001a5809df8bd94429b02",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/ui/whatsapp_pairing_modal.js": {
+    "mtime": 1791995653.2473505,
+    "ast_hash": "9eb5e7fde3dd2c1fe6cd6d0e6ac94f3b",
+    "semantic_hash": ""
+  },
+  "ui/js/features/whatsapp/whatsapp_view.js": {
+    "mtime": 1791995487.9872313,
+    "ast_hash": "c0bfa537fad4e14df5891584c949f23a",
+    "semantic_hash": ""
+  },
+  "ui/js/nano_icon.js": {
+    "mtime": 1790016055.6520936,
+    "ast_hash": "77d73fba57da54a5b3c01183419d9bcd",
+    "semantic_hash": ""
+  },
+  "ui/js/theme.js": {
+    "mtime": 1790016031.722178,
+    "ast_hash": "b4265ad5c54ee69c03add4f7b5e60ae4",
+    "semantic_hash": ""
+  },
+  "windows_runtime_job.py": {
+    "mtime": 1791911985.0701568,
+    "ast_hash": "ac853c5835bf3c165832deaa76c6307e",
+    "semantic_hash": ""
+  },
+  "ui/index.html": {
+    "mtime": 1791997974.3986125,
+    "ast_hash": "e1ede14de59cdf9137bac2dc2a625f04",
+    "semantic_hash": ""
+  },
+  "ui/assets/brand/nano-feather.svg": {
+    "mtime": 1790015832.3988347,
+    "ast_hash": "e306f052daaacc09cd9eb2b55cd6a629",
+    "semantic_hash": ""
+  },
+  "ui/assets/brand/nano-logo-mark.svg": {
+    "mtime": 1790015832.417463,
+    "ast_hash": "1447e03f34f59babc34974770b894b76",
+    "semantic_hash": ""
+  },
+  "ui/assets/brand/nano-orb.svg": {
+    "mtime": 1790015832.4300184,
+    "ast_hash": "83dfed05ae889aacbcd3f3ff349339f9",
+    "semantic_hash": ""
+  },
+  "ui/assets/nano-feather.svg": {
+    "mtime": 1790015832.3988347,
+    "ast_hash": "e306f052daaacc09cd9eb2b55cd6a629",
+    "semantic_hash": ""
+  },
+  "ui/assets/nano-logo-mark.svg": {
+    "mtime": 1790015832.417463,
+    "ast_hash": "1447e03f34f59babc34974770b894b76",
+    "semantic_hash": ""
+  },
+  "ui/assets/nano-orb.svg": {
+    "mtime": 1790015832.4300184,
+    "ast_hash": "83dfed05ae889aacbcd3f3ff349339f9",
+    "semantic_hash": ""
+  },
+  "ui/assets/nano_home_background.jpg": {
+    "mtime": 1788643569.2781775,
+    "ast_hash": "14b3d596b59a4769aff5264da4564657",
+    "semantic_hash": ""
+  },
+  "ui/icons/attach.svg": {
+    "mtime": 1790015833.0139565,
+    "ast_hash": "eb269513dc2a2506afc9d2ee4ebb6343",
+    "semantic_hash": ""
+  },
+  "ui/icons/automation.svg": {
+    "mtime": 1790015833.0714457,
+    "ast_hash": "3e8e8766a0c00f2c592473c1f8e3977a",
+    "semantic_hash": ""
+  },
+  "ui/icons/brain.svg": {
+    "mtime": 1790015833.0659366,
+    "ast_hash": "28290849e726ac23814c10362de19dbd",
+    "semantic_hash": ""
+  },
+  "ui/icons/chat.svg": {
+    "mtime": 1790015833.0016642,
+    "ast_hash": "1cc86e0b377f50d4c1d77c5e5c68f9a6",
+    "semantic_hash": ""
+  },
+  "ui/icons/chevron.svg": {
+    "mtime": 1790015833.0830648,
+    "ast_hash": "b5e7e47de94c31064297a35c8dcf5d0b",
+    "semantic_hash": ""
+  },
+  "ui/icons/code.svg": {
+    "mtime": 1790015832.9662633,
+    "ast_hash": "29eab989522f2335053c5dedddac555c",
+    "semantic_hash": ""
+  },
+  "ui/icons/database.svg": {
+    "mtime": 1790015833.0530589,
+    "ast_hash": "21e17e29e95cccea169d94c3de6a8188",
+    "semantic_hash": ""
+  },
+  "ui/icons/files.svg": {
+    "mtime": 1790015832.950712,
+    "ast_hash": "8e582bf81fee669c5b184a9a58392053",
+    "semantic_hash": ""
+  },
+  "ui/icons/globe.svg": {
+    "mtime": 1790015832.9587731,
+    "ast_hash": "90e7b83cf3af5c7b07c144564014c4b1",
+    "semantic_hash": ""
+  },
+  "ui/icons/home.svg": {
+    "mtime": 1790015832.9907646,
+    "ast_hash": "9efaf9fe0a6380aff880f22f54c9a490",
+    "semantic_hash": ""
+  },
+  "ui/icons/image.svg": {
+    "mtime": 1790015832.9761803,
+    "ast_hash": "dd7c64dd5bbc6be73bab0edf7f7e766b",
+    "semantic_hash": ""
+  },
+  "ui/icons/mic.svg": {
+    "mtime": 1790015833.076495,
+    "ast_hash": "8fecfe1b9d8ff31c4cc7bc7c35681150",
+    "semantic_hash": ""
+  },
+  "ui/icons/models.svg": {
+    "mtime": 1790015832.9964235,
+    "ast_hash": "c595f37b1685caa267c3ef22624f9a6b",
+    "semantic_hash": ""
+  },
+  "ui/icons/plus.svg": {
+    "mtime": 1790015833.0893776,
+    "ast_hash": "c10c412640cdfb48f971e7886b7cd325",
+    "semantic_hash": ""
+  },
+  "ui/icons/search.svg": {
+    "mtime": 1790015832.9827116,
+    "ast_hash": "d9da0e7c928dfa1d6efb68f20b2174c2",
+    "semantic_hash": ""
+  },
+  "ui/icons/send.svg": {
+    "mtime": 1790015833.0269308,
+    "ast_hash": "b05b76c98289e6bd03b21f8c8cf15b10",
+    "semantic_hash": ""
+  },
+  "ui/icons/settings.svg": {
+    "mtime": 1790015832.9441645,
+    "ast_hash": "7f3a55ed7b8d0afb532db1144970aeac",
+    "semantic_hash": ""
+  },
+  "ui/icons/shield.svg": {
+    "mtime": 1790015833.0589035,
+    "ast_hash": "4e74e7179aa59d72fdeb4a4c4e7f2626",
+    "semantic_hash": ""
+  },
+  "ui/icons/terminal.svg": {
+    "mtime": 1790015833.0356977,
+    "ast_hash": "76711c5bc9132ecce9de2e784fd10f98",
+    "semantic_hash": ""
+  },
+  "ui/icons/user.svg": {
+    "mtime": 1790015833.0081205,
+    "ast_hash": "ea5f5de20f3413a0cf18e5e9a3066066",
+    "semantic_hash": ""
+  },
+  "ui/icons/whatsapp.svg": {
+    "mtime": 1790015833.0460691,
+    "ast_hash": "52fc18d5c079a00825c1ef4a51cd02fa",
+    "semantic_hash": ""
+  },
+  "README_MESSAGING_DESIGN.md": {
+    "mtime": 1791995725.5419958,
+    "ast_hash": "4651adc720bed0370bb9131783e84e07",
+    "semantic_hash": ""
+  }
+}

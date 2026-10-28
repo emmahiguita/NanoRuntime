@@ -1,0 +1,52 @@
+{
+  "scope": "Integración dashboard/Búho/WhatsApp y voz compartida, con revisión estática de geometría. No certifica todo Nano.",
+  "static_analysis": {
+    "exit_code": 0,
+    "result": "No issues found!",
+    "log": "ANALISIS_CONEXION_ACTUAL.log"
+  },
+  "build": {
+    "variant": "fullSideloadDebug",
+    "exit_code": 0,
+    "seconds": 84.8,
+    "apk": "C:\\Users\\emman\\Desktop\\Proyectos\\Nueva carpeta\\Nanoai\\products\\nanoMOBILE\\flutter_app\\build\\app\\outputs\\flutter-apk\\app-fullsideload-debug.apk",
+    "sha256": "495c54854afe98e21cfe1b895b0fb80b794f6cdf82d87c4ca12ce2bb64eb37d5",
+    "bytes": 191281958,
+    "log": "COMPILACION_CONEXION_ACTUAL.log"
+  },
+  "installation": {
+    "state": "installed",
+    "device": "VGL7MVFMDYQG8T55",
+    "model": "CPH2557",
+    "exit_code": 0,
+    "result": "Performing Streamed Install / Success",
+    "command": "adb install -r",
+    "data_preserving_update": true,
+    "app_launch_performed": false,
+    "sha256": "495c54854afe98e21cfe1b895b0fb80b794f6cdf82d87c4ca12ce2bb64eb37d5",
+    "matches_compiled_apk": true
+  },
+  "device_observation": {
+    "ui_navigation": false,
+    "screenshots": false,
+    "messages_sent": false,
+    "files_sent": false,
+    "automated_tests_executed": false,
+    "benchmarks_executed": false
+  },
+  "source_inventory": "INVENTARIO_CONEXION_ACTUAL.json",
+  "sources_count": 88,
+  "all_sources_under_200_lines": true,
+  "source_hashes_changed_during_final_build": [],
+  "trailing_whitespace": [],
+  "skill_validation": {
+    "skill": "nano-owl-assistant-integrity",
+    "result": "Skill is valid!"
+  },
+  "limitations": [
+    "Manual end-to-end WhatsApp/Business not executed.",
+    "No universal UI, performance, memory or thermal certification.",
+    "Public freeform capability absent in prior CPH2557 evidence; no current device recheck.",
+    "PDF/form artifact syntax currently defaults to personal WhatsApp."
+  ]
+}

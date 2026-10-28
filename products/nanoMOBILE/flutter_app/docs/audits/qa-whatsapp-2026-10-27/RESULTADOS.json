@@ -1,0 +1,142 @@
+{
+  "date": "2026-10-27",
+  "device": {
+    "serial": "VGL7MVFMDYQG8T55",
+    "model": "CPH2557",
+    "android": "15",
+    "package": "dev.nanoai.mobile",
+    "versionName": "1.0.0",
+    "versionCode": 1
+  },
+  "unit_tests": {
+    "command": "flutter test --no-pub --concurrency=1 --reporter expanded <3 archivos>",
+    "exit_code": 0,
+    "passed": 29,
+    "failed": 0,
+    "uses_explicit_test_doubles": true,
+    "proves_real_whatsapp_send": false,
+    "log": "pruebas-logica.log",
+    "files": [
+      {
+        "path": "test/features/automation/whatsapp_destination_safety_test.dart",
+        "passed": 7
+      },
+      {
+        "path": "test/features/automation/whatsapp_media_share_test.dart",
+        "passed": 5
+      },
+      {
+        "path": "test/features/automation/whatsapp_tool_handler_test.dart",
+        "passed": 17
+      }
+    ]
+  },
+  "authorized_send": {
+    "recipient": "+573203527283",
+    "text": "Prueba de Nano: apertura, envío y regreso",
+    "attempts_from_nano": 1,
+    "header_verified_in_native_log": true,
+    "send_click_native_time": "10-27 03:01:30.837",
+    "return_verified_native_time": "10-27 03:01:31.769",
+    "visible_echo_time": "3:01 a. m.",
+    "recipient_profile": "[10] Text: 'Emm' | Bounds: [0,44][1000,214] (WARNING: may overlap with [31] and [32] (+1 more), possible occlusion)\n[11] Text: 'Emm' | Bounds: [377,214][621,255]\n[12] Text: '@AIemmaDev' | Bounds: [298,260][701,290]\n[19] Text: '+57 320 3527283' | Bounds: [200,441][573,470]",
+    "echo": "[1] Text: '3:03' | Bounds: [41,7][135,44]\n[11] Text: 'Emm' | Bounds: [277,64][387,92]\n[23] Text: 'Prueba de Nano: apertura, envío y regreso' | Bounds: [163,415][941,474] (WARNING: may overlap with [24] and [25], possible occlusion)\n[36] Text: 'Prueba de Nano: apertura, envío y regreso' | Bounds: [163,672][941,731] (WARNING: may overlap with [37] and [38], possible occlusion)\n[39] Text: 'Prueba de Nano: apertura, envio' | Bounds: [269,740][941,775]\n[43] Text: 'Prueba de Nano: apertura, envío y regreso' | Bounds: [163,862][941,921] (WARNING: may overlap with [44] and [45], possible occlusion)\n[44] Text: '3:01 a. m.' | Bounds: [725,900][872,920] (WARNING: may overlap with [43], possible occlusion)",
+    "message_delivery_or_read_not_asserted": true,
+    "nano_performed_send_and_return": true,
+    "operator_did_not_send_in_whatsapp": true,
+    "log": "envio-log-filtrado.txt"
+  },
+  "device_cases": [
+    {
+      "id": "D01",
+      "case": "Menú +, Cámara/Fotos/Archivos/Complementos",
+      "result": "observado"
+    },
+    {
+      "id": "D02",
+      "case": "Complementos contiene solo WhatsApp; selección mantiene Nano",
+      "result": "observado"
+    },
+    {
+      "id": "D03",
+      "case": "Abre WhatsApp desde el editor Nano",
+      "result": "aprobado tras aislar interferencia de inspección",
+      "focus": "com.whatsapp/.home.ui.HomeActivity"
+    },
+    {
+      "id": "D04",
+      "case": "Mensaje exacto a número explícitamente autorizado",
+      "result": "acción y eco local observados; entrega remota no comprobada"
+    },
+    {
+      "id": "D05",
+      "case": "Retorno automático de Nano después del envío",
+      "result": "aprobado",
+      "focus": "dev.nanoai.mobile/.MainActivity"
+    },
+    {
+      "id": "D06",
+      "case": "Abre el chat de +573203527283 desde Nano",
+      "result": "aprobado",
+      "focus": "com.whatsapp/.Conversation"
+    },
+    {
+      "id": "D07",
+      "case": "Panel Búho interno abre y cierra",
+      "result": "observado; no prueba voz o modelo"
+    },
+    {
+      "id": "D08",
+      "case": "Archivos abre selector Android y cancelar vuelve sin adjunto",
+      "result": "aprobado",
+      "picker": "com.google.android.documentsui/com.android.documentsui.picker.PickActivity"
+    }
+  ],
+  "initial_run": {
+    "trace_id": "3f89c0c2-a027-4528-896d-30663b76e0b8",
+    "status": "failed",
+    "cause": "ARTEMIS upstream 503 and 429, runner process terminated",
+    "not_nano_app_failure": true
+  },
+  "observation_interference": {
+    "process_class": "com.mobilenext.mobilecli.DeviceServer",
+    "before": "Enabled services include Nano, Bound services empty, Ui Automation active",
+    "symptom": "SERVICE_OFF / launchFailed",
+    "recovery": "Stopped only test DeviceServer processes 13690 and 15445; bound Nano and Artemis services recovered; no permission toggles",
+    "opening_retry_only": true,
+    "no_send_retry": true
+  },
+  "pending": [
+    "Voz, síntesis y dictado",
+    "Búho nativo sobre WhatsApp: servicio externo no activo en la lectura de servicios",
+    "Envío de PDF, imagen o vídeo",
+    "Destinatario por nombre y @usuario en dispositivo",
+    "WhatsApp Business",
+    "Modo oscuro, horizontal y fuente ampliada",
+    "Entrega/lectura remota",
+    "Medición térmica y rendimiento"
+  ],
+  "ui_findings": [
+    {
+      "id": "UI01",
+      "severity": "P2",
+      "observed": "Apertura sin mensaje aparece como Entrega sin confirmar",
+      "source": "lib/features/automation/presentation/widgets/automation_compact_status.dart:25"
+    },
+    {
+      "id": "UI02",
+      "severity": "P2",
+      "observed": "Tras envío con regreso verificado, la barra conserva Por verificar",
+      "source": "lib/features/automation/presentation/widgets/automation_input_context_controller.dart:128",
+      "root_cause_not_confirmed": true
+    }
+  ],
+  "final_state": {
+    "nano_foreground": true,
+    "editor_empty": true,
+    "no_attachment_selected": true,
+    "accessibility_bound": true,
+    "no_app_code_changes": true
+  },
+  "final_editor": "[5] Text: 'Navegador Web. Navegación Asistida. Navega por internet con integración y asistencia IA' | Bounds: [33,211][486,407] (WARNING: may overlap with [6], possible occlusion)\n[6] Text: 'Navegación Asistida\n[16] Text: 'Navegación y escritura de Nano' | Bounds: [27,878][972,991] (WARNING: may overlap with [18] and [19] (+2 more), possible occlusion)\n[18] Text: 'Adjuntos y complementos' | Bounds: [47,927][180,987] (WARNING: may overlap with [16], possible occlusion)\n[19] Text: 'Opciones de WhatsApp' | Bounds: [180,927][313,987] (WARNING: may overlap with [16], possible occlusion)\n[20] Hint: 'Escribe una acción de WhatsApp…' | Bounds: [313,927][686,987]"
+}
