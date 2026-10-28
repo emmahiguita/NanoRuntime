@@ -91,3 +91,55 @@ class AgentHeaderWidget extends StatelessWidget {
     );
   }
 }
+
+class _HeaderGlassButton extends StatelessWidget {
+  const _HeaderGlassButton({
+    required this.tooltip,
+    required this.onTap,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final VoidCallback onTap;
+  final Widget icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Tooltip(
+        message: tooltip,
+        child: Semantics(
+          button: true,
+          label: tooltip,
+          child: SizedBox.square(
+            dimension: 44,
+            child: ClipOval(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Material(
+                  color: visual.surface.withValues(
+                    alpha: visual.isDark ? 0.42 : 0.48,
+                  ),
+                  shape: CircleBorder(
+                    side: BorderSide(
+                      color: Colors.white.withValues(
+                        alpha: visual.isDark ? 0.13 : 0.58,
+                      ),
+                    ),
+                  ),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onTap,
+                    child: Center(child: icon),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

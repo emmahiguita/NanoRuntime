@@ -25,7 +25,7 @@ pub struct ChatRequest {
 }
 
 fn default_max_tokens() -> usize {
-    150
+    350
 }
 
 /// Respuesta estructurada emitida tras completar la inferencia.
@@ -212,13 +212,21 @@ fn inference_worker(
                 }
             }
 
+            // Configuración de Nano: Formato Profesional Sobrio, Estructurado y Sin Emojis (Estilo Claude / GPT-4)
+            let system_prompt = "Eres Nano, el asistente de inteligencia artificial soberano de NanoAI. \
+Responde con un estilo profesional, limpio, riguroso y bien estructurado (formato Markdown puro sin emojis): \
+- Si el usuario saluda (ej: 'hola'), dale la bienvenida con calidez profesional y presenta inmediatamente 3 áreas o temas concretos en una lista con viñetas en las que puedes asistirle hoy (ej: desarrollo de software, análisis técnico o gestión de proyectos). Nunca respondas con una sola frase genérica y vacía. \
+- En preguntas temáticas o técnicas, usa encabezados sobrios (## o ###), negritas para destacar ideas clave y viñetas ordenadas. \
+- Cero emojis innecesarios; el diseño visual debe ser maduro, limpio y elegante. \
+- Responde siempre en un español impecable, culto y técnico.";
+
             let request = UserRequest {
                 prompt: job.prompt,
-                context: None,
+                context: Some(system_prompt.to_string()),
                 history: (!job.history.is_empty()).then_some(job.history),
                 session_id: job.session_id,
                 max_tokens: Some(job.max_tokens),
-                temperature: Some(0.0),
+                temperature: Some(0.4),
             };
             let started = std::time::Instant::now();
             let response = runtime

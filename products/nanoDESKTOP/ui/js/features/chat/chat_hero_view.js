@@ -44,14 +44,13 @@ export class ChatHeroView {
         <div class="nano-hero">
           <!-- Columna Izquierda: Títulos, Chips y Feature Cards -->
           <div class="nano-hero-left">
-            <h1 class="nano-hero-title">¿En qué puedo <span class="nano-title-accent">ayudarte</span> hoy?</h1>
-            <p class="nano-hero-subtitle">Inferencia local 100% privada con nanoRUNTIME y modelos GGUF.</p>
+            <h1 class="nano-hero-title">¿En qué puedo<br><span class="nano-title-accent">ayudarte</span> hoy?</h1>
+            <p class="nano-hero-subtitle">Conversa con tus modelos locales. Tus mensajes se procesan en tu equipo.</p>
 
             <div class="nano-hero-chips">
-              <span class="nano-chip"><span class="chip-dot"></span>Privado</span>
-              <span class="nano-chip"><span class="chip-dot"></span>Rápido</span>
-              <span class="nano-chip"><span class="chip-dot"></span>Sin límites</span>
-              <span class="nano-chip"><span class="chip-dot"></span>En tu hardware</span>
+              <span class="nano-chip"><span class="chip-dot"></span>Modelos locales</span>
+              <span class="nano-chip"><span class="chip-dot"></span>Historial</span>
+              <span class="nano-chip"><span class="chip-dot"></span>En tu equipo</span>
             </div>
 
             <div class="nano-home-grid">
@@ -61,14 +60,12 @@ export class ChatHeroView {
 
           <!-- Columna Derecha: Avatar Nano con Estado Soberano -->
           <div class="nano-hero-right">
+            <!-- Frase de marca decorativa: no representa un estado técnico del motor. -->
+            <div class="nano-brand-quote"><p>Pequeñas ideas,<br>grandes universos.</p><small>— Nano AI</small></div>
             <div class="nano-hero-owl-wrap" title="Haz clic en Nano para interactuar (Saludar, Planear, Dormir)">
               <div id="nano-owl-mount" class="nano-owl-wrapper"></div>
             </div>
 
-            <div class="nano-avatar-status-pill">
-              <span class="status-indicator-dot"></span>
-              <span>Inferencia Soberana &bull; En tu hardware</span>
-            </div>
           </div>
         </div>
       </div>
@@ -85,27 +82,27 @@ export class ChatHeroView {
     const cards = [
       {
         icon: 'terminal',
-        title: 'Arquitectura NanoRuntime',
-        desc: 'Desacoplamiento de backends de inferencia y memory fitting',
-        prompt: 'Explica la arquitectura de NanoRuntime en Rust y cómo desacoplar backends de inferencia.',
+        title: 'Arquitectura local',
+        desc: 'Comprende cómo separar la interfaz y el motor de IA.',
+        prompt: 'Explica una arquitectura que separa la interfaz de usuario y el motor de inferencia local.',
       },
       {
         icon: 'models',
-        title: 'Model Fitting y TTL',
-        desc: 'Políticas de ciclo de vida ECO, BALANCED y PINNED',
-        prompt: '¿Cómo implementar un mecanismo de model fitting dinámico y auto-eviction estilo Jan y LM Studio?',
+        title: 'Modelos locales',
+        desc: 'Conoce las diferencias entre formatos y cuantización.',
+        prompt: 'Explica las diferencias entre modelos GGUF Q4 y Q8. No inventes mediciones de mi equipo.',
       },
       {
         icon: 'database',
-        title: 'Diagnósticos de Hardware',
-        desc: 'Monitoreo de KV Cache, VRAM y límites térmicos',
-        prompt: 'Escribe un script en Rust para ejecutar diagnósticos de VRAM, KV Cache y offload de capas a la GPU.',
+        title: 'Uso de recursos',
+        desc: 'Comprende RAM y velocidad de generación.',
+        prompt: 'Explica qué significan RAM, VRAM y tokens por segundo, sin inventar cifras de mi equipo.',
       },
       {
         icon: 'automation',
-        title: 'Agente de Automatización',
-        desc: 'Orquestación de tareas con herramientas y aprobación',
-        prompt: 'Diseña un flujo de trabajo para un agente de automatización que procese pedidos y emita tracking.',
+        title: 'Planificar tareas',
+        desc: 'Organiza un proceso antes de ejecutarlo.',
+        prompt: 'Ayúdame a planificar una tarea paso a paso. Pregúntame primero por el objetivo y las restricciones.',
       },
     ];
 

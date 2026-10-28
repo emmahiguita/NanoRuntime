@@ -97,6 +97,25 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
     );
   }
 
+  /// QUÉ HACE:
+  /// Importa un lote de productos al catálogo comercial de Nano.
+  /// CÓMO FUNCIONA:
+  /// Si [replaceAll] es true, reemplaza todo el catálogo; si es false, fusiona
+  /// o actualiza los productos existentes por ID o nombre.
+  /// POR QUÉ:
+  /// Permite sincronizar inventarios masivos desde Excel/CSV/SQL de forma transaccional.
+  Future<bool> importProducts(
+    List<BusinessProduct> incoming, {
+    bool replaceAll = false,
+  }) {
+    if (replaceAll) {
+      return _persist(state.copyWith(products: _mergeProducts([], incoming)));
+    }
+    return _persist(
+      state.copyWith(products: _mergeProducts(state.products, incoming)),
+    );
+  }
+
   Future<bool> removeProduct(String id) {
     return _persist(
       (current) => current.copyWith(
@@ -141,6 +160,30 @@ final class BusinessFactsNotifier extends StateNotifier<BusinessFacts> {
     });
     _writeTail = operation.then<void>((_) {}, onError: (_) {});
     return operation;
+  }
+
+  /// Fusiona por ID o nombre canónico para impedir productos visualmente duplicados.
+  List<BusinessProduct> _mergeProducts(
+    List<BusinessProduct> current,
+    List<BusinessProduct> incoming,
+  ) {
+    final merged = [...current];
+    for (final candidate in incoming) {
+      final nameKey = normalizeText(candidate.name.trim());
+      if (candidate.id.trim().isEmpty || nameKey.isEmpty) continue;
+      final index = merged.indexWhere(
+        (item) =>
+            item.id == candidate.id ||
+            normalizeText(item.name.trim()) == nameKey,
+      );
+      if (index < 0) {
+        merged.add(candidate);
+      } else {
+        // El ID durable evita romper referencias creadas antes de una importación.
+        merged[index] = candidate.copyWith(id: merged[index].id);
+      }
+    }
+    return List.unmodifiable(merged);
   }
 
   /// Fusiona por ID o nombre canónico para impedir productos visualmente duplicados.

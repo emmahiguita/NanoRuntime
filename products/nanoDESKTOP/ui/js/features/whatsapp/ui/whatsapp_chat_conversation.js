@@ -1,153 +1,79 @@
-/**
- * whatsapp_chat_conversation.js — Visor de Conversación y Flujo de Mensajes
- * 
- * QUÉ HACE:
- * Renderiza la cabecera del contacto activo (avatar, tags, acciones), la fecha,
- * burbujas de diálogo con doble check azul y el indicador de escritura '● ● ●'.
- * 
- * CÓMO FUNCIONA:
- * Lee los mensajes del almacén para el hilo activo y actualiza el DOM de forma
- * segura con scroll automático asistido por requestAnimationFrame.
- * 
- * POR QUÉ:
- * Cumple con el Principio de Responsabilidad Única (SRP) y garantiza total
- * fidelidad visual con la referencia del diseño sin superar las 200 líneas.
- */
-
+/** Historial local con fechas reales: no inventa presencia ni confirmaciones. */
 import { whatsAppStorage } from '../services/whatsapp_storage.js';
 import { whatsAppBus, WhatsAppEvents } from '../domain/whatsapp_events.js';
 import { MessageDirection } from '../domain/whatsapp_types.js';
-import { NanoIcon } from '../../../components/nano_icon.js';
+import { escapeHtml } from '../../../core/utils.js';
 
 export class WhatsAppChatConversation {
   constructor(container) {
     this.container = container;
     this.activeThreadId = null;
-    this._unsubscribers = [];
-
-    this._bindEvents();
+    this._unsubscribers = [WhatsAppEvents.MESSAGE_SENT, WhatsAppEvents.MESSAGE_RECEIVED,
+      WhatsAppEvents.CONVERSATIONS_UPDATED].map(event => whatsAppBus.subscribe(event, () => this.render()));
     this.render();
   }
-
-  _bindEvents() {
-    const unsubSent = whatsAppBus.subscribe(WhatsAppEvents.MESSAGE_SENT, (msg) => {
-      if (msg.conversationId === this.activeThreadId) this.render();
-    });
-    const unsubRecv = whatsAppBus.subscribe(WhatsAppEvents.MESSAGE_RECEIVED, (msg) => {
-      if (msg.conversationId === this.activeThreadId) this.render();
-    });
-    this._unsubscribers.push(unsubSent, unsubRecv);
-  }
-
-  loadThread(threadId) {
-    this.activeThreadId = threadId;
-    this.render();
-    this.scrollToBottom();
-  }
-
-  render() {
-    if (!this.activeThreadId) {
-      this.container.innerHTML = `
-        <div class="wa-empty-chat-state">
-          <p>Selecciona una conversación para comenzar a chatear.</p>
-        </div>
-      `;
+  /** Selecciona el hilo local sin consultar contactos externos. */
+  loadThread(threadId) { this.activeThreadId = threadId; this.render(true); }
+  /** La ausencia de historial se reconoce, no se rellena con ejemplos. */
+  render(changedThread = false) {
+    const previousBody = this.container.querySelector('#wa-messages-body');
+    const previousTop = previousBody?.scrollTop || 0;
+    const nearEnd = !previousBody || previousBody.scrollHeight - previousTop - previousBody.clientHeight < 80;
+    const thread = whatsAppStorage.getConversations().find(c => c.id === this.activeThreadId);
+    if (!thread) {
+      this.container.innerHTML = `<div class="wa-empty-chat-state">
+        <img class="wa-empty-owl" src="assets/brand/nano-logo-mark.svg" alt="" />
+        <h2>Tu bandeja de mensajes</h2>
+        <p>Selecciona una conversación para comenzar.</p>
+      </div>`;
       return;
     }
-
-    const convs = whatsAppStorage.getConversations();
-    const thread = convs.find((c) => c.id === this.activeThreadId);
-    const contactName = thread?.contact?.name || 'María González';
-    const isOnline = thread?.online ?? true;
-    const tags = thread?.tags || ['Cliente', 'VIP', 'Interesado'];
-    const messages = whatsAppStorage.getMessages(this.activeThreadId);
-
-    const headerHtml = `
-      <div class="wa-conversation-header">
-        <div class="wa-conv-header-left">
-          <div class="wa-avatar-wrap">
-            <div class="wa-avatar large">${contactName[0]}</div>
-            ${isOnline ? '<span class="wa-avatar-online-dot"></span>' : ''}
-          </div>
-          <div class="wa-conv-header-meta">
-            <div class="wa-conv-name">${contactName}</div>
-            <div class="wa-conv-subline">
-              <span class="wa-status-online">● En línea</span>
-              <div class="wa-header-tags">
-                ${tags.map((t) => `<span class="wa-tag-pill ${t.toLowerCase()}">${t}</span>`).join('')}
-              </div>
-            </div>
-          </div>
+    const name = String(thread.contact?.name || 'Contacto');
+    const messages = whatsAppStorage.getMessages(thread.id);
+    let lastDate = '';
+    const stream = messages.map(msg => {
+      const timestamp = msg.timestamp ? new Date(msg.timestamp) : null;
+      const date = timestamp && !Number.isNaN(timestamp.getTime())
+        ? timestamp.toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })
+        : 'Fecha no disponible';
+      const divider = date !== lastDate ? `<div class="wa-date-divider"><span>${date}</span></div>` : '';
+      lastDate = date;
+      return divider + this._renderBubble(msg);
+    }).join('');
+    this.container.innerHTML = `
+      <div class="wa-conversation-header"><div class="wa-conv-header-left">
+        <div class="wa-avatar large">${escapeHtml(name[0])}</div>
+        <div class="wa-conv-header-meta">
+          <div class="wa-conv-name">${escapeHtml(name)}</div>
+          <div class="wa-conv-subline">Historial local · no sincronizado con Meta</div>
         </div>
-        <div class="wa-conv-header-actions">
-          <button type="button" class="wa-action-icon" title="Buscar">${NanoIcon.get('search', 16)}</button>
-          <button type="button" class="wa-action-icon" title="Llamada">${NanoIcon.get('phone', 16) || NanoIcon.get('chat', 16)}</button>
-          <button type="button" class="wa-action-icon" title="Info">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          </button>
-          <button type="button" class="wa-action-icon" title="Más opciones">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-          </button>
-        </div>
-      </div>
-    `;
-
-    const streamHtml = `
-      <div class="wa-messages-body" id="wa-messages-body">
-        <div class="wa-date-divider">
-          <span>Hoy, 12 de marzo</span>
-        </div>
-        ${messages.map((m) => this._renderBubble(m)).join('')}
-        ${this.activeThreadId === 'wa_1' ? `
-          <div class="wa-typing-indicator-row">
-            <div class="wa-typing-bubble">
-              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-            </div>
-          </div>
-        ` : ''}
-      </div>
-    `;
-
-    this.container.innerHTML = `${headerHtml}${streamHtml}`;
-    this.scrollToBottom();
+      </div></div>
+      <div class="wa-messages-body ${changedThread ? 'wa-thread-enter' : ''}" id="wa-messages-body">
+        ${stream || '<div class="wa-empty-list-notice">Sin mensajes guardados en este registro.</div>'}
+      </div>`;
+    // Actualizaciones no relacionadas conservan el punto de lectura del historial.
+    if (changedThread || nearEnd) this.scrollToBottom();
+    else this.container.querySelector('#wa-messages-body').scrollTop = previousTop;
   }
-
+  /** El estado legado no prueba entrega; se requieren recibos reales del proveedor. */
   _renderBubble(msg) {
-    const isInbound = msg.direction === MessageDirection.INBOUND;
-    const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '10:24';
-    const textFormatted = this._escapeHtml(msg.text).replace(/\n/g, '<br>');
-
-    return `
-      <div class="wa-bubble-row ${isInbound ? 'inbound' : 'outbound'}">
-        <div class="wa-bubble ${isInbound ? 'inbound' : 'outbound'}">
-          <div class="wa-bubble-text">${textFormatted}</div>
-          <div class="wa-bubble-footer">
-            <span class="wa-time-stamp">${time}</span>
-            ${!isInbound ? '<span class="wa-double-check">✓✓</span>' : ''}
-          </div>
-        </div>
-      </div>
-    `;
+    const direction = msg.direction === MessageDirection.INBOUND ? 'inbound' : 'outbound';
+    const date = msg.timestamp ? new Date(msg.timestamp) : null;
+    const time = date && !Number.isNaN(date.getTime())
+      ? date.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }) : '';
+    return `<div class="wa-bubble-row ${direction}"><div class="wa-bubble ${direction}">
+      <div class="wa-bubble-text">${escapeHtml(String(msg.text || '')).replace(/\n/g, '<br>')}</div>
+      <div class="wa-bubble-footer"><span class="wa-time-stamp">${time}</span>
+        ${direction === 'outbound' ? '<span class="wa-time-stamp">Entrega no verificada</span>' : ''}
+      </div></div></div>`;
   }
-
+  /** Un desmonte cancela el frame pendiente para evitar callbacks tardíos. */
   scrollToBottom() {
-    requestAnimationFrame(() => {
+    cancelAnimationFrame(this._frame);
+    this._frame = requestAnimationFrame(() => {
       const body = this.container.querySelector('#wa-messages-body');
       if (body) body.scrollTop = body.scrollHeight;
     });
   }
-
-  _escapeHtml(str) {
-    return (str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
-
-  destroy() {
-    this._unsubscribers.forEach((fn) => fn());
-    this._unsubscribers = [];
-  }
+  destroy() { cancelAnimationFrame(this._frame); this._unsubscribers.forEach(fn => fn()); }
 }

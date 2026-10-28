@@ -76,7 +76,11 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Row(
@@ -129,19 +133,36 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
                       style: TextStyle(
                         fontSize: 10.5,
                         height: 1.25,
-                        color: responses[i].enabled ? Colors.white.withValues(alpha: 0.88) : Colors.white38,
+                        color: responses[i].enabled
+                            ? Colors.white.withValues(alpha: 0.88)
+                            : Colors.white38,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
                   ),
-                  if (responses[i].tone.isNotEmpty && responses[i].tone != 'cotidiana')
+                  if (responses[i].tone.isNotEmpty &&
+                      responses[i].tone != 'cotidiana')
                     Container(
                       margin: const EdgeInsets.only(left: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0x1800D2FF),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0x4000D2FF), width: 0.5),
+                        border: Border.all(
+                          color: const Color(0x4000D2FF),
+                          width: 0.5,
+                        ),
+                      ),
+                      child: Text(
+                        responses[i].tone,
+                        style: const TextStyle(
+                          fontSize: 7.5,
+                          color: Color(0xFF00D2FF),
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       child: Text(
                         responses[i].tone,
@@ -159,7 +180,11 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Text(
                   _expanded ? '▲ Mostrar menos' : '+${total - 3} más',
-                  style: const TextStyle(fontSize: 9.5, color: Color(0xFFFFD54F), fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 9.5,
+                    color: Color(0xFFFFD54F),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -167,7 +192,12 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _btn('Editar', Icons.edit_outlined, const Color(0xFF81C784), widget.canEdit ? widget.onEdit : null),
+              _btn(
+                'Editar',
+                Icons.edit_outlined,
+                const Color(0xFF81C784),
+                widget.canEdit ? widget.onEdit : null,
+              ),
               const SizedBox(width: 8),
               _btn(
                 '+ Respuesta',
@@ -176,7 +206,12 @@ class _PersonaExampleCardState extends State<_PersonaExampleCard> {
                 widget.canEdit ? widget.onAddResponse : null,
               ),
               const SizedBox(width: 8),
-              _btn('Eliminar', Icons.delete_outline, const Color(0xFFE57373), widget.canEdit ? widget.onDelete : null),
+              _btn(
+                'Eliminar',
+                Icons.delete_outline,
+                const Color(0xFFE57373),
+                widget.canEdit ? widget.onDelete : null,
+              ),
             ],
           ),
         ],

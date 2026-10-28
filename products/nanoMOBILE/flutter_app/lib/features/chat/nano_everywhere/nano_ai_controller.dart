@@ -43,6 +43,11 @@ class NanoAiController extends ChangeNotifier {
   /// Devuelve Future<bool>: true = usuario confirmó login, false = canceló.
   final Future<bool> Function(String providerId)? onLoginRequired;
 
+  /// Callback opcional: invocado cuando la gateway necesita login del usuario.
+  /// Recibe el [providerId] sugerido (el que falló). El widget debe mostrar UI.
+  /// Devuelve Future<bool>: true = usuario confirmó login, false = canceló.
+  final Future<bool> Function(String providerId)? onLoginRequired;
+
   NanoActivity activity = NanoActivity.idle;
   NanoMode mode = NanoMode.quick;
   String panelTool = 'Chat';

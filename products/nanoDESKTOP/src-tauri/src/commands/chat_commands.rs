@@ -18,6 +18,9 @@ pub struct ChatInput {
     pub max_tokens: Option<usize>,
     pub temperature: Option<f32>,
     pub request_id: Option<String>,
+    // Roles y sesión viajan estructurados, no como frases incrustadas en el prompt.
+    pub history: Option<Vec<nanortime_core::ChatMessage>>,
+    pub session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,18 +69,16 @@ pub async fn nano_chat_prompt(
     service: State<'_, Arc<RuntimeService>>,
     input: ChatInput,
 ) -> Result<ChatOutput, String> {
-    let model = input.model_path.unwrap_or_else(|| "qwen.gguf".to_string());
+    let model = input.model_path.ok_or("Selecciona un archivo local real")?;
     let max_tokens = input.max_tokens.unwrap_or(256);
 
     let (response_rx, mut token_rx) = service
-        .stream_prompt(&model, &input.prompt, max_tokens, input.temperature)
+        .stream_prompt(&model, &input.prompt, max_tokens, input.temperature, input.history, input.session_id)
         .await
         .map_err(|e| format!("[Error Runtime] {}", e))?;
 
-    let mut accumulated = String::new();
-    while let Some((token, _)) = token_rx.recv().await {
-        accumulated.push_str(&token);
-    }
+    // Drena tokens; solo la respuesta final confirmada puede considerarse éxito.
+    while token_rx.recv().await.is_some() {}
 
     match response_rx.await {
         Ok(Ok(resp)) => {
@@ -85,7 +86,7 @@ pub async fn nano_chat_prompt(
             Ok(ChatOutput {
                 text: resp.text,
                 tok_s,
-                confidence: resp.confidence.map(|c| c as f64).unwrap_or(1.0),
+                confidence: resp.confidence.map(|c| c as f64).unwrap_or(0.0),
                 status: "ok".into(),
             })
         }
@@ -96,10 +97,10 @@ pub async fn nano_chat_prompt(
             status: "error".into(),
         }),
         Err(_) => Ok(ChatOutput {
-            text: accumulated,
+            text: "El canal de inferencia se cerró sin confirmar la respuesta".into(),
             tok_s: 0.0,
             confidence: 0.0,
-            status: "ok".into(),
+            status: "error".into(),
         }),
     }
 }
@@ -118,11 +119,11 @@ pub async fn nano_chat_prompt_stream(
         .filter(|value| !value.is_empty())
         .map(str::to_string)
         .ok_or_else(|| "request_id es obligatorio para streaming".to_string())?;
-    let model = input.model_path.unwrap_or_else(|| "qwen.gguf".to_string());
+    let model = input.model_path.ok_or("Selecciona un archivo local real")?;
     let max_tokens = input.max_tokens.unwrap_or(512);
 
     let (response_rx, mut token_rx) = service
-        .stream_prompt(&model, &input.prompt, max_tokens, input.temperature)
+        .stream_prompt(&model, &input.prompt, max_tokens, input.temperature, input.history, input.session_id)
         .await
         .map_err(|e| {
             let message = format!("[Error Runtime] {}", e);

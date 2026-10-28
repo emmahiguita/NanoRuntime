@@ -74,6 +74,7 @@ class LiveNotificationsNotifier
           _schedulePersistIfChanged(notif, summary);
         }
       }
+    }
 
       return MessagingDedupMerger.deduplicateAndSort(items);
     }

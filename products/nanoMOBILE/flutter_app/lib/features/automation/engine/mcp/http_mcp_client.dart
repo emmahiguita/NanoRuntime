@@ -67,6 +67,7 @@ class HttpMcpClient implements McpClientPort {
     );
   }
 
+  // Cierra la sesión remota cuando el servidor la admite y libera el socket.
   @override
   Future<void> disconnect() async {
     if (_closed) return;
@@ -74,6 +75,7 @@ class HttpMcpClient implements McpClientPort {
     await _disconnectSession();
   }
 
+  // Descubre herramientas y registra fallos HTTP en vez de ocultar un 404 como lista vacía.
   @override
   Future<List<McpRemoteTool>> listTools() => _listCatalog();
 

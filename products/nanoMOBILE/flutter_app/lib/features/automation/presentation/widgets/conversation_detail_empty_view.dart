@@ -52,43 +52,18 @@ extension ConversationDetailEmptyView on _ConversationDetailSheetState {
             width: isLandscape ? 46 : 64,
             height: isLandscape ? 46 : 64,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF25D366), Color(0xFF128C7E)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: const LinearGradient(colors: [Color(0xFF25D366), Color(0xFF128C7E)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF25D366).withValues(alpha: 0.35),
-                  blurRadius: isLandscape ? 10 : 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: const Color(0xFF25D366).withValues(alpha: 0.35), blurRadius: isLandscape ? 10 : 16, offset: const Offset(0, 4))],
             ),
             child: Center(
-              child: Text(
-                title.isNotEmpty ? title[0].toUpperCase() : 'W',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: isLandscape ? 18 : 24,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              child: Text(title.isNotEmpty ? title[0].toUpperCase() : 'W', style: TextStyle(color: Colors.white, fontSize: isLandscape ? 18 : 24, fontWeight: FontWeight.w800)),
             ),
           ),
         ),
         const SizedBox(height: 8),
         Center(
-          child: Text(
-            title,
-            style: TextStyle(
-              color: visual.text,
-              fontSize: isLandscape ? 15 : 17,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.3,
-            ),
-          ),
+          child: Text(title, style: TextStyle(color: visual.text, fontSize: isLandscape ? 15 : 17, fontWeight: FontWeight.w700, letterSpacing: -0.3)),
         ),
         const SizedBox(height: 2),
         Center(

@@ -9,34 +9,37 @@
 
 export const OWL_ASSETS = Object.freeze({
   // Reposo neutral (pie firme, ojos galaxia abiertos)
-  idle: 'assets/Animaciones/saludando/96e4a721-fac9-4158-be23-5ec04c2f10c8.png',
+  idle: 'assets/Animaciones/owl_idle.png',
   
   // Parpadeo natural (ojos cerrados alineados pixel a pixel)
-  blink: 'assets/Animaciones/dormido/owl_blink.png',
+  blink: 'assets/Animaciones/owl_blink.png',
   
   // Saludo amigable (ala derecha alzada, expresión alegre)
-  wave: 'assets/Animaciones/saludando/ChatGPT Image 21 sept 2026, 05_25_11 p.m..png',
+  wave: 'assets/Animaciones/owl_wave.png',
   
   // Curiosidad (ladeo de cabeza atento)
-  curious: 'assets/Animaciones/saludando/ChatGPT Image 21 sept 2026, 05_25_07 p.m..png',
+  curious: 'assets/Animaciones/owl_curious.png',
   
   // Vuelo / Planeo frontal majestuoso
-  flying: 'assets/Animaciones/BUHO VUELO FRONTAL/ChatGPT Image 30 ago 2026, 03_35_11 p.m. (2) (1).png',
+  flying: 'assets/Animaciones/owl_flying.png',
   
   // Dormido pacífico (con zzz cósmicas en pose acurrucada)
-  sleep: 'assets/Animaciones/dormido/owl_sleep.png',
+  sleep: 'assets/Animaciones/owl_sleep.png',
   
   // Escuchando / Escribiendo en el composer
-  listening: 'assets/Animaciones/Pregunta y cuando da respuesta/ChatGPT Image 21 sept 2026, 05_24_54 p.m..png',
+  listening: 'assets/Animaciones/owl_listening.png',
   
   // Pensando / Razonando (DeepThink R1 con interrogación estelar)
-  thinking: 'assets/Animaciones/Pregunta y cuando da respuesta/ChatGPT Image 21 sept 2026, 05_25_19 p.m..png',
+  thinking: 'assets/Animaciones/owl_thinking.png',
   
   // Respondiendo / Generación en tiempo real
-  responding: 'assets/Animaciones/Pregunta y cuando da respuesta/ChatGPT Image 21 sept 2026, 05_25_25 p.m..png',
+  responding: 'assets/Animaciones/owl_responding.png',
   
   // Éxito / Tarea finalizada con destellos
-  success: 'assets/Animaciones/Pregunta y cuando da respuesta/ChatGPT Image 21 sept 2026, 05_25_26p.m..png',
+  success: 'assets/Animaciones/owl_success.png',
+
+  // Estado de error / fallo controlado
+  error: 'assets/Animaciones/owl_error.png',
 });
 
 export const OWL_PHYSICS_CONFIG = Object.freeze({

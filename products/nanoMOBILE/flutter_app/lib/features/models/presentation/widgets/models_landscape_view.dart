@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../application/models_notifier.dart';
 import '../../application/models_state.dart';
+import 'model_new_badge_banner.dart';
 import 'model_screen_helpers.dart';
 import 'model_storage_summary_card.dart';
 import 'models_catalog_header.dart';
@@ -103,11 +104,7 @@ class ModelsLandscapeView extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     state.scanError!,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontSize: 10.5,
-                      color: colors.error,
-                    ),
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 10.5, color: colors.error),
                   ),
                 ],
               ],

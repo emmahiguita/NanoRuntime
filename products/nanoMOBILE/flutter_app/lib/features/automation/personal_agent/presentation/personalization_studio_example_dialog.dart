@@ -55,7 +55,9 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
         : inVars.map((v) => TextEditingController(text: v)).toList();
     final opts = ex?.responseOptions ?? [];
     if (opts.isNotEmpty) {
-      _respCtrls = opts.map((o) => TextEditingController(text: o.text)).toList();
+      _respCtrls = opts
+          .map((o) => TextEditingController(text: o.text))
+          .toList();
       _respTones = opts.map((o) => o.tone).toList();
       _respActives = opts.map((o) => o.enabled).toList();
     } else {
@@ -213,11 +215,21 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
 
   void _save() {
     final trigger = _triggerCtrl.text.trim();
-    final inVars = _inVarCtrls.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
+    final inVars = _inVarCtrls
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
     final responses = <PersonaResponseOption>[];
     for (int i = 0; i < _respCtrls.length; i++) {
       final t = _respCtrls[i].text.trim();
-      if (t.isNotEmpty) responses.add(PersonaResponseOption(text: t, enabled: _respActives[i], tone: _respTones[i]));
+      if (t.isNotEmpty)
+        responses.add(
+          PersonaResponseOption(
+            text: t,
+            enabled: _respActives[i],
+            tone: _respTones[i],
+          ),
+        );
     }
     if (responses.isEmpty) return;
 

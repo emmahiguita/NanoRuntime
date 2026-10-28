@@ -61,8 +61,13 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
   InputDecoration _deco(String label) => InputDecoration(
     labelText: label,
     filled: true,
-    fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+    fillColor: Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.25),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide.none,
+    ),
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
   );
 
@@ -76,7 +81,11 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
         (_expiry.text.trim().isNotEmpty && (until == null || !until.isAfter(at))) ||
         (kind == 'temporaryFact' && (until == null || !until.isAfter(at)))) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verifica las fechas. Los datos temporales deben caducar después de observarse.')),
+        const SnackBar(
+          content: Text(
+            'Verifica las fechas. Los datos temporales deben caducar después de observarse.',
+          ),
+        ),
       );
       return;
     }
@@ -110,7 +119,9 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
             children: [
               DropdownButtonFormField<String>(
                 key: ValueKey(scope),
-                initialValue: widget.scopes.containsKey(scope) ? scope : 'owner',
+                initialValue: widget.scopes.containsKey(scope)
+                    ? scope
+                    : 'owner',
                 isExpanded: true,
                 decoration: _deco('Aplicar solamente a'),
                 items: [
@@ -120,7 +131,9 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
                       child: Text(s.label, overflow: TextOverflow.ellipsis),
                     ),
                 ],
-                onChanged: widget.busy ? null : (v) => v != null ? setState(() => scope = v) : null,
+                onChanged: widget.busy
+                    ? null
+                    : (v) => v != null ? setState(() => scope = v) : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -129,7 +142,10 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
                 decoration: _deco('Clasificación'),
                 items: [
                   for (final entry in personalMemoryKinds.entries)
-                    DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+                    DropdownMenuItem(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    ),
                 ],
                 onChanged: (v) => setState(() => kind = v!),
               ),
@@ -138,7 +154,10 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
               const SizedBox(height: 8),
               TextField(controller: _value, maxLength: 2000, maxLines: 3, decoration: _deco('Dato declarado')),
               const SizedBox(height: 8),
-              TextField(controller: _observed, decoration: _deco('Fecha de registro (ISO)')),
+              TextField(
+                controller: _observed,
+                decoration: _deco('Fecha de registro (ISO)'),
+              ),
               const SizedBox(height: 10),
               TextField(
                 controller: _expiry,
@@ -146,7 +165,10 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Memoria activa', style: TextStyle(fontSize: 12)),
+                title: const Text(
+                  'Memoria activa',
+                  style: TextStyle(fontSize: 12),
+                ),
                 value: enabled,
                 onChanged: (v) => setState(() => enabled = v),
               ),
@@ -155,7 +177,10 @@ class _MemoryEditDialogState extends State<_MemoryEditDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
         FilledButton(onPressed: _submit, child: const Text('Guardar')),
       ],
     );

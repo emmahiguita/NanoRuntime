@@ -20,10 +20,12 @@ class _WhatsAppContactPickerDialog extends StatefulWidget {
   const _WhatsAppContactPickerDialog({required this.existingScopes});
 
   @override
-  State<_WhatsAppContactPickerDialog> createState() => _WhatsAppContactPickerDialogState();
+  State<_WhatsAppContactPickerDialog> createState() =>
+      _WhatsAppContactPickerDialogState();
 }
 
-class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDialog> {
+class _WhatsAppContactPickerDialogState
+    extends State<_WhatsAppContactPickerDialog> {
   final _service = WhatsAppContactsService();
   final _searchCtrl = TextEditingController();
   List<WhatsAppContact> _all = [];
@@ -84,7 +86,11 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
       if (q.isEmpty) {
         _filtered = _all;
       } else {
-        _filtered = _all.where((c) => c.name.toLowerCase().contains(q) || c.number.contains(q)).toList();
+        _filtered = _all
+            .where(
+              (c) => c.name.toLowerCase().contains(q) || c.number.contains(q),
+            )
+            .toList();
       }
     });
   }
@@ -103,15 +109,25 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
       actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       title: Row(
         children: [
-          const Icon(Icons.perm_contact_calendar_rounded, size: 16, color: Color(0xFF25D366)),
+          const Icon(
+            Icons.perm_contact_calendar_rounded,
+            size: 16,
+            color: Color(0xFF25D366),
+          ),
           const SizedBox(width: 8),
           const Expanded(
             child: Text('Contactos de WhatsApp', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           ),
           TextButton(
-            style: TextButton.styleFrom(visualDensity: VisualDensity.compact, padding: EdgeInsets.zero),
+            style: TextButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+            ),
             onPressed: () => Navigator.of(context).pop('manual'),
-            child: const Text('Manual', style: TextStyle(fontSize: 11, color: Colors.white70)),
+            child: const Text(
+              'Manual',
+              style: TextStyle(fontSize: 11, color: Colors.white70),
+            ),
           ),
         ],
       ),
@@ -127,7 +143,12 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF25D366), strokeWidth: 2));
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF25D366),
+          strokeWidth: 2,
+        ),
+      );
     }
     if (!_hasPermission) {
       return Column(
@@ -135,7 +156,10 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
         children: [
           const Icon(Icons.security, size: 36, color: Colors.white38),
           const SizedBox(height: 10),
-          const Text('Acceso a contactos requerido', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          const Text(
+            'Acceso a contactos requerido',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 6),
           const Text(
             'NanoAI identifica automáticamente los contactos con WhatsApp en tu libreta.',
@@ -144,10 +168,16 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
           ),
           const SizedBox(height: 14),
           FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366), foregroundColor: Colors.black),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF25D366),
+              foregroundColor: Colors.black,
+            ),
             onPressed: _requestPermission,
             icon: const Icon(Icons.check_circle_outline, size: 14),
-            label: const Text('Permitir acceso', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            label: const Text(
+              'Permitir acceso',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       );
@@ -162,7 +192,11 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
             isDense: true,
             hintText: 'Buscar en ${_all.length} contactos de WhatsApp...',
             hintStyle: const TextStyle(fontSize: 10.5, color: Colors.white38),
-            prefixIcon: const Icon(Icons.search, size: 14, color: Color(0xFF25D366)),
+            prefixIcon: const Icon(
+              Icons.search,
+              size: 14,
+              color: Color(0xFF25D366),
+            ),
             filled: true,
             fillColor: const Color(0x0CFFFFFF),
             border: OutlineInputBorder(
@@ -190,12 +224,16 @@ class _WhatsAppContactPickerDialogState extends State<_WhatsAppContactPickerDial
                 )
               : ListView.separated(
                   itemCount: _filtered.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0x12FFFFFF)),
+                  separatorBuilder: (_, __) =>
+                      const Divider(height: 1, color: Color(0x12FFFFFF)),
                   itemBuilder: (_, i) {
                     final c = _filtered[i];
                     return ListTile(
                       dense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 0,
+                      ),
                       leading: CircleAvatar(
                         radius: 14,
                         backgroundColor: const Color(0x2525D366),

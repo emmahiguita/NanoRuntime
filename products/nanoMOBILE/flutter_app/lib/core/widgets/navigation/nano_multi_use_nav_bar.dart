@@ -34,6 +34,7 @@ class NanoMultiUseNavBar extends StatelessWidget {
   final Brightness? brightness;
   final bool searchExpanded, keyboardVisible, transparent;
 
+  /// Cambia solo el espacio de los destinos: no mueve ni sustituye el editor.
   @override
   Widget build(BuildContext context) {
     final activeBrightness = brightness ?? Theme.of(context).brightness;

@@ -1,7 +1,8 @@
 /**
  * StateManager — Gestor de estado reactivo multi-sesión con persistencia (SRP).
- * Guarda las conversaciones en localStorage de forma soberana y segura.
+ * Conserva conversaciones locales; las credenciales pertenecen al servidor.
  */
+import { readSessions, writeSessions } from './session_persistence.js';
 class StateManager {
   constructor() {
     const savedSessions = this.loadPersistedSessions();
@@ -15,11 +16,11 @@ class StateManager {
           title: 'Nueva conversación',
           createdAt: Date.now(),
           messages: [],
-          activeModel: 'deepseek-r1',
+          activeModel: '',
         }
       ],
       currentSessionId: defaultSessionId,
-      currentModel: 'DeepSeek-R1-Distill-Qwen',
+      currentModel: '',
       isGenerating: false,
       telemetry: null,
       models: [],
@@ -34,30 +35,11 @@ class StateManager {
   }
 
   loadPersistedSessions() {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const raw = localStorage.getItem('nano_desktop_sessions_v2');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('No se pudo cargar sesiones de localStorage:', e);
-    }
-    return [];
+    return readSessions();
   }
 
   persistSessions() {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        localStorage.setItem('nano_desktop_sessions_v2', JSON.stringify(this.state.sessions));
-      }
-    } catch (e) {
-      console.warn('No se pudo guardar sesiones en localStorage:', e);
-    }
+    writeSessions(this.state.sessions);
   }
 
   getState() {
@@ -161,11 +143,12 @@ class StateManager {
     return msg;
   }
 
-  appendStreamToken(token) {
-    const session = this.getCurrentSession();
+  // La respuesta queda ligada a su conversación, aunque el usuario cambie de vista.
+  appendStreamToken(token, sessionId = this.state.currentSessionId, messageId = null) {
+    const session = this.state.sessions.find((s) => s.id === sessionId);
     if (!session || session.messages.length === 0) return;
 
-    const lastMsg = session.messages[session.messages.length - 1];
+    const lastMsg = messageId ? session.messages.find((m) => m.id === messageId) : session.messages.at(-1);
     if (lastMsg && lastMsg.role === 'assistant') {
       if (lastMsg.text === 'Pensando...') {
         lastMsg.text = token;
@@ -176,15 +159,18 @@ class StateManager {
     }
   }
 
-  updateLastMessage(text, meta = null) {
-    const session = this.getCurrentSession();
+  // Completa solo el mensaje que inició la inferencia; nunca la última burbuja de otro chat.
+  updateLastMessage(text, meta = null, sessionId = this.state.currentSessionId, messageId = null) {
+    const session = this.state.sessions.find((s) => s.id === sessionId);
     if (!session || session.messages.length === 0) return;
 
-    const lastIdx = session.messages.length - 1;
+    const lastIdx = messageId ? session.messages.findIndex((m) => m.id === messageId) : session.messages.length - 1;
+    if (lastIdx < 0) return;
+    const current = session.messages[lastIdx];
     session.messages[lastIdx] = {
-      ...session.messages[lastIdx],
-      text,
-      meta: meta ? { ...session.messages[lastIdx].meta, ...meta } : session.messages[lastIdx].meta,
+      ...current,
+      text: (text !== null && text !== undefined) ? text : current.text,
+      meta: meta ? { ...current.meta, ...meta } : current.meta,
     };
 
     this.persistSessions();
@@ -193,3 +179,6 @@ class StateManager {
 }
 
 export const appState = new StateManager();
+if (typeof window !== 'undefined') {
+  window.appState = appState;
+}

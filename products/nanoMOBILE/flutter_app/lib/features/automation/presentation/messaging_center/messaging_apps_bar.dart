@@ -28,6 +28,7 @@ class MessagingAppsBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(selectedPlatformFilterProvider);
     final unreadCounts = ref.watch(platformUnreadCountsProvider);
+    final totalUnread = ref.watch(pendingRepliesCountProvider);
 
     // Wrap conserva blancos táctiles y pasa a otra fila si el texto crece.
     return Wrap(

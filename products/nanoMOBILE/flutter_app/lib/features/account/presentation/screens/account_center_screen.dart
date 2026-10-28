@@ -94,6 +94,7 @@ class _AccountCenterScreenState extends ConsumerState<AccountCenterScreen> {
 
     return Scaffold(
       backgroundColor: colors.background,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

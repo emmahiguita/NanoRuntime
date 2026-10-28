@@ -75,7 +75,8 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final isOwner = widget.scope.id == 'owner';
 
     final size = MediaQuery.of(context).size;
@@ -92,14 +93,27 @@ class _StyleEditDialogState extends State<_StyleEditDialog> {
         children: [
           Container(
             padding: const EdgeInsets.all(5),
-            decoration: BoxDecoration(color: const Color(0x1A00E676), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.tune_rounded, color: Color(0xFF00E676), size: 16),
+            decoration: BoxDecoration(
+              color: const Color(0x1A00E676),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.tune_rounded,
+              color: Color(0xFF00E676),
+              size: 16,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              isOwner ? 'PERFIL DE ESTILO · EMMA' : 'ESTILO: ${widget.scope.label.toUpperCase()}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.4),
+              isOwner
+                  ? 'PERFIL DE ESTILO · EMMA'
+                  : 'ESTILO: ${widget.scope.label.toUpperCase()}',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                letterSpacing: 0.4,
+              ),
             ),
           ),
         ],

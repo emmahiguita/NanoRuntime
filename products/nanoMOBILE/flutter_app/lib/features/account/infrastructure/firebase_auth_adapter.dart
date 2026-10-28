@@ -119,6 +119,7 @@ class LocalAuthAdapter implements AuthRepository {
     final user = await _googleAuth.signIn();
     await _localStorage.saveUser(user);
     _currentUser = user;
+    await _localStorage.saveUser(user);
     _authStateController.add(user);
     return user;
   }

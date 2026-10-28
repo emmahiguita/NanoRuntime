@@ -134,9 +134,7 @@ extension AgentToolExecutionRouter on AgentToolDispatcher {
       case 'grant_specific_permission':
         final pkgArg3 = (call.textArg ?? call.selectorArg ?? '').trim();
         final permArg = ((call.args?['permission'] as String?) ?? '').trim();
-        if (pkgArg3.isEmpty || permArg.isEmpty) {
-          return '[tool] grant_specific_permission requiere <packageName> y permission.';
-        }
+        if (pkgArg3.isEmpty || permArg.isEmpty) return '[tool] grant_specific_permission requiere <packageName> y permission.';
         return _shizukuHandler.grantPermission(pkgArg3, permArg);
       case 'reply_notification':
         return _handleReplyNotification(call);

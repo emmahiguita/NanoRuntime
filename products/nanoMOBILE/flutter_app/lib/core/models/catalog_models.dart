@@ -41,6 +41,9 @@ enum ModelKind {
 /// Formato y motor de inferencia nativo que consume el archivo del modelo.
 enum ModelBackendType { gguf, litertlm, mnn }
 
+/// Formato y motor de inferencia nativo que consume el archivo del modelo.
+enum ModelBackendType { gguf, litertlm, mnn }
+
 class LmCatalogEntry {
   final String name;
   final String params;

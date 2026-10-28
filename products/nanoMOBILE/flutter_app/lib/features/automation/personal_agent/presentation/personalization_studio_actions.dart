@@ -14,7 +14,10 @@ part of 'personalization_studio_screen.dart';
 /// Centraliza los comandos CRUD del agente cumpliendo SOLID y manteniendo
 /// el código estrictamente menor a 200 líneas.
 extension _PersonalizationStudioActions on _PersonalizationStudioScreenState {
-  Future<void> _run(Future<void> Function() action, {bool reload = true}) async {
+  Future<void> _run(
+    Future<void> Function() action, {
+    bool reload = true,
+  }) async {
     if (!mounted || _busy) return;
     final personaContext = ref.read(personaContextProvider);
     _safeSetState(() => _busy = true);
@@ -98,7 +101,9 @@ extension _PersonalizationStudioActions on _PersonalizationStudioScreenState {
       label = manual.trim();
     }
     if (label.isEmpty) return;
-    final id = phone.isNotEmpty ? 'unbound:wa_$phone' : 'unbound:${DateTime.now().microsecondsSinceEpoch}';
+    final id = phone.isNotEmpty
+        ? 'unbound:wa_$phone'
+        : 'unbound:${DateTime.now().microsecondsSinceEpoch}';
     final facts = <String, String>{
       'learnStyle': 'true',
       'relationship': 'known',
@@ -145,13 +150,20 @@ extension _PersonalizationStudioActions on _PersonalizationStudioScreenState {
     );
     if (target == null) return;
     await _run(() async {
-      await _repo.bindRelationshipScope(source.id, target.id, target.conversationId!);
+      await _repo.bindRelationshipScope(
+        source.id,
+        target.id,
+        target.conversationId!,
+      );
       _scope = target.id;
       _notice('Perfil y diálogos vinculados.');
     });
   }
 
-  Future<void> _editExample({PersonaExample? example, bool template = false}) async {
+  Future<void> _editExample({
+    PersonaExample? example,
+    bool template = false,
+  }) async {
     final res = await showDialog<_ExampleResult>(
       context: context,
       builder: (_) => _ExampleEditDialog(
@@ -180,7 +192,8 @@ extension _PersonalizationStudioActions on _PersonalizationStudioScreenState {
         if (res.intent.isNotEmpty) 'intent': res.intent,
         if (res.incomingVariants.isNotEmpty) 'incomingVariants': jsonEncode(res.incomingVariants),
         if (res.variants.isNotEmpty) 'variants': jsonEncode(res.variants),
-        if (res.responses.isNotEmpty) 'responses': jsonEncode(res.responses.map((r) => r.toMap()).toList()),
+        if (res.responses.isNotEmpty)
+          'responses': jsonEncode(res.responses.map((r) => r.toMap()).toList()),
       };
       if (example == null) {
         await _repo.addExample(
@@ -191,9 +204,17 @@ extension _PersonalizationStudioActions on _PersonalizationStudioScreenState {
           source: res.isTemplate ? 'template' : 'manual',
         );
       } else {
-        await _repo.updateExample(example, body: res.body, incomingText: res.input, tone: tone, scopeKey: res.scope);
+        await _repo.updateExample(
+          example,
+          body: res.body,
+          incomingText: res.input,
+          tone: tone,
+          scopeKey: res.scope,
+        );
       }
-      _notice(example == null ? '¡Frase aprendida para EMMA!' : 'Frase actualizada.');
+      _notice(
+        example == null ? '¡Frase aprendida para EMMA!' : 'Frase actualizada.',
+      );
     });
   }
 
@@ -212,7 +233,10 @@ extension _PersonalizationStudioActions on _PersonalizationStudioScreenState {
     if (text == null || text.trim().isEmpty) return;
     final trimmed = text.trim();
     await _run(() async {
-      final currentOpts = [...example.responseOptions, PersonaResponseOption(text: trimmed)];
+      final currentOpts = [
+        ...example.responseOptions,
+        PersonaResponseOption(text: trimmed),
+      ];
       final tone = {
         ...example.tone,
         'variants': jsonEncode(currentOpts.map((r) => r.text).toList()),

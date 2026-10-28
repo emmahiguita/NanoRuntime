@@ -1,137 +1,83 @@
 /**
- * transport.js — Capa de Transporte Unificada DIP (< 200 LOC)
- * QUÉ HACE: Gestiona streaming de tokens con el backend (Tauri IPC / REST) y telemetría.
- * CÓMO FUNCIONA: Prioriza Tauri IPC. Fallback a HTTP REST. Fallback mock en DEV_MOCK_MODE.
- * POR QUÉ: DIP — Frontend desacoplado del protocolo de transporte de inferencia.
+ * transport.js — Fachada de Transporte Unificada DIP (< 200 LOC)
+ *
+ * QUÉ HACE: expone telemetría e inferencia al resto de la UI:
+ *   - `chatPromptStream` (delegado al pipeline de transport_streaming.js)
+ *   - `getSystemStatus` / `listModels` / `generateText`
+ * CÓMO FUNCIONA: usa Tauri IPC o REST local; si fallan, informa el error real.
+ *   No sustituye inferencia fallida por respuestas simuladas.
+ * POR QUÉ: DIP — la UI depende de esta fachada y nunca del protocolo concreto
+ *   (IPC nativo vs HTTP). El streaming se extrajo para mantener cada archivo
+ *   por debajo de 200 líneas y una única responsabilidad (SRP).
  */
 import { searchWebKnowledge, isQueryDemandingWeb } from './web_search_helper.js';
 import { calculateModelFit } from './model_fitter.js';
-import { generateCognitiveResponse } from './mock_cognitive.js';
+import { streamChatPrompt } from './transport_streaming.js';
+import { listLocalModels, activateLocalModel } from './local_model_api.js';
 
 export class TransportClient {
   constructor() {
     this.isTauri = typeof window !== 'undefined' && Boolean(window.__TAURI__);
-    this.webBaseUrl = 'http://localhost:8080';
-    this.abortController = null;
+    // En navegador web usa el origin actual (ej: http://127.0.0.1:8080)
+    this.webBaseUrl = typeof window !== 'undefined' && window.location?.origin?.startsWith('http')
+      ? window.location.origin
+      : 'http://127.0.0.1:8080';
+    // Capacidades de búsqueda web expuestas a la UI (delegación directa)
     this.searchWebKnowledge = searchWebKnowledge;
     this.isQueryDemandingWeb = isQueryDemandingWeb;
     this.calculateModelFit = calculateModelFit;
+    // Registro de controladores de cancelación activos por requestId (evita race conditions)
+    this.activeControllers = new Map();
+    this.selectedModelPath = '';
   }
 
-  async chatPromptStream({
-    prompt, model = 'qwen.gguf', maxTokens = 512, webSearch = false,
-    deepThink = true, attachedFiles = [], onToken = () => {}, onDone = () => {}, onError = () => {},
-  }) {
-    this.abortController = new AbortController();
-    const startTime = performance.now();
+  /**
+   * Retrocompatibilidad: expone el último controller activo si existe.
+   */
+  get abortController() {
+    const controllers = Array.from(this.activeControllers.values());
+    return controllers.length > 0 ? controllers[controllers.length - 1] : null;
+  }
 
-    try {
-      let webContext = '';
-      if (webSearch || this.isQueryDemandingWeb(prompt)) {
-        try {
-          const res = await this.searchWebKnowledge(prompt);
-          if (res?.found) webContext = `\n\n[Web Grounding - ${res.source}]:\n${res.snippet}\n`;
-        } catch (e) { console.warn('[Transport] Error web search:', e); }
+  /**
+   * Cancela la espera por requestId; la detención del motor nativo no está confirmada.
+   * @param {string} [requestId]
+   * @returns {boolean}
+   */
+  abort(requestId) {
+    if (requestId) {
+      const controller = this.activeControllers.get(requestId);
+      if (controller) {
+        controller.abort();
+        this.activeControllers.delete(requestId);
+        return true;
       }
-
-      let attachContext = '';
-      if (attachedFiles?.length > 0) {
-        attachContext = attachedFiles.map((f) => `\n[Archivo: ${f.name}]:\n${f.content.slice(0, 3000)}`).join('\n');
-      }
-
-      const fullPrompt = `${attachContext}${webContext}\n${prompt}`.trim();
-
-      // 1. Streaming real por eventos IPC en Tauri Desktop
-      if (this.isTauri) {
-        const { invoke } = window.__TAURI__.core;
-        const { listen } = window.__TAURI__.event;
-        const requestId = globalThis.crypto?.randomUUID?.()
-          ?? `nano-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        let unlistenToken = null, unlistenDone = null, unlistenError = null;
-
-        const cleanup = () => {
-          const listeners = [unlistenToken, unlistenDone, unlistenError];
-          unlistenToken = null;
-          unlistenDone = null;
-          unlistenError = null;
-          listeners.forEach((unlisten) => {
-            if (unlisten) unlisten();
-          });
-        };
-
-        let resolveDone;
-        let rejectDone;
-        const donePromise = new Promise((resolve, reject) => {
-          resolveDone = resolve;
-          rejectDone = reject;
-        });
-
-        try {
-          unlistenToken = await listen('chat-token', (e) => {
-            if (e.payload?.request_id !== requestId) return;
-            onToken(e.payload.token, { elapsed: (performance.now() - startTime) / 1000 });
-          });
-
-          unlistenDone = await listen('chat-done', (e) => {
-            if (e.payload?.request_id !== requestId) return;
-            const sec = (performance.now() - startTime) / 1000;
-            try {
-              onDone({ text: e.payload.text, tok_s: e.payload.tok_s, time: `${sec.toFixed(2)}s`, model: e.payload.model });
-              resolveDone();
-            } catch (error) {
-              rejectDone(error);
-            }
-          });
-
-          unlistenError = await listen('chat-error', (e) => {
-            if (e.payload?.request_id !== requestId) return;
-            rejectDone(new Error(e.payload.message));
-          });
-
-          await Promise.all([
-            invoke('nano_chat_prompt_stream', {
-              input: { prompt: fullPrompt, model_path: model, max_tokens: maxTokens, request_id: requestId },
-            }),
-            donePromise,
-          ]);
-          return;
-        } finally {
-          cleanup();
-        }
-      }
-
-      // 2. Inferencia en Servidor Web REST HTTP
-      try {
-        const resp = await fetch(`${this.webBaseUrl}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: fullPrompt, max_tokens: maxTokens }),
-          signal: this.abortController.signal,
-        });
-
-        if (resp.ok) {
-          const data = await resp.json();
-          onToken(data.response, { tok_s: data.tok_s || 0 });
-          const sec = (performance.now() - startTime) / 1000;
-          onDone({ text: data.response, tok_s: data.tok_s || 0, time: `${sec.toFixed(2)}s`, model });
-          return;
-        }
-      } catch {}
-
-      // 3. Fallback controlado para desarrollo local sin backend
-      if (typeof window !== 'undefined' && window.DEV_MOCK_MODE === true) {
-        const mock = generateCognitiveResponse({ prompt, model, deepThink, webContext, attachments: attachedFiles });
-        onToken(mock, { tok_s: 20.0 });
-        onDone({ text: mock, tok_s: 20.0, time: '0.10s', model: `[MOCK] ${model}` });
-        return;
-      }
-
-      throw new Error('Runtime no disponible: Ni Tauri nativo ni REST HTTP responden.');
-    } catch (err) {
-      onError(err);
+      return false;
     }
+    let abortedAny = false;
+    for (const controller of this.activeControllers.values()) {
+      controller.abort();
+      abortedAny = true;
+    }
+    this.activeControllers.clear();
+    return abortedAny;
   }
 
+  /**
+   * Streaming de inferencia de chat. Delegado por completo al pipeline
+   * (Tauri o REST); esta clase solo actúa como punto de entrada.
+   */
+  async chatPromptStream(options) {
+    return streamChatPrompt(this, { ...options, model: options.model || this.selectedModelPath });
+  }
+
+  /** Selecciona un archivo existente; los nombres de presentación nunca son rutas. */
+  async activateModel(path) { return activateLocalModel(this, path); }
+
+  /**
+   * Telemetría del sistema: RAM real por Tauri, o metadatos del runtime REST.
+   * Nunca lanza: si todo falla retorna estado 'offline' explícito.
+   */
   async getSystemStatus() {
     if (this.isTauri) {
       try {
@@ -141,29 +87,51 @@ export class TransportClient {
           total_ram_mb: raw.total_ram_mb, used_ram_mb: raw.used_ram_mb,
           available_ram_mb: raw.available_ram_mb, runtime_version: raw.runtime_version,
           gpu_usage_pct: null, status: raw.status || 'online',
+          model_loaded: raw.model_loaded ?? null,
+          model_name: raw.model_name ?? null,
         };
       } catch (e) { console.warn('[Transport] Error telemetría Tauri:', e); }
     }
 
     try {
-      const res = await fetch(`${this.webBaseUrl}/api/status`);
+      const res = await fetch(`${this.webBaseUrl}/api/status`, { signal: AbortSignal.timeout(15000) });
       if (res.ok) {
         const data = await res.json();
+        const isRunning = data.model_loaded === true || data.model_status === 'ready';
         return {
-          os_name: 'Host Remoto / Web', arch: 'unknown', cpu_arch: 'unknown',
-          total_ram_mb: null, used_ram_mb: null, available_ram_mb: data.ram_available_mb || null,
-          runtime_version: '0.1.0-web', gpu_usage_pct: null, status: data.status || 'online',
+          os_name: data.os_name ?? null,
+          arch: data.arch ?? null,
+          cpu_arch: data.arch ?? null,
+          total_ram_mb: data.total_ram_mb ?? null,
+          used_ram_mb: data.used_ram_mb ?? null,
+          available_ram_mb: data.available_ram_mb ?? null,
+          runtime_version: data.version ?? null,
+          gpu_usage_pct: null,
+          status: isRunning ? 'online' : 'offline',
+          context_size: data.context_size ?? null,
+          model_loaded: Boolean(data.model_loaded),
+          model_size_mb: data.model_size_mb ?? null,
+          model_name: data.model_name ?? null,
+          model_path: data.model_path ?? data.model ?? null,
+          model_status: data.model_status ?? null,
+          model_error: data.model_error ?? null,
+          tier: data.tier || 'local',
+          tok_s: data.tok_s ?? null,
+          viability: data.viability ?? null,
+          uptime_seconds: data.uptime_seconds || 0,
         };
       }
-    } catch {}
+    } catch (error) { console.warn('[Transport] Telemetría REST no disponible:', error.message); }
 
     return {
       os_name: null, arch: null, cpu_arch: null, total_ram_mb: null,
       used_ram_mb: null, available_ram_mb: null, runtime_version: null,
       gpu_usage_pct: null, status: 'offline',
+      model_loaded: false,
     };
   }
 
+  /** Modelos de disco por IPC o catálogo del servidor; no emplea filas de ejemplo. */
   async listModels() {
     if (this.isTauri) {
       try {
@@ -171,20 +139,31 @@ export class TransportClient {
         if (Array.isArray(res)) return res;
       } catch (e) { console.warn('[Transport] Error list models:', e); }
     }
+    if (!this.isTauri) return listLocalModels(this);
     return [];
   }
 
+  /**
+   * Inferencia de texto de una sola respuesta (sin streaming visible).
+   * Envuelve chatPromptStream en una promesa con el texto final completo.
+   */
   async generateText(options) {
     const prompt = options.prompt || '';
-    const model = options.model_path || 'qwen.gguf';
+    const model = options.model_path || this.selectedModelPath;
     const start = performance.now();
+    // Un agente puede elegir otro archivo del catálogo; confirma el cambio antes de inferir.
+    options.signal?.throwIfAborted();
+    if (model && model !== this.selectedModelPath) await this.activateModel(model);
+    options.signal?.throwIfAborted();
 
     return new Promise((resolve, reject) => {
       this.chatPromptStream({
         prompt, model, maxTokens: options.max_tokens || 128,
-        onDone: (m) => resolve({ text: m.text, inference_time_ms: performance.now() - start, tok_s: m.tok_s || 0 }),
+        signal: options.signal, requestId: options.requestId,
+        history: options.history || [], sessionId: options.session_id || null,
+        onDone: (m) => resolve({ text: m.text, inference_time_ms: performance.now() - start, tok_s: m.tok_s ?? null }),
         onError: reject,
-      });
+      }).catch(reject);
     });
   }
 }

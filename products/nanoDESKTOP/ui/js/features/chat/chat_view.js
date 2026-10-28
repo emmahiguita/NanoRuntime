@@ -93,6 +93,7 @@ export class ChatView {
 
     if (!hasMessages) {
       // Si ya estaba en modo home, no recreamos el avatar para no reiniciar animaciones
+      this.messagesEl.className = 'chat-stream-container hero-mode';
       if (!this.isHomeMode || !this.heroView.owlAvatar) {
         this.isHomeMode = true;
         this.heroView.mount(this.messagesEl);
@@ -102,6 +103,7 @@ export class ChatView {
     }
 
     // Modo Mensajes: Limpiar avatar previo para eliminar loops RAF zombis
+    this.messagesEl.className = 'chat-stream-container thread-mode';
     if (this.isHomeMode) {
       this.isHomeMode = false;
       this.heroView.destroyAvatar();

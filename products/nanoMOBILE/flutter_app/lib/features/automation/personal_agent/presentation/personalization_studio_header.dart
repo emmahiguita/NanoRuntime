@@ -172,11 +172,19 @@ class _PersonalizationStudioHeader extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: !canEdit ? null : onEditStyle,
                   icon: const Icon(Icons.tune_rounded, size: 13),
-                  label: const Text('Configurar estilo', style: TextStyle(fontSize: 10.5)),
+                  label: const Text(
+                    'Configurar estilo',
+                    style: TextStyle(fontSize: 10.5),
+                  ),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0x33FFFFFF)),
-                    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 7,
+                      horizontal: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
@@ -191,7 +199,10 @@ class _PersonalizationStudioHeader extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0x2B00E676),
                   foregroundColor: const Color(0xFF00E676),
-                  padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 7,
+                    horizontal: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                     side: const BorderSide(color: Color(0x6000E676)),
@@ -211,7 +222,9 @@ class _PersonalizationStudioHeader extends StatelessWidget {
   }
 
   Widget _buildScopeField() {
-    final effectiveValue = scopes.containsKey(scope) ? scope : (scopes.keys.firstOrNull ?? 'owner');
+    final effectiveValue = scopes.containsKey(scope)
+        ? scope
+        : (scopes.keys.firstOrNull ?? 'owner');
     return InputDecorator(
       decoration: InputDecoration(
         labelText: 'APLICAR PERFIL A:',
@@ -249,7 +262,11 @@ class _PersonalizationStudioHeader extends StatelessWidget {
             for (final item in scopes.values)
               DropdownMenuItem(
                 value: item.id,
-                child: Text(item.label, style: const TextStyle(fontSize: 10.5), overflow: TextOverflow.ellipsis),
+                child: Text(
+                  item.label,
+                  style: const TextStyle(fontSize: 10.5),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
           ],
           onChanged: working

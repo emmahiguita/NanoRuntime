@@ -176,5 +176,10 @@ class MessagingCenterHeader extends ConsumerWidget {
         ),
       ),
     );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip!, child: button);
+    }
+    return button;
   }
 }

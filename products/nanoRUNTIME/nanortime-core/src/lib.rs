@@ -262,6 +262,15 @@ impl NanoRuntime {
 
         // 3. Load initial model
         model_manager.load_model(&config.local_model.path).await?;
+        // QUÉ HACE: Verifica que la carga haya dejado un modelo inferible en el estado real.
+        // CÓMO FUNCIONA: Consulta ModelManager después del await y convierte una carga incompleta en error de arranque.
+        // POR QUÉ: No se debe publicar RuntimeSlot::Ready si el modelo no puede generar respuestas.
+        if !model_manager.status().model_loaded {
+            return Err(NanoError::ModelLoadFailed {
+                path: config.local_model.path.clone(),
+                reason: "load_model terminó sin un modelo activo (model_loaded=false)".to_string(),
+            });
+        }
         info!("Model loaded successfully");
 
         // 4. Auto-discover tools from directory
@@ -318,7 +327,30 @@ impl NanoRuntime {
         ),
         NanoError,
     > {
-        self.orchestrator.process_request_streaming(request).await
+        self.process_request_streaming_cancellable(
+            request,
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        )
+        .await
+    }
+
+    /// QUÉ HACE: Propaga cancelación HTTP hasta el prefill nativo de llama.cpp.
+    /// CÓMO FUNCIONA: Comparte un flag atómico con el worker sin bloquear el executor.
+    /// POR QUÉ: Cortar solo el socket dejaba CPU y modelo ocupados tras cancelar.
+    pub async fn process_request_streaming_cancellable(
+        &self,
+        request: UserRequest,
+        cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<
+        (
+            tokio::sync::oneshot::Receiver<Response>,
+            tokio::sync::mpsc::Receiver<(String, f32)>,
+        ),
+        NanoError,
+    > {
+        self.orchestrator
+            .process_request_streaming_cancellable(request, cancel_flag)
+            .await
     }
 
     /// Cambia el modelo activo a otro archivo GGUF.

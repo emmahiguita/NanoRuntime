@@ -1,6 +1,7 @@
 import { appState } from '../../core/state.js';
 import { systemService } from './system_service.js';
 import { NanoIcon } from '../../components/nano_icon.js';
+import { escapeHtml } from '../../core/utils.js';
 
 export class SystemView {
   constructor(containerElement) {
@@ -10,7 +11,8 @@ export class SystemView {
 
   init() {
     this.render();
-    appState.subscribe((state) => {
+    // La suscripción pertenece a esta vista y se libera cuando deja de mostrarse.
+    this.unsubscribe = appState.subscribe((state) => {
       this.updateMetrics(state.telemetry);
       this.updateModels(state.models);
     });
@@ -105,7 +107,7 @@ export class SystemView {
       container.innerHTML = `
         <div class="model-empty-card">
           <p>No se encontraron modelos .gguf en las rutas del sistema.</p>
-          <span class="subtext">Coloca tus archivos GGUF en el directorio de nanoRUNTIME para cargarlos automáticamente.</span>
+          <span class="subtext">Coloca archivos GGUF válidos en la raíz de Nanoai o en su carpeta models y selecciona uno en la cabecera.</span>
         </div>
       `;
       return;
@@ -116,13 +118,16 @@ export class SystemView {
         (m) => `
         <div class="model-ivory-card">
           <div class="model-card-header">
-            <span class="model-chip-title">${m.name}</span>
+            <span class="model-chip-title">${escapeHtml(m.name)}</span>
             <span class="model-chip-tag">GGUF</span>
           </div>
-          <div class="model-chip-path">${m.path}</div>
+          <div class="model-chip-path">${escapeHtml(m.path)}</div>
         </div>
       `
       )
       .join('');
   }
+
+  /** Evita que una vista de modelos cerrada siga recibiendo cambios del chat. */
+  destroy() { this.unsubscribe?.(); }
 }

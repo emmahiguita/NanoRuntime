@@ -22,11 +22,8 @@ abstract final class MessagingDedupMerger {
 
   /// Paquetes del sistema explícitamente vetados para evitar alucinaciones
   static const rejectedSystemPackages = {
-    'android',
-    'com.android.systemui',
-    'com.coloros.phonemanager',
-    'com.google.android.googlequicksearchbox',
-    'com.oppo.launcher',
+    'android', 'com.android.systemui', 'com.coloros.phonemanager',
+    'com.google.android.googlequicksearchbox', 'com.oppo.launcher',
   };
 
   /// Verifica si un paquete pertenece a una aplicación de mensajería real

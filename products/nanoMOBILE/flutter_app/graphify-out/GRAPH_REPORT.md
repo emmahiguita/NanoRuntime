@@ -1708,7 +1708,7 @@ Nodes (43): AiProviderKind get, ../domain/ai_provider.dart, AiProviderKind, AiPr
 
 ### Community 161 - "chatProvider"
 Cohesion: 0.04
-Nodes (51): actionSignature, completed, confirmation, dependencies, dependencyEvidence, evidence, evidenceRequiredFrom, failureKind (+43 more)
+Nodes (45): actionSignature, completed, confirmation, dependencies, dependencyEvidence, evidence, evidenceRequiredFrom, failureKind (+37 more)
 
 ### Community 162 - "terminal_plugin.dart"
 Cohesion: 0.03
@@ -1881,7 +1881,7 @@ Nodes (48): ConstChar16Ptr, Normalizer2, Normalizer2Impl, toUCharPtr(), Currency
 
 ### Community 204 - "nano_universal_input.dart"
 Cohesion: 0.05
-Nodes (43): build, _applied, _applyConfig, build, _byScope, child, clearOnSubmit, controller (+35 more)
+Nodes (38): _applied, _applyConfig, build, _byScope, child, clearOnSubmit, controller, copyWith (+30 more)
 
 ### Community 205 - "nano_flow_test.dart"
 Cohesion: 0.26
@@ -1897,7 +1897,7 @@ Nodes (41): conversation_prompt_templates.dart, currentSender, currentText, fact
 
 ### Community 208 - "action_verifier.dart"
 Cohesion: 0.06
-Nodes (33): dynamic_surface_store.dart, AssistedLearningResult, AssistedLearningService, learnUserSelection, message, rejected, _store, success (+25 more)
+Nodes (36): dynamic_surface_store.dart, AssistedLearningResult, AssistedLearningService, learnUserSelection, message, rejected, _store, success (+28 more)
 
 ### Community 209 - "object_memory.dart"
 Cohesion: 0.05
@@ -1916,16 +1916,16 @@ Cohesion: 0.06
 Nodes (32): ../../../core/services/inference_media_input.dart, ../domain/stream_lease.dart, ../domain/stream_sanitizer.dart, TurnMetrics, _activeConnections, _activeGenerationId, _activeStream, beginGeneration (+24 more)
 
 ### Community 213 - "perception_mux_test.dart"
-Cohesion: 0.15
-Nodes (16): UiSelectorEvidence, PerceptionEvidenceSource, candidates, confidence, evidence, memoryEvidence, object, PerceptionAmbiguous (+8 more)
+Cohesion: 0.09
+Nodes (25): UiSelectorEvidence, PerceptionEvidenceSource, candidates, confidence, evidence, memoryEvidence, object, PerceptionAmbiguous (+17 more)
 
 ### Community 214 - "interactive_3d_turntable_box.dart"
 Cohesion: 0.05
-Nodes (41): _angularVelocity, _animController, autoRotate, _borderWidth, build, _buildBackFace, _buildCap, _buildFrontFace (+33 more)
+Nodes (43): _angularVelocity, _animController, autoRotate, _borderWidth, build, _buildBackFace, _buildCap, _buildFrontFace (+35 more)
 
 ### Community 215 - "governance_test.dart"
-Cohesion: 0.15
-Nodes (10): ActiveTask, IBinder, Int, Intent, List, Service, String, NanoshellWorkerService (+2 more)
+Cohesion: 0.18
+Nodes (8): ActiveTask, Int, List, Service, String, NanoshellWorkerService, Message, Thread
 
 ### Community 216 - "navigation_history.dart"
 Cohesion: 0.06
@@ -2032,8 +2032,8 @@ Cohesion: 0.07
 Nodes (29): bounds, checked, clickable, confidence, copyWith, description, displayId, editable (+21 more)
 
 ### Community 242 - "surface_resolvers.dart"
-Cohesion: 0.04
-Nodes (44): clearForPackage, _dynamicCache, DynamicSurfaceStore, _fallback, globalDynamicSurfaceStore, hasHealedProfiles, _packageVersions, registerHealedElement (+36 more)
+Cohesion: 0.06
+Nodes (32): ActionSurfaceResolver, _editables, _elementKindFor, EntityActionSurfaceResolver, EntityInputSurfaceResolver, globalSurfaceAutoHealer, _healer, _identities (+24 more)
 
 ### Community 243 - "agent_executor.dart"
 Cohesion: 0.07
@@ -2084,8 +2084,8 @@ Cohesion: 0.08
 Nodes (31): BatteryEvent, BatteryTrigger, belowPercent, ConnectivityEvent, ConnectivityTrigger, conversationTitle, evaluateTrigger, excludedSenderMatch (+23 more)
 
 ### Community 255 - "edge_dev_section.dart"
-Cohesion: 0.07
-Nodes (29): _AppFunctionProbeCard, _AppFunctionProbeCardState, build, _busy, _channel, _ConversationMirrorCard, _ConversationMirrorCardState, createState (+21 more)
+Cohesion: 0.05
+Nodes (47): ../engine/skills/skill.dart, ../engine/skills/verified_skill.dart, skillStoreProvider, _approve, _approved, _approvedTile, build, createState (+39 more)
 
 ### Community 256 - "agent_loop.dart"
 Cohesion: 0.05
@@ -2384,8 +2384,8 @@ Cohesion: 0.15
 Nodes (11): BroadcastReceiver, Bundle, Context, Instrumentation, RemoteInputFixtureInstrumentation, DeviceMetricsProvider, Any, Double (+3 more)
 
 ### Community 331 - "nano_system_api.dart"
-Cohesion: 0.08
-Nodes (25): activeTabId, BrowserPipMode, copyWith, isActive, isCompact, isMaximized, isPlaying, isSystemPip (+17 more)
+Cohesion: 0.05
+Nodes (39): dart:collection, BrowserPipNotifier, activeTabId, BrowserPipMode, BrowserPipState, copyWith, isActive, isCompact (+31 more)
 
 ### Community 332 - "system_models.dart"
 Cohesion: 0.06
@@ -2446,8 +2446,8 @@ Nodes (139): auto,
   needsHuman,, ../browser_ai_dom_adapter.dart, browser_ai_response.dart, ../../domain/browser_ai_provider.dart, ../../domain/browser_ai_response.dart, blocked, label, BrowserAiProvider (+131 more)
 
 ### Community 346 - "automation_trace.dart"
-Cohesion: 0.03
-Nodes (64): AgentCallerRole, allowedExecutionModes, allowedRoles, allowsMode, allowsRole, approvalPolicy, category, defaultTimeout (+56 more)
+Cohesion: 0.06
+Nodes (34): allowedExecutionModes, allowedRoles, allowsMode, allowsRole, approvalPolicy, category, defaultTimeout, description (+26 more)
 
 ### Community 347 - "conversation_ownership_store.dart"
 Cohesion: 0.09
@@ -2719,7 +2719,7 @@ Nodes (25): EDateFields, BasicTimeZone, Calendar(), Calendar::createInstance(), 
 
 ### Community 411 - "UCharIterator"
 Cohesion: 0.07
-Nodes (26): ../../../core/widgets/nano_owl_state.dart, activity, animate, _applyActivityPolicy, blinkStep, blinkTimer, build, createState (+18 more)
+Nodes (28): ../../../core/widgets/nano_owl_state.dart, activity, animate, _applyActivityPolicy, blinkStep, blinkTimer, build, createState (+20 more)
 
 ### Community 412 - "NanoDarkColors"
 Cohesion: 0.11
@@ -3737,6 +3737,14 @@ Nodes (18): bounded_process.dart, ../../features/models/data/catalog_local_model
 ### Community 690 - "_ImportReview"
 Cohesion: 0.11
 Nodes (17): account, domHelpers, e2eBanner, earlier, header, main, norm, normalizeTitle (+9 more)
+
+### Community 689 - "EngineSupervisor.kt"
+Cohesion: 0.11
+Nodes (19): accent, accentColor, AutomationGlass360, _AutomationGlass360State, borderRadius, build, child, createState (+11 more)
+
+### Community 690 - "_ImportReview"
+Cohesion: 0.13
+Nodes (14): account, domHelpers, earlier, header, main, norm, normalizeTitle, pane (+6 more)
 
 ### Community 691 - "_PersonalizationStudioScreenState"
 Cohesion: 0.09

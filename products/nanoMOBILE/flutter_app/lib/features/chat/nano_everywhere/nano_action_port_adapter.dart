@@ -169,3 +169,4 @@ class NanoActionPortAdapter implements NanoCancellableActionPort {
     return _runCommand('@$command $text');
   }
 }
+

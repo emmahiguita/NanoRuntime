@@ -13,7 +13,8 @@ extern "C" {}
 
 use std::num::NonZeroU32;
 use std::path::Path;
-use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use llama_cpp_2::context::params::{LlamaContextParams, LlamaContextType};
 use llama_cpp_2::llama_backend::LlamaBackend;
@@ -122,6 +123,10 @@ pub struct NanoContext {
     batch_size: u32,
     threads: i32,
     cached_tokens: Vec<LlamaToken>,
+    // QUÉ HACE: comparte cancelación con el hilo que ejecuta el prefill.
+    // CÓMO FUNCIONA: el supervisor actualiza el flag y cada lote lo consulta.
+    // POR QUÉ: cerrar el socket no interrumpe un decode nativo prolongado.
+    cancel_flag: Arc<AtomicBool>,
 }
 
 // SAFETY: NanoContext is moved only as an exclusive value by ModelManager.
@@ -268,6 +273,7 @@ impl NanoModel {
             batch_size: params.batch_size.max(1),
             threads: thread_count,
             cached_tokens: Vec::new(),
+            cancel_flag: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -422,6 +428,20 @@ unsafe impl Send for NanoLoraAdapter {}
 unsafe impl Sync for NanoLoraAdapter {}
 
 impl NanoContext {
+    /// Instala el flag del turno antes de mover el contexto al worker nativo.
+    pub fn set_cancel_flag(&mut self, cancel_flag: Arc<AtomicBool>) {
+        self.cancel_flag = cancel_flag;
+    }
+
+    /// Interrumpe en los límites seguros entre lotes de decodificación.
+    fn check_cancelled(&self, stage: &str) -> Result<(), String> {
+        if self.cancel_flag.load(Ordering::Acquire) {
+            tracing::info!("[NanoContext] generation cancelled stage={}", stage);
+            return Err("generation cancelled".to_string());
+        }
+        Ok(())
+    }
+
     pub fn generate(
         &mut self,
         model: &NanoModel,
@@ -641,6 +661,7 @@ impl NanoContext {
         tokens: &[LlamaToken],
         need_logits: bool,
     ) -> Result<usize, String> {
+        self.check_cancelled("prefix-prefill")?;
         if tokens.is_empty() {
             return Err("Empty tokens".to_string());
         }
@@ -655,6 +676,7 @@ impl NanoContext {
         }
         let mut offset = 0usize;
         for chunk in tokens.chunks(self.batch_size.max(1) as usize) {
+            self.check_cancelled("prefix-prefill-batch")?;
             let mut batch = LlamaBatch::new(chunk.len(), 1);
             for (i, &tok) in chunk.iter().enumerate() {
                 let global = offset + i;
@@ -733,6 +755,7 @@ impl NanoContext {
         mut on_token: impl FnMut(&str, f32, bool) -> bool,
     ) -> Result<GenerateResult, String> {
         let start = std::time::Instant::now();
+        self.check_cancelled("before-tokenization")?;
 
         // Apply LoRA adapter if provided
         let had_lora = lora.is_some();
@@ -745,6 +768,7 @@ impl NanoContext {
 
         // Tokenization and prompt processing (same as generate)
         let tokens = model.tokenize(prompt, true)?;
+        self.check_cancelled("after-tokenization")?;
         let n_prompt = tokens.len();
         if tokens.is_empty() {
             return Err("Empty prompt".to_string());
@@ -820,6 +844,14 @@ impl NanoContext {
 
         let mut n_past: i32 = common_prefix as i32;
         let missing = &tokens[common_prefix..];
+        tracing::info!(
+            "[NanoKV] prefill start prompt_tokens={} reused={} pending={} ctx={} batch={}",
+            n_prompt,
+            common_prefix,
+            missing.len(),
+            self.context_size,
+            prefill_batch
+        );
 
         if missing.is_empty() {
             // This should be rare because common_prefix is capped below the full
@@ -833,6 +865,7 @@ impl NanoContext {
             batch
                 .add(token, n_past, &[0], true)
                 .map_err(|e| format!("Batch add: {}", e))?;
+            self.check_cancelled("prefill-final-token")?;
             self.inner
                 .decode(&mut batch)
                 .map_err(|e| format!("Decode: {}", e))?;
@@ -843,6 +876,7 @@ impl NanoContext {
             batch
                 .add(missing[0], n_past, &[0], true)
                 .map_err(|e| format!("Batch add: {}", e))?;
+            self.check_cancelled("prefill-single-token")?;
             self.inner
                 .decode(&mut batch)
                 .map_err(|e| format!("Decode: {}", e))?;
@@ -851,6 +885,7 @@ impl NanoContext {
         } else {
             let (prompt_tokens, last_tok) = missing.split_at(missing.len() - 1);
             for chunk in prompt_tokens.chunks(prefill_batch) {
+                self.check_cancelled("prefill-batch")?;
                 let mut batch = LlamaBatch::new(chunk.len(), 1);
                 for (i, &token) in chunk.iter().enumerate() {
                     batch
@@ -867,6 +902,7 @@ impl NanoContext {
             batch
                 .add(last_tok[0], n_past, &[0], true)
                 .map_err(|e| format!("Batch add: {}", e))?;
+            self.check_cancelled("prefill-final-token")?;
             self.inner
                 .decode(&mut batch)
                 .map_err(|e| format!("Decode: {}", e))?;
@@ -929,6 +965,7 @@ impl NanoContext {
 
         // Generate remaining tokens
         for _ in 1..params.max_tokens {
+            self.check_cancelled("decode-token")?;
             if aborted || last_token == eos {
                 break;
             }

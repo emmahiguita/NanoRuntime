@@ -522,9 +522,15 @@ impl RuntimeMetricsCollector {
 
     /// Collect throughput metrics
     fn collect_throughput_metrics(&mut self) -> ThroughputMetrics {
-        let elapsed = self.start_time.elapsed().as_secs_f64();
-        let tokens_per_second = if elapsed > 0.0 {
-            self.token_counter as f64 / elapsed
+        // Usa intervalos recientes, excluyendo la espera ociosa entre solicitudes.
+        // El primer intervalo de cada respuesta incluye TTFT; no es decode puro.
+        let recent_elapsed = self
+            .token_latencies
+            .iter()
+            .map(Duration::as_secs_f64)
+            .sum::<f64>();
+        let tokens_per_second = if recent_elapsed > 0.0 {
+            self.token_latencies.len() as f64 / recent_elapsed
         } else {
             0.0
         };

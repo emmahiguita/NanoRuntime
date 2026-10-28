@@ -14,11 +14,7 @@ class DatabasePdfDialog extends StatefulWidget {
   final DatabaseStudioController controller;
   final NanoColors colors;
 
-  const DatabasePdfDialog({
-    super.key,
-    required this.controller,
-    required this.colors,
-  });
+  const DatabasePdfDialog({super.key, required this.controller, required this.colors});
 
   static Future<void> show(
     BuildContext context, {

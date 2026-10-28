@@ -18,14 +18,15 @@ import { escapeHtml } from '../../core/utils.js';
  */
 export function renderAgentCard(agent) {
   // Derivamos estados visuales a partir del modelo
-  const isActive   = agent.status === 'active';
+  const isExecuting = agent.status === 'executing';
+  const isActive   = agent.status === 'active' || isExecuting;
   const isApproval = agent.governance === 'approval';
   const iconName   = agent.isSystem ? 'cpu' : 'automation';
 
   // Etiqueta de gobernanza: ⚡ Autónomo vs 🛡️ Requiere confirmación
   const govLabel = isApproval
     ? `<span class="param-val color-warning">🛡️ Requiere Confirmación</span>`
-    : `<span class="param-val color-active">⚡ 100% Autónomo</span>`;
+    : `<span class="param-val color-active">Autónomo con guardas</span>`;
 
   // Tags de herramientas MCP permitidas al agente
   const toolTags = (agent.tools || [])
@@ -55,7 +56,7 @@ export function renderAgentCard(agent) {
         </div>
         <div class="auto-card-status ${isActive ? 'status-active' : 'status-paused'}">
           <span class="status-dot"></span>
-          <span>${isActive ? 'Activo' : 'Pausado'}</span>
+          <span>${isExecuting ? 'Ejecutando' : isActive ? 'Activo' : 'Pausado'}</span>
         </div>
       </div>
 
@@ -70,7 +71,7 @@ export function renderAgentCard(agent) {
         </div>
         <div class="param-row">
           <span class="param-label">Modelo:</span>
-          <span class="param-val highlight">${escapeHtml(agent.model)}</span>
+          <span class="param-val highlight">${escapeHtml(agent.model || 'No seleccionado')}</span>
         </div>
         <div class="param-row">
           <span class="param-label">Gobernanza:</span>
@@ -85,6 +86,7 @@ export function renderAgentCard(agent) {
       <div class="auto-card-footer">
         <div class="agent-stats">
           <span>⚡ ${agent.executions || 0} ejecuciones</span>
+          <span>• Éxito: ${agent.successRate || '—'}</span>
           <span>• ${escapeHtml(agent.lastRun || 'Reciente')}</span>
         </div>
         <div class="agent-actions-group">
@@ -97,7 +99,7 @@ export function renderAgentCard(agent) {
           </button>
           <!-- Ejecución manual inmediata -->
           <button type="button" class="btn-card-action btn-run-now"
-                  data-agent-id="${agent.id}" title="Ejecutar agente ahora">
+                  data-agent-id="${agent.id}" title="Ejecutar agente ahora" ${isExecuting ? 'disabled' : ''}>
             ${NanoIcon.get('refresh', 13)}
             <span>Ejecutar</span>
           </button>

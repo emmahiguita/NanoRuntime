@@ -1174,7 +1174,7 @@
       "source_location": "L2473",
       "_origin": "ast",
       "id": "products_nanodesktop_src_tauri_gen_schemas_desktop_schema_definitions_value",
-      "community": 434,
+      "community": 1314,
       "norm_label": "value"
     },
     {
@@ -1184,7 +1184,7 @@
       "source_location": "L2474",
       "_origin": "ast",
       "id": "products_nanodesktop_src_tauri_gen_schemas_desktop_schema_value_description",
-      "community": 434,
+      "community": 1314,
       "norm_label": "description"
     },
     {
@@ -1194,7 +1194,7 @@
       "source_location": "L2475",
       "_origin": "ast",
       "id": "products_nanodesktop_src_tauri_gen_schemas_desktop_schema_value_anyof",
-      "community": 434,
+      "community": 1314,
       "norm_label": "anyof"
     },
     {
@@ -1964,7 +1964,7 @@
       "source_location": "L2527",
       "_origin": "ast",
       "id": "products_nanodesktop_src_tauri_gen_schemas_windows_schema_definitions_target",
-      "community": 436,
+      "community": 1315,
       "norm_label": "target"
     },
     {
@@ -1974,7 +1974,7 @@
       "source_location": "L2528",
       "_origin": "ast",
       "id": "products_nanodesktop_src_tauri_gen_schemas_windows_schema_target_description",
-      "community": 436,
+      "community": 1315,
       "norm_label": "description"
     },
     {
@@ -1984,7 +1984,7 @@
       "source_location": "L2529",
       "_origin": "ast",
       "id": "products_nanodesktop_src_tauri_gen_schemas_windows_schema_target_oneof",
-      "community": 436,
+      "community": 1315,
       "norm_label": "oneof"
     },
     {
@@ -7954,7 +7954,7 @@
       "source_location": "L527",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_cpp_nanoroot_execve",
-      "community": 74,
+      "community": 822,
       "norm_label": "execve()"
     },
     {
@@ -8574,7 +8574,7 @@
       "source_location": "L384",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_cpp_pty_pty_kill",
-      "community": 99,
+      "community": 822,
       "norm_label": "pty_kill()"
     },
     {
@@ -8584,7 +8584,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_cpp_pty_c_pid_t",
-      "community": 99,
+      "community": 822,
       "norm_label": "pid_t"
     },
     {
@@ -8594,7 +8594,7 @@
       "source_location": "L396",
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_android_app_src_main_cpp_pty_pty_is_alive",
-      "community": 99,
+      "community": 822,
       "norm_label": "pty_is_alive()"
     },
     {
@@ -81766,7 +81766,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "alignment",
-      "community": 66,
+      "community": 627,
       "norm_label": "alignment"
     },
     {
@@ -95996,7 +95996,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_nanoai_features_automation_engine_memory_object_memory_dart",
-      "community": 155,
+      "community": 366,
       "norm_label": "package:nanoai/features/automation/engine/memory/object_memory.dart"
     },
     {
@@ -96106,7 +96106,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "package_nanoai_features_automation_engine_orchestration_task_decomposer_dart",
-      "community": 155,
+      "community": 366,
       "norm_label": "package:nanoai/features/automation/engine/orchestration/task_decomposer.dart"
     },
     {
@@ -96626,7 +96626,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_application_automation_coordinator_provider_pendingreplystoreprovider",
-      "community": 359,
+      "community": 141,
       "norm_label": "pendingreplystoreprovider"
     },
     {
@@ -102516,7 +102516,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_agent_dependencies_conversationmemorystoreprovider",
-      "community": 359,
+      "community": 504,
       "norm_label": "conversationmemorystoreprovider"
     },
     {
@@ -137526,7 +137526,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_messaging_conversation_hub_providers_conversationhubversionprovider",
-      "community": 359,
+      "community": 918,
       "norm_label": "conversationhubversionprovider"
     },
     {
@@ -144026,7 +144026,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "situation_diff_dart",
-      "community": 505,
+      "community": 583,
       "norm_label": "situation_diff.dart"
     },
     {
@@ -150886,7 +150886,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_orchestration_task_plan_taskvalue",
-      "community": 297,
+      "community": 1293,
       "norm_label": "taskvalue"
     },
     {
@@ -150896,7 +150896,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_orchestration_task_plan_textvalue",
-      "community": 297,
+      "community": 1293,
       "norm_label": "textvalue"
     },
     {
@@ -150906,7 +150906,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_orchestration_task_plan_urlvalue",
-      "community": 297,
+      "community": 1293,
       "norm_label": "urlvalue"
     },
     {
@@ -150916,7 +150916,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_orchestration_task_plan_filepathvalue",
-      "community": 297,
+      "community": 1293,
       "norm_label": "filepathvalue"
     },
     {
@@ -150926,7 +150926,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_orchestration_task_plan_packagevalue",
-      "community": 297,
+      "community": 1293,
       "norm_label": "packagevalue"
     },
     {
@@ -150936,7 +150936,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_orchestration_task_plan_notificationvalue",
-      "community": 297,
+      "community": 1293,
       "norm_label": "notificationvalue"
     },
     {
@@ -154836,7 +154836,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_engine_perception_nano_snapshot_nanonode",
-      "community": 168,
+      "community": 577,
       "norm_label": "nanonode"
     },
     {
@@ -189516,7 +189516,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_automation_layout",
-      "community": 38,
+      "community": 330,
       "norm_label": "automation_layout.dart"
     },
     {
@@ -189526,7 +189526,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_automation_layout_automationlayout",
-      "community": 38,
+      "community": 330,
       "norm_label": "automationlayout"
     },
     {
@@ -189536,7 +189536,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_automation_layout_iscompactlandscape",
-      "community": 38,
+      "community": 330,
       "norm_label": "iscompactlandscape"
     },
     {
@@ -189546,7 +189546,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_automation_presentation_automation_layout_contentmaxwidth",
-      "community": 38,
+      "community": 330,
       "norm_label": "contentmaxwidth"
     },
     {
@@ -259966,7 +259966,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_edge_edge_dev_section_refreshids",
-      "community": 359,
+      "community": 504,
       "norm_label": "_refreshids"
     },
     {
@@ -271836,7 +271836,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "ansiterminal_get",
-      "community": 38,
+      "community": 330,
       "norm_label": "ansiterminal? get"
     },
     {
@@ -275406,7 +275406,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager",
-      "community": 38,
+      "community": 330,
       "norm_label": "pty_manager.dart"
     },
     {
@@ -275416,7 +275416,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_ptymanager",
-      "community": 38,
+      "community": 330,
       "norm_label": "ptymanager"
     },
     {
@@ -275426,7 +275426,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_session",
-      "community": 38,
+      "community": 330,
       "norm_label": "_session"
     },
     {
@@ -275436,7 +275436,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_ansi",
-      "community": 38,
+      "community": 330,
       "norm_label": "_ansi"
     },
     {
@@ -275446,7 +275446,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_outputsub",
-      "community": 38,
+      "community": 330,
       "norm_label": "_outputsub"
     },
     {
@@ -275456,7 +275456,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_donesub",
-      "community": 38,
+      "community": 330,
       "norm_label": "_donesub"
     },
     {
@@ -275466,7 +275466,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_rootfs",
-      "community": 38,
+      "community": 330,
       "norm_label": "rootfs"
     },
     {
@@ -275476,7 +275476,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_shell",
-      "community": 38,
+      "community": 330,
       "norm_label": "shell"
     },
     {
@@ -275486,7 +275486,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_logger",
-      "community": 38,
+      "community": 330,
       "norm_label": "logger"
     },
     {
@@ -275496,7 +275496,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_isactive",
-      "community": 38,
+      "community": 330,
       "norm_label": "isactive"
     },
     {
@@ -275506,7 +275506,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "ptysession_get",
-      "community": 38,
+      "community": 330,
       "norm_label": "ptysession? get"
     },
     {
@@ -275516,7 +275516,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_opening",
-      "community": 38,
+      "community": 330,
       "norm_label": "_opening"
     },
     {
@@ -275526,7 +275526,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_disposed",
-      "community": 38,
+      "community": 330,
       "norm_label": "_disposed"
     },
     {
@@ -275536,7 +275536,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_closefuture",
-      "community": 38,
+      "community": 330,
       "norm_label": "_closefuture"
     },
     {
@@ -275546,7 +275546,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_open",
-      "community": 38,
+      "community": 330,
       "norm_label": "open"
     },
     {
@@ -275556,7 +275556,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_resolveexecutableargv",
-      "community": 38,
+      "community": 330,
       "norm_label": "_resolveexecutableargv"
     },
     {
@@ -275566,7 +275566,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_notifyendanddisposeansi",
-      "community": 38,
+      "community": 330,
       "norm_label": "_notifyendanddisposeansi"
     },
     {
@@ -275576,7 +275576,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_close",
-      "community": 38,
+      "community": 330,
       "norm_label": "close"
     },
     {
@@ -275586,7 +275586,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_closeactivesession",
-      "community": 38,
+      "community": 330,
       "norm_label": "_closeactivesession"
     },
     {
@@ -275596,7 +275596,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_write",
-      "community": 38,
+      "community": 330,
       "norm_label": "write"
     },
     {
@@ -275606,7 +275606,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_resize",
-      "community": 38,
+      "community": 330,
       "norm_label": "resize"
     },
     {
@@ -275616,7 +275616,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_signal",
-      "community": 38,
+      "community": 330,
       "norm_label": "signal"
     },
     {
@@ -275626,7 +275626,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_pausepolling",
-      "community": 38,
+      "community": 330,
       "norm_label": "pausepolling"
     },
     {
@@ -275636,7 +275636,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_resumepolling",
-      "community": 38,
+      "community": 330,
       "norm_label": "resumepolling"
     },
     {
@@ -275646,7 +275646,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_handlelifecyclestate",
-      "community": 38,
+      "community": 330,
       "norm_label": "handlelifecyclestate"
     },
     {
@@ -275656,7 +275656,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "products_nanomobile_flutter_app_lib_features_terminal_pty_manager_dispose",
-      "community": 38,
+      "community": 330,
       "norm_label": "dispose"
     },
     {
@@ -275666,7 +275666,7 @@
       "source_location": null,
       "_origin": "ast",
       "id": "ansi_terminal_dart",
-      "community": 38,
+      "community": 330,
       "norm_label": "ansi_terminal.dart"
     },
     {
@@ -279340,6 +279340,16 @@
       "norm_label": "binding"
     },
     {
+      "label": "container",
+      "file_type": "code",
+      "source_file": "products/nanoMOBILE/flutter_app/lib/main.dart",
+      "source_location": null,
+      "_origin": "ast",
+      "id": "products_nanomobile_flutter_app_lib_main_container",
+      "community": 735,
+      "norm_label": "container"
+    },
+    {
       "label": "initialRoute",
       "file_type": "code",
       "source_file": "products/nanoMOBILE/flutter_app/lib/main.dart",
@@ -280980,7 +280990,17 @@
       "norm_label": "main"
     },
     {
-      "label": "package:nanoai/features/automation/domain/messaging_platform.dart",
+      "label": "build",
+      "file_type": "code",
+      "source_file": "products/nanoMOBILE/flutter_app/test/features/automation/messaging_center_test.dart",
+      "source_location": null,
+      "_origin": "ast",
+      "id": "products_nanomobile_flutter_app_test_features_automation_messaging_center_test_build",
+      "community": 760,
+      "norm_label": "build"
+    },
+    {
+      "label": "package:nanoai/features/automation/presentation/messaging_center/conversation_hub_action_controller.dart",
       "file_type": "code",
       "source_file": null,
       "source_location": null,
@@ -291094,7 +291114,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_execution_memory_manager_memorystats",
-      "community": 107,
+      "community": 108,
       "norm_label": "memorystats"
     },
     {
@@ -291214,7 +291234,7 @@
       "source_location": "L181",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_execution_memory_manager_memorymanager_hardware_profile",
-      "community": 107,
+      "community": 108,
       "norm_label": ".hardware_profile()"
     },
     {
@@ -294604,7 +294624,7 @@
       "source_location": "L92",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_lib_response",
-      "community": 171,
+      "community": 83,
       "norm_label": "response"
     },
     {
@@ -299664,7 +299684,7 @@
       "source_location": "L350",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_mod_nanomemoryengine_hardware_profile",
-      "community": 144,
+      "community": 108,
       "norm_label": ".hardware_profile()"
     },
     {
@@ -301344,7 +301364,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencystate",
-      "community": 33,
+      "community": 1228,
       "norm_label": "residencystate"
     },
     {
@@ -301354,7 +301374,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencystate_should_be_resident",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".should_be_resident()"
     },
     {
@@ -301364,7 +301384,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencystate_should_prefetch",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".should_prefetch()"
     },
     {
@@ -301374,7 +301394,7 @@
       "source_location": "L51",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencystate_can_reclaim",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".can_reclaim()"
     },
     {
@@ -301384,7 +301404,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_accesspattern",
-      "community": 33,
+      "community": 1307,
       "norm_label": "accesspattern"
     },
     {
@@ -301394,7 +301414,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_rs_instant",
-      "community": 33,
+      "community": 1307,
       "norm_label": "instant"
     },
     {
@@ -301404,7 +301424,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_rs_default",
-      "community": 33,
+      "community": 1307,
       "norm_label": "default"
     },
     {
@@ -301414,7 +301434,7 @@
       "source_location": "L70",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_accesspattern_default",
-      "community": 33,
+      "community": 1307,
       "norm_label": ".default()"
     },
     {
@@ -301434,7 +301454,7 @@
       "source_location": "L82",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencyinfo",
-      "community": 33,
+      "community": 1307,
       "norm_label": "residencyinfo"
     },
     {
@@ -301444,7 +301464,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_rs_duration",
-      "community": 33,
+      "community": 1307,
       "norm_label": "duration"
     },
     {
@@ -301584,7 +301604,7 @@
       "source_location": "L285",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencymanager_calculate_next_state_with_data",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".calculate_next_state_with_data()"
     },
     {
@@ -301594,7 +301614,7 @@
       "source_location": "L348",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencymanager_is_predicted_access",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".is_predicted_access()"
     },
     {
@@ -301604,7 +301624,7 @@
       "source_location": "L354",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencymanager_transition_state",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".transition_state()"
     },
     {
@@ -301614,7 +301634,7 @@
       "source_location": "L370",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencymanager_enforce_state",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".enforce_state()"
     },
     {
@@ -301694,7 +301714,7 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencymanager_update_stats",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".update_stats()"
     },
     {
@@ -301714,7 +301734,7 @@
       "source_location": "L467",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencymanager_force_state",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".force_state()"
     },
     {
@@ -301724,7 +301744,7 @@
       "source_location": "L477",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_residency_manager_residencymanager_apply_window",
-      "community": 33,
+      "community": 1228,
       "norm_label": ".apply_window()"
     },
     {
@@ -301934,7 +301954,7 @@
       "source_location": "L110",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_runtime_metrics_ngrammetrics",
-      "community": 96,
+      "community": 120,
       "norm_label": "ngrammetrics"
     },
     {
@@ -302164,7 +302184,7 @@
       "source_location": "L569",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_runtime_metrics_runtimemetricscollector_collect_ngram_metrics",
-      "community": 96,
+      "community": 120,
       "norm_label": ".collect_ngram_metrics()"
     },
     {
@@ -303384,7 +303404,7 @@
       "source_location": "L365",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_src_memory_engine_storage_manager_storagemanager_apply_schedule",
-      "community": 53,
+      "community": 113,
       "norm_label": ".apply_schedule()"
     },
     {
@@ -307874,7 +307894,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "products_nanoruntime_nanortime_core_tests_oppo_a7_validation_a7_big_little_detection_handles_homogeneous_cores",
-      "community": 72,
+      "community": 21,
       "norm_label": "a7_big_little_detection_handles_homogeneous_cores()"
     },
     {
@@ -314220,7 +314240,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "server_main_check_metrics_auth",
-      "community": 132,
+      "community": 551,
       "norm_label": "_check_metrics_auth()"
     },
     {
@@ -314370,7 +314390,7 @@
       "source_location": "L391",
       "_origin": "ast",
       "id": "server_main_prometheus_metrics",
-      "community": 132,
+      "community": 551,
       "norm_label": "prometheus_metrics()"
     },
     {
@@ -314380,7 +314400,7 @@
       "source_location": "L418",
       "_origin": "ast",
       "id": "server_main_system_info",
-      "community": 132,
+      "community": 551,
       "norm_label": "system_info()"
     },
     {
@@ -314390,7 +314410,7 @@
       "source_location": "L73",
       "_origin": "ast",
       "id": "server_main_rationale_73",
-      "community": 132,
+      "community": 551,
       "norm_label": "simple token auth for metrics/system-info endpoints.     if nano_metrics_token"
     },
     {
@@ -366811,6 +366831,338 @@
       "weight": 1.0,
       "context": "field",
       "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_mediacapturechannelhandler_mediacapturechannelhandler",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L105",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_mnnchannelhandler_mnnchannelhandler",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L75",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_modelstoragechannelhandler_modelstoragechannelhandler",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L96",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_nanofloatingchannel_nanofloatingchannel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L99",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_nanonativeaichannel_nanonativeaichannel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L108",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_performancechannelhandler_performancechannelhandler",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L90",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_speechchannelhandler_speechchannelhandler",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L114",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_kt_eventchannel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L72",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_kt_methodchannel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L161",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_applyimmersivemode",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L242",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_cleanupflutterengine",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L316",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_configureflutterengine",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L199",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_getinitialroute",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L565",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onactivityresult",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L144",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onattachedtowindow",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L122",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_oncreate",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L253",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_ondestroy",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L156",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onflutteruidisplayed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L208",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onnewintent",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L232",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onpause",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L548",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onpictureinpicturemodechanged",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L286",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onrequestpermissionsresult",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L571",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onresume",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L227",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onstart",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L237",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onstop",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L556",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onuserleavehint",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L149",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_onwindowfocuschanged",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L298",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_provideflutterengine",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L304",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_registerautomationstorechannel",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L81",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_runtimepermissioncoordinator_runtimepermissioncoordinator",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L65",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_runtimescope_runtimescope",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L116",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_securepathpolicy_securepathpolicy",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "field",
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity",
       "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_services_devicemetricsprovider_devicemetricsprovider",
       "confidence_score": 1.0
     },
@@ -367281,7 +367633,18 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
-      "source_location": "L425",
+      "source_location": "L452",
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_configureflutterengine",
+      "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_mnnchannelhandler_mnnchannelhandler",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "products/nanoMOBILE/flutter_app/android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+      "source_location": "L482",
       "weight": 1.0,
       "source": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_mainactivity_mainactivity_configureflutterengine",
       "target": "products_nanomobile_flutter_app_android_app_src_main_kotlin_dev_nanoai_mobile_channels_mediacapturechannelhandler_mediacapturechannelhandler",
@@ -565666,6 +566029,46 @@
       "relation": "imports",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/intelligence/conversation_intelligence_store.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_engine_business_intelligence_conversation_intelligence_store",
+      "target": "storage_automation_db_store_client_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/queue/durable_inbox_store.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_engine_business_queue_durable_inbox_store",
+      "target": "storage_automation_db_store_client_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/queue/durable_outbox_queue.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_engine_business_queue_durable_outbox_queue",
+      "target": "storage_automation_db_store_client_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/business/state/commercial_conversation_state_store.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_engine_business_state_commercial_conversation_state_store",
+      "target": "storage_automation_db_store_client_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
       "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/messaging/conv_turn_state.dart",
       "source_location": null,
       "weight": 1.0,
@@ -611415,7 +611818,7 @@
       "source_location": null,
       "weight": 1.0,
       "source": "products_nanomobile_flutter_app_lib_features_automation_engine_notifications_notification_draft_writer",
-      "target": "model_cold_start_retry_dart"
+      "target": "model_inference_telemetry_dart"
     },
     {
       "relation": "imports",
@@ -642951,7 +643354,7 @@
       "target": "whatsapp_web_history_message_dart"
     },
     {
-      "relation": "imports",
+      "relation": "defines",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/web_bridge/whatsapp_web_media_state_machine.dart",
@@ -642961,7 +643364,7 @@
       "target": "whatsapp_web_operation_lock_dart"
     },
     {
-      "relation": "imports",
+      "relation": "defines",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/engine/web_bridge/whatsapp_web_message_transport.dart",
@@ -671682,7 +672085,367 @@
       "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_apps_bar.dart",
       "source_location": null,
       "weight": 1.0,
-      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_apps_bar",
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_center_header",
+      "target": "messaging_center_providers_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_center_view.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_center_view",
+      "target": "messaging_center_providers_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_channel_sheet.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_channel_sheet",
+      "target": "messaging_center_providers_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_conversations_view.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_conversations_view",
+      "target": "messaging_center_providers_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_empty_state.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_empty_state",
+      "target": "messaging_center_providers_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_filter_chips.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_filter_chips",
+      "target": "messaging_center_providers_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_search_bar.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_search_bar",
+      "target": "messaging_center_providers_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/whatsapp_web_feed_switch.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_whatsapp_web_feed_switch",
+      "target": "messaging_center_providers_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_assigned_agent.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_assigned_agent",
+      "target": "messaging_conversation_keys_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_center_providers.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_center_providers",
+      "target": "messaging_conversation_keys_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_conversations_view.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_conversations_view",
+      "target": "messaging_conversation_keys_dart"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_alignment"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_animationallowed"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_animationtimer"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_appvisible"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_atmospherephase"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_build"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_cloudlayer"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_createstate"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_didchangeapplifecyclestate"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_didchangedependencies"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_dispose"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_fliphorizontally"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_frameinterval"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_horizontaltravel"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_initstate"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_isdark"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_messagingambientbackdrop"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_messagingambientbackdropstate"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_opacity"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_phase"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_phaseoffset"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_scale"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_syncanimation"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_verticaltravel"
+    },
+    {
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_ambient_backdrop.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_messagingambientbackdropstate",
+      "target": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_ambient_backdrop_messagingambientbackdrop"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/lib/features/automation/presentation/messaging_center/messaging_app_tile.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_lib_features_automation_presentation_messaging_center_messaging_app_tile",
       "target": "messaging_platform_icon_dart"
     },
     {
@@ -762056,6 +762819,56 @@
       "weight": 1.0,
       "source": "products_nanomobile_flutter_app_test_features_automation_meta_template_editor_test",
       "target": "products_nanomobile_flutter_app_test_features_automation_meta_template_editor_test_template"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/test/features/automation/messaging_control_regression_test.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_test_features_automation_messaging_control_regression_test",
+      "target": "package_nanoai_features_automation_presentation_messaging_center_messaging_dedup_merger_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/test/features/automation/whatsapp_web_dedup_test.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_test_features_automation_whatsapp_web_dedup_test",
+      "target": "package_nanoai_features_automation_presentation_messaging_center_messaging_dedup_merger_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/test/features/automation/messaging_control_regression_test.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_test_features_automation_messaging_control_regression_test",
+      "target": "package_nanoai_features_automation_engine_business_fact_selector_dart"
+    },
+    {
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/test/features/automation/messaging_control_regression_test.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_test_features_automation_messaging_control_regression_test",
+      "target": "package_nanoai_features_automation_engine_messaging_conversation_group_resolver_dart"
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "products/nanoMOBILE/flutter_app/test/features/automation/messaging_control_regression_test.dart",
+      "source_location": null,
+      "weight": 1.0,
+      "source": "products_nanomobile_flutter_app_test_features_automation_messaging_control_regression_test",
+      "target": "products_nanomobile_flutter_app_test_features_automation_messaging_control_regression_test_main"
     },
     {
       "relation": "imports",

@@ -14,13 +14,13 @@
  * SOLID, manteniendo el código < 200 líneas y garantizando ausencia de procesos zombi.
  */
 
-import { WhatsAppChatList } from './ui/whatsapp_chat_list.js?v=v4';
-import { WhatsAppChatConversation } from './ui/whatsapp_chat_conversation.js?v=v4';
-import { WhatsAppComposer } from './ui/whatsapp_composer.js?v=v4';
-import { WhatsAppContextPanel } from './ui/whatsapp_context_panel.js?v=v4';
-import { WhatsAppPairingModal } from './ui/whatsapp_pairing_modal.js?v=v4';
-import { whatsAppBus } from './domain/whatsapp_events.js?v=v4';
-import { whatsAppStorage } from './services/whatsapp_storage.js?v=v4';
+import { WhatsAppChatList } from './ui/whatsapp_chat_list.js';
+import { WhatsAppChatConversation } from './ui/whatsapp_chat_conversation.js';
+import { WhatsAppComposer } from './ui/whatsapp_composer.js';
+import { WhatsAppContextPanel } from './ui/whatsapp_context_panel.js';
+import { WhatsAppPairingModal } from './ui/whatsapp_pairing_modal.js';
+import { whatsAppBus } from './domain/whatsapp_events.js';
+import { whatsAppStorage } from './services/whatsapp_storage.js';
 
 export class WhatsAppView {
   constructor(containerElement) {
@@ -33,6 +33,14 @@ export class WhatsAppView {
 
   _init() {
     this.container.innerHTML = `
+      <div class="wa-workspace">
+      <header class="wa-workspace-toolbar">
+        <button type="button" class="wa-btn-new-chat wa-back-list">Conversaciones</button>
+        <div class="wa-workspace-heading"><strong>Mensajería</strong><span class="wa-source-label">Historial local</span></div>
+        <button type="button" class="wa-btn-new-chat wa-toggle-details" aria-expanded="false">Detalles</button>
+        <button type="button" class="wa-btn-new-chat wa-open-connection wa-connection-status"
+          title="Configurar la conexión oficial de Meta">Meta sin conectar</button>
+      </header>
       <div class="wa-container-three-col">
         <!-- Columna 1: Lista de Chats -->
         <aside class="wa-col-sidebar" id="wa-sidebar-mount"></aside>
@@ -46,7 +54,28 @@ export class WhatsAppView {
         <!-- Columna 3: Panel de Contexto e Inteligencia de Negocio -->
         <aside class="wa-col-context" id="wa-context-mount"></aside>
       </div>
+      </div>
     `;
+
+    // Un mismo panel se adapta; no duplica pantallas ni cambia rutas.
+    this.workspace = this.container.querySelector('.wa-workspace');
+    this.container.querySelector('.wa-toggle-details').addEventListener('click', e => {
+      const open = this.workspace.classList.toggle('wa-details-open');
+      e.currentTarget.setAttribute('aria-expanded', String(open));
+      if (open) this.contextPanel.tabs.find(tab => tab.getAttribute('aria-selected') === 'true')?.focus();
+    });
+    this.container.querySelector('.wa-open-connection').addEventListener('click', () =>
+      WhatsAppPairingModal.show());
+    this.container.querySelector('.wa-back-list').addEventListener('click', () =>
+      this.workspace.classList.remove('wa-thread-selected'));
+    // Escape cierra únicamente el panel lateral y devuelve el foco a su control.
+    this.workspace.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || !this.workspace.classList.contains('wa-details-open')) return;
+      this.workspace.classList.remove('wa-details-open');
+      const button = this.container.querySelector('.wa-toggle-details');
+      button.setAttribute('aria-expanded', 'false');
+      button.focus();
+    });
 
     const sidebarMount = this.container.querySelector('#wa-sidebar-mount');
     const conversationMount = this.container.querySelector('#wa-conversation-mount');
@@ -67,15 +96,16 @@ export class WhatsAppView {
     });
     this._unsubscribers.push(unsubModal);
 
-    // Seleccionar por defecto el primer hilo (María González)
+    // Selecciona un registro existente; no crea ni presume contactos de ejemplo.
     const convs = whatsAppStorage.getConversations();
     if (convs.length > 0) {
-      this.handleSelectThread(convs[0].id);
       this.chatList.selectThread(convs[0].id);
     }
   }
 
   handleSelectThread(threadId) {
+    // La navegación compacta ofrece regreso a la lista sin perder el borrador.
+    this.workspace.classList.add('wa-thread-selected');
     this.activeThreadId = threadId;
     this.conversation.loadThread(threadId);
     this.composer.setActiveThread(threadId);

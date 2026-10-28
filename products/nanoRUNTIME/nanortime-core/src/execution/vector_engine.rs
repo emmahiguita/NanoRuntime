@@ -10,17 +10,26 @@
 
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
+use sha2::{Digest, Sha256};
 
 use crate::config::manifest::Config;
 use crate::error::Result;
 use crate::SourceDocument;
 
-/// Documento indexado con embedding opcional.
+/// Calcula el hash SHA-256 de un texto para indexación incremental determinista.
+pub fn compute_sha256(content: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(content.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+/// Documento indexado con embedding opcional y hash SHA-256 para sincronización incremental.
 #[derive(Debug, Clone)]
 struct IndexedDoc {
     content: String,
     metadata: serde_json::Value,
     embedding: Option<Vec<f32>>,
+    content_hash: String,
 }
 
 /// Motor vectorial en memoria con embeddings y persistencia en disco.
@@ -54,6 +63,17 @@ impl VectorEngine {
         metadata: serde_json::Value,
         embedding: Option<Vec<f32>>,
     ) -> Result<()> {
+        let hash = compute_sha256(content);
+        self.index_document_with_hash(content, metadata, embedding, hash).await
+    }
+
+    pub async fn index_document_with_hash(
+        &self,
+        content: &str,
+        metadata: serde_json::Value,
+        embedding: Option<Vec<f32>>,
+        content_hash: String,
+    ) -> Result<()> {
         if content.trim().is_empty() {
             return Ok(());
         }
@@ -64,10 +84,25 @@ impl VectorEngine {
             content: content.to_string(),
             metadata,
             embedding,
+            content_hash,
         });
         // Mark dirty — actual save deferred to flush() (batched, O(1) per doc)
         self.dirty.store(true, Ordering::Release);
         Ok(())
+    }
+
+    /// Elimina documentos previamente indexados asociados a una ruta de archivo.
+    pub async fn remove_document_by_path(&self, path: &str) -> usize {
+        let mut docs = self.docs.write().await;
+        let initial = docs.len();
+        docs.retain(|d| {
+            d.metadata.get("path").and_then(|p| p.as_str()) != Some(path)
+        });
+        let removed = initial - docs.len();
+        if removed > 0 {
+            self.dirty.store(true, Ordering::Release);
+        }
+        removed
     }
 
     pub async fn search(
@@ -181,26 +216,49 @@ impl VectorEngine {
         }
         collect(dir, &exts, &mut files)?;
 
-        // Read and index each file asynchronously
+        // Read and index each file asynchronously with incremental SHA-256 detection
         let mut indexed = 0usize;
+        let mut skipped = 0usize;
         for fpath in &files {
             if let Ok(content) = tokio::fs::read_to_string(fpath).await {
                 let trimmed = content.trim();
                 if trimmed.is_empty() || trimmed.len() < 20 {
                     continue;
                 }
+                let path_str = fpath.to_string_lossy().to_string();
+                let hash = compute_sha256(trimmed);
+
+                // Detección incremental: si ya existe con la misma ruta y hash idéntico, saltar O(1)
+                let already_current = {
+                    let docs = self.docs.read().await;
+                    docs.iter().any(|d| {
+                        d.metadata.get("path").and_then(|p| p.as_str()) == Some(&path_str)
+                            && d.content_hash == hash
+                    })
+                };
+
+                if already_current {
+                    skipped += 1;
+                    continue;
+                }
+
+                // Si el archivo cambió de contenido, purgamos versiones previas obsoletas
+                self.remove_document_by_path(&path_str).await;
+
                 let meta = serde_json::json!({
-                    "path": fpath.to_string_lossy(),
+                    "path": path_str,
                     "ext": fpath.extension().map(|e| e.to_string_lossy()).unwrap_or_default(),
+                    "content_hash": hash,
                 });
-                self.index_document(trimmed, meta, None).await?;
+                self.index_document_with_hash(trimmed, meta, None, hash).await?;
                 indexed += 1;
             }
         }
 
         tracing::info!(
-            "Indexed {} files from {} (found {})",
+            "Indexed {} files, skipped {} unchanged from {} (found {})",
             indexed,
+            skipped,
             path,
             files.len()
         );
@@ -295,6 +353,7 @@ impl VectorEngine {
                     "content": d.content,
                     "metadata": d.metadata,
                     "embedding": d.embedding,
+                    "content_hash": d.content_hash,
                 })
             })
             .collect();
@@ -318,6 +377,10 @@ impl VectorEngine {
                     .filter_map(|v| v.as_f64().map(|f| f as f32))
                     .collect()
             });
+            let content_hash = entry["content_hash"]
+                .as_str()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| compute_sha256(&content));
             if let Some(ref emb) = embedding {
                 *self.embed_dim.write().await = Some(emb.len());
             }
@@ -325,6 +388,7 @@ impl VectorEngine {
                 content,
                 metadata,
                 embedding,
+                content_hash,
             });
         }
         Ok(entries.len())
@@ -450,5 +514,36 @@ mod tests {
 
         let e2 = VectorEngine::new(&cfg).await.unwrap();
         assert_eq!(e2.document_count().await, 1, "Should load 1 doc from disk");
+    }
+
+    #[tokio::test]
+    async fn test_incremental_sha256_sync() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("doc.txt");
+        std::fs::write(&file_path, "Initial document content for testing SHA256 sync.").unwrap();
+
+        let cfg = Config::test_config();
+        clean_persist(&cfg);
+        let e = VectorEngine::new(&cfg).await.unwrap();
+
+        // Primer sync: indexa 1 archivo
+        let count1 = e.index_directory(&dir.path().to_string_lossy()).await.unwrap();
+        assert_eq!(count1, 1);
+        assert_eq!(e.document_count().await, 1);
+
+        // Segundo sync sin cambios: omite por SHA-256 (0 nuevos)
+        let count2 = e.index_directory(&dir.path().to_string_lossy()).await.unwrap();
+        assert_eq!(count2, 0);
+        assert_eq!(e.document_count().await, 1);
+
+        // Modificamos el contenido: detecta cambio de hash y re-indexa reemplazando
+        std::fs::write(&file_path, "Updated document content with new information.").unwrap();
+        let count3 = e.index_directory(&dir.path().to_string_lossy()).await.unwrap();
+        assert_eq!(count3, 1);
+        assert_eq!(e.document_count().await, 1);
+
+        let search_res = e.search("Updated information", 1, None).await.unwrap();
+        assert!(!search_res.is_empty());
+        assert_eq!(search_res[0].content, "Updated document content with new information.");
     }
 }
