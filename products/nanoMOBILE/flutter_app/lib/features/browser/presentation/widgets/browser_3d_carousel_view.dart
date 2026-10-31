@@ -1,15 +1,15 @@
+// QUÉ: Visor de pestañas en carrusel animado estilo CoverFlow / iOS Safari.
+// CÓMO: PageView con escala suave y tarjetas que exponen preview, cabecera y cierre [X].
+// POR QUÉ: Permite alternar y elegir pestañas de forma visual sin cabeceras duplicadas (< 180 líneas).
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:nanoai/features/browser/domain/browser_tab_model.dart';
-import 'package:nanoai/features/browser/presentation/widgets/browser_3d_carousel_page.dart';
-import 'package:nanoai/features/browser/presentation/widgets/single_browser_instance_widget.dart';
+import '../../domain/browser_tab_model.dart';
+import 'browser_3d_carousel_page.dart';
+import 'browser_carousel_card.dart';
+import 'single_browser_instance_widget.dart';
 
-/// Visor 3D y Carrusel con Perspectiva Espacial de Navegadores Web Reales.
-///
-/// - QUÉ HACE: Muestra las pestañas en carrusel tridimensional animado con escala y profundidad.
-/// - CÓMO FUNCIONA: Usa [PageView.builder] con [AnimatedBuilder] y transformaciones de matriz 3D.
-/// - POR QUÉ: Permite visualización inmersiva manteniendo claves estables sin reiniciar la sesión (<200 líneas).
 class Browser3DCarouselView extends StatefulWidget {
   final List<BrowserTabModel> tabs;
   final String activeTabId;
@@ -21,8 +21,7 @@ class Browser3DCarouselView extends StatefulWidget {
   final double currentZoom;
   final bool isDesktopMode, isDarkModeWeb;
   final Key Function(String tabId) instanceKeyForTab;
-  final void Function(String tabId, InAppWebViewController ctrl)?
-  onControllerCreated;
+  final void Function(String tabId, InAppWebViewController ctrl)? onControllerCreated;
   final ValueChanged<String>? onNavigate;
   final void Function(String url)? onExternalPrompt;
 
@@ -61,8 +60,7 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
     _currentPage = idx >= 0 ? idx : 0;
     _pageController = PageController(
       initialPage: _currentPage,
-      // El controlador único conserva el desplazamiento y evita desmontar WebViews al rotar.
-      viewportFraction: 0.82,
+      viewportFraction: 0.85,
     );
   }
 
@@ -75,7 +73,7 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
         _currentPage = idx;
         _pageController.animateToPage(
           idx,
-          duration: const Duration(milliseconds: 320),
+          duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
         );
       }
@@ -90,12 +88,14 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
+
     if (widget.tabs.isEmpty) {
       return const Center(
         child: Text(
-          'No hay ventanas activas',
+          'No hay pestañas abiertas',
           style: TextStyle(color: Color(0xFF94A3B8)),
         ),
       );
@@ -108,7 +108,6 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
             key: const PageStorageKey<String>('browser-3d-carousel'),
             controller: _pageController,
             physics: const BouncingScrollPhysics(),
-            allowImplicitScrolling: true,
             itemCount: widget.tabs.length,
             onPageChanged: (idx) {
               setState(() => _currentPage = idx);
@@ -117,60 +116,78 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
             },
             itemBuilder: (context, index) {
               final tab = widget.tabs[index];
-              final isMax = widget.maximizedWindowId == tab.id;
+              final isCurrent = index == _currentPage;
+
               return Browser3DCarouselPage(
                 controller: _pageController,
                 index: index,
                 currentPage: _currentPage,
                 onActivate: () => _pageController.animateToPage(
                   index,
-                  duration: const Duration(milliseconds: 320),
+                  duration: const Duration(milliseconds: 300),
                   curve: Curves.easeOutCubic,
                 ),
                 child: Padding(
                   padding: EdgeInsets.symmetric(
-                    horizontal: isLand ? 4 : 6,
-                    vertical: isLand ? 2 : 6,
+                    horizontal: isLand ? 6 : 8,
+                    vertical: isLand ? 4 : 10,
                   ),
-                  child: SingleBrowserInstanceWidget(
-                    key: widget.instanceKeyForTab(tab.id),
+                  child: BrowserCarouselCard(
                     tab: tab,
-                    fillHeight: true,
-                    showCardHeader: true,
-                    isMinimized: false,
-                    isMaximized: isMax,
-                    isCurrentActive: tab.id == widget.activeTabId,
-                    currentZoom: widget.currentZoom,
-                    isDesktopMode: widget.isDesktopMode,
-                    isDarkModeWeb: widget.isDarkModeWeb,
-                    onToggleMinimize: () => widget.onToggleMinimize(tab.id),
-                    onToggleMaximize: () => widget.onToggleMaximize(tab.id),
+                    isCurrent: isCurrent,
+                    onSelect: () {
+                      if (isCurrent) {
+                        widget.onOpenFocused();
+                      } else {
+                        _pageController.animateToPage(
+                          index,
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutCubic,
+                        );
+                      }
+                    },
                     onClose: () => widget.onCloseTab(tab.id),
-                    onControllerCreated: (c) =>
-                        widget.onControllerCreated?.call(tab.id, c),
-                    onNavigate: widget.onNavigate,
-                    onExternalPrompt: widget.onExternalPrompt,
+                    child: SingleBrowserInstanceWidget(
+                      key: widget.instanceKeyForTab(tab.id),
+                      tab: tab,
+                      fillHeight: true,
+                      showCardHeader: false,
+                      isMinimized: false,
+                      isMaximized: true,
+                      isCurrentActive: tab.id == widget.activeTabId,
+                      currentZoom: widget.currentZoom,
+                      isDesktopMode: widget.isDesktopMode,
+                      isDarkModeWeb: widget.isDarkModeWeb,
+                      onToggleMinimize: () => widget.onToggleMinimize(tab.id),
+                      onToggleMaximize: () => widget.onToggleMaximize(tab.id),
+                      onClose: () => widget.onCloseTab(tab.id),
+                      onControllerCreated: (c) =>
+                          widget.onControllerCreated?.call(tab.id, c),
+                      onNavigate: widget.onNavigate,
+                      onExternalPrompt: widget.onExternalPrompt,
+                    ),
                   ),
                 ),
               );
             },
           ),
         ),
+        // Indicador de pestañas estilo iOS
         Padding(
-          padding: EdgeInsets.only(top: isLand ? 1 : 3, bottom: isLand ? 2 : 6),
+          padding: EdgeInsets.only(top: isLand ? 2 : 4, bottom: isLand ? 3 : 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(widget.tabs.length, (idx) {
               final isSel = idx == _currentPage;
               return AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                margin: const EdgeInsets.symmetric(horizontal: 2.0),
-                width: isSel ? (isLand ? 14 : 20) : (isLand ? 4 : 5),
-                height: isLand ? 3 : 4,
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                width: isSel ? 20 : 6,
+                height: 4,
                 decoration: BoxDecoration(
                   color: isSel
                       ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
-                      : (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                      : (isDark ? Colors.white24 : Colors.black12),
                   borderRadius: BorderRadius.circular(2),
                 ),
               );

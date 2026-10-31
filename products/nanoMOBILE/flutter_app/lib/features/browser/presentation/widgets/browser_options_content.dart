@@ -1,6 +1,6 @@
-// QUÉ: Contenido del menú de opciones del navegador con barra de acciones rápidas iOS y grupos de cristal.
-// CÓMO: Renderiza 4 botones rápidos superiores estilo Safari y dos tarjetas agrupadas sin recortes ni duplicados.
-// POR QUÉ: Muestra todas las opciones en pantalla de un vistazo con estética iOS nativa (< 190 líneas).
+// QUÉ: Contenido del menú de opciones de Nano Browser estilo iOS Safari nativo y limpio.
+// CÓMO: Iconos monocromáticos limpios sin cajas de colores estridentes y tarjetas agrupadas.
+// POR QUÉ: Brinda una estética sobria, profesional y coherente con las directrices de Apple (< 175 líneas).
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -26,7 +26,10 @@ class BrowserOptionsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final primary = theme.colorScheme.primary;
+
     final pageGroup = BrowserOptionsCatalog.pageItems(
       isBookmarked: isBookmarked,
     );
@@ -45,29 +48,29 @@ class BrowserOptionsContent extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _quickActionsRow(pageGroup, isDark),
+          _quickActionsRow(pageGroup, isDark, primary),
           const SizedBox(height: 12),
           _sectionHeader('VISUALIZACIÓN', isDark),
-          _group(isDark, displayGroup),
+          _group(isDark, primary, displayGroup),
           const SizedBox(height: 12),
-          _sectionHeader('NAVEGACIÓN Y DATOS', isDark),
-          _group(isDark, dataGroup),
+          _sectionHeader('NAVEGACIÓN Y PRIVACIDAD', isDark),
+          _group(isDark, primary, dataGroup),
         ],
       ),
     );
   }
 
-  /// Fila superior de 4 acciones rápidas estilo Safari iOS (Favorito, Buscar, Copiar, Seguridad).
-  Widget _quickActionsRow(List<BrowserOptionItemDef> items, bool isDark) => Row(
+  /// 4 acciones rápidas superiores estilo Safari iOS sin cajas de colores estridentes.
+  Widget _quickActionsRow(List<BrowserOptionItemDef> items, bool isDark, Color primary) => Row(
     children: [
       for (int i = 0; i < items.length; i++) ...[
-        Expanded(child: _quickPill(items[i], isDark)),
+        Expanded(child: _quickPill(items[i], isDark, primary)),
         if (i < items.length - 1) const SizedBox(width: 8),
       ],
     ],
   );
 
-  Widget _quickPill(BrowserOptionItemDef item, bool isDark) {
+  Widget _quickPill(BrowserOptionItemDef item, bool isDark, Color primary) {
     final shortLabel = switch (item.action) {
       'toggle_bookmark' => isBookmarked ? 'Guardado' : 'Favorito',
       'find_in_page' => 'Buscar',
@@ -75,6 +78,10 @@ class BrowserOptionsContent extends StatelessWidget {
       'show_ssl' => 'Seguridad',
       _ => item.title,
     };
+    final iconColor = item.isHighlighted
+        ? const Color(0xFFF59E0B)
+        : (isDark ? Colors.white.withValues(alpha: 0.88) : const Color(0xFF334155));
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -92,14 +99,14 @@ class BrowserOptionsContent extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isDark
-                  ? Colors.white.withValues(alpha: 0.09)
+                  ? Colors.white.withValues(alpha: 0.08)
                   : Colors.black.withValues(alpha: 0.06),
             ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(item.icon, size: 20, color: item.color),
+              Icon(item.icon, size: 21, color: iconColor),
               const SizedBox(height: 5),
               Text(
                 shortLabel,
@@ -131,91 +138,89 @@ class BrowserOptionsContent extends StatelessWidget {
     ),
   );
 
-  Widget _group(bool isDark, List<BrowserOptionItemDef> items) => Container(
+  Widget _group(bool isDark, Color primary, List<BrowserOptionItemDef> items) => Container(
     decoration: BoxDecoration(
-      color: isDark
-          ? Colors.white.withValues(alpha: 0.05)
-          : Colors.black.withValues(alpha: 0.03),
+      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.06),
+        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
       ),
     ),
     child: Column(
       children: [
         for (int i = 0; i < items.length; i++) ...[
-          _row(items[i], isDark),
+          _row(items[i], isDark, primary),
           if (i < items.length - 1)
             Divider(
               height: 1,
               thickness: 0.7,
-              indent: 48,
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : Colors.black.withValues(alpha: 0.05),
+              indent: 44,
+              color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
             ),
         ],
       ],
     ),
   );
 
-  Widget _row(BrowserOptionItemDef item, bool isDark) => Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onAction(item.action);
-      },
-      borderRadius: BorderRadius.circular(16),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8.5),
-        child: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: item.color,
-                borderRadius: BorderRadius.circular(7),
+  /// Fila de opción con icono limpio monocromático (sin caja coloreada estridente).
+  Widget _row(BrowserOptionItemDef item, bool isDark, Color primary) {
+    final iconColor = item.isHighlighted
+        ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF2563EB))
+        : (isDark ? Colors.white.withValues(alpha: 0.75) : const Color(0xFF475569));
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onAction(item.action);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                child: Center(
+                  child: Icon(item.icon, size: 20, color: iconColor),
+                ),
               ),
-              child: Icon(item.icon, size: 15, color: Colors.white),
-            ),
-            const SizedBox(width: 11),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.white : const Color(0xFF1E293B),
-                    ),
-                  ),
-                  if (item.subtitle != null)
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      item.subtitle!,
+                      item.title,
                       style: TextStyle(
-                        fontSize: 11,
-                        color: isDark
-                            ? const Color(0xFF94A3B8)
-                            : const Color(0xFF64748B),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white : const Color(0xFF1E293B),
                       ),
                     ),
-                ],
+                    if (item.subtitle != null) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        item.subtitle!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            Icon(
-              CupertinoIcons.chevron_right,
-              size: 13,
-              color: isDark ? Colors.white24 : Colors.black26,
-            ),
-          ],
+              Icon(
+                CupertinoIcons.chevron_right,
+                size: 13,
+                color: isDark ? Colors.white24 : Colors.black26,
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
