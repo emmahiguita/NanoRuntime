@@ -1,16 +1,14 @@
-// business_store_category_filters.dart
+﻿// business_store_category_filters.dart
 //
-// QUÉ HACE:
-// Barra horizontal de categorías para la tienda comercial de Nano.
-// Permite filtrar instantáneamente los productos por categoría con estética iOS Glass Pills.
+// QUÃ‰ HACE:
+// Filtros horizontales discretos por categorÃ­a para la tienda de Nano.
 //
-// CÓMO FUNCIONA:
-// - Genera chips interactivos para 'Todos' y cada categoría detectada en el catálogo.
-// - Muestra contador de elementos disponibles por categoría.
-// - Resalta la categoría activa con el acento del tema global.
+// CÃ“MO FUNCIONA:
+// - Oculta la fila si sÃ³lo existe una Ãºnica categorÃ­a para no duplicar 'Todos'.
+// - Despliega cÃ¡psulas sutiles con altura compacta de 30 dp e indicador de cantidad.
 //
-// POR QUÉ:
-// Aísla los filtros y conserva una altura táctil que crece con el texto del sistema.
+// POR QUÃ‰:
+// Optimiza el espacio y evita controles redundantes segÃºn la guÃ­a (< 120 lÃ­neas).
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -33,15 +31,17 @@ class BusinessStoreCategoryFilters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (categories.length <= 1) return const SizedBox.shrink();
+
     final allCategories = ['Todos', ...categories];
 
     return SizedBox(
-      height: (MediaQuery.textScalerOf(context).scale(12) * 1.4 + 24).clamp(44.0, double.infinity),
+      height: 32,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: allCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
           final cat = allCategories[index];
           final isSelected =
@@ -75,30 +75,26 @@ class _CategoryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return CupertinoButton(
       onPressed: onTap,
       padding: EdgeInsets.zero,
-      minimumSize: const Size(0, 32),
+      minimumSize: const Size(0, 30),
       child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        duration: MediaQuery.disableAnimationsOf(context) ? Duration.zero : const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? colors.primary : colors.surfaceContainerHighest.withValues(alpha: .3),
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected
+              ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+              : (isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0x0A000000)),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? colors.primary : colors.outlineVariant,
-            width: isSelected ? 1.2 : 1.0,
+            color: isSelected
+                ? (isDark ? Colors.white24 : const Color(0xFFCBD5E1))
+                : (isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.05)),
+            width: 0.8,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: colors.shadow.withValues(alpha: .06),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -106,28 +102,22 @@ class _CategoryPill extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: isSelected ? colors.onPrimary : colors.onSurface,
+                color: isSelected
+                    ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                    : (isDark ? Colors.white60 : const Color(0xFF64748B)),
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 6),
-            // Badge numérico sutil estilo iOS
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-              decoration: BoxDecoration(
+            const SizedBox(width: 5),
+            Text(
+              '$count',
+              style: TextStyle(
                 color: isSelected
-                    ? colors.onPrimary.withValues(alpha: .15)
-                    : colors.onSurface.withValues(alpha: .06),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '$count',
-                style: TextStyle(
-                  color: isSelected ? colors.onPrimary : colors.onSurfaceVariant,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                ),
+                    ? (isDark ? Colors.white70 : const Color(0xFF475569))
+                    : (isDark ? Colors.white38 : const Color(0xFF94A3B8)),
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],

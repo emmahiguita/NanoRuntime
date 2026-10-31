@@ -1,11 +1,8 @@
 part of 'design_tokens.dart';
 
-/// Paleta principal de modo oscuro: Cosmic Blue / Obsidian Dark.
-///
-/// - QUÉ HACE: Provee los valores cromáticos reales para el tema oscuro estándar.
-/// - CÓMO FUNCIONA: Asigna valores [Color] constantes optimizados para paneles OLED y LCD,
-///   con negros profundos (#020711) y azules eléctricos de alto contraste (#2563EB).
-/// - POR QUÉ: Garantiza legibilidad AAA, minimiza consumo de batería y evita halos estridentes.
+/// Modo oscuro negro: fondos neutros, elevación gris carbón y texto claro.
+/// Los acentos conservan la identidad Nano; las superficies no se tiñen de azul.
+/// Gris espacial mantiene su propia paleta y no hereda estos valores.
 class NanoDarkColors implements NanoColors {
   const NanoDarkColors();
 
@@ -20,19 +17,19 @@ class NanoDarkColors implements NanoColors {
   @override
   final secondaryContainer = const Color(0xFF0F294D); // Deep Blue Container
   @override
-  final surface = const Color(0xFF0F172A); // Slate 900
+  final surface = const Color(0xFF121212); // Superficie negra elevada
   @override
-  final surfaceVariant = const Color(0xFF1E293B); // Slate 800
+  final surfaceVariant = const Color(0xFF1C1C1E); // Controles sobre negro
   @override
-  final background = const Color(0xFF020711); // Fondo base ultra oscuro
+  final background = const Color(0xFF000000); // Fondo negro real
   @override
   final onSurface = const Color(0xFFF8FAFC); // Texto blanco nítido
   @override
-  final onSurfaceVariant = const Color(0xFFA8B3C2); // Texto secundario
+  final onSurfaceVariant = const Color(0xFFB9B9BF); // Texto secundario legible
   @override
-  final outline = const Color(0xFF64748B); // Slate 500
+  final outline = const Color(0xFF606066); // Borde neutro
   @override
-  final outlineVariant = const Color(0xFF334155); // Slate 700
+  final outlineVariant = const Color(0xFF343438); // Separador neutro
   @override
   final success = const Color(0xFF10B981); // Emerald 500
   @override
@@ -50,38 +47,38 @@ class NanoDarkColors implements NanoColors {
   @override
   final danger = const Color(0xFFEF4444);
   @override
-  final codeBlockBg = const Color(0xFF08101E);
+  final codeBlockBg = const Color(0xFF0D0D0F);
   @override
-  final quoteBg = const Color(0xFF0C192C);
+  final quoteBg = const Color(0xFF19191C);
   @override
-  final terminalBg = const Color(0xFF0B1120);
+  final terminalBg = const Color(0xFF000000);
   @override
   final terminalGreen = const Color(0xFF10B981);
 
   // Glassmorphism tokens en modo oscuro (superficies mate profundas)
   @override
-  final glassSurface = const Color(0x00000000);
+  final glassSurface = const Color(0xE6121212);
   @override
-  final glassBorder = const Color(0x00000000);
+  final glassBorder = const Color(0x26FFFFFF);
   @override
-  final glassOverlay = const Color(0x00000000);
+  final glassOverlay = const Color(0x08000000);
 
   // Gradientes metálicos y reflectivos
   @override
-  final bgTop = const Color(0xFF020711);
+  final bgTop = const Color(0xFF000000);
   @override
-  final bgMiddle = const Color(0xFF050C16);
+  final bgMiddle = const Color(0xFF030303);
   @override
-  final bgBottom = const Color(0xFF08131F);
+  final bgBottom = const Color(0xFF060606);
 
   @override
-  final glass100 = const Color(0xFF0B1825);
+  final glass100 = const Color(0xFF101010);
   @override
-  final glass200 = const Color(0xFF102130);
+  final glass200 = const Color(0xFF161618);
   @override
-  final glass300 = const Color(0xFF141D28);
+  final glass300 = const Color(0xFF1C1C1E);
   @override
-  final glass400 = const Color(0xFF0B1E30);
+  final glass400 = const Color(0xFF242426);
 
   @override
   final metalWhite = const Color(0xFFFFFFFF);
@@ -127,28 +124,28 @@ class NanoDarkColors implements NanoColors {
 
   // Capas de elevación semántica
   @override
-  final backgroundPrimary = const Color(0xFF020711);
+  final backgroundPrimary = const Color(0xFF000000);
   @override
-  final backgroundSecondary = const Color(0xFF050C16);
+  final backgroundSecondary = const Color(0xFF080808);
   @override
-  final backgroundElevated = const Color(0xFF08131F);
+  final backgroundElevated = const Color(0xFF121212);
   @override
-  final backgroundDeep = const Color(0xFF01040A);
+  final backgroundDeep = const Color(0xFF000000);
   @override
-  final backgroundNavy = const Color(0xFF071522);
+  final backgroundNavy = const Color(0xFF101012);
   @override
-  final backgroundIce = const Color(0xFF0B1825);
+  final backgroundIce = const Color(0xFF161618);
   @override
-  final backgroundPearl = const Color(0xFF141D28);
+  final backgroundPearl = const Color(0xFF202022);
 
   @override
-  final glassPrimary = const Color(0xFF0B1825);
+  final glassPrimary = const Color(0xFF101010);
   @override
-  final glassSecondary = const Color(0xFF102130);
+  final glassSecondary = const Color(0xFF161618);
   @override
-  final glassGraphite = const Color(0xFF141D28);
+  final glassGraphite = const Color(0xFF1C1C1E);
   @override
-  final glassBlue = const Color(0xFF0B1E30);
+  final glassBlue = const Color(0xFF18181B);
 
   @override
   final glassLow = 0.32;
@@ -162,11 +159,11 @@ class NanoDarkColors implements NanoColors {
   @override
   final textPrimary = const Color(0xFFF8FAFC);
   @override
-  final textSecondary = const Color(0xFF94A3B8);
+  final textSecondary = const Color(0xFFB9B9BF);
   @override
-  final textTertiary = const Color(0xFF64748B);
+  final textTertiary = const Color(0xFF98989F);
   @override
-  final textDisabled = const Color(0xFF475569);
+  final textDisabled = const Color(0xFF68686D);
 
   @override
   final accentCyan = const Color(0xFF38BDF8);

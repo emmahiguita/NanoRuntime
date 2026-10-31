@@ -1,44 +1,37 @@
+﻿// personal_agent_autonomy_card.dart — Configuración del agente personal con MenuAnchor M3.
+// QUÉ HACE:
+// Integra el control de activación de WhatsApp Personal y el selector interactivo
+// de Nivel de Autonomía desplegable mediante MenuAnchor de Material 3.
+//
+// CÓMO FUNCIONA:
+// Presenta la fila de servicio y aloja AutonomyModeMenuAnchor, permitiendo cambiar el nivel
+// (Supervisado, Auto Seguro, Autónomo, En pausa) directamente desde un menú contextual flotante.
+//
+// POR QUÉ:
+// Reemplaza el selector estático de botones segmentados por un menú M3 compacto y fluido,
+// cumpliendo estrictamente con menos de 120 líneas y alta respuesta háptica.
+library;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/features/automation/application/automation_coordinator_provider.dart'
     show ruleRegistryProvider;
-import 'package:nanoai/features/automation/domain/automation_policy.dart';
 import 'package:nanoai/features/automation/engine/messaging/messaging_package.dart';
-import 'package:nanoai/features/automation/personal_agent/domain/conversation_autonomy_mode.dart';
 import '../../automation_visual_theme.dart';
 import '../settings_tile_components.dart';
+import 'autonomy_mode_menu_anchor.dart';
 
-/// QUÉ HACE:
-/// Tarjeta de configuración del nivel de autonomía y supervisión de WhatsApp.
-///
-/// CÓMO FUNCIONA:
-/// Permite al usuario alternar entre 'Supervisado' (Borradores), 'Auto Seguro'
-/// (Respuestas automatizadas a bajo riesgo) y 'Autónomo' (Envío directo con IA).
-///
-/// POR QUÉ:
-/// Garantiza control determinista sobre cuándo el bot envía mensajes reales
-/// o solicita confirmación humana, previniendo alucinaciones en producción.
+export 'autonomy_mode_menu_anchor.dart' show AutonomyModeMenuAnchor;
+
 class PersonalAgentAutonomyCard extends ConsumerWidget {
   const PersonalAgentAutonomyCard({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-    final settingsNotifier = ref.read(settingsProvider.notifier);
     final visual = AutomationVisual.of(context);
     final isWaActive = ref
         .watch(ruleRegistryProvider)
         .isWhatsAppRuleActive(MessagingPackage.whatsapp);
-    final waMode = ConversationAutonomyModeName.fromName(
-      settings.waAutonomyMode,
-    );
-    final selectedMode = switch (waMode) {
-      ConversationAutonomyMode.autonomous =>
-        ConversationAutonomyMode.autonomous,
-      ConversationAutonomyMode.safeAuto => ConversationAutonomyMode.safeAuto,
-      _ => ConversationAutonomyMode.suggestions,
-    };
 
     return SettingsCard(
       children: [
@@ -64,129 +57,32 @@ class PersonalAgentAutonomyCard extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Cómo escribe Nano por ti',
-                      style: TextStyle(
-                        color: visual.text,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  _buildModeBadge(waMode, visual),
-                ],
-              ),
-              const SizedBox(height: 6),
               Text(
-                _getModeDescription(waMode),
+                'Cómo escribe Nano por ti',
+                style: TextStyle(
+                  color: visual.text,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Selecciona el nivel de supervisión para respuestas automáticas en WhatsApp.',
                 style: TextStyle(
                   color: visual.isDark
                       ? const Color(0xFFD6DEE8)
                       : visual.textMuted,
-                  fontSize: 12.5,
-                  height: 1.45,
+                  fontSize: 12,
+                  height: 1.35,
                 ),
               ),
               const SizedBox(height: 12),
-              _buildSelector(selectedMode, settingsNotifier, visual),
+              // Selector de Nivel de Autonomía mediante MenuAnchor M3
+              const AutonomyModeMenuAnchor(),
             ],
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildModeBadge(
-    ConversationAutonomyMode mode,
-    AutomationVisualPalette visual,
-  ) {
-    final label = switch (mode) {
-      ConversationAutonomyMode.suggestions => 'BORRADOR',
-      ConversationAutonomyMode.safeAuto => 'AUTO SEGURO',
-      ConversationAutonomyMode.autonomous => 'AUTÓNOMO',
-      ConversationAutonomyMode.disabled => 'DESACTIVADO',
-    };
-    return Chip(
-      label: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: visual.isDark ? const Color(0xFFFFB26B) : visual.accent,
-        ),
-      ),
-      backgroundColor: visual.accent.withValues(alpha: 0.20),
-      side: BorderSide(color: visual.accent.withValues(alpha: 0.55)),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      visualDensity: VisualDensity.compact,
-    );
-  }
-
-  String _getModeDescription(ConversationAutonomyMode mode) {
-    return switch (mode) {
-      ConversationAutonomyMode.suggestions =>
-        '✏️ Supervisado: Nano redacta en Mensajes para tu aprobación previa.',
-      ConversationAutonomyMode.safeAuto =>
-        '🛡️ Auto seguro: Responde automáticamente mensajes de bajo riesgo.',
-      ConversationAutonomyMode.autonomous =>
-        '⚡ Autónomo: Responde directo en WhatsApp con tu identidad y tono.',
-      ConversationAutonomyMode.disabled =>
-        '⏸️ En pausa: Escucha entrantes sin responder ni generar borradores.',
-    };
-  }
-
-  Widget _buildSelector(
-    ConversationAutonomyMode selected,
-    SettingsNotifier notifier,
-    AutomationVisualPalette visual,
-  ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: constraints.maxWidth),
-            child: SegmentedButton<ConversationAutonomyMode>(
-              showSelectedIcon: false,
-              style: ButtonStyle(
-                visualDensity: VisualDensity.compact,
-                side: WidgetStateProperty.all(
-                  BorderSide(color: visual.cardBorder),
-                ),
-              ),
-              segments: const [
-                ButtonSegment(
-                  value: ConversationAutonomyMode.suggestions,
-                  label: Text('Supervisado', maxLines: 1),
-                ),
-                ButtonSegment(
-                  value: ConversationAutonomyMode.safeAuto,
-                  label: Text('Auto seguro', maxLines: 1),
-                ),
-                ButtonSegment(
-                  value: ConversationAutonomyMode.autonomous,
-                  label: Text('Autónomo', maxLines: 1),
-                ),
-              ],
-              selected: {selected},
-              onSelectionChanged: (set) {
-                final mode = set.first;
-                notifier.setWaAutonomyMode(mode.name);
-                notifier.setAgentAutomationMode(
-                  mode == ConversationAutonomyMode.autonomous
-                      ? AgentAutomationMode.autonomous
-                      : AgentAutomationMode.assisted,
-                );
-              },
-            ),
-          ),
-        );
-      },
     );
   }
 }

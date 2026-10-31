@@ -1,24 +1,27 @@
-// nano_navigation_panel.dart — Máquina de estados del dock flotante.
-// QUÉ HACE: alterna entre destino reducido, cuatro destinos y escritura contextual.
-// CÓMO FUNCIONA: Colapsa tras inactividad y adapta ancho/altura al teclado.
-// POR QUÉ: El dock no reserva pantalla cuando el usuario no lo está usando.
+// nano_navigation_panel.dart — Máquina de estados del dock inferior y gestos.
+// QUÉ HACE: Coordina la navegación inferior compacta y la delegación al Drawer global.
+// CÓMO FUNCIONA: Escucha nanoNavModeProvider; gestiona dock, reservas y menú FAB.
+// POR QUÉ: Satisface la especificación oficial y se conserva estrictamente < 185 líneas (SOLID).
 library;
 
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'nano_bottom_dock.dart';
-import 'nano_keyboard_dock_gate.dart';
-import 'nano_dock_viewport.dart';
+import 'nano_bottom_dock_layer.dart';
 import 'nano_destination.dart';
+import 'nano_dock_viewport.dart';
 import 'nano_nav_constants.dart';
 import 'nano_nav_dock_mode.dart';
-import 'nano_side_dock_rail.dart';
+import 'nano_nav_mode_provider.dart';
 import 'nano_universal_input.dart';
+
 export 'nano_nav_constants.dart'
     show kNanoBarScrollReserve, kNanoBarScrollReserveLandscape;
 export 'nano_nav_dock_mode.dart' show NanoNavDockMode;
+export 'nano_nav_mode_provider.dart'
+    show NanoNavModeNotifier, NanoNavPresentationMode, nanoNavModeProvider;
 export 'nano_shell_bar_scope.dart' show NanoShellBarScope;
 
 part 'nano_floating_navigation_frame.dart';
@@ -27,76 +30,52 @@ enum _NanoPanelMode { minimized, navigation, search }
 
 class _NanoFloatingNavigationFrameState
     extends ConsumerState<NanoFloatingNavigationFrame> {
-  late NanoNavDockMode _dockMode = widget.allowSideDock
-      ? widget.initialDockMode
-      : NanoNavDockMode.bottom;
-  _NanoPanelMode _panelMode = _NanoPanelMode.minimized;
+  _NanoPanelMode _panelMode = _NanoPanelMode.navigation;
   Timer? _idleTimer;
   bool _toolWasRunning = false;
   Offset _dragOffset = Offset.zero;
-  // Abre la barra. Si la pantalla activa requiere entrada constante (ej. Terminal),
-  // se expande directamente a modo escritura ('search') para programar al instante.
+  Offset? _dragPosition;
+  double _dockHeight = 0;
+
+  void _reportDockHeight(double height) {
+    if (!mounted || (height - _dockHeight).abs() < .5) return;
+    setState(() => _dockHeight = height);
+  }
+
   void _showNavigation({bool directSearch = false}) {
     _idleTimer?.cancel();
     setState(() {
-      _dockMode = NanoNavDockMode.bottom;
-      _panelMode = directSearch
-          ? _NanoPanelMode.search
-          : _NanoPanelMode.navigation;
-    });
-    if (!directSearch) _armIdleCollapse();
-  }
-
-  void _armIdleCollapse() {
-    _idleTimer?.cancel();
-    // Tocar el editor también dispara PointerDown: no debe armar cierre mientras
-    // se escribe o se espera un resultado. Sólo navegación tiene reposo automático.
-    if (_panelMode == _NanoPanelMode.search) return;
-    _idleTimer = Timer(kNanoDockIdleCollapseDelay, _collapse);
-  }
-
-  // Reduce espacio dejando visibles el nombre y el icono de la sección actual.
-  void _collapse({bool dismissKeyboard = false}) {
-    _idleTimer?.cancel();
-    if (!mounted) return;
-    // El reposo del dock no debe cancelar un campo de búsqueda de otro módulo.
-    if (dismissKeyboard) FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _panelMode = _NanoPanelMode.minimized;
+      _panelMode = directSearch ? _NanoPanelMode.search : _NanoPanelMode.navigation;
       _dragOffset = Offset.zero;
     });
   }
 
-  void _toggleSearch() {
-    _idleTimer?.cancel();
-    final closing = _panelMode == _NanoPanelMode.search;
-    if (closing) FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {
-      _panelMode = closing ? _NanoPanelMode.navigation : _NanoPanelMode.search;
-    });
-    if (closing) _armIdleCollapse();
-  }
-
-  // Un arrastre válido envía la píldora al lateral; uno corto reinicia reposo.
   void _finishHorizontalDrag() {
-    final side = _dragOffset.dx.abs() > 50;
+    final offset = _dragOffset;
+    final position = _dragPosition;
+    final size = MediaQuery.sizeOf(context);
+    final draggedRight = offset.dx > 40 || (position != null && position.dx >= size.width * 0.70);
+    final draggedLeft = offset.dx < -40 || (position != null && position.dx <= size.width * 0.30);
+
     setState(() {
-      if (_dragOffset.dx < -50) _dockMode = NanoNavDockMode.leftCollapsed;
-      if (_dragOffset.dx > 50) _dockMode = NanoNavDockMode.rightCollapsed;
-      if (side) _panelMode = _NanoPanelMode.minimized;
       _dragOffset = Offset.zero;
+      _dragPosition = null;
     });
-    if (side) {
+
+    if (draggedRight || draggedLeft) {
       HapticFeedback.mediumImpact();
       _idleTimer?.cancel();
-    } else {
-      _armIdleCollapse();
+      ref.read(nanoNavModeProvider.notifier).convertToDrawer(right: false);
     }
   }
 
+  void _cancelHorizontalDrag() => setState(() {
+    _dragOffset = Offset.zero;
+    _dragPosition = null;
+  });
+
   @override
   void dispose() {
-    // Impide que el callback de reposo sobreviva al árbol de navegación.
     _idleTimer?.cancel();
     super.dispose();
   }
@@ -108,41 +87,37 @@ class _NanoFloatingNavigationFrameState
     final landscape = media.orientation == Orientation.landscape;
     final keyboardVisible = media.viewInsets.bottom > 0;
     final targetSlot = widget.slotId ?? destination.name;
+    final navState = ref.watch(nanoNavModeProvider);
+
     final inputConfig = ref.watch(
       nanoUniversalInputProvider.select(
-        (_) =>
-            ref.read(nanoUniversalInputProvider.notifier).slotFor(targetSlot),
+        (_) => ref.read(nanoUniversalInputProvider.notifier).slotFor(targetSlot),
       ),
     );
 
-    // Al terminar una herramienta, se reduce conservando su resultado visible.
-    // El editor de otros módulos y los borradores sin ejecución no se alteran.
-    final toolRunning =
-        inputConfig.toolContext != null && inputConfig.isGenerating;
-    if (_toolWasRunning &&
-        !toolRunning &&
-        inputConfig.toolContext != null &&
-        !keyboardVisible &&
-        _panelMode == _NanoPanelMode.search) {
-      _panelMode = _NanoPanelMode.minimized;
+    final toolRunning = inputConfig.toolContext != null && inputConfig.isGenerating;
+    if (_toolWasRunning && !toolRunning && inputConfig.toolContext != null &&
+        !keyboardVisible && _panelMode == _NanoPanelMode.search) {
+      _panelMode = _NanoPanelMode.navigation;
     }
     _toolWasRunning = toolRunning;
 
-    // AUTO-ADAPTACIÓN: si la pantalla activa solicita entrada constante (Terminal, etc.)
-    // y el panel estaba minimizado, se promueve de inmediato a modo comando/escritura ('search').
-    if (inputConfig.keepDockVisible && _panelMode == _NanoPanelMode.minimized) {
+    if (inputConfig.keepDockVisible && _panelMode != _NanoPanelMode.search) {
       _idleTimer?.cancel();
       _panelMode = _NanoPanelMode.search;
     }
 
-    final side = widget.allowSideDock && _dockMode != NanoNavDockMode.bottom;
-    final reserve = side || widget.floatOverContent
+    final hasSearchBar = _panelMode == _NanoPanelMode.search || inputConfig.toolControls != null;
+    final isBottomBar = navState.isBottomBarMode;
+    final baseReserve = !isBottomBar
         ? 0.0
-        : (_panelMode == _NanoPanelMode.minimized
-              ? 56.0
-              : landscape
-              ? kNanoBarScrollReserveLandscape
-              : kNanoBarScrollReserve);
+        : (hasSearchBar
+            ? (landscape ? kNanoBarScrollReserveLandscape : kNanoBarScrollReserve)
+            : 58.0);
+    final measuredReserve = !isBottomBar ? 0.0 : (_dockHeight + 22.0);
+    final reserve = (widget.floatOverContent || !isBottomBar)
+        ? 0.0
+        : (measuredReserve > baseReserve ? measuredReserve : baseReserve) + media.padding.bottom;
 
     return Stack(
       fit: StackFit.expand,
@@ -154,56 +129,59 @@ class _NanoFloatingNavigationFrameState
           reserve: reserve,
           child: widget.child,
         ),
-        if (!side)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: keyboardVisible
-                ? media.viewInsets.bottom + 3
-                : media.padding.bottom + (landscape ? 4 : 7),
-            child: Center(
-              child: NanoKeyboardDockGate(
-                child: NanoBottomDock(
-                  minimized: _panelMode == _NanoPanelMode.minimized,
-                  searchExpanded: _panelMode == _NanoPanelMode.search,
-                  landscape: landscape,
-                  keyboardVisible: keyboardVisible,
-                  screenWidth: media.size.width,
-                  dragOffset: _dragOffset,
-                  destination: destination,
-                  inputConfig: inputConfig,
-                  transparent: widget.transparentDock,
-                  searchHint: widget.searchHint,
-                  onSearch: widget.onSearch,
-                  onVoice: widget.onVoice,
-                  onOpenInput: () => _showNavigation(directSearch: true),
-                  onShowNavigation: () => _showNavigation(
-                    directSearch:
-                        inputConfig.keepDockVisible ||
-                        (inputConfig.toolControls == null &&
-                            inputConfig.toolContext != null),
-                  ),
-                  onToggleSearch: _toggleSearch,
-                  onPointerDown: _armIdleCollapse,
-                  onDragStart: () => _idleTimer?.cancel(),
-                  onDragUpdate: (event) =>
-                      setState(() => _dragOffset += event.delta),
-                  onDragEnd: _finishHorizontalDrag,
-                  onDestinationSelected: (next) {
-                    widget.onDestinationSelected(next.index);
-                    _collapse(dismissKeyboard: true);
-                  },
+        // Scrim modal para el menú FAB: aísla el menú y evita cualquier solapamiento
+        if (navState.isFabMenuOpen)
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => ref.read(nanoNavModeProvider.notifier).closeFabMenu(),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                child: ColoredBox(
+                  color: (Theme.of(context).brightness == Brightness.dark
+                          ? Colors.black
+                          : const Color(0xFF0F172A))
+                      .withValues(alpha: 0.32),
                 ),
               ),
             ),
           ),
-        if (side)
-          NanoSideDockRail(
-            destination: destination,
-            isLeft: _dockMode == NanoNavDockMode.leftCollapsed,
-            top: media.size.height * 0.42,
-            onExpandBottom: _showNavigation,
-          ),
+        NanoBottomDockLayer(
+          onHeight: _reportDockHeight,
+          navigationVisible: navState.isBottomBarMode,
+          keyboardVisible: keyboardVisible,
+          landscape: landscape,
+          media: media,
+          minimized: _panelMode == _NanoPanelMode.minimized,
+          searchExpanded: _panelMode == _NanoPanelMode.search,
+          dragOffset: _dragOffset,
+          destination: destination,
+          inputConfig: inputConfig,
+          transparent: widget.transparentDock,
+          searchHint: widget.searchHint,
+          onSearch: widget.onSearch,
+          onVoice: widget.onVoice,
+          onOpenInput: () => _showNavigation(directSearch: true),
+          onShowNavigation: () => _showNavigation(),
+          onConvertToDrawer: () => ref.read(nanoNavModeProvider.notifier).convertToDrawer(right: false),
+          onToggleSearch: () {
+            _idleTimer?.cancel();
+            final closing = _panelMode == _NanoPanelMode.search;
+            if (closing) FocusManager.instance.primaryFocus?.unfocus();
+            setState(() => _panelMode = closing ? _NanoPanelMode.navigation : _NanoPanelMode.search);
+          },
+          onPointerDown: () => _idleTimer?.cancel(),
+          onDragStart: () => _idleTimer?.cancel(),
+          onDragUpdate: (event) => setState(() {
+            final nextDx = (_dragOffset.dx + event.delta.dx).clamp(-160.0, 160.0);
+            _dragOffset = Offset(nextDx, 0.0);
+            final box = context.findRenderObject();
+            _dragPosition = box is RenderBox ? box.globalToLocal(event.globalPosition) : null;
+          }),
+          onDragEnd: _finishHorizontalDrag,
+          onDragCancel: _cancelHorizontalDrag,
+          onDestinationSelected: (next) => widget.onDestinationSelected(next.index),
+        ),
       ],
     );
   }

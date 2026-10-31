@@ -21,8 +21,9 @@ extension _PragmaticIntentExtraction on PragmaticFastPath {
         normalized.contains('cuanta carga') ||
         normalized.contains('nivel de carga');
 
-    if (!isHardwareInquiry && tokens.any(commercialIntentTokens.contains))
+    if (!isHardwareInquiry && tokens.any(commercialIntentTokens.contains)) {
       return true;
+    }
     if (supportPhrases.any(normalized.contains)) return true;
     if (correctionPhrases.any(normalized.contains)) return true;
 

@@ -13,8 +13,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/theme/design_tokens.dart';
 
 import '../automation_visual_theme.dart';
+import 'automation_metallic_badge.dart';
 
 class AutomationDiscoverTile extends StatelessWidget {
   final AutomationVisualPalette visual;
@@ -23,7 +25,7 @@ class AutomationDiscoverTile extends StatelessWidget {
   final String description;
   final Gradient badgeGradient;
   final Color specularColor;
-  final IconData icon;
+  final Widget icon;
   final VoidCallback? onTap;
   final bool horizontal;
 
@@ -43,13 +45,15 @@ class AutomationDiscoverTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = visual.isDark;
+    final neutral = NanoPaletteBrightness.isBlack(visual.resolvedColors);
 
     return Semantics(
       button: onTap != null,
       enabled: onTap != null,
       label: '$title. $category. $description',
       child: AutomationSurfaceCard(
-        surfaceTint: isDark ? const Color(0xC0143970) : null,
+        // El negro comparte los materiales del tema; no añade un tinte azul.
+        surfaceTint: neutral ? null : (isDark ? const Color(0xC0143970) : null),
         radius: 20,
         blurSigma: 16,
         padding: const EdgeInsets.all(14),
@@ -59,123 +63,114 @@ class AutomationDiscoverTile extends StatelessWidget {
                 HapticFeedback.lightImpact();
                 onTap!();
               },
-        child: horizontal ? Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildMetallicBadge(isDark),
-            const SizedBox(width: 14),
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(category, style: TextStyle(color: visual.textMuted, fontSize: 10.5)),
-                const SizedBox(height: 3),
-                Text(title, style: TextStyle(color: visual.text, fontSize: 15, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Text(description, maxLines: 2, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: visual.textMuted, fontSize: 11.5)),
-              ],
-            )),
-          ],
-        ) : Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 1. Badge con acabado metálico líquido iOS
-            _buildMetallicBadge(isDark),
-            const SizedBox(height: 12),
+        child: horizontal
+            ? Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AutomationMetallicBadge(
+                    icon: icon,
+                    badgeGradient: badgeGradient,
+                    specularColor: specularColor,
+                    isDark: isDark,
+                    neutral: neutral,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          category,
+                          style: TextStyle(
+                            color: visual.textMuted,
+                            fontSize: 10.5,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: visual.text,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: visual.textMuted,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 1. Badge con acabado metálico líquido iOS
+                  AutomationMetallicBadge(
+                    icon: icon,
+                    badgeGradient: badgeGradient,
+                    specularColor: specularColor,
+                    isDark: isDark,
+                    neutral: neutral,
+                  ),
+                  const SizedBox(height: 12),
 
-            // 2. Categoría sutil
-            Text(
-              category,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                color: visual.textMuted.withValues(alpha: 0.88),
-                letterSpacing: 0.35,
-              ),
-            ),
-            const SizedBox(height: 3),
+                  // 2. Categoría sutil
+                  Text(
+                    category,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: visual.textMuted.withValues(alpha: 0.88),
+                      letterSpacing: 0.35,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
 
-            // 3. Título principal
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: visual.text,
-                letterSpacing: -0.2,
-              ),
-            ),
-            const SizedBox(height: 4),
+                  // 3. Título principal
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: visual.text,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
 
-            // 4. Descripción breve
-            Text(
-              description,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 11.5,
-                color: visual.textMuted,
-                height: 1.35,
+                  // 4. Descripción breve
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 11.5,
+                      color: visual.textMuted,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  Widget _buildMetallicBadge(bool isDark) {
-    return Container(
-      width: 42,
-      height: 42,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(13),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.90),
-            specularColor.withValues(alpha: 0.60),
-            Colors.white.withValues(alpha: 0.20),
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: specularColor.withValues(alpha: isDark ? 0.30 : 0.18),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(1.2),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: badgeGradient,
-        ),
-        child: Center(
-          child: Icon(
-            icon,
-            size: 20,
-            color: Colors.white,
-            shadows: const [
-              Shadow(
-                color: Colors.black26,
-                blurRadius: 4,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  /// Mantiene la forma y el símbolo de cada acción. En Oscuro usa cristal
 }

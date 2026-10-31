@@ -1,21 +1,14 @@
 part of 'chat_screen.dart';
 
-// QUÉ HACE:
-// Despliega la ventana flotante de historial y gestión de sesiones guardadas localmente.
-//
-// CÓMO FUNCIONA:
-// - Abre showNanoGlassWindow con cristal iOS transparente sin capas opacas intermedias.
-// - Restaura el historial soberano desde ChatHistoryStore sin requerir conectividad de red.
-// - Permite iniciar una nueva conversación limpia o restaurar un prompt previo en el campo de texto.
-// - Delega la lista y tarjetas a `_HistoryListView` (en `chat_screen_history_view.part.dart`).
-//
-// POR QUÉ:
-// Aplica principios SOLID (SRP) al separar la gestión del modal de la lista de tarjetas,
-// manteniendo archivos concisos (< 200 líneas) y cristal puro iOS.
+// chat_screen_history.part.dart — Ventana modal de historial de chat estilo iOS Liquid Glass.
+// QUÉ HACE: Despliega la ventana flotante de historial y gestión de sesiones guardadas localmente.
+// CÓMO FUNCIONA: Usa showNanoGlassWindow, FutureBuilder sobre ChatHistoryStore y vista de lista delegada.
+// POR QUÉ: Aplica principios SOLID dividiendo la gestión modal de la lista de tarjetas (< 150 líneas).
+
 extension _ChatScreenHistory on _ChatScreenState {
   /// QUÉ HACE: Despliega la ventana flotante con el historial cronológico y botón de nuevo chat.
   /// CÓMO FUNCIONA: Usa showNanoGlassWindow y FutureBuilder sobre ChatHistoryStore.
-  /// POR QUÉ: Brinda acceso rápido a consultas pasadas respetando la privacidad soberana on-device.
+  /// POR QUÉ: Brinda acceso rápido a consultas pasadas respetando la soberanía on-device.
   Future<void> _showHistorySheet() async {
     HapticFeedback.selectionClick();
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
@@ -31,23 +24,26 @@ extension _ChatScreenHistory on _ChatScreenState {
           children: [
             // Cabecera organizada sobre el cristal transparente
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 16, 12),
+              padding: const EdgeInsets.fromLTRB(20, 6, 16, 12),
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    width: 32,
+                    height: 32,
                     decoration: BoxDecoration(
                       color: colors.accent.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: colors.accent.withValues(alpha: 0.3),
+                        color: colors.accent.withValues(alpha: 0.28),
                         width: 0.8,
                       ),
                     ),
-                    child: Icon(
-                      Icons.history_rounded,
-                      color: colors.accent,
-                      size: 20,
+                    child: Center(
+                      child: Icon(
+                        CupertinoIcons.clock_fill,
+                        color: colors.accent,
+                        size: 17,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -59,7 +55,7 @@ extension _ChatScreenHistory on _ChatScreenState {
                           'Historial de Chat',
                           style: TextStyle(
                             fontFamily: 'Inter',
-                            fontSize: 17,
+                            fontSize: 16.5,
                             fontWeight: FontWeight.w700,
                             color: colors.onSurface,
                             letterSpacing: -0.3,
@@ -87,7 +83,8 @@ extension _ChatScreenHistory on _ChatScreenState {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                         side: BorderSide(
-                          color: colors.accent.withValues(alpha: 0.4),
+                          color: colors.accent.withValues(alpha: 0.35),
+                          width: 0.8,
                         ),
                       ),
                     ),
@@ -95,7 +92,7 @@ extension _ChatScreenHistory on _ChatScreenState {
                       Navigator.pop(ctx);
                       _showClearDialog(notifier);
                     },
-                    icon: const Icon(Icons.add_comment_rounded, size: 16),
+                    icon: const Icon(CupertinoIcons.square_pencil, size: 15),
                     label: const Text(
                       'Nuevo Chat',
                       style: TextStyle(
@@ -108,7 +105,11 @@ extension _ChatScreenHistory on _ChatScreenState {
                 ],
               ),
             ),
-            const Divider(height: 1),
+            Divider(
+              height: 1,
+              thickness: 0.6,
+              color: colors.outlineVariant.withValues(alpha: 0.20),
+            ),
             Expanded(
               child: FutureBuilder<List<ChatMessage>>(
                 future: ChatHistoryStore().restore(),

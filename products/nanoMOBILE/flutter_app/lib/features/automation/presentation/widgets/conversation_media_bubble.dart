@@ -96,7 +96,7 @@ class ConversationMediaBubble extends StatelessWidget {
           Text(
             parsed.cleanText,
             style: TextStyle(
-              color: isInbound ? visual.text : Colors.white,
+              color: isInbound ? visual.text : visual.onAccent,
               fontFamily: 'Inter',
               fontFamilyFallback: const ['.SF UI Text', 'Roboto'],
               fontSize: 14,

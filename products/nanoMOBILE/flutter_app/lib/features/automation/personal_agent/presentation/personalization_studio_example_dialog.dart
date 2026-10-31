@@ -222,7 +222,7 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
     final responses = <PersonaResponseOption>[];
     for (int i = 0; i < _respCtrls.length; i++) {
       final t = _respCtrls[i].text.trim();
-      if (t.isNotEmpty)
+      if (t.isNotEmpty) {
         responses.add(
           PersonaResponseOption(
             text: t,
@@ -230,6 +230,7 @@ class _ExampleEditDialogState extends State<_ExampleEditDialog> {
             tone: _respTones[i],
           ),
         );
+      }
     }
     if (responses.isEmpty) return;
 

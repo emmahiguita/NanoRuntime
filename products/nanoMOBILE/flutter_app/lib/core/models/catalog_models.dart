@@ -1,4 +1,5 @@
 import 'chat_models.dart';
+part 'catalog_model_kinds.dart';
 part 'catalog_entries_0.dart';
 part 'catalog_entries_1.dart';
 part 'catalog_entries_2.dart';
@@ -14,36 +15,6 @@ part 'catalog_entries_6.dart';
 ///
 /// Se mantiene una opción pequeña por defecto y alternativas pesadas marcadas
 /// como avanzadas; el rendimiento de cada teléfono se comprueba por separado.
-enum ModelTier {
-  /// Opción ligera que se puede ofrecer como predeterminada tras validarla.
-  interactive,
-
-  /// Recurso avanzado: el usuario lo elige por memoria o contexto.
-  deep,
-
-  /// Modelo pesado: no se selecciona por defecto en un móvil.
-  extreme,
-}
-
-/// Función que el modelo puede cumplir; evita enviar recursos especializados al chat.
-/// Los embeddings producen vectores y no respuestas de texto conversacional.
-enum ModelKind {
-  llm,
-  wakeWord,
-  voiceStt,
-  voiceTts,
-  speakerDiarization,
-  multimodalVision,
-  imageOcr,
-  embedding,
-}
-
-/// Formato y motor de inferencia nativo que consume el archivo del modelo.
-enum ModelBackendType { gguf, litertlm, mnn }
-
-/// Formato y motor de inferencia nativo que consume el archivo del modelo.
-enum ModelBackendType { gguf, litertlm, mnn }
-
 class LmCatalogEntry {
   final String name;
   final String params;

@@ -5,6 +5,7 @@ import '../../../core/services/nano_runtime_api.dart';
 import '../../../core/services/owl_surface_bridge.dart';
 import '../../chat/domain/chat_vision_adapter.dart';
 import '../engine/perception/nano_snapshot.dart';
+import 'owl_screen_retention.dart';
 
 /// Captura píxeles reales y jerarquía en una observación. OCR/etiquetas usan
 /// el lector local existente; no se presenta como un VLM ni se sube a la nube.
@@ -18,8 +19,9 @@ class OwlScreenEvidence {
       final raw = await NanoRuntimeApi.instance.agentDumpAtomicSnapshot(
         includeScreenshot: true,
       );
-      if (raw == null)
+      if (raw == null) {
         throw StateError('No hubo respuesta del servicio de Accesibilidad.');
+      }
       final snapshot = NanoAtomicSnapshot.fromRaw(raw);
       final bytes = snapshot.screenshotPng;
       if (bytes == null || bytes.isEmpty || !snapshot.screenshotIncluded) {
@@ -29,6 +31,7 @@ class OwlScreenEvidence {
         '${(await getApplicationSupportDirectory()).path}/owl/screens',
       );
       await directory.create(recursive: true);
+      await trimOwlScreens(directory);
       final file = File(
         '${directory.path}/screen_${DateTime.now().microsecondsSinceEpoch}.png',
       );

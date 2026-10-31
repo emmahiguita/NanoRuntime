@@ -1,8 +1,16 @@
 import 'dart:convert';
+import 'whatsapp_current_chat_request.dart';
 
 /// Gramática explícita de respuestas y formularios; no genera contenidos ni
 /// descarga enlaces. La identidad delimitada permanece como dato literal.
 abstract final class WhatsAppComponentRequests {
+  /// Exportación explícita del chat observado, sin extraer bases privadas.
+  static bool isExport(String text) => RegExp(
+    r'^(?:exporta|exportar)\s+(?:(?:el|la|esta|este)\s+)?'
+    r'(?:chat|conversaci[oó]n)(?:\s+(?:actual|completa|completo))?'
+    r'(?:\s+de\s+whatsapp)?[.!]?$',
+    caseSensitive: false,
+  ).hasMatch(text.trim());
   static const quoted = r'"(?:\\.|[^"\\])*"';
 
   /// Controles del usuario, nunca inferidos del contenido de otra aplicación.
@@ -48,12 +56,19 @@ abstract final class WhatsAppComponentRequests {
       ? scope(text)
       : null;
 
-  /// Solo responde al texto proporcionado, no inventa qué contestar al contacto.
-  static String? currentReply(String text) => RegExp(
-    r'^(?:responde|contesta)\s+(?:en\s+)?(?:este\s+chat|el\s+chat\s+actual)\s*:\s*(.+)$',
-    caseSensitive: false,
-    dotAll: true,
-  ).firstMatch(text.trim())?[1];
+  /// Reconoce el chat observado tanto con «a» como con «en»; exige el texto
+  /// literal antes de planificar. Una orden incompleta nunca se deriva al
+  /// buscador de contactos ni inventa una respuesta para un grupo.
+  static String? currentReply(String text) {
+    final request = WhatsAppCurrentChatRequest.parse(text);
+    return request != null && !request.draftOnly ? request.text : null;
+  }
+
+  /// Extrae texto literal para el editor del chat abierto, sin autorizar envío.
+  static String? currentChatDraft(String text) {
+    final request = WhatsAppCurrentChatRequest.parse(text);
+    return request != null && request.draftOnly ? request.text : null;
+  }
 
   /// La petición de ventana es exacta y separada de enviar texto/archivos.
   static bool isFloating(String text) => RegExp(
@@ -85,6 +100,9 @@ abstract final class WhatsAppComponentRequests {
   /// Un enlace permanece texto: no lo abre, rellena ni presenta como PDF.
   static String normalize(String input) {
     final text = input.trim();
+    // El mensaje del chat actual es literal: no reescribir «formulario adjunto»
+    // como una petición de archivo dentro del contenido que se va a compartir.
+    if (WhatsAppCurrentChatRequest.parse(text) != null) return text;
     final pdf = RegExp(
       '^(?:comparte|compartir|env[ií]a) el formulario PDF ($quoted) con ($quoted)\$',
       caseSensitive: false,

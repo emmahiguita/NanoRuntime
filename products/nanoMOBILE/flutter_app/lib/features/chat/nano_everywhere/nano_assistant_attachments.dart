@@ -6,6 +6,10 @@ extension _NanoAssistantAttachments on _NanoAssistantPanelState {
   /// Una selección preparada sobrevive al contraer el panel en su controlador.
   Future<void> _pickAttachment(BuildContext anchor) async {
     if (_busy) return;
+    // El picker puede devolver el foco a MainActivity y desmontar solo esta
+    // ventana. El controlador/editor compartidos siguen siendo sus dueños.
+    final owner = widget.controller;
+    final editor = widget.input;
     setState(() => _pickingAttachment = true);
     var ownsPreparation = false;
     try {
@@ -18,27 +22,34 @@ extension _NanoAssistantAttachments on _NanoAssistantPanelState {
         _handleToolSelected(_activeTool == 'WhatsApp' ? 'Chat' : 'WhatsApp');
         return;
       }
-      ownsPreparation = widget.controller.beginFilePreparation();
+      ownsPreparation = owner.beginFilePreparation();
       if (!ownsPreparation) return;
       final file = await AutomationAttachmentPicker.pick(choice);
-      if (!mounted || file == null) return;
-      _removeAttachment(clearPrompt: false);
-      widget.controller.setAttachment(
+      if (owner.isDisposed || file == null) return;
+      final previous = owner.attachment;
+      if (previous != null &&
+          AutomationInputAttachment(
+            name: previous.name,
+            path: previous.path,
+          ).ownsDraft(editor.text)) {
+        editor.clear();
+      }
+      owner.setAttachment(
         NanoPreparedAttachment(name: file.name, path: file.path),
       );
-      widget.controller.reportStatus(
+      owner.reportStatus(
         'Adjunto preparado. Selecciona WhatsApp y escribe el destinatario.',
       );
     } on Object catch (error) {
-      if (mounted) {
-        widget.controller.reportStatus(
+      if (!owner.isDisposed) {
+        owner.reportStatus(
           error is FormatException
               ? error.message
               : 'No se pudo preparar el archivo.',
         );
       }
     } finally {
-      if (ownsPreparation) widget.controller.endFilePreparation();
+      if (ownsPreparation && !owner.isDisposed) owner.endFilePreparation();
       if (mounted) setState(() => _pickingAttachment = false);
     }
   }

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'bounded_export_zip.dart';
 
 /// Mensaje del archivo oficial: conserva fecha literal y texto original para
@@ -34,14 +33,15 @@ class WhatsAppExportDocument {
 
 /// Decode ejecutable en isolate. Nunca extrae rutas del ZIP al sistema de
 /// archivos: solo acepta un TXT único y comprueba su tamaño antes de inflarlo.
-Map<String, dynamic> decodeWhatsAppExport(Map<String, String> input) {
-  final file = File(input['path']!);
-  final bytes = file.readAsBytesSync();
+Map<String, dynamic> decodeWhatsAppExport(Map<String, Object> input) {
+  // Una sola instantánea alimenta parser, hash y original, incluso si el
+  // proveedor modifica su archivo mientras corre este isolate.
+  final bytes = input['bytes'] as List<int>;
   if (bytes.isEmpty || bytes.length > 16 * 1024 * 1024) {
     throw const FormatException('El archivo está vacío o supera 16 MB.');
   }
   List<int> content = bytes;
-  if ((input['name'] ?? '').toLowerCase().endsWith('.zip')) {
+  if ((input['name'] as String).toLowerCase().endsWith('.zip')) {
     content = readExportZip(bytes);
   }
   if (content.length > 8 * 1024 * 1024) {
@@ -89,13 +89,14 @@ Map<String, dynamic> decodeWhatsAppExport(Map<String, String> input) {
       );
     }
   }
-  if (messages.isEmpty)
+  if (messages.isEmpty) {
     throw const FormatException(
       'No se reconoció un historial de WhatsApp con fechas.',
     );
+  }
   return WhatsAppExportDocument(
     messages,
-    input['name'] ?? file.uri.pathSegments.last,
+    input['name'] as String,
     preamble.toString(),
   ).toJson();
 }

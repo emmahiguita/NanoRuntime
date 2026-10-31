@@ -101,8 +101,9 @@ abstract final class ContactMatcher {
     if (queryDigits.length >= 7) {
       final cDigits = contact.number.replaceAll(RegExp(r'\D'), '');
       if (cDigits == queryDigits) return 100;
-      if (cDigits.endsWith(queryDigits) || queryDigits.endsWith(cDigits))
+      if (cDigits.endsWith(queryDigits) || queryDigits.endsWith(cDigits)) {
         return 95;
+      }
     }
 
     final rawName = contact.name.trim();
@@ -118,8 +119,9 @@ abstract final class ContactMatcher {
     final namePhonetic = toPhonetic(cleanName);
     if (namePhonetic == queryPhonetic) return 85;
     if (namePhonetic.contains(queryPhonetic) ||
-        queryPhonetic.contains(namePhonetic))
+        queryPhonetic.contains(namePhonetic)) {
       return 75;
+    }
 
     // 4. Coincidencia por tokens (ej: 'luis higuita' o 'poke suela')
     if (queryTokens.isNotEmpty) {

@@ -77,8 +77,9 @@ class UiToolHandler {
       if (web.isNotEmpty) {
         final buffer = StringBuffer('Contenido web en Chrome');
         if (web.title.isNotEmpty) buffer.write(' — "${web.title}"');
-        if (web.url != null && web.url!.isNotEmpty)
+        if (web.url != null && web.url!.isNotEmpty) {
           buffer.write(' (${web.url})');
+        }
         buffer.write(':\n\n${web.rawText}');
         return buffer.toString();
       }

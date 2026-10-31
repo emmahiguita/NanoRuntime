@@ -1,0 +1,105 @@
+﻿{
+    "mode":  "audit_only",
+    "analysis":  {
+                     "exitCode":  3,
+                     "info":  38,
+                     "errors":  59,
+                     "warnings":  4
+                 },
+    "testsRun":  false,
+    "deviceActions":  false,
+    "sourceEdits":  false,
+    "date":  "2026-10-28",
+    "files":  [
+                  {
+                      "path":  "lib/features/chat/nano_everywhere/nano_ai_controller.dart",
+                      "sha256":  "05C730AB89BF2E5C6ED5990A3B634B7D8B79D7428F0D2DF03351D1C19E85EA4A",
+                      "lines":  166,
+                      "lastWrite":  "2026-10-28T06:09:01.2236232Z"
+                  },
+                  {
+                      "path":  "lib/features/chat/nano_everywhere/nano_floating_wrapper.dart",
+                      "sha256":  "245A07AE536EE8617D3E046CD6696B25067AF3D1E677227BF506E783EC4BEC41",
+                      "lines":  177,
+                      "lastWrite":  "2026-10-28T05:58:33.2983058Z"
+                  },
+                  {
+                      "path":  "lib/features/chat/nano_everywhere/nano_external_surface.dart",
+                      "sha256":  "E8274D5B274F02A7FBB08ECBA2BA8E914D79525A754098FDD130C2B60E58573F",
+                      "lines":  196,
+                      "lastWrite":  "2026-10-28T05:55:04.0453368Z"
+                  },
+                  {
+                      "path":  "lib/features/chat/nano_everywhere/nano_assistant_panel.dart",
+                      "sha256":  "CFA276CD1754D37F0BE74D163969CD774FF947A54E14BE52566BC1F6FCACDEE5",
+                      "lines":  99,
+                      "lastWrite":  "2026-10-28T05:58:33.2951818Z"
+                  },
+                  {
+                      "path":  "lib/features/chat/nano_everywhere/nano_providers.dart",
+                      "sha256":  "DBC47C3BEEC72F88AF786E8D9D9252C781106496E63800E53AAB6FB350412E7C",
+                      "lines":  80,
+                      "lastWrite":  "2026-10-28T05:58:33.3023077Z"
+                  },
+                  {
+                      "path":  "lib/features/chat/nano_everywhere/nano_action_port_adapter.dart",
+                      "sha256":  "7A726DCAFD546D34DB580C84AA10361D7E11FA348563DF9923FBE3F7D60D10D2",
+                      "lines":  172,
+                      "lastWrite":  "2026-10-28T06:09:01.2226030Z"
+                  },
+                  {
+                      "path":  "lib/features/automation/whatsapp_workspace/owl_export_inbox.dart",
+                      "sha256":  "A2CFE0695945B74ACDB36355D5E59F9468996BC50EAE57B69535081567B6B79A",
+                      "lines":  46,
+                      "lastWrite":  "2026-10-28T05:55:04.0237308Z"
+                  },
+                  {
+                      "path":  "lib/features/automation/whatsapp_workspace/owl_export_library.dart",
+                      "sha256":  "AC73CE827F1D278D5EC5C5E6664EE137A7659060BA99E0520BF3FC71E03F1AAF",
+                      "lines":  119,
+                      "lastWrite":  "2026-10-28T05:55:04.0237308Z"
+                  },
+                  {
+                      "path":  "lib/features/automation/whatsapp_workspace/owl_qa_runner.dart",
+                      "sha256":  "3FCD527D5E73C105A4827D8B28788B7EA5B7D065FE05AF6F7E6647C8BA9B06AB",
+                      "lines":  185,
+                      "lastWrite":  "2026-10-28T05:55:04.0257308Z"
+                  },
+                  {
+                      "path":  "lib/features/automation/engine/execution/handlers/whatsapp_chat_opener.dart",
+                      "sha256":  "A5E6938EFEA01931B65E2AB0DE0A2A1480CF39E2553C77A4B0945582946AEEDC",
+                      "lines":  80,
+                      "lastWrite":  "2026-10-28T05:54:15.0266269Z"
+                  },
+                  {
+                      "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoFloatingService.kt",
+                      "sha256":  "BAE57963345C2B4B50BD3AD9886A727743DA76199365877AE8E467A1D980ADCF",
+                      "lines":  193,
+                      "lastWrite":  "2026-10-28T05:58:32.8050736Z"
+                  },
+                  {
+                      "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+                      "sha256":  "5FE170C05CAFDDA37F8FECF5C54E88B7727BEB1D010643023EC833EC5E8F8C6A",
+                      "lines":  602,
+                      "lastWrite":  "2026-10-28T05:58:32.7829104Z"
+                  },
+                  {
+                      "path":  "android/app/src/main/AndroidManifest.xml",
+                      "sha256":  "63501A0DC3A2A91A5BAC736588A3F9A4CAC584CFAA98599B0FB6C0830FC986E2",
+                      "lines":  261,
+                      "lastWrite":  "2026-10-28T05:54:13.6704620Z"
+                  },
+                  {
+                      "path":  "lib/nano_platform_app.dart",
+                      "sha256":  "8B52DA4FC6FFFD90B1A73273B8D37ADC874390141DD6E047B3C428971536B679",
+                      "lines":  137,
+                      "lastWrite":  "2026-10-28T05:54:15.3989358Z"
+                  }
+              ],
+    "build":  {
+                  "variant":  "fullSideloadDebug",
+                  "seconds":  64.6,
+                  "exitCode":  1
+              },
+    "installed":  false
+}

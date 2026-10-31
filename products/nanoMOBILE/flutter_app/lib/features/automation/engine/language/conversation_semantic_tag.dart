@@ -63,22 +63,27 @@ final class ConversationSemanticClassifier {
     final normalized = normalizeText(clean);
     final tags = <ConversationSemanticTag>{};
     if (_media.hasMatch(clean)) tags.add(ConversationSemanticTag.media);
-    if (_correction.hasMatch(normalized))
+    if (_correction.hasMatch(normalized)) {
       tags.add(ConversationSemanticTag.correction);
-    if (_request.hasMatch(normalized))
+    }
+    if (_request.hasMatch(normalized)) {
       tags.add(ConversationSemanticTag.request);
+    }
     if (clean.contains('?') || _question.hasMatch(normalized)) {
       tags.add(ConversationSemanticTag.question);
     }
-    if (_profile.hasMatch(normalized))
+    if (_profile.hasMatch(normalized)) {
       tags.add(ConversationSemanticTag.profile);
-    if (_gratitude.hasMatch(normalized))
+    }
+    if (_gratitude.hasMatch(normalized)) {
       tags.add(ConversationSemanticTag.gratitude);
+    }
     if (!clean.contains('?') && _farewell.hasMatch(normalized)) {
       tags.add(ConversationSemanticTag.farewell);
     }
-    if (_greeting.hasMatch(normalized))
+    if (_greeting.hasMatch(normalized)) {
       tags.add(ConversationSemanticTag.greeting);
+    }
     if (tags.isEmpty) tags.add(ConversationSemanticTag.conversation);
     return tags;
   }

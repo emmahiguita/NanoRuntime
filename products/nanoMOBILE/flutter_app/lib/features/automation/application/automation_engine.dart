@@ -52,11 +52,6 @@ class AutomationEngine {
   Future<String> runCommand(String command, {String? executionId}) =>
       _coordinator.runCommand(command, executionId: executionId);
 
-  /// Ejecuta un comando `@` escrito directamente en el módulo Automatización.
-  /// El coordinator conserva el router y las políticas existentes para cada
-  /// herramienta, sin convertir el comando en un objetivo que deba planear el LLM.
-  Future<String> runCommand(String command) => _coordinator.runCommand(command);
-
   /// Cancels only the caller-owned run. Completion remains asynchronous:
   /// tools already dispatched finish, pending cooperative steps are stopped.
   bool cancelExecution(String executionId) =>

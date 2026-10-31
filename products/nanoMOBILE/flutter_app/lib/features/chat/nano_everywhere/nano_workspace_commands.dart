@@ -49,6 +49,7 @@ class NanoWorkspaceCommands {
       case 'analyze':
         final model = localProvider();
         if (model.kind != NanoProviderKind.local ||
+            model.isOnDevice?.call() != true ||
             model.ask == null ||
             model.isReady?.call() != true) {
           return '[blocked] Carga un modelo local compatible para analizar el historial. No se enviará a la web.';
@@ -58,13 +59,17 @@ class NanoWorkspaceCommands {
         try {
           return await OwlExportAnalysis(OwlExportLibrary(store), store).run(
             ask: (prompt) async {
-              if (modelKey() != selectedModel)
+              if (model.isOnDevice?.call() != true ||
+                  modelKey() != selectedModel) {
                 throw StateError('El modelo cambió; análisis detenido.');
+              }
               final result = await model.ask!(prompt);
-              if (modelKey() != selectedModel)
+              if (model.isOnDevice?.call() != true ||
+                  modelKey() != selectedModel) {
                 throw StateError(
                   'El modelo cambió; no se mezcló el resultado.',
                 );
+              }
               return result;
             },
             cancelled: cancelled,
@@ -80,12 +85,14 @@ class NanoWorkspaceCommands {
           caseSensitive: false,
         ).firstMatch(text.trim());
         var contact = match?.group(1)?.trim();
-        if (contact?.startsWith('"') == true)
+        if (contact?.startsWith('"') == true) {
           contact = jsonDecode(contact!) as String;
+        }
         if (contact != null && contact.isNotEmpty) {
           contact = await resolveContact(contact);
-          if (contact == null)
+          if (contact == null) {
             return '[clarification] Destinatario ambiguo o no encontrado. Usa el número internacional o @usuario exacto.';
+          }
         }
         if (cancelled()) return '[cancelled] No se guardó el escenario.';
         return OwlQaRunner(store, executor()).prepare(contact);

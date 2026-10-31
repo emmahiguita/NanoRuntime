@@ -1119,6 +1119,8 @@ class AutomationStoreDb(context: Context) {
         /** Secciones válidas — espejo de las secciones Dart (jamás crecer
          *  desde un canal sin revisión: whitelist explícita). */
         private val VALID_SECTIONS = setOf(
+            // Índices pequeños del búho. Originales y evidencias viven en archivos privados.
+            "owl_exports_v1", "owl_qa_scenarios_v1", "owl_qa_runs_v1",
             "dedupe", "rate", "memory", "business", "tone", "convstate",
             // PERSONA-HANDOFF-03 — ownership por conversación (bot/humano).
             "ownership",

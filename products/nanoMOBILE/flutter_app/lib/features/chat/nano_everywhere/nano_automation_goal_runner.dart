@@ -1,7 +1,10 @@
+import '../../../core/services/owl_surface_bridge.dart';
+import 'package:flutter/foundation.dart';
 import '../../automation/application/automation_engine.dart';
 import '../../automation/domain/automation_goal.dart';
 import '../../automation/domain/automation_result.dart';
 import '../../automation/engine/governance/action_confirmation.dart';
+import '../../automation/engine/planning/whatsapp_component_requests.dart';
 import '../../automation/ledger/automation_activity_store.dart';
 import 'nano_action_input.dart';
 import '../../automation/domain/prepared_automation_goal.dart';
@@ -47,15 +50,17 @@ final class NanoAutomationGoalRunner {
     _active = (engine: owner, id: runId);
     _record(runId, 'call', 'Objetivo recibido por el coordinador compartido.');
     try {
+      await OwlSurfaceBridge.hideForExecution(true);
       final prepared = confirming
           ? pending!.prepared
           : await prepare?.call(text, isCurrent: isCurrent) ??
                 PreparedAutomationGoal(AutomationGoal(text: text));
+      debugPrint('[owl-goal] prepared: ${prepared.plan == null ? 'dynamic' : 'explicit'}');
       if (!isCurrent()) {
         return '[cancelled] La tarea fue detenida durante su preparación.';
       }
       final goal = prepared.goal;
-      final result = await owner.runGoal(
+      var result = await owner.runGoal(
         goal,
         plan: prepared.plan,
         options: AutomationOptions(
@@ -64,6 +69,35 @@ final class NanoAutomationGoalRunner {
           isCurrent: isCurrent,
         ),
       );
+      // La orden literal del usuario autoriza solo el paso del chat observado.
+      // Se consume el token real del motor, sin elevar otros planes ni reintentar.
+      final direct = !confirming &&
+          (WhatsAppComponentRequests.currentChatDraft(text) != null ||
+              WhatsAppComponentRequests.currentReply(text) != null);
+      final step = prepared.plan;
+      final directToken = result.confirmation;
+      if (direct &&
+          isCurrent() &&
+          result.isPaused &&
+          directToken != null &&
+          !directToken.expired &&
+          !directToken.consumed &&
+          step != null &&
+          step.length == 1 &&
+          step.single.tool == 'whatsapp.send_message' &&
+          step.single.args?['replyInPlace'] == true) {
+        debugPrint('[owl-goal] resuming direct user action');
+        result = await owner.runGoal(
+          goal,
+          plan: step,
+          options: AutomationOptions(
+            executionId: runId,
+            confirmation: directToken,
+            isCurrent: isCurrent,
+          ),
+        );
+      }
+      debugPrint('[owl-goal] result: ${result.status.name}');
       _record(runId, result.status.name, result.reason);
       if (!isCurrent()) {
         return '[cancelled] Detención solicitada; revisa cualquier efecto ya iniciado.';
@@ -81,9 +115,11 @@ final class NanoAutomationGoalRunner {
       }
       return _describe(result);
     } on FormatException catch (error) {
+      debugPrint('[owl-goal] preparation rejected');
       _record(runId, 'clarification', error.message);
       return '[clarification] ${error.message}';
     } catch (_) {
+      debugPrint('[owl-goal] result unavailable');
       // No reintentar: un error de transporte no demuestra que nada ocurrió.
       _record(
         runId,
@@ -94,6 +130,7 @@ final class NanoAutomationGoalRunner {
           'Comprueba el estado de la app antes de repetir.';
     } finally {
       _active = null;
+      await OwlSurfaceBridge.hideForExecution(false);
     }
   }
 

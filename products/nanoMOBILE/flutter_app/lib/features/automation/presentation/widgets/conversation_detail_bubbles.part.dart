@@ -1,6 +1,9 @@
 part of 'conversation_detail_sheet.dart';
 
-// Burbujas sin filtros GPU por mensaje; la superficie del chat conserva el glass.
+/// [ConversationDetailBubbles] — Burbujas estilo Liquid Glass conectadas al tema real del sistema (< 160 líneas).
+// QUÉ HACE: Renderiza mensajes entrantes y salientes adaptando colores cromáticos a los tokens reales de Nano AI.
+// CÓMO FUNCIONA: Usa visual.accent y visual.resolvedColors para componer gradientes y transparencias reactivas al tema.
+// POR QUÉ: Asegura que el chat se transforme coherentemente con cualquier tema elegido por el usuario (Oscuro, Claro, Grisáceo).
 extension ConversationDetailBubbles on _ConversationDetailSheetState {
   Color _getSenderColor(String sender) {
     const colors = [
@@ -21,120 +24,139 @@ extension ConversationDetailBubbles on _ConversationDetailSheetState {
     String? sender,
     int? timestampMs,
   }) {
+    final colors = visual.resolvedColors;
+    final themeExt = NanoThemeExtension.of(context);
+    final blurSigma = themeExt.glassEnabled
+        ? (themeExt.glassBlur * 0.7).clamp(8.0, 18.0)
+        : 0.0;
+
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
-    final semantic = ConversationSemanticClassifier.classify(text);
+
     final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(15),
-      topRight: const Radius.circular(15),
-      bottomLeft: Radius.circular(isInbound ? 4 : 15),
-      bottomRight: Radius.circular(isInbound ? 15 : 4),
+      topLeft: const Radius.circular(18),
+      topRight: const Radius.circular(18),
+      bottomLeft: Radius.circular(isInbound ? 3 : 18),
+      bottomRight: Radius.circular(isInbound ? 18 : 3),
     );
+
+    final outboundTop = visual.accent;
+    final outboundBottom = colors.primary;
 
     return Align(
       alignment: isInbound ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 6),
         constraints: BoxConstraints(
           maxWidth:
-              MediaQuery.of(context).size.width * (isLandscape ? 0.58 : 0.78),
+              MediaQuery.of(context).size.width * (isLandscape ? 0.62 : 0.78),
         ),
         decoration: BoxDecoration(
           borderRadius: borderRadius,
           boxShadow: [
             BoxShadow(
               color: isInbound
-                  ? Colors.black.withValues(alpha: visual.isDark ? 0.25 : 0.06)
-                  : const Color(0xFF007AFF).withValues(alpha: 0.35),
-              blurRadius: 7,
-              offset: const Offset(0, 2),
+                  ? visual.shadow.withValues(
+                      alpha: visual.isDark ? 0.20 : 0.04,
+                    )
+                  : visual.accent.withValues(
+                      alpha: visual.isDark ? 0.25 : 0.18,
+                    ),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: ClipRRect(
           borderRadius: borderRadius,
-          // La superficie del chat ya aplica glass: evita otro filtro por burbuja.
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: borderRadius,
-              gradient: isInbound
-                  ? LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: visual.isDark
-                          ? [
-                              Colors.white.withValues(alpha: 0.12),
-                              Colors.white.withValues(alpha: 0.05),
-                            ]
-                          : [
-                              Colors.white.withValues(alpha: 0.85),
-                              Colors.white.withValues(alpha: 0.65),
-                            ],
-                    )
-                  : const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xDD007AFF), Color(0xB30056C6)],
-                    ),
-              border: Border.all(
-                color: isInbound
-                    ? (visual.isDark
-                          ? Colors.white.withValues(alpha: 0.22)
-                          : Colors.white.withValues(alpha: 0.70))
-                    : Colors.white.withValues(alpha: 0.35),
-                width: 1.0,
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 13,
+                vertical: 8.5,
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: isInbound
-                  ? CrossAxisAlignment.start
-                  : CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.item.isGroup &&
-                    isInbound &&
-                    sender != null &&
-                    sender.isNotEmpty &&
-                    sender != widget.item.displayName) ...[
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.person_rounded,
-                        size: 12,
-                        color: _getSenderColor(sender),
+              decoration: BoxDecoration(
+                borderRadius: borderRadius,
+                gradient: isInbound
+                    ? LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: visual.isDark
+                            ? [
+                                colors.surfaceVariant.withValues(alpha: 0.45),
+                                colors.surface.withValues(alpha: 0.60),
+                              ]
+                            : [
+                                colors.surface.withValues(alpha: 0.90),
+                                colors.surfaceVariant.withValues(alpha: 0.80),
+                              ],
+                      )
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          outboundTop.withValues(alpha: 0.82),
+                          outboundBottom.withValues(alpha: 0.92),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        sender,
-                        style: TextStyle(
+                border: Border.all(
+                  color: isInbound
+                      ? colors.glassBorder.withValues(
+                          alpha: visual.isDark ? 0.20 : 0.35,
+                        )
+                      : Colors.white.withValues(alpha: 0.35),
+                  width: 0.75,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: isInbound
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (widget.item.isGroup &&
+                      isInbound &&
+                      sender != null &&
+                      sender.isNotEmpty &&
+                      sender != widget.item.displayName) ...[
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.person_rounded,
+                          size: 11,
                           color: _getSenderColor(sender),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: -0.2,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          sender,
+                          style: TextStyle(
+                            color: _getSenderColor(sender),
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                  ],
+                  ConversationMediaBubble(
+                    text: text,
+                    isInbound: isInbound,
+                    visual: visual,
+                    timestampMs: timestampMs,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
+                  MessageEventTime(
+                    timestampMs: timestampMs,
+                    color: isInbound
+                        ? visual.textMuted
+                        : visual.onAccent.withValues(alpha: 0.80),
+                  ),
                 ],
-                if (semantic != ConversationSemanticTag.conversation) ...[
-                  ConversationSemanticBadge(tag: semantic, compact: true),
-                  const SizedBox(height: 5),
-                ],
-                ConversationMediaBubble(
-                  text: text,
-                  isInbound: isInbound,
-                  visual: visual,
-                  timestampMs: timestampMs,
-                ),
-                // Hora original del evento en la zona del teléfono, no hora de carga.
-                MessageEventTime(
-                  timestampMs: timestampMs,
-                  color: visual.textMuted,
-                ),
-              ],
+              ),
             ),
           ),
         ),

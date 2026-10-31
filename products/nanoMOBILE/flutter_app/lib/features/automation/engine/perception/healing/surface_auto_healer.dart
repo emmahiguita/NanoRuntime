@@ -147,14 +147,16 @@ final class SurfaceAutoHealer implements SurfaceHealerFallback {
     for (final btn in buttons) {
       double score = 0.0;
       if (btn.role == SemanticRole.iconButton ||
-          btn.role == SemanticRole.button)
+          btn.role == SemanticRole.button) {
         score += 0.4;
+      }
       if (anchorInput != null) {
         final centerYDiff = (btn.bounds.centerY - anchorInput.bounds.centerY)
             .abs();
         if (centerYDiff < 120) score += 0.4; // Misma fila inferior
-        if (btn.bounds.left >= anchorInput.bounds.right - 40)
+        if (btn.bounds.left >= anchorInput.bounds.right - 40) {
           score += 0.15; // A la derecha
+        }
       }
       if (score > bestConfidence) {
         bestConfidence = score;

@@ -130,13 +130,13 @@ class _DatabaseDataGridState extends State<DatabaseDataGrid> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.sync_rounded, size: 12, color: Color(0xFF10B981)),
-                        SizedBox(width: 4),
+                        const Icon(Icons.sync_rounded, size: 12, color: Color(0xFF10B981)),
+                        const SizedBox(width: 4),
                         Text(
                           table.syncEndpointUrl == null
                               ? 'Solo lectura'
                               : 'Sync · 15 s',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF10B981),

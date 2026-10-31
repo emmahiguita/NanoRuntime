@@ -1,12 +1,12 @@
 // business_store_product_actions.dart
 //
 // QUÉ HACE:
-// Acciones comerciales de productos: exportación y compartición nativa hacia WhatsApp, Telegram y apps externas.
+// Acciones comerciales de productos: exportación y compartición nativa mediante NanoContactPicker y NanoShareCoordinator.
 //
 // CÓMO FUNCIONA:
 // - Genera una ficha formateada con emojis, negritas y precio destacado.
-// - Si el producto tiene foto o video (asset o archivo local), extrae el archivo y lo adjunta al share sheet nativo.
-// - WhatsApp y Telegram reciben la foto real con el texto formateado en el pie de foto (caption).
+// - Si el producto tiene foto o video (asset o archivo local), extrae el archivo y lo adjunta a la carga.
+// - Despliega la ventana flotante in-app NanoContactPicker para seleccionar contacto de WhatsApp o compartir con el sistema.
 //
 // POR QUÉ:
 // Aplica SOLID aislando el formateo y despacho comercial en < 140 líneas.
@@ -17,6 +17,8 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../engine/business/business_product.dart';
+import '../../../application/nano_share_coordinator.dart';
+import '../../../domain/nano_share_payload.dart';
 
 final class BusinessStoreProductActions {
   BusinessStoreProductActions._();
@@ -47,7 +49,7 @@ final class BusinessStoreProductActions {
     return buffer.toString().trim();
   }
 
-  /// Comparte el producto adjuntando su foto/video real y el texto de venta.
+  /// Abre la ventana flotante de compartición con el selector de contactos integrado de Nano.
   static Future<void> shareProduct({required BuildContext context, required BusinessProduct product}) async {
     final caption = formatProductCaption(product);
     final messenger = ScaffoldMessenger.of(context);
@@ -62,14 +64,20 @@ final class BusinessStoreProductActions {
         }
       }
 
-      if (mediaFile != null) {
-        await SharePlus.instance.share(ShareParams(files: [mediaFile], text: caption));
-      } else {
-        await SharePlus.instance.share(ShareParams(text: caption));
+      final payload = NanoSharePayload(
+        title: product.name.trim(),
+        text: caption,
+        type: NanoShareContentType.product,
+        mediaFile: mediaFile,
+        subtitle: product.priceLabel,
+      );
+
+      if (context.mounted) {
+        await NanoShareCoordinator.showPicker(context: context, payload: payload);
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('No se pudo compartir el producto: $e'), behavior: SnackBarBehavior.floating),
+        SnackBar(content: Text('No se pudo preparar el producto para compartir: $e'), behavior: SnackBarBehavior.floating),
       );
     }
   }

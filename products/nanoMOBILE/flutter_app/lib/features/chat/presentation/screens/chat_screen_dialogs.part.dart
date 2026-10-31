@@ -1,49 +1,95 @@
 part of 'chat_screen.dart';
 
-// QUÉ HACE:
-// Gestiona los diálogos modales de confirmación e interacción crítica del chat.
-//
-// CÓMO FUNCIONA:
-// - Despliega modales de advertencia al limpiar el historial o eliminar mensajes.
-// - Implementa la barrera de confirmación obligatoria para tool-calling (Política §12)
-//   mediante showNanoModalDialog con Material y Overlay local garantizado.
-//
-// POR QUÉ:
-// Aplica principios SOLID (Single Responsibility Principle) encapsulando la lógica
-// modal en un archivo compacto (< 140 líneas) sin procesos zombies ni fugas de memoria.
+// chat_screen_dialogs.part.dart — Diálogos de confirmación Liquid Glass del chat.
+// QUÉ HACE: Despliega ventanas flotantes de confirmación para limpiar chat, eliminar mensajes o autorizar tools.
+// CÓMO FUNCIONA: Usa showNanoGlassWindow con cristal iOS, tipografía Inter y CupertinoIcons profesionales.
+// POR QUÉ: Sustituye modales Material crudos por ventanas Liquid Glass unificadas (< 180 líneas).
+
 extension _ChatScreenDialogs on _ChatScreenState {
-  /// QUÉ HACE: Diálogo de confirmación para vaciar por completo el historial de la conversación.
-  /// CÓMO FUNCIONA: Solicita validación explícita del usuario antes de invocar `notifier.clear()`.
-  /// POR QUÉ: Evita pérdidas accidentales de datos en el chat activo.
+  /// QUÉ HACE: Diálogo Liquid Glass para vaciar por completo el historial de la conversación.
+  /// CÓMO FUNCIONA: Solicita validación explícita del usuario antes de invocar notifier.clear().
   Future<void> _showClearDialog(ChatNotifier notifier) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final confirmed = await showNanoModalDialog<bool>(
+    final confirmed = await showNanoGlassWindow<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: colors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
+      useRootNavigator: true,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colors.danger.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      CupertinoIcons.trash_fill,
+                      color: colors.danger,
+                      size: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '¿Limpiar conversación?',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Se eliminarán los mensajes activos de la pantalla. Esta acción no se puede deshacer.',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12.5,
+                color: colors.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.danger,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Limpiar'),
+                ),
+              ],
+            ),
+          ],
         ),
-        title: Text(
-          '¿Limpiar conversación?',
-          style: TextStyle(color: colors.onSurface),
-        ),
-        content: Text(
-          'Se eliminarán todos los mensajes. Esta acción no se puede deshacer.',
-          style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: colors.danger),
-            child: const Text('Limpiar'),
-          ),
-        ],
       ),
     );
     if (confirmed == true && mounted) {
@@ -52,44 +98,95 @@ extension _ChatScreenDialogs on _ChatScreenState {
   }
 
   /// QUÉ HACE: Diálogo para eliminar un mensaje individual específico.
-  /// CÓMO FUNCIONA: Muestra una vista previa del texto y confirma su eliminación selectiva.
-  /// POR QUÉ: Permite al usuario depurar turnos o errores puntuales sin perder toda la sesión.
   Future<void> _showDeleteDialog(
     ChatNotifier notifier,
     ChatMessage message,
   ) async {
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final confirmed = await showNanoModalDialog<bool>(
+    final confirmed = await showNanoGlassWindow<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: colors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
+      useRootNavigator: true,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colors.danger.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      CupertinoIcons.trash_fill,
+                      color: colors.danger,
+                      size: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '¿Eliminar mensaje?',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message.text.length > 80
+                  ? '"${message.text.substring(0, 80)}…"'
+                  : '"${message.text}"',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12.5,
+                color: colors.onSurfaceVariant,
+                height: 1.4,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.danger,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Eliminar'),
+                ),
+              ],
+            ),
+          ],
         ),
-        title: Text(
-          '¿Eliminar mensaje?',
-          style: TextStyle(color: colors.onSurface),
-        ),
-        content: Text(
-          message.text.length > 80
-              ? '"${message.text.substring(0, 80)}…"'
-              : '"${message.text}"',
-          style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: colors.danger),
-            child: const Text('Eliminar'),
-          ),
-        ],
       ),
     );
     if (confirmed == true && mounted) {
@@ -97,42 +194,92 @@ extension _ChatScreenDialogs on _ChatScreenState {
     }
   }
 
-  /// QUÉ HACE: Barrera de confirmación para tool-calling (Política §12).
-  /// CÓMO FUNCIONA: Si el agente desea ejecutar una acción en el dispositivo,
-  ///   requiere aprobación explícita del humano; si se rechaza, cancela la acción.
-  /// POR QUÉ: Garantiza control y seguridad absoluta sobre ejecuciones locales en Android/Linux.
+  /// QUÉ HACE: Barrera de confirmación Liquid Glass para tool-calling (Política §12).
   Future<void> _showToolConfirmDialog(String tool) async {
     final description = ref.read(chatProvider).pendingToolDescription ?? '';
     final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
-    final approved = await showNanoModalDialog<bool>(
+    final approved = await showNanoGlassWindow<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: colors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colors.accent.withValues(alpha: 0.3)),
+      useRootNavigator: true,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      CupertinoIcons.shield_lefthalf_fill,
+                      color: colors.primary,
+                      size: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Confirmar acción "$tool"',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              description.isEmpty
+                  ? 'El agente solicita permiso para ejecutar "$tool" en el dispositivo.'
+                  : description,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 12.5,
+                color: colors.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(
+                    'Cancelar',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text('Permitir'),
+                ),
+              ],
+            ),
+          ],
         ),
-        title: Text(
-          'Confirmar acción "$tool"',
-          style: TextStyle(color: colors.onSurface),
-        ),
-        content: Text(
-          description.isEmpty
-              ? 'El agente quiere ejecutar "$tool" en el dispositivo.'
-              : description,
-          style: TextStyle(color: colors.onSurface.withValues(alpha: 0.7)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Permitir'),
-          ),
-        ],
       ),
     );
     if (approved == null || !mounted) return;

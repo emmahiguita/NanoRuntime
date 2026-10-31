@@ -150,7 +150,7 @@ extension _AutomationDashboardExecution on _AutomationDashboardState {
             _commandController.clear();
           }
         });
-      } on Object catch (error) {
+      } on Object {
         if (!mounted) return null;
         setState(() {
           _lastStatus = AutomationResultStatus.outcomeUnknown;

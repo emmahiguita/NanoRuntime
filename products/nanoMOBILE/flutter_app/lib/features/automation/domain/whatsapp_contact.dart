@@ -14,6 +14,15 @@ final class WhatsAppContact {
   // Distingue una cuenta enlazada a WhatsApp de un teléfono común de la agenda.
   final bool isWhatsAppVerified;
 
+  /// Etiqueta factual visible para la interfaz de usuario (H5).
+  String get detectionLabel {
+    if (isWhatsAppVerified) {
+      return isBusiness ? 'WhatsApp Business en agenda' : 'WhatsApp en agenda';
+    }
+    return 'WhatsApp no verificado';
+  }
+
+
   const WhatsAppContact({
     required this.id,
     required this.name,

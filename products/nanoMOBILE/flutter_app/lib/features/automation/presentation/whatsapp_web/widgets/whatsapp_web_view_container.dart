@@ -59,7 +59,11 @@ class WhatsAppWebViewContainer extends StatelessWidget {
           databaseEnabled: true,
           useHybridComposition: true,
           hardwareAcceleration: true,
-          thirdPartyCookiesEnabled: true,
+          thirdPartyCookiesEnabled: false,
+          allowFileAccess: false,
+          allowContentAccess: false,
+          allowFileAccessFromFileURLs: false,
+          allowUniversalAccessFromFileURLs: false,
           supportZoom: true,
           builtInZoomControls: true,
           displayZoomControls: false,
@@ -93,6 +97,10 @@ class WhatsAppWebViewContainer extends StatelessWidget {
         },
         onProgressChanged: (_, progress) => onProgressChanged(progress),
         onPermissionRequest: WhatsAppWebRtcHelper.handlePermissionRequest,
+        onReceivedServerTrustAuthRequest: (_, _) async =>
+            ServerTrustAuthResponse(
+              action: ServerTrustAuthResponseAction.CANCEL,
+            ),
         shouldOverrideUrlLoading: (ctrl, action) async {
           final navUrl = action.request.url?.toString() ?? '';
           if (WhatsAppWebAdapter.isAllowedUrl(navUrl)) {

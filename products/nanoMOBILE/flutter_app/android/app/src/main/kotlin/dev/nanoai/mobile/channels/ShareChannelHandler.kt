@@ -1,4 +1,4 @@
-package dev.nanoai.mobile.channels
+﻿package dev.nanoai.mobile.channels
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
@@ -180,6 +180,7 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         val text = args?.get("text") as? String ?: ""
         val requestedPkg = ((args?.get("package") ?: args?.get("packageName")) as? String)?.takeIf { it.isNotBlank() } ?: "com.whatsapp"
         val autoSend = WhatsAppAutoSendPolicy.isRequested(args)
+        val expectedAlias = (args?.get("expectedAlias") as? String)?.takeIf { it.isNotBlank() }
         val pm = activity.packageManager
 
         // Apertura general de la app sin destinatario
@@ -281,7 +282,7 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
 
             // UI y alarmas comparten el mismo backend nativo; no existe fallback web.
             val opened = dev.nanoai.mobile.services.whatsapp.WhatsAppTextSendBackend(activity)
-                .openChat(contact, text, requestedPkg, autoSend)
+                .openChat(contact, text, requestedPkg, autoSend, expectedAliasOverride = expectedAlias)
             if (opened.ok) result.success(true)
             else result.error(opened.code, opened.message, null)
 
@@ -357,6 +358,7 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         val caption = args?.get("caption") as? String ?: ""
         val requestedPkg = ((args?.get("package") ?: args?.get("packageName")) as? String)?.takeIf { it.isNotBlank() } ?: "com.whatsapp"
         val autoSend = WhatsAppAutoSendPolicy.isRequested(args)
+        val expectedAlias = (args?.get("expectedAlias") as? String)?.takeIf { it.isNotBlank() }
         val recipientName = args?.get("recipientName")?.toString()?.trim().orEmpty()
         val recipientKind = args?.get("recipientKind")?.toString()?.trim()?.lowercase() ?: "direct"
         val recipientVerified = args?.get("recipientVerified") == true
@@ -409,3 +411,4 @@ class ShareChannelHandler(private val activity: Activity) : MethodChannel.Method
         const val CHANNEL_NAME = "com.nanoai/share"
     }
 }
+

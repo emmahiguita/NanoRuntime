@@ -6,7 +6,7 @@ ThemeData _nanoThemeSurfaces(ThemeData base, NanoColors c, bool isDark) =>
       cardTheme: CardThemeData(
         elevation: 0,
         color: isDark ? c.surface : c.backgroundElevated,
-        surfaceTintColor: c.primary,
+        surfaceTintColor: isDark ? Colors.transparent : c.primary,
         shape: RoundedRectangleBorder(
           borderRadius: NanoShapes.large,
           side: BorderSide(
@@ -21,7 +21,7 @@ ThemeData _nanoThemeSurfaces(ThemeData base, NanoColors c, bool isDark) =>
         elevation: 0,
         scrolledUnderElevation: 3,
         backgroundColor: isDark ? c.background : c.backgroundElevated,
-        surfaceTintColor: c.primary,
+        surfaceTintColor: isDark ? Colors.transparent : c.primary,
         titleTextStyle: _nanoTextTheme.titleMedium?.copyWith(
           color: c.onSurface,
           fontWeight: FontWeight.w600,
@@ -77,7 +77,7 @@ ThemeData _nanoThemeSurfaces(ThemeData base, NanoColors c, bool isDark) =>
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: isDark ? c.surface : c.backgroundElevated,
-        surfaceTintColor: c.primary, // Tonal elevation
+        surfaceTintColor: isDark ? Colors.transparent : c.primary,
         shape: RoundedRectangleBorder(
           borderRadius: NanoShapes.large,
           side: BorderSide(color: isDark ? Colors.transparent : c.outline),
@@ -92,7 +92,7 @@ ThemeData _nanoThemeSurfaces(ThemeData base, NanoColors c, bool isDark) =>
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: isDark ? c.surface : c.backgroundElevated,
-        surfaceTintColor: c.primary,
+        surfaceTintColor: isDark ? Colors.transparent : c.primary,
         shape: RoundedRectangleBorder(
           borderRadius: const BorderRadius.vertical(
             top: Radius.circular(32),

@@ -8,8 +8,7 @@ part 'automation_visual_widgets.part.dart';
 
 /// Lenguaje visual local de Automatización.
 ///
-/// Está deliberadamente acotado a este módulo: no cambia el tema elegido por
-/// el usuario ni la apariencia de Chat, Terminal, Modelos o Ajustes.
+/// Diseño sobrio de inspiración iOS con colores calibrados en Claro y Oscuro.
 enum AutomationVisualMode { system, lightGlass, dark }
 
 abstract final class AutomationVisual {
@@ -27,10 +26,6 @@ abstract final class AutomationVisual {
       };
 
   /// Paleta semántica del módulo derivada del tema real de la aplicación.
-  ///
-  /// Automatización conserva su identidad de acento, pero no mantiene una
-  /// segunda fuente de verdad para claro/oscuro. Esto evita que una ruta
-  /// fuerce el modo claro cuando el usuario eligió Oscuro o Sistema.
   static AutomationVisualPalette of(BuildContext context) {
     final scoped = Theme.of(context).extension<AutomationVisualTheme>();
     if (scoped != null) return scoped.palette;
@@ -41,8 +36,6 @@ abstract final class AutomationVisual {
     BuildContext context,
     AutomationVisualMode mode,
   ) {
-    // El tema global es la única fuente de verdad. El modo local solo sirve
-    // de respaldo cuando el componente se utiliza fuera de la app de Nano.
     final inherited = NanoThemeExtension.maybeOf(context);
     final colors =
         inherited?.colors ??
@@ -86,48 +79,41 @@ abstract final class AutomationVisual {
             0.98,
           );
 
-    final accentColor = colors.accent;
+    final blackMode = NanoPaletteBrightness.isBlack(colors);
+    final accentColor = blackMode ? const Color(0xFFE5E5EA) : colors.accent;
 
     return AutomationVisualPalette(
       resolvedColors: colors,
       isDark: isDark,
       accent: accentColor,
-      onAccent: Colors.white,
+      onAccent: blackMode ? const Color(0xFF171719) : colors.onAccent,
       accentSoft: isDark
-          ? colors.primary.withValues(alpha: 0.20)
+          ? accentColor.withValues(alpha: 0.16)
           : colors.primaryContainer,
-      canvas: colors.backgroundPrimary,
-      surface: isDark
-          ? colors.glassPrimary.withValues(alpha: 0.72 * glassOpacity)
-          : colors.glassSurface,
+      // Claro: fondo #F5F5F7, superficie #FFFFFF, texto #1D1D1F, secundario #595960.
+      // Oscuro: fondo #111113, superficie #1C1C1E, texto #F5F5F7, secundario #B5B5BC.
+      canvas: isDark ? const Color(0xFF111113) : const Color(0xFFF5F5F7),
+      surface: isDark ? const Color(0xFF1C1C1E) : Colors.white,
       inputFill: isDark
-          ? colors.backgroundDeep.withValues(alpha: 0.62)
-          : const Color(0xFFF1F5F9),
-      text: colors.textPrimary,
-      textMuted: colors.textSecondary,
-      line: isDark ? colors.borderSecondaryColor : const Color(0xFFE2E8F0),
-      outline: isDark ? colors.outline : const Color(0xFFCBD5E1),
-      // Vidrio líquido iOS con alta transparencia y contraste cinematográfico
+          ? const Color(0xFF1C1C1E).withValues(alpha: 0.75)
+          : const Color(0xFFF5F5F7),
+      text: isDark ? const Color(0xFFF5F5F7) : const Color(0xFF1D1D1F),
+      textMuted: isDark ? const Color(0xFFB5B5BC) : const Color(0xFF595960),
+      line: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+      outline: isDark ? const Color(0xFF3A3A3C) : const Color(0xFFD1D1D6),
       cardStart: isDark
-          ? const Color(0xFF0E182D).withValues(alpha: darkCardAlphaStart)
+          ? const Color(0xFF1C1C1E).withValues(alpha: darkCardAlphaStart)
           : Colors.white.withValues(alpha: lightCardAlphaStart),
       cardEnd: isDark
-          ? const Color(0xFF080E1D).withValues(alpha: darkCardAlphaEnd)
-          : const Color(0xFFF8FAFC).withValues(alpha: lightCardAlphaEnd),
-      cardBorder: isDark
-          ? Colors.white.withValues(
-              alpha: (0.05 + 0.20 * glassClarity).clamp(0.04, 0.35),
-            )
-          : const Color(0xFFE2E8F0),
-      shadow: isDark ? const Color(0x35000000) : const Color(0x0C0F172A),
-      shadowSoft: isDark ? const Color(0x200D1F4A) : const Color(0x060F172A),
-      success: isDark ? const Color(0xFF38BDF8) : const Color(0xFF1D6FE8),
+          ? const Color(0xFF141416).withValues(alpha: darkCardAlphaEnd)
+          : const Color(0xFFF5F5F7).withValues(alpha: lightCardAlphaEnd),
+      cardBorder: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA),
+      shadow: isDark ? const Color(0x35000000) : const Color(0x0A000000),
+      shadowSoft: isDark ? const Color(0x20000000) : const Color(0x05000000),
+      success: colors.success,
     );
   }
 
-  /// Adapta los componentes Material del módulo sin sustituir el ThemeData
-  /// global. Se preservan extensiones, tipografía, plataforma y transiciones
-  /// del diseño clásico de Nano.
   static ThemeData theme(
     BuildContext context, {
     AutomationVisualMode mode = AutomationVisualMode.system,

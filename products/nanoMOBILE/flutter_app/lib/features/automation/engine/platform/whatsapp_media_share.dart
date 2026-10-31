@@ -96,6 +96,7 @@ class WhatsAppMediaShare {
     String text = '',
     String? packageName,
     bool autoSend = false,
+    String? expectedAlias,
   }) async {
     try {
       final ok = await _channel.invokeMethod<bool>('openChat', {
@@ -103,6 +104,7 @@ class WhatsAppMediaShare {
         'text': text,
         'autoSend': autoSend,
         if (packageName != null) 'packageName': packageName,
+        if (expectedAlias != null) 'expectedAlias': expectedAlias,
       });
       return ok == true;
     } on PlatformException catch (error) {

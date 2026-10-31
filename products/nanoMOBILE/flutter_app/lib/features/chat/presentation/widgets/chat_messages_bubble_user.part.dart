@@ -1,28 +1,29 @@
 part of 'chat_messages.dart';
 
+/// Diseño de burbuja de mensaje del usuario estilo iOS iMessage puro.
 extension _MessageBubbleUserLayout on MessageBubble {
   Widget _buildUserMessage(BuildContext context) {
     final colors = NanoThemeExtension.of(context).colors;
-    final accent = Theme.of(context).brightness == Brightness.dark
-        ? colors.primary
-        : colors.tertiary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final time =
         '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
 
+    const iosBlueTop = Color(0xFF0A84FF);
+    const iosBlueBottom = Color(0xFF0066D6);
+
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10, left: 28, right: 4),
+      padding: const EdgeInsets.only(bottom: 8, left: 48, right: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // 1. Cápsula Luminosa iOS Liquid Glass del Usuario
           Flexible(
             child: ClipRRect(
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(18),
                 topRight: Radius.circular(18),
                 bottomLeft: Radius.circular(18),
-                bottomRight: Radius.circular(5),
+                bottomRight: Radius.circular(4),
               ),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
@@ -30,32 +31,33 @@ extension _MessageBubbleUserLayout on MessageBubble {
                   constraints: const BoxConstraints(maxWidth: 580),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [accent, colors.primary],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: isDark
+                          ? const [iosBlueTop, iosBlueBottom]
+                          : [colors.primary, colors.secondary],
                     ),
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(18),
                       topRight: Radius.circular(18),
                       bottomLeft: Radius.circular(18),
-                      bottomRight: Radius.circular(5),
+                      bottomRight: Radius.circular(4),
                     ),
                     border: Border.all(
-                      color: colors.onAccent.withValues(alpha: 0.38),
-                      width: 0.8,
+                      color: Colors.white.withValues(alpha: 0.20),
+                      width: 0.6,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: accent.withValues(alpha: 0.24),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4),
+                        color: (isDark ? iosBlueTop : colors.primary).withValues(
+                          alpha: 0.22,
+                        ),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 13,
-                    vertical: 8.5,
-                  ),
+                  padding: const EdgeInsets.fromLTRB(13, 9, 13, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
@@ -72,31 +74,27 @@ extension _MessageBubbleUserLayout on MessageBubble {
                                     vertical: 2.5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: colors.background.withValues(
-                                      alpha: 0.22,
-                                    ),
+                                    color: Colors.white.withValues(alpha: 0.18),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: colors.onAccent.withValues(
-                                        alpha: 0.25,
-                                      ),
+                                      color: Colors.white.withValues(alpha: 0.24),
                                       width: 0.5,
                                     ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.attach_file_rounded,
-                                        size: 13,
-                                        color: colors.onAccent,
+                                        size: 12,
+                                        color: Colors.white,
                                       ),
                                       const SizedBox(width: 3),
                                       Text(
                                         name,
-                                        style: TextStyle(
-                                          color: colors.onAccent,
-                                          fontSize: 12,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11.5,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -124,7 +122,7 @@ extension _MessageBubbleUserLayout on MessageBubble {
                             time,
                             style: TextStyle(
                               fontFamily: 'Inter',
-                              color: colors.onAccent.withValues(alpha: 0.9),
+                              color: Colors.white.withValues(alpha: 0.82),
                               fontSize: 10,
                               fontWeight: FontWeight.w500,
                             ),
@@ -132,42 +130,14 @@ extension _MessageBubbleUserLayout on MessageBubble {
                           const SizedBox(width: 3),
                           Icon(
                             Icons.done_all_rounded,
-                            size: 14,
-                            color: colors.onAccent,
+                            size: 13,
+                            color: Colors.white.withValues(alpha: 0.90),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-
-          // 2. Avatar de Cristal Translúcido del Usuario
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colors.surfaceVariant.withValues(alpha: 0.82),
-              border: Border.all(
-                color: colors.outlineVariant.withValues(alpha: 0.72),
-                width: 0.8,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: colors.primary.withValues(alpha: 0.13),
-                  blurRadius: 8,
-                ),
-              ],
-            ),
-            child: Center(
-              child: Icon(
-                Icons.person_rounded,
-                size: 15,
-                color: colors.primary,
               ),
             ),
           ),

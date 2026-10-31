@@ -38,25 +38,35 @@ class AutomationSurfaceCard extends StatelessWidget {
 }
 
 class AutomationSectionLabel extends StatelessWidget {
-  const AutomationSectionLabel(this.label, {super.key});
+  const AutomationSectionLabel(
+    this.label, {
+    super.key,
+    this.uppercase = false,
+    this.fontSize,
+  });
 
   final String label;
+  final bool uppercase;
+  final double? fontSize;
 
   @override
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
+    final text = uppercase ? label.toUpperCase() : label;
     return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 8, top: 12),
+      padding: EdgeInsets.only(left: 2, bottom: uppercase ? 8 : 10, top: 14),
       child: Text(
-        label.toUpperCase(),
+        text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontFamily: 'Inter',
-          color: visual.textMuted.withValues(alpha: 0.88),
-          fontSize: 11.0,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 1.2,
+          color: uppercase
+              ? visual.textMuted.withValues(alpha: 0.88)
+              : visual.text,
+          fontSize: fontSize ?? (uppercase ? 11.0 : 16.0),
+          fontWeight: uppercase ? FontWeight.w600 : FontWeight.w700,
+          letterSpacing: uppercase ? 1.2 : -0.2,
         ),
       ),
     );

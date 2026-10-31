@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../application/models_notifier.dart';
 import '../../application/models_state.dart';
-import 'model_new_badge_banner.dart';
 import 'model_screen_helpers.dart';
 import 'model_storage_summary_card.dart';
 import 'models_catalog_header.dart';

@@ -2,14 +2,14 @@
 //
 // QUÉ HACE:
 // Contenedor principal de la pestaña Tienda / Catálogo en la Biblioteca comercial.
-// Integra filtros reactivos, búsqueda, ordenamiento y renderizado en Grid o Lista.
+// Integra filtros reactivos, búsqueda, ordenamiento y renderizado en Lista o Grid.
 //
 // CÓMO FUNCIONA:
 // - Filtra en memoria los productos de `BusinessFacts` por texto y categoría sin duplicar datos.
-// - Ordena deterministamente por nombre, precio o stock según la preferencia del usuario.
+// - Prioriza la vista de lista compacta profesional recomendada, permitiendo alternar a cuadrícula.
 //
 // POR QUÉ:
-// La vista conserva únicamente el estado de filtros y coordina los componentes del catálogo.
+// Optimiza la visualización y jerarquía de productos (< 150 líneas).
 
 import 'package:flutter/material.dart';
 import '../../../engine/business/business_product.dart';
@@ -44,7 +44,7 @@ class _BusinessStoreContentState extends State<BusinessStoreContent> {
   String _query = '';
   String _selectedCategory = '';
   String _sortBy = 'name';
-  bool _isGridView = true;
+  bool _isGridView = false; // Vista de Lista compacta por defecto
 
   void _showDetail(BusinessProduct p) => BusinessStoreProductDetailSheet.show(
     context,
@@ -57,6 +57,8 @@ class _BusinessStoreContentState extends State<BusinessStoreContent> {
   Widget build(BuildContext context) {
     final products = _filteredProducts;
     final isFiltering = _query.isNotEmpty || _selectedCategory.isNotEmpty;
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return CustomScrollView(
       slivers: [
@@ -74,7 +76,7 @@ class _BusinessStoreContentState extends State<BusinessStoreContent> {
         if (_categories.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.only(bottom: 6),
               child: BusinessStoreCategoryFilters(
                 categories: _categories,
                 categoryCounts: _categoryCounts,
@@ -86,20 +88,33 @@ class _BusinessStoreContentState extends State<BusinessStoreContent> {
           ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
                     isFiltering ? 'Resultados' : 'Productos',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
                   ),
                 ),
-                Text(
-                  '${products.length}',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHighest.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${products.length}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -127,7 +142,7 @@ class _BusinessStoreContentState extends State<BusinessStoreContent> {
           )
         else
           SliverPadding(
-            padding: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.only(bottom: 20),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (_, i) => BusinessStoreProductListRow(

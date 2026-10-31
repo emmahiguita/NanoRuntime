@@ -90,6 +90,7 @@ final class AutomationInputAttachment {
     return (goal: text, usesAttachment: false);
   }
   if (WhatsAppComponentRequests.currentReply(text) != null ||
+      WhatsAppComponentRequests.currentChatDraft(text) != null ||
       WhatsAppComponentRequests.isArtifact(text)) {
     throw const FormatException(
       'Quita el adjunto preparado para enviar texto u otro documento.',

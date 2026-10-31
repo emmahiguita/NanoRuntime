@@ -1,85 +1,73 @@
-// QUÉ: botón de cabecera con iconografía propia y estado explícito.
-// CÓMO: conserva un blanco táctil de 48 px y deriva color/contraste del tema.
-// POR QUÉ: un control de voz no debe parecer una videollamada ni un robot genérico.
+// automation_header_action.dart — Botón de acción superior con CupertinoIcons.
+// QUÉ HACE: Renderiza los botones de cabecera (voz, mic, herramientas) con área táctil accesible y ancho compacto.
+// CÓMO FUNCIONA: Usa CupertinoIcons, tamaño 22, respuesta elástica y soporte para semántica.
+// POR QUÉ: Diseño iOS sobrio que evita truncamientos en el título de cabecera.
+library;
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/feather_core_icon.dart';
-import '../../../../core/widgets/navigation/nano_glyph.dart';
+
+enum AutomationHeaderActionType { voice, mic, devTools }
 
 class AutomationHeaderAction extends StatelessWidget {
   const AutomationHeaderAction({
     super.key,
     required this.label,
-    required this.type,
+    required this.actionType,
     required this.onTap,
     this.active,
     this.muted = false,
   });
+
   final String label;
-  final FeatherCoreType type;
+  final AutomationHeaderActionType actionType;
   final VoidCallback? onTap;
   final bool? active;
   final bool muted;
 
+  IconData _iconData() {
+    switch (actionType) {
+      case AutomationHeaderActionType.voice:
+        return muted ? CupertinoIcons.speaker_slash : CupertinoIcons.speaker_2;
+      case AutomationHeaderActionType.mic:
+        return CupertinoIcons.mic;
+      case AutomationHeaderActionType.devTools:
+        return CupertinoIcons.chevron_left_slash_chevron_right;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = active == true ? scheme.primary : scheme.onSurfaceVariant;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final color = active == true ? scheme.primary : scheme.onSurface;
     final duration =
         MediaQuery.disableAnimationsOf(context) ||
             MediaQuery.of(context).accessibleNavigation
         ? Duration.zero
         : const Duration(milliseconds: 180);
+
     return Semantics(
       button: true,
       label: label,
       enabled: onTap != null,
       toggled: active,
-      excludeSemantics: true,
-      child: IconButton(
-        onPressed: onTap,
-        tooltip: label,
-        constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-        padding: const EdgeInsets.all(11),
-        style: IconButton.styleFrom(
-          backgroundColor: active == true
-              ? scheme.primary.withValues(alpha: .09)
-              : Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
-          ),
-        ),
-        // El cambio sigue el ajuste confirmado, no el simple intento de pulsación.
-        icon: AnimatedOpacity(
-          duration: duration,
-          opacity: onTap == null ? .38 : 1,
-          child: AnimatedScale(
-            scale: active == true ? 1.06 : 1,
-            duration: duration,
-            curve: Curves.easeOutCubic,
-            child: AnimatedSwitcher(
-              duration: duration,
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              child: SizedBox.square(
-                key: ValueKey('${type.name}:$active:$muted'),
-                dimension: 26,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    FeatherCoreIcon(
-                      type: type,
-                      size: 25,
-                      framed: false,
-                      accentColor: color,
-                    ),
-                    // La marca de silencio describe el ajuste real; no simula reproducción.
-                    if (muted)
-                      NanoGlyph(
-                        type: NanoGlyphType.close,
-                        size: 13,
-                        color: color,
-                      ),
-                  ],
+      child: Tooltip(
+        message: label,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 20,
+          highlightShape: BoxShape.circle,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 40),
+            child: Center(
+              child: AnimatedOpacity(
+                duration: duration,
+                opacity: onTap == null ? 0.38 : 1.0,
+                child: Icon(
+                  _iconData(),
+                  size: 22,
+                  color: color,
                 ),
               ),
             ),

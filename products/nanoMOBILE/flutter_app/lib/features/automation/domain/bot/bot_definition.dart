@@ -128,13 +128,15 @@ final class BotDefinition {
     }
 
     Map<String, String> decodeMap(dynamic raw) {
-      if (raw is Map)
+      if (raw is Map) {
         return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
       if (raw is String && raw.isNotEmpty) {
         try {
           final dec = jsonDecode(raw);
-          if (dec is Map)
+          if (dec is Map) {
             return dec.map((k, v) => MapEntry(k.toString(), v.toString()));
+          }
         } catch (_) {}
       }
       return const {};

@@ -59,8 +59,6 @@ class McpHotInjectionBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isRemoteTemplate = item.transport == McpTransportKind.streamableHttp;
-    final stateColor = isConnected ? visual.success : visual.accent;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(

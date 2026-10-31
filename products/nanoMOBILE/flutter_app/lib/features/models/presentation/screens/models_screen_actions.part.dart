@@ -4,6 +4,30 @@ part of 'models_screen.dart';
 // CÓMO FUNCIONA: Extiende el State privado y reutiliza sus dependencias ya montadas.
 // POR QUÉ: Mantiene cada archivo bajo 200 líneas y separa eventos de renderizado.
 extension _ModelsScreenActions on _ModelsScreenState {
+  void _listenDownloadState() {
+    ref.listen(modelsProvider, (previous, next) {
+      if (previous == null) return;
+      for (final model in next.models) {
+        final oldIndex = previous.models.indexWhere(
+          (old) => old.id == model.id,
+        );
+        if (oldIndex < 0) continue;
+        if (model.isDownloading) {
+          _observedDownloads.add(model.id);
+          continue;
+        }
+        if (!_observedDownloads.remove(model.id)) continue;
+        if (model.downloadState != ModelDownloadState.installed &&
+            model.downloadState != ModelDownloadState.failed) {
+          continue;
+        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) ModelDownloadFeedback.show(context, model);
+        });
+      }
+    });
+  }
+
   void _onTabChanged(ModelsCatalogTab tab) {
     setState(() {
       _activeTab = tab;

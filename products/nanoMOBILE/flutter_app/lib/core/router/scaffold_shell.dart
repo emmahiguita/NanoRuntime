@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,12 +10,9 @@ import '../widgets/navigation/nano_navigation_panel.dart';
 import '../../features/home/buho_wallpaper.dart';
 import '../../features/chat/nano_everywhere/nano_floating_wrapper.dart';
 import '../../features/chat/nano_everywhere/nano_providers.dart';
-import '../services/nano_runtime_api.dart';
 
-/// Shell principal: conserva los stacks de cada pestaña y entrega la
-/// navegación visual al único FAB glass compartido por toda la aplicación.
-/// NANO-EVERYWHERE-01: NanoFloatingWrapper envuelve el contenido completo
-/// para que el búho flotante esté siempre disponible sobre cualquier pantalla.
+/// Shell principal: conserva los stacks de cada pestaña y separa el área
+/// de navegación inferior y barra de búsqueda/escritura del contenido scrolleable.
 class ScaffoldShell extends ConsumerWidget {
   const ScaffoldShell({super.key, required this.shell});
 
@@ -36,13 +33,11 @@ class ScaffoldShell extends ConsumerWidget {
         location == '/dashboard' || location == '/automation';
     final isBrowser = location.startsWith('/browser');
 
-    // Recursos del asistente flotante (Riverpod, sin recrearse en cada frame).
     final webProviders = ref.watch(nanoWebProvidersProvider);
     final actionPort = ref.watch(nanoActionPortProvider);
     final audioLevel = ref.watch(nanoAudioLevelProvider);
+    final navState = ref.watch(nanoNavModeProvider);
 
-    // Lee el MediaQuery dentro del viewport: el teclado ya fue consumido allí.
-    // Capturarlo aquí con el contexto padre reintroducía el inset y vaciaba Modelos.
     final shellContent = Builder(
       builder: (viewportContext) => MediaQuery.removePadding(
         context: viewportContext,
@@ -62,15 +57,23 @@ class ScaffoldShell extends ConsumerWidget {
       ),
     );
 
-    // Atrás resuelve primero el stack interno de la pestaña. En la raíz de
-    // Modelos, Terminal o Ajustes regresa a Inicio en lugar de cerrar la app;
-    // solo Inicio cede el gesto al sistema, la salida esperada en Android.
     final returnsHome = !branchCanPop && currentIndex != 0;
 
     return PopScope(
-      canPop: !branchCanPop && !returnsHome,
+      canPop: !branchCanPop &&
+          !returnsHome &&
+          !navState.isDrawerOpen &&
+          !navState.isFabMenuOpen,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
+        if (navState.isFabMenuOpen) {
+          ref.read(nanoNavModeProvider.notifier).closeFabMenu();
+          return;
+        }
+        if (navState.isDrawerOpen) {
+          ref.read(nanoNavModeProvider.notifier).closeDrawer();
+          return;
+        }
         if (branchCanPop) {
           AppRouter.branchKeys[currentIndex].currentState?.pop();
         } else if (returnsHome) {
@@ -83,34 +86,23 @@ class ScaffoldShell extends ConsumerWidget {
         body: Stack(
           fit: StackFit.expand,
           children: [
-            // PERFORMANCE-01: Aislamos el wallpaper y el fluido liquido en un RepaintBoundary
-            // independiente. Que hace: confina el CustomPainter continuo a su propia textura GPU.
-            // Como funciona: el rasterizer no repinta el indexedStack ni la barra de navegacion en cada frame.
-            // Por que: elimina el jank y sobrecarga de GPU durante el cambio de pantalla.
             Positioned.fill(
               child: RepaintBoundary(
                 child: BuhoWallpaper(scrimOpacity: isDark ? 0.45 : 0.22),
               ),
             ),
-            // DOCK-FLOAT-01: floatOverContent en true garantiza que la pantalla hija
-            // pinte a altura completa sin franjas cortadas. La barra flota encima
-            // con su efecto translúcido liquid glass sobre el fondo continuo.
             NanoFloatingNavigationFrame(
               allowSideDock: true,
               selectedIndex: currentIndex,
               fullBleed: false,
+              // Reserva el espacio medido del dock para mantener accesible el contenido.
               floatOverContent: true,
               transparentDock: true,
               protectTop: !isDashboardHome,
               onDestinationSelected: (index) {
                 shell.goBranch(index, initialLocation: index == currentIndex);
               },
-              // NANO-EVERYWHERE-02: NanoFloatingWrapper añade el búho flotante
-              // como capa superior dentro del stack de navegación.
-              // En el navegador web se desactiva para mantener el área 100% limpia.
               child: NanoFloatingWrapper(
-                // El panel flotante sigue disponible en el dashboard; ocultarlo
-                // rompería la entrada rápida, la voz y la ventana contextual.
                 enabled: !isBrowser,
                 webProviders: webProviders,
                 actions: actionPort,
@@ -119,7 +111,6 @@ class ScaffoldShell extends ConsumerWidget {
                 child: boundedContent,
               ),
             ),
-            // El navegador publica controles en Android solo mientras existe un medio.
           ],
         ),
       ),

@@ -11,10 +11,12 @@ class NanoAssistantToolSelector extends StatefulWidget {
     required this.activeTool,
     required this.onSelected,
     this.enabled = true,
+    this.onOptions,
   });
   final String activeTool;
   final ValueChanged<String> onSelected;
   final bool enabled;
+  final ValueChanged<BuildContext>? onOptions;
   @override
   State<NanoAssistantToolSelector> createState() => _ToolSelectorState();
 }
@@ -85,7 +87,16 @@ class _ToolSelectorState extends State<NanoAssistantToolSelector> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                _ToolIcon(tool: tool),
+                if (tool.key == 'WhatsApp' && widget.onOptions != null)
+                  IconButton(
+                    tooltip: 'Funciones de WhatsApp',
+                    onPressed: widget.enabled
+                        ? () => widget.onOptions!(anchor)
+                        : null,
+                    icon: _ToolIcon(tool: tool),
+                  )
+                else
+                  _ToolIcon(tool: tool),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(

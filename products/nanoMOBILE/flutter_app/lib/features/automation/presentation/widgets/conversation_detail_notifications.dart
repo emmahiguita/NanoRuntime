@@ -1,4 +1,4 @@
-part of 'conversation_detail_sheet.dart';
+﻿part of 'conversation_detail_sheet.dart';
 
 /// Manages matching Android system notifications with the active conversation.
 extension ConversationDetailNotifications on _ConversationDetailSheetState {
@@ -42,11 +42,18 @@ extension ConversationDetailNotifications on _ConversationDetailSheetState {
       conversationId: key.id,
       accountFingerprint: key.accountFingerprint,
       packageName: value.packageName,
-      displayName: value.sender,
+      displayName: (value.isGroup && value.conversationTitle.isNotEmpty)
+          ? value.conversationTitle
+          : (value.sender.isNotEmpty ? value.sender : value.title),
       lastMessage: value.interpretableText,
       lastAtMs: value.postTime,
       agentId: widget.item.agentId,
       isGroup: value.isGroup,
+      groupTitle: value.isGroup
+          ? (value.conversationTitle.isNotEmpty
+              ? value.conversationTitle
+              : value.title)
+          : null,
       notificationKey: value.key,
     );
     return ConversationHistoryResolver.belongsTo(widget.item, observed);

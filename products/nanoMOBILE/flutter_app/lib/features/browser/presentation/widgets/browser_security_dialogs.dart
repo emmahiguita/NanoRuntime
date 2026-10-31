@@ -72,11 +72,7 @@ class BrowserSecurityDialogs {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981)),
             onPressed: () => Navigator.pop(ctx, ServerTrustAuthResponse(action: ServerTrustAuthResponseAction.CANCEL)),
-            child: const Text('Volver a Seguridad', style: TextStyle(color: Colors.white)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, ServerTrustAuthResponse(action: ServerTrustAuthResponseAction.PROCEED)),
-            child: const Text('Continuar', style: TextStyle(color: Color(0xFFEF4444), fontSize: 11)),
+            child: const Text('Cerrar conexión insegura', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

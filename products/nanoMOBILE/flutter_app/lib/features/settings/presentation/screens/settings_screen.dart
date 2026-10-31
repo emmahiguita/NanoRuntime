@@ -21,6 +21,7 @@ class SettingsScreen extends ConsumerWidget {
     final state = ref.watch(settingsProvider);
     final notifier = ref.read(settingsProvider.notifier);
     final colors = NanoThemeExtension.of(context).colors;
+    final navState = ref.watch(nanoNavModeProvider);
 
     return Material(
       type: MaterialType.transparency,
@@ -61,22 +62,20 @@ class SettingsScreen extends ConsumerWidget {
                 const DesktopVncSettingsCard(),
               ];
 
+              final isBottomBar = navState.isBottomBarMode;
+              final bottomPadding = isBottomBar
+                  ? ((MediaQuery.orientationOf(context) == Orientation.landscape
+                          ? kNanoBarScrollReserveLandscape
+                          : kNanoBarScrollReserve) +
+                      28)
+                  : (MediaQuery.paddingOf(context).bottom + 20);
+
               return ListView(
                 physics: const BouncingScrollPhysics(
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                // El dock flota sobre el contenido: la reserva final sigue la
-                // altura real del dock en cada orientación, sin vacío extra.
-                padding: EdgeInsets.fromLTRB(
-                  14,
-                  10,
-                  14,
-                  (MediaQuery.orientationOf(context) == Orientation.landscape
-                          ? kNanoBarScrollReserveLandscape
-                          : kNanoBarScrollReserve) +
-                      28,
-                ),
+                padding: EdgeInsets.fromLTRB(14, 10, 14, bottomPadding),
                 children: [
                   SettingsHeaderSection(
                     colors: colors,

@@ -71,8 +71,18 @@ class _ActionTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: iconColor),
-              const SizedBox(width: 14),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Center(
+                  child: Icon(icon, size: 16, color: iconColor),
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,25 +91,33 @@ class _ActionTile extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
+                        fontFamily: 'Inter',
                         color:
                             textColor ??
                             colors.onSurface.withValues(alpha: 0.90),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.1,
                       ),
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         subtitle!,
                         style: TextStyle(
-                          color: colors.onSurface.withValues(alpha: 0.45),
+                          fontFamily: 'Inter',
+                          color: colors.onSurface.withValues(alpha: 0.50),
                           fontSize: 11,
                         ),
                       ),
                     ],
                   ],
                 ),
+              ),
+              Icon(
+                CupertinoIcons.chevron_right,
+                size: 13,
+                color: colors.onSurfaceVariant.withValues(alpha: 0.40),
               ),
             ],
           ),

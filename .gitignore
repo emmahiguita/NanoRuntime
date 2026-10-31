@@ -241,3 +241,6 @@ nanoMOBILE/flutter_app/*.log
 
 # Third party speech models & clones
 whisper.cpp/
+
+*.db
+

@@ -10,6 +10,7 @@ extension _NanoAssistantPanelView on _NanoAssistantPanelState {
     final colors = Theme.of(context).colorScheme;
     final tool = NanoAssistantTool.fromKey(_activeTool);
     return Align(
+      heightFactor: 1,
       alignment: Alignment.topCenter,
       child: Material(
         type: MaterialType.transparency,
@@ -22,15 +23,24 @@ extension _NanoAssistantPanelView on _NanoAssistantPanelState {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 NanoAssistantHeader(
-                  onClose: widget.onCollapse,
+                  onClose: widget.onDismiss,
+                  onMinimize: widget.onCollapse,
                   compact: compact,
                   activity: controller.activity,
                   onHistory: () {
+                    if (widget.onShowHistory != null) {
+                      widget.onShowHistory!();
+                      return;
+                    }
                     widget.onCollapse();
                     final root = AppRouter.rootNavigatorKey.currentContext;
                     if (root != null) showAutomationHistory(root);
                   },
                   onExpand: () {
+                    if (widget.onOpenApp != null) {
+                      widget.onOpenApp!();
+                      return;
+                    }
                     widget.onCollapse();
                     AppRouter.router.go(
                       _activeTool == 'Chat' ? '/chat' : '/automation',
@@ -42,6 +52,7 @@ extension _NanoAssistantPanelView on _NanoAssistantPanelState {
                   activeTool: _activeTool,
                   enabled: !_busy,
                   onSelected: _handleToolSelected,
+                  onOptions: _openWorkspaceMenu,
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
@@ -95,7 +106,13 @@ extension _NanoAssistantPanelView on _NanoAssistantPanelState {
                   TextButton.icon(
                     onPressed: _access.configure,
                     icon: const Icon(Icons.accessibility_new_rounded, size: 18),
-                    label: const Text('Activar accesibilidad de Nano'),
+                    label: const Text('Revisar conexión de accesibilidad'),
+                  ),
+                if (_activeTool == 'WhatsApp' && _access.ready != true)
+                  TextButton.icon(
+                    onPressed: _openNanoKeyboardSettings,
+                    icon: const Icon(Icons.keyboard_alt_outlined, size: 18),
+                    label: const Text('Configurar Nano Input'),
                   ),
                 _attachmentView(),
                 NanoAssistantComposer(

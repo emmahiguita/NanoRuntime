@@ -96,7 +96,21 @@ abstract final class MessagingConversationIdentity {
       return strongA.any(strongB.contains);
     }
     final key = a.notificationKey?.trim() ?? '';
-    return key.isNotEmpty && key == b.notificationKey?.trim();
+    if (key.isNotEmpty && key == b.notificationKey?.trim()) return true;
+
+    // Grupos verificados del mismo paquete: compara títulos normalizados si no hay JID explícito
+    if (a.isGroup && b.isGroup) {
+      final titleA = normalizeTitle(
+        a.groupTitle?.isNotEmpty == true ? a.groupTitle! : a.displayName,
+      );
+      final titleB = normalizeTitle(
+        b.groupTitle?.isNotEmpty == true ? b.groupTitle! : b.displayName,
+      );
+      if (titleA.isNotEmpty && titleA == titleB) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Recupera el scope canónico emitido por el resolver de Android.

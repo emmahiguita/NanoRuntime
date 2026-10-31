@@ -11,7 +11,7 @@ import android.widget.TextView
 /** Tokens del panel Android. Lee la apariencia guardada por Nano al abrir;
  * no cambia preferencias ni mantiene un proceso de sondeo permanente. */
 internal object NanoOverlayStyle {
-    var bgGlass = Color.argb(180, 25, 28, 34); private set
+    var bgGlass = Color.argb(230, 18, 18, 18); private set
     var bgInput = Color.argb(42, 255, 255, 255); private set
     var borderGlass = Color.argb(75, 255, 255, 255); private set
     var onSurface = Color.WHITE; private set
@@ -20,6 +20,8 @@ internal object NanoOverlayStyle {
     var accent = Color.rgb(42, 160, 96); private set
     var glassEnabled = true; private set
     var glassBlur = 18; private set
+    // La lente usa la misma opacidad resuelta, sin otro ajuste de apariencia.
+    val glassAlpha: Int get() = Color.alpha(bgGlass)
 
     /** Usa las mismas claves persistidas por SettingsRepository de Flutter.
      * Sistema sigue uiMode; Claro y Gris espacial respetan la elección de Nano. */
@@ -31,22 +33,35 @@ internal object NanoOverlayStyle {
         val systemDark = (ctx.resources.configuration.uiMode and
             android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
-        val dark = when (settings.optString("themeMode", "Oscuro")) {
-            "Claro" -> false
+        val mode = settings.optString("themeMode", "Oscuro")
+        val spaceGray = mode in setOf("Grisáceo", "Opaco")
+        val dark = when (mode) {
+            "Claro", "Clásico" -> false
             "Sistema" -> systemDark
             else -> true
         }
         glassEnabled = settings.optBoolean("glassEnabled", true)
         glassBlur = settings.optDouble("glassBlur", 18.0).coerceIn(0.0, 42.0).toInt()
         val density = settings.optDouble("glassOpacity", .70).coerceIn(.05, 1.0)
-        val alpha = if (glassEnabled) (135 + density * 65).toInt() else 255
-        bgGlass = if (dark) Color.argb(alpha, 28, 30, 36)
-            else Color.argb(alpha, 246, 249, 247)
+        // El panel externo no debe aclararse sobre una app blanca. Gris espacial
+        // conserva el grafito, mientras Oscuro/Sistema oscuro usan negro neutro.
+        val alpha = if (!glassEnabled) 255 else
+            if (dark) (214 + density * 30).toInt() else (135 + density * 65).toInt()
+        bgGlass = when {
+            spaceGray -> Color.argb(alpha, 28, 30, 36)
+            dark -> Color.argb(alpha, 18, 18, 18)
+            else -> Color.argb(alpha, 246, 249, 247)
+        }
         bgInput = if (dark) Color.argb(35, 255, 255, 255) else Color.argb(155, 255, 255, 255)
         borderGlass = if (dark) Color.argb(80, 255, 255, 255) else Color.argb(55, 55, 70, 64)
         onSurface = if (dark) Color.rgb(245, 245, 247) else Color.rgb(25, 30, 28)
-        onSurfaceMuted = if (dark) Color.rgb(209, 213, 211) else Color.rgb(85, 96, 90)
-        accent = if (dark) Color.rgb(52, 176, 112) else Color.rgb(24, 125, 74)
+        onSurfaceMuted = if (dark) Color.rgb(185, 185, 191) else Color.rgb(85, 96, 90)
+        accent = when {
+            spaceGray -> Color.rgb(56, 189, 248)
+            dark -> Color.rgb(37, 99, 235)
+            else -> Color.rgb(24, 125, 74)
+        }
+        activeSegment = Color.argb(36, Color.red(accent), Color.green(accent), Color.blue(accent))
     }
 
     fun dp(ctx: Context, n: Int): Int =

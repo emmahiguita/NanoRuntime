@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'nano_ai_models.dart' show NanoMediaResource;
 import 'nano_ai_controller.dart';
 import 'nano_media_sheet.dart';
 import 'package:nanoai/core/widgets/nano_glass_window.dart';

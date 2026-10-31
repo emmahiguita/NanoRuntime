@@ -17,8 +17,9 @@ class OwlQaScenario {
   /// El contacto es dato JSON. Abrir no añade texto a enviar ni usa WhatsApp Web.
   factory OwlQaScenario.whatsApp({String? contact}) {
     final target = contact?.trim() ?? '';
-    if (target.contains('\n') || target.length > 150)
+    if (target.contains('\n') || target.length > 150) {
       throw const FormatException('Contacto de prueba inválido.');
+    }
     final steps = <Map<String, String>>[
       {
         'command': '@abrir com.whatsapp',
@@ -51,8 +52,9 @@ class OwlQaScenario {
         .where((s) => s.containsKey('recipient'))
         .map((s) => s['recipient'] as String)
         .toList();
-    if (target.length > 1)
+    if (target.length > 1) {
       throw const FormatException('Escenario no permitido.');
+    }
     final expected = OwlQaScenario.whatsApp(
       contact: target.isEmpty ? null : target.single,
     );

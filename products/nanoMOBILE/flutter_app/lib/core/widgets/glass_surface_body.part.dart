@@ -22,10 +22,13 @@ class _GlassSurfaceBody extends StatelessWidget {
     final density =
         (settings.glassOpacity * widget.opacity / .70 * widget.opacityScale)
             .clamp(.05, 1.0);
-    // La densidad regula el material; aún al máximo conserva transparencia iOS.
-    // Desactivar cristal sí ofrece una superficie sólida accesible.
+    // Sobre apps claras el negro necesita más absorción para conservar contraste.
+    // El modo oscuro mantiene transparencia y blur sin un velo blanco lavado;
+    // Claro conserva su óptica y desactivar cristal ofrece una superficie sólida.
     final alpha = glass
-        ? ((dark ? .26 : .30) + density * .38 - clarity * .10).clamp(.16, .78)
+        ? (dark
+              ? (.82 + density * .14 - clarity * .02).clamp(.80, .96)
+              : (.30 + density * .38 - clarity * .10).clamp(.16, .78))
         : 1.0;
     final tint = widget.tint ?? theme.colorScheme.surface;
     final sigma = glass && widget.hasBackdropBlur
@@ -65,7 +68,7 @@ class _GlassSurfaceBody extends StatelessWidget {
                     radius: 1.45,
                     colors: [
                       Colors.white.withValues(
-                        alpha: (dark ? .15 : .34) * strength,
+                        alpha: (dark ? .04 : .34) * strength,
                       ),
                       Colors.white.withValues(alpha: 0),
                     ],
@@ -111,7 +114,7 @@ class _GlassSurfaceBody extends StatelessWidget {
             color: widget.isActive
                 ? theme.colorScheme.primary.withValues(alpha: .65)
                 : (dark ? Colors.white : theme.colorScheme.outline).withValues(
-                    alpha: dark ? .22 : .26,
+                    alpha: dark ? .16 : .26,
                   ),
           ),
         ),

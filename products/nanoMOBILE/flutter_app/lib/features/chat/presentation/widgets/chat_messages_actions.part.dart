@@ -26,7 +26,7 @@ class MessageActions extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _ActionTile(
-                icon: Icons.copy_rounded,
+                icon: CupertinoIcons.doc_on_doc,
                 iconColor: colors.onSurface.withValues(alpha: 0.72),
                 label: 'Copiar',
                 onTap: () async {
@@ -45,7 +45,7 @@ class MessageActions extends StatelessWidget {
                 },
               ),
               _ActionTile(
-                icon: Icons.share_rounded,
+                icon: CupertinoIcons.share,
                 iconColor: colors.onSurface.withValues(alpha: 0.72),
                 label: 'Compartir',
                 onTap: () {
@@ -60,7 +60,7 @@ class MessageActions extends StatelessWidget {
               ),
               if (onDelete != null)
                 _ActionTile(
-                  icon: Icons.delete_outline_rounded,
+                  icon: CupertinoIcons.trash,
                   iconColor: colors.danger,
                   label: 'Eliminar',
                   textColor: colors.danger,
@@ -74,7 +74,7 @@ class MessageActions extends StatelessWidget {
                 height: 24,
               ),
               _ActionTile(
-                icon: Icons.picture_as_pdf_rounded,
+                icon: CupertinoIcons.doc_text_fill,
                 iconColor: colors.accent,
                 label: 'Exportar como PDF',
                 subtitle: 'Informe técnico estructurado',
@@ -89,7 +89,7 @@ class MessageActions extends StatelessWidget {
                 },
               ),
               _ActionTile(
-                icon: Icons.description_rounded,
+                icon: CupertinoIcons.doc_plaintext,
                 iconColor: colors.success,
                 label: 'Exportar como Markdown',
                 subtitle: 'Archivo .md estructurado',
@@ -125,7 +125,7 @@ class MessageActions extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(5),
             child: Icon(
-              Icons.more_horiz_rounded,
+              CupertinoIcons.ellipsis,
               size: 18,
               color: colors.onSurfaceVariant.withValues(alpha: 0.70),
             ),

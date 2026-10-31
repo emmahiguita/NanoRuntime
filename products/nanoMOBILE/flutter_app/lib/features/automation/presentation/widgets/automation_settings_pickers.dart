@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
 import 'package:nanoai/core/widgets/nano_glass_window.dart';
@@ -12,7 +12,7 @@ import '../automation_visual_theme.dart';
 
 part 'automation_settings_model_pickers.part.dart';
 
-/// Funciones auxiliares y modales para la selección de parámetros del agente.
+/// Funciones auxiliares y modales para la selecciÃ³n de parÃ¡metros del agente.
 abstract class AutomationSettingsPickers {
   static String modelModeLabel(AutomationModelMode mode) => switch (mode) {
     AutomationModelMode.sameAsChat => 'Mismo que Chat',
@@ -26,9 +26,9 @@ abstract class AutomationSettingsPickers {
     AutomationModelMode.sameAsChat =>
       'Comparte el modelo local actualmente seleccionado en Chat.',
     AutomationModelMode.specificModel =>
-      'Usa el modelo configurado exclusivamente para Automatización.',
+      'Usa el modelo configurado exclusivamente para AutomatizaciÃ³n.',
     AutomationModelMode.deterministicOnly =>
-      'No invoca un modelo; ejecuta únicamente rutas verificables conocidas.',
+      'No invoca un modelo; ejecuta Ãºnicamente rutas verificables conocidas.',
   };
 
   static Future<void> pickMode(BuildContext context, WidgetRef ref) async {
@@ -47,7 +47,7 @@ abstract class AutomationSettingsPickers {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Modo de automatización',
+                  'Modo de automatizaciÃ³n',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 8),

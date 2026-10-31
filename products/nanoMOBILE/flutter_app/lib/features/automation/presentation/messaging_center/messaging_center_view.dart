@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/nano_runtime_api.dart';
 import '../../../../core/theme/design_tokens.dart';
 import '../../../../core/widgets/navigation/nano_nav_constants.dart';
+import '../../../../core/widgets/navigation/nano_nav_mode_provider.dart';
 import '../../domain/messaging_platform.dart';
 import '../../engine/business/business_facts_providers.dart';
 import '../business/business_document_library_dialog.dart';
@@ -77,11 +78,12 @@ class _MessagingCenterViewState extends ConsumerState<MessagingCenterView>
     final businessFacts = ref.watch(businessFactsNotifierProvider);
     final colors = NanoThemeExtension.of(context).colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final navState = ref.watch(nanoNavModeProvider);
     final isLandscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
-    final bottomReserve = isLandscape
-        ? kNanoBarScrollReserveLandscape
-        : kNanoBarScrollReserve;
+    final bottomReserve = navState.isBottomBarMode
+        ? (isLandscape ? kNanoBarScrollReserveLandscape : kNanoBarScrollReserve)
+        : (MediaQuery.paddingOf(context).bottom + 16.0);
 
     return Stack(
       children: [

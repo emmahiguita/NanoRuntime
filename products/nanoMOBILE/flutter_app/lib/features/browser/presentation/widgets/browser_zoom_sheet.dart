@@ -73,8 +73,9 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
             : BrowserScripts.fitToScreenOverviewScript,
       );
       if (!mounted) return;
-      if (!mobile && result is num && result.isFinite)
+      if (!mobile && result is num && result.isFinite) {
         _applyZoom(result.toDouble());
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.maybeOf(context)?.showSnackBar(

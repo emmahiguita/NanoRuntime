@@ -5,14 +5,18 @@ import '../../governance/rule_execution_authority.dart';
 import '../tool_call.dart';
 import '../tool_outcome.dart';
 import '../tool_registry.dart';
+import '../agent_executor.dart';
+import 'notification_context_lock.dart';
 
 /// Manejador de notificaciones y RemoteInput.
 /// Cumple SRP: lectura segura, validación de context-lock y respuesta a notificaciones.
 class NotificationToolHandler {
   final NanoRuntimeApi _runtime;
+  final AgentExecutor _executor;
 
-  NotificationToolHandler({NanoRuntimeApi? runtime})
-    : _runtime = runtime ?? NanoRuntimeApi.instance;
+  NotificationToolHandler({NanoRuntimeApi? runtime, AgentExecutor? executor})
+    : _runtime = runtime ?? NanoRuntimeApi.instance,
+      _executor = executor ?? NanoAgentExecutor();
 
   /// Revalida inmediatamente antes de ejecutar cualquier herramienta cuya
   /// política exige bloquear el contexto.
@@ -20,86 +24,13 @@ class NotificationToolHandler {
     ToolCall call,
     ToolDefinition tool, {
     RuleExecutionAuthority? authority,
-  }) async {
-    if (!tool.requiresContextLock) return null;
-    if (call.tool != 'reply_notification') {
-      return const ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[contextLockUnavailable] Acción bloqueada: no existe un validador '
-            'de contexto para esta herramienta.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-
-    final key = call.keyArg;
-    if (key == null || key.isEmpty) {
-      return const ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[contextChanged] La notificación ya no tiene una identidad válida.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-    try {
-      final status = await _runtime.notificationStatus();
-      if (status['accessGranted'] != true || status['connected'] != true) {
-        return const ToolOutcome(
-          verdict: PolicyVerdict.denied,
-          feedback:
-              '[contextChanged] No se puede revalidar la notificación: el '
-              'servicio no está conectado.',
-          executionStatus: ToolExecutionStatus.notExecuted,
-        );
-      }
-      final rows = await _runtime.listActiveNotifications(limit: 100);
-      final current = rows.whereType<Map>().where(
-        (row) => '${row['key'] ?? ''}' == key,
-      );
-      if (current.length != 1 || current.single['canReply'] != true) {
-        return const ToolOutcome(
-          verdict: PolicyVerdict.denied,
-          feedback:
-              '[contextChanged] La notificación cambió, desapareció o ya no '
-              'admite respuesta. No se envió nada.',
-          executionStatus: ToolExecutionStatus.notExecuted,
-        );
-      }
-      if (authority != null) {
-        final row = current.single;
-        if (!authority.satisfiesPackage('${row['package'] ?? ''}')) {
-          return ToolOutcome(
-            verdict: PolicyVerdict.denied,
-            feedback:
-                '[scopeMismatch] La notificación ya no pertenece al paquete '
-                'autorizado por la regla (${row['package']}). No se envió nada.',
-            executionStatus: ToolExecutionStatus.notExecuted,
-          );
-        }
-        if (!authority.satisfiesConversation(
-          '${row['sender'] ?? ''}',
-          '${row['conversationTitle'] ?? ''}',
-        )) {
-          return const ToolOutcome(
-            verdict: PolicyVerdict.denied,
-            feedback:
-                '[scopeMismatch] La notificación ya no pertenece a la '
-                'conversación autorizada por la regla. No se envió nada.',
-            executionStatus: ToolExecutionStatus.notExecuted,
-          );
-        }
-      }
-      return null;
-    } on Object catch (error) {
-      return ToolOutcome(
-        verdict: PolicyVerdict.denied,
-        feedback:
-            '[contextLockUnavailable] No se pudo revalidar la notificación: '
-            '$error.',
-        executionStatus: ToolExecutionStatus.notExecuted,
-      );
-    }
-  }
+  }) => validateNotificationContextLock(
+    _runtime,
+    _executor,
+    call,
+    tool,
+    authority: authority,
+  );
 
   /// Lista notificaciones activas con formato seguro.
   Future<String> listNotifications() async {

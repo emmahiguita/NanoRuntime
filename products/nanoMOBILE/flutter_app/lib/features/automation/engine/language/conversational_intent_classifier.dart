@@ -80,8 +80,9 @@ final class ConversationalIntentClassifier {
     if (secondaries.isNotEmpty) {
       final diff = (primary.confidence - secondaries.first.confidence).abs();
       if (diff < ambiguityMargin &&
-          primary.intentId != secondaries.first.intentId)
+          primary.intentId != secondaries.first.intentId) {
         isAmbiguous = true;
+      }
     }
 
     final finalPrimary = IntentPrediction(
@@ -396,18 +397,21 @@ final class ConversationalIntentClassifier {
     if (intentId == ConversationalIntentId.correction.id) return 100;
     if (intentId == ConversationalIntentId.projectStatusQuestion.id) return 95;
     if (intentId == ConversationalIntentId.locationQuestion.id ||
-        intentId == ConversationalIntentId.availabilityQuestion.id)
+        intentId == ConversationalIntentId.availabilityQuestion.id) {
       return 90;
+    }
     if (intentId == ConversationalIntentId.meetingTimeQuestion.id ||
-        intentId == ConversationalIntentId.meetingTimeAnswer.id)
+        intentId == ConversationalIntentId.meetingTimeAnswer.id) {
       return 88;
+    }
     if (intentId == ConversationalIntentId.activityQuestion.id) return 85;
     if (intentId == ConversationalIntentId.gratitude.id) return 75;
     if (intentId == ConversationalIntentId.wellbeingQuestion.id) return 70;
     if (intentId == ConversationalIntentId.farewell.id) return 65;
     if (intentId == ConversationalIntentId.confirmation.id ||
-        intentId == ConversationalIntentId.negation.id)
+        intentId == ConversationalIntentId.negation.id) {
       return 60;
+    }
     if (intentId == ConversationalIntentId.greeting.id) return 50;
     return 40;
   }

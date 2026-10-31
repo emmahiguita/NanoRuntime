@@ -36,7 +36,8 @@ class ModelsScreen extends ConsumerStatefulWidget {
   ConsumerState<ModelsScreen> createState() => _ModelsScreenState();
 }
 
-class _ModelsScreenState extends ConsumerState<ModelsScreen> {
+class _ModelsScreenState extends ConsumerState<ModelsScreen>
+    with WidgetsBindingObserver {
   final _search = TextEditingController();
   String _filter = 'Todos';
   ModelsCatalogTab _activeTab = ModelsCatalogTab.explorar;
@@ -46,6 +47,7 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       ref.read(modelsProvider.notifier).maybeAutoScanAll();
       WhisperSttService.instance.init();
@@ -55,35 +57,22 @@ class _ModelsScreenState extends ConsumerState<ModelsScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(modelsProvider.notifier).maybeAutoScanAll();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _search.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Solo avisa resultados de descargas iniciadas mientras el catálogo está activo.
-    ref.listen(modelsProvider, (previous, next) {
-      if (previous == null) return;
-      for (final model in next.models) {
-        final oldIndex = previous.models.indexWhere(
-          (old) => old.id == model.id,
-        );
-        if (oldIndex < 0) continue;
-        if (model.isDownloading) {
-          _observedDownloads.add(model.id);
-          continue;
-        }
-        if (!_observedDownloads.remove(model.id)) continue;
-        if (model.downloadState != ModelDownloadState.installed &&
-            model.downloadState != ModelDownloadState.failed) {
-          continue;
-        }
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) ModelDownloadFeedback.show(context, model);
-        });
-      }
-    });
+    _listenDownloadState();
 
     final state = ref.watch(modelsProvider);
     final notifier = ref.read(modelsProvider.notifier);

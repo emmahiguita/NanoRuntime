@@ -67,6 +67,7 @@ class NanoProvider {
     this.ask,
     this.cancel,
     this.isReady,
+    this.isOnDevice,
     this.unavailableReason,
     this.androidPackage,
   });
@@ -74,6 +75,10 @@ class NanoProvider {
   final String id;
   final String name;
   final NanoProviderKind kind;
+
+  /// Hecho consultado al despachar, no inferido del nombre del proveedor.
+  /// El runtime seleccionado también puede apuntar a un servidor remoto.
+  final bool Function()? isOnDevice;
 
   /// Callback de consulta programática; null si el proveedor es una app nativa.
   final NanoAsk? ask;

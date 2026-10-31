@@ -15,7 +15,11 @@ final class WhatsAppContactResolver {
   final WhatsAppContactsService _contacts;
 
   Future<WhatsAppContact?> resolve(String query) async {
-    final normalized = query.trim().toLowerCase();
+    var normalized = query.trim().toLowerCase();
+    normalized = normalized.replaceFirst(
+      RegExp(r'^(?:(?:este|el|al)\s+)?n[uú]mero\s+', caseSensitive: false),
+      '',
+    ).trim();
     if (normalized.isEmpty || _genericTerms.contains(normalized)) return null;
 
     if (!await _contacts.hasPermission()) {
@@ -29,9 +33,8 @@ final class WhatsAppContactResolver {
         digits.length <= 15) {
       final saved = contacts.where((contact) {
         final savedDigits = contact.number.replaceAll(RegExp(r'\D'), '');
-        return savedDigits == digits ||
-            savedDigits.endsWith(digits) ||
-            digits.endsWith(savedDigits);
+        // Coincidencias por sufijo podían sustituir país/número solicitado.
+        return savedDigits == digits;
       }).toList();
       if (saved.isNotEmpty) return _uniqueNumber(saved);
 

@@ -3,9 +3,9 @@ import '../../../../core/theme/design_tokens.dart';
 
 /// Fondo Material Expressive estático del panel de WhatsApp.
 ///
-/// QUÉ: conserva el paisaje, el cristal y el fundido visual profesional.
+/// QUÉ: conserva el paisaje original de hielo, el cristal y el fundido visual profesional.
 /// CÓMO: compone una imagen cacheada y dos gradientes aislados del resto.
-/// POR QUÉ: las nubes animadas mantenían GPU y UI ocupadas aun en reposo.
+/// POR QUÉ: mantiene el hub de mensajería limpio y sin distracciones visuales.
 class MessagingAmbientBackdrop extends StatelessWidget {
   final bool isDark;
 
@@ -13,7 +13,6 @@ class MessagingAmbientBackdrop extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // En horizontal reducimos la altura para no cubrir contenido útil.
     final landscape =
         MediaQuery.orientationOf(context) == Orientation.landscape;
     final colors = NanoThemeExtension.maybeOf(context)?.colors;
@@ -25,7 +24,6 @@ class MessagingAmbientBackdrop extends StatelessWidget {
       child: IgnorePointer(
         child: Align(
           alignment: Alignment.topCenter,
-          // Aísla el fondo: cambiar mensajes no obliga a repintar la imagen.
           child: RepaintBoundary(
             child: SizedBox(
               width: double.infinity,
@@ -46,7 +44,6 @@ class MessagingAmbientBackdrop extends StatelessWidget {
                           ? BlendMode.multiply
                           : BlendMode.screen,
                     ),
-                    // El fundido permite leer la lista sobre cualquier imagen.
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -62,7 +59,6 @@ class MessagingAmbientBackdrop extends StatelessWidget {
                         ),
                       ),
                     ),
-                    // Brillo diagonal sutil sin animaciones ni temporizadores.
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(

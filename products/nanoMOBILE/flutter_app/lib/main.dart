@@ -13,12 +13,14 @@ import 'core/services/nano_runtime_api.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/nano_motion.dart';
 import 'core/theme/design_tokens.dart';
+import 'core/widgets/navigation/nano_universal_drawer_overlay.dart';
 import 'features/automation/headless/automation_headless_runner.dart';
 import 'features/automation/application/automation_coordinator_provider.dart'
     show notificationEventRouterProvider, timeTickSchedulerProvider;
 import 'features/automation/engine/scheduling/notification_event_router.dart';
 import 'features/browser/presentation/widgets/browser_pip_overlay.dart';
 import 'features/chat/nano_everywhere/nano_floating_wrapper.dart';
+import 'features/chat/nano_everywhere/nano_external_surface.dart';
 import 'features/browser/application/browser_audio_service_initializer.dart';
 import 'features/browser/application/browser_audio_handler.dart';
 

@@ -12,6 +12,7 @@ import 'whatsapp_contact_resolver.dart';
 import 'whatsapp_text_sender.dart';
 import 'whatsapp_command_runner.dart';
 import 'whatsapp_chat_opener.dart';
+import 'whatsapp_file_account.dart';
 
 /// WhatsAppToolHandler — Ejecución tipada de herramientas WhatsApp.
 ///
@@ -44,8 +45,14 @@ class WhatsAppToolHandler {
   // ── Herramientas públicas ──────────────────────────────────────────────────
 
   /// Abre el chat de WhatsApp con un contacto resuelto o la app general.
-  Future<String> openChat(ToolCall call) async {
-    return WhatsAppChatOpener(_share, _contactResolver).open(call);
+  Future<String> openChat(
+    ToolCall call, {
+    ExecutionCancellationToken? cancellation,
+  }) async {
+    return WhatsAppChatOpener(
+      _share,
+      _contactResolver,
+    ).open(call, cancellation: cancellation);
   }
 
   /// Delega texto en el transporte único, conservando cuenta, cancelación
@@ -90,6 +97,7 @@ class WhatsAppToolHandler {
       return '[error] No se encontró el contacto "$contactQ" en la agenda del dispositivo.';
     }
 
+    final targetPackage = whatsAppFileAccount(call, resolved);
     // Solo metadatos de WhatsApp acreditan el JID. Sin ellos conserva el
     // selector manual; no falsea recipientVerified para forzar un clic.
     Future<bool> launch() => _share.shareFile(
@@ -100,7 +108,7 @@ class WhatsAppToolHandler {
       recipientName: resolved.name,
       recipientKind: resolved.isGroup ? 'group' : 'direct',
       recipientVerified: resolved.isWhatsAppVerified,
-      packageName: resolved.packageName.isEmpty ? null : resolved.packageName,
+      packageName: targetPackage,
       caption: caption,
       autoSend: true,
     );
@@ -112,9 +120,7 @@ class WhatsAppToolHandler {
               cancellation: cancellation,
               recipient: resolved.name,
               action: 'Enviar archivo',
-              packageName: resolved.packageName.isEmpty
-                  ? 'com.whatsapp'
-                  : resolved.packageName,
+              packageName: targetPackage ?? 'com.whatsapp',
             )
           : await launch();
     } on WhatsAppAutomationFailure catch (error) {
@@ -139,7 +145,11 @@ class WhatsAppToolHandler {
     if (rawQ.isEmpty && call.textArg != null) {
       rawQ = WhatsAppIntentParser.parse(call.textArg!)?.contact ?? '';
     }
-    final query = rawQ
+    final cleanQ = rawQ.replaceFirst(
+      RegExp(r'^(?:(?:este|el|al)\s+)?n[uú]mero\s+', caseSensitive: false),
+      '',
+    );
+    final query = cleanQ
         .toLowerCase()
         .replaceAll(
           RegExp(

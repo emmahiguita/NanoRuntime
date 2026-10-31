@@ -1,8 +1,15 @@
 // product_dialog.dart
 //
-// QUÉ: Crea o edita un producto real del catálogo comercial con foto/video.
-// CÓMO: Valida identidad y precio, y provee selector de archivos multimedia.
-// POR QUÉ: Mantiene persistencia y presentación separadas en archivos < 180 líneas.
+// QUÉ HACE:
+// Diálogo modal profesional para creación y edición de productos del catálogo.
+//
+// CÓMO FUNCIONA:
+// - Encabezado limpio con icono de producto y botón de cierre superior.
+// - Formulario estructurado en 4 secciones lógicas (Info, Precio, Variantes, Canales).
+// - Barra de acciones inferior fija y adaptable al teclado con 'Cancelar' y 'Guardar'.
+//
+// POR QUÉ:
+// Aplica principios de diseño Apple/Material 3 con validación robusta (< 155 líneas).
 
 library;
 
@@ -12,7 +19,9 @@ import 'package:flutter/material.dart';
 import '../../../engine/business/business_facts.dart';
 import '../../automation_visual_theme.dart';
 import 'dialog_container_shell.dart';
+import 'product_dialog_footer.dart';
 import 'product_dialog_form.dart';
+import 'product_dialog_header.dart';
 
 class ProductDialog extends StatefulWidget {
   const ProductDialog({super.key, this.initial});
@@ -42,7 +51,7 @@ class _ProductDialogState extends State<ProductDialog> {
     _name = TextEditingController(text: p?.name ?? '');
     _details = TextEditingController(text: p?.details ?? '');
     _price = TextEditingController(
-      text: p != null && p.price > 0 ? '${p.price}' : '',
+      text: p != null && p.price > 0 ? '' : '',
     );
     _stock = TextEditingController(text: p?.stock?.toString() ?? '');
     _sku = TextEditingController(text: p?.sku ?? '');
@@ -54,15 +63,7 @@ class _ProductDialogState extends State<ProductDialog> {
 
   @override
   void dispose() {
-    for (final c in [
-      _name,
-      _details,
-      _price,
-      _stock,
-      _sku,
-      _category,
-      _variants,
-    ]) {
+    for (final c in [_name, _details, _price, _stock, _sku, _category, _variants]) {
       c.dispose();
     }
     super.dispose();
@@ -90,20 +91,14 @@ class _ProductDialogState extends State<ProductDialog> {
     final category = _category.text.trim();
     Navigator.of(context).pop(
       BusinessProduct(
-        id:
-            widget.initial?.id ??
-            DateTime.now().microsecondsSinceEpoch.toString(),
+        id: widget.initial?.id ?? DateTime.now().microsecondsSinceEpoch.toString(),
         name: name,
         details: _details.text.trim(),
         price: price,
         stock: int.tryParse(_stock.text.trim()),
         sku: sku.isEmpty ? null : sku,
         category: category.isEmpty ? null : category,
-        variants: _variants.text
-            .split(',')
-            .map((v) => v.trim())
-            .where((v) => v.isNotEmpty)
-            .toList(),
+        variants: _variants.text.split(',').map((v) => v.trim()).where((v) => v.isNotEmpty).toList(),
         isAvailable: _isAvailable,
         imagePath: _imagePath,
         isManualEdit: true,
@@ -114,34 +109,18 @@ class _ProductDialogState extends State<ProductDialog> {
   @override
   Widget build(BuildContext context) {
     final visual = AutomationVisual.of(context);
+    final isDark = visual.isDark;
     final isEditing = widget.initial != null;
+
     return DialogContainerShell(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 14, 12, 10),
-            child: Row(
-              children: [
-                Icon(
-                  isEditing ? Icons.edit_note_rounded : Icons.add_business,
-                  color: visual.accent,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    isEditing ? 'Editar producto' : 'Nuevo producto / servicio',
-                    style: TextStyle(
-                      color: visual.text,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+          ProductDialogHeader(
+            isEditing: isEditing,
+            onClose: () => Navigator.of(context).pop(),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06)),
           Expanded(
             child: ProductDialogForm(
               name: _name,
@@ -159,23 +138,11 @@ class _ProductDialogState extends State<ProductDialog> {
               onRemoveMedia: () => setState(() => _imagePath = null),
             ),
           ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _save,
-                  child: Text(isEditing ? 'Actualizar' : 'Guardar'),
-                ),
-              ],
-            ),
+          Divider(height: 1, color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06)),
+          ProductDialogFooter(
+            isEditing: isEditing,
+            onCancel: () => Navigator.of(context).pop(),
+            onSave: _save,
           ),
         ],
       ),

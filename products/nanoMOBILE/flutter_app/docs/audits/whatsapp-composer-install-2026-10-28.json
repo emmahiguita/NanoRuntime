@@ -1,0 +1,15 @@
+{
+  "variant": "fullSideloadDebug",
+  "build": "BUILD SUCCESSFUL in 57s",
+  "apk": "build/app/outputs/apk/fullSideload/debug/app-fullSideload-debug.apk",
+  "sha256": "BEA571AADE38E0E5200138B103C352DC5C83A88DBDB27B1366EE824CFE0B1145",
+  "bytes": 191379984,
+  "device": "OPPO CPH2557",
+  "serial": "VGL7MVFMDYQG8T55",
+  "install": "adb install -r: Success",
+  "package": "dev.nanoai.mobile",
+  "versionName": "1.0.0",
+  "androidReportedLastUpdateTime": "2026-10-28 17:52:19",
+  "launch": "am start: activity started",
+  "whatsappBehaviorTest": "pending user manual verification; no messages sent by Codex"
+}

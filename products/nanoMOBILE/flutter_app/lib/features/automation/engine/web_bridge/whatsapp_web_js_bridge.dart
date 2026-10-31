@@ -143,48 +143,4 @@ final class WhatsAppWebJsBridge {
 })();
 ''';
 
-  static String buildSendMediaScript({
-    required String base64Data,
-    required String mimeType,
-    required String fileName,
-    String? caption,
-  }) {
-    final cleanCaption = (caption ?? '').replaceAll("'", "\\'");
-    return '''
-(function() {
-  try {
-    var byteCharacters = atob('$base64Data');
-    var byteNumbers = new Array(byteCharacters.length);
-    for (var i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    var byteArray = new Uint8Array(byteNumbers);
-    var blob = new Blob([byteArray], { type: '$mimeType' });
-    var file = new File([blob], '$fileName', { type: '$mimeType' });
-
-    var fileInput = document.querySelector('input[type="file"]');
-    if (fileInput) {
-      var dataTransfer = new DataTransfer();
-      dataTransfer.items.add(file);
-      fileInput.files = dataTransfer.files;
-      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-
-      if ('$cleanCaption'.length > 0) {
-        setTimeout(function() {
-          var captionInput = document.querySelector('div[contenteditable="true"][data-tab="10"]');
-          if (captionInput) {
-            captionInput.focus();
-            document.execCommand('insertText', false, '$cleanCaption');
-          }
-        }, 500);
-      }
-      return JSON.stringify({ success: true, method: 'file_input' });
-    }
-    return JSON.stringify({ success: false, error: 'FILE_INPUT_NOT_FOUND' });
-  } catch (err) {
-    return JSON.stringify({ success: false, error: err.toString() });
-  }
-})();
-''';
-  }
 }

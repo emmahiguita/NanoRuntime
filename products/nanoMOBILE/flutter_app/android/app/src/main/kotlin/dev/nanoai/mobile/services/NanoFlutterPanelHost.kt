@@ -40,7 +40,20 @@ internal object NanoFlutterPanelHost {
                     result.success(context?.let { NanoOwlShareInbox.acknowledge(it, call.argument<String>("path") ?: "") } ?: false)
                     return@setMethodCallHandler
                 }
-                if (call.method in setOf("collapse", "close", "openNano", "resize", "captureVisibility", "mood")) {
+                if (call.method == "inputStatus") {
+                    result.success(context?.let(dev.nanoai.mobile.input.NanoInputStatus::snapshot))
+                    return@setMethodCallHandler
+                }
+                if (call.method == "openInputSettings") {
+                    try {
+                        context?.let(dev.nanoai.mobile.input.NanoInputStatus::openKeyboardSettings)
+                        result.success(context != null)
+                    } catch (_: Exception) {
+                        result.error("INPUT_SETTINGS_UNAVAILABLE", "No se pudieron abrir ajustes del teclado.", null)
+                    }
+                    return@setMethodCallHandler
+                }
+                if (call.method in setOf("collapse", "close", "openNano", "resize", "captureVisibility", "executionVisibility", "mood")) {
                     action?.invoke(call.method, call.arguments as? Map<*, *>)
                     result.success(true)
                 } else result.notImplemented()

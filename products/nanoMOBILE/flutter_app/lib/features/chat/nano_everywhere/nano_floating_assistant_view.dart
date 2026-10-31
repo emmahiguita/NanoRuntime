@@ -96,6 +96,7 @@ extension _NanoFloatingAssistantView on _NanoFloatingAssistantState {
                     ),
                   ),
                   panelChild: NanoAssistantPanel(
+                    onDismiss: _dismissAssistant,
                     controller: widget.controller,
                     input: input,
                     audioLevel: widget.audioLevel,

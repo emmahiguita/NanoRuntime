@@ -106,8 +106,9 @@ extension AgentToolCommandRouter on AgentToolDispatcher {
         return _webHandler.fetchWeb(rest);
       case 'url' || 'navegar':
         final u = rest.trim();
-        if (u.isEmpty)
+        if (u.isEmpty) {
           return 'Sintaxis: @url <enlace>. Ej: @url https://google.com';
+        }
         final full = u.startsWith('http://') || u.startsWith('https://')
             ? u
             : 'https://$u';

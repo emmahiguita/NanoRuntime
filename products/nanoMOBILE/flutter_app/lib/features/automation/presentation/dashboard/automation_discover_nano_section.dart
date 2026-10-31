@@ -1,6 +1,8 @@
-﻿library;
+library;
 
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/feather_core_icon.dart';
+import '../../../../core/widgets/navigation/nano_input_tool_logo.dart';
 import '../automation_visual_theme.dart';
 import 'automation_discover_tile.dart';
 
@@ -42,7 +44,12 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
             'Ecosistema & APIs',
             'MCP y Claves API',
             'OpenAI, Claude, Gemini, DeepSeek y Skills MCP',
-            Icons.hub_rounded,
+            const FeatherCoreIcon(
+              type: FeatherCoreType.automation,
+              size: 22,
+              framed: false,
+              accentColor: Colors.white,
+            ),
             const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -55,7 +62,12 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
             'Multi-Proveedor',
             'Sesiones IA',
             'ChatGPT, DeepSeek y Qwen en ventana flotante',
-            Icons.auto_awesome_rounded,
+            const FeatherCoreIcon(
+              type: FeatherCoreType.models,
+              size: 22,
+              framed: false,
+              accentColor: Colors.white,
+            ),
             const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -68,7 +80,12 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
             'Chat Autónomo',
             'Chat IA',
             'Conversación directa con LLMs y agentes',
-            Icons.forum_rounded,
+            const FeatherCoreIcon(
+              type: FeatherCoreType.chat,
+              size: 22,
+              framed: false,
+              accentColor: Colors.white,
+            ),
             const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -81,7 +98,10 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
             'WhatsApp Web',
             'WA Web Móvil',
             'Versión web adaptada a móvil con sesión real',
-            Icons.chat_bubble_rounded,
+            const NanoInputToolLogo(
+              asset: 'assets/automation/whatsapp_personal_icon.png',
+              size: 22,
+            ),
             const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -94,7 +114,12 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
             'Navegación Asistida',
             'Navegador Web',
             'Navega por internet con integración y asistencia IA',
-            Icons.explore_rounded,
+            const FeatherCoreIcon(
+              type: FeatherCoreType.network,
+              size: 22,
+              framed: false,
+              accentColor: Colors.white,
+            ),
             const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -106,8 +131,13 @@ class AutomationDiscoverNanoSection extends StatelessWidget {
           (
             'Consola Bash',
             'Terminal Linux',
-            'Entorno Linux directo con comandos root y paquetes',
-            Icons.terminal_rounded,
+            'Entorno Linux local para comandos y paquetes',
+            const FeatherCoreIcon(
+              type: FeatherCoreType.terminal,
+              size: 22,
+              framed: false,
+              accentColor: Colors.white,
+            ),
             const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,

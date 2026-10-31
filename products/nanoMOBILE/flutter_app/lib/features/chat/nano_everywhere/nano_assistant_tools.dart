@@ -16,7 +16,7 @@ class NanoAssistantTool {
     NanoAssistantTool(
       'Pantalla',
       'Leer pantalla',
-      'Lee texto accesible de la app activa. No analiza imágenes.',
+      'Captura la pantalla, extrae texto accesible y OCR local. La comprensión visual completa depende de un modelo compatible.',
       Icons.article_outlined,
     ),
     NanoAssistantTool(

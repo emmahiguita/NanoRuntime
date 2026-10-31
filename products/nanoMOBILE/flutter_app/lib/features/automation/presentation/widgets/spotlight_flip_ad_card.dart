@@ -88,8 +88,9 @@ class _SpotlightFlipAdCardState extends State<SpotlightFlipAdCard>
     _turntableTimer = Timer.periodic(_ambientInterval, (_) {
       if (!mounted ||
           _rotation.isAnimating ||
-          !(ModalRoute.of(context)?.isCurrent ?? true))
+          !(ModalRoute.of(context)?.isCurrent ?? true)) {
         return;
+      }
       _rotation.animateTo(
         _rotation.value + math.pi * 2,
         duration: const Duration(milliseconds: 1600),

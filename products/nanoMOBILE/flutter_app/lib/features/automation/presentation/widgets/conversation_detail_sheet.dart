@@ -1,11 +1,14 @@
-import 'dart:async';
-import 'dart:ui';
+﻿import 'dart:async';
+import 'dart:ui' show ImageFilter;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/providers/settings_provider.dart'
+    show settingsProvider;
 import '../../../../core/services/execution_budget.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import '../../application/automation_coordinator_provider.dart';
 import '../../application/whatsapp_contacts_provider.dart'
     show allWhatsAppContactsProvider;
@@ -13,7 +16,6 @@ import '../../engine/agent_dependencies.dart'
     show conversationAssignmentStoreProvider, conversationMemoryStoreProvider;
 import '../../engine/business/business_document_library.dart';
 import '../../engine/business/business_facts_providers.dart';
-import '../../engine/language/conversation_semantic_tag.dart';
 import '../../engine/messaging/conversation_agent.dart';
 import '../../engine/messaging/conversation_group_resolver.dart';
 import '../../engine/messaging/conversation_hub_providers.dart';
@@ -40,12 +42,11 @@ import '../whatsapp_web/whatsapp_web_session_ownership.dart';
 import 'conversation_history_resolver.dart';
 import 'conversation_media_bubble.dart';
 import 'conversation_phone_resolver.dart';
-import 'conversation_semantic_badge.dart';
 import 'message_event_time.dart';
-import 'nano_glass_dialog.dart';
 import 'nano_metallic_button.dart';
 import 'package:nanoai/core/widgets/nano_glass_window.dart';
-import 'package:nanoai/core/widgets/glass_surface.dart';
+import '../../engine/execution/agent_executor.dart';
+import '../../engine/perception/nano_selector.dart';
 part 'conversation_detail_header_view.dart';
 part 'conversation_detail_control_bar.part.dart';
 part 'conversation_detail_state.part.dart';
@@ -56,6 +57,7 @@ part 'conversation_detail_bubbles.part.dart';
 part 'conversation_detail_input_view.dart';
 part 'conversation_detail_suggestions_view.dart';
 part 'conversation_detail_composer_view.dart';
+part 'conversation_detail_composer_buttons.part.dart';
 part 'conversation_detail_agent_picker.dart';
 part 'conversation_detail_dialogs.dart';
 part 'conversation_detail_form_picker.dart';
@@ -67,6 +69,8 @@ part 'conversation_detail_live_history.dart';
 part 'conversation_detail_notification_factory.dart';
 part 'conversation_detail_controller.dart';
 part 'conversation_detail_sender.dart';
+part 'conversation_detail_group_sender.dart';
+part 'conversation_detail_direct_sender.dart';
 part 'conversation_detail_style_learning.dart';
 part 'conversation_detail_responsive_body.dart';
 

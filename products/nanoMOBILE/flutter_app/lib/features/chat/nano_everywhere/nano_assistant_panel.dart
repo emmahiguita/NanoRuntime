@@ -15,11 +15,14 @@ import 'nano_glass.dart';
 import 'nano_prepared_attachment.dart';
 import 'nano_attachment_commands.dart';
 import 'nano_action_input.dart';
+import 'nano_input_fallback.dart';
 import '../../automation/presentation/widgets/automation_attachment_picker.dart';
 import '../../automation/presentation/widgets/automation_input_attachment.dart';
 import '../../automation/presentation/widgets/automation_input_menu.dart';
 import 'nano_assistant_tools.dart';
 import 'nano_assistant_tool_selector.dart';
+import '../../automation/presentation/widgets/whatsapp_automation_menu.dart';
+part 'nano_assistant_workspace_menu.dart';
 part 'nano_assistant_panel_actions.dart';
 part 'nano_assistant_attachments.dart';
 part 'nano_assistant_panel_view.dart';
@@ -33,6 +36,10 @@ class NanoAssistantPanel extends StatefulWidget {
     this.onVoice,
     this.onSpeak,
     required this.onCollapse,
+    required this.onDismiss,
+    this.onCollapseForAction,
+    this.onOpenApp,
+    this.onShowHistory,
   });
 
   final NanoAiController controller;
@@ -41,6 +48,11 @@ class NanoAssistantPanel extends StatefulWidget {
   final VoidCallback? onVoice;
   final ValueChanged<String>? onSpeak;
   final VoidCallback onCollapse;
+  /// Permite esperar a que Android retire la ventana antes de leer otra app.
+  final Future<void> Function()? onCollapseForAction;
+  final VoidCallback onDismiss;
+  final VoidCallback? onOpenApp;
+  final VoidCallback? onShowHistory;
 
   @override
   State<NanoAssistantPanel> createState() => _NanoAssistantPanelState();

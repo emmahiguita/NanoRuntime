@@ -1,0 +1,19 @@
+{
+  "device": "OPPO CPH2557",
+  "android_api": 35,
+  "whatsapp_packages_installed": ["com.whatsapp", "com.whatsapp.w4b"],
+  "accessibility_observed": "nano_enabled_not_bound_after_update",
+  "accessibility_input_connection": "implemented_not_observed",
+  "action_set_text": "existing_path_retained",
+  "nano_ime": "implemented_not_observed",
+  "clipboard_fallback": "implemented_not_observed",
+  "automated_tests": "not_run_user_request",
+  "manual_device_workflow": "not_run",
+  "build": "fullSideloadDebug_passed",
+  "installed": true,
+  "ime_registered": true,
+  "ime_enabled": false,
+  "ime_selected": false,
+  "apk_sha256": "B4B4FE21541B1B9BF48031C2FC76967AE3546095DDFE581D6A9807E515AB0334",
+  "input_result_contract": "boolean_cannot_distinguish_uncertain"
+}

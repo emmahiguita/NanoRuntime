@@ -12,8 +12,9 @@ extension AgentToolExecutionRouter on AgentToolDispatcher {
       return await _dynamicRegistry.dispatchCall(call);
     }
 
-    if (_agentMessagingAliases.contains(call.tool))
+    if (_agentMessagingAliases.contains(call.tool)) {
       return _executeMessagingTool(call, cancellation: cancellation);
+    }
     switch (call.tool) {
       case 'screen':
         return (call.args?['readText'] == true || call.args?['mode'] == 'text')

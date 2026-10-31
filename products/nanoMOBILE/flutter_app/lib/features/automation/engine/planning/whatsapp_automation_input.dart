@@ -1,14 +1,17 @@
 import 'dart:convert';
 import 'whatsapp_intent_parser.dart';
 import 'whatsapp_component_requests.dart';
+import 'owl_workspace_input.dart';
 
 /// Seleccionar el icono aporta el contexto WhatsApp; no ejecuta nada por sí
 /// mismo. Convierte únicamente acciones explícitas al router ya existente.
 abstract final class WhatsAppAutomationInput {
   static String command(String input) {
+    if (OwlWorkspaceInput.kind(input) != null) return input;
     final text = WhatsAppComponentRequests.normalize(input);
-    if (WhatsAppComponentRequests.isFloating(text) ||
+    if (WhatsAppComponentRequests.isExport(text) || WhatsAppComponentRequests.isFloating(text) ||
         WhatsAppComponentRequests.currentReply(text) != null ||
+        WhatsAppComponentRequests.currentChatDraft(text) != null ||
         WhatsAppComponentRequests.isArtifact(text)) {
       return text;
     }

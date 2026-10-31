@@ -242,6 +242,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        dev.nanoai.mobile.services.NanoFlutterPanelHost.release(flutterEngine)
         messageDocumentHandler?.close()
         messageDocumentHandler = null
         NotificationAutomationBridge.clearSink(SINK_UI)
@@ -523,6 +524,7 @@ class MainActivity : AudioServiceActivity() {
         // OVERLAY-03: puente singleton que enruta overlayQuery del servicio nativo
         // al NanoAiController de Flutter. Sin esto, el overlay abre Nano vía Intent.
         NanoOverlayBridge.attach(messenger)
+        dev.nanoai.mobile.services.NanoFlutterPanelHost.register(flutterEngine, applicationContext)
 
         // BROWSER-PIP: soporte para Picture-in-Picture nativo del sistema.
         val pipChan = MethodChannel(messenger, "com.nanoai/browser_pip")
@@ -577,6 +579,7 @@ class MainActivity : AudioServiceActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (contactsHandler?.onActivityResult(requestCode, resultCode, data) == true) return
         if (mediaCaptureHandler?.onActivityResult(requestCode, resultCode) == true) return
         modelStorageHandler?.onActivityResult(requestCode, resultCode, data)
     }
@@ -584,9 +587,8 @@ class MainActivity : AudioServiceActivity() {
     override fun onResume() {
         super.onResume()
         isForeground = true
-        // Al estar en Nano, el asistente in-app ya existe; detener overlay nativo para evitar doble ventana
-        try { stopService(Intent(this, dev.nanoai.mobile.services.NanoFloatingService::class.java)) }
-        catch (_: Exception) {}
+        // Recupera la superficie compartida al volver a Nano.
+        dev.nanoai.mobile.services.NanoFlutterPanelHost.bindActivity(this)
         // Resuelve requestAllFilesAccess (MANAGE_EXTERNAL_STORAGE) al
         // volver de la pantalla del sistema.
         modelStorageHandler?.onResume()

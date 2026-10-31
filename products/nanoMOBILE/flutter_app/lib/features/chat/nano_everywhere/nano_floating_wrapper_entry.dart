@@ -16,8 +16,11 @@ extension _NanoFloatingWrapperEntry on _NanoFloatingWrapperState {
     final revision = _entryRevision;
     if (!mounted || !_canPresentEntry) return;
     try {
-      await const NanoFloatingSystem().active;
+      final externalActive = await const NanoFloatingSystem().active;
       if (!mounted || revision != _entryRevision || !_canPresentEntry) return;
+      // Al regresar, la esfera Flutter reemplaza al acceso Android activo.
+      // Un servicio cerrado no vuelve a mostrar el búho por sí solo.
+      if (externalActive) controller.showOrb();
       final entry = await const NanoFloatingSystem().takePendingEntry();
       if (!mounted || entry == null) return;
       final prompt = entry['prompt']?.toString() ?? '';

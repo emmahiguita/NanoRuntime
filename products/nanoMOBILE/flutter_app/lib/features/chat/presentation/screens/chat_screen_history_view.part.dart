@@ -1,16 +1,10 @@
 part of 'chat_screen.dart';
 
-// QUÉ HACE:
-// Vista de lista y tarjetas de elementos del historial de conversaciones guardadas en Nano AI.
-//
-// CÓMO FUNCIONA:
-// - Filtra los turnos iniciados por el usuario y los asocia a sus respuestas de IA.
-// - Presenta avatares, marcas de tiempo y fragmentos de texto en tarjetas estilizadas de vidrio.
-// - Al pulsar una tarjeta, restaura el prompt en el campo de texto y enfoca el teclado.
-//
-// POR QUÉ:
-// Aplica principios SOLID dividiendo la vista de lista de la hoja modal principal,
-// manteniendo el código modular, legible y menor a 200 líneas.
+// chat_screen_history_view.part.dart — Vista de lista y tarjetas de sesiones guardadas localmente.
+// QUÉ HACE: Renderiza la lista cronológica de turnos del usuario y respuestas guardadas.
+// CÓMO FUNCIONA: Usa tarjetas Liquid Glass con iconografía Cupertino y restaura el prompt seleccionado.
+// POR QUÉ: Aplica principios SOLID dividiendo la lista de la hoja modal, manteniendo el archivo conciso (< 190 líneas).
+
 class _HistoryListView extends StatelessWidget {
   final List<ChatMessage> messages;
   final NanoColors colors;
@@ -34,28 +28,23 @@ class _HistoryListView extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 58,
+                height: 58,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      colors.glassPrimary.withValues(alpha: 0.85),
-                      colors.glassSurface.withValues(alpha: 0.40),
-                    ],
+                  color: colors.surface.withValues(
+                    alpha: isDark ? 0.35 : 0.60,
                   ),
                   border: Border.all(
-                    color: colors.onSurface.withValues(alpha: 0.15),
-                    width: 1.0,
+                    color: colors.outlineVariant.withValues(alpha: 0.25),
+                    width: 0.8,
                   ),
                 ),
                 child: Center(
                   child: Icon(
-                    Icons.history_rounded,
-                    size: 28,
-                    color: colors.onSurface.withValues(alpha: 0.70),
+                    CupertinoIcons.chat_bubble_2,
+                    size: 26,
+                    color: colors.onSurface.withValues(alpha: 0.65),
                   ),
                 ),
               ),
@@ -66,7 +55,7 @@ class _HistoryListView extends StatelessWidget {
                   fontFamily: 'Inter',
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: colors.onSurface.withValues(alpha: 0.8),
+                  color: colors.onSurface.withValues(alpha: 0.85),
                 ),
               ),
               const SizedBox(height: 6),
@@ -76,7 +65,7 @@ class _HistoryListView extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontSize: 12.5,
-                  color: colors.onSurface.withValues(alpha: 0.5),
+                  color: colors.onSurface.withValues(alpha: 0.50),
                   height: 1.4,
                 ),
               ),
@@ -110,11 +99,12 @@ class _HistoryListView extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: isDark ? const Color(0x331E293B) : const Color(0x0C000000),
+            color: colors.surface.withValues(alpha: isDark ? 0.28 : 0.45),
             border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.black.withValues(alpha: 0.06),
+              color: colors.outlineVariant.withValues(
+                alpha: isDark ? 0.25 : 0.18,
+              ),
+              width: 0.7,
             ),
           ),
           child: ListTile(
@@ -122,13 +112,23 @@ class _HistoryListView extends StatelessWidget {
               horizontal: 14,
               vertical: 6,
             ),
-            leading: CircleAvatar(
-              radius: 17,
-              backgroundColor: colors.accent.withValues(alpha: 0.14),
-              child: Icon(
-                Icons.chat_bubble_outline_rounded,
-                color: colors.accent,
-                size: 16,
+            leading: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: colors.accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colors.accent.withValues(alpha: 0.25),
+                  width: 0.7,
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  CupertinoIcons.chat_bubble_text_fill,
+                  color: colors.accent,
+                  size: 16,
+                ),
               ),
             ),
             title: Text(
@@ -162,7 +162,7 @@ class _HistoryListView extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.access_time_rounded,
+                      CupertinoIcons.clock,
                       size: 11,
                       color: colors.onSurface.withValues(alpha: 0.4),
                     ),
@@ -178,6 +178,11 @@ class _HistoryListView extends StatelessWidget {
                   ],
                 ),
               ],
+            ),
+            trailing: Icon(
+              CupertinoIcons.chevron_right,
+              size: 14,
+              color: colors.onSurface.withValues(alpha: 0.35),
             ),
             onTap: () => onSelectPrompt(userMsg.text),
           ),

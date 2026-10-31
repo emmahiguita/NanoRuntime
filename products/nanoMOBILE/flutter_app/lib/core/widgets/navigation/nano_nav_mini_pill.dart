@@ -23,8 +23,7 @@ class NanoNavMiniPill extends StatelessWidget {
   final String semanticLabel;
   final NanoInputToolContext? toolContext;
 
-  final VoidCallback onExpand;
-  final String semanticLabel;
+
 
   @override
   Widget build(BuildContext context) {

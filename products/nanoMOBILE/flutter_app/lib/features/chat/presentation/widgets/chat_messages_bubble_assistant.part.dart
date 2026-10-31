@@ -38,9 +38,9 @@ extension _MessageBubbleAssistantLayout on MessageBubble {
               // 1. Icono Avatar de Cristal Poliédrico 3D Compacto
               Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Nano3dCrystalIcon(
+                child: NanoBrandAvatar(
                   size: 28,
-                  isGlowing: !isError,
+                  isError: isError,
                   primaryColor: isError ? colors.error : colors.primary,
                 ),
               ),

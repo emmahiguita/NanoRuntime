@@ -42,13 +42,6 @@ class NotificationEventRouter {
 
   Timer? _periodicDrainTimer;
 
-  // FIX-2: set de fingerprints de snapshots activos ya procesados en esta
-  // sesión del router. Evita que _drainBacklog re-inyecte las mismas
-  // notificaciones activas (que no tienen inbox eventId) en bucle cada 20s.
-  final Set<String> _coldStartSeenKeys = {};
-
-  Timer? _periodicDrainTimer;
-
   void start() {
     if (_sub != null) return;
     final generation = ++_generation;

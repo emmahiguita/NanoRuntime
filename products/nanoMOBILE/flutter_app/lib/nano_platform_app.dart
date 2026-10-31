@@ -71,12 +71,12 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
 
     final darkColors =
         (settings.themeMode == 'Grisáceo' || settings.themeMode == 'Opaco')
-        ? NanoSpaceGrayColors()
-        : NanoDarkColors();
+        ? const NanoSpaceGrayColors()
+        : const NanoDarkColors();
 
     final lightColors = (settings.themeMode == 'Sistema')
-        ? NanoSystemLightColors()
-        : NanoLightColors();
+        ? const NanoSystemLightColors()
+        : const NanoLightColors();
 
     final lightTheme = AppTheme.buildTheme(
       lightColors,
@@ -122,12 +122,15 @@ class _NanoPlatformAppState extends ConsumerState<NanoPlatformApp>
         return Material(
           type: MaterialType.transparency,
           child: Overlay.wrap(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                child ?? const SizedBox.shrink(),
-                const BrowserPipOverlay(),
-              ],
+            child: NanoExternalSurface(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  NanoDrawerContentInset(child: child ?? const SizedBox.shrink()),
+                  const BrowserPipOverlay(),
+                  const NanoUniversalDrawerOverlay(),
+                ],
+              ),
             ),
           ),
         );

@@ -7,7 +7,11 @@ import 'whatsapp_command_input.dart';
 /// conservan el handler real y su cancelación; no crean otro ejecutor ni modelo.
 Future<String> runWhatsAppCommand(
   String input, {
-  required Future<String> Function(ToolCall) openChat,
+  required Future<String> Function(
+    ToolCall, {
+    ExecutionCancellationToken? cancellation,
+  })
+  openChat,
   required Future<String> Function(
     ToolCall, {
     ExecutionCancellationToken? cancellation,
@@ -56,6 +60,6 @@ Future<String> runWhatsAppCommand(
   );
   // El comando humano con texto es consentimiento explícito para enviar.
   return message.isEmpty
-      ? openChat(call)
+      ? openChat(call, cancellation: cancellation)
       : sendMessage(call, cancellation: cancellation);
 }

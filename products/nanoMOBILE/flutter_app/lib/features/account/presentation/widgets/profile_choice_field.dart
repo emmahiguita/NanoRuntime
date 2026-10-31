@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:nanoai/core/widgets/nano_glass_window.dart';
 
-/// Género e idioma comparten selector; su contenido desplaza en horizontal.
+/// GÃ©nero e idioma comparten selector; su contenido desplaza en horizontal.
 class ProfileChoiceField extends StatelessWidget {
   final String label, value;
   final IconData icon;
@@ -16,7 +16,7 @@ class ProfileChoiceField extends StatelessWidget {
     required this.onChanged,
   });
 
-  /// Espera selección y evita invocar al padre después de salir de la ruta.
+  /// Espera selecciÃ³n y evita invocar al padre despuÃ©s de salir de la ruta.
   Future<void> _choose(BuildContext context) async {
     final selected = await showNanoGlassWindow<String>(
       context: context,
@@ -51,7 +51,7 @@ class ProfileChoiceField extends StatelessWidget {
     if (context.mounted && selected != null) onChanged(selected);
   }
 
-  /// Área táctil nativa y textos flexibles, sin filas rígidas.
+  /// Ãrea tÃ¡ctil nativa y textos flexibles, sin filas rÃ­gidas.
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,

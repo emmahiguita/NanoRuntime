@@ -10,7 +10,7 @@ extension _AgentMessagingRouter on AgentToolDispatcher {
   }) async {
     switch (call.tool) {
       case 'whatsapp.open_chat' || 'whatsapp_open':
-        return _whatsAppHandler.openChat(call);
+        return _whatsAppHandler.openChat(call, cancellation: cancellation);
       case 'whatsapp.send_message' || 'whatsapp_send':
         return _whatsAppHandler.sendMessage(call, cancellation: cancellation);
       case 'whatsapp.share_file' || 'whatsapp.send_file' || 'whatsapp_share':

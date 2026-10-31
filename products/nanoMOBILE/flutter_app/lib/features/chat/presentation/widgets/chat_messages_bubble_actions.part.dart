@@ -6,14 +6,14 @@ extension _MessageBubbleAssistantActions on MessageBubble {
     if (lower.contains('profundiz') ||
         lower.contains('detalle') ||
         lower.contains('más')) {
-      return Icons.menu_book_rounded;
+      return CupertinoIcons.book;
     }
     if (lower.contains('ejemplo') ||
         lower.contains('práctico') ||
         lower.contains('idea')) {
-      return Icons.lightbulb_outline_rounded;
+      return CupertinoIcons.lightbulb;
     }
-    return Icons.navigate_next_rounded;
+    return CupertinoIcons.chevron_right;
   }
 
   // QUÉ HACE: renderiza las opciones de sugerencia rápida estilo iOS Translucent Glass Capsules.
@@ -79,7 +79,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
                       ),
                       const SizedBox(width: 4),
                       const Icon(
-                        Icons.arrow_forward_ios_rounded,
+                        CupertinoIcons.chevron_right,
                         size: 9.5,
                         color: Color(0xFF58D2FE),
                       ),
@@ -105,7 +105,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
     children: [
       if (!isError) ...[
         _QuickActionButton(
-          icon: Icons.copy_rounded,
+          icon: CupertinoIcons.doc_on_doc,
           tooltip: 'Copiar respuesta',
           onTap: () async {
             HapticFeedback.lightImpact();
@@ -124,7 +124,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
         ),
         const SizedBox(width: 6),
         _QuickActionButton(
-          icon: Icons.thumb_up_alt_outlined,
+          icon: CupertinoIcons.hand_thumbsup,
           tooltip: 'Me gusta',
           onTap: () {
             HapticFeedback.lightImpact();
@@ -132,7 +132,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
         ),
         const SizedBox(width: 6),
         _QuickActionButton(
-          icon: Icons.thumb_down_alt_outlined,
+          icon: CupertinoIcons.hand_thumbsdown,
           tooltip: 'No me gusta',
           onTap: () {
             HapticFeedback.lightImpact();
@@ -163,7 +163,7 @@ extension _MessageBubbleAssistantActions on MessageBubble {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.refresh_rounded,
+                      CupertinoIcons.arrow_clockwise,
                       size: 13,
                       color: Color(0xFF42D7FF),
                     ),

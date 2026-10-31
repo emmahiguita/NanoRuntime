@@ -29,15 +29,20 @@ class AppTheme {
               secondaryContainer: c.secondaryContainer,
               onSecondaryContainer: c.onSurface,
               surface: c.surface,
+              surfaceContainerLowest: c.backgroundDeep,
               surfaceContainer: c.surfaceVariant,
               surfaceContainerLow: c.backgroundPrimary,
               surfaceContainerHigh: c.backgroundElevated,
               surfaceContainerHighest: c.backgroundPearl,
+              surfaceDim: c.backgroundSecondary,
+              surfaceBright: c.surfaceVariant,
               onSurface: c.onSurface,
               onSurfaceVariant: c.onSurfaceVariant,
               outline: c.outline,
               outlineVariant: c.outlineVariant,
               error: c.error,
+              tertiary: c.tertiary,
+              onTertiary: NanoPaletteBrightness.foreground(c.tertiary),
             )
           : ColorScheme.light(
               primary: c.accent,
@@ -60,7 +65,11 @@ class AppTheme {
               tertiary: c.tertiary,
               error: c.error,
             ),
-      scaffoldBackgroundColor: Colors.transparent,
+      // Negro también en pantallas sin fondo decorativo. Claro y Gris espacial
+      // conservan sus fondos existentes; los paneles usan GlassSurface aparte.
+      scaffoldBackgroundColor: c is NanoDarkColors
+          ? c.background
+          : Colors.transparent,
       textTheme: _nanoTextTheme.copyWith(
         bodyLarge: _nanoTextTheme.bodyLarge?.copyWith(
           color: c.onSurface,
@@ -135,7 +144,7 @@ class AppTheme {
   /// Tema opaco / grisáceo: titanio pizarra mate, grafito y acentos metálicos (Space Gray).
   static final spaceGray = _base(const NanoSpaceGrayColors());
 
-  /// Tema oscuro: paleta oscura profunda obsidian con tipografía blanca nítida y azul cósmico.
+  /// Tema oscuro: negro neutro, superficies carbón y tipografía clara.
   static final dark = _base(const NanoDarkColors());
 
   static final systemLight = _base(const NanoSystemLightColors());

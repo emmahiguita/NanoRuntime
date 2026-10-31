@@ -6,13 +6,15 @@ import 'package:archive/archive.dart';
 /// de salida, además del tamaño declarado, para evitar ZIP bombs en el móvil.
 List<int> readExportZip(List<int> bytes) {
   final directory = ZipDirectory.read(InputStream(bytes));
-  if (directory.fileHeaders.length > 512)
+  if (directory.fileHeaders.length > 512) {
     throw const FormatException('Demasiados archivos en el ZIP.');
+  }
   final entries = directory.fileHeaders
       .where((h) => h.filename.toLowerCase().endsWith('.txt'))
       .toList();
-  if (entries.length != 1)
+  if (entries.length != 1) {
     throw const FormatException('El ZIP debe contener un único TXT.');
+  }
   final header = entries.single;
   if ((((header.externalFileAttributes ?? 0) >> 16) & 0xf000) == 0xa000 ||
       (header.uncompressedSize ?? 0) > 8 * 1024 * 1024) {

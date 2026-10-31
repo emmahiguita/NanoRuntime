@@ -51,18 +51,3 @@ String _capacityPersonalSystem({required bool structured}) => [
     PersonalPromptPolicy.plainOutput,
 ].join('\n');
 
-// QUÉ: corrige solo el defecto observado, sin repetir todo el contrato.
-// CÓMO: el sistema original conserva permisos, hechos y tono; esta línea guía
-// una única regeneración. Nunca inserta la respuesta rechazada en la memoria.
-String _qualityRevisionInstruction(String? failure) => switch (failure) {
-  'unverified_activity' =>
-    'Reformula sobre esta conversación, que sí está ocurriendo. No constan otra actividad física, ubicación ni planes del dueño. Responde al contacto sin explicar esta revisión.',
-  'speaker_confusion' =>
-    'Ese nombre pertenece al contacto. Contéstale en segunda persona; conserva sus datos y correcciones.',
-  null => 'Reformula sin tono de soporte ni ofrecimientos no solicitados.',
-  'redundant_restatement' =>
-    'El contacto ya afirmó ese gusto o dato. No se lo repitas ni le preguntes si es fan de eso; continúa la charla de forma natural (por ejemplo preguntando qué equipo sigue o comentando al respecto).',
-  _ =>
-    'Responde al sentido del mensaje, sin copiarlo ni repetir palabras. '
-        'No expliques esta revisión.',
-};

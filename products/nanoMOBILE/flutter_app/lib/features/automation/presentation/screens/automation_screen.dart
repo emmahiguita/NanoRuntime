@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:nanoai/core/providers/settings_provider.dart';
+import 'package:nanoai/core/theme/design_tokens.dart';
 import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/theme/nano_hero_source.dart';
 import 'package:nanoai/core/theme/nano_hero_zoom_route.dart';
@@ -17,10 +18,8 @@ import '../personal/nano_personal_screen.dart';
 
 /// El centro de control operativo de NanoAutomation.
 ///
-/// NO es una consola de debugging: es el dashboard del asistente. Muestra
-/// estado + composer + quick actions + capacidades + ejecuciones recientes.
-/// Las herramientas técnicas viven en la pantalla Dev (icono en el header).
-/// Solo un botón atrás (NanoScreenShell, auto) — sin panel de navegación.
+/// Presenta el dashboard del asistente con diseño Adaptive Glass y Intelligent Motion.
+/// Soporta tema claro (blanco hielo) y tema oscuro (grafito profundo) con materiales premium.
 class AutomationScreen extends ConsumerWidget {
   final bool isEmbeddedInShell;
 
@@ -31,20 +30,18 @@ class AutomationScreen extends ConsumerWidget {
     final visualMode = AutomationVisual.modeFromSetting(
       ref.watch(settingsProvider.select((settings) => settings.themeMode)),
     );
+    final colors = NanoThemeExtension.of(context).colors;
     final dashboardContent = DecoratedBox(
       decoration: BoxDecoration(
-        gradient: Theme.of(context).brightness == Brightness.dark
-            ? const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-                colors: [Color(0xFF041B47), Color(0xFF072657)])
-            : null,
+        color: colors.backgroundPrimary,
       ),
       child: AutomationDashboard(
-      onSettingsTap: () => _openSettings(context),
-      onMessagesTap: () => context.push('/automation/messages'),
-      onRulesTap: () => _openRules(context),
-      onBusinessTap: _openBusiness,
-      onPersonalAgentTap: _openPersonalAgent,
-      onDevTap: () => _openDev(context),
+        onSettingsTap: () => _openSettings(context),
+        onMessagesTap: () => context.push('/automation/messages'),
+        onRulesTap: () => _openRules(context),
+        onBusinessTap: _openBusiness,
+        onPersonalAgentTap: _openPersonalAgent,
+        onDevTap: () => _openDev(context),
       ),
     );
 
@@ -55,11 +52,10 @@ class AutomationScreen extends ConsumerWidget {
       child: Builder(
         builder: (context) {
           if (isEmbeddedInShell) {
-            // La shell deja Inicio a pantalla completa: proteger la cabecera
-            // aquí evita que quede debajo del reloj o de una cámara recortada.
             return SafeArea(bottom: false, child: dashboardContent);
           }
           return Scaffold(
+            backgroundColor: colors.backgroundPrimary,
             resizeToAvoidBottomInset: false,
             body: NanoShellBarScope(
               child: SafeArea(

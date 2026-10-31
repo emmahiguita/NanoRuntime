@@ -16,7 +16,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/feather_core_icon.dart';
+import '../../../../core/widgets/nano_business_icon.dart';
 import '../automation_visual_theme.dart';
 import 'nano_business_status_badge.dart';
 
@@ -61,20 +61,10 @@ class NanoBusinessLandscapeBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          // 2. Icono representativo de negocio
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: visual.accent.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(
-              child: FeatherCoreIcon(
-                type: FeatherCoreType.whatsappBusiness,
-                size: 16,
-              ),
-            ),
+          // 2. Icono representativo de negocio iOS squircle
+          const NanoBusinessIcon(
+            size: 28,
+            isTile: true,
           ),
           const SizedBox(width: 8),
           // 3. Título del negocio
@@ -88,44 +78,57 @@ class NanoBusinessLandscapeBar extends StatelessWidget {
                 color: visual.text,
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
               ),
             ),
           ),
           const SizedBox(width: 8),
-          // 4. Selector interactivo de estado (Activo/Pausado) en formato compacto
+          // 4. Badge interactivo de estado operativo
           NanoBusinessStatusBadge(
             isActive: isActive,
             onChanged: onToggleActive,
             compact: true,
           ),
-          const SizedBox(width: 12),
-          const VerticalDivider(width: 1, indent: 10, endIndent: 10),
-          const SizedBox(width: 8),
-          // 5. Pestañas de navegación compactas
-          Expanded(
+          const Spacer(),
+          // 5. Contenedor flexible para que el TabBar se integre en la barra
+          Flexible(
+            flex: 2,
             child: TabBar(
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               indicatorColor: visual.accent,
+              indicatorWeight: 3,
               labelColor: visual.accent,
               unselectedLabelColor: visual.textMuted,
               labelStyle: const TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),
               unselectedLabelStyle: const TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
-              dividerColor: Colors.transparent,
-              padding: EdgeInsets.zero,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 10),
               tabs: const [
-                Tab(text: 'Negocio'),
-                Tab(text: 'Productos'),
-                Tab(text: 'Pagos'),
-                Tab(text: 'Atención'),
-                Tab(text: 'Canales'),
+                Tab(
+                  icon: Icon(Icons.chat_bubble_outline, size: 16),
+                  text: 'Canales',
+                ),
+                Tab(
+                  icon: Icon(Icons.inventory_2_outlined, size: 16),
+                  text: 'Catálogo',
+                ),
+                Tab(
+                  icon: Icon(Icons.receipt_long_outlined, size: 16),
+                  text: 'Pagos',
+                ),
+                Tab(
+                  icon: Icon(Icons.smart_toy_outlined, size: 16),
+                  text: 'Servicio',
+                ),
+                Tab(
+                  icon: Icon(Icons.tune_rounded, size: 16),
+                  text: 'Ajustes',
+                ),
               ],
             ),
           ),

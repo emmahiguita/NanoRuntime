@@ -1,12 +1,12 @@
 // business_library_header.dart
 //
 // QUÉ HACE:
-// Encabezado iOS adaptable de la biblioteca comercial.
+// Encabezado iOS adaptable de la biblioteca comercial y catálogo.
 // Muestra acciones contextuales según la sección activa (Archivos vs Tienda).
 //
 // CÓMO FUNCIONA:
 // - En modo Documentos: ofrece botones para 'Nueva carpeta' e 'Importar'.
-// - En modo Tienda: ofrece botón para 'Nuevo producto' y subtítulo comercial.
+// - En modo Tienda: botón '+' esmeralda para nuevo producto y subtítulo dinámico.
 //
 // POR QUÉ:
 // Mantiene coherencia visual y evita saturación de controles (< 175 líneas).
@@ -19,6 +19,7 @@ class BusinessLibraryHeader extends StatelessWidget {
   final bool isDark;
   final bool isChatPicker;
   final bool isStore;
+  final int productsCount;
   final VoidCallback onCreateFolder;
   final VoidCallback onImport;
   final VoidCallback? onAddProduct;
@@ -29,6 +30,7 @@ class BusinessLibraryHeader extends StatelessWidget {
     required this.isDark,
     required this.isChatPicker,
     this.isStore = false,
+    this.productsCount = 0,
     required this.onCreateFolder,
     required this.onImport,
     this.onAddProduct,
@@ -38,7 +40,6 @@ class BusinessLibraryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      // La cabecera hereda la misma paleta que el marco de cristal.
       final colors = Theme.of(context).colorScheme;
       final compact = constraints.maxWidth < 430;
       return Padding(
@@ -63,6 +64,10 @@ class BusinessLibraryHeader extends StatelessWidget {
                     onPressed: () => WhatsAppMediaLibrary.show(context),
                     icon: Icon(Icons.perm_media_outlined, color: colors.onSurfaceVariant),
                   ),
+                if (isStore && onAddProduct != null) ...[
+                  _addButton(colors, onAddProduct!),
+                  const SizedBox(width: 6),
+                ],
                 _closeButton(colors),
               ],
             ),
@@ -97,23 +102,45 @@ class BusinessLibraryHeader extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Text(
-        isStore ? 'Catálogo & Tienda' : 'Biblioteca',
+        isStore ? 'Catálogo y tienda' : 'Biblioteca',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: colors.onSurface, fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.4),
+        style: TextStyle(color: colors.onSurface, fontSize: 19, fontWeight: FontWeight.w700, letterSpacing: -0.4),
       ),
-      const SizedBox(height: 2),
+      const SizedBox(height: 1.5),
       Text(
         isStore
             ? (isChatPicker
                   ? 'Selecciona productos para enviar'
-                  : 'Inventario, precios y stock sincronizados con tu IA')
+                  : '$productsCount ${productsCount == 1 ? 'producto' : 'productos'} · Inventario actualizado')
             : (isChatPicker ? 'Selecciona archivos para enviar' : 'Carpetas y documentos para compartir'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11, fontWeight: FontWeight.w400),
+        style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11.5, fontWeight: FontWeight.w500),
       ),
     ],
+  );
+
+  Widget _addButton(ColorScheme colors, VoidCallback onTap) => CupertinoButton(
+    onPressed: onTap,
+    minimumSize: const Size.square(34),
+    padding: EdgeInsets.zero,
+    child: Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: const Color(0xFF10B981), // Verde esmeralda sobrio
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF10B981).withValues(alpha: 0.28),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Icon(CupertinoIcons.plus, size: 18, color: Colors.white),
+    ),
   );
 
   Widget _btn(ColorScheme colors, IconData icon, String label, VoidCallback onTap) => CupertinoButton(

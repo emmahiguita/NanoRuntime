@@ -32,7 +32,9 @@ class NanoIosNativeAiPort implements NanoNativeAiPort {
 
     // 2. Fallback de interoperabilidad: hoja de compartir estándar de iOS
     try {
-      final result = await Share.share(cleanPrompt);
+      final result = await SharePlus.instance.share(
+        ShareParams(text: cleanPrompt),
+      );
       return result.status == ShareResultStatus.success;
     } catch (_) {
       return false;

@@ -1,0 +1,31 @@
+﻿{
+    "visualDeviceInspection":  false,
+    "build":  {
+                  "variant":  "fullSideloadDebug",
+                  "apk":  "build/app/outputs/flutter-apk/app-fullsideload-debug.apk",
+                  "exitCode":  0,
+                  "bytes":  191384021,
+                  "sha256":  "BA73F1F5564B8DC30477FC24CC671B13BC126AB42865F47B745CFDA253790F04"
+              },
+    "analysis":  {
+                     "info":  93,
+                     "errors":  0,
+                     "warnings":  0
+                 },
+    "installationReason":  "OPPO no detectado por diagnóstico ADB",
+    "independentReview":  {
+                              "runtimeVerification":  "pendiente",
+                              "findings":  [
+                                               "adjunto al desmontar",
+                                               "importaciones concurrentes",
+                                               "tema nativo cacheado"
+                                           ],
+                              "sourceFixesApplied":  true
+                          },
+    "date":  "2026-10-28",
+    "graphUpdate":  "AST actualizado, sin LLM",
+    "testsRun":  false,
+    "whatsAppSends":  false,
+    "installed":  false,
+    "finalBuildSeconds":  11.8
+}

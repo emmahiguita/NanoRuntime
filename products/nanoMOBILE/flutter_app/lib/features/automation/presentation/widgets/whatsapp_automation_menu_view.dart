@@ -60,6 +60,8 @@ extension _WhatsAppMenuView on _WhatsAppActionsState {
               () => _stage('Abre WhatsApp'),
               icon: Icons.open_in_new_rounded,
             ),
+            for (final entry in widget.extraActions.entries)
+              _row(context, entry.key, () => _stage(entry.value)),
           ] else
             _recipientForm(context),
         ],

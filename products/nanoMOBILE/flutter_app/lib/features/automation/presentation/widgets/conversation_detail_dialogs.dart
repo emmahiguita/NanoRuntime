@@ -1,4 +1,4 @@
-// conversation_detail_dialogs.dart
+﻿// conversation_detail_dialogs.dart
 //
 // QUÉ HACE:
 // Despliega diálogos informativos y modales de confirmación en el detalle de conversación:
@@ -71,38 +71,6 @@ extension ConversationDetailDialogs on _ConversationDetailSheetState {
           ],
         ),
       ),
-    );
-  }
-
-  Future<void> _showMissingPhoneDialog(
-    BuildContext context,
-    String contactName,
-  ) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return NanoGlassDialog.show<void>(
-      context: context,
-      title: 'Destino no verificable',
-      subtitle: 'Validación de seguridad para $contactName',
-      icon: Icons.shield_outlined,
-      iconColor: const Color(0xFFF59E0B),
-      content: Text(
-        'No hay una notificación activa en barra ni un número registrado para $contactName.\n\n'
-        'Por seguridad, Nano no enviará a ciegas para evitar despachar a otro chat.',
-        style: TextStyle(
-          color: isDark ? Colors.white70 : const Color(0xFF475569),
-          fontSize: 13,
-          height: 1.4,
-        ),
-      ),
-      actions: [
-        NanoMetallicButton(
-          label: 'Entendido',
-          icon: Icons.check_rounded,
-          style: NanoMetallicButtonStyle.primary,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ],
     );
   }
 }

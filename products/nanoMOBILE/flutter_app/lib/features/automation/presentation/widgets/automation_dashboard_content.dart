@@ -1,28 +1,26 @@
-/// AUTOMATION-DASHBOARD-CONTENT — Contenido scrolleable del dashboard.
+/// AUTOMATION-DASHBOARD-CONTENT — Contenido scrolleable del dashboard de Automatización.
 ///
 /// QUÉ HACE:
-/// Ensambla la jerarquía visual de la pantalla: header, card de ejecución activa,
-/// 4 pilares unificados de acción y tarjeta de estado del engine local.
+/// Ensambla la jerarquía visual de la pantalla: header con identidad y controles,
+/// tarjeta de ejecución contextual reactiva, y secciones principales (Banner, Agentes, Herramientas).
 ///
 /// CÓMO FUNCIONA:
-/// Recibe el estado reactivo y construye la vista responsiva respetando márgenes seguros.
+/// Aplica márgenes de 16/20dp y se coordina con la reserva de NanoDockViewport sin duplicar padding.
 ///
 /// POR QUÉ:
-/// Desacopla la vista de la máquina de estados manteniendo cada archivo < 200 líneas.
+/// Cumple la regla de arquitectura limpia, código < 200 líneas y cero solapamiento con la navegación.
 library;
 
 import 'package:flutter/material.dart';
 import '../../../../core/providers/settings_provider.dart';
 import '../../../../core/theme/design_tokens.dart';
-import '../../../../core/widgets/navigation/nano_navigation_panel.dart';
 import '../../domain/automation_result.dart';
 import '../automation_layout.dart';
 import 'automation_active_card.dart';
 import 'automation_compact_status.dart';
 import 'automation_agent_header.dart';
 import 'automation_dashboard_actions.dart';
-import 'engine_status_card.dart';
-import 'automation_history_card.dart';
+import 'automation_history_panel.dart';
 
 class AutomationDashboardContent extends StatelessWidget {
   const AutomationDashboardContent({
@@ -89,9 +87,13 @@ class AutomationDashboardContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final isCompact = width < 380;
+    final horizontalPadding = isCompact ? 16.0 : 20.0;
+
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, kNanoBarScrollReserve),
+      padding: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 96),
       child: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(
@@ -109,9 +111,10 @@ class AutomationDashboardContent extends StatelessWidget {
                 onConversationTap: onActivateConversation,
                 isConversationActive: conversationActive,
                 isRunning: running,
+                onHistoryTap: () => showAutomationHistory(context),
               ),
               if (running || lastStatus != null) ...[
-                const SizedBox(height: NanoSpacing.lg),
+                const SizedBox(height: NanoSpacing.md),
                 if (compactExecution)
                   AutomationCompactStatus(
                     goal: lastGoal,
@@ -129,9 +132,7 @@ class AutomationDashboardContent extends StatelessWidget {
                     onConfirm: onConfirmTask,
                   ),
               ],
-              const SizedBox(height: 6),
-              const AutomationHistoryCard(),
-              const SizedBox(height: 6),
+              const SizedBox(height: 18),
               QuickAutomationActions(
                 onRun: onRunTask,
                 onMessagesTap: onMessagesTap,
@@ -151,8 +152,6 @@ class AutomationDashboardContent extends StatelessWidget {
                 isW4bActive: isW4bActive,
                 modeLabel: settings.agentAutomationMode.label,
               ),
-              const SizedBox(height: 20),
-              const EngineStatusCard(cleanAppearance: true),
             ],
           ),
         ),

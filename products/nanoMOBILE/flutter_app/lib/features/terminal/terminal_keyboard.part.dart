@@ -28,8 +28,9 @@ mixin _TerminalKeyboard on _TerminalStateBase {
     if (_ptyActive &&
         !widget.directInput &&
         !_ctrl &&
-        !HardwareKeyboard.instance.isAltPressed)
+        !HardwareKeyboard.instance.isAltPressed) {
       return false;
+    }
     if (_ptyActive) {
       if (_ctrl) {
         if (e.logicalKey == LogicalKeyboardKey.keyC) {

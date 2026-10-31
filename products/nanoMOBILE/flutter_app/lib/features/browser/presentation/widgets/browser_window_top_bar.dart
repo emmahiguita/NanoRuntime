@@ -1,3 +1,9 @@
+﻿// browser_window_top_bar.dart — Barra superior estilo Safari iOS para el navegador web.
+// QUÉ HACE: Aloja navegación web (atrás/adelante), omnibox, selector de modo de vista y controles.
+// CÓMO FUNCIONA: Asigna el mayor ancho al omnibox eliminando accesos redundantes.
+// POR QUÉ: Mantiene la barra de URL amplia y legible sin desbordamientos en móvil (< 130 líneas).
+library;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -8,11 +14,6 @@ import 'browser_view_mode_button.dart';
 import 'browser_window_controls.dart';
 import 'browser_window_omnibox.dart';
 
-/// Barra superior estilo Safari iOS con omnibox ampliado y distribución optimizada.
-///
-/// - QUÉ HACE: Aloja navegación, omnibox espacioso, contador de pestañas y menú.
-/// - CÓMO FUNCIONA: Asigna más del 70% del ancho al campo de dirección eliminando botones redundantes.
-/// - POR QUÉ: Evita que el campo de URL se sienta encogido o solapado en teléfonos (<200 líneas).
 class BrowserWindowTopBar extends StatelessWidget {
   final BrowserTabModel activeTab;
   final int tabCount;
@@ -50,7 +51,9 @@ class BrowserWindowTopBar extends StatelessWidget {
         color: isDark ? const Color(0xF00D131F) : const Color(0xF5F8FAFC),
         border: Border(
           bottom: BorderSide(
-            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.06),
             width: 0.8,
           ),
         ),
@@ -61,7 +64,8 @@ class BrowserWindowTopBar extends StatelessWidget {
           builder: (context, constraints) {
             final isWide = constraints.maxWidth >= 500;
             final showForward = isWide;
-            final backAction = activeTab.canGoBack ? onBack : (onExit ?? onBack);
+            final backAction =
+                activeTab.canGoBack ? onBack : (onExit ?? onBack);
 
             final address = BrowserWindowOmnibox(
               url: activeTab.url,
@@ -72,7 +76,8 @@ class BrowserWindowTopBar extends StatelessWidget {
               progress: activeTab.progress,
               onSubmitted: onNavigate,
               onReload: onReload,
-              onStop: controller == null ? null : () => controller!.stopLoading(),
+              onStop:
+                  controller == null ? null : () => controller!.stopLoading(),
             );
 
             final controls = BrowserWindowControls(

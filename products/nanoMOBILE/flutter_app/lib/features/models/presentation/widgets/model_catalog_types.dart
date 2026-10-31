@@ -55,22 +55,57 @@ class ModelFilterHelper {
     Set<String>? favorites,
   }) {
     final list = <UnifiedModelItem>[];
+    final seenCatalogNames = <String>{};
+    final seenCatalogFiles = <String>{};
+
     if (filter != 'SD / Local') {
-      list.addAll(catalog.map((m) => UnifiedModelItem.catalog(m)));
+      for (final m in catalog) {
+        final normName = m.name.toLowerCase().trim();
+        final normFile = m.fileName.toLowerCase().trim();
+        if (seenCatalogNames.contains(normName) ||
+            (normFile.isNotEmpty && seenCatalogFiles.contains(normFile))) {
+          continue;
+        }
+        seenCatalogNames.add(normName);
+        if (normFile.isNotEmpty) seenCatalogFiles.add(normFile);
+        list.add(UnifiedModelItem.catalog(m));
+      }
     }
+
     if (filter == 'Todos' ||
         filter == 'SD / Local' ||
         filter == 'Instalados' ||
         filter == 'Favoritos') {
-      list.addAll(detected.map((d) => UnifiedModelItem.detected(d)));
+      final seenDetectedNames = <String>{};
+      final seenDetectedPaths = <String>{};
+
+      for (final d in detected) {
+        if (!d.usable) continue;
+        final normName = d.name.toLowerCase().trim();
+        final normPath = d.path?.toLowerCase().trim();
+
+        if (seenCatalogFiles.contains(normName) || seenCatalogNames.contains(normName)) {
+          continue;
+        }
+        if (seenDetectedNames.contains(normName) ||
+            (normPath != null && seenDetectedPaths.contains(normPath))) {
+          continue;
+        }
+        seenDetectedNames.add(normName);
+        if (normPath != null) seenDetectedPaths.add(normPath);
+        list.add(UnifiedModelItem.detected(d));
+      }
     }
 
     final filtered = list.where((item) {
       final q = query.toLowerCase();
-      final matches =
-          q.isEmpty ||
+      final matches = q.isEmpty ||
           item.name.toLowerCase().contains(q) ||
-          item.company.toLowerCase().contains(q);
+          item.company.toLowerCase().contains(q) ||
+          item.categoryLabel.toLowerCase().contains(q) ||
+          item.format.toLowerCase().contains(q) ||
+          item.fileName.toLowerCase().contains(q) ||
+          item.purposeNarrative.toLowerCase().contains(q);
       if (!matches) return false;
       return switch (filter) {
         'Instalados' => item.installed,

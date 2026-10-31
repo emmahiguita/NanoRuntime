@@ -1,3 +1,5 @@
+import 'package:nanoai/features/browser/domain/browser_scheme_origin_trust.dart';
+
 /// Tipo de destino para clasificar solicitudes de navegación antes del firewall.
 enum NavigationTargetType {
   web,
@@ -13,13 +15,14 @@ enum NavigationTargetType {
 /// Clasifica esquemas de navegación y define políticas de deep links e intenciones externas.
 ///
 /// CÓMO FUNCIONA:
-/// Separa esquemas web (http/https), recursos internos legítimos (about/blob/data),
+/// Separa esquemas web (http/https), recursos internos legítimos (about/blob),
 /// handlers de comunicación (tel/mailto/market) y deep links de aplicaciones externas
-/// (snssdk1340, intent, etc.) antes de la inspección del firewall de red.
+/// antes de la inspección del firewall de red. Bloquea `data:`, `javascript:`, `file:` y `content:`
+/// en navegaciones de nivel superior (`shouldOverrideUrlLoading`).
 ///
 /// POR QUÉ:
-/// Evita clasificar erróneamente esquemas de aplicaciones externas como amenazas de red local
-/// o puertos cerrados, protegiendo a la vez contra lanzamientos no solicitados desde orígenes no confiables.
+/// Evita phishing mediante `data:text/html` en el frame principal y delega la validación
+/// de confianza por origen a `BrowserSchemeOriginTrust` para mantener menos de 200 líneas.
 class BrowserNavigationPolicy {
   const BrowserNavigationPolicy._();
 
@@ -28,27 +31,18 @@ class BrowserNavigationPolicy {
     'content',
     'chrome',
     'javascript',
+    'vbscript',
+    'data',
   };
 
   static const Set<String> _internalWebSchemes = {
     'about',
     'blob',
-    'data',
   };
 
-  static const Set<String> _phoneSchemes = {
-    'tel',
-    'sms',
-  };
-
-  static const Set<String> _emailSchemes = {
-    'mailto',
-  };
-
-  static const Set<String> _storeSchemes = {
-    'market',
-    'itms-apps',
-  };
+  static const Set<String> _phoneSchemes = {'tel', 'sms'};
+  static const Set<String> _emailSchemes = {'mailto'};
+  static const Set<String> _storeSchemes = {'market', 'itms-apps'};
 
   static const Set<String> _knownExternalAppSchemes = {
     'intent',
@@ -76,137 +70,47 @@ class BrowserNavigationPolicy {
     'reddit',
   };
 
-  static const Set<String> _tikTokSchemes = {
-    'snssdk1340',
-    'snssdk1180',
-    'snssdk1233',
-    'tiktok',
-  };
-
-  /// Hosts de proveedores de identidad federada (OAuth).
-  ///
-  /// Sus flujos de login (Google Identity Services, Apple, GitHub, Microsoft)
-  /// requieren `window.open` en modo popup y fallan silenciosamente en WebViews
-  /// con multi-ventana deshabilitada. Única lista que habilita popups.
-  static const Set<String> _oAuthProviderHosts = {
-    'accounts.google.com',
-    'appleid.apple.com',
-    'github.com',
-    'login.microsoftonline.com',
-  };
-
-  /// Variantes regionales de los proveedores anteriores bajo sus dominios
-  /// raíz (accounts.google.com.mx, accounts.google.co.uk,
-  /// login.microsoftonline.de, ...). Seguro porque cualquier subdominio de
-  /// esos dominios raíz pertenece al proveedor; el ancla `$` impide sufijos
-  /// falsificados tipo accounts.google.com.evil.
-  static final RegExp _oAuthRegionalHostPattern = RegExp(
-    r'^(accounts\.google\.[a-z]{2,3}(\.[a-z]{2,3})?'
-    r'|login\.microsoftonline\.[a-z]{2,3})$',
-  );
-
   static final RegExp _customSchemePattern = RegExp(r'^[a-z][a-z0-9+.-]*$');
 
   /// Clasifica una URI según su esquema antes de someterla a validaciones de red.
   static NavigationTargetType classifyUri(Uri uri) {
     final scheme = uri.scheme.toLowerCase();
     if (scheme.isEmpty) return NavigationTargetType.unsupported;
-
-    if (scheme == 'http' || scheme == 'https') {
-      return NavigationTargetType.web;
-    }
-
+    if (scheme == 'http' || scheme == 'https') return NavigationTargetType.web;
     if (_internalWebSchemes.contains(scheme)) {
       return NavigationTargetType.internalWeb;
     }
-
-    if (_phoneSchemes.contains(scheme)) {
-      return NavigationTargetType.phone;
-    }
-
-    if (_emailSchemes.contains(scheme)) {
-      return NavigationTargetType.email;
-    }
-
-    if (_storeSchemes.contains(scheme)) {
-      return NavigationTargetType.store;
-    }
-
+    if (_phoneSchemes.contains(scheme)) return NavigationTargetType.phone;
+    if (_emailSchemes.contains(scheme)) return NavigationTargetType.email;
+    if (_storeSchemes.contains(scheme)) return NavigationTargetType.store;
     if (_blockedSchemes.contains(scheme)) {
       return NavigationTargetType.unsupported;
     }
-
-    if (isExternalAppScheme(scheme)) {
-      return NavigationTargetType.externalApp;
-    }
-
+    if (isExternalAppScheme(scheme)) return NavigationTargetType.externalApp;
     return NavigationTargetType.unsupported;
   }
 
   /// Determina si un esquema corresponde a TikTok (ej. snssdk1340).
-  static bool isTikTokScheme(String scheme) {
-    final s = scheme.trim().toLowerCase();
-    return _tikTokSchemes.contains(s) || s.startsWith('snssdk');
-  }
+  static bool isTikTokScheme(String scheme) =>
+      BrowserSchemeOriginTrust.isTikTokScheme(scheme);
 
   /// Determina si el host pertenece a un proveedor OAuth federado permitido.
-  static bool isOAuthProviderHost(String host) {
-    final h = host.trim().toLowerCase();
-    if (h.isEmpty) return false;
-    for (final p in _oAuthProviderHosts) {
-      if (h == p || h.endsWith('.$p')) return true;
-    }
-    return _oAuthRegionalHostPattern.hasMatch(h);
-  }
+  static bool isOAuthProviderHost(String host) =>
+      BrowserSchemeOriginTrust.isOAuthProviderHost(host);
 
   /// Determina si el origen web corresponde a TikTok.
-  static bool isTikTokOrigin(String origin) {
-    final clean = origin.trim().toLowerCase();
-    try {
-      final uri = Uri.tryParse(clean);
-      final host = (uri != null && uri.host.isNotEmpty) ? uri.host : clean;
-      return host == 'tiktok.com' ||
-          host.endsWith('.tiktok.com') ||
-          clean.contains('tiktok.com');
-    } catch (_) {
-      return clean.contains('tiktok.com');
-    }
-  }
+  static bool isTikTokOrigin(String origin) =>
+      BrowserSchemeOriginTrust.isTikTokOrigin(origin);
 
   /// Verifica si el esquema solicitado tiene relación legítima con el origen web emisor.
   static bool isTrustedSchemeForOrigin({
     required String scheme,
     required String origin,
-  }) {
-    final s = scheme.trim().toLowerCase();
-    final o = origin.trim().toLowerCase();
-
-    if (isTikTokScheme(s)) {
-      return isTikTokOrigin(o);
-    }
-
-    if (s == 'whatsapp') {
-      return o.contains('whatsapp.com') || o.contains('wa.me');
-    }
-
-    if (s == 'tg' || s == 'telegram') {
-      return o.contains('telegram.org') || o.contains('t.me');
-    }
-
-    if (s == 'instagram') {
-      return o.contains('instagram.com');
-    }
-
-    if (s == 'twitter' || s == 'x') {
-      return o.contains('twitter.com') || o.contains('x.com');
-    }
-
-    if (s == 'youtube' || s == 'vnd.youtube') {
-      return o.contains('youtube.com') || o.contains('youtu.be');
-    }
-
-    return false;
-  }
+  }) =>
+      BrowserSchemeOriginTrust.isTrustedSchemeForOrigin(
+        scheme: scheme,
+        origin: origin,
+      );
 
   /// Indica si el esquema corresponde a una aplicación externa conocida o personalizada.
   static bool isExternalAppScheme(String scheme) {
@@ -242,12 +146,8 @@ class BrowserNavigationPolicy {
           }
         }
       }
-      if (uri.scheme == 'about') {
-        return uri.toString();
-      }
-      if (uri.host.isNotEmpty) {
-        return uri.host;
-      }
+      if (uri.scheme == 'about') return uri.toString();
+      if (uri.host.isNotEmpty) return uri.host;
     }
 
     if (headers != null) {
@@ -271,7 +171,6 @@ class BrowserNavigationPolicy {
         }
       }
     }
-
     return '';
   }
 }

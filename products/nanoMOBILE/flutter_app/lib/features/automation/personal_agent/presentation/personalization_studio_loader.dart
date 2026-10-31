@@ -57,13 +57,14 @@ extension _PersonalizationStudioDataLoader
         if (id.safeToWrite && id.key.id.isNotEmpty && n.canReply) {
           final k = personalizationScope(id.key.id);
           final lbl = n.isGroup ? n.conversationTitle : n.sender;
-          if (lbl.isNotEmpty)
+          if (lbl.isNotEmpty) {
             scs[k] = _Scope(
               k,
               lbl,
               conversationId: id.key.id,
               profile: scs[k]?.profile,
             );
+          }
         }
       }
       final sel = scs.containsKey(req) ? req : 'owner';
@@ -81,11 +82,12 @@ extension _PersonalizationStudioDataLoader
         _loading = false;
       });
     } catch (e) {
-      if (mounted && gen == _reloadGeneration)
+      if (mounted && gen == _reloadGeneration) {
         _safeSetState(() {
           _error = e.toString();
           _loading = false;
         });
+      }
     }
   }
 }

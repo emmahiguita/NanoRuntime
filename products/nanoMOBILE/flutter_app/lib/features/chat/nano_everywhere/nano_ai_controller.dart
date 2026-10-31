@@ -27,6 +27,7 @@ class NanoAiController extends ChangeNotifier {
     //          Notifica al widget cuándo se requiere acción, con el providerId
     //          sugerido. El widget puede abrir el sheet, un dialog, etc.
     this.onLoginRequired,
+    this.observeScreen,
   }) : _ownsMediaDownloader = mediaDownloader == null,
        _mediaDetector = mediaDetector ?? const NanoMediaDetector(),
        _mediaDownloader = mediaDownloader ?? NanoMediaDownloader();
@@ -34,14 +35,13 @@ class NanoAiController extends ChangeNotifier {
   final List<NanoProvider> providers;
   final NanoNativeAiPort nativeApps;
   final NanoActionPort actions;
+
+  /// Captura solicitada por el usuario; se inyecta sin acoplar el controlador
+  /// a una ventana. Solo se utiliza con el proveedor local seleccionado.
+  final Future<String> Function()? observeScreen;
   final NanoMediaDetector _mediaDetector;
   final NanoMediaDownloader _mediaDownloader;
   final bool _ownsMediaDownloader;
-
-  /// Callback opcional: invocado cuando la gateway necesita login del usuario.
-  /// Recibe el [providerId] sugerido (el que falló). El widget debe mostrar UI.
-  /// Devuelve Future<bool>: true = usuario confirmó login, false = canceló.
-  final Future<bool> Function(String providerId)? onLoginRequired;
 
   /// Callback opcional: invocado cuando la gateway necesita login del usuario.
   /// Recibe el [providerId] sugerido (el que falló). El widget debe mostrar UI.
@@ -76,7 +76,8 @@ class NanoAiController extends ChangeNotifier {
   String? _pendingPrompt;
   bool _pendingIsDictation = false;
   bool _requestExpand = false;
-  bool isVisible = true;
+  // Arrancar Nano no abre el búho: solo una entrada explícita lo revela.
+  bool isVisible = false;
 
   // Comparar/debatir quedan fuera del flujo: un mensaje conversacional genera una única respuesta.
   void selectMode(NanoMode value) {

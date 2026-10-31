@@ -1,0 +1,417 @@
+﻿[
+    {
+        "path":  "lib/core/theme/nano_dark_colors.part.dart",
+        "sha256":  "32F10B62DBA7570D1B103A16FE81063E68083766B6EDD68D65C884085F60B8F2",
+        "lines":  199
+    },
+    {
+        "path":  "lib/core/theme/app_theme.dart",
+        "sha256":  "53B8E214E11A2A85D624AEC186F393787CAC3D46BD56295CCDC0E64430784CF3",
+        "lines":  153
+    },
+    {
+        "path":  "lib/core/theme/app_theme_surfaces.part.dart",
+        "sha256":  "B00CEBF165EA77D7CBA2FC8B883E35C291A2AF23799C66BDB7D29DE07DDC1017",
+        "lines":  104
+    },
+    {
+        "path":  "lib/core/widgets/glass_surface_body.part.dart",
+        "sha256":  "915EE9856AC46B88E07C4C4026C77E51B65E48879B44628B08B70D9A0B3C232C",
+        "lines":  125
+    },
+    {
+        "path":  "lib/core/models/catalog_models.dart",
+        "sha256":  "926075C5B28293BFF973A44344A356B150FBC313A84D53C4099B3326F93F3CA0",
+        "lines":  176
+    },
+    {
+        "path":  "lib/core/widgets/navigation/nano_attach_sheet.dart",
+        "sha256":  "F803CAEF314BFA2628E2B6E5BB3E53B2F8F0AD95BB502A1D45C3FABDB5CA0C91",
+        "lines":  188
+    },
+    {
+        "path":  "lib/core/widgets/navigation/nano_nav_mini_pill.dart",
+        "sha256":  "91D1E432137F55FA93D6D44B008AB14C032DBE3B17744F6EDFD438B7E79C9095",
+        "lines":  100
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_floating_wrapper.dart",
+        "sha256":  "8117E1AB714474A911A401AA6757906AF20B0D36E5FCFC2C16A94AE0A8EC4758",
+        "lines":  193
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_external_surface.dart",
+        "sha256":  "13CC2A22EB942C667C7A67D9CC2CD53F8FFD04D3F6EDA4BFE264744F0A280E05",
+        "lines":  199
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_ai_controller.dart",
+        "sha256":  "11BD71F7874E30F2B751E467F88E826D6FD303B593BD264D2A9F326D16CDD321",
+        "lines":  167
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_ai_models.dart",
+        "sha256":  "35258B5E45E346DCD421ABF593612F92366E40F3D7E51CB6E0900379C2015081",
+        "lines":  149
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_ai_query.dart",
+        "sha256":  "E67E67A94A4BCC74B8C5DCF7F470C9E242EB752134952DC355FF34CD5357331A",
+        "lines":  73
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_ai_panel_state.dart",
+        "sha256":  "88EDDB5E3B868ADFAB1548724E2D6DAF596239A77575803D210C67BFD9E69847",
+        "lines":  64
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_panel.dart",
+        "sha256":  "56C8F411FA2423068DC6C0E6FA4D781811D27AE35C8057ED7FDA5763B494530F",
+        "lines":  107
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_panel_view.dart",
+        "sha256":  "C47510FFE7E1076EEF9200BCECB1D08DEBD0D497B3323C6B85D657E4829CEFE0",
+        "lines":  150
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_header.dart",
+        "sha256":  "7F4DD39FD72972E30B6DC916E6F0A8F700466F505B9008C88EC9B5466D0EB5AB",
+        "lines":  82
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_tool_selector.dart",
+        "sha256":  "BD34AC10DEF2800E568E53126692677E47B151B84D4AE2671634E91974DE907D",
+        "lines":  139
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_attachments.dart",
+        "sha256":  "2E407CE2528266DC4CD26008AAA07AAE98749DB8000052104B9F8F5CFD78819A",
+        "lines":  103
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_assistant_workspace_menu.dart",
+        "sha256":  "B3299D6B3A4F87B3A5793B34EBA38DF6ED05D6EB8E4AA48A82A2C4D1BE33ED5B",
+        "lines":  29
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_floating_assistant.dart",
+        "sha256":  "7BAA9AA816D93D3BCE1277019FF4033866D57BAEE9C5A5A0AF3C75D6A72DF914",
+        "lines":  187
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_floating_assistant_view.dart",
+        "sha256":  "D04182C601FC6E4A3A2D5EA0FE33E00831146EC4F2915D173FE1A47362EA620E",
+        "lines":  124
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_action_port_adapter.dart",
+        "sha256":  "A80341C05DB8E356A96DF353D4C7989670487622C7D0827CEDD31AE777D64558",
+        "lines":  178
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_providers.dart",
+        "sha256":  "7926906B88D5D3ADCDAF3386DAE797662FCB6EFECFC6F1EC9C531A3B1916E2B9",
+        "lines":  107
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_workspace_commands.dart",
+        "sha256":  "02AD4A24D77DD9F4A3F413966D4D98D8D194A20769453463D1BC9B803EABBF78",
+        "lines":  116
+    },
+    {
+        "path":  "lib/features/chat/nano_everywhere/nano_local_provider.dart",
+        "sha256":  "3994041B61E87F7D0E05F0F7D106393718C2869BC0D2D308A6E758B857C33B09",
+        "lines":  80
+    },
+    {
+        "path":  "lib/features/automation/engine/execution/handlers/whatsapp_open_verifier.dart",
+        "sha256":  "4F95C8CEE2744388566AEBC57C529C0327E37BCE8D0555A22FB3B67A79190F1D",
+        "lines":  164
+    },
+    {
+        "path":  "lib/features/automation/engine/execution/handlers/whatsapp_chat_opener.dart",
+        "sha256":  "42AE2FA8DBFCB7F61FF686DE959CDC3220409FA66A282B59EDCED4065EA634D1",
+        "lines":  103
+    },
+    {
+        "path":  "lib/features/automation/engine/execution/handlers/whatsapp_contact_resolver.dart",
+        "sha256":  "2278E9D31ED0BEE6B370C7DF4ED3EDAE5FEDDE5A72D3A813C4AB8C947E253C0A",
+        "lines":  95
+    },
+    {
+        "path":  "lib/features/automation/engine/execution/handlers/whatsapp_tool_handler.dart",
+        "sha256":  "18D86B0EC4C66AA60FE3CE6BE0DB756B8B2A37AD847EDD7A6E1F761CA89A4596",
+        "lines":  196
+    },
+    {
+        "path":  "lib/features/automation/engine/execution/handlers/whatsapp_command_runner.dart",
+        "sha256":  "8CD7704F98AD760DE3AA3953B2BA3ABE0E22D147A8D193CA30855CBB9D2F67CC",
+        "lines":  65
+    },
+    {
+        "path":  "lib/features/automation/engine/execution/handlers/whatsapp_file_account.dart",
+        "sha256":  "E8792EF5DC64090A56DADCD328C1775176A405AA0599B4A1970E2EED534D9D55",
+        "lines":  23
+    },
+    {
+        "path":  "lib/features/automation/engine/execution/agent_tool_messaging_router.dart",
+        "sha256":  "28C31FAA35B79EFE9EF4475B2E539C8FBC001B9A3CBF750530526D58A1A6671E",
+        "lines":  114
+    },
+    {
+        "path":  "lib/features/automation/engine/planning/whatsapp_automation_input.dart",
+        "sha256":  "25A4C9214EB1C1EA2865A53350EE950DD90F42EE1CDF0FC77B413C831719ACAC",
+        "lines":  144
+    },
+    {
+        "path":  "lib/features/automation/engine/planning/whatsapp_component_requests.dart",
+        "sha256":  "8D9415CFEA2F682612A5F4C191837338647D09DFA5C57E3EC010A89C660A1177",
+        "lines":  126
+    },
+    {
+        "path":  "lib/features/automation/application/whatsapp_ui_goal_preparer.dart",
+        "sha256":  "1AC4273AA8BC1999889F2237B81F8B72B27B912A580740C8CDE992E931A9D429",
+        "lines":  145
+    },
+    {
+        "path":  "lib/features/automation/application/automation_engine.dart",
+        "sha256":  "B814F79F0FDA9A55A1E1D3AF2D7EF4C8407EACFB3945FCE3419E3307E5F1E7B4",
+        "lines":  65
+    },
+    {
+        "path":  "lib/features/automation/engine/storage/automation_store_read.dart",
+        "sha256":  "E334C757789C1C9BD0D765FBB162AEAE84979D9340FB516D445CBDEED3B62D79",
+        "lines":  15
+    },
+    {
+        "path":  "lib/features/automation/engine/storage/automation_db_store_client.dart",
+        "sha256":  "D3C728ECDC46EAE7C5F42AA19272A95EAA55090C104D069654DC2BB80EBA0B29",
+        "lines":  329
+    },
+    {
+        "path":  "lib/features/automation/engine/business/business_facts_providers.dart",
+        "sha256":  "9B55E6C2E8EEFA8AE2EBB25502C8B15CD2D8A1E7DF4B5C4942141F25207D488F",
+        "lines":  188
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/notification_object.dart",
+        "sha256":  "2EC0F9E4B51532DBB2BD54340213731FE8011FF4AA4DF48443405AFD5274451B",
+        "lines":  178
+    },
+    {
+        "path":  "lib/features/automation/engine/notifications/notification_draft_writer_capacity.part.dart",
+        "sha256":  "DFFFFC2AC3E190D4C67182B5C59A983C158600CE44126DA1F3E5EA35DC895FCB",
+        "lines":  53
+    },
+    {
+        "path":  "lib/features/automation/engine/scheduling/notification_event_router.dart",
+        "sha256":  "577C053E5DC9A692D04F0E719F4CDB792F23106A6DA5EF6E3898A3414A5EE602",
+        "lines":  196
+    },
+    {
+        "path":  "lib/features/automation/engine/mcp/mcp_connection_registry.dart",
+        "sha256":  "6FF5B0E112CEA106180D491C5956A5221253870E0F4C8D70DB79CDD13D07035D",
+        "lines":  147
+    },
+    {
+        "path":  "lib/features/automation/presentation/messaging_center/messaging_live_notifications_provider.dart",
+        "sha256":  "B3C6D5A5EDB74804B3B8C7BBC0B1D9A399453F064DA163B61375E64554C0DC7F",
+        "lines":  156
+    },
+    {
+        "path":  "lib/features/automation/presentation/messaging_center/messaging_center_header.dart",
+        "sha256":  "8F3C8FBB17FBBF03412BE6FF14B8734985500F46D22FD6DA1C112BF37162A47D",
+        "lines":  181
+    },
+    {
+        "path":  "lib/features/automation/presentation/widgets/automation_agent_header.dart",
+        "sha256":  "919B3C0E2C0D2006A70DD9E1D32F11D3A2F5B04935EE75940BD247F78ABA7575",
+        "lines":  94
+    },
+    {
+        "path":  "lib/features/automation/presentation/widgets/mcp/mcp_store_components.dart",
+        "sha256":  "72A061293EA912F294740AA8DE3F96467B1130A97F06D19BA8135695644470D3",
+        "lines":  136
+    },
+    {
+        "path":  "lib/features/settings/presentation/widgets/account_settings_card.dart",
+        "sha256":  "3BBD2CE980FC8651C26BFF8C1F6881C6F819FB35A7CE100C0F241EB9F2193C6A",
+        "lines":  52
+    },
+    {
+        "path":  "lib/features/settings/presentation/widgets/account_profile_card.part.dart",
+        "sha256":  "610CD9866FFC31108D8C710165C049393AC302DBD2C0897140725238873F468A",
+        "lines":  191
+    },
+    {
+        "path":  "lib/features/settings/presentation/widgets/account_guest_card.part.dart",
+        "sha256":  "AC4C0485C82865F9FCA05E91A2A6CAD61C5A62DAF4C9387C510CE1A67F9765D9",
+        "lines":  83
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoFloatingService.kt",
+        "sha256":  "2D52F00B28F934AFF195CE8DF0C2D6731FBC8B69FC80F53847375967D81FF2E8",
+        "lines":  8
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOwlWindowService.kt",
+        "sha256":  "408CA2AB2BEFB4A5C9CBD130071E7D294CA277EC67AEB933CDAD0AD33D1D40E7",
+        "lines":  185
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoFlutterPanelHost.kt",
+        "sha256":  "860126B180AC803FBEC7C7BA07F16194715456DF6CA6492CF029E126DC36AE1F",
+        "lines":  139
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/services/NanoOverlayStyle.kt",
+        "sha256":  "E8CDAEC22983E2E09DD3A4126844A078253DD66E2A40E8F42137C28D5D61C6DF",
+        "lines":  120
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/MainActivity.kt",
+        "sha256":  "38E95CDA35252F2B644B79702D1E850151C44365E47C3BAC3C6F3645E89B6820",
+        "lines":  603
+    },
+    {
+        "path":  "android/app/src/main/kotlin/dev/nanoai/mobile/automation/AutomationStoreDb.kt",
+        "sha256":  "FF9AFD78C6DB00D9019DDB56F7C1FA195FB84B5E15D14A0D73F12AE3C9D8B806",
+        "lines":  1145
+    },
+    {
+        "path":  "android/app/src/main/AndroidManifest.xml",
+        "sha256":  "48ADE4AA98A9A5CB8DA142741E53572D9FDA7CB2A9844462C81BAE27D837BDF2",
+        "lines":  272
+    },
+    {
+        "path":  "lib/main.dart",
+        "sha256":  "9E5D4D2DA6AE15D6D4F0260EA2EC1A99405D5003303A48FF390D0DA86B3CF910",
+        "lines":  93
+    },
+    {
+        "path":  "lib/nano_platform_app.dart",
+        "sha256":  "7880CE781256CAD5408D6097150C90A7044065F834E0ECE10275A29BEA45A246",
+        "lines":  139
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/bounded_export_zip.dart",
+        "sha256":  "C1B5EDC003FF3DDD785C682B493C77025EBF2A770016C8348EEFAFB3381FBAA9",
+        "lines":  62
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_export_analysis.dart",
+        "sha256":  "3B55311E1C49457F7C12E3A32835148FC2298A6393CF5BDC06A59BD2C1FDA1C7",
+        "lines":  97
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_export_inbox.dart",
+        "sha256":  "6818B387AC976D00B45DF647CCCC582227F6884B9F4FCC081696EA2D6E87CFE9",
+        "lines":  104
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_export_library.dart",
+        "sha256":  "8A3A8A05D48DD34BEF38CD12134A4F9B31B40F91253567C95A42456F1A85FCCA",
+        "lines":  119
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_qa_report.dart",
+        "sha256":  "012C9B412DB54EBBE10AB6F0D3159091B0B30B1EB24AA8BD37785E0458FE99D6",
+        "lines":  46
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_qa_runner.dart",
+        "sha256":  "5958DFF9C3E45BEF67873286AFE616DD6CB3FB0B047375DBE9E4633B0F876BF4",
+        "lines":  187
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_qa_scenario.dart",
+        "sha256":  "2A299DBBE25948818024B8519A38AF5A521FD40CA1F3691C88E36E12F7AA50EE",
+        "lines":  66
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_report_export.dart",
+        "sha256":  "E7F838C56B0496E48AA966574DE4C2FEC1DFC1AB8525A5F96C2C1524A3921077",
+        "lines":  52
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_screen_evidence.dart",
+        "sha256":  "34790584FA9F219391DB994A980B9AC1D843EED64633CD54A38D8C66677E8F80",
+        "lines":  69
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_screen_retention.dart",
+        "sha256":  "05D7101244AF870F4225C38E38021A217BFCB4A78B0C96EF9B373AF04A2B96AF",
+        "lines":  21
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/owl_workspace_store.dart",
+        "sha256":  "BFFFEFAAB1A84981C449AAABFFE4AD6832D04D9BF007BB532234C2FEDF26DB46",
+        "lines":  58
+    },
+    {
+        "path":  "lib/features/automation/whatsapp_workspace/whatsapp_export_document.dart",
+        "sha256":  "8D233E88A205185CF3C472CD03BD9C2F5F7F83D9325BA60882244D09F87B1ABA",
+        "lines":  101
+    },
+    {
+        "path":  "lib/core/models/catalog_model_kinds.dart",
+        "sha256":  "7D62CAD00760DEBA2D1C35A677B7CC07DEBF03C7BAE41975309D8FA239B98D65",
+        "lines":  29
+    },
+    {
+        "path":  "lib/core/router/scaffold_shell.dart",
+        "sha256":  "0CF73A607F346C5BC478B434697EEF6EEFFF3156B2BC9D240C53954B3F60291C",
+        "lines":  127
+    },
+    {
+        "path":  "lib/features/models/presentation/widgets/models_landscape_view.dart",
+        "sha256":  "7311DD07F171A030D0E3FD86F02E10D7A1F6C051A7001AAD956650582BA308AF",
+        "lines":  146
+    },
+    {
+        "path":  "lib/features/models/presentation/widgets/models_portrait_view.dart",
+        "sha256":  "518E8B8B3DD1D681268D692A472282118612552A55732D8714805DB36E3679FD",
+        "lines":  134
+    },
+    {
+        "path":  "lib/features/automation/presentation/messaging_center/messaging_apps_bar.dart",
+        "sha256":  "A6AE604C1E84386A1E6CA3B0CB499ECB30CDBB4F67F8F787A479B4B2A85D6B2A",
+        "lines":  66
+    },
+    {
+        "path":  "lib/features/automation/presentation/widgets/automation_dashboard_execution.dart",
+        "sha256":  "340B6F293503023747CD25CF40FED7A12E578830BD5F6E98F855F6F274047BF6",
+        "lines":  176
+    },
+    {
+        "path":  "lib/features/automation/presentation/screens/automation_rules_screen.dart",
+        "sha256":  "89350664255877511C2A2B8558BD41A362FDB845BAF01338212EE316D0EED6F8",
+        "lines":  111
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/presentation/personalization_studio_diagram.dart",
+        "sha256":  "8B1AD3577AC8DFEBF051D24791EB37372C78D2A56496CC628487E52E0A14F983",
+        "lines":  78
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/presentation/personalization_studio_example_card.dart",
+        "sha256":  "59E706C691D5423740DDB3519992DCB912371AE7AB284C2635E23A0F889514C3",
+        "lines":  64
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/presentation/personalization_studio_screen.dart",
+        "sha256":  "E900CE41E6A2D7F86935C00561EE7836398210803AB4A4890B94D3BB38FD67CA",
+        "lines":  188
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/presentation/personalization_studio_diagram_view.part.dart",
+        "sha256":  "FF3C584D9D96B7B06CAE89EF6DA583D2A7912E0EE47268794B864A53560B92E9",
+        "lines":  169
+    },
+    {
+        "path":  "lib/features/automation/personal_agent/presentation/personalization_studio_example_view.part.dart",
+        "sha256":  "97557E9AD432A36DC06D8A6DD2F70A750ACD5B55B0D24DCCE70629D84E238AA5",
+        "lines":  182
+    }
+]

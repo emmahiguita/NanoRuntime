@@ -72,8 +72,9 @@ final class ConversationTopicExtractor {
     if (tokens.any(_healthWords.contains)) return TopicDomain.healthWellbeing;
     if (tokens.any(_workWords.contains)) return TopicDomain.workProjects;
     if (tokens.any(_planWords.contains)) return TopicDomain.plansOuting;
-    if (tokens.any(_logisticsWords.contains))
+    if (tokens.any(_logisticsWords.contains)) {
       return TopicDomain.logisticsErrands;
+    }
     if (tokens.any(_socialWords.contains)) return TopicDomain.socialPersonal;
     return null;
   }

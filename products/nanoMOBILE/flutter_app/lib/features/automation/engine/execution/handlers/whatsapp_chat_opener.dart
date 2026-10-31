@@ -3,6 +3,9 @@ import '../tool_call.dart';
 import 'whatsapp_contact_resolver.dart';
 import 'whatsapp_command_input.dart';
 import '../../../ledger/automation_activity_store.dart';
+import '../agent_executor.dart';
+import '../../voice/execution_cancellation.dart';
+import 'whatsapp_open_verifier.dart';
 
 /// Apertura real con identidad resuelta. El registro documenta agenda y canal;
 /// no considera startActivity como mensaje enviado ni perfil verificado.
@@ -10,8 +13,18 @@ class WhatsAppChatOpener {
   const WhatsAppChatOpener(this.share, this.resolver);
   final WhatsAppMediaShare share;
   final WhatsAppContactResolver resolver;
-  Future<String> open(ToolCall call) async {
-    final contactQ = (call.args?['contact'] ?? '').toString().trim();
+  Future<String> open(
+    ToolCall call, {
+    ExecutionCancellationToken? cancellation,
+  }) async {
+    if (cancellation?.isCancelled == true) {
+      return '[cancelled] Apertura detenida.';
+    }
+    final rawContact = (call.args?['contact'] ?? '').toString().trim();
+    final contactQ = rawContact.replaceFirst(
+      RegExp(r'^(?:(?:este|el|al)\s+)?n[uú]mero\s+', caseSensitive: false),
+      '',
+    ).trim();
     final text = (call.args?['text'] ?? '').toString().trim();
     final pkg = call.args?['packageName'] as String?;
     final owner = call.args?['executionId'] as String?;
@@ -57,6 +70,9 @@ class WhatsAppChatOpener {
     );
     final phone = resolved?.number ?? contactQ;
     final name = resolved?.name ?? contactQ;
+    if (cancellation?.isCancelled == true) {
+      return '[cancelled] Apertura detenida.';
+    }
 
     // Esta herramienta solo navega. El envío vive en sendMessage y su policy.
     final ok = await share.openChat(
@@ -73,8 +89,22 @@ class WhatsAppChatOpener {
           : 'El canal rechazó la apertura.',
       name,
     );
-    return ok
-        ? '[completedUnverified] Android aceptó abrir el chat de "$name" ($phone); destino final sin verificar.'
-        : '[error] No se pudo abrir el chat con "$name".';
+    if (!ok) return '[error] No se pudo abrir el chat con "$name".';
+    final verification = await WhatsAppOpenVerifier(NanoAgentExecutor()).verify(
+      phone,
+      pkg ?? 'com.whatsapp',
+      cancelled: () => cancellation?.isCancelled == true,
+    );
+    if (cancellation?.isCancelled == true) {
+      return '[cancelled] Verificación detenida; revisa la pantalla actual.';
+    }
+    record(
+      'Perfil → identidad → retorno',
+      verification.verified ? 'verified' : 'unverified',
+      verification.reason,
+      name,
+    );
+    return '[${verification.verified ? 'completed' : 'completedUnverified'}] '
+        'Chat "$name" ($phone): ${verification.reason}';
   }
 }

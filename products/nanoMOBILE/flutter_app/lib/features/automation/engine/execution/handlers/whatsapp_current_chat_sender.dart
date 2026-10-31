@@ -1,3 +1,5 @@
+import 'whatsapp_composer_state.dart';
+import 'whatsapp_written_draft.dart';
 import '../../../../../core/services/nano_runtime_api.dart';
 import '../../orchestration/commit_guard.dart';
 import '../../perception/nano_selector.dart';
@@ -38,33 +40,16 @@ final class WhatsAppCurrentChatSender {
         window is! int) {
       return '[error] Falta evidencia del chat actual; no se escribió ni envió.';
     }
-    bool matches(NanoSnapshot? snapshot) {
-      if (snapshot == null || snapshot.truncated || snapshot.package != pkg) {
-        return false;
-      }
-      final active = snapshot.windows.any(
-        (w) =>
-            w.windowId == window &&
-            w.windowType == 1 &&
-            w.packageName == pkg &&
-            (w.active || w.focused),
-      );
-      if (!active) return false;
-      final headers = snapshot.nodes.where(
-        (n) =>
-            n.visible &&
-            n.packageName == pkg &&
-            n.id == '$pkg:id/conversation_contact_name',
-      );
-      return headers.length == 1 &&
-          headers.single.text.trim() == target &&
-          headers.single.windowId == window &&
-          WhatsAppReplyContext.rootKey(headers.single.rootIdentity) ==
-              WhatsAppReplyContext.rootKey(root) &&
-          (didDispatch ||
-              WhatsAppReplyContext.fingerprint(snapshot, window, root) ==
-                  fingerprint);
-    }
+    // El gate y el ejecutor deben exigir la misma identidad antes del efecto.
+    bool matches(NanoSnapshot? snapshot) => WhatsAppReplyContext.matches(
+      snapshot,
+      packageName: pkg,
+      target: target,
+      windowId: window,
+      root: root,
+      contextFingerprint: fingerprint,
+      dispatched: didDispatch,
+    );
 
     Future<ScreenGraph?> observe() async {
       final snapshot = await _executor.snapshot();
@@ -91,7 +76,9 @@ final class WhatsAppCurrentChatSender {
               !n.password,
         )
         .toList();
-    if (editors.length != 1 || editors.single.text.isNotEmpty) {
+    if (editors.length != 1 ||
+        classifyWhatsAppComposer(editors.single, before) !=
+            WhatsAppComposerState.empty) {
       return '[clarification] El editor cambió o ya contiene un borrador. Revísalo.';
     }
     if (cancelled()) return '[cancelled] Respuesta detenida antes de escribir.';
@@ -104,6 +91,23 @@ final class WhatsAppCurrentChatSender {
     }
     if (cancelled()) {
       return '[cancelled] Se detuvo antes de enviar; queda un borrador en WhatsApp.';
+    }
+    final ready = await waitForWhatsAppDraft(
+      observe: _executor.snapshot,
+      matches: matches,
+      editor: editors.single,
+      text: text,
+      cancellation: cancellation,
+    );
+    if (!ready) {
+      return '[error] No se observó el texto escrito y Enviar en el mismo chat; no se pulsó Enviar.';
+    }
+    // La orden de escribir termina en el editor verificado, sin enviar ni salir.
+    if (call.args?['draftOnly'] == true) {
+      if (cancelled()) {
+        return '[cancelled] Detención solicitada; revisa el borrador en WhatsApp.';
+      }
+      return '[completed] Borrador escrito en el chat de "$target"; no se envió.';
     }
     final guard = CommitGuard(observe: observe);
     final captured = await guard.capture(conversation: target, draft: text);
@@ -136,14 +140,15 @@ final class WhatsAppCurrentChatSender {
     // Desde el tap no se cancela la observación ni se repite: reconciliar
     // permite informar si quedó eco local, sin afirmar recepción remota.
     final evidence = await guard.verifyAfterDispatch(context);
-    if (evidence.status != SendEvidenceStatus.localSendVerified) {
+    if (evidence.status != SendEvidenceStatus.localSendVerified &&
+        evidence.status != SendEvidenceStatus.dispatchedUnverified) {
       return '[timeoutOutcomeUnknown] Envío no acreditado completamente: ${evidence.reason}. No se reintentó.';
     }
     if (cancelled()) {
       return '[completedUnverified] Eco local observado; detención solicitada. Entrega no confirmada.';
     }
     final returned = await _returnToNano();
-    return '[completedUnverified] Respuesta en el chat visible y eco local observados. '
+    return '[completedUnverified] Respuesta enviada en el chat de "$target". '
         '${returned ? 'Regreso a Nano verificado.' : 'No se verificó el regreso a Nano.'} '
         'Entrega y lectura no confirmadas.';
   }

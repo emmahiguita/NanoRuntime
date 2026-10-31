@@ -265,8 +265,10 @@ class ModelsNotifier extends StateNotifier<ModelsState> {
   }
 
   Future<void> refreshCatalogAndStorage() async {
+    final granted = await _scanner.hasAllFilesAccess();
+    if (mounted) state = state.copyWith(allFilesGranted: granted);
     await _load();
-    state.allFilesGranted ? await scanStorageAll() : await maybeAutoScan();
+    granted ? await scanStorageAll() : await maybeAutoScan();
   }
 
   Future<void> _runScan(Future<List<DetectedModel>> Function() scanner) async {

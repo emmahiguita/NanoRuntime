@@ -1,9 +1,20 @@
+// business_store_product_menu.dart
+//
+// QUÉ HACE:
+// Menú de opciones compacto y discreto (3 puntos) para cada producto del catálogo.
+//
+// CÓMO FUNCIONA:
+// - Botón de 30×30 dp con icono sutil de elipsis y esquinas redondeadas.
+// - Despliega menú flotante: Ver producto, Editar y Compartir.
+//
+// POR QUÉ:
+// Elimina el botón circular invasivo y optimiza la jerarquía visual (< 65 líneas).
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../../../engine/business/business_product.dart';
 import '../business_library_action_menu.dart';
 
-/// Un único menú accesible conserva las acciones existentes sin comprimir
-/// editar y compartir en dos iconos pequeños dentro de la tarjeta.
 class BusinessStoreProductMenu extends StatelessWidget {
   const BusinessStoreProductMenu({
     super.key,
@@ -12,20 +23,36 @@ class BusinessStoreProductMenu extends StatelessWidget {
     required this.onEdit,
     required this.onShare,
   });
+
   final BusinessProduct product;
   final ValueChanged<BusinessProduct> onOpen, onEdit, onShare;
 
   @override
-  Widget build(BuildContext context) => IconButton(
-    tooltip: 'Acciones del producto',
-    onPressed: () => _show(context),
-    icon: const Icon(Icons.more_horiz_rounded, size: 22),
-    style: IconButton.styleFrom(
-      minimumSize: const Size.square(44),
-      foregroundColor: Theme.of(context).colorScheme.onSurface,
-      backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha: .92),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Tooltip(
+      message: 'Opciones de ${product.name}',
+      child: CupertinoButton(
+        onPressed: () => _show(context),
+        minimumSize: const Size.square(30),
+        padding: EdgeInsets.zero,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            CupertinoIcons.ellipsis,
+            size: 16,
+            color: isDark ? Colors.white70 : const Color(0xFF64748B),
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _show(BuildContext context) async {
     final action = await showBusinessLibraryMenu(

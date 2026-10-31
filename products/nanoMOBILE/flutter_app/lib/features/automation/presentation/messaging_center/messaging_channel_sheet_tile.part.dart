@@ -1,3 +1,7 @@
+// messaging_channel_sheet_tile.part.dart
+// QUÉ HACE: Tarjeta compacta de conmutadores de canales para la ventana de permisos.
+// CÓMO FUNCIONA: Agrupa interruptores Material 3 con divisores finos para WhatsApp, WA Business, Telegram e Instagram.
+// POR QUÉ: Presentación uniforme en un único nivel de contenedor sin anidamientos innecesarios (< 120 líneas).
 part of 'messaging_channel_sheet.dart';
 
 class _MessagingChannelsCard extends StatelessWidget {
@@ -17,7 +21,7 @@ class _MessagingChannelsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withValues(alpha: 0.06)
-            : Colors.white.withValues(alpha: 0.55),
+            : Colors.white.withValues(alpha: 0.65),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark
@@ -30,22 +34,22 @@ class _MessagingChannelsCard extends StatelessWidget {
         children: [
           _ChannelSwitch(
             title: 'WhatsApp',
-            subtitle: 'Mensajes personales y contactos',
+            subtitle: 'Mensajería personal',
             value: registry.isChannelRuleActive(MessagingPackage.whatsapp),
             onChanged: (val) => setChannel(MessagingPackage.whatsapp, val),
             isDark: isDark,
           ),
           Divider(
             height: 1,
-            indent: 16,
-            endIndent: 16,
+            indent: 14,
+            endIndent: 14,
             color: isDark
                 ? Colors.white10
                 : Colors.black.withValues(alpha: 0.06),
           ),
           _ChannelSwitch(
             title: 'WhatsApp Business',
-            subtitle: 'Mensajes de clientes y comercio',
+            subtitle: 'Mensajería empresarial',
             value: registry.isChannelRuleActive(
               MessagingPackage.whatsappBusiness,
             ),
@@ -55,15 +59,15 @@ class _MessagingChannelsCard extends StatelessWidget {
           ),
           Divider(
             height: 1,
-            indent: 16,
-            endIndent: 16,
+            indent: 14,
+            endIndent: 14,
             color: isDark
                 ? Colors.white10
                 : Colors.black.withValues(alpha: 0.06),
           ),
           _ChannelSwitch(
             title: 'Telegram',
-            subtitle: 'Mensajes directos y grupos',
+            subtitle: 'Mensajes y grupos',
             value:
                 registry.isChannelRuleActive(MessagingPackage.telegramOrg) ||
                 registry.isChannelRuleActive(MessagingPackage.telegram),
@@ -75,15 +79,15 @@ class _MessagingChannelsCard extends StatelessWidget {
           ),
           Divider(
             height: 1,
-            indent: 16,
-            endIndent: 16,
+            indent: 14,
+            endIndent: 14,
             color: isDark
                 ? Colors.white10
                 : Colors.black.withValues(alpha: 0.06),
           ),
           _ChannelSwitch(
             title: 'Instagram',
-            subtitle: 'Mensajes directos (DMs)',
+            subtitle: 'Mensajes directos',
             value: registry.isChannelRuleActive(MessagingPackage.instagram),
             onChanged: (val) => setChannel(MessagingPackage.instagram, val),
             isDark: isDark,

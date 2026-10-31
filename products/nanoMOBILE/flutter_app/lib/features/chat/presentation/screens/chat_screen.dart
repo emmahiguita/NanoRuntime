@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
+import 'package:nanoai/core/widgets/glass_surface.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +19,6 @@ import 'package:nanoai/core/widgets/navigation/nano_universal_input.dart';
 import '../widgets/chat_messages.dart';
 import '../widgets/nano_active_model_glass_card.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
-import 'package:nanoai/core/theme/nano_transitions.dart';
 import 'package:nanoai/core/widgets/live_animations.dart';
 import 'package:nanoai/core/widgets/nano_components.dart';
 import 'package:nanoai/core/widgets/nano_screen_shell.dart';

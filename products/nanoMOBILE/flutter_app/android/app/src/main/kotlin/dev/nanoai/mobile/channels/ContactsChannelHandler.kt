@@ -2,6 +2,7 @@ package dev.nanoai.mobile.channels
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import androidx.core.app.ActivityCompat
@@ -13,6 +14,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Canal de comunicación con Flutter para gestión de contactos e intenciones de WhatsApp.
+ *
+ * QUÉ HACE:
+ * - Valida y solicita permisos de contactos (READ_CONTACTS).
+ * - Despacha la consulta completa de contactos hacia ContactsProviderQuery.
+ * - Soporta el modo ACTION_PICK para seleccionar contactos individuales sin permiso global.
+ * - Detecta si WhatsApp Personal o WhatsApp Business están instalados en el sistema.
+ *
+ * CÓMO FUNCIONA:
+ * - Implementa MethodChannel.MethodCallHandler sobre "com.nanoai/contacts".
+ * - Resuelve asíncronamente en Dispatchers.IO las consultas de cursor.
+ *
+ * POR QUÉ:
+ * - Cumple el principio SOLID de responsabilidad única (SRP < 150 líneas).
+ */
 class ContactsChannelHandler(
     private val activity: Activity,
     private val ioScope: CoroutineScope,
@@ -21,12 +38,14 @@ class ContactsChannelHandler(
     companion object {
         const val CHANNEL_NAME = "com.nanoai/contacts"
         const val REQ_CODE_CONTACTS = 1005
+        const val REQ_CODE_PICK_CONTACT = 1006
 
-        private const val WHATSAPP_MIME_PERSONAL = "vnd.android.cursor.item/vnd.com.whatsapp.profile"
-        private const val WHATSAPP_MIME_BUSINESS = "vnd.android.cursor.item/vnd.com.whatsapp.w4b.profile"
+        private const val PKG_WHATSAPP_PERSONAL = "com.whatsapp"
+        private const val PKG_WHATSAPP_BUSINESS = "com.whatsapp.w4b"
     }
 
     private var pendingPermissionResult: MethodChannel.Result? = null
+    private var pendingPickResult: MethodChannel.Result? = null
 
     fun onRequestPermissionsResult(
         requestCode: Int,
@@ -37,6 +56,26 @@ class ContactsChannelHandler(
             val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
             pendingPermissionResult?.success(granted)
             pendingPermissionResult = null
+            return true
+        }
+        return false
+    }
+
+    fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
+        if (requestCode == REQ_CODE_PICK_CONTACT) {
+            val result = pendingPickResult
+            pendingPickResult = null
+            if (resultCode != Activity.RESULT_OK || data?.data == null) {
+                result?.success(null)
+                return true
+            }
+            val uri = data.data!!
+            ioScope.launch {
+                val contactMap = PickedContactResolver.resolvePickedContact(activity, uri)
+                withContext(Dispatchers.Main) {
+                    result?.success(contactMap)
+                }
+            }
             return true
         }
         return false
@@ -77,155 +116,56 @@ class ContactsChannelHandler(
                     return
                 }
                 ioScope.launch {
-                    val contacts = queryWhatsAppContacts()
+                    val contacts = ContactsProviderQuery.queryAllContacts(activity)
                     withContext(Dispatchers.Main) {
                         result.success(contacts)
                     }
+                }
+            }
+            "pickSingleContact" -> {
+                pendingPickResult = result
+                try {
+                    val pickIntent = Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)
+                    activity.startActivityForResult(pickIntent, REQ_CODE_PICK_CONTACT)
+                } catch (e: Exception) {
+                    pendingPickResult = null
+                    result.error("pick_error", "No se pudo abrir el selector del sistema: ${e.message}", null)
+                }
+            }
+            "getInstalledWhatsAppPackages" -> {
+                val pm = activity.packageManager
+                val installed = mutableMapOf<String, Boolean>()
+                installed["personal"] = isPackageInstalled(pm, PKG_WHATSAPP_PERSONAL)
+                installed["business"] = isPackageInstalled(pm, PKG_WHATSAPP_BUSINESS)
+                result.success(installed)
+            }
+            "showQuickContact" -> {
+                val contactId = call.argument<String>("contactId").orEmpty()
+                if (contactId.isNotBlank()) {
+                    try {
+                        val uri = android.net.Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_URI, contactId)
+                        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        activity.startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("quick_contact_error", e.message, null)
+                    }
+                } else {
+                    result.success(false)
                 }
             }
             else -> result.notImplemented()
         }
     }
 
-    private fun queryWhatsAppContacts(): List<Map<String, Any>> {
-        val contacts = mutableListOf<Map<String, Any>>()
-        val seenJids = mutableSetOf<String>()
-        val seenNumbers = mutableSetOf<String>()
-
-        val projection = arrayOf(
-            ContactsContract.Data._ID,
-            ContactsContract.Data.RAW_CONTACT_ID,
-            ContactsContract.Data.DISPLAY_NAME,
-            ContactsContract.Data.DATA1,
-            ContactsContract.Data.MIMETYPE,
-            ContactsContract.RawContacts.ACCOUNT_TYPE,
-        )
-
-        val selection = "${ContactsContract.Data.MIMETYPE} IN (?, ?)"
-        val selectionArgs = arrayOf(WHATSAPP_MIME_PERSONAL, WHATSAPP_MIME_BUSINESS)
-        val sortOrder = "${ContactsContract.Data.DISPLAY_NAME} COLLATE NOCASE ASC"
-
-        try {
-            val cursor = activity.contentResolver.query(
-                ContactsContract.Data.CONTENT_URI,
-                projection,
-                selection,
-                selectionArgs,
-                sortOrder,
-            )
-
-            cursor?.use { c ->
-                val idIdx = c.getColumnIndex(ContactsContract.Data._ID)
-                val rawIdIdx = c.getColumnIndex(ContactsContract.Data.RAW_CONTACT_ID)
-                val nameIdx = c.getColumnIndex(ContactsContract.Data.DISPLAY_NAME)
-                val data1Idx = c.getColumnIndex(ContactsContract.Data.DATA1)
-                val mimeIdx = c.getColumnIndex(ContactsContract.Data.MIMETYPE)
-                val accountTypeIdx = c.getColumnIndex(ContactsContract.RawContacts.ACCOUNT_TYPE)
-
-                while (c.moveToNext()) {
-                    val id = if (idIdx >= 0) c.getString(idIdx) else ""
-                    val rawId = if (rawIdIdx >= 0) c.getString(rawIdIdx) else ""
-                    val name = (if (nameIdx >= 0) c.getString(nameIdx) else null)?.trim() ?: "Sin nombre"
-                    val data1 = (if (data1Idx >= 0) c.getString(data1Idx) else null)?.trim() ?: ""
-                    val mime = if (mimeIdx >= 0) c.getString(mimeIdx) ?: "" else ""
-                    val accountType = if (accountTypeIdx >= 0) c.getString(accountTypeIdx) ?: "" else ""
-                    val isBusiness = mime.contains("w4b")
-
-                    // El MIME prueba que WhatsApp publicó la fila. DATA1, en cambio, no tiene
-                    // un contrato público que garantice un JID: solo lo conservamos si ya viene
-                    // tipado por WhatsApp. Nunca fabricamos @s.whatsapp.net desde un teléfono.
-                    val jid = data1.takeIf {
-                        it.endsWith("@s.whatsapp.net", ignoreCase = true) ||
-                            it.endsWith("@g.us", ignoreCase = true)
-                    }.orEmpty()
-                    val cleanNumber = (jid.ifBlank { data1 })
-                        .substringBefore("@")
-                        .filter(Char::isDigit)
-                    val identityKey = jid.ifBlank { "$mime:$cleanNumber" }
-
-                    if (cleanNumber.length < 7 || !seenJids.add(identityKey)) {
-                        continue
-                    }
-
-                    seenNumbers.add(cleanNumber)
-
-                    contacts.add(
-                        mapOf(
-                            "id" to (rawId.ifBlank { id }),
-                            "name" to name,
-                            "number" to cleanNumber,
-                            "jid" to jid,
-                            "isBusiness" to isBusiness,
-                            "isGroup" to jid.endsWith("@g.us", ignoreCase = true),
-                            "packageName" to if (isBusiness) "com.whatsapp.w4b" else "com.whatsapp",
-                            "accountType" to accountType,
-                            "verificationSource" to "contacts_provider_whatsapp_mime",
-                            // La fila MIME confirma asociación local; no implica entrega ni disponibilidad remota actual.
-                            "isWhatsAppVerified" to true,
-                        ),
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            // Log honesto
-            android.util.Log.e("ContactsChannel", "Error consultando contactos de WhatsApp: ${e.message}")
+    private fun isPackageInstalled(pm: PackageManager, packageName: String): Boolean {
+        return try {
+            pm.getPackageInfo(packageName, 0)
+            true
+        } catch (_: PackageManager.NameNotFoundException) {
+            false
         }
-
-        // 2. Consulta de contactos telefónicos generales del dispositivo (garantiza conocer todos los contactos agregados)
-        try {
-            val phoneProjection = arrayOf(
-                ContactsContract.CommonDataKinds.Phone._ID,
-                ContactsContract.CommonDataKinds.Phone.CONTACT_ID,
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Phone.NUMBER,
-            )
-            val phoneSort = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} COLLATE NOCASE ASC"
-            activity.contentResolver.query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                phoneProjection,
-                null,
-                null,
-                phoneSort,
-            )?.use { pc ->
-                val pIdIdx = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone._ID)
-                val pContactIdIdx = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone.CONTACT_ID)
-                val pNameIdx = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-                val pNumIdx = pc.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
-
-                while (pc.moveToNext()) {
-                    val rawNum = if (pNumIdx >= 0) pc.getString(pNumIdx) else null
-                    val digits = rawNum?.filter { it.isDigit() } ?: ""
-                    if (digits.length < 7 || digits in seenNumbers) continue
-
-                    val contactKey = "phonebook:$digits"
-                    if (!seenJids.add(contactKey)) continue
-
-                    val pId = if (pIdIdx >= 0) pc.getString(pIdIdx) else ""
-                    val pContactId = if (pContactIdIdx >= 0) pc.getString(pContactIdIdx) else ""
-                    val pName = (if (pNameIdx >= 0) pc.getString(pNameIdx) else null)?.trim() ?: "Sin nombre"
-
-                    contacts.add(
-                        mapOf(
-                            "id" to (pContactId.ifBlank { pId }),
-                            "name" to pName,
-                            "number" to digits,
-                            // Un teléfono guardado permite preparar un envío manual, pero no prueba que use WhatsApp.
-                            "jid" to "",
-                            "isBusiness" to false,
-                            "isGroup" to false,
-                            "packageName" to "",
-                            "accountType" to "",
-                            "verificationSource" to "phonebook",
-                            "isWhatsAppVerified" to false,
-                        )
-                    )
-                }
-            }
-        } catch (e: Exception) {
-            android.util.Log.e("ContactsChannel", "Error consultando contactos telefónicos: ${e.message}")
-        }
-
-        return contacts
     }
 }
-

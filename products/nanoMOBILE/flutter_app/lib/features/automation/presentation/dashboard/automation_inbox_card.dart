@@ -1,39 +1,81 @@
-/// AUTOMATION-INBOX-CARD — Tarjeta 3D del Centro de Mensajería con luz teatral.
-///
-/// QUÉ HACE:
-/// Proporciona el punto de entrada de alto impacto visual para el Centro de Mensajería
-/// y Nano Negocio mediante la tarjeta tridimensional interactiva y reversible.
-///
-/// CÓMO FUNCIONA:
-/// Aloja [SpotlightFlipAdCard] integrando [MessagingAdvertisement] (anverso) y
-/// [BusinessAdvertisement] (reverso), adaptando la relación de aspecto según la orientación.
-///
-/// POR QUÉ:
-/// Centraliza la experiencia publicitaria 3D respetando el límite estricto de menos
-/// de 200 líneas y el desacoplamiento estricto de responsabilidades.
+// automation_inbox_card.dart — Banner interactivo oficial del Centro de Mensajería.
+// QUÉ HACE: Presenta la ilustración original 16:9 de mensajería con acabado iOS Liquid Glass.
+// CÓMO FUNCIONA: Aplica recorte de radio 18, borde hairline, sombra ambiental y respuesta táctil.
+// POR QUÉ: Conserva el arte oficial íntegro sin giros 3D distractores ni distorsión de píxeles.
 library;
 
 import 'package:flutter/material.dart';
-import '../widgets/business_advertisement.dart';
-import '../widgets/messaging_advertisement.dart';
-import '../widgets/spotlight_flip_ad_card.dart';
+import 'package:flutter/services.dart';
+import '../../../../core/theme/nano_motion_tokens.dart';
+import '../automation_visual_theme.dart';
 
-class AutomationInboxCard extends StatelessWidget {
+class AutomationInboxCard extends StatefulWidget {
   final VoidCallback onTap;
 
   const AutomationInboxCard({super.key, required this.onTap});
 
   @override
+  State<AutomationInboxCard> createState() => _AutomationInboxCardState();
+}
+
+class _AutomationInboxCardState extends State<AutomationInboxCard> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
+    final visual = AutomationVisual.of(context);
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    final reduceMotion = NanoMotionTokens.reduceMotion(context);
 
-    return SpotlightFlipAdCard(
-      heroTag: 'nano_messaging_hero',
-      aspectRatio: isLandscape ? 2.4 : (16 / 9),
-      front: const MessagingAdvertisement(),
-      back: const BusinessAdvertisement(),
-      onOpen: onTap,
+    return Semantics(
+      button: true,
+      label: 'Abrir Centro de Mensajería',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          widget.onTap();
+        },
+        child: AnimatedScale(
+          scale: _pressed ? 0.985 : 1.0,
+          duration: reduceMotion
+              ? Duration.zero
+              : NanoMotionTokens.touchResponse,
+          curve: NanoMotionTokens.touchPress,
+          child: AspectRatio(
+            aspectRatio: isLandscape ? 2.3 : (16 / 9),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: visual.cardBorder.withValues(alpha: 0.75),
+                  width: 0.8,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: visual.shadow,
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(17),
+                child: Image.asset(
+                  'assets/promo/card_messaging_crystal.jpg',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  excludeFromSemantics: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,6 +1,10 @@
 part of 'chat_screen.dart';
 
-/// Barra de acciones superiores compacta estilo iOS Translucent Glass.
+// chat_screen_actions.part.dart — Acciones superiores flotantes del chat en Liquid Glass.
+// QUÉ HACE: Despliega la cápsula de estado del motor, botón de nuevo tema y acceso al menú de gestión.
+// CÓMO FUNCIONA: Usa botones Liquid Glass con CupertinoIcons (square_pencil, ellipsis) y respuesta táctil.
+// POR QUÉ: Depura iconos flotantes y sustituye botones genéricos por iconografía profesional iOS (< 160 líneas).
+
 extension _ChatScreenActions on _ChatScreenState {
   Widget _chatActions(
     ChatState state,
@@ -13,10 +17,8 @@ extension _ChatScreenActions on _ChatScreenState {
     final isOnline = state.engineOnline;
 
     final Color statusColor = loading
-        ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7))
-        : (isOnline
-              ? const Color(0xFF34C759)
-              : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)));
+        ? const Color(0xFF38BDF8)
+        : (isOnline ? const Color(0xFF34C759) : const Color(0xFF94A3B8));
 
     final String statusLabel = loading
         ? 'Cargando'
@@ -25,11 +27,11 @@ extension _ChatScreenActions on _ChatScreenState {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 1. Cápsula de Estado iOS Glass "■ Detenido" / "● Activo"
+        // 1. Cápsula de Estado Liquid Glass "● Activo" / "○ Detenido"
         ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -37,68 +39,52 @@ extension _ChatScreenActions on _ChatScreenState {
                   HapticFeedback.lightImpact();
                   context.go('/models');
                 },
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  height: 28,
+                  height: 30,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
+                    horizontal: 10,
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
                     color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : Colors.black.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(14),
+                        ? colors.surface.withValues(alpha: 0.45)
+                        : colors.surface.withValues(alpha: 0.70),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.16)
-                          : Colors.black.withValues(alpha: 0.12),
-                      width: 0.75,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(
-                          alpha: isDark ? 0.12 : 0.04,
-                        ),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
+                      color: colors.outlineVariant.withValues(
+                        alpha: isDark ? 0.35 : 0.25,
                       ),
-                    ],
+                      width: 0.7,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: 6,
-                        height: 6,
+                        width: 6.5,
+                        height: 6.5,
                         decoration: BoxDecoration(
-                          shape: isOnline
-                              ? BoxShape.circle
-                              : BoxShape.rectangle,
-                          borderRadius: isOnline
-                              ? null
-                              : BorderRadius.circular(1),
+                          shape: BoxShape.circle,
                           color: statusColor,
                           boxShadow: [
                             if (isOnline || loading)
                               BoxShadow(
-                                color: statusColor.withValues(alpha: 0.6),
-                                blurRadius: 4,
+                                color: statusColor.withValues(alpha: 0.65),
+                                blurRadius: 5,
                                 spreadRadius: 1,
                               ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 5),
+                      const SizedBox(width: 6),
                       Text(
                         statusLabel,
                         style: TextStyle(
                           fontFamily: 'Inter',
-                          fontSize: 11,
+                          fontSize: 11.5,
                           fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? const Color(0xFFE2EBF5)
-                              : const Color(0xFF0F172A),
+                          color: colors.onSurface,
                           letterSpacing: -0.1,
                           decoration: TextDecoration.none,
                         ),
@@ -110,63 +96,89 @@ extension _ChatScreenActions on _ChatScreenState {
             ),
           ),
         ),
-        const SizedBox(width: 5),
+        const SizedBox(width: 6),
 
-        // 2. Botón Nueva Conversación
-        ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Material(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.07)
-                  : Colors.black.withValues(alpha: 0.05),
-              child: InkWell(
-                onTap: state.generating
-                    ? null
-                    : () => _startNewConversation(notifier),
-                child: SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: Icon(
-                    Icons.add_comment_outlined,
-                    size: 15,
-                    color: isDark
-                        ? const Color(0xFFE2EBF5)
-                        : const Color(0xFF334155),
-                  ),
-                ),
-              ),
-            ),
+        // 2. Botón Nuevo Chat con CupertinoIcons.square_pencil
+        Semantics(
+          label: 'Nueva conversación',
+          button: true,
+          child: _buildActionIconButton(
+            icon: CupertinoIcons.square_pencil,
+            tooltip: 'Nueva conversación',
+            onTap: state.generating
+                ? null
+                : () {
+                    HapticFeedback.selectionClick();
+                    _startNewConversation(notifier);
+                  },
+            colors: colors,
+            isDark: isDark,
           ),
         ),
-        const SizedBox(width: 3),
+        const SizedBox(width: 5),
 
-        // 3. Menú de opciones avanzadas (3 dots)
-        ClipOval(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Material(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.07)
-                  : Colors.black.withValues(alpha: 0.05),
-              child: InkWell(
-                onTap: () => _showChatOptionsMenu(state, notifier),
-                child: SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: Icon(
-                    Icons.more_vert_rounded,
-                    size: 16,
-                    color: isDark
-                        ? const Color(0xFFE2EBF5)
-                        : const Color(0xFF334155),
-                  ),
-                ),
-              ),
-            ),
+        // 3. Menú de opciones (Gestión de Chat) con CupertinoIcons.ellipsis
+        Semantics(
+          label: 'Gestión de chat y opciones',
+          button: true,
+          child: _buildActionIconButton(
+            icon: CupertinoIcons.ellipsis,
+            tooltip: 'Gestión de chat',
+            onTap: () {
+              HapticFeedback.selectionClick();
+              _showChatOptionsMenu(state, notifier);
+            },
+            colors: colors,
+            isDark: isDark,
           ),
         ),
       ],
+    );
+  }
+
+  /// Construye un botón circular Liquid Glass con iconografía profesional.
+  Widget _buildActionIconButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback? onTap,
+    required NanoColors colors,
+    required bool isDark,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Material(
+            color: isDark
+                ? colors.surface.withValues(alpha: 0.45)
+                : colors.surface.withValues(alpha: 0.70),
+            child: InkWell(
+              onTap: onTap,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colors.outlineVariant.withValues(
+                      alpha: isDark ? 0.35 : 0.25,
+                    ),
+                    width: 0.7,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(
+                    icon,
+                    size: 16,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

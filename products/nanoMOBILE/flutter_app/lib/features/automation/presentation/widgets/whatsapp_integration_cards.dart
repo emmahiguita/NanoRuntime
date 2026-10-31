@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -19,9 +19,9 @@ import 'settings_tile_components.dart';
 part 'whatsapp_background_automation_card.part.dart';
 part 'whatsapp_background_automation_rows.part.dart';
 
-/// WA-BUSINESS-01 — Selector de aplicaciones de WhatsApp.
+/// WA-BUSINESS-01 â€” Selector de aplicaciones de WhatsApp.
 /// Crea/elimina la regla universal de WhatsApp y WhatsApp Business
-/// por petición explícita del usuario (opt-in, WA-CONSENT-01).
+/// por peticiÃ³n explÃ­cita del usuario (opt-in, WA-CONSENT-01).
 class WhatsAppAppsCard extends ConsumerWidget {
   const WhatsAppAppsCard({super.key});
 
@@ -48,8 +48,8 @@ class WhatsAppAppsCard extends ConsumerWidget {
           icon: Icons.chat_outlined,
           title: 'WhatsApp Personal',
           subtitle: isWaActive
-              ? 'Activo — Nano procesa y responde mensajes'
-              : 'Inactivo — no procesa mensajes',
+              ? 'Activo â€” Nano procesa y responde mensajes'
+              : 'Inactivo â€” no procesa mensajes',
           trailing: Switch(
             value: isWaActive,
             onChanged: (v) => toggle(MessagingPackage.whatsapp, v),
@@ -60,8 +60,8 @@ class WhatsAppAppsCard extends ConsumerWidget {
           icon: Icons.storefront_outlined,
           title: 'WhatsApp Business',
           subtitle: isW4bActive
-              ? 'Activo — responde mensajes de clientes comerciales'
-              : 'Inactivo — toca para activar',
+              ? 'Activo â€” responde mensajes de clientes comerciales'
+              : 'Inactivo â€” toca para activar',
           trailing: Switch(
             value: isW4bActive,
             onChanged: (v) => toggle(MessagingPackage.whatsappBusiness, v),
@@ -73,12 +73,12 @@ class WhatsAppAppsCard extends ConsumerWidget {
   }
 }
 
-/// AUTO-03 — modo de autonomía del pipeline de WhatsApp. El MISMO motor de
-/// decisión (ConversationDecisionEngine) aplica el modo como tope ANTES de su
-/// fórmula: no hay segundo motor ni reglas nuevas.
-/// AUTONOMY FAIL-SAFE (PROD-02): `waAutonomyMode == null` = el dueño aún no
-/// elige. La card lo dice honesto (sin pretender que hay selección) y el
-/// pipeline opera en safeAuto hasta que el dueño elija en este picker.
+/// AUTO-03 â€” modo de autonomÃ­a del pipeline de WhatsApp. El MISMO motor de
+/// decisiÃ³n (ConversationDecisionEngine) aplica el modo como tope ANTES de su
+/// fÃ³rmula: no hay segundo motor ni reglas nuevas.
+/// AUTONOMY FAIL-SAFE (PROD-02): `waAutonomyMode == null` = el dueÃ±o aÃºn no
+/// elige. La card lo dice honesto (sin pretender que hay selecciÃ³n) y el
+/// pipeline opera en safeAuto hasta que el dueÃ±o elija en este picker.
 class AutonomyModeCard extends ConsumerWidget {
   const AutonomyModeCard({super.key});
 
@@ -90,9 +90,9 @@ class AutonomyModeCard extends ConsumerWidget {
       children: [
         SettingsRow(
           icon: Icons.auto_awesome_outlined,
-          title: 'Autonomía de respuestas',
+          title: 'AutonomÃ­a de respuestas',
           subtitle: raw == null
-              ? 'No has elegido aún — Nano solo responde lo seguro.'
+              ? 'No has elegido aÃºn â€” Nano solo responde lo seguro.'
               : mode.description,
           trailing: ValueBadge(label: mode.label.toUpperCase()),
           onTap: () => _pickAutonomyMode(context, ref),
@@ -119,7 +119,7 @@ class AutonomyModeCard extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Autonomía de respuestas',
+                'AutonomÃ­a de respuestas',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 8),

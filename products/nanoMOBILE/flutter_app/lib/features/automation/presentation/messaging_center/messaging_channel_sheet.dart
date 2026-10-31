@@ -1,15 +1,8 @@
 // messaging_channel_sheet.dart
-//
-// QUÉ HACE:
-// Ventana flotante estilo iOS Glassed para la gestión de canales (WhatsApp, WA Business) y permisos nativos.
-//
-// CÓMO FUNCIONA:
-// - Despliega showNanoGlassWindow con cristal iOS, esquinas redondeadas y borde translúcido reflectante.
-// - Agrupa los conmutadores en una tarjeta con estilo iOS Settings y tipografía nítida.
-// - Activa o remueve reglas reales en RuleRegistry y solicita permisos nativos con NotificationExecutor.
-//
-// POR QUÉ:
-// Transforma la sábana modal en una ventana flotante profesional iOS sin código zombi (< 160 líneas).
+// QUÉ HACE: Ventana flotante estilo iOS Glassed para la gestión de canales y permisos nativos.
+// CÓMO FUNCIONA: Despliega showNanoGlassWindow con canales reales (WA, Business, Telegram, IG) y acceso a notificaciones.
+// POR QUÉ: Elimina opciones de tema fuera de Ajustes y botones redundantes, manteniendo SRP (< 110 líneas).
+library;
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -23,7 +16,6 @@ import '../../engine/messaging/messaging_package.dart';
 import '../../executors/notification_executor_provider.dart';
 import '../widgets/nano_metallic_button.dart';
 import 'messaging_center_providers.dart';
-import 'messaging_theme_sheet.dart';
 
 part 'messaging_channel_sheet_tile.part.dart';
 
@@ -46,7 +38,7 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
         }
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 18),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -60,10 +52,10 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
                   letterSpacing: -0.3,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 Platform.isAndroid
-                    ? 'Elige qué canales puede procesar NanoAI automáticamente.'
+                    ? 'Controla qué aplicaciones utiliza Nano para procesar mensajes.'
                     : 'iOS no permite leer mensajes de otras apps mediante notificaciones.',
                 style: TextStyle(
                   color: isDark ? Colors.white60 : const Color(0xFF64748B),
@@ -77,12 +69,21 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
                   setChannel: setChannel,
                   isDark: isDark,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                Text(
+                  'Permisos del sistema',
+                  style: TextStyle(
+                    color: isDark ? Colors.white70 : const Color(0xFF475569),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 NanoMetallicButton(
                   isExpanded: true,
                   label: hasAccess
-                      ? 'Revisar permiso de notificaciones'
-                      : 'Conceder permiso de notificaciones',
+                      ? 'Verificar acceso a notificaciones'
+                      : 'Conceder acceso a notificaciones',
                   icon: hasAccess
                       ? Icons.verified_user_rounded
                       : Icons.security_rounded,
@@ -94,25 +95,6 @@ Future<void> showMessagingChannelSheet(BuildContext context, WidgetRef ref) {
                         .requestAccess();
                     ref.invalidate(notificationAccessProvider);
                   },
-                ),
-                const SizedBox(height: 8),
-                NanoMetallicButton(
-                  isExpanded: true,
-                  label: 'Tema visual del panel',
-                  icon: Icons.palette_outlined,
-                  style: NanoMetallicButtonStyle.subtle,
-                  onPressed: () {
-                    Navigator.pop(sheetContext);
-                    showMessagingThemeSheet(context, ref);
-                  },
-                ),
-                const SizedBox(height: 8),
-                NanoMetallicButton(
-                  isExpanded: true,
-                  label: 'Cancelar',
-                  icon: Icons.close_rounded,
-                  style: NanoMetallicButtonStyle.subtle,
-                  onPressed: () => Navigator.pop(sheetContext),
                 ),
               ] else ...[
                 const SizedBox(height: 8),

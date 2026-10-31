@@ -304,7 +304,7 @@ class AgentAccessibilityService : AccessibilityService() {
         val currentIndex = out.size
         out.add(
             if (withDepth) {
-                nodeToMap(
+                NanoAccessibilityNodeSnapshot.toMap(
                     node,
                     depth,
                     windowId,
@@ -315,7 +315,7 @@ class AgentAccessibilityService : AccessibilityService() {
                     siblingIndex,
                 )
             } else {
-                nodeToMap(node)
+                NanoAccessibilityNodeSnapshot.toMap(node)
             },
         )
         for (i in 0 until node.childCount) {
@@ -334,62 +334,6 @@ class AgentAccessibilityService : AccessibilityService() {
                 i,
             )
             child?.recycle()
-        }
-    }
-
-    private fun nodeToMap(
-        node: AccessibilityNodeInfo,
-        depth: Int? = null,
-        windowId: Int = 0,
-        windowType: Int = AccessibilityWindowInfo.TYPE_APPLICATION,
-        displayId: Int = Display.DEFAULT_DISPLAY,
-        rootIdentity: String = "",
-        parentIndex: Int? = null,
-        siblingIndex: Int = 0,
-    ): Map<String, Any?> {
-        val bounds = Rect()
-        node.getBoundsInScreen(bounds)
-        return buildMap {
-            put("id", node.viewIdResourceName ?: "")
-            put("type", node.className?.toString() ?: "")
-            put("text", node.text?.toString() ?: "")
-            put("desc", node.contentDescription?.toString() ?: "")
-            put("clickable", node.isClickable)
-            put("editable", node.isEditable)
-            put("scrollable", node.isScrollable)
-            put("checkable", node.isCheckable)
-            put("checked", node.isChecked)
-            put("selected", node.isSelected)
-            put("focusable", node.isFocusable)
-            put("focused", node.isFocused)
-            put("visible", node.isVisibleToUser)
-            put("enabled", node.isEnabled)
-            put("longClickable", node.isLongClickable)
-            put("password", node.isPassword)
-            put("drawingOrder", node.drawingOrder)
-            put("hint", node.hintText?.toString() ?: "")
-            put("error", node.error?.toString() ?: "")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                put("heading", node.isHeading)
-                put("screenReaderFocusable", node.isScreenReaderFocusable)
-                put("paneTitle", node.paneTitle?.toString() ?: "")
-                put("tooltip", node.tooltipText?.toString() ?: "")
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                put("stateDescription", node.stateDescription?.toString() ?: "")
-            }
-            put("package", node.packageName?.toString() ?: "")
-            put("bounds", intArrayOf(bounds.left, bounds.top, bounds.right, bounds.bottom))
-            // Solo dumpSnapshot incluye depth; dumpScreen conserva su contrato.
-            if (depth != null) {
-                put("depth", depth)
-                put("windowId", windowId)
-                put("windowType", windowType)
-                put("displayId", displayId)
-                put("rootIdentity", rootIdentity)
-                put("parentIndex", parentIndex)
-                put("siblingIndex", siblingIndex)
-            }
         }
     }
 
@@ -413,7 +357,7 @@ class AgentAccessibilityService : AccessibilityService() {
             val text = node.text?.toString()?.lowercase() ?: ""
             val desc = node.contentDescription?.toString()?.lowercase() ?: ""
             if (text.contains(q) || desc.contains(q)) {
-                hits.add(nodeToMap(node))
+                hits.add(NanoAccessibilityNodeSnapshot.toMap(node))
             }
             for (i in 0 until node.childCount) {
                 node.getChild(i)?.let { stack.add(it) }
@@ -531,18 +475,8 @@ class AgentAccessibilityService : AccessibilityService() {
      * bounds deben seguir coincidiendo en el instante de ACTION_SET_TEXT;
      * cualquier cambio de pantalla/foco aborta en vez de escribir en otro campo.
      */
-    fun inputText(text: String, targetResourceId: String, targetBounds: IntArray): Boolean {
-        val node = findFocusedEditable(targetResourceId, targetBounds) ?: return false
-        val args = Bundle().apply {
-            putCharSequence(
-                AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE,
-                text,
-            )
-        }
-        val ok = node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-        node.recycle()
-        return ok
-    }
+    fun inputText(text: String, targetResourceId: String, targetBounds: IntArray): Boolean =
+        NanoAccessibilityInput.write(this, text, targetResourceId, targetBounds)
 
     /**
      * Ejecuta la acción Enter declarada por el IME sobre el único campo
@@ -728,42 +662,6 @@ class AgentAccessibilityService : AccessibilityService() {
         }
         // BUG-03 FIX: Si found == root (nodo raíz es clickable), no reciclarlo.
         // AccessibilityNodeInfo reciclado causa crash nativo en el caller.
-        if (found !== root) root.recycle()
-        return found
-    }
-
-    private fun findFocusedEditable(
-        targetResourceId: String,
-        targetBounds: IntArray,
-    ): AccessibilityNodeInfo? {
-        val root = rootInActiveWindow ?: return null
-        var found: AccessibilityNodeInfo? = null
-        val stack = ArrayDeque<AccessibilityNodeInfo>()
-        stack.add(root)
-        while (stack.isNotEmpty() && found == null) {
-            val node = stack.removeLast()
-            val bounds = Rect()
-            node.getBoundsInScreen(bounds)
-            val idMatches = targetResourceId.isBlank() ||
-                node.viewIdResourceName == targetResourceId
-            // BUG-09 FIX: Usar tolerancia ±8px igual que TargetMatchPolicy.
-            // La comparación exacta (==) nunca coincide en dispositivos con DPI
-            // fraccionario donde los bounds difieren ±1px entre frames.
-            val tol = 8
-            val boundsMatch = targetBounds.size == 4 &&
-                Math.abs(bounds.left   - targetBounds[0]) <= tol &&
-                Math.abs(bounds.top    - targetBounds[1]) <= tol &&
-                Math.abs(bounds.right  - targetBounds[2]) <= tol &&
-                Math.abs(bounds.bottom - targetBounds[3]) <= tol
-            if (node.isEditable && node.isFocused && idMatches && boundsMatch) {
-                found = node
-                break
-            }
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { stack.add(it) }
-            }
-        }
-        // Mismo guard que findFirstClickableByText: no reciclar el nodo devuelto.
         if (found !== root) root.recycle()
         return found
     }

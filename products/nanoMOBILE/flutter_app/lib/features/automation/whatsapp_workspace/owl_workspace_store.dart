@@ -48,8 +48,9 @@ class OwlWorkspaceStore {
   /// Escribe un artefacto completo mediante rename, sin dejar JSON parcial
   /// visible si falla la operación o Android cierra el proceso.
   Future<File> jsonFile(Directory directory, String name, Object data) async {
-    if (!RegExp(r'^[a-z_]+\.json$').hasMatch(name))
+    if (!RegExp(r'^[a-z_]+\.json$').hasMatch(name)) {
       throw const FormatException('Nombre inválido.');
+    }
     final target = File('${directory.path}/$name');
     final temp = File('${target.path}.writing');
     await temp.writeAsString(jsonEncode(data), flush: true);

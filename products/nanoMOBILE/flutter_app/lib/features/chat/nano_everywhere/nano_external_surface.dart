@@ -15,7 +15,6 @@ class NanoExternalSurface extends StatefulWidget {
   @override
   State<NanoExternalSurface> createState() => _NanoExternalSurfaceState();
 }
-
 class _NanoExternalSurfaceState extends State<NanoExternalSurface> {
   bool visible = false;
   final panelKey = GlobalKey();
@@ -61,7 +60,9 @@ class _NanoExternalSurfaceState extends State<NanoExternalSurface> {
         lastHeight = 0;
       });
       if (visible) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => publishSize());
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted || !visible) return false;
+        publishSize();
       }
       return true;
     });
@@ -84,9 +85,9 @@ class _NanoExternalSurfaceState extends State<NanoExternalSurface> {
   }
 
   /// Delega al único dueño Android; no ejecuta órdenes de WhatsApp al cerrar.
-  void command(String action) {
+  Future<void> command(String action) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    NanoExternalSurface.channel.invokeMethod<void>(action);
+    await NanoExternalSurface.channel.invokeMethod<void>(action);
   }
 
   /// Comunica cambios de layout, no usa timer ni redibujado continuo.
@@ -149,9 +150,11 @@ class _NanoExternalSurfaceState extends State<NanoExternalSurface> {
                           onVoice: session.voice.toggle,
                           onSpeak: session.voice.read,
                           onCollapse: () => command('collapse'),
+                          onCollapseForAction: () => command('collapse'),
                           onDismiss: () => command('close'),
                           onOpenApp: () => command('openNano'),
-                          onShowHistory: () => showAutomationHistory(routeContext),
+                          onShowHistory: () =>
+                              showAutomationHistory(routeContext),
                         ),
                       ),
                     ),

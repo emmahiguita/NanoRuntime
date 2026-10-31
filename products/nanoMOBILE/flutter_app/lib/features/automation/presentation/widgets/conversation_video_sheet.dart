@@ -121,8 +121,9 @@ class _VideoPlayerSheetState extends State<VideoPlayerSheet> {
                     ),
                     onPressed: () {
                       final uri = source.launchUri;
-                      if (uri != null)
+                      if (uri != null) {
                         launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
                     },
                   ),
                 ),

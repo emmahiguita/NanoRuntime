@@ -3,11 +3,11 @@ part of 'nano_ai_controller.dart';
 /// Estado de presentación separado de inferencia y ejecución.
 extension NanoAiPanelState on NanoAiController {
   /// Prepara texto en el editor visible, sin consultar ni ejecutar.
-  void queuePrompt(String prompt) {
+  void queuePrompt(String prompt, {bool reveal = true}) {
     if (prompt.trim().isNotEmpty) {
       _pendingPrompt = prompt;
       _pendingIsDictation = false;
-      isVisible = true;
+      if (reveal) isVisible = true;
       _emit();
     }
   }
@@ -37,6 +37,14 @@ extension NanoAiPanelState on NanoAiController {
   void hide() {
     isVisible = false;
     _requestExpand = false;
+    _emit();
+  }
+
+  /// Restaura solo la esfera cuando el acceso externo ya estaba activo;
+  /// no abre el panel ni ejecuta el borrador compartido.
+  void showOrb() {
+    if (_disposed || isVisible) return;
+    isVisible = true;
     _emit();
   }
 

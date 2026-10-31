@@ -79,10 +79,12 @@ class UniversalMessagingToolHandler {
         ? _str(call, 'text')
         : (call.textArg ?? '');
 
-    if (contactQ.isEmpty)
+    if (contactQ.isEmpty) {
       return '[error] Falta especificar el contacto destinatario para $appName.';
-    if (text.isEmpty)
+    }
+    if (text.isEmpty) {
       return '[error] Falta especificar el texto exacto del mensaje para $appName.';
+    }
 
     final resolved = await _contactResolver.resolve(contactQ);
     final target = resolved?.number ?? contactQ;
@@ -116,10 +118,12 @@ class UniversalMessagingToolHandler {
     final caption = _str(call, 'caption');
     final pkg = (call.args?['packageName'] as String?) ?? defaultPackage;
 
-    if (contactQ.isEmpty)
+    if (contactQ.isEmpty) {
       return '[error] Falta especificar el contacto destinatario.';
-    if (path.isEmpty)
+    }
+    if (path.isEmpty) {
       return '[error] No se especificó la ruta del archivo a compartir.';
+    }
 
     final resolved = await _contactResolver.resolve(contactQ);
     final target = resolved?.number ?? contactQ;
@@ -153,8 +157,9 @@ class UniversalMessagingToolHandler {
 
     if (!await _contacts.hasPermission()) await _contacts.requestPermission();
     final all = await _contacts.getContacts();
-    if (all.isEmpty)
+    if (all.isEmpty) {
       return '[error] Sin contactos en el dispositivo o permiso denegado.';
+    }
 
     final filtered = query.isEmpty
         ? all.take(10).toList()

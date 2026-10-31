@@ -20,11 +20,13 @@ class OwlExportLibrary {
       allowedExtensions: const ['txt', 'zip'],
       allowMultiple: false,
     );
-    if (choice == null)
+    if (choice == null) {
       return 'Importación cancelada; no se modificó el historial.';
+    }
     final source = choice.files.single;
-    if (source.path == null)
+    if (source.path == null) {
       throw const FormatException('El proveedor no entregó un archivo local.');
+    }
     return importFile(source.path!, source.name);
   }
 
@@ -37,13 +39,14 @@ class OwlExportLibrary {
       );
     }
     final source = File(path);
-    if (await source.length() > 16 * 1024 * 1024)
+    if (await source.length() > 16 * 1024 * 1024) {
       throw const FormatException('Archivo mayor de 16 MB.');
+    }
+    final bytes = await source.readAsBytes();
     final parsed = await compute(decodeWhatsAppExport, {
-      'path': path,
+      'bytes': bytes,
       'name': name,
     });
-    final bytes = await source.readAsBytes();
     final hash = sha256.convert(bytes).toString();
     final id = 'chat_${hash.substring(0, 24)}';
     final directory = await store.folder('exports', id);
@@ -95,10 +98,11 @@ class OwlExportLibrary {
             (a, b) =>
                 (b['importedAt'] as num).compareTo(a['importedAt'] as num),
           );
-    if (all.isEmpty)
+    if (all.isEmpty) {
       throw const FormatException(
         'Importa primero un TXT o ZIP oficial de WhatsApp.',
       );
+    }
     final meta = all.first;
     final directory = await store.folder('exports', meta['id'] as String);
     final data =

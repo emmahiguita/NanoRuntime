@@ -14,14 +14,16 @@ String _zipRun(String path) {
     final name = item.uri.pathSegments.last;
     if (!RegExp(
       r'^(report\.(json|html)|(?:before|after)_\d+\.png)$',
-    ).hasMatch(name))
+    ).hasMatch(name)) {
       continue;
+    }
     final bytes = item.readAsBytesSync();
     total += bytes.length;
-    if (total > 32 * 1024 * 1024)
+    if (total > 32 * 1024 * 1024) {
       throw const FormatException(
         'Evidencias mayores de 32 MB; comparte por separado.',
       );
+    }
     archive.addFile(ArchiveFile(name, bytes.length, bytes));
   }
   final bytes = ZipEncoder().encode(archive);
@@ -38,8 +40,9 @@ Future<String> exportLatestQa(OwlWorkspaceStore store) async {
           'owl_qa_runs_v1',
         )).values.whereType<Map>().where((v) => v['at'] != null).toList()
         ..sort((a, b) => (b['at'] as num).compareTo(a['at'] as num));
-  if (rows.isEmpty)
+  if (rows.isEmpty) {
     throw const FormatException('No hay un informe QA finalizado.');
+  }
   final folder = await store.folder('qa', rows.first['id'] as String);
   final path = await compute(_zipRun, folder.path);
   await SharePlus.instance.share(

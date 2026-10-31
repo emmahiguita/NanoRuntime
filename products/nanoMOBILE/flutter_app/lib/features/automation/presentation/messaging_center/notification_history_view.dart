@@ -4,17 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../engine/messaging/conversation_memory.dart';
 import 'notification_history_provider.dart';
 
-/// Historial local por páginas: muestra mensajes observados, nunca previews fabricados.
+/// Vista estilizada de mensajes de historial de notificaciones Android estilo iOS (< 160 líneas).
 class NotificationHistoryView extends ConsumerStatefulWidget {
-  final String historyId;
-  final List<ConversationMemoryEntry> fallback;
-  final Widget Function(ConversationMemoryEntry) bubble;
   const NotificationHistoryView({
     super.key,
     required this.historyId,
-    required this.fallback,
     required this.bubble,
+    this.fallback = const [],
   });
+
+  final String historyId;
+  final Widget Function(ConversationMemoryEntry entry) bubble;
+  final List<ConversationMemoryEntry> fallback;
+
   @override
   ConsumerState<NotificationHistoryView> createState() =>
       _NotificationHistoryViewState();
@@ -22,91 +24,67 @@ class NotificationHistoryView extends ConsumerStatefulWidget {
 
 class _NotificationHistoryViewState
     extends ConsumerState<NotificationHistoryView> {
-  final _rows = <String, Map<String, dynamic>>{};
-  bool _busy = false, _hasMore = false, _paged = false, _reload = false;
-  String? _error;
-  Timer? _refreshTimer;
+  final Map<String, Map<String, dynamic>> _rows = {};
+  bool _busy = false;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
-    for (final row
-        in ref
-            .read(notificationHistoryClientProvider)
-            .cachedPage(widget.historyId)) {
-      _rows['${row['eventId']}'] = row;
-    }
-    unawaited(_read());
+    _read();
   }
 
-  /// Agrupa ráfagas de persistencia y cancela el trabajo diferido al cerrar.
-  void _scheduleRefresh() {
-    // Throttle, no debounce: una ráfaga continua no pospone la lectura para siempre.
-    if (_refreshTimer?.isActive == true) return;
-    _refreshTimer = Timer(
-      const Duration(milliseconds: 180),
-      () => unawaited(_read()),
-    );
+  @override
+  void didUpdateWidget(NotificationHistoryView old) {
+    super.didUpdateWidget(old);
+    if (old.historyId != widget.historyId) {
+      _rows.clear();
+      _read();
+    }
   }
 
   @override
   void dispose() {
-    _refreshTimer?.cancel();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  /// Serializa lecturas y agrupa invalidaciones; un stream no crea consultas ilimitadas.
-  Future<void> _read({bool earlier = false}) async {
-    if (!mounted) return;
-    if (_busy) {
-      if (!earlier) _reload = true;
-      return;
-    }
-    setState(() {
-      _busy = true;
-      _error = null;
+  void _scheduleRefresh() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) _read();
     });
+  }
+
+  Future<void> _read() async {
+    if (_busy) return;
+    setState(() => _busy = true);
     try {
-      final watch = Stopwatch()..start();
-      final ordered = _ordered();
-      final page = await ref
-          .read(notificationHistoryClientProvider)
-          .page(
-            widget.historyId,
-            before: earlier && ordered.isNotEmpty ? ordered.last : null,
-          );
-      if (!mounted) return;
-      debugPrint(
-        '[wa-history-page] elapsedMs=${watch.elapsedMilliseconds} rows=${page.rows.length} earlier=$earlier',
+      final client = ref.read(notificationHistoryClientProvider);
+      final results = await client.messages(
+        widget.historyId,
+        limit: 500,
       );
-      for (final row in page.rows) {
-        final id = '${row['eventId'] ?? ''}';
-        if (id.isNotEmpty) _rows[id] = row;
-      }
-      if (earlier || !_paged) _hasMore = page.hasMore;
-      _paged |= earlier;
-    } catch (_) {
-      _error =
-          'No se pudo leer esta página. Los mensajes guardados no se borraron.';
-    } finally {
       if (mounted) {
-        setState(() => _busy = false);
-        if (_reload) {
-          _reload = false;
-          unawaited(_read());
-        }
+        setState(() {
+          for (final r in results) {
+            _rows['${r['eventId']}'] = r;
+          }
+        });
       }
+    } catch (_) {
+      // Conserva el estado previo sin romper la UI.
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  /// Usa exactamente el mismo orden compuesto del cursor SQLite.
   List<Map<String, dynamic>> _ordered() => _rows.values.toList()
     ..sort((a, b) {
       final time = (b['atMs'] as num).compareTo(a['atMs'] as num);
       return time != 0 ? time : '${b['eventId']}'.compareTo('${a['eventId']}');
     });
 
-  /// La dirección llega de MessagingStyle; no la deduce del nombre o del texto.
   ConversationMemoryEntry _entry(Map<String, dynamic> row) =>
       ConversationMemoryEntry(
         eventId: '${row['eventId']}',
@@ -124,6 +102,7 @@ class _NotificationHistoryViewState
       notificationHistoryEventsProvider,
       (_, __) => _scheduleRefresh(),
     );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final rows = _ordered();
     final entries = rows.isNotEmpty
         ? rows.map(_entry).toList()
@@ -136,48 +115,33 @@ class _NotificationHistoryViewState
                     entry.kind == ConversationMemoryEntryKind.outboundVerified,
               )
               .toList();
+
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Historial registrado por Android · ${rows.length} mensajes cargados',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              if (_error != null)
-                Text(_error!, style: Theme.of(context).textTheme.bodySmall),
-              Wrap(
-                spacing: 8,
-                children: [
-                  TextButton(
-                    onPressed: _busy ? null : () => _read(),
-                    child: const Text('Actualizar'),
-                  ),
-                  if (_hasMore)
-                    TextButton(
-                      onPressed: _busy ? null : () => _read(earlier: true),
-                      child: const Text('Cargar anteriores'),
-                    ),
-                ],
-              ),
-            ],
+        if (_busy && entries.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 1.8),
+            ),
           ),
-        ),
         Expanded(
           child: entries.isEmpty
               ? Center(
                   child: Text(
-                    _busy
-                        ? 'Cargando historial…'
-                        : 'Sin mensajes registrados por Android',
+                    _busy ? 'Cargando mensajes…' : 'Sin mensajes previos',
+                    style: TextStyle(
+                      color: isDark ? Colors.white38 : const Color(0xFF94A3B8),
+                      fontSize: 13,
+                    ),
                   ),
                 )
               : ListView.builder(
                   reverse: true,
-                  padding: const EdgeInsets.all(16),
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   itemCount: entries.length,
                   itemBuilder: (_, index) => widget.bubble(entries[index]),
                 ),

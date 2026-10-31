@@ -180,8 +180,9 @@ final class LightweightSemanticSimilarityEngine
   static bool _matchesCluster(String text, List<String> cluster) {
     for (final phrase in cluster) {
       if (text == phrase) return true;
-      if (text.contains(phrase) && (text.length - phrase.length) <= 12)
+      if (text.contains(phrase) && (text.length - phrase.length) <= 12) {
         return true;
+      }
     }
     return false;
   }
@@ -200,20 +201,23 @@ final class LightweightSemanticSimilarityEngine
     final bProject =
         b.contains('proyecto') || b.contains('app') || b.contains('trabajo');
     if (aProject != bProject &&
-        (a.contains('todo bien') || b.contains('todo bien')))
+        (a.contains('todo bien') || b.contains('todo bien'))) {
       return true;
+    }
 
     // "ya estas?" (preparado) vs "ya esta?" (objeto terminado)
     final aPersona = a == 'ya estas' || a.contains('ya estas');
     final bCosa = b == 'ya esta' || b.endsWith('ya esta');
-    if (aPersona != bCosa && (a.contains('ya esta') && b.contains('ya esta')))
+    if (aPersona != bCosa && (a.contains('ya esta') && b.contains('ya esta'))) {
       return true;
+    }
 
     // "que tal nano" (pregunta sobre producto) vs "que tal" (saludo humano)
     final aNano = a.contains('nano');
     final bNano = b.contains('nano');
-    if (aNano != bNano && (a.contains('que tal') || b.contains('que tal')))
+    if (aNano != bNano && (a.contains('que tal') || b.contains('que tal'))) {
       return true;
+    }
 
     return false;
   }

@@ -9,7 +9,7 @@
 // - Integra `BusinessLibrarySectionTabs` para cambiar entre Documentos y Tienda.
 //
 // POR QUÉ:
-// Aplica SOLID coordinando subcomponentes especializados (< 160 líneas).
+// Aplica SOLID coordinando subcomponentes especializados (< 165 líneas).
 
 import 'package:nanoai/core/widgets/glass_surface.dart';
 import 'package:flutter/material.dart';
@@ -100,7 +100,6 @@ final class BusinessDocumentLibraryView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDocs = section == BusinessLibrarySection.documents;
-    // La biblioteca usa el mismo cristal y tema que el resto de Nano.
     return GlassSurface(
       interactive: false,
       padding: EdgeInsets.zero,
@@ -111,6 +110,7 @@ final class BusinessDocumentLibraryView extends StatelessWidget {
             isDark: Theme.of(context).brightness == Brightness.dark,
             isChatPicker: isChatPicker,
             isStore: !isDocs,
+            productsCount: products.length,
             onCreateFolder: onCreateFolder,
             onImport: onImport,
             onAddProduct: onAddProduct,
@@ -139,7 +139,6 @@ final class BusinessDocumentLibraryView extends StatelessWidget {
           ],
           if (busy) LinearProgressIndicator(minHeight: 2, color: Theme.of(context).colorScheme.primary),
           Expanded(
-            // Fallar al leer archivos no invalida el catálogo independiente.
             child: isDocs && loadError != null
                 ? BusinessLibraryLoadError(busy: busy, onRetry: onRetry)
                 : (isDocs ? _docsContent() : _storeContent()),

@@ -14,6 +14,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../application/nano_share_coordinator.dart';
+import '../../domain/nano_share_payload.dart';
 import '../../engine/business/business_document_library.dart';
 import '../widgets/nano_glass_dialog.dart';
 import '../widgets/nano_metallic_button.dart';
@@ -21,7 +23,7 @@ import '../widgets/nano_metallic_button.dart';
 final class BusinessDocumentActions {
   BusinessDocumentActions._();
 
-  /// Comparte uno o múltiples documentos mediante el despachador nativo.
+  /// Comparte uno o múltiples documentos mediante el despachador nativo o NanoContactPicker.
   static Future<void> share({
     required BuildContext context,
     required List<BusinessDocument> documents,
@@ -30,7 +32,20 @@ final class BusinessDocumentActions {
     final messenger = ScaffoldMessenger.of(context);
     try {
       final xFiles = documents.map((doc) => XFile(doc.file.path, name: doc.name)).toList();
-      await SharePlus.instance.share(ShareParams(files: xFiles));
+      if (documents.length == 1 && context.mounted) {
+        final doc = documents.first;
+        await NanoShareCoordinator.showPicker(
+          context: context,
+          payload: NanoSharePayload(
+            title: doc.name,
+            text: '📄 Documento compartido desde Nano: ${doc.name}',
+            type: NanoShareContentType.document,
+            mediaFile: xFiles.first,
+          ),
+        );
+      } else {
+        await SharePlus.instance.share(ShareParams(files: xFiles));
+      }
     } on Object catch (error) {
       _showError(messenger, 'No se pudo compartir: $error');
     }

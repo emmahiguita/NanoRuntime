@@ -1,8 +1,12 @@
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:nanoai/core/theme/nano_motion.dart';
 import 'glass_surface.dart';
+
+export 'nano_glass_list_window.dart'
+    show NanoGlassListWindow, NanoGlassListTile;
 
 /// Un solo responsable dibuja el marco y el cierre. Los diálogos que ya
 /// tienen cabecera y superficie propias no reciben una segunda ventana.
@@ -20,8 +24,6 @@ Future<T?> showNanoGlassWindow<T>({
   AnimationStyle? animationStyle,
   NanoWindowChrome chrome = NanoWindowChrome.managed,
 }) {
-  // El modal cubre también el dock: la navegación de fondo no puede quedar
-  // por encima ni recibir pulsaciones mientras una ventana está abierta.
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   final themes = InheritedTheme.capture(from: context, to: navigator.context);
   final reduced = MediaQuery.disableAnimationsOf(context);
@@ -30,7 +32,7 @@ Future<T?> showNanoGlassWindow<T>({
     useRootNavigator: useRootNavigator,
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: barrierColor ?? Colors.black.withValues(alpha: .32),
+    barrierColor: barrierColor ?? Colors.black.withValues(alpha: .36),
     transitionDuration: reduced
         ? Duration.zero
         : (animationStyle?.duration ?? NanoMotionDurations.hero),
@@ -91,7 +93,10 @@ class _NanoGlassWindow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final owned = chrome == NanoWindowChrome.contentOwned;
+
     return SafeArea(
       child: AnimatedPadding(
         padding: media.viewInsets + const EdgeInsets.all(16),
@@ -107,8 +112,7 @@ class _NanoGlassWindow extends StatelessWidget {
               available.maxHeight,
               constraints?.maxHeight ?? available.maxHeight,
             );
-            // Solo el marco administrado reserva sus 40 px para el botón de cierre.
-            final contentHeight = math.max(0.0, height - (owned ? 0 : 40));
+            final contentHeight = math.max(0.0, height - (owned ? 0 : 38));
             Widget content = MediaQuery(
               data: media.copyWith(
                 size: Size(width, contentHeight),
@@ -119,36 +123,61 @@ class _NanoGlassWindow extends StatelessWidget {
               child: Builder(builder: builder),
             );
             if (!owned) {
-              content = GlassSurface(
-                interactive: false,
-                padding: EdgeInsets.zero,
-                radius: 24,
-                blur: 24,
-                opacity: .66,
-                clarity: .88,
-                intensity: .72,
-                depth: 1.3,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // No se crea este cierre cuando la cabecera del contenido lo posee.
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: SizedBox(
-                        height: 40,
-                        child: Semantics(
-                          label: 'Cerrar ventana',
-                          button: true,
-                          child: IconButton(
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close_rounded, size: 20),
-                          ),
+              content = ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                clipBehavior: Clip.antiAlias,
+                child: GlassSurface(
+                  interactive: false,
+                  padding: EdgeInsets.zero,
+                  radius: 24,
+                  blur: 24,
+                  opacity: 0.96,
+                  tint: isDark
+                      ? const Color(0xFF111827).withValues(alpha: 0.88)
+                      : const Color(0xFFF8FAFC).withValues(alpha: 0.95),
+                  clarity: 0.65,
+                  intensity: 0.60,
+                  depth: 1.1,
+                  borderWidth: 0.8,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 6, 8, 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const SizedBox(width: 32),
+                            Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.20)
+                                    : Colors.black.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Semantics(
+                                label: 'Cerrar ventana',
+                                button: true,
+                                child: IconButton(
+                                  padding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  icon: Icon(CupertinoIcons.xmark_circle_fill, size: 20, color: isDark ? Colors.white.withValues(alpha: 0.40) : Colors.black.withValues(alpha: 0.28)),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                    Flexible(fit: FlexFit.loose, child: content),
-                  ],
+                      Flexible(fit: FlexFit.loose, child: content),
+                    ],
+                  ),
                 ),
               );
             }

@@ -11,8 +11,9 @@ String _draftFailureCode(Object error) {
   };
   if (message.contains('thermal_paused')) return 'thermal_paused';
   if (message.isEmpty) return error.runtimeType.toString();
-  if (message.contains('context_capacity_exceeded'))
+  if (message.contains('context_capacity_exceeded')) {
     return 'context_capacity_exceeded';
+  }
   if (message.contains('timeout')) return 'engine_timeout';
   if (message.contains('no se pudo contactar')) return 'connection_error';
   if (message.contains('respuesta inválida')) return 'invalid_response';

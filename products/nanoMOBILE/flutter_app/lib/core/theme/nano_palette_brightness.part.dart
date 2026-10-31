@@ -13,6 +13,11 @@ abstract final class NanoPaletteBrightness {
     return blackContrast >= whiteContrast ? Colors.black : Colors.white;
   }
 
+  /// Reconoce el fondo negro tambi?n durante la interpolaci?n del tema.
+  /// El umbral mantiene separada la paleta gris espacial.
+  static bool isBlack(NanoColors colors) =>
+      colors.backgroundPrimary.computeLuminance() < 0.001;
+
   static bool isDark(NanoColors colors) =>
       ThemeData.estimateBrightnessForColor(colors.surface) == Brightness.dark;
 }

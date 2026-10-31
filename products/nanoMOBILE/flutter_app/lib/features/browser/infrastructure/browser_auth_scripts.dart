@@ -1,24 +1,52 @@
+import 'dart:convert';
+
 /// QUÉ HACE:
 /// Scripts JavaScript inyectados para gestión segura de credenciales,
-/// guardado automático y autocompletado en formularios web.
-/// 
+/// guardado automático y autocompletado en formularios web HTTPS.
+///
 /// CÓMO FUNCIONA:
-/// Intercepta eventos submit y clics en formularios de login, enviando
-/// los datos vía JavaScriptHandler 'nanoSaveCredential' y proveyendo
-/// la función window.__nanoAutofill.
-/// 
+/// Verifica que el origen sea estrictamente HTTPS y no pertenezca a dominios
+/// excluidos (WhatsApp Web, proveedores OAuth/IDP). Intercepta eventos submit
+/// y clics en formularios de login, enviando los datos vía JavaScriptHandler
+/// 'nanoSaveCredential' y proveyendo la función window.__nanoAutofill.
+///
 /// POR QUÉ:
 /// Desacopla la lógica de autenticación web de la infraestructura multimedia y zoom,
-/// manteniendo archivos modulares menores a 130 líneas.
+/// previniendo captura de credenciales en orígenes inseguros (HTTP) o sesiones
+/// sensibles como WhatsApp Web, manteniendo el archivo menor a 200 líneas.
 class BrowserAuthScripts {
-  /// Script inyectado para detectar inicios de sesión e interceptar formularios de autenticación
+  /// Script inyectado para detectar inicios de sesión e interceptar formularios de autenticación en HTTPS.
   static const String credentialManagerScript = """
   (function() {
     if (window.__nanoCredentialManagerInstalled) return;
     window.__nanoCredentialManagerInstalled = true;
 
+    const EXCLUDED_HOSTS = [
+      'web.whatsapp.com',
+      'whatsapp.com',
+      'accounts.google.com',
+      'appleid.apple.com',
+      'login.microsoftonline.com',
+      'github.com'
+    ];
+
+    function isEligibleOrigin() {
+      try {
+        if (window.location.protocol !== 'https:') return false;
+        const host = (window.location.hostname || '').toLowerCase();
+        if (!host) return false;
+        for (const excluded of EXCLUDED_HOSTS) {
+          if (host === excluded || host.endsWith('.' + excluded)) return false;
+        }
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
     function extractAndSendCredentials(form) {
       try {
+        if (!isEligibleOrigin()) return;
         let root = form || document;
         let passInput = root.querySelector('input[type="password"]');
         if (!passInput || !passInput.value) return;
@@ -77,6 +105,7 @@ class BrowserAuthScripts {
 
     window.__nanoAutofill = function(user, pass) {
       try {
+        if (!isEligibleOrigin()) return false;
         let passInput = document.querySelector('input[type="password"]');
         if (!passInput) return false;
 
@@ -117,10 +146,10 @@ class BrowserAuthScripts {
   })();
   """;
 
-  /// Genera la llamada Javascript para autocompletar credenciales específicas
+  /// Genera la llamada Javascript segura (JSON-encoded) para autocompletar credenciales.
   static String buildAutofillScript(String username, String password) {
-    final u = username.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
-    final p = password.replaceAll(r'\', r'\\').replaceAll("'", r"\'");
-    return "if (window.__nanoAutofill) { window.__nanoAutofill('$u', '$p'); }";
+    final u = jsonEncode(username);
+    final p = jsonEncode(password);
+    return 'if (window.__nanoAutofill) { window.__nanoAutofill($u, $p); }';
   }
 }

@@ -67,37 +67,35 @@ class LiveNotificationsNotifier
     final items = <ConversationSummaryItem>[];
     final now = DateTime.now().millisecondsSinceEpoch;
 
-      for (final notif in notifications) {
-        final summary = _buildSummary(notif, ownershipStore, settings, now);
-        if (summary != null) {
-          items.add(summary);
-          _schedulePersistIfChanged(notif, summary);
-        }
+    for (final notif in notifications) {
+      final summary = _buildSummary(notif, ownershipStore, settings, now);
+      if (summary != null) {
+        items.add(summary);
+        _schedulePersistIfChanged(notif, summary);
       }
     }
 
-      return MessagingDedupMerger.deduplicateAndSort(items);
-    }
+    return MessagingDedupMerger.deduplicateAndSort(items);
+  }
 
-    void _handleLiveEvent(
-      Map<dynamic, dynamic> map,
-      ConversationOwnershipStore ownershipStore,
-      SettingsState settings,
-    ) {
-      try {
-        final notif = DeviceNotification.fromMap(map);
-        final now = DateTime.now().millisecondsSinceEpoch;
-        final summary = _buildSummary(notif, ownershipStore, settings, now);
-        if (summary == null) return;
-        _schedulePersistIfChanged(notif, summary);
-        final current = state.valueOrNull ?? const [];
-        final updated = MessagingDedupMerger.deduplicateAndSort([
-          summary,
-          ...current,
-        ]);
-        state = AsyncData(updated);
-      } catch (_) {}
-    }
+  void _handleLiveEvent(
+    Map<dynamic, dynamic> map,
+    ConversationOwnershipStore ownershipStore,
+    SettingsState settings,
+  ) {
+    try {
+      final notif = DeviceNotification.fromMap(map);
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final summary = _buildSummary(notif, ownershipStore, settings, now);
+      if (summary == null) return;
+      _schedulePersistIfChanged(notif, summary);
+      final current = state.valueOrNull ?? const [];
+      final updated = MessagingDedupMerger.deduplicateAndSort([
+        summary,
+        ...current,
+      ]);
+      state = AsyncData(updated);
+    } catch (_) {}
   }
 
   // Cache LRU en memoria para evitar ráfagas de hasta 100 llamadas MethodChannel
@@ -155,3 +153,4 @@ class LiveNotificationsNotifier
       );
     }
   }
+}

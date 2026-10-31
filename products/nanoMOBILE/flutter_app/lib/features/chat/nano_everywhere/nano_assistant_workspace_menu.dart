@@ -6,6 +6,8 @@ extension _NanoAssistantWorkspaceMenu on _NanoAssistantPanelState {
   Future<void> _openWorkspaceMenu(BuildContext anchor) =>
       showWhatsAppAutomationMenu(
         anchor,
+        attachment: widget.controller.attachment == null ? null : AutomationInputAttachment(
+          name: widget.controller.attachment!.name, path: widget.controller.attachment!.path),
         onActivate: () {
           if (mounted) _handleToolSelected('WhatsApp');
         },

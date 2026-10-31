@@ -241,7 +241,7 @@ class DatabaseStudioActions extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: path));
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Archivo creado; ruta copiada: ' + path)),
+        SnackBar(content: Text('Archivo creado; ruta copiada: $path')),
       );
     }
   }

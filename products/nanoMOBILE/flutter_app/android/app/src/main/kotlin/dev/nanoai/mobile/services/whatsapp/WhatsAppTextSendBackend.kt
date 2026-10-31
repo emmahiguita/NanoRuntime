@@ -31,21 +31,26 @@ class WhatsAppTextSendBackend(private val context: Context) {
         if (AgentAccessibilityBridge.isAutoSendArmed || WhatsAppReturnController.isReturning) {
             return WhatsAppOpenResult(false, "automation_busy", "Otra tarea de WhatsApp está en curso.")
         }
-        val cleanContact = contact
+        val isJid = contact.endsWith("@g.us", ignoreCase = true) ||
+            contact.endsWith("@lid", ignoreCase = true) ||
+            contact.endsWith("@s.whatsapp.net", ignoreCase = true)
+        val cleanContact = if (isJid) contact.trim() else contact
             .replace("@s.whatsapp.net", "")
             .replace("@g.us", "")
+            .replace("@lid", "")
             .replace(Regex("[()\"'\\[\\]]"), "")
+            .replace(Regex("^(?:(?:este|el|al)\\s+)?n[uú]mero\\s+", RegexOption.IGNORE_CASE), "")
             .trim()
-        val username = cleanContact.takeIf {
+        val username = if (isJid) null else cleanContact.takeIf {
             Regex("^@[A-Za-z0-9._]{3,35}$").matches(it) && it.any(Char::isLetter)
         }
         // Un nombre que contiene muchos dígitos no es un número telefónico.
-        val phoneInput = Regex("^[+0-9 ().-]+$").matches(cleanContact)
+        val phoneInput = !isJid && Regex("^[+0-9 ().-]+$").matches(cleanContact)
         var digits = if (phoneInput) cleanContact.filter { it.isDigit() } else ""
-        if (username == null && digits.length < 7) {
+        if (!isJid && username == null && digits.length < 7) {
             digits = resolveContactPhone(cleanContact).orEmpty()
         }
-        if (username == null && digits.length !in 7..15) {
+        if (!isJid && username == null && digits.length !in 7..15) {
             AgentAccessibilityBridge.disarmAutoSend()
             return WhatsAppOpenResult(
                 ok = false,
@@ -54,25 +59,36 @@ class WhatsAppTextSendBackend(private val context: Context) {
             )
         }
 
-        val uri = Uri.parse(
-            // Enlace de usuario documentado por WhatsApp; siempre fijado al
-            // paquete instalado. Una clave o función no disponible requiere intervención.
-            if (username != null) "https://wa.me/${Uri.encode(username.drop(1))}?text=${Uri.encode(text)}"
-            else "https://api.whatsapp.com/send?phone=$digits&text=${Uri.encode(text)}",
-        )
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-            setPackage(requestedPackage)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = if (isJid) {
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+                putExtra("jid", cleanContact)
+                setPackage(requestedPackage)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        } else {
+            val uri = Uri.parse(
+                // Enlace de usuario documentado por WhatsApp; siempre fijado al
+                // paquete instalado. Una clave o función no disponible requiere intervención.
+                if (username != null) "https://wa.me/${Uri.encode(username.drop(1))}?text=${Uri.encode(text)}"
+                else "https://api.whatsapp.com/send?phone=$digits&text=${Uri.encode(text)}",
+            )
+            Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage(requestedPackage)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
         }
         val expectedAlias = expectedAliasOverride
-            ?: if (username == null) resolveContactName(digits) else null
+            ?: if (isJid) null
+            else if (username == null) resolveContactName(digits) else null
             ?: cleanContact.takeIf { it != digits }
 
         fun arm(pkg: String): Boolean {
             if (!autoSend) return true
             return AgentAccessibilityBridge.armAutoSendAndReturn(
                     targetPkg = pkg,
-                    targetContact = username ?: digits,
+                    targetContact = if (isJid) cleanContact else (username ?: digits),
                     expectedAlias = expectedAlias,
                     expectedText = text,
                     timeoutMs = 12_000L,

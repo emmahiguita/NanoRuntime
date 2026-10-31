@@ -11,6 +11,7 @@ import 'nano_ai_controller.dart';
 import 'nano_assistant_panel.dart';
 import 'nano_floating_orb.dart';
 import 'nano_animation_policy.dart';
+import 'nano_floating_system.dart';
 part 'nano_floating_assistant_policy.dart';
 part 'nano_floating_assistant_view.dart';
 
@@ -23,6 +24,7 @@ class NanoFloatingAssistant extends StatefulWidget {
     this.onSpeak,
     this.onStopVoice,
     this.initiallyExpanded = false,
+    this.inputController,
   });
 
   final NanoAiController controller;
@@ -31,6 +33,7 @@ class NanoFloatingAssistant extends StatefulWidget {
   final VoidCallback? onStopVoice;
   final ValueChanged<String>? onSpeak;
   final bool initiallyExpanded;
+  final TextEditingController? inputController;
 
   @override
   State<NanoFloatingAssistant> createState() => _NanoFloatingAssistantState();
@@ -61,7 +64,7 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant>
     super.initState();
     expanded = widget.initiallyExpanded;
     isVisible = widget.controller.isVisible;
-    input = TextEditingController();
+    input = widget.inputController ?? TextEditingController();
     widget.controller.addListener(_sync);
 
     _snapController =
@@ -145,7 +148,11 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant>
       isVisible = true;
       _wakeUp();
     }
-    if (!isVisible) _settleSnap();
+    // Un retorno restaura el orbe compacto, no un panel que quedó abierto.
+    if (!isVisible) {
+      expanded = false;
+      _settleSnap();
+    }
     setState(() {});
   }
 
@@ -154,11 +161,22 @@ class _NanoFloatingAssistantState extends State<NanoFloatingAssistant>
     _idleTimer?.cancel();
     _snapController.dispose();
     widget.controller.removeListener(_sync);
-    input.dispose();
+    if (widget.inputController == null) input.dispose();
     super.dispose();
   }
 
+  /// La X cierra ambos accesos de la sesión y su voz. Minimizar sigue siendo
+  /// otra acción: conserva el acceso externo y el borrador compartido.
   void _dismissAssistant() {
+    widget.onStopVoice?.call();
+    final owner = widget.controller;
+    unawaited(
+      const NanoFloatingSystem().hide().catchError((Object error) {
+        if (error is! MissingPluginException && !owner.isDisposed) {
+          owner.reportStatus('No se confirmó el cierre del acceso externo.');
+        }
+      }),
+    );
     HapticFeedback.lightImpact();
     setState(() {
       expanded = false;

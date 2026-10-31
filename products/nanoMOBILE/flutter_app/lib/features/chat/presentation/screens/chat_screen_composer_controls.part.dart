@@ -1,5 +1,10 @@
 part of 'chat_screen.dart';
 
+// chat_screen_composer_controls.part.dart — Controles interactivos del dock de composición.
+// QUÉ HACE: Renderiza los botones de micrófono y envío/detención con hápticos y semántica iOS.
+// CÓMO FUNCIONA: Cambia dinámicamente de icono y estado según generación, dictado y presencia de texto.
+// POR QUÉ: Extrae los botones del cuerpo principal respetando SOLID y la cota de < 130 líneas.
+
 extension _ChatScreenComposerControls on _ChatScreenState {
   Widget _buildComposerMicButton({
     required bool compact,
@@ -23,11 +28,13 @@ extension _ChatScreenComposerControls on _ChatScreenState {
                   : Colors.transparent,
             ),
             child: Icon(
-              _listening ? Icons.stop_circle_rounded : Icons.mic_none_rounded,
+              _listening
+                  ? CupertinoIcons.stop_circle_fill
+                  : CupertinoIcons.mic_fill,
               color: _listening
                   ? const Color(0xFFEF4444)
-                  : const Color(0xFFA3B8CC),
-              size: compact ? 17 : 19,
+                  : colors.onSurfaceVariant.withValues(alpha: 0.75),
+              size: compact ? 16 : 18,
             ),
           ),
         ),
@@ -55,20 +62,27 @@ extension _ChatScreenComposerControls on _ChatScreenState {
           shape: const CircleBorder(),
           child: InkWell(
             borderRadius: BorderRadius.circular(999),
-            onTap: onStop,
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onStop();
+            },
             child: SizedBox(
               width: size,
               height: size,
-              child: const Icon(
-                Icons.stop_rounded,
-                color: Colors.white,
-                size: 18,
+              child: const Center(
+                child: Icon(
+                  CupertinoIcons.stop_fill,
+                  color: Colors.white,
+                  size: 15,
+                ),
               ),
             ),
           ),
         ),
       );
     }
+
+    final activeColor = colors.primary;
 
     return Semantics(
       label: 'Enviar mensaje',
@@ -78,19 +92,14 @@ extension _ChatScreenComposerControls on _ChatScreenState {
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: hasText
-              ? LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [colors.primary, colors.secondary],
-                )
-              : null,
-          color: hasText ? null : colors.surfaceVariant.withValues(alpha: 0.72),
+          color: hasText
+              ? activeColor
+              : colors.surfaceVariant.withValues(alpha: 0.72),
           boxShadow: [
             if (hasText)
               BoxShadow(
-                color: colors.primary.withValues(alpha: 0.28),
-                blurRadius: 12,
+                color: activeColor.withValues(alpha: 0.35),
+                blurRadius: 10,
                 offset: const Offset(0, 2),
               ),
           ],
@@ -111,9 +120,9 @@ extension _ChatScreenComposerControls on _ChatScreenState {
                 : null,
             child: Center(
               child: Icon(
-                Icons.send_rounded,
-                color: hasText ? colors.onAccent : colors.onSurfaceVariant,
-                size: compact ? 15 : 17,
+                CupertinoIcons.arrow_up,
+                color: hasText ? Colors.white : colors.onSurfaceVariant,
+                size: compact ? 16 : 18,
               ),
             ),
           ),

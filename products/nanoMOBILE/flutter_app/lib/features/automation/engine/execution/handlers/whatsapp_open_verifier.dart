@@ -13,12 +13,15 @@ final class WhatsAppOpenVerifier {
   /// Observa cambios durante un plazo acotado; el sondeo no ejecuta acciones.
   Future<NanoSnapshot?> _wait(
     String pkg,
-    bool Function(NanoSnapshot) ready,
-  ) async {
+    bool Function(NanoSnapshot) ready, [
+    bool Function()? cancelled,
+  ]) async {
     for (var attempt = 0; attempt < 12; attempt++) {
+      if (cancelled?.call() == true) return null;
       final snap = await executor.snapshot();
-      if (snap != null && !snap.truncated && snap.package == pkg && ready(snap))
+      if (snap != null && !snap.truncated && snap.package == pkg && ready(snap)) {
         return snap;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 150));
     }
     return null;
@@ -28,8 +31,9 @@ final class WhatsAppOpenVerifier {
   /// cuenta. Si WhatsApp no expone sus datos, el resultado sigue sin verificar.
   Future<({bool verified, String reason})> verify(
     String target,
-    String pkg,
-  ) async {
+    String pkg, {
+    bool Function()? cancelled,
+  }) async {
     List<NanoNode> headers(NanoSnapshot s) => s.visibleNodes
         .where(
           (n) =>
@@ -43,18 +47,21 @@ final class WhatsAppOpenVerifier {
       (s) =>
           headers(s).length == 1 &&
           s.visibleNodes.any((n) => n.id == '$pkg:id/entry' && n.editable),
+      cancelled,
     );
-    if (chat == null)
+    if (chat == null) {
       return (
         verified: false,
         reason: 'No se observó una conversación identificable.',
       );
+    }
     final header = headers(chat).single;
-    if (header.rootIdentity.isEmpty)
+    if (header.rootIdentity.isEmpty) {
       return (
         verified: false,
         reason: 'La ventana no ofrece identidad suficiente.',
       );
+    }
     final guard = {
       'package': pkg,
       'windowId': header.windowId,
@@ -62,6 +69,9 @@ final class WhatsAppOpenVerifier {
       'headerId': header.id,
       'headerText': header.text,
     };
+    if (cancelled?.call() == true) {
+      return (verified: false, reason: 'Verificación cancelada.');
+    }
     final clicked = await NativeUiContext.run(
       guard,
       () => executor.tap(
@@ -72,11 +82,12 @@ final class WhatsAppOpenVerifier {
         ),
       ),
     );
-    if (!clicked.ok)
+    if (!clicked.ok) {
       return (
         verified: false,
         reason: 'No se abrió el perfil con certeza; no se repitió el clic.',
       );
+    }
     bool isProfile(NanoSnapshot s) =>
         s.visibleNodes
                 .where(
@@ -86,12 +97,13 @@ final class WhatsAppOpenVerifier {
                 .length ==
             1 &&
         !s.visibleNodes.any((n) => n.id == '$pkg:id/entry' && n.editable);
-    final profile = await _wait(pkg, isProfile);
-    if (profile == null)
+    final profile = await _wait(pkg, isProfile, cancelled);
+    if (profile == null) {
       return (
         verified: false,
         reason: 'El perfil no expuso una identidad verificable.',
       );
+    }
     final username = target.startsWith('@');
     final digits = target.replaceAll(RegExp(r'\D'), '');
     final matches = profile.visibleNodes.where((node) {
@@ -127,18 +139,26 @@ final class WhatsAppOpenVerifier {
         reason: 'La pantalla cambió durante la verificación.',
       );
     }
+    if (cancelled?.call() == true) {
+      return (
+        verified: false,
+        reason: 'Verificación cancelada; no se pulsó Atrás.',
+      );
+    }
     final back = await NanoRuntimeApi.instance.agentGlobalAction('back');
-    if (!back)
+    if (!back) {
       return (
         verified: false,
         reason: 'No se confirmó el retorno del perfil al chat.',
       );
+    }
     final restored = await _wait(
       pkg,
       (s) =>
           headers(s).length == 1 &&
           headers(s).single.text == header.text &&
           s.visibleNodes.any((n) => n.id == '$pkg:id/entry'),
+      cancelled,
     );
     return (
       verified: matches.length == 1 && restored != null,

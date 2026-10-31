@@ -40,10 +40,11 @@ class OwlQaRunner {
         )).values.whereType<Map>().toList()..sort(
           (a, b) => (b['createdAt'] as num).compareTo(a['createdAt'] as num),
         );
-    if (rows.isEmpty)
+    if (rows.isEmpty) {
       throw const FormatException(
         'Prepara primero QA de WhatsApp, con tu contacto si lo deseas.',
       );
+    }
     final source = await store.folder('qa', rows.first['id'] as String);
     final scenario = OwlQaScenario.fromJson(
       Map<String, dynamic>.from(
@@ -96,9 +97,11 @@ class OwlQaRunner {
         }
         bool? identity;
         if (step['recipient'] != null && state != 'cancelled') {
-          identity = (await WhatsAppOpenVerifier(
-            executor,
-          ).verify(step['recipient']!, step['package']!)).verified;
+          identity = (await WhatsAppOpenVerifier(executor).verify(
+            step['recipient']!,
+            step['package']!,
+            cancelled: cancelled,
+          )).verified;
         }
         final after = await _capture(folder, 'after_$i');
         final reached = after['package'] == step['package'];
@@ -153,13 +156,15 @@ class OwlQaRunner {
   /// éxito. Las aserciones pueden confirmar un launch aceptado, no un error.
   String? _commandFailure(String output) {
     if (output.startsWith('[completed]') ||
-        output.startsWith('[completedUnverified]'))
+        output.startsWith('[completedUnverified]')) {
       return null;
+    }
     if (output.startsWith('[cancelled]')) return 'cancelled';
     if (RegExp(
       r'^\[(blocked|denied|busy|paused|clarification)\]',
-    ).hasMatch(output))
+    ).hasMatch(output)) {
       return 'blocked';
+    }
     if (RegExp(r'^\[(error|failed)\]').hasMatch(output)) return 'failed';
     return 'unverifiable';
   }

@@ -68,7 +68,7 @@ class EmptyChat extends ConsumerWidget {
                   ),
                   child: Center(
                     child: Icon(
-                      Icons.auto_awesome_rounded,
+                      CupertinoIcons.sparkles,
                       size: isCompact ? 30 : 38,
                       color: isGenerating
                           ? colors.accent

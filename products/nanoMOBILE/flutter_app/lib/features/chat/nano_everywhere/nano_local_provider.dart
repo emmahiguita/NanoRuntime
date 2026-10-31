@@ -11,6 +11,7 @@ NanoProvider buildNanoRuntimeProvider(RuntimeEngineNotifier engine) {
     id: 'local_litert',
     name: 'Modelo seleccionado de Nano',
     kind: NanoProviderKind.local,
+    isOnDevice: () => !engine.isRemoteInference,
     isReady: () =>
         engine.phase == EnginePhase.ready &&
         !engine.client.hasActiveStreamRequest &&

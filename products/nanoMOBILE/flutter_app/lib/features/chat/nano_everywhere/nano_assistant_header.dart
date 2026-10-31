@@ -10,11 +10,13 @@ class NanoAssistantHeader extends StatelessWidget {
     required this.onClose,
     required this.onHistory,
     this.onExpand,
+    this.onMinimize,
     this.compact = false,
     this.activity = NanoActivity.idle,
   });
   final VoidCallback onClose, onHistory;
   final VoidCallback? onExpand;
+  final VoidCallback? onMinimize;
   final bool compact;
   final NanoActivity activity;
 
@@ -63,7 +65,13 @@ class NanoAssistantHeader extends StatelessWidget {
           color: colors.onSurfaceVariant,
         ),
         IconButton(
-          tooltip: 'Contraer panel',
+          tooltip: 'Minimizar panel',
+          onPressed: onMinimize,
+          icon: const Icon(Icons.remove_rounded, size: 20),
+          color: colors.onSurfaceVariant,
+        ),
+        IconButton(
+          tooltip: 'Cerrar asistente',
           onPressed: onClose,
           icon: const Icon(Icons.close_rounded, size: 21),
           color: colors.onSurfaceVariant,

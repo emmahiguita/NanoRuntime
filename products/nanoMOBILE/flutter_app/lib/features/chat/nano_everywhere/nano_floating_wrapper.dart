@@ -1,6 +1,11 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/services/owl_surface_bridge.dart';
+import '../../automation/whatsapp_workspace/owl_export_inbox.dart';
+import '../../automation/whatsapp_workspace/owl_screen_evidence.dart';
+import '../../automation/engine/voice/voice_runtime.dart';
 import 'browser_ai_login_sheet.dart';
 import 'nano_ai_controller.dart';
 import 'nano_ai_models.dart';
@@ -9,9 +14,10 @@ import 'nano_floating_assistant.dart';
 import 'nano_floating_system.dart';
 import 'nano_overlay_runtime.dart';
 import 'nano_assistant_voice.dart';
-import '../../automation/engine/voice/voice_runtime.dart';
+part 'nano_floating_wrapper_entry.dart';
+part 'nano_floating_wrapper_view.dart';
 
-/// Wrapper principal. Conectar a BrowserAiGateway y AgentToolDispatcher via nano_providers.dart.
+/// Una sesión y un borrador para las superficies interna y externa del búho.
 class NanoFloatingWrapper extends StatefulWidget {
   const NanoFloatingWrapper({
     super.key,
@@ -30,12 +36,22 @@ class NanoFloatingWrapper extends StatefulWidget {
   final VoidCallback? onVoice;
   final VoiceSessionManager? voiceSession;
   final bool enabled;
-
   static NanoAiController? activeController;
+  static final externalRevision = ValueNotifier<int>(0);
+  static ({
+    NanoAiController controller,
+    TextEditingController input,
+    ValueListenable<double> audio,
+    NanoAssistantVoice voice,
+  })?
+  externalSession;
+
+  /// Las entradas externas preparan el mismo controlador; no ejecutan texto.
   static bool expand({String? prompt, NanoMode? mode}) {
-    if (activeController == null) return false;
-    if (mode != null) activeController!.selectMode(mode);
-    activeController!.expand(prompt);
+    final owner = activeController;
+    if (owner == null) return false;
+    if (mode != null) owner.selectMode(mode);
+    owner.expand(prompt);
     return true;
   }
 
@@ -60,38 +76,71 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
   late NanoAiController controller;
   late NanoOverlayRuntime overlay;
   late NanoAssistantVoice voice;
+  final sharedInput = TextEditingController();
+  int _entryRevision = 0;
 
-  // El overlay del sistema posee la interacción cuando está activo.
-  void _nativeChanged() {
-    if (mounted) setState(() {});
+  /// Actualiza consumidores tras reemplazar voz o proveedores; nunca conserva
+  /// listeners en controladores liberados ni crea otro modelo para el overlay.
+  void _publishExternal() {
+    NanoFloatingWrapper.externalSession = (
+      controller: controller,
+      input: sharedInput,
+      audio: widget.audioLevel,
+      voice: voice,
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) NanoFloatingWrapper.externalRevision.value++;
+    });
   }
 
-  // QUÉ HACE: Crea la instancia única de NanoAiController conectando puertos y UI.
-  // CÓMO FUNCIONA: Inyecta proveedores web, acciones del sistema y el handler de login.
-  // POR QUÉ: Desacopla la lógica del controlador de la vista mediante Inversión de Dependencias (DIP).
+  /// Inyecta puertos existentes. La observación no usa un frame Flutter
+  /// después de pausar el engine: espera solo la retirada Android de la ventana.
   NanoAiController _makeController() => NanoAiController(
     providers: widget.webProviders,
     nativeApps: const NanoAndroidNativeAiPort(),
     actions: widget.actions,
-    onLoginRequired: (providerId) async {
-      if (!mounted) return false;
-      return showBrowserAiLoginSheet(context, suggestedProviderId: providerId);
+    observeScreen: () async {
+      try {
+        await OwlSurfaceBridge.channel.invokeMethod<void>('collapse');
+      } on MissingPluginException {
+        /* La vista interna ya se ocultó. */
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      return OwlScreenEvidence().read();
     },
+    onLoginRequired: (id) async =>
+        mounted &&
+        await showBrowserAiLoginSheet(context, suggestedProviderId: id),
   );
 
+  /// El engine conserva la sesión al salir de Nano. Importar recibe archivos
+  /// explícitos del sistema; no genera respuestas ni acciones en WhatsApp.
   @override
   void initState() {
     super.initState();
-    NanoFloatingSystem.activeState.addListener(_nativeChanged);
     controller = _makeController();
     voice = NanoAssistantVoice(() => controller, session: widget.voiceSession);
     NanoFloatingWrapper.activeController = controller;
+    _publishExternal();
     overlay = NanoOverlayRuntime(controller, voice: () => voice)..attach();
     WidgetsBinding.instance.addObserver(this);
-    // Revisar si hay un prompt pendiente del overlay nativo al arrancar.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _takeEntry());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _takeEntry();
+      unawaited(
+        OwlExportInbox.drain()
+            .then((text) {
+              if (mounted && text.isNotEmpty) controller.reportStatus(text);
+            })
+            .catchError((Object error) {
+              if (mounted) {
+                controller.reportStatus('No se importó el historial: $error');
+              }
+            }),
+      );
+    });
   }
 
+  /// Cambiar configuración libera únicamente los recursos de la sesión vieja.
   @override
   void didUpdateWidget(covariant NanoFloatingWrapper oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -102,7 +151,6 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
         session: widget.voiceSession,
       );
     }
-    // Recrear el controller solo si cambia la configuración de proveedores.
     if (oldWidget.webProviders != widget.webProviders ||
         oldWidget.actions != widget.actions) {
       voice.stop();
@@ -112,66 +160,35 @@ class _NanoFloatingWrapperState extends State<NanoFloatingWrapper>
       NanoFloatingWrapper.activeController = controller;
       overlay = NanoOverlayRuntime(controller, voice: () => voice)..attach();
     }
+    _publishExternal();
   }
 
-  // Recuperar prompt+mode del Intent del overlay nativo al volver a la app.
-  Future<void> _takeEntry() async {
-    try {
-      await const NanoFloatingSystem().active;
-      final entry = await const NanoFloatingSystem().takePendingEntry();
-      if (!mounted || entry == null) return;
-      controller.selectMode(switch (entry['mode']) {
-        'action' => NanoMode.action,
-        _ => NanoMode.quick,
-      });
-      controller.queuePrompt(entry['prompt']?.toString() ?? '');
-    } on MissingPluginException {
-      // Web / preview sin canal Android — ignorar silenciosamente.
-    } on PlatformException {
-      // El diagnóstico de integración nativa se reporta en logcat.
+  /// Una salida no vuelve a abrir la interfaz por callbacks pendientes.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _entryRevision++;
+      controller.hide();
+    } else {
+      _takeEntry();
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Al volver a primer plano, revisar si el overlay dejó un prompt.
-    if (state == AppLifecycleState.resumed) _takeEntry();
-  }
-
+  /// El editor y la voz tienen un solo dueño aun al desmontar ambas vistas.
   @override
   void dispose() {
-    NanoFloatingSystem.activeState.removeListener(_nativeChanged);
     WidgetsBinding.instance.removeObserver(this);
     if (NanoFloatingWrapper.activeController == controller) {
       NanoFloatingWrapper.activeController = null;
+      NanoFloatingWrapper.externalSession = null;
     }
     voice.dispose();
     overlay.detach();
     controller.dispose();
+    sharedInput.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (!widget.enabled) return widget.child;
-    return Stack(
-      children: [
-        Positioned.fill(child: widget.child),
-        // El Navigator ya aporta Overlay; el asistente gestiona un solo listener.
-        if (!NanoFloatingSystem.activeState.value)
-          Positioned.fill(
-            child: Material(
-              type: MaterialType.transparency,
-              child: NanoFloatingAssistant(
-                controller: controller,
-                audioLevel: widget.audioLevel,
-                onVoice: widget.onVoice ?? voice.toggle,
-                onSpeak: voice.read,
-                onStopVoice: voice.stop,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => buildView(context);
 }

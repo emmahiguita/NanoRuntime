@@ -1,9 +1,11 @@
 import 'nano_action_intent_resolver.dart';
 export 'nano_action_intent_resolver.dart' show NanoActionIntentResolver;
 import 'nano_ai_models.dart';
+import 'nano_workspace_commands.dart';
 import '../../automation/application/automation_artifact_commands.dart';
 import 'nano_action_input.dart';
 import '../../automation/engine/planning/whatsapp_automation_input.dart';
+import '../../automation/engine/planning/whatsapp_current_chat_request.dart';
 import '../../automation/engine/execution/agent_tool_dispatcher.dart';
 
 /// Traduce órdenes explícitas del Búho al mismo coordinador y sus permisos.
@@ -17,6 +19,7 @@ class NanoActionPortAdapter implements NanoCancellableActionPort {
     bool Function(String)? cancelOwnedCommand,
     Future<String> Function(String, String, bool Function())? runOwnedGoal,
     void Function()? cancelGoal,
+    this.workspace,
   }) : _goal = runOwnedGoal,
        _cancelGoal = cancelGoal,
        _command = runCommand,
@@ -24,6 +27,7 @@ class NanoActionPortAdapter implements NanoCancellableActionPort {
        _cancelOwnedCommand = cancelOwnedCommand;
 
   final AgentToolDispatcher _dispatcher;
+  final NanoWorkspaceCommands? workspace;
   final Future<String> Function(String)? _command;
   final Future<String> Function(String, String)? _ownedCommand;
   final bool Function(String)? _cancelOwnedCommand;
@@ -43,6 +47,7 @@ class NanoActionPortAdapter implements NanoCancellableActionPort {
   /// Invalida preparación local y solicita detener solo la ejecución de este Búho.
   @override
   void cancelActiveAction() {
+    workspace?.cancel();
     _cancelled = true;
     _cancelGoal?.call();
     final id = _executionId;
@@ -70,9 +75,24 @@ class NanoActionPortAdapter implements NanoCancellableActionPort {
     }
   }
 
-  /// Resuelve artefactos antes de WhatsApp para no confundir un producto con un contacto.
+  /// Reserva primero el chat actual: su texto es dato, no una orden de archivos
+  /// ni otra aplicación. Después conserva los adaptadores de las demás acciones.
   Future<String> _executeGoal(String clean) async {
     if (clean.isEmpty) return '[clarification] Indica la acción que deseas.';
+    if (WhatsAppCurrentChatRequest.parse(clean) != null) {
+      final owner = _goal;
+      if (owner == null) {
+        return '[error] No está disponible el coordinador del chat actual.';
+      }
+      final id = _executionId!;
+      return owner(clean, id, () => !_cancelled && _executionId == id);
+    }
+    final local = await workspace?.execute(
+      clean,
+      command: _runCommand,
+      cancelled: () => _cancelled,
+    );
+    if (local != null) return local;
     final artifact = await NanoArtifactCommands.execute(
       clean,
       runCommand: _runCommand,
@@ -169,4 +189,3 @@ class NanoActionPortAdapter implements NanoCancellableActionPort {
     return _runCommand('@$command $text');
   }
 }
-

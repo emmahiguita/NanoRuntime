@@ -216,7 +216,7 @@ abstract final class DatabaseGoogleSheetDialog {
                   final target = input.text.trim().isEmpty
                       ? GoogleSheetsSyncService.defaultAutomatedSheetUrl
                       : input.text.trim();
-                  context.push('/browser?url=' + Uri.encodeComponent(target));
+                  context.push('/browser?url=${Uri.encodeComponent(target)}');
                 },
               ),
               FilledButton.icon(

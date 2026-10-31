@@ -8,6 +8,7 @@ library;
 
 import 'package:flutter/foundation.dart' show ValueNotifier, debugPrint;
 import 'package:flutter/services.dart';
+part 'automation_store_read.dart';
 
 class AutomationDbStoreClient {
   AutomationDbStoreClient._();
@@ -52,16 +53,6 @@ class AutomationDbStoreClient {
     } on Object catch (error) {
       debugPrint('[automation-store] loadAll falló: $error');
       return const {};
-    }
-  }
-
-  /// Sección puntual (migración + lecturas de arranque).
-  Future<String?> section(String key) async {
-    try {
-      return await _channel.invokeMethod<String>('get', {'key': key});
-    } on Object catch (error) {
-      debugPrint('[automation-store] get($key) falló: $error');
-      return null;
     }
   }
 

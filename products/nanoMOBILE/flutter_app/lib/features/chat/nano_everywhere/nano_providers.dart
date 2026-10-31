@@ -12,6 +12,11 @@ import 'nano_local_provider.dart';
 import 'nano_action_port_adapter.dart';
 import 'nano_automation_goal_runner.dart';
 import '../../automation/application/whatsapp_ui_goal_preparer.dart';
+import 'nano_workspace_commands.dart';
+import 'nano_floating_wrapper.dart';
+import '../../automation/application/whatsapp_contacts_provider.dart';
+import '../../automation/engine/execution/handlers/whatsapp_contact_resolver.dart';
+import '../../automation/engine/execution/handlers/whatsapp_command_input.dart';
 
 /// Nivel de audio del micrófono 0..1 compartido por toda la sesión.
 final nanoAudioLevelProvider = Provider<ValueNotifier<double>>((ref) {
@@ -68,8 +73,30 @@ final nanoActionPortProvider = Provider<NanoActionPort>((ref) {
     ).prepare,
   );
   ref.onDispose(goals.cancel);
+  final workspace = NanoWorkspaceCommands(
+    executor: () => ref.read(agentExecutorProvider),
+    localProvider: () => ref
+        .read(nanoWebProvidersProvider)
+        .firstWhere((p) => p.kind == NanoProviderKind.local),
+    modelKey: () => ref.read(runtimeEngineProvider).modelPath ?? 'sin_modelo',
+    progress: (text) =>
+        NanoFloatingWrapper.activeController?.reportStatus(text),
+    resolveContact: (text) async {
+      if (WhatsAppCommandInput.isUsername(text)) return text;
+      if (RegExp(r'^\+?[\d\s()\-]{7,22}$').hasMatch(text)) {
+        final digits = text.replaceAll(RegExp(r'\D'), '');
+        return digits.length >= 7 && digits.length <= 15 ? digits : null;
+      }
+      final value = await WhatsAppContactResolver(
+        ref.read(whatsappContactsServiceProvider),
+      ).resolve(text);
+      return value == null || value.isGroup ? null : value.number;
+    },
+  );
+  ref.onDispose(workspace.cancel);
   return NanoActionPortAdapter(
     dispatcher,
+    workspace: workspace,
     runOwnedGoal: goals.run,
     cancelGoal: goals.cancel,
     runOwnedCommand: (command, id) =>

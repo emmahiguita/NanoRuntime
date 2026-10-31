@@ -5,7 +5,7 @@
 /// descripción de capacidades, conmutador de estado operativo y canales activos.
 ///
 /// CÓMO FUNCIONA:
-/// - Diseñado con componentes Material Expressive: bordes orgánicos y tintes de superficie.
+/// - Diseñado con componentes iOS Glass y squircle oficial [NanoBusinessIcon].
 /// - Integra [NanoBusinessStatusBadge] para permitir encender o pausar el negocio directamente.
 /// - Renderiza de forma dinámica las etiquetas de los canales de venta conectados en tiempo real.
 ///
@@ -15,7 +15,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/feather_core_icon.dart';
+import '../../../../core/widgets/nano_business_icon.dart';
 import '../automation_visual_theme.dart';
 import 'nano_business_status_badge.dart';
 
@@ -50,20 +50,10 @@ class NanoBusinessHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              // Icono comercial con contenedor tonal Material Expressive
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: visual.accent.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Center(
-                  child: FeatherCoreIcon(
-                    type: FeatherCoreType.whatsappBusiness,
-                    size: 24,
-                  ),
-                ),
+              // Icono comercial profesional iOS squircle (44dp)
+              const NanoBusinessIcon(
+                size: 44,
+                isTile: true,
               ),
               const SizedBox(width: 12),
               // Identidad y lema
@@ -79,88 +69,67 @@ class NanoBusinessHeader extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Atiende clientes, catálogo y ventas con IA.',
-                      style: TextStyle(color: visual.textMuted, fontSize: 12),
+                      'Atención, catálogo y cobros automáticos',
+                      style: TextStyle(
+                        color: visual.textMuted,
+                        fontSize: 12,
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              // Selector de estado interactivo Material Expressive
+              const SizedBox(width: 8),
+              // Estado operativo interactivo
               NanoBusinessStatusBadge(
                 isActive: isActive,
                 onChanged: onToggleActive,
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          // Resumen dinámico y real de canales de atención
+          const SizedBox(height: 12),
+          // Canales comerciales activos
           Wrap(
             spacing: 6,
             runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                'Canales activos:',
-                style: TextStyle(
-                  color: visual.textMuted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+            children: activeChannels.map((channel) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: visual.outline.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-              ),
-              if (activeChannels.isEmpty)
-                _buildChannelChip(
-                  label: 'Sin canales activos',
-                  visual: visual,
-                  isMuted: true,
-                )
-              else
-                for (final c in activeChannels)
-                  _buildChannelChip(label: c, visual: visual, isMuted: false),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChannelChip({
-    required String label,
-    required AutomationVisualPalette visual,
-    required bool isMuted,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: visual.surface.withValues(alpha: 0.70),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isMuted
-              ? visual.outline.withValues(alpha: 0.15)
-              : visual.cardBorder.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isMuted ? visual.textMuted : visual.accent,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: isMuted ? visual.textMuted : visual.text,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-            ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: isActive ? visual.accent : visual.outline,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      channel,
+                      style: TextStyle(
+                        color: visual.text,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),

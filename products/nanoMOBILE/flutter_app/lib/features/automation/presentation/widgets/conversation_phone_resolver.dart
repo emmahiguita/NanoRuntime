@@ -37,10 +37,10 @@ abstract final class ConversationPhoneResolver {
     final package = parts.length >= 4 ? parts[1] : null;
     final phones = <String>{};
     for (final contact in deviceContacts) {
-      if (!contact.isWhatsAppVerified ||
-          contact.isGroup ||
+      // H4: permite contactos de la agenda con número válido aunque aún no tengan asociación MIME detectada
+      if (contact.isGroup ||
           contact.name.trim().toLowerCase() != name ||
-          (package != null && contact.packageName != package)) {
+          (package != null && contact.packageName.isNotEmpty && contact.packageName != package)) {
         continue;
       }
       final phone = _phone(contact.number);

@@ -32,6 +32,7 @@ open class NanoOwlWindowService : Service() {
     private var hostVisible = false
     private var compact = false
     private var captureHidden = false
+    private var executionHidden = false
     private fun dp(value: Int) = NanoOverlayStyle.dp(this, value)
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -72,17 +73,23 @@ open class NanoOwlWindowService : Service() {
             "openNano" -> openNano()
             "resize" -> resize((args?.get("height") as? Number)?.toDouble())
             "mood" -> (args?.get("state") as? String)?.let { motion.mood(it) }
+            "executionVisibility" -> {
+                executionHidden = args?.get("hidden") == true
+                bubble.visibility = if (captureHidden || executionHidden || hostVisible || panel != null) View.GONE else View.VISIBLE
+                syncMotion()
+            }
             "captureVisibility" -> {
                 captureHidden = args?.get("hidden") == true
-                bubble.visibility = if (captureHidden || hostVisible || panel != null) View.GONE else View.VISIBLE
+                bubble.visibility = if (captureHidden || executionHidden || hostVisible || panel != null) View.GONE else View.VISIBLE
                 syncMotion()
             }
             else -> Unit
         } }
         visibility = NanoOverlayHostVisibility(this) { foreground ->
             hostVisible = foreground
+            if (!foreground) refreshAppearance()
             if (foreground) collapse()
-            bubble.visibility = if (captureHidden || foreground || panel != null) View.GONE else View.VISIBLE
+            bubble.visibility = if (captureHidden || executionHidden || foreground || panel != null) View.GONE else View.VISIBLE
             syncMotion()
         }
         visibility.attach()
@@ -90,7 +97,8 @@ open class NanoOwlWindowService : Service() {
 
     /** Usa el mismo engine. Sin conexión informa el límite, sin UI alternativa. */
     private fun expand() {
-        if (!isActive || hostVisible || panel != null) return
+        if (!isActive || hostVisible || executionHidden || panel != null) return
+        refreshAppearance()
         val view = NanoFlutterPanelHost.create(this) ?: run {
             Toast.makeText(this, "Abre Nano una vez para conectar el búho.", Toast.LENGTH_LONG).show()
             return
@@ -101,7 +109,12 @@ open class NanoOwlWindowService : Service() {
         }
         bubble.visibility = View.GONE
         syncMotion()
-        manager.addView(view, panelLayout)
+        try { manager.addView(view, panelLayout) }
+        catch (_: RuntimeException) {
+            collapse()
+            Toast.makeText(this, "No se pudo abrir el panel. Revisa el permiso de superposición.", Toast.LENGTH_LONG).show()
+            return
+        }
         NanoFlutterPanelHost.attach(view, ::collapse)
     }
 
@@ -111,7 +124,7 @@ open class NanoOwlWindowService : Service() {
         panel = null
         NanoFlutterPanelHost.close()
         runCatching { manager.removeView(old) }
-        bubble.visibility = if (hostVisible) View.GONE else View.VISIBLE
+        bubble.visibility = if (hostVisible || captureHidden || executionHidden) View.GONE else View.VISIBLE
         syncMotion()
     }
 
@@ -121,7 +134,7 @@ open class NanoOwlWindowService : Service() {
         val view = panel ?: return
         val layout = panelLayout ?: return
         val max = (resources.displayMetrics.heightPixels * .72f).toInt()
-        val pixels = (height * resources.displayMetrics.density).toInt().coerceIn(dp(120), max)
+        val pixels = (height * resources.displayMetrics.density).toInt().coerceIn(minOf(dp(120), max), max)
         if (layout.height == pixels) return
         layout.height = pixels
         runCatching { manager.updateViewLayout(view, layout) }
@@ -142,7 +155,19 @@ open class NanoOwlWindowService : Service() {
     }
     private fun syncMotion() {
         if (!::motion.isInitialized || !::lifecycle.isInitialized) return
-        if (isActive && !hostVisible && !captureHidden && panel == null && lifecycle.allowed) motion.start() else motion.stop()
+        if (isActive && !hostVisible && !captureHidden && !executionHidden && panel == null && lifecycle.allowed) motion.start() else motion.stop()
+    }
+
+    /** Relee el tema al volver a exponer la esfera; reemplaza solo sus
+     * gradientes cacheados, conservando sprites, vista y reloj de movimiento. */
+    private fun refreshAppearance() {
+        NanoOverlayStyle.configure(this)
+        if (::bubble.isInitialized) bubble.background = NanoOwlGlassDrawable()
+    }
+
+    override fun onConfigurationChanged(config: android.content.res.Configuration) {
+        super.onConfigurationChanged(config)
+        refreshAppearance()
     }
     private fun openNano() {
         collapse()

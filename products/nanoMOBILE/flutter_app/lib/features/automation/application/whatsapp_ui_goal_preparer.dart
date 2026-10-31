@@ -1,3 +1,4 @@
+import '../engine/execution/handlers/whatsapp_composer_state.dart';
 import '../domain/automation_goal.dart';
 import '../engine/execution/agent_executor.dart';
 import 'automation_artifact_commands.dart';
@@ -5,6 +6,7 @@ import '../engine/execution/tool_call.dart';
 import '../engine/execution/handlers/whatsapp_reply_context.dart';
 import '../domain/prepared_automation_goal.dart';
 import '../engine/planning/whatsapp_component_requests.dart';
+import 'whatsapp_chat_export_preparer.dart';
 
 /// Prepara acciones WhatsApp a partir de peticiones explícitas y, para «este
 /// chat», de una cabecera accesible observada. No usa texto de burbujas como identidad.
@@ -20,10 +22,19 @@ final class WhatsAppUiGoalPreparer {
     bool Function()? isCurrent,
   }) async {
     final text = WhatsAppComponentRequests.normalize(input);
-    final artifact = await NanoArtifactCommands.prepare(
-      text,
-      isCancelled: () => isCurrent?.call() == false,
-    );
+    // Reconoce texto literal antes de artefactos: «el PDF está bien» puede ser
+    // el mensaje, no una petición para buscar o adjuntar un documento.
+    final draft = WhatsAppComponentRequests.currentChatDraft(text);
+    final reply = draft ?? WhatsAppComponentRequests.currentReply(text);
+    if (WhatsAppComponentRequests.isExport(text)) {
+      return WhatsAppChatExportPreparer.prepare(await executor().snapshot());
+    }
+    final artifact = reply != null
+        ? null
+        : await NanoArtifactCommands.prepare(
+            text,
+            isCancelled: () => isCurrent?.call() == false,
+          );
     if (artifact != null) {
       return PreparedAutomationGoal(
         AutomationGoal(text: text),
@@ -54,13 +65,16 @@ final class WhatsAppUiGoalPreparer {
         ],
       );
     }
-    final reply = WhatsAppComponentRequests.currentReply(text);
     if (reply == null) {
       return PreparedAutomationGoal(AutomationGoal(text: text));
     }
     final snap = await executor().snapshot();
-    if (snap == null ||
-        !const {'com.whatsapp', 'com.whatsapp.w4b'}.contains(snap.package)) {
+    if (snap == null) {
+      throw const FormatException(
+        'No se pudo leer la pantalla. Comprueba que la accesibilidad de Nano esté conectada.',
+      );
+    }
+    if (!const {'com.whatsapp', 'com.whatsapp.w4b'}.contains(snap.package)) {
       throw const FormatException(
         'Para «este chat», abre WhatsApp y usa el búho sobre la conversación. Desde Nano indica nombre, número o @usuario.',
       );
@@ -104,7 +118,13 @@ final class WhatsAppUiGoalPreparer {
         'No hay identidad de ventana suficiente para responder aquí.',
       );
     }
-    if (editors.single.text.trim().isNotEmpty) {
+    final composerState = classifyWhatsAppComposer(editors.single, snap);
+    if (composerState == WhatsAppComposerState.ambiguous) {
+      throw const FormatException(
+        'No se pudo distinguir la ayuda del borrador. Revisa el editor de WhatsApp; no se sustituyó contenido.',
+      );
+    }
+    if (composerState == WhatsAppComposerState.draft) {
       throw const FormatException(
         'Ya hay un borrador en WhatsApp. Revísalo antes de sustituirlo.',
       );
@@ -121,7 +141,11 @@ final class WhatsAppUiGoalPreparer {
     }
     final target = headers.single.text.trim();
     return PreparedAutomationGoal(
-      AutomationGoal(text: 'WhatsApp $pkg · $target\nRespuesta: $reply'),
+      AutomationGoal(
+        text:
+            'WhatsApp $pkg · $target\n'
+            '${draft == null ? 'Respuesta' : 'Borrador'}: $reply',
+      ),
       plan: [
         ToolCall(
           tool: 'whatsapp.send_message',
@@ -130,6 +154,7 @@ final class WhatsAppUiGoalPreparer {
             'text': reply,
             'packageName': pkg,
             'replyInPlace': true,
+            'draftOnly': draft != null,
             'windowId': headers.single.windowId,
             'rootIdentity': headers.single.rootIdentity,
             'contextFingerprint': fingerprint,

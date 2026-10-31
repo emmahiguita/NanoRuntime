@@ -1,8 +1,10 @@
 part of 'chat_messages.dart';
 
-// QUÉ HACE: Muestra el estado real del motor o el acceso a modelos desde el chat vacío.
-// CÓMO FUNCIONA: Presenta estados distintos para motor apagado, sin modelo y listo.
-// POR QUÉ: Informa sin usar la franja amarilla ni simular disponibilidad.
+// chat_messages_empty_status.part.dart — Estado del motor local en chat vacío con Liquid Glass.
+// QUÉ HACE: Muestra el estado del motor o acceso a modelos cuando el chat no tiene mensajes.
+// CÓMO FUNCIONA: Usa tarjetas Liquid Glass, CupertinoIcons y paleta del tema sin franjas toscas.
+// POR QUÉ: Sustituye contenedores opacos y botones genéricos por diseño limpio iOS (< 160 líneas).
+
 class _EmptyChatEngineStatus extends StatelessWidget {
   const _EmptyChatEngineStatus({
     required this.engineOnline,
@@ -20,24 +22,27 @@ class _EmptyChatEngineStatus extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final colors = Theme.of(context).extension<NanoThemeExtension>()!.colors;
+
     if (!engineOnline) {
       return _EmptyChatStatusCard(
-        icon: Icons.power_settings_new_rounded,
+        icon: CupertinoIcons.power,
         title: 'Motor local no iniciado',
         actionLabel: 'Iniciar Motor Local',
         onPressed: onRetry,
-        color: scheme.onSurfaceVariant,
+        color: colors.onSurfaceVariant,
+        colors: colors,
       );
     }
     if (!hasModel) {
       return _EmptyChatStatusCard(
-        icon: Icons.inventory_2_outlined,
+        icon: CupertinoIcons.cube_box,
         title: 'No hay modelo cargado en memoria',
         actionLabel: 'Seleccionar o Descargar Modelo',
         onPressed: onGoModels,
-        color: scheme.primary,
+        color: colors.primary,
         isPrimary: true,
+        colors: colors,
       );
     }
     return Column(
@@ -45,13 +50,17 @@ class _EmptyChatEngineStatus extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.circle, size: 7, color: scheme.tertiary),
+            Icon(CupertinoIcons.circle_fill, size: 7, color: colors.accent),
             const SizedBox(width: 7),
             Flexible(
               child: Text(
                 'Motor listo · Ejecución local y Memento CBR activos',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  color: colors.onSurfaceVariant,
+                  fontSize: 12,
+                ),
               ),
             ),
           ],
@@ -63,7 +72,6 @@ class _EmptyChatEngineStatus extends StatelessWidget {
   }
 }
 
-// QUÉ HACE: Presenta acciones de estado en una tarjeta compacta y accesible.
 class _EmptyChatStatusCard extends StatelessWidget {
   const _EmptyChatStatusCard({
     required this.icon,
@@ -71,6 +79,7 @@ class _EmptyChatStatusCard extends StatelessWidget {
     required this.actionLabel,
     required this.onPressed,
     required this.color,
+    required this.colors,
     this.isPrimary = false,
   });
 
@@ -79,6 +88,7 @@ class _EmptyChatStatusCard extends StatelessWidget {
   final String actionLabel;
   final VoidCallback onPressed;
   final Color color;
+  final NanoColors colors;
   final bool isPrimary;
 
   @override
@@ -87,12 +97,11 @@ class _EmptyChatStatusCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xCC0E1726) : const Color(0xF5F8FAFC),
+        color: colors.surface.withValues(alpha: isDark ? 0.35 : 0.65),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.10)
-              : Colors.black.withValues(alpha: 0.08),
+          color: colors.outlineVariant.withValues(alpha: isDark ? 0.28 : 0.18),
+          width: 0.8,
         ),
       ),
       child: Column(
@@ -100,28 +109,39 @@ class _EmptyChatStatusCard extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 18, color: color),
+              Container(
+                width: 26,
+                height: 26,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: color.withValues(alpha: 0.12),
+                ),
+                child: Center(
+                  child: Icon(icon, size: 14, color: color),
+                ),
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   title,
                   style: TextStyle(
                     fontFamily: 'Inter',
-                    color: isDark ? Colors.white70 : const Color(0xFF334155),
+                    color: colors.onSurface,
                     fontWeight: FontWeight.w500,
+                    fontSize: 13,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           if (isPrimary)
             FilledButton.icon(
               onPressed: onPressed,
-              icon: const Icon(Icons.download_rounded, size: 16),
+              icon: const Icon(CupertinoIcons.arrow_down_to_line, size: 15),
               label: Text(actionLabel),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF0284C7),
+                backgroundColor: colors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -132,16 +152,12 @@ class _EmptyChatStatusCard extends StatelessWidget {
             OutlinedButton.icon(
               key: const ValueKey('chat_retry_button'),
               onPressed: onPressed,
-              icon: const Icon(Icons.refresh_rounded, size: 16),
+              icon: const Icon(CupertinoIcons.arrow_clockwise, size: 15),
               label: Text(actionLabel),
               style: OutlinedButton.styleFrom(
-                foregroundColor: isDark
-                    ? Colors.white70
-                    : const Color(0xFF475569),
+                foregroundColor: colors.onSurface,
                 side: BorderSide(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.15)
-                      : Colors.black.withValues(alpha: 0.12),
+                  color: colors.outlineVariant.withValues(alpha: 0.35),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

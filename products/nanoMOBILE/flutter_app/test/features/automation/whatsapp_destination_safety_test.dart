@@ -79,4 +79,39 @@ void main() {
       expect(contact.jid, isEmpty);
     },
   );
+
+  test('H4: resuelve teléfono de contacto de agenda aunque no tenga fila MIME verificada', () {
+    const contact = WhatsAppContact(
+      id: 'local_1',
+      name: 'Contacto Agenda Simple',
+      number: '+57 310 999 8877',
+      jid: '',
+      isWhatsAppVerified: false,
+    );
+    expect(contact.jid, isEmpty);
+    expect(contact.isWhatsAppVerified, isFalse);
+    expect(contact.detectionLabel, 'WhatsApp no verificado');
+  });
+
+  test('H5: etiqueta factual de detección diferencia MIME y no verificado', () {
+    const personal = WhatsAppContact(
+      id: 'p1',
+      name: 'Amigo',
+      number: '573001234567',
+      jid: '573001234567@s.whatsapp.net',
+      isWhatsAppVerified: true,
+      isBusiness: false,
+    );
+    expect(personal.detectionLabel, 'WhatsApp en agenda');
+
+    const business = WhatsAppContact(
+      id: 'b1',
+      name: 'Negocio',
+      number: '573007654321',
+      jid: '573007654321@s.whatsapp.net',
+      isWhatsAppVerified: true,
+      isBusiness: true,
+    );
+    expect(business.detectionLabel, 'WhatsApp Business en agenda');
+  });
 }

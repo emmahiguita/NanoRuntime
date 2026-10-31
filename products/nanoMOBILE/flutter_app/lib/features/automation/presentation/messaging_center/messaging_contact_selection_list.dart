@@ -83,14 +83,22 @@ class _MessagingContactSelectionListState
   }
 
   // El mismo item real abre el detalle existente cuando no está activo seleccionar.
+  // H4: Si no tiene JID pero sí número, fija conversationId como phone:digits para Click to Chat oficial.
   void _openConversation(WhatsAppContact contact) {
+    final rawNumber = contact.number.replaceAll(RegExp(r'\D'), '');
+    final fallbackId = rawNumber.length >= 7 ? 'phone:' : '';
+    final convId = contact.jid.isNotEmpty ? contact.jid : fallbackId;
+    final statusLabel = contact.isWhatsAppVerified
+        ? (contact.isBusiness ? 'WhatsApp Business verificado' : 'WhatsApp verificado')
+        : (rawNumber.length >= 7 ? 'Contacto de agenda ()' : 'Sin número registrado');
+
     ConversationDetailSheet.show(
       context,
       ConversationSummaryItem(
-        conversationId: contact.jid,
+        conversationId: convId,
         displayName: contact.name,
         packageName: contact.isBusiness ? 'com.whatsapp.w4b' : 'com.whatsapp',
-        lastMessage: contact.number.isNotEmpty ? contact.number : contact.jid,
+        lastMessage: statusLabel,
         lastAtMs: DateTime.now().millisecondsSinceEpoch,
         agentId: contact.isBusiness
             ? ConversationAgentId.business
@@ -98,7 +106,6 @@ class _MessagingContactSelectionListState
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) => SliverMainAxisGroup(
     slivers: [

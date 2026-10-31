@@ -55,6 +55,14 @@
          El usuario concede este permiso explícitamente desde Ajustes → Apps Especiales.
          El canal NanoFloatingChannel verifica Settings.canDrawOverlays() antes de show(). -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+    <!-- SHIZUKU-01: Permiso obligatorio de Shizuku API para interactuar con Shizuku Manager -->
+    <uses-permission android:name="moe.shizuku.manager.permission.API_V23"/>
+    <!-- Permisos de sistema otorgables por Shizuku/ADB para automatización completa -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions"/>
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
+    <uses-permission android:name="android.permission.DUMP" tools:ignore="ProtectedPermissions"/>
+    <!-- Acceso a almacenamiento completo para modelos GGUF en SD card (Android 11+) -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:ignore="ScopedStorage"/>
 
     <!-- A-30: el agente lanza apps Android por packageName (elegido por el
          LLM en runtime — imposible declararlas una a una). Android 11+
@@ -94,6 +102,17 @@
         android:extractNativeLibs="true"
         android:hardwareAccelerated="true"
         android:enableOnBackInvokedCallback="true">
+        <activity android:name=".NanoWhatsAppImportActivity"
+            android:exported="true" android:label="Importar chat en Nano"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".MainActivity"
             android:exported="true"

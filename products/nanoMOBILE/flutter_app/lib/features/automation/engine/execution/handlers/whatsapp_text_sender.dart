@@ -40,8 +40,12 @@ final class WhatsAppTextSender {
       return '[error] Falta especificar el texto exacto del mensaje.';
     }
 
-    final username = WhatsAppCommandInput.isUsername(contactQ);
-    final resolved = username ? null : await _contactResolver.resolve(contactQ);
+    final cleanContact = contactQ.replaceFirst(
+      RegExp(r'^(?:(?:este|el|al)\s+)?n[uú]mero\s+', caseSensitive: false),
+      '',
+    ).trim();
+    final username = WhatsAppCommandInput.isUsername(cleanContact);
+    final resolved = username ? null : await _contactResolver.resolve(cleanContact);
     if (resolved?.isGroup == true) {
       return '[error] El envío directo por teléfono no admite grupos. Usa su flujo específico.';
     }
@@ -57,20 +61,22 @@ final class WhatsAppTextSender {
     final installedOnly = requestedPackage != null;
     final cloudSelected =
         !installedOnly && await _messageProvider.cloudSelected();
-    final rawPhone = contactQ.replaceAll(RegExp(r'\D'), '');
+    final rawPhone = cleanContact.replaceAll(RegExp(r'\D'), '');
     final isDirectPhone =
-        RegExp(r'^[+0-9 ().-]+$').hasMatch(contactQ) &&
-        rawPhone.length >= 8 &&
+        RegExp(r'^[+0-9 ().-]+$').hasMatch(cleanContact) &&
+        rawPhone.length >= 7 &&
         rawPhone.length <= 15;
     if (resolved == null && cloudSelected && !isDirectPhone) {
       return '[error] Meta Cloud requiere teléfono internacional con 8 a 15 dígitos.';
     }
-    if (resolved == null && !cloudSelected && !username) {
+    // Un número internacional explícito no necesita estar en la agenda.
+    // El controlador nativo sigue verificando el encabezado antes del envío.
+    if (resolved == null && !cloudSelected && !username && !isDirectPhone) {
       return '[error] No se encontró el contacto "$contactQ" en la agenda del dispositivo.';
     }
 
     try {
-      final phone = resolved?.number ?? (username ? contactQ : rawPhone);
+      final phone = resolved?.number ?? (username ? cleanContact : rawPhone);
       final name = resolved?.name ?? phone;
       if (installedOnly) {
         final ok = await WhatsAppSendMonitor().launchAndWait(

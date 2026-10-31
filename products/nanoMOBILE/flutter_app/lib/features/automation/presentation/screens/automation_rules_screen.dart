@@ -17,7 +17,6 @@ import 'package:nanoai/features/automation/engine/messaging/messaging_package.da
 import 'package:nanoai/features/automation/engine/platform/whatsapp_media_share.dart';
 import 'package:nanoai/features/automation/engine/scheduling/scheduled_message_command_parser.dart';
 import 'package:nanoai/features/automation/engine/scheduling/scheduled_rule.dart';
-import 'package:nanoai/features/automation/engine/scheduling/scheduled_message_command_parser.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger.dart';
 import 'package:nanoai/features/automation/engine/scheduling/trigger_parser.dart';
 

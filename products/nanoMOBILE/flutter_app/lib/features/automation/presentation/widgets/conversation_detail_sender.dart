@@ -1,24 +1,22 @@
-part of 'conversation_detail_sheet.dart';
+﻿part of 'conversation_detail_sheet.dart';
 
 /// [ConversationDetailSender]
 ///
 /// QUÉ HACE:
 /// Despacha mensajes hacia WhatsApp de forma dual y segura:
-/// 1. Vía `RemoteInput` (Notificación nativa en 2do plano sin abrir WhatsApp).
-/// 2. Vía `WhatsAppMediaShare` con retorno flash o mediante accesibilidad guiada.
+/// 1. Vía RemoteInput (Notificación nativa en 2do plano sin abrir WhatsApp).
+/// 2. Vía inyección directa en WhatsApp por Accesibilidad o apertura con borrador.
 /// Registra auto-aprendizaje de estilo en SQLite FTS4 y deduplica eventos.
 ///
 /// CÓMO FUNCIONA:
-/// 1. Resuelve primero si existe una notificación de respuesta activa en el sistema.
-/// 2. Si no existe, invoca [ConversationPhoneResolver] para recuperar con certeza los
-///    dígitos del contacto evitando abrir chats a ciegas o destinos erróneos.
-/// 3. Guarda el mensaje saliente en memoria SQLite (`ConversationMemoryStore`).
-/// 4. Si el mensaje es una corrección sobre una sugerencia de Nano, entrena la Persona
-///    con el par de aprendizaje respectivo para no repetir el error.
+/// 1. Si hay notificación activa en el sistema, responde en 2do plano vía RemoteInput.
+/// 2. Si no hay notificación en barra, delega la inyección a [ConversationDetailGroupSender]
+///    o [ConversationDetailDirectSender], dando por confirmado el destino al existir en el panel.
+/// 3. Guarda el mensaje saliente en memoria SQLite (ConversationMemoryStore).
 ///
 /// POR QUÉ:
-/// Cumple la regla de enviar mensajes a cualquier contacto real de WhatsApp sin salir de Nano,
-/// eliminando simulaciones y manteniendo la seguridad de confirmación.
+/// Cumple la regla de inyectar y enviar mensajes a cualquier contacto o grupo real
+/// confirmado en el panel de mensajería de Nano sin bloquear al usuario.
 extension ConversationDetailSender on _ConversationDetailSheetState {
   Future<void> _sendReply() async {
     if (!mounted) return;
@@ -29,12 +27,9 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       _statusText = 'Enviando mensaje...';
     });
     try {
-      // Conserva servicios para registrar una aceptación aunque se cierre la UI.
-      // Nunca vuelve a consultar WidgetRef después de ese cierre.
       final executor = ref.read(notificationExecutorProvider);
       final sentMemory = ref.read(conversationMemoryStoreProvider);
       final dedupe = ref.read(eventDedupeStoreProvider);
-      // Solo RemoteInput confirma que Android aceptó la respuesta; abrir una app no prueba envío.
       var notificationReplyAccepted = false;
       final conversationId = canonicalConversationId(
         widget.item.conversationId,
@@ -79,90 +74,35 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
         const share = WhatsAppMediaShare();
         final hasA11y = await share.isAccessibilityEnabled();
         if (!mounted) return;
-        final memoryStore = ref.read(conversationMemoryStoreProvider);
-        final personaContext = ref.read(personaContextProvider);
-        final whatsAppContacts = ref.read(allWhatsAppContactsProvider).value;
 
-        final phoneDigits = ConversationPhoneResolver.resolve(
-          conversationId: conversationId,
-          displayName: widget.item.displayName,
-          lastMessage: widget.item.lastMessage,
-          store: memoryStore,
-          personaContext: personaContext,
-          deviceContacts: whatsAppContacts,
-        );
-
-        if (phoneDigits == null || phoneDigits.length < 7) {
-          if (mounted) {
-            setState(() {
-              _statusText =
-                  'Sin notificación activa ni teléfono para ${widget.item.displayName}.';
-            });
-            await _showMissingPhoneDialog(context, widget.item.displayName);
-          }
-          return;
-        }
-
-        final contact = phoneDigits;
-
-        if (hasA11y) {
-          if (mounted) {
-            setState(
-              () => _statusText = '⚡ Despachando con retorno automático...',
-            );
-          }
-          final ok = await share.openChat(
-            contact: contact,
+        if (widget.item.isGroup) {
+          final groupSent = await _sendToGroupFallback(
             text: text,
-            packageName: widget.item.packageName,
-            autoSend: true,
+            share: share,
+            hasA11y: hasA11y,
           );
-          if (!ok) {
-            if (mounted) {
-              setState(() {
-                _statusText = 'No se pudo abrir el chat de WhatsApp';
-              });
-            }
+          if (groupSent) {
+            notificationReplyAccepted = true;
+          } else {
+            // H2: Se abrió WhatsApp o se requirió intervención; no marcar como enviado
             return;
           }
-          if (mounted) {
-            setState(() {
-              // El canal confirma que abrió WhatsApp, no que el toque de envío ocurrió.
-              _statusText =
-                  'WhatsApp abierto; conserva el borrador hasta confirmar el envío';
-            });
-          }
-          return;
         } else {
-          if (mounted) {
-            setState(() {
-              _busy = false;
-              _statusText = 'Acción requerida para enviar sin salir de Nano';
-            });
-            final action = await _showNoA11yOptionsModal(context, share);
-            if (!mounted) return;
-            if (action == 'open_whatsapp') {
-              final opened = await share.openChat(
-                contact: contact,
-                text: text,
-                packageName: widget.item.packageName,
-                autoSend: false,
-              );
-              if (mounted) {
-                setState(() {
-                  // En modo manual Nano entrega el borrador; el usuario confirma en WhatsApp.
-                  _statusText = opened
-                      ? 'Borrador abierto en WhatsApp; revisa el contacto y pulsa Enviar allí'
-                      : 'No se pudo abrir WhatsApp; el borrador sigue en Nano';
-                });
-              }
-            }
+          final directSent = await _sendDirectFallback(
+            text: text,
+            share: share,
+            hasA11y: hasA11y,
+            conversationId: conversationId,
+          );
+          if (directSent) {
+            notificationReplyAccepted = true;
+          } else {
+            // H2: Se abrió WhatsApp o se requirió intervención; no marcar como enviado
             return;
           }
         }
       }
 
-      // No registrar como enviado un borrador abierto en otra app.
       if (!notificationReplyAccepted) return;
       final nowMs = DateTime.now().millisecondsSinceEpoch;
       sentMemory.appendOutbound(
@@ -173,14 +113,12 @@ extension ConversationDetailSender on _ConversationDetailSheetState {
       );
       dedupe.recordVerifiedOutbound(conversationId, text, atMs: nowMs);
 
-      // Autoaprendizaje de estilo en SQLite FTS4
       if (mounted) await _recordStyleLearning(text);
 
       if (pendingId != null) {
         await pendingStore!.markSent(pendingId);
       }
 
-      // No programa cierres tardíos de rutas: el dueño conserva el chat abierto.
       if (mounted) {
         ref.invalidate(conversationHubListProvider);
         ref.read(conversationHubVersionProvider.notifier).state++;

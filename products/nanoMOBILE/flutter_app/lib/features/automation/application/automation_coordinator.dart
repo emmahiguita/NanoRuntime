@@ -574,8 +574,9 @@ class AutomationCoordinator {
                 (targetTool == 'whatsapp.send_message' ||
                     targetTool == 'whatsapp.open_chat')) {
               extra['text'] = intent.message!;
-              if (targetTool == 'whatsapp.send_message')
+              if (targetTool == 'whatsapp.send_message') {
                 extra['autoSend'] = true;
+              }
             }
             return ToolCall(
               tool: targetTool,

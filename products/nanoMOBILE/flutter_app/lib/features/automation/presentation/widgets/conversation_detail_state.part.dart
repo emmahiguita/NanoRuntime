@@ -47,18 +47,22 @@ class _ConversationDetailSheetState
   @override
   Widget build(BuildContext context) {
     ref.watch(conversationHubVersionProvider);
+    // Sincronización reactiva inmediata con el tema global del sistema Nano AI.
+    ref.watch(settingsProvider.select((s) => s.themeMode));
+
     // Un mensaje en otro chat no debe disparar IPC y reconstruir este historial.
     ref.listen(liveNotificationStreamProvider, (_, next) {
       final map = next.valueOrNull;
       if (map == null || map.isEmpty) return;
       final notification = DeviceNotification.fromMap(map);
       if (_notificationMatches(notification)) {
-        // El evento ya trae sus mensajes: no vuelve a extraer 50 notificaciones.
         _loadLiveHistoryAndCapabilities(observed: notification);
       }
     });
 
     final visual = AutomationVisual.of(context);
+    final themeExt = NanoThemeExtension.of(context);
+    final colors = visual.resolvedColors;
     final memoryStore = ref.watch(conversationMemoryStoreProvider);
     final media = MediaQuery.of(context);
     final isLandscape = media.orientation == Orientation.landscape;
@@ -73,14 +77,70 @@ class _ConversationDetailSheetState
         (media.size.height - media.viewInsets.bottom) *
         (isLandscape ? 0.98 : 0.90);
 
-    // Esta es la única superficie del chat. El presentador solo limita la
-    // ventana y su teclado; no superpone otro fondo ni otro botón de cierre.
-    return GlassSurface(
+    final blurSigma = themeExt.glassEnabled
+        ? (themeExt.glassBlur * 1.3).clamp(14.0, 32.0)
+        : 0.0;
+
+    // Superficie Liquid Glass conectada orgánicamente al tema real del sistema.
+    return Container(
       height: height,
-      radius: 24,
-      interactive: false,
-      padding: EdgeInsets.zero,
-      child: _buildResponsiveBody(visual, entries),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: colors.glassBorder.withValues(
+            alpha: visual.isDark ? 0.22 : 0.50,
+          ),
+          width: 0.85,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: visual.shadow.withValues(alpha: visual.isDark ? 0.38 : 0.10),
+            blurRadius: 30,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Papel tapiz Doodle Nano Owl reactivo a modo oscuro y claro
+              Positioned.fill(
+                child: Image.asset(
+                  visual.isDark
+                      ? 'assets/automation/messaging_wallpaper_dark.jpg'
+                      : 'assets/automation/messaging_wallpaper_light.jpg',
+                  fit: BoxFit.cover,
+                  filterQuality: FilterQuality.medium,
+                ),
+              ),
+              // Velo de gradiente translúcido para alto contraste y legibilidad óptima
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        colors.backgroundElevated.withValues(
+                          alpha: visual.isDark ? 0.38 : 0.45,
+                        ),
+                        colors.backgroundPrimary.withValues(
+                          alpha: visual.isDark ? 0.58 : 0.65,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              _buildResponsiveBody(visual, entries),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
