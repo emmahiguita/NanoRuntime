@@ -1,6 +1,6 @@
 // QUÉ: Contenido del menú de opciones de Nano Browser estilo iOS Safari nativo y limpio.
 // CÓMO: Iconos monocromáticos limpios sin cajas de colores estridentes y tarjetas agrupadas.
-// POR QUÉ: Brinda una estética sobria, profesional y coherente con las directrices de Apple (< 175 líneas).
+// POR QUÉ: Brinda una estética sobria, profesional y coherente con las directrices de Apple (< 180 líneas).
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -30,9 +30,7 @@ class BrowserOptionsContent extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final primary = theme.colorScheme.primary;
 
-    final pageGroup = BrowserOptionsCatalog.pageItems(
-      isBookmarked: isBookmarked,
-    );
+    final pageGroup = BrowserOptionsCatalog.pageItems(isBookmarked: isBookmarked);
     final displayGroup = BrowserOptionsCatalog.displayItems(
       tab: tab,
       isDesktopMode: isDesktopMode,
@@ -93,14 +91,10 @@ class BrowserOptionsContent extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.035),
+            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.035),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : Colors.black.withValues(alpha: 0.06),
+              color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
             ),
           ),
           child: Column(
@@ -180,12 +174,7 @@ class BrowserOptionsContent extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           child: Row(
             children: [
-              SizedBox(
-                width: 24,
-                child: Center(
-                  child: Icon(item.icon, size: 20, color: iconColor),
-                ),
-              ),
+              SizedBox(width: 24, child: Center(child: Icon(item.icon, size: 20, color: iconColor))),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -199,8 +188,7 @@ class BrowserOptionsContent extends StatelessWidget {
                         color: isDark ? Colors.white : const Color(0xFF1E293B),
                       ),
                     ),
-                    if (item.subtitle != null) ...[
-                      const SizedBox(height: 1),
+                    if (item.subtitle != null)
                       Text(
                         item.subtitle!,
                         style: TextStyle(
@@ -208,15 +196,10 @@ class BrowserOptionsContent extends StatelessWidget {
                           color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                         ),
                       ),
-                    ],
                   ],
                 ),
               ),
-              Icon(
-                CupertinoIcons.chevron_right,
-                size: 13,
-                color: isDark ? Colors.white24 : Colors.black26,
-              ),
+              Icon(CupertinoIcons.chevron_right, size: 13, color: isDark ? Colors.white24 : Colors.black26),
             ],
           ),
         ),

@@ -110,7 +110,12 @@ class BrowserFocusedWindow extends ConsumerWidget {
                 onClose: onCloseFindInPage,
               ),
             Expanded(
-              child: Padding(
+              child: Container(
+                color: carousel
+                    ? (Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF090D16)
+                        : const Color(0xFFF1F5F9))
+                    : null,
                 padding: EdgeInsets.only(bottom: bottomReserve),
                 child: carousel
                     ? _carousel(context, ref)

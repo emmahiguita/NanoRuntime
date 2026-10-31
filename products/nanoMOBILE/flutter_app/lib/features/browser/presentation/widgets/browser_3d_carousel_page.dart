@@ -1,6 +1,9 @@
+// QUÉ: Página con transformación tridimensional para el carrusel de pestañas.
+// CÓMO: Aplica escala y opacidad suave mediante Matrix4 sin oscurecer las vistas con velos negros.
+// POR QUÉ: Permite previsualizar pestañas contiguas con sus colores y contenido web real (< 70 líneas).
+
 import 'package:flutter/material.dart';
 
-/// Aísla la perspectiva visual para que el WebView conserve su estado al rotar.
 class Browser3DCarouselPage extends StatelessWidget {
   const Browser3DCarouselPage({
     super.key,
@@ -22,32 +25,24 @@ class Browser3DCarouselPage extends StatelessWidget {
     animation: controller,
     child: child,
     builder: (context, pageChild) {
-      // Antes de tener métricas usa la página seleccionada; evita leer una posición aún no adjunta.
       final hasMetrics =
           controller.hasClients && controller.position.haveDimensions;
       final distance =
           ((hasMetrics ? controller.page : null) ?? currentPage.toDouble()) -
           index;
-      final scale = (1.0 - (distance.abs() * 0.12)).clamp(0.86, 1.0);
-      final translateY = (distance.abs() * 16.0).clamp(0.0, 26.0);
-      final dim = (distance.abs() * 0.35).clamp(0.0, 0.45);
+      final scale = (1.0 - (distance.abs() * 0.10)).clamp(0.88, 1.0);
+      final translateY = (distance.abs() * 12.0).clamp(0.0, 20.0);
+      final opacity = (1.0 - (distance.abs() * 0.18)).clamp(0.78, 1.0);
       final isCurrent = index == currentPage;
-      Widget card = Stack(
-        children: [
-          IgnorePointer(ignoring: !isCurrent, child: pageChild!),
-          if (dim > 0.02)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: dim),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-        ],
+
+      Widget card = IgnorePointer(
+        ignoring: !isCurrent,
+        child: Opacity(
+          opacity: opacity,
+          child: pageChild,
+        ),
       );
+
       if (!isCurrent) {
         card = GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -55,6 +50,7 @@ class Browser3DCarouselPage extends StatelessWidget {
           child: card,
         );
       }
+
       return Transform(
         alignment: Alignment.center,
         transform: Matrix4.identity()

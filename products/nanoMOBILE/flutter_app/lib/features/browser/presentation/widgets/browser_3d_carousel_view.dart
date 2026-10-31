@@ -60,7 +60,7 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
     _currentPage = idx >= 0 ? idx : 0;
     _pageController = PageController(
       initialPage: _currentPage,
-      viewportFraction: 0.85,
+      viewportFraction: 0.84,
     );
   }
 
@@ -88,8 +88,7 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
 
     if (widget.tabs.isEmpty) {
@@ -117,6 +116,7 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
             itemBuilder: (context, index) {
               final tab = widget.tabs[index];
               final isCurrent = index == _currentPage;
+              final isNearby = (index - _currentPage).abs() <= 1;
 
               return Browser3DCarouselPage(
                 controller: _pageController,
@@ -130,7 +130,7 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     horizontal: isLand ? 6 : 8,
-                    vertical: isLand ? 4 : 10,
+                    vertical: isLand ? 4 : 22,
                   ),
                   child: BrowserCarouselCard(
                     tab: tab,
@@ -154,7 +154,7 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
                       showCardHeader: false,
                       isMinimized: false,
                       isMaximized: true,
-                      isCurrentActive: tab.id == widget.activeTabId,
+                      isCurrentActive: isCurrent || isNearby,
                       currentZoom: widget.currentZoom,
                       isDesktopMode: widget.isDesktopMode,
                       isDarkModeWeb: widget.isDarkModeWeb,
@@ -172,26 +172,35 @@ class _Browser3DCarouselViewState extends State<Browser3DCarouselView> {
             },
           ),
         ),
-        // Indicador de pestañas estilo iOS
+        // Indicador de pestañas en cápsula esmerilada
         Padding(
-          padding: EdgeInsets.only(top: isLand ? 2 : 4, bottom: isLand ? 3 : 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.tabs.length, (idx) {
-              final isSel = idx == _currentPage;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                width: isSel ? 20 : 6,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isSel
-                      ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
-                      : (isDark ? Colors.white24 : Colors.black12),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              );
-            }),
+          padding: EdgeInsets.only(top: isLand ? 2 : 4, bottom: isLand ? 4 : 10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(widget.tabs.length, (idx) {
+                final isSel = idx == _currentPage;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                  width: isSel ? 18 : 6,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isSel
+                        ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
+                        : (isDark ? Colors.white24 : Colors.black12),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                );
+              }),
+            ),
           ),
         ),
       ],
