@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:ui' show ImageFilter;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/cupertino.dart';
@@ -64,6 +64,7 @@ part 'conversation_detail_dialogs.dart';
 part 'conversation_detail_form_picker.dart';
 part 'conversation_detail_attachments.dart';
 part 'conversation_detail_attachments_share.part.dart';
+part 'conversation_detail_voice_note.part.dart';
 part 'conversation_detail_library.dart';
 part 'conversation_detail_notifications.dart';
 part 'conversation_detail_live_history.dart';
