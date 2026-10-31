@@ -1,14 +1,18 @@
 part of 'conversation_detail_sheet.dart';
 
-/// [ConversationDetailComposerView] — Barra de redacción estilo iOS Liquid Glass (< 120 líneas).
-// QUÉ HACE: Renderiza la fila de redacción con botón (+), campo de texto esmerilado, nota de voz y acción de envío.
-// CÓMO FUNCIONA: Usa AnimatedSwitcher para alternar con física de escala entre acciones en reposo y botón enviar.
+/// [ConversationDetailComposerView] — Barra de redacción estilo iOS Liquid Glass (< 160 líneas).
+// QUÉ HACE: Renderiza la fila de redacción con botón (+), campo de texto esmerilado, nota de voz en vivo y envío.
+// CÓMO FUNCIONA: Conmuta entre el campo de texto y la barra de grabación activa con temporizador y descarte.
 // POR QUÉ: Divide la lógica de diseño para respetar el principio de responsabilidad única y límite < 200 líneas.
 extension ConversationDetailComposerView on _ConversationDetailSheetState {
   Widget _buildComposerRow(
     AutomationVisualPalette visual, {
     required bool isLandscape,
   }) {
+    if (_isRecordingVoiceNote) {
+      return _buildVoiceRecordingRow(visual);
+    }
+
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: _inputController,
       builder: (context, value, _) => LayoutBuilder(
@@ -17,7 +21,6 @@ extension ConversationDetailComposerView on _ConversationDetailSheetState {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Botón (+) iOS para adjuntos
               _buildIosComposerButton(
                 icon: CupertinoIcons.plus_circle_fill,
                 tooltip: 'Adjuntar',
@@ -27,7 +30,6 @@ extension ConversationDetailComposerView on _ConversationDetailSheetState {
                 iconSize: 26,
               ),
               const SizedBox(width: 6),
-              // Campo de texto estilo cápsula esmerilada iMessage
               Expanded(
                 child: Container(
                   constraints: const BoxConstraints(minHeight: 36),
@@ -79,7 +81,6 @@ extension ConversationDetailComposerView on _ConversationDetailSheetState {
                 ),
               ),
               const SizedBox(width: 6),
-              // Botón IA y Nota de Voz en reposo, o botón Enviar al escribir
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 transitionBuilder: (child, anim) =>
@@ -100,6 +101,66 @@ extension ConversationDetailComposerView on _ConversationDetailSheetState {
           );
         },
       ),
+    );
+  }
+
+  /// Barra de grabación activa con contador de tiempo y opción de cancelar.
+  Widget _buildVoiceRecordingRow(AutomationVisualPalette visual) {
+    final min = (_recordingSeconds ~/ 60).toString();
+    final sec = (_recordingSeconds % 60).toString().padLeft(2, '0');
+
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Descartar nota de voz',
+          icon: const Icon(CupertinoIcons.trash, color: Color(0xFFEF4444), size: 22),
+          onPressed: _busy ? null : _cancelRecordingVoiceNote,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Container(
+            height: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEF4444).withValues(alpha: visual.isDark ? 0.16 : 0.10),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.40),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(CupertinoIcons.circle_fill, color: Color(0xFFEF4444), size: 10),
+                const SizedBox(width: 8),
+                Text(
+                  '$min:$sec',
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Grabando nota de voz...',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 13,
+                      color: visual.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        _buildVoiceNoteButton(visual),
+      ],
     );
   }
 }

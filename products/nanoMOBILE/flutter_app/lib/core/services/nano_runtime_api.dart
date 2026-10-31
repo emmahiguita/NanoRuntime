@@ -1037,6 +1037,37 @@ class NanoRuntimeApi {
     }
   }
 
+  /// Inicia la grabación de una nota de voz con el micrófono del dispositivo.
+  /// Retorna la ruta del archivo de audio temporal (.m4a) o null si falla.
+  Future<String?> startRecordingAudio() async {
+    try {
+      return await _speech.invokeMethod<String>('startRecordingAudio');
+    } catch (e) {
+      debugPrint('[runtime] startRecordingAudio error: $e');
+      return null;
+    }
+  }
+
+  /// Finaliza la grabación de la nota de voz y retorna la ruta del archivo grabado.
+  Future<String?> stopRecordingAudio() async {
+    try {
+      return await _speech.invokeMethod<String>('stopRecordingAudio');
+    } catch (e) {
+      debugPrint('[runtime] stopRecordingAudio error: $e');
+      return null;
+    }
+  }
+
+  /// Cancela y descarta la grabación de nota de voz en curso.
+  Future<bool> cancelRecordingAudio() async {
+    try {
+      return await _speech.invokeMethod<bool>('cancelRecordingAudio') ?? false;
+    } catch (e) {
+      debugPrint('[runtime] cancelRecordingAudio error: $e');
+      return false;
+    }
+  }
+
   /// A14.4 — acción Shizuku TIPADA: detener una app (reversible).
   /// El nativo vincula el UserService Shizuku (corre con privilegios) y valida
   /// el packageName. El estado de autorización lo valida el broker antes.

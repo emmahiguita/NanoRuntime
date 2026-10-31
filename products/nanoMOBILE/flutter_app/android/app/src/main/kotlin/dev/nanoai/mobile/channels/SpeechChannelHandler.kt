@@ -60,6 +60,8 @@ class SpeechChannelHandler(
     private var recognizer: SpeechRecognizer? = null
     private var tts: TextToSpeech? = null
     private var mediaPlayer: android.media.MediaPlayer? = null
+    private var mediaRecorder: android.media.MediaRecorder? = null
+    private var activeRecordingFile: java.io.File? = null
     private var pendingRecognitionResult: MethodChannel.Result? = null
 
     // Sink del EventChannel de parciales. null = nadie escuchando.
@@ -92,6 +94,7 @@ class SpeechChannelHandler(
         mediaPlayer?.stop()
         mediaPlayer?.release()
         mediaPlayer = null
+        cancelRecordingInternal()
         partialSink = null
     }
 
@@ -128,6 +131,9 @@ class SpeechChannelHandler(
                     result.error("convert_error", "No se pudo convertir audio a WAV", null)
                 }
             }
+            "startRecordingAudio" -> startRecordingAudio(result)
+            "stopRecordingAudio" -> stopRecordingAudio(result)
+            "cancelRecordingAudio" -> cancelRecordingAudio(result)
             else -> result.notImplemented()
         }
     }
@@ -579,5 +585,89 @@ class SpeechChannelHandler(
         } catch (e: Exception) {
             result.success(0L)
         }
+    }
+
+    private fun startRecordingAudio(result: MethodChannel.Result) {
+        if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            result.error("mic_permission_denied", "Permiso de microfono no concedido", null)
+            return
+        }
+        try {
+            cancelRecordingInternal()
+            val cacheDir = java.io.File(context.cacheDir, "nano_voice_notes").apply { mkdirs() }
+            val file = java.io.File(cacheDir, "voice_${System.currentTimeMillis()}.m4a")
+            activeRecordingFile = file
+
+            val rec = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                android.media.MediaRecorder(context)
+            } else {
+                @Suppress("DEPRECATION")
+                android.media.MediaRecorder()
+            }
+            rec.apply {
+                setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
+                setAudioSamplingRate(44100)
+                setAudioEncodingBitRate(128000)
+                setOutputFile(file.absolutePath)
+                prepare()
+                start()
+            }
+            mediaRecorder = rec
+            Log.d(TAG, "Grabacion de nota de voz iniciada en: ${file.absolutePath}")
+            result.success(file.absolutePath)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error iniciando grabacion de audio: ${e.message}", e)
+            cancelRecordingInternal()
+            result.error("record_error", e.message, null)
+        }
+    }
+
+    private fun stopRecordingAudio(result: MethodChannel.Result) {
+        try {
+            val rec = mediaRecorder
+            val file = activeRecordingFile
+            if (rec != null) {
+                try {
+                    rec.stop()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error al detener MediaRecorder: ${e.message}")
+                }
+                rec.release()
+                mediaRecorder = null
+            }
+            activeRecordingFile = null
+            if (file != null && file.exists() && file.length() > 0) {
+                Log.d(TAG, "Nota de voz grabada exitosamente: ${file.absolutePath}")
+                result.success(file.absolutePath)
+            } else {
+                result.error("empty_audio", "El archivo de audio grabado esta vacio", null)
+            }
+        } catch (e: Exception) {
+            cancelRecordingInternal()
+            result.error("stop_error", e.message, null)
+        }
+    }
+
+    private fun cancelRecordingAudio(result: MethodChannel.Result) {
+        cancelRecordingInternal()
+        result.success(true)
+    }
+
+    private fun cancelRecordingInternal() {
+        try {
+            mediaRecorder?.apply {
+                try { stop() } catch (_: Exception) {}
+                release()
+            }
+        } catch (_: Exception) {}
+        mediaRecorder = null
+        try {
+            activeRecordingFile?.delete()
+        } catch (_: Exception) {}
+        activeRecordingFile = null
     }
 }

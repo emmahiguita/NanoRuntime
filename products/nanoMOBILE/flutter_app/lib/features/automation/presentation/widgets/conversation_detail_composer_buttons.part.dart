@@ -70,47 +70,50 @@ extension ConversationDetailComposerButtons on _ConversationDetailSheetState {
     );
   }
 
-  /// Botón para enviar o adjuntar notas de voz directamente desde el compositor.
+  /// Botón para grabar o enviar notas de voz con el micrófono del sistema.
   Widget _buildVoiceNoteButton(AutomationVisualPalette visual) {
     final colors = visual.resolvedColors;
+    final isRec = _isRecordingVoiceNote;
+
     return Semantics(
       key: const ValueKey('voice_note_button'),
-      label: 'Nota de voz',
+      label: isRec ? 'Enviar nota de voz' : 'Grabar nota de voz',
       button: true,
       child: GestureDetector(
-        onTap: _busy
-            ? null
-            : () {
-                HapticFeedback.lightImpact();
-                _attachVoiceNote();
-              },
+        onTap: _busy ? null : _handleVoiceNoteTap,
         child: Container(
           width: 36,
           height: 36,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: visual.isDark
-                ? colors.surfaceVariant.withValues(alpha: 0.60)
-                : colors.surface.withValues(alpha: 0.90),
+            color: isRec
+                ? const Color(0xFFEF4444)
+                : (visual.isDark
+                    ? colors.surfaceVariant.withValues(alpha: 0.60)
+                    : colors.surface.withValues(alpha: 0.90)),
             border: Border.all(
-              color: visual.accent.withValues(alpha: 0.40),
+              color: isRec
+                  ? Colors.white.withValues(alpha: 0.80)
+                  : visual.accent.withValues(alpha: 0.40),
               width: 0.8,
             ),
             boxShadow: [
               BoxShadow(
-                color: visual.accent.withValues(
-                  alpha: visual.isDark ? 0.28 : 0.16,
-                ),
-                blurRadius: 8,
+                color: isRec
+                    ? const Color(0xFFEF4444).withValues(alpha: 0.45)
+                    : visual.accent.withValues(
+                        alpha: visual.isDark ? 0.28 : 0.16,
+                      ),
+                blurRadius: isRec ? 12 : 8,
                 offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Center(
             child: Icon(
-              CupertinoIcons.mic_fill,
+              isRec ? CupertinoIcons.arrow_up : CupertinoIcons.mic_fill,
               size: 18,
-              color: visual.accent,
+              color: isRec ? Colors.white : visual.accent,
             ),
           ),
         ),

@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/settings_provider.dart'
     show settingsProvider;
 import '../../../../core/services/execution_budget.dart';
+import '../../../../core/services/nano_runtime_api.dart';
 import 'package:nanoai/core/theme/design_tokens.dart';
 import '../../application/automation_coordinator_provider.dart';
 import '../../application/whatsapp_contacts_provider.dart'

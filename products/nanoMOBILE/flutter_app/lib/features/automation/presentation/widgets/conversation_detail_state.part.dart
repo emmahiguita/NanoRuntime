@@ -15,6 +15,9 @@ class _ConversationDetailSheetState
   List<ConversationMemoryEntry> _liveEntries = const [];
   DeviceNotification? _queuedHistoryNotification;
   bool _historyLoadInProgress = false, _historyReloadRequested = false;
+  bool _isRecordingVoiceNote = false;
+  int _recordingSeconds = 0;
+  Timer? _recordingTimer;
 
   void _safeSetState(VoidCallback fn) {
     if (mounted) setState(fn);
@@ -39,6 +42,10 @@ class _ConversationDetailSheetState
   void dispose() {
     // Cancela solamente la inferencia pedida por esta hoja, no la de otros chats.
     _suggestionBudget?.cancel();
+    _recordingTimer?.cancel();
+    if (_isRecordingVoiceNote) {
+      NanoRuntimeApi.instance.cancelRecordingAudio();
+    }
     _inputController.dispose();
     _scrollController.dispose();
     super.dispose();
