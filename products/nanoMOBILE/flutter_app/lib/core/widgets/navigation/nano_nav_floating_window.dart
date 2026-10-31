@@ -1,7 +1,7 @@
 // nano_nav_floating_window.dart — Menú flotante iOS Liquid Glass para Nano AI.
-// QUÉ HACE: Despliega las 4 opciones de navegación + accesos rápidos FAB y visuales.
+// QUÉ HACE: Despliega las 4 opciones canónicas + accesos directos únicos (Chat IA y Navegador).
 // CÓMO FUNCIONA: Anclado debajo del botón búho con animación de escala/opacidad y bordes iOS (20dp).
-// POR QUÉ: Cumple con la estética iOS Liquid Glass sin generar franja negra ni desbordes (< 170 líneas).
+// POR QUÉ: Elimina opciones duplicadas y cumple la estética iOS Liquid Glass (< 175 líneas).
 library;
 
 import 'dart:ui';
@@ -60,9 +60,6 @@ class _NanoNavFloatingWindowState extends State<NanoNavFloatingWindow> {
     final top = media.padding.top + 50.0 + (_dragDy * 0.2);
     const left = 14.0;
 
-    // QUÉ: Paleta de fondo Liquid Glass vinculada al tema activo.
-    // CÓMO: Gradiente entre surfaceContainerHigh y surface con atenuación óptica.
-    // POR QUÉ: Sigue el esquema de color del usuario sin forzar grises azulados estáticos.
     final bgColors = isDark
         ? [
             theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.92),
@@ -150,13 +147,13 @@ class _NanoNavFloatingWindowState extends State<NanoNavFloatingWindow> {
                         ),
                       ),
                       NanoDrawerQuickTile(
-                        icon: CupertinoIcons.chat_bubble_2_fill,
+                        icon: CupertinoIcons.sparkles,
                         iconColor: const Color(0xFF007AFF),
-                        label: 'Mensajería',
+                        label: 'Chat IA',
                         isDark: isDark,
                         onTap: () {
                           widget.onCloseMenu();
-                          AppRouter.router.push('/automation/messages');
+                          AppRouter.router.push('/chat');
                         },
                       ),
                       NanoDrawerQuickTile(

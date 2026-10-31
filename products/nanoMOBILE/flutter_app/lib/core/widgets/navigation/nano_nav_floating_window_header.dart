@@ -1,7 +1,7 @@
 // nano_nav_floating_window_header.dart — Cabecera iOS Liquid Glass del menú de navegación.
-// QUÉ HACE: Renderiza el título de navegación con icono de cuadrícula iOS según diseño de referencia.
-// CÓMO FUNCIONA: Presenta icono en azul de marca, tipografía seminegrita y divisor sutil.
-// POR QUÉ: Consistencia visual 100% fiel a la guía iOS con límites estrictos < 200 líneas (< 70 líneas).
+// QUÉ HACE: Renderiza el título de navegación con icono y botón de restauración de dock.
+// CÓMO FUNCIONA: Presenta icono azul, tipografía seminegrita y botón para restaurar barra inferior.
+// POR QUÉ: Consistencia visual 100% fiel a la guía iOS con límites estrictos < 200 líneas (< 75 líneas).
 library;
 
 import 'package:flutter/cupertino.dart';
@@ -48,6 +48,20 @@ class NanoNavFloatingWindowHeader extends StatelessWidget {
                   ),
                 ),
               ),
+              if (onRestoreBottom != null)
+                Tooltip(
+                  message: 'Restaurar barra inferior',
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(28, 28),
+                    onPressed: onRestoreBottom,
+                    child: Icon(
+                      CupertinoIcons.arrow_down_to_line,
+                      size: 16,
+                      color: isDark ? Colors.white70 : const Color(0xFF475569),
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 8),

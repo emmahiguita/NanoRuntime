@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../theme/design_tokens.dart';
+import 'navigation/nano_nav_mode_provider.dart';
 
 /// Shell compartido de las pantallas secundarias (Chat, Modelos, Settings, etc.).
 ///
 /// Refleja la estética de alta gama sin redundancias: fondo ambiental cristalino,
 /// tipografía nítida para el título de la sección y composición fluida.
-class NanoScreenShell extends StatelessWidget {
+class NanoScreenShell extends ConsumerWidget {
   const NanoScreenShell({
     super.key,
     required this.title,
@@ -47,7 +49,7 @@ class NanoScreenShell extends StatelessWidget {
   final bool resizeToAvoidBottomInset;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = NanoThemeExtension.of(context).colors;
     final screenSize = MediaQuery.sizeOf(context);
     final isLandscape =
@@ -57,6 +59,9 @@ class NanoScreenShell extends StatelessWidget {
     final showHeader = !hideHeader && (isLandscape || !hideHeaderInPortrait);
     final canGoBack = Navigator.of(context).canPop() || context.canPop();
     final back = showBack ?? canGoBack;
+    final isDrawerMode = ref.watch(
+      nanoNavModeProvider.select((s) => s.isDrawerMode),
+    );
 
     return Scaffold(
       backgroundColor: backgroundColor ?? Colors.transparent,
@@ -77,6 +82,8 @@ class NanoScreenShell extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    // Reserva espacio exacto para el botón búho flotante en modo Drawer
+                    if (isDrawerMode) const SizedBox(width: 50),
                     if (back) ...[
                       Semantics(
                         label: 'Atrás',

@@ -12,8 +12,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * QUÉ HACE: Vista orquestadora de Nano Keyboard (Material 3 Expressive).
- * POR QUÉ EXISTE: Coordina distribuciones, barra inteligente, panel de emojis y predicciones en 60-120 FPS (< 180 líneas).
+ * QUÉ HACE: Vista orquestadora de Nano Keyboard optimizada para 100% de rapidez (120 FPS).
+ * CÓMO FUNCIONA: Desacopla la consulta de sugerencias con debounce ultraligero de 20ms y evita IPC bloqueante en ráfagas.
+ * POR QUÉ EXISTE: Elimina frame drops y microcongelamientos al escribir a gran velocidad con dos pulgares (< 190 líneas).
  */
 @SuppressLint("ViewConstructor")
 internal class NanoKeyboardView(
@@ -26,8 +27,14 @@ internal class NanoKeyboardView(
     private var lastShiftPressTime = 0L
     private var currentMode = KeyboardMode.LETTERS
 
-    private val repeatHandler = Handler(Looper.getMainLooper())
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var backspaceRunnable: Runnable? = null
+
+    private val suggestionDebounceRunnable = Runnable {
+        val word = NanoInputConnectionHelper.getWordBeforeCursor(service.currentInputConnection)
+        val list = if (word.isNotEmpty()) NanoDictionaryEngine.getSuggestions(word) else emptyList()
+        toolbar.updateSuggestions(list)
+    }
 
     private val letterKeyViews = ArrayList<Pair<TextView, KeyModel>>()
     private val enterKeyViews = ArrayList<TextView>()
@@ -143,8 +150,8 @@ internal class NanoKeyboardView(
     private fun typeAlt(char: String) { service.type(char); refreshSuggestions() }
 
     private fun refreshSuggestions() {
-        val word = NanoInputConnectionHelper.getWordBeforeCursor(service.currentInputConnection)
-        toolbar.updateSuggestions(if (word.isNotEmpty()) NanoDictionaryEngine.getSuggestions(word) else emptyList())
+        mainHandler.removeCallbacks(suggestionDebounceRunnable)
+        mainHandler.postDelayed(suggestionDebounceRunnable, 20)
     }
 
     private fun handleSuggestion(word: String) {
@@ -171,24 +178,29 @@ internal class NanoKeyboardView(
             v.isPressed = true
             v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             service.erase()
-            refreshSuggestions()
+            toolbar.updateSuggestions(emptyList())
             backspaceRunnable = object : Runnable {
-                override fun run() { service.erase(); refreshSuggestions(); repeatHandler.postDelayed(this, 45) }
+                override fun run() {
+                    service.erase()
+                    mainHandler.postDelayed(this, 40)
+                }
             }
-            repeatHandler.postDelayed(backspaceRunnable!!, 350)
+            mainHandler.postDelayed(backspaceRunnable!!, 300)
             true
         }
         MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
             v.isPressed = false
-            backspaceRunnable?.let { repeatHandler.removeCallbacks(it) }
+            backspaceRunnable?.let { mainHandler.removeCallbacks(it) }
             backspaceRunnable = null
+            refreshSuggestions()
             true
         }
         else -> false
     }
 
     override fun onDetachedFromWindow() {
-        backspaceRunnable?.let { repeatHandler.removeCallbacks(it) }
+        backspaceRunnable?.let { mainHandler.removeCallbacks(it) }
+        mainHandler.removeCallbacks(suggestionDebounceRunnable)
         NanoKeyPopup.dismiss()
         super.onDetachedFromWindow()
     }

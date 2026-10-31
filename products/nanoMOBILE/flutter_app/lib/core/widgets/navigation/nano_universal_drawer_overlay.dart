@@ -1,22 +1,18 @@
 // nano_universal_drawer_overlay.dart — Capa flotante universal de navegación estilo iOS Liquid Glass.
 // QUÉ HACE: Despliega la navegación oficial de Nano AI (búho superior, píldora o dock inferior) en toda ruta.
-// CÓMO FUNCIONA: Escucha nanoNavModeProvider y soporta gestos para contraer a píldora o convertir a Drawer.
-// POR QUÉ: Garantiza que la barra de navegación sea siempre la misma y tenga todos sus modos limpios (< 180 líneas).
+// CÓMO FUNCIONA: Escucha nanoNavModeProvider y previene barras duplicadas en pantallas dentro de ScaffoldShell.
+// POR QUÉ: Garantiza navegación consistente y elimina solapamientos y duplicados visuales (< 140 líneas).
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../router/app_router.dart';
 import 'nano_destination.dart';
 import 'nano_drawer_drop_button.dart';
 import 'nano_drawer_router.dart';
-import 'nano_fab_menu.dart';
-import 'nano_nav_bar_container.dart';
-import 'nano_nav_destinations_dock.dart';
 import 'nano_nav_floating_window.dart';
-import 'nano_nav_mini_pill.dart';
 import 'nano_nav_mode_provider.dart';
+import 'nano_standalone_dock_layer.dart';
 
 class NanoDrawerContentInset extends StatelessWidget {
   const NanoDrawerContentInset({super.key, required this.child});
@@ -34,8 +30,6 @@ class NanoUniversalDrawerOverlay extends ConsumerStatefulWidget {
 
 class _NanoUniversalDrawerOverlayState
     extends ConsumerState<NanoUniversalDrawerOverlay> {
-  Offset _dragDelta = Offset.zero;
-
   @override
   void initState() {
     super.initState();
@@ -70,33 +64,24 @@ class _NanoUniversalDrawerOverlayState
     _ => NanoDestination.automation,
   };
 
+  /// Pantallas autónomas que requieren dock flotante propio.
+  /// EXCLUYE estrictamente rutas de ScaffoldShell y ChatScreen para evitar duplicados visuales.
   bool _isStandaloneScreen() {
     final loc = _currentRoute();
+    if (loc.startsWith('/dashboard') ||
+        loc.startsWith('/automation') && !loc.startsWith('/automation/') ||
+        loc.startsWith('/models') ||
+        loc.startsWith('/terminal') ||
+        loc.startsWith('/linux') ||
+        loc.startsWith('/database') ||
+        loc.startsWith('/settings') ||
+        loc.startsWith('/chat')) {
+      return false;
+    }
     return const [
-      '/automation/messages',
-      '/automation/whatsapp',
-      '/automation/skills',
-      '/chat',
       '/browser',
       '/desktop',
-      '/database',
-      '/linux',
-      '/account',
     ].any(loc.startsWith);
-  }
-
-  /// Evalúa el gesto sobre la barra inferior: hacia abajo minimiza a píldora; lateral abre Drawer.
-  void _onPanEnd(DragEndDetails details) {
-    final dx = _dragDelta.dx, dy = _dragDelta.dy;
-    setState(() => _dragDelta = Offset.zero);
-    final notifier = ref.read(nanoNavModeProvider.notifier);
-    if (dy > 20 || (details.velocity.pixelsPerSecond.dy > 260 && dy > 8)) {
-      HapticFeedback.lightImpact();
-      notifier.minimizeToPill();
-    } else if (dx.abs() > 38) {
-      HapticFeedback.mediumImpact();
-      notifier.convertToDrawer(right: dx > 0);
-    }
   }
 
   @override
@@ -145,63 +130,6 @@ class _NanoUniversalDrawerOverlayState
 
     if (!_isStandaloneScreen()) return const SizedBox.shrink();
 
-    return Stack(
-      children: [
-        if (navState.isFabMenuOpen)
-          Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: notifier.closeFabMenu,
-              child: const ColoredBox(color: Colors.transparent),
-            ),
-          ),
-        Positioned(
-          left: 16,
-          right: 16,
-          bottom: media.padding.bottom + 8.0,
-          child: navState.isMinimizedPill
-              ? Center(
-                  child: NanoNavMiniPill(
-                    semanticLabel: 'Mostrar navegación',
-                    destination: selected,
-                    onExpand: notifier.expandFromPill,
-                  ),
-                )
-              : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (navState.isFabMenuOpen) ...[
-                      NanoFabMenu(brightness: theme.brightness),
-                      const SizedBox(height: 10),
-                    ],
-                    GestureDetector(
-                      behavior: HitTestBehavior.translucent,
-                      onPanStart: (_) => _dragDelta = Offset.zero,
-                      onPanUpdate: (d) => _dragDelta += d.delta,
-                      onPanEnd: _onPanEnd,
-                      onPanCancel: () => _dragDelta = Offset.zero,
-                      child: NanoNavBarContainer(
-                        compact: true,
-                        radius: 26,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          child: NanoNavDestinationsDock(
-                            selected: selected,
-                            brightness: theme.brightness,
-                            compact: true,
-                            onSelect: navigateFromNanoDrawer,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-        ),
-      ],
-    );
+    return NanoStandaloneDockLayer(selected: selected);
   }
 }
