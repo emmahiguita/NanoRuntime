@@ -1,19 +1,21 @@
-// QUÉ: Barra de dirección estilo cápsula iOS Safari con tipografía nítida y sin solapamiento.
-// CÓMO: Mantiene consistencia de ancho entre edición y lectura con indicadores de candado/búsqueda.
-// POR QUÉ: Garantiza legibilidad 100% y elimina cualquier solapamiento visual (< 160 líneas).
+// QUÉ: Barra de dirección estilo cápsula iOS Safari con visualización explícita de protocolo HTTP/HTTPS.
+// CÓMO: Analiza seguridad con BrowserAddressFormatter, altura ergonómica de 42dp y modo edición responsivo.
+// POR QUÉ: Elimina malformaciones de texto, recortes toscos y clarifica el estado de seguridad (< 160 líneas).
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/browser_url_resolver.dart';
 import 'browser_address_edit_input.dart';
+import 'browser_address_formatter.dart';
+import 'browser_address_label.dart';
 
 class BrowserAddressField extends StatefulWidget {
   final String url, title;
   final bool showTitle;
   final Widget? trailing;
   final ValueChanged<String> onSubmitted;
-  final VoidCallback? onEditingChanged;
+  final ValueChanged<bool>? onEditingChanged;
 
   const BrowserAddressField({
     super.key,
@@ -62,7 +64,7 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
       selection: TextSelection(baseOffset: 0, extentOffset: widget.url.length),
     );
     setState(() => _editing = true);
-    widget.onEditingChanged?.call();
+    widget.onEditingChanged?.call(true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _editing) {
         Scrollable.ensureVisible(context, alignment: 0);
@@ -74,7 +76,7 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
   void _finish() {
     setState(() => _editing = false);
     _focus.unfocus();
-    widget.onEditingChanged?.call();
+    widget.onEditingChanged?.call(false);
   }
 
   void _submit() {
@@ -97,44 +99,37 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final host = Uri.tryParse(widget.url)?.host ?? '';
-    final display = host.isNotEmpty ? host : widget.url;
-    final isSecure = widget.url.startsWith('https://');
+    final secInfo = BrowserAddressFormatter.parse(widget.url);
     final activeColor =
         isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF);
 
     return Container(
-      height: 38,
+      height: 42,
       decoration: BoxDecoration(
         color: isDark
-            ? Colors.white.withValues(alpha: 0.08)
-            : Colors.black.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(19),
+            ? Colors.white.withValues(alpha: _editing ? 0.12 : 0.08)
+            : Colors.black.withValues(alpha: _editing ? 0.07 : 0.045),
+        borderRadius: BorderRadius.circular(21),
         border: Border.all(
           color: _editing
               ? activeColor
               : (isDark
                   ? Colors.white.withValues(alpha: 0.12)
                   : Colors.black.withValues(alpha: 0.08)),
-          width: _editing ? 1.2 : 0.7,
+          width: _editing ? 1.2 : 0.8,
         ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(width: 10),
-          Icon(
-            _editing
-                ? CupertinoIcons.search
-                : (isSecure
-                    ? CupertinoIcons.lock_shield_fill
-                    : CupertinoIcons.globe),
-            size: 14,
-            color: _editing || isSecure
-                ? activeColor
-                : (isDark ? Colors.white60 : Colors.black45),
+          const SizedBox(width: 12),
+          BrowserAddressLabel.buildIcon(
+            isEditing: _editing,
+            info: secInfo,
+            activeColor: activeColor,
+            isDark: isDark,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Expanded(
             child: _editing
                 ? BrowserAddressEditInput(
@@ -149,23 +144,11 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
                     button: true,
                     label: 'Editar dirección: ${widget.url}',
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(19),
+                      borderRadius: BorderRadius.circular(21),
                       onTap: _begin,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          display.isEmpty ? 'Buscar o ingresar URL' : display,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                            color:
-                                isDark ? Colors.white : const Color(0xFF0F172A),
-                          ),
-                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 9),
+                        child: BrowserAddressLabel(info: secInfo, isDark: isDark),
                       ),
                     ),
                   ),
@@ -174,16 +157,16 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
             GestureDetector(
               onTap: () => setState(_text.clear),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Icon(
                   CupertinoIcons.clear_circled_solid,
-                  size: 15,
+                  size: 16,
                   color: isDark ? Colors.white54 : Colors.black45,
                 ),
               ),
             ),
-          if (widget.trailing != null) widget.trailing!,
-          const SizedBox(width: 2),
+          if (!_editing && widget.trailing != null) widget.trailing!,
+          const SizedBox(width: 4),
         ],
       ),
     );

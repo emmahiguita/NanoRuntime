@@ -1,12 +1,16 @@
+// QUÉ: Adaptador de edición de URL para tarjetas del navegador Nano AI.
+// CÓMO: Reutiliza BrowserAddressField delegando eventos de edición al callback padre.
+// POR QUÉ: Evita lógica duplicada y mantiene consistencia visual (< 40 líneas).
+
 import 'package:flutter/material.dart';
 import 'browser_address_field.dart';
 
-/// Las tarjetas usan el mismo editor que la barra principal, sin lógica duplicada.
 class BrowserWindowUrlEditor extends StatelessWidget {
   final String title, url;
   final Color siteColor;
   final ValueChanged<String> onSubmitted;
   final VoidCallback? onToggleEdit;
+
   const BrowserWindowUrlEditor({
     super.key,
     required this.title,
@@ -16,13 +20,12 @@ class BrowserWindowUrlEditor extends StatelessWidget {
     this.onToggleEdit,
   });
 
-  /// Título y dominio son informativos; tocar abre una edición real.
   @override
   Widget build(BuildContext context) => BrowserAddressField(
     url: url,
     title: title,
     showTitle: true,
     onSubmitted: onSubmitted,
-    onEditingChanged: onToggleEdit,
+    onEditingChanged: onToggleEdit == null ? null : (_) => onToggleEdit!(),
   );
 }

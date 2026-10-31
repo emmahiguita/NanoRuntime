@@ -1,13 +1,12 @@
+// QUÉ: Barra principal Omnibox: conmutación de URL, seguridad y progreso en tiempo real.
+// CÓMO: Combina el campo de dirección con el botón de recarga e indicador de progreso fino.
+// POR QUÉ: Presenta el estado de navegación de forma nítida, segura y profesional (< 100 líneas).
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'browser_address_field.dart';
 
-/// Barra principal Omnibox: conmutación de URL y progreso en tiempo real del WebView.
-///
-/// - QUÉ HACE: Combina el campo de dirección con el botón de recarga e indicador de progreso.
-/// - CÓMO FUNCIONA: Despacha estados de carga visual con barra de progreso superior/inferior fina.
-/// - POR QUÉ: Presenta el estado de navegación de forma nítida y limpia (<200 líneas).
 class BrowserWindowOmnibox extends StatelessWidget {
   final String url, title;
   final Color siteColor;
@@ -16,6 +15,7 @@ class BrowserWindowOmnibox extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
   final VoidCallback onReload;
   final VoidCallback? onStop;
+  final ValueChanged<bool>? onEditingChanged;
 
   const BrowserWindowOmnibox({
     super.key,
@@ -28,6 +28,7 @@ class BrowserWindowOmnibox extends StatelessWidget {
     this.isLoading = false,
     this.progress = 1,
     this.onStop,
+    this.onEditingChanged,
   });
 
   @override
@@ -41,6 +42,7 @@ class BrowserWindowOmnibox extends StatelessWidget {
           url: url,
           title: title,
           onSubmitted: onSubmitted,
+          onEditingChanged: onEditingChanged,
           trailing: Material(
             color: Colors.transparent,
             child: InkWell(
@@ -54,10 +56,10 @@ class BrowserWindowOmnibox extends StatelessWidget {
                 }
               },
               child: Padding(
-                padding: const EdgeInsets.all(7),
+                padding: const EdgeInsets.all(8),
                 child: Icon(
                   isLoading ? CupertinoIcons.xmark : CupertinoIcons.arrow_clockwise,
-                  size: 14,
+                  size: 15,
                   color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF),
                 ),
               ),
@@ -66,11 +68,11 @@ class BrowserWindowOmnibox extends StatelessWidget {
         ),
         if (isLoading)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1.5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(1),
+              borderRadius: BorderRadius.circular(1.5),
               child: LinearProgressIndicator(
-                minHeight: 2,
+                minHeight: 2.5,
                 backgroundColor: Colors.transparent,
                 valueColor: AlwaysStoppedAnimation<Color>(
                   isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF),

@@ -1,6 +1,6 @@
 // QUÉ: Campo de texto editable para la barra de direcciones de Nano Browser.
 // CÓMO: Encapsula el TextField configurado para entrada de URL con acción 'go'.
-// POR QUÉ: Extraído de BrowserAddressField para respetar el límite de 200 líneas.
+// POR QUÉ: Extraído de BrowserAddressField para respetar el límite de 200 líneas (< 70 líneas).
 
 import 'package:flutter/material.dart';
 
@@ -33,7 +33,7 @@ class BrowserAddressEditInput extends StatelessWidget {
       enableSuggestions: false,
       cursorColor: activeColor,
       style: TextStyle(
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: FontWeight.w500,
         color: isDark ? Colors.white : const Color(0xFF0F172A),
       ),
@@ -41,14 +41,14 @@ class BrowserAddressEditInput extends StatelessWidget {
       onChanged: onChanged,
       onTapOutside: (_) => focusNode.unfocus(),
       decoration: InputDecoration(
-        hintText: 'Buscar o ingresar URL',
+        hintText: 'Buscar o ingresar dirección web',
         hintStyle: TextStyle(
-          fontSize: 13,
+          fontSize: 13.5,
           color: isDark ? Colors.white38 : Colors.black38,
         ),
         border: InputBorder.none,
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+        contentPadding: const EdgeInsets.symmetric(vertical: 9),
       ),
     );
   }
