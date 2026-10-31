@@ -1,6 +1,6 @@
 part of 'conversation_detail_sheet.dart';
 
-/// [ConversationDetailComposerButtons] — Botones auxiliares conectados al tema real del sistema (< 150 líneas).
+/// [ConversationDetailComposerButtons] — Botones auxiliares conectados al tema real del sistema (< 195 líneas).
 extension ConversationDetailComposerButtons on _ConversationDetailSheetState {
   /// Botón oficial con el emblema de búho Nano AI para sugerencias inteligentes.
   Widget _buildOwlAiButton(AutomationVisualPalette visual) {
@@ -64,6 +64,54 @@ extension ConversationDetailComposerButtons on _ConversationDetailSheetState {
                       ),
                     ),
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Botón para enviar o adjuntar notas de voz directamente desde el compositor.
+  Widget _buildVoiceNoteButton(AutomationVisualPalette visual) {
+    final colors = visual.resolvedColors;
+    return Semantics(
+      key: const ValueKey('voice_note_button'),
+      label: 'Nota de voz',
+      button: true,
+      child: GestureDetector(
+        onTap: _busy
+            ? null
+            : () {
+                HapticFeedback.lightImpact();
+                _attachVoiceNote();
+              },
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: visual.isDark
+                ? colors.surfaceVariant.withValues(alpha: 0.60)
+                : colors.surface.withValues(alpha: 0.90),
+            border: Border.all(
+              color: visual.accent.withValues(alpha: 0.40),
+              width: 0.8,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: visual.accent.withValues(
+                  alpha: visual.isDark ? 0.28 : 0.16,
+                ),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(
+              CupertinoIcons.mic_fill,
+              size: 18,
+              color: visual.accent,
+            ),
           ),
         ),
       ),

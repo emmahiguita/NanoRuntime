@@ -48,6 +48,7 @@ class MessagingCenterHeader extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (isDrawerMode) const SizedBox(width: 52),
             if (canPop) ...[
               Semantics(
                 label: 'Volver',
@@ -60,9 +61,6 @@ class MessagingCenterHeader extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 6),
-            ] else if (isDrawerMode) ...[
-              // Reserva espacio exacto para que el botón flotante del búho nunca tape "WhatsApp"
-              const SizedBox(width: 62),
             ],
             Expanded(
               child: Column(

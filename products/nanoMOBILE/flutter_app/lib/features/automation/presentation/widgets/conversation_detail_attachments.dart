@@ -5,9 +5,9 @@
 // profesional y con opciones completas y legibles.
 //
 // CÓMO FUNCIONA:
-// - Despliega showNanoGlassWindow con ancho compacto (300px) y divisores iOS.
+// - Despliega showNanoGlassWindow con ancho compacto (310px) y divisores iOS.
 // - Cada opción es una fila compacta de 42px con tipografía nítida y respuesta táctil inmediata.
-// - Conecta con FilePicker y WhatsAppMediaShare para despachar fotos, videos, PDFs y catálogos.
+// - Conecta con FilePicker y WhatsAppMediaShare para despachar fotos, videos, PDFs, notas de voz y catálogos.
 //
 // POR QUÉ:
 // Optimiza el espacio visual eliminando tarjetas opacas redundantes (< 200 líneas).
@@ -49,6 +49,14 @@ extension ConversationDetailAttachments on _ConversationDetailSheetState {
               Icons.picture_as_pdf_outlined,
               'Documentos PDF',
               _attachPdf,
+            ),
+            _separator(isDark),
+            _menuRow(
+              ctx,
+              isDark,
+              Icons.mic_none_rounded,
+              'Notas de voz y audio',
+              _attachVoiceNote,
             ),
             _separator(isDark),
             _menuRow(

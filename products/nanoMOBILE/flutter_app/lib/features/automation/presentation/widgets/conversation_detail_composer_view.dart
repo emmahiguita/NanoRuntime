@@ -1,8 +1,8 @@
 part of 'conversation_detail_sheet.dart';
 
 /// [ConversationDetailComposerView] — Barra de redacción estilo iOS Liquid Glass (< 120 líneas).
-// QUÉ HACE: Renderiza la fila de redacción con botón (+), campo de texto esmerilado y botón animado de acción.
-// CÓMO FUNCIONA: Usa AnimatedSwitcher para alternar con física de escala entre el botón de búho Nano IA y la flecha de envío.
+// QUÉ HACE: Renderiza la fila de redacción con botón (+), campo de texto esmerilado, nota de voz y acción de envío.
+// CÓMO FUNCIONA: Usa AnimatedSwitcher para alternar con física de escala entre acciones en reposo y botón enviar.
 // POR QUÉ: Divide la lógica de diseño para respetar el principio de responsabilidad única y límite < 200 líneas.
 extension ConversationDetailComposerView on _ConversationDetailSheetState {
   Widget _buildComposerRow(
@@ -79,14 +79,22 @@ extension ConversationDetailComposerView on _ConversationDetailSheetState {
                 ),
               ),
               const SizedBox(width: 6),
-              // Botón IA con emblema oficial de búho Nano o botón Enviar
+              // Botón IA y Nota de Voz en reposo, o botón Enviar al escribir
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
                 transitionBuilder: (child, anim) =>
                     ScaleTransition(scale: anim, child: child),
                 child: hasText
                     ? _buildIosSendButton(visual)
-                    : _buildOwlAiButton(visual),
+                    : Row(
+                        key: const ValueKey('composer_idle_actions'),
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildOwlAiButton(visual),
+                          const SizedBox(width: 6),
+                          _buildVoiceNoteButton(visual),
+                        ],
+                      ),
               ),
             ],
           );

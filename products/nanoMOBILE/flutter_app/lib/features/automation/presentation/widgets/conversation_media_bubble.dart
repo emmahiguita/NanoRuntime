@@ -8,6 +8,7 @@ import 'conversation_doc_card.dart';
 import 'voice_note_player_card.dart';
 import 'view_once_media_card.dart';
 import 'unbound_whatsapp_media_card.dart';
+import 'whatsapp_media_resolver.dart';
 
 export 'parsed_media_message.dart';
 export 'conversation_media_cards.dart';
@@ -15,7 +16,8 @@ export 'conversation_youtube_card.dart';
 export 'conversation_link_card.dart';
 export 'conversation_doc_card.dart';
 
-/// Presenta archivos explícitos del mensaje. Un aviso sin URI nunca busca por hora.
+/// Presenta archivos multimedia enriquecidos y texto limpio del mensaje.
+/// Resuelve notas de voz, fotos y videos locales cuando llegan como notificaciones.
 class ConversationMediaBubble extends StatelessWidget {
   final String text;
   final bool isInbound;
@@ -56,9 +58,25 @@ class ConversationMediaBubble extends StatelessWidget {
         if (parsed.isPhotoNotification &&
             parsed.images.isEmpty &&
             !parsed.isViewOnce)
-          const UnboundWhatsAppMediaCard(
-            label: 'Foto',
-            icon: Icons.photo_outlined,
+          FutureBuilder<String?>(
+            future: WhatsAppMediaResolver.findRecentWhatsAppImage(
+              referenceTimestampMs: timestampMs,
+            ),
+            builder: (ctx, snapshot) {
+              if (snapshot.hasData && snapshot.data != null) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: ConversationImageCard(
+                    pathOrUrl: snapshot.data!,
+                    heroTag: 'media_photo_${tag}_0',
+                  ),
+                );
+              }
+              return const UnboundWhatsAppMediaCard(
+                label: 'Foto',
+                icon: Icons.photo_outlined,
+              );
+            },
           ),
         for (final id in parsed.youTubeIds)
           ConversationYouTubeCard(videoId: id),
@@ -72,9 +90,22 @@ class ConversationMediaBubble extends StatelessWidget {
         if (parsed.isVideoNotification &&
             parsed.videos.isEmpty &&
             !parsed.isViewOnce)
-          const UnboundWhatsAppMediaCard(
-            label: 'Vídeo',
-            icon: Icons.video_file_outlined,
+          FutureBuilder<String?>(
+            future: WhatsAppMediaResolver.findRecentWhatsAppVideo(
+              referenceTimestampMs: timestampMs,
+            ),
+            builder: (ctx, snapshot) {
+              if (snapshot.hasData && snapshot.data != null) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: ConversationVideoCard(urlOrPath: snapshot.data!),
+                );
+              }
+              return const UnboundWhatsAppMediaCard(
+                label: 'Vídeo',
+                icon: Icons.video_file_outlined,
+              );
+            },
           ),
         for (final pdf in parsed.pdfs) ConversationPdfCard(pathOrUrl: pdf),
         for (final audio in parsed.audios)
@@ -82,9 +113,22 @@ class ConversationMediaBubble extends StatelessWidget {
         if (parsed.isAudioNotification &&
             parsed.audios.isEmpty &&
             !parsed.isViewOnce)
-          const UnboundWhatsAppMediaCard(
-            label: 'Audio',
-            icon: Icons.audio_file_outlined,
+          FutureBuilder<String?>(
+            future: WhatsAppMediaResolver.findRecentWhatsAppVoiceNote(
+              referenceTimestampMs: timestampMs,
+            ),
+            builder: (ctx, snapshot) {
+              if (snapshot.hasData && snapshot.data != null) {
+                return VoiceNotePlayerCard(
+                  audioPathOrUrl: snapshot.data!,
+                  isInbound: isInbound,
+                );
+              }
+              return const UnboundWhatsAppMediaCard(
+                label: 'Audio',
+                icon: Icons.audio_file_outlined,
+              );
+            },
           ),
         for (final link in parsed.links) ConversationLinkCard(url: link),
         for (final file in parsed.otherFiles)
