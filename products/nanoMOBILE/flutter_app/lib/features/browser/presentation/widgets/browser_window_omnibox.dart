@@ -1,11 +1,11 @@
 // QUÉ: Barra principal Omnibox: conmutación de URL, seguridad y progreso en tiempo real.
-// CÓMO: Combina el campo de dirección con el botón de recarga e indicador de progreso fino.
-// POR QUÉ: Presenta el estado de navegación de forma nítida, segura y profesional (< 100 líneas).
+// CÓMO: Combina el campo NanoAddressBar con el botón de recarga e indicador de progreso fino.
+// POR QUÉ: Presenta el estado de navegación de forma nítida, segura y profesional (< 90 líneas).
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'browser_address_field.dart';
+import 'nano_address_bar.dart';
 
 class BrowserWindowOmnibox extends StatelessWidget {
   final String url, title;
@@ -38,7 +38,7 @@ class BrowserWindowOmnibox extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        BrowserAddressField(
+        NanoAddressBar(
           url: url,
           title: title,
           onSubmitted: onSubmitted,

@@ -28,6 +28,7 @@ part 'chat_messages_empty_status.part.dart';
 part 'chat_messages_actions.part.dart';
 part 'chat_messages_quick_controls.part.dart';
 part 'chat_messages_streaming.part.dart';
+part 'chat_messages_streaming_text.part.dart';
 part 'chat_messages_quick_card.part.dart';
 part 'chat_messages_reasoning.part.dart';
 
