@@ -118,6 +118,7 @@ class _BrowserWindowWidgetState extends ConsumerState<BrowserWindowWidget> {
           ? (_) => widget.onFullscreen!()
           : _toggleMaximize,
       onNavigate: (id, url) => _onUrlSubmit(url, id),
+      onToggleDesktopMode: () => _mutate(() => _isDesktopMode = !_isDesktopMode),
     );
   }
 }

@@ -1,6 +1,6 @@
-// QUÉ: presenta página activa o carrusel sin recrear las WebViews existentes.
-// CÓMO: conserva claves por pestaña y coordina barra, pestañas y contenido.
-// POR QUÉ: separa el layout visual del estado y ciclo de vida del navegador.
+// QUÉ: presenta página activa en IndexedStack o carrusel preservando el estado de cada pestaña.
+// CÓMO: IndexedStack mantiene las PlatformViews vivas; añade barra inferior iOS de navegación.
+// POR QUÉ: Evita pérdida de imagen y recargas automáticas al alternar pestañas o redimensionar.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,8 +11,10 @@ import 'browser_3d_carousel_view.dart';
 import 'browser_dialog_helper.dart';
 import 'browser_display_mode.dart';
 import 'browser_find_in_page_widget.dart';
+import 'browser_window_bottom_bar.dart';
 import 'browser_window_tabs_strip.dart';
 import 'browser_window_top_bar.dart';
+import 'browser_zoom_sheet.dart';
 import 'single_browser_instance_widget.dart';
 
 class BrowserFocusedWindow extends ConsumerWidget {
@@ -22,7 +24,7 @@ class BrowserFocusedWindow extends ConsumerWidget {
   final Set<String> minimizedWindowIds;
   final String? maximizedWindowId;
   final GlobalKey Function(String) instanceKeyForTab;
-  final VoidCallback? onExit;
+  final VoidCallback? onExit, onToggleDesktopMode;
   final VoidCallback onAddTab, onCloseFindInPage, onOpenOptions;
   final ValueChanged<BrowserDisplayMode> onDisplayMode;
   final ValueChanged<String> onCloseTab, onSelectTab, onSelectFocusedTab;
@@ -51,6 +53,7 @@ class BrowserFocusedWindow extends ConsumerWidget {
     required this.onToggleMaximize,
     required this.onNavigate,
     this.onExit,
+    this.onToggleDesktopMode,
   });
 
   @override
@@ -59,13 +62,13 @@ class BrowserFocusedWindow extends ConsumerWidget {
     final active = tabState.activeTab;
     final carousel = displayMode == BrowserDisplayMode.carousel3D;
     final radius = isEmbedded ? 16.0 : 0.0;
+    final activeIdx = tabState.tabs.indexWhere((t) => t.id == tabState.activeTabId);
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(radius),
-        border: isEmbedded
-            ? Border.all(color: Theme.of(context).colorScheme.outlineVariant)
-            : null,
+        border: isEmbedded ? Border.all(color: Theme.of(context).colorScheme.outlineVariant) : null,
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(radius),
@@ -77,8 +80,8 @@ class BrowserFocusedWindow extends ConsumerWidget {
               displayMode: displayMode,
               controller: registry.controllerFor(active.id),
               onExit: onExit,
-              onBack: () => _goBack(registry, active),
-              onForward: () => _goForward(registry, active),
+              onBack: () => _nav(registry, active, false),
+              onForward: () => _nav(registry, active, true),
               onReload: () => registry.controllerFor(active.id)?.reload(),
               onMinimize: () => onToggleMinimize(active.id),
               onMaximize: () => onToggleMaximize(active.id),
@@ -103,9 +106,28 @@ class BrowserFocusedWindow extends ConsumerWidget {
             Expanded(
               child: carousel
                   ? _carousel(context, ref)
-                  // El keep-alive conserva cada sesión; montar solo la activa
-                  // evita cinco PlatformViews, timers y páginas en paralelo.
-                  : _page(context, ref, active),
+                  : IndexedStack(
+                      index: activeIdx >= 0 ? activeIdx : 0,
+                      children: [for (final t in tabState.tabs) _page(context, ref, t)],
+                    ),
+            ),
+            BrowserWindowBottomBar(
+              canGoBack: active.canGoBack,
+              canGoForward: active.canGoForward,
+              isDesktopMode: isDesktopMode,
+              tabCount: tabState.tabs.length,
+              onBack: () => _nav(registry, active, false),
+              onForward: () => _nav(registry, active, true),
+              onToggleDesktop: onToggleDesktopMode ?? () {},
+              onOpenZoomSheet: () => BrowserZoomSheet.show(
+                context: context,
+                tab: active,
+                currentZoom: active.zoomLevel,
+                controller: registry.controllerFor(active.id),
+                onZoomChanged: (z) => ref.read(browserTabProvider.notifier).updateTabById(active.id, zoomLevel: z),
+              ),
+              onToggleTabs: () => onDisplayMode(carousel ? BrowserDisplayMode.focused : BrowserDisplayMode.carousel3D),
+              onOpenOptions: onOpenOptions,
             ),
           ],
         ),
@@ -113,8 +135,7 @@ class BrowserFocusedWindow extends ConsumerWidget {
     );
   }
 
-  Widget _carousel(BuildContext context, WidgetRef ref) =>
-      Browser3DCarouselView(
+  Widget _carousel(BuildContext context, WidgetRef ref) => Browser3DCarouselView(
         tabs: tabState.tabs,
         activeTabId: tabState.activeTabId,
         currentZoom: tabState.activeTab.zoomLevel,
@@ -128,17 +149,12 @@ class BrowserFocusedWindow extends ConsumerWidget {
         onCloseTab: onCloseTab,
         onToggleMaximize: onToggleMaximize,
         onToggleMinimize: onToggleMinimize,
-        onControllerCreated: (id, controller) => ref
-            .read(browserWebViewRegistryProvider)
-            .attachController(id, controller),
-        onNavigate: (input, [id]) =>
-            onNavigate(id ?? tabState.activeTabId, input),
-        onExternalPrompt: (url) =>
-            BrowserDialogHelper.promptExternalApp(context, url),
+        onControllerCreated: (id, c) => ref.read(browserWebViewRegistryProvider).attachController(id, c),
+        onNavigate: (input, [id]) => onNavigate(id ?? tabState.activeTabId, input),
+        onExternalPrompt: (url) => BrowserDialogHelper.promptExternalApp(context, url),
       );
 
-  Widget _page(BuildContext context, WidgetRef ref, BrowserTabModel tab) =>
-      SingleBrowserInstanceWidget(
+  Widget _page(BuildContext context, WidgetRef ref, BrowserTabModel tab) => SingleBrowserInstanceWidget(
         key: instanceKeyForTab(tab.id),
         tab: tab,
         fillHeight: true,
@@ -152,31 +168,16 @@ class BrowserFocusedWindow extends ConsumerWidget {
         onToggleMinimize: () => onToggleMinimize(tab.id),
         onToggleMaximize: () => onToggleMaximize(tab.id),
         onClose: () => onCloseTab(tab.id),
-        onControllerCreated: (controller) => ref
-            .read(browserWebViewRegistryProvider)
-            .attachController(tab.id, controller),
+        onControllerCreated: (c) => ref.read(browserWebViewRegistryProvider).attachController(tab.id, c),
         onNavigate: (url) => onNavigate(tab.id, url),
-        onExternalPrompt: (url) =>
-            BrowserDialogHelper.promptExternalApp(context, url),
+        onExternalPrompt: (url) => BrowserDialogHelper.promptExternalApp(context, url),
       );
 
-  Future<void> _goBack(
-    BrowserWebViewRegistry registry,
-    BrowserTabModel tab,
-  ) async {
-    final controller = registry.controllerFor(tab.id);
-    if (controller != null && await controller.canGoBack()) {
-      await controller.goBack();
-    }
-  }
-
-  Future<void> _goForward(
-    BrowserWebViewRegistry registry,
-    BrowserTabModel tab,
-  ) async {
-    final controller = registry.controllerFor(tab.id);
-    if (controller != null && await controller.canGoForward()) {
-      await controller.goForward();
+  Future<void> _nav(BrowserWebViewRegistry r, BrowserTabModel t, bool forward) async {
+    final c = r.controllerFor(t.id);
+    if (c == null) return;
+    if (forward ? await c.canGoForward() : await c.canGoBack()) {
+      forward ? await c.goForward() : await c.goBack();
     }
   }
 }

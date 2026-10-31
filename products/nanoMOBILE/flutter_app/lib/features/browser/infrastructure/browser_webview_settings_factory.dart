@@ -89,7 +89,7 @@ ACCEDER A ARCHIVOS PRIVADOS NI ALTERAR LA CONFIGURACIÓN DEL SISTEMA.
       saveFormData: true,
       disableDefaultErrorPage: true,
       verticalScrollBarEnabled: true,
-      horizontalScrollBarEnabled: false,
+      horizontalScrollBarEnabled: true,
       allowsBackForwardNavigationGestures: true,
       userAgent:
           userAgent ??

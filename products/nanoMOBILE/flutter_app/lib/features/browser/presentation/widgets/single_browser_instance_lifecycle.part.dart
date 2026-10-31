@@ -61,6 +61,23 @@ mixin _BrowserInstanceLifecycle
     _lastOrientation = orientation;
   }
 
+  static bool _areUrlsEquivalent(String? a, String? b) {
+    if (a == null || b == null) return a == b;
+    final s1 = a.trim().replaceAll(RegExp(r'/+$'), '');
+    final s2 = b.trim().replaceAll(RegExp(r'/+$'), '');
+    if (s1 == s2) return true;
+    try {
+      final u1 = Uri.parse(s1);
+      final u2 = Uri.parse(s2);
+      return u1.scheme == u2.scheme &&
+          u1.host == u2.host &&
+          u1.path == u2.path &&
+          u1.query == u2.query;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Sincroniza cambios externos de pestaña con el WebView ya existente.
   @override
   void didUpdateWidget(covariant SingleBrowserInstanceWidget oldWidget) {
@@ -75,8 +92,9 @@ mixin _BrowserInstanceLifecycle
       ..tab = widget.tab
       ..isDarkModeWeb = widget.isDarkModeWeb
       ..currentZoom = widget.currentZoom;
-    if (widget.tab.url != oldWidget.tab.url &&
-        widget.tab.url != _handler.reportedUrl) {
+    final urlChanged = !_areUrlsEquivalent(widget.tab.url, oldWidget.tab.url);
+    final notReported = !_areUrlsEquivalent(widget.tab.url, _handler.reportedUrl);
+    if (urlChanged && notReported) {
       controller?.loadUrl(urlRequest: URLRequest(url: WebUri(widget.tab.url)));
     }
     if (widget.tab.zoomLevel != oldWidget.tab.zoomLevel) {

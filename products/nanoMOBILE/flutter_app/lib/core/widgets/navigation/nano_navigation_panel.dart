@@ -56,13 +56,18 @@ class _NanoFloatingNavigationFrameState
     final size = MediaQuery.sizeOf(context);
     final draggedRight = offset.dx > 40 || (position != null && position.dx >= size.width * 0.70);
     final draggedLeft = offset.dx < -40 || (position != null && position.dx <= size.width * 0.30);
+    final draggedDown = offset.dy > 25;
 
     setState(() {
       _dragOffset = Offset.zero;
       _dragPosition = null;
     });
 
-    if (draggedRight || draggedLeft) {
+    if (draggedDown && _panelMode != _NanoPanelMode.minimized) {
+      HapticFeedback.lightImpact();
+      _idleTimer?.cancel();
+      setState(() => _panelMode = _NanoPanelMode.minimized);
+    } else if (draggedRight || draggedLeft) {
       HapticFeedback.mediumImpact();
       _idleTimer?.cancel();
       ref.read(nanoNavModeProvider.notifier).convertToDrawer(right: false);
@@ -174,7 +179,8 @@ class _NanoFloatingNavigationFrameState
           onDragStart: () => _idleTimer?.cancel(),
           onDragUpdate: (event) => setState(() {
             final nextDx = (_dragOffset.dx + event.delta.dx).clamp(-160.0, 160.0);
-            _dragOffset = Offset(nextDx, 0.0);
+            final nextDy = (_dragOffset.dy + event.delta.dy).clamp(0.0, 50.0);
+            _dragOffset = Offset(nextDx, nextDy);
             final box = context.findRenderObject();
             _dragPosition = box is RenderBox ? box.globalToLocal(event.globalPosition) : null;
           }),

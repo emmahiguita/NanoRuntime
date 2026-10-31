@@ -1,7 +1,7 @@
 // nano_universal_drawer_overlay.dart — Capa flotante universal de navegación estilo iOS Liquid Glass.
 // QUÉ HACE: Despliega la navegación (búho superior o dock inferior) universalmente en cualquier pantalla.
 // CÓMO FUNCIONA: Elimina franjas negras; en modo drawer despliega botón superior y en barra dock inferior.
-// POR QUÉ: Garantiza que la navegación esté siempre visible y accesible en cualquier ruta (< 160 líneas).
+// POR QUÉ: Garantiza que la navegación esté siempre visible y accesible en cualquier ruta (< 180 líneas).
 library;
 
 import 'package:flutter/material.dart';
@@ -10,6 +10,7 @@ import '../../router/app_router.dart';
 import 'nano_destination.dart';
 import 'nano_drawer_drop_button.dart';
 import 'nano_drawer_router.dart';
+import 'nano_fab_menu.dart';
 import 'nano_nav_bar_container.dart';
 import 'nano_nav_destinations_dock.dart';
 import 'nano_nav_floating_window.dart';
@@ -49,14 +50,22 @@ class _NanoUniversalDrawerOverlayState
     if (mounted) setState(() {});
   }
 
-  NanoDestination _resolveSelected() {
-    String location = '';
+  String _currentRoute() {
     try {
-      location = AppRouter.router.routerDelegate.currentConfiguration.uri
+      final matches =
+          AppRouter.router.routerDelegate.currentConfiguration.matches;
+      if (matches.isNotEmpty) {
+        return matches.last.matchedLocation;
+      }
+      return AppRouter.router.routerDelegate.currentConfiguration.uri
           .toString();
     } catch (_) {
-      location = '/dashboard';
+      return '/dashboard';
     }
+  }
+
+  NanoDestination _resolveSelected() {
+    final location = _currentRoute();
     return switch (location) {
       final loc when loc.startsWith('/models') => NanoDestination.models,
       final loc when loc.startsWith('/terminal') => NanoDestination.terminal,
@@ -66,19 +75,16 @@ class _NanoUniversalDrawerOverlayState
   }
 
   bool _isStandaloneScreen() {
-    String location = '';
-    try {
-      location = AppRouter.router.routerDelegate.currentConfiguration.uri
-          .toString();
-    } catch (_) {
-      location = '/dashboard';
-    }
+    final location = _currentRoute();
     return location.startsWith('/automation/messages') ||
         location.startsWith('/automation/whatsapp') ||
         location.startsWith('/automation/skills') ||
         location.startsWith('/chat') ||
         location.startsWith('/browser') ||
-        location.startsWith('/desktop');
+        location.startsWith('/desktop') ||
+        location.startsWith('/database') ||
+        location.startsWith('/linux') ||
+        location.startsWith('/account');
   }
 
   @override
@@ -90,10 +96,8 @@ class _NanoUniversalDrawerOverlayState
     final selected = _resolveSelected();
 
     // 1. MODO DRAWER: Botón búho superior + Popover flotante iOS Liquid Glass
+    // DISPONIBLE EN EL 100% DE LAS VISUALES (incluyendo navegador y opciones de Nano)
     if (navState.isDrawerMode) {
-      if (_isStandaloneScreen()) {
-        return const SizedBox.shrink();
-      }
       return Stack(
         children: [
           if (navState.isDrawerOpen)
@@ -139,26 +143,46 @@ class _NanoUniversalDrawerOverlayState
       );
     }
 
-    // 2. MODO BARRA INFERIOR: En pantallas independientes garantiza navegación universal
+    // 2. MODO BARRA INFERIOR: En pantallas independientes garantiza navegación universal y FAB
     if (_isStandaloneScreen()) {
       return Stack(
         children: [
+          if (navState.isFabMenuOpen)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () =>
+                    ref.read(nanoNavModeProvider.notifier).closeFabMenu(),
+                child: const ColoredBox(color: Colors.transparent),
+              ),
+            ),
           Positioned(
             left: 16,
             right: 16,
             bottom: media.padding.bottom + 8.0,
-            child: NanoNavBarContainer(
-              compact: true,
-              radius: 26,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: NanoNavDestinationsDock(
-                  selected: selected,
-                  brightness: theme.brightness,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (navState.isFabMenuOpen) ...[
+                  NanoFabMenu(brightness: theme.brightness),
+                  const SizedBox(height: 10),
+                ],
+                NanoNavBarContainer(
                   compact: true,
-                  onSelect: (dest) => navigateFromNanoDrawer(dest),
+                  radius: 26,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: NanoNavDestinationsDock(
+                      selected: selected,
+                      brightness: theme.brightness,
+                      compact: true,
+                      onSelect: (dest) => navigateFromNanoDrawer(dest),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ],

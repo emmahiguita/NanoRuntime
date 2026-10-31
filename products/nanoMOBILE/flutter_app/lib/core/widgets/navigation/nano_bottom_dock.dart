@@ -75,7 +75,7 @@ class NanoBottomDock extends StatelessWidget {
         child: child,
       ),
     ),
-    child: (minimized && inputConfig.toolControls == null)
+    child: minimized
         ? NanoNavMiniPill(
             key: const ValueKey('minimized'),
             semanticLabel: 'Mostrar navegación',

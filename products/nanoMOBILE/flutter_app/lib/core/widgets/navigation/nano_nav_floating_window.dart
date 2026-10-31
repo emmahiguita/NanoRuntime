@@ -1,13 +1,16 @@
 // nano_nav_floating_window.dart — Menú flotante iOS Liquid Glass para Nano AI.
-// QUÉ HACE: Despliega las 4 opciones de navegación como popover translúcido con desenfoque de fondo.
+// QUÉ HACE: Despliega las 4 opciones de navegación + accesos rápidos FAB y visuales.
 // CÓMO FUNCIONA: Anclado debajo del botón búho con animación de escala/opacidad y bordes iOS (20dp).
-// POR QUÉ: Cumple con la estética iOS Liquid Glass sin generar franja negra ni desbordes (< 140 líneas).
+// POR QUÉ: Cumple con la estética iOS Liquid Glass sin generar franja negra ni desbordes (< 170 líneas).
 library;
 
 import 'dart:ui';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../router/app_router.dart';
 import 'nano_destination.dart';
+import 'nano_drawer_quick_tile.dart';
 import 'nano_nav_floating_row.dart';
 import 'nano_nav_floating_window_header.dart';
 
@@ -83,7 +86,7 @@ class _NanoNavFloatingWindowState extends State<NanoNavFloatingWindow> {
           onPanUpdate: _handlePanUpdate,
           onPanEnd: _handlePanEnd,
           child: Container(
-            width: 196,
+            width: 204,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
@@ -128,6 +131,35 @@ class _NanoNavFloatingWindowState extends State<NanoNavFloatingWindow> {
                           isSelected: widget.selected == dest,
                           onTap: () => widget.onDestinationSelected(dest),
                         ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 4),
+                        child: Divider(
+                          height: 1,
+                          thickness: 0.6,
+                          color: isDark ? Colors.white12 : Colors.black12,
+                        ),
+                      ),
+                      NanoDrawerQuickTile(
+                        icon: CupertinoIcons.chat_bubble_2_fill,
+                        iconColor: const Color(0xFF007AFF),
+                        label: 'Mensajería',
+                        isDark: isDark,
+                        onTap: () {
+                          widget.onCloseMenu();
+                          AppRouter.router.push('/automation/messages');
+                        },
+                      ),
+                      NanoDrawerQuickTile(
+                        icon: CupertinoIcons.compass_fill,
+                        iconColor: const Color(0xFFFF9500),
+                        label: 'Navegador Web',
+                        isDark: isDark,
+                        onTap: () {
+                          widget.onCloseMenu();
+                          AppRouter.router.push('/browser');
+                        },
+                      ),
                     ],
                   ),
                 ),

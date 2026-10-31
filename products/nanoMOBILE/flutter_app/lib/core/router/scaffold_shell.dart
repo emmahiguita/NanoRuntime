@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -96,7 +96,7 @@ class ScaffoldShell extends ConsumerWidget {
               selectedIndex: currentIndex,
               fullBleed: false,
               // Reserva el espacio medido del dock para mantener accesible el contenido.
-              floatOverContent: true,
+              floatOverContent: false,
               transparentDock: true,
               protectTop: !isDashboardHome,
               onDestinationSelected: (index) {
