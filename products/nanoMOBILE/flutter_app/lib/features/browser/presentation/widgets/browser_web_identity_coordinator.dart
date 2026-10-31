@@ -56,7 +56,7 @@ class BrowserWebIdentityCoordinator {
     InAppWebViewController controller,
     String url,
   ) async {
-    if (!await _apply(controller, url: url, desktop: usesDesktop(url))) return;
+    await _apply(controller, url: url, desktop: usesDesktop(url));
     if (isAlive()) {
       await controller.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
     }

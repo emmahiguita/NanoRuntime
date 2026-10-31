@@ -1,15 +1,10 @@
+// QUÉ: Catálogo de opciones del menú iOS de Nano Browser sin duplicados.
+// CÓMO: Define ítems con icono Cupertino único, color semántico, título, subtítulo y acción.
+// POR QUÉ: Desacopla datos de la vista (SOLID) y elimina acciones o iconos redundantes (< 130 líneas).
+
 import 'package:flutter/cupertino.dart';
 import '../../domain/browser_tab_model.dart';
 
-/// QUÉ HACE:
-/// Definición de elementos y secciones de configuración para el menú de opciones del navegador.
-///
-/// CÓMO FUNCIONA:
-/// Modela cada fila del menú con su icono Cupertino, gradiente de color, título semántico,
-/// subtítulo dinámico y acción asociada.
-///
-/// POR QUÉ:
-/// Desacopla los datos del menú del renderizado visual para mantener archivos < 120 líneas (SOLID).
 class BrowserOptionItemDef {
   final IconData icon;
   final Color color;
@@ -28,15 +23,16 @@ class BrowserOptionItemDef {
 class BrowserOptionsCatalog {
   const BrowserOptionsCatalog._();
 
+  /// Acciones directas sobre la página web activa.
   static List<BrowserOptionItemDef> pageItems({
     required bool isBookmarked,
   }) => [
     BrowserOptionItemDef(
-      CupertinoIcons.bookmark,
+      isBookmarked ? CupertinoIcons.star_fill : CupertinoIcons.star,
       const Color(0xFFF59E0B),
-      isBookmarked ? 'Quitar de favoritos' : 'Guardar en favoritos',
+      isBookmarked ? 'Quitar de favoritos' : 'Añadir a favoritos',
       'toggle_bookmark',
-      subtitle: isBookmarked ? 'Guardada' : null,
+      subtitle: isBookmarked ? 'Guardada en marcadores' : null,
     ),
     const BrowserOptionItemDef(
       CupertinoIcons.search,
@@ -51,13 +47,14 @@ class BrowserOptionsCatalog {
       'copy_url',
     ),
     const BrowserOptionItemDef(
-      CupertinoIcons.shield_lefthalf_fill,
+      CupertinoIcons.lock_shield_fill,
       Color(0xFF10B981),
-      'Información de conexión',
+      'Seguridad de la conexión',
       'show_ssl',
     ),
   ];
 
+  /// Ajustes de renderizado, escala, modo escritorio, modo oscuro y PiP.
   static List<BrowserOptionItemDef> displayItems({
     required BrowserTabModel tab,
     required bool isDesktopMode,
@@ -66,7 +63,7 @@ class BrowserOptionsCatalog {
     BrowserOptionItemDef(
       CupertinoIcons.textformat_size,
       const Color(0xFF06B6D4),
-      'Escala de la página',
+      'Tamaño de texto y zoom',
       'show_zoom_sheet',
       subtitle: '${(tab.zoomLevel * 100).round()} %',
     ),
@@ -89,43 +86,20 @@ class BrowserOptionsCatalog {
       Color(0xFFEC4899),
       'Vídeo flotante (PiP)',
       'pip_mode',
-      subtitle: 'Compatible con reproductores web',
-    ),
-    const BrowserOptionItemDef(
-      CupertinoIcons.square_stack_3d_up_fill,
-      Color(0xFF14B8A6),
-      'Carrusel de pestañas 3D',
-      'toggle_carousel',
+      subtitle: 'Reproductor en ventana',
     ),
   ];
 
+  /// Gestión de historial/marcadores unificados, bóveda de contraseñas, enlaces y caché.
   static List<BrowserOptionItemDef> dataItems({
     required String externalAppModeLabel,
   }) => [
-    BrowserOptionItemDef(
-      CupertinoIcons.link,
-      const Color(0xFFF97316),
-      'Enlaces a apps externas',
-      'cycle_external_app_mode',
-      subtitle: externalAppModeLabel,
-    ),
     const BrowserOptionItemDef(
-      CupertinoIcons.plus_square_fill,
-      Color(0xFF3B82F6),
-      'Nueva pestaña',
-      'new_tab',
-    ),
-    const BrowserOptionItemDef(
-      CupertinoIcons.bookmark_fill,
-      Color(0xFFF59E0B),
-      'Favoritos',
-      'show_bookmarks',
-    ),
-    const BrowserOptionItemDef(
-      CupertinoIcons.clock_fill,
-      Color(0xFF64748B),
-      'Historial',
+      CupertinoIcons.book_fill,
+      Color(0xFFF97316),
+      'Historial y favoritos',
       'show_history',
+      subtitle: 'Páginas visitadas y guardadas',
     ),
     const BrowserOptionItemDef(
       CupertinoIcons.lock_fill,
@@ -133,12 +107,19 @@ class BrowserOptionsCatalog {
       'Contraseñas guardadas',
       'show_credentials',
     ),
+    BrowserOptionItemDef(
+      CupertinoIcons.arrow_up_right_square_fill,
+      const Color(0xFF14B8A6),
+      'Apertura en apps externas',
+      'cycle_external_app_mode',
+      subtitle: externalAppModeLabel,
+    ),
     const BrowserOptionItemDef(
       CupertinoIcons.trash_fill,
       Color(0xFFEF4444),
-      'Limpiar caché',
+      'Limpiar caché web',
       'clear_cache',
-      subtitle: 'Libera almacenamiento',
+      subtitle: 'Libera almacenamiento temporal',
     ),
   ];
 }

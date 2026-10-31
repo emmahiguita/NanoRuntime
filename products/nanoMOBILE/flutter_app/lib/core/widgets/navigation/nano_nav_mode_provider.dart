@@ -1,14 +1,14 @@
 // nano_nav_mode_provider.dart — Inyección de estado para la navegación interactiva.
-// QUÉ HACE: Gestiona si la interfaz presenta Barra Inferior, Drawer o Menú FAB.
-// CÓMO FUNCIONA: Métodos explícitos para alternar drawer, barra y menú contextual FAB.
-// POR QUÉ: Satisface DIP/SRP y preserva el estado global de navegación (< 130 líneas).
+// QUÉ HACE: Gestiona si la interfaz presenta Barra Inferior, Píldora Minimizada, Drawer o Menú FAB.
+// CÓMO FUNCIONA: Métodos explícitos para alternar drawer, barra, píldora reducida y menú contextual FAB.
+// POR QUÉ: Satisface DIP/SRP y preserva el estado global de navegación en todas las rutas (< 145 líneas).
 library;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Modo de presentación visual de la navegación principal.
 enum NanoNavPresentationMode {
-  /// Barra de navegación inferior cósmica (dock flotante).
+  /// Barra de navegación inferior cósmica (dock flotante o píldora reducida).
   bottomBar,
 
   /// Navigation Drawer lateral o menú compacto de cabecera.
@@ -22,12 +22,14 @@ class NanoNavPresentationState {
     this.isDrawerOpen = false,
     this.drawerOnRight = true,
     this.isFabMenuOpen = false,
+    this.isMinimizedPill = false,
   });
 
   final NanoNavPresentationMode mode;
   final bool isDrawerOpen;
   final bool drawerOnRight;
   final bool isFabMenuOpen;
+  final bool isMinimizedPill;
 
   bool get isDrawerMode => mode == NanoNavPresentationMode.drawer;
   bool get isBottomBarMode => mode == NanoNavPresentationMode.bottomBar;
@@ -37,12 +39,14 @@ class NanoNavPresentationState {
     bool? isDrawerOpen,
     bool? drawerOnRight,
     bool? isFabMenuOpen,
+    bool? isMinimizedPill,
   }) {
     return NanoNavPresentationState(
       mode: mode ?? this.mode,
       isDrawerOpen: isDrawerOpen ?? this.isDrawerOpen,
       drawerOnRight: drawerOnRight ?? this.drawerOnRight,
       isFabMenuOpen: isFabMenuOpen ?? this.isFabMenuOpen,
+      isMinimizedPill: isMinimizedPill ?? this.isMinimizedPill,
     );
   }
 }
@@ -58,14 +62,33 @@ class NanoNavModeNotifier extends StateNotifier<NanoNavPresentationState> {
       isDrawerOpen: true,
       drawerOnRight: right ?? state.drawerOnRight,
       isFabMenuOpen: false,
+      isMinimizedPill: false,
     );
   }
 
-  /// Convierte la navegación al modo Barra Inferior y oculta el drawer lateral.
+  /// Convierte la navegación al modo Barra Inferior expandida y oculta el drawer lateral.
   void convertToBottomBar() {
     state = state.copyWith(
       mode: NanoNavPresentationMode.bottomBar,
       isDrawerOpen: false,
+      isMinimizedPill: false,
+    );
+  }
+
+  /// Minimiza la barra inferior al modo píldora compacta limpia.
+  void minimizeToPill() {
+    state = state.copyWith(
+      mode: NanoNavPresentationMode.bottomBar,
+      isMinimizedPill: true,
+      isFabMenuOpen: false,
+    );
+  }
+
+  /// Expande la píldora compacta de nuevo a la barra inferior completa.
+  void expandFromPill() {
+    state = state.copyWith(
+      mode: NanoNavPresentationMode.bottomBar,
+      isMinimizedPill: false,
     );
   }
 

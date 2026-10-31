@@ -87,8 +87,8 @@ class BrowserOptionsSheet extends StatelessWidget {
       color: Colors.transparent,
       child: Container(
         width: 365,
-        constraints: BoxConstraints(maxHeight: screenHeight * 0.74),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        constraints: BoxConstraints(maxHeight: screenHeight * 0.85),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(26),
           boxShadow: [

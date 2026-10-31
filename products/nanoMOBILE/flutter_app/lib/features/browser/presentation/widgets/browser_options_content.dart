@@ -1,17 +1,13 @@
+// QUÉ: Contenido del menú de opciones del navegador con barra de acciones rápidas iOS y grupos de cristal.
+// CÓMO: Renderiza 4 botones rápidos superiores estilo Safari y dos tarjetas agrupadas sin recortes ni duplicados.
+// POR QUÉ: Muestra todas las opciones en pantalla de un vistazo con estética iOS nativa (< 190 líneas).
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/browser_tab_model.dart';
 import 'browser_options_items.dart';
 
-/// QUÉ HACE:
-/// Contenido del menú de opciones del navegador agrupado al estilo iOS con tarjetas de cristal.
-///
-/// CÓMO FUNCIONA:
-/// Renderiza secciones agrupadas con insignias de colores Apple, divisores finos y feedback háptico.
-///
-/// POR QUÉ:
-/// Ofrece estética iOS premium fluida y sin desbordamientos (< 140 líneas).
 class BrowserOptionsContent extends StatelessWidget {
   final BrowserTabModel tab;
   final bool isBookmarked, isDesktopMode, isDarkModeWeb;
@@ -31,7 +27,6 @@ class BrowserOptionsContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final pageGroup = BrowserOptionsCatalog.pageItems(
       isBookmarked: isBookmarked,
     );
@@ -50,8 +45,7 @@ class BrowserOptionsContent extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _sectionHeader('PÁGINA ACTUAL', isDark),
-          _group(isDark, pageGroup),
+          _quickActionsRow(pageGroup, isDark),
           const SizedBox(height: 12),
           _sectionHeader('VISUALIZACIÓN', isDark),
           _group(isDark, displayGroup),
@@ -59,6 +53,67 @@ class BrowserOptionsContent extends StatelessWidget {
           _sectionHeader('NAVEGACIÓN Y DATOS', isDark),
           _group(isDark, dataGroup),
         ],
+      ),
+    );
+  }
+
+  /// Fila superior de 4 acciones rápidas estilo Safari iOS (Favorito, Buscar, Copiar, Seguridad).
+  Widget _quickActionsRow(List<BrowserOptionItemDef> items, bool isDark) => Row(
+    children: [
+      for (int i = 0; i < items.length; i++) ...[
+        Expanded(child: _quickPill(items[i], isDark)),
+        if (i < items.length - 1) const SizedBox(width: 8),
+      ],
+    ],
+  );
+
+  Widget _quickPill(BrowserOptionItemDef item, bool isDark) {
+    final shortLabel = switch (item.action) {
+      'toggle_bookmark' => isBookmarked ? 'Guardado' : 'Favorito',
+      'find_in_page' => 'Buscar',
+      'copy_url' => 'Copiar',
+      'show_ssl' => 'Seguridad',
+      _ => item.title,
+    };
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onAction(item.action);
+        },
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.035),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.09)
+                  : Colors.black.withValues(alpha: 0.06),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(item.icon, size: 20, color: item.color),
+              const SizedBox(height: 5),
+              Text(
+                shortLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -78,10 +133,14 @@ class BrowserOptionsContent extends StatelessWidget {
 
   Widget _group(bool isDark, List<BrowserOptionItemDef> items) => Container(
     decoration: BoxDecoration(
-      color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
+      color: isDark
+          ? Colors.white.withValues(alpha: 0.05)
+          : Colors.black.withValues(alpha: 0.03),
       borderRadius: BorderRadius.circular(16),
       border: Border.all(
-        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.06),
       ),
     ),
     child: Column(
@@ -93,7 +152,9 @@ class BrowserOptionsContent extends StatelessWidget {
               height: 1,
               thickness: 0.7,
               indent: 48,
-              color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.05),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.05),
             ),
         ],
       ],
@@ -109,26 +170,15 @@ class BrowserOptionsContent extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9.5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8.5),
         child: Row(
           children: [
             Container(
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [item.color, item.color.withValues(alpha: 0.8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
+                color: item.color,
                 borderRadius: BorderRadius.circular(7),
-                boxShadow: [
-                  BoxShadow(
-                    color: item.color.withValues(alpha: 0.28),
-                    blurRadius: 5,
-                    offset: const Offset(0, 1.5),
-                  ),
-                ],
               ),
               child: Icon(item.icon, size: 15, color: Colors.white),
             ),
@@ -145,16 +195,16 @@ class BrowserOptionsContent extends StatelessWidget {
                       color: isDark ? Colors.white : const Color(0xFF1E293B),
                     ),
                   ),
-                  if (item.subtitle != null) ...[
-                    const SizedBox(height: 1),
+                  if (item.subtitle != null)
                     Text(
                       item.subtitle!,
                       style: TextStyle(
                         fontSize: 11,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        color: isDark
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF64748B),
                       ),
                     ),
-                  ],
                 ],
               ),
             ),

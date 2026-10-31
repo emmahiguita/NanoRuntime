@@ -1,19 +1,20 @@
 // QUÉ: Barra superior estilo Safari iOS para el navegador web de Nano AI.
-// CÓMO: Incluye Omnibox central, navegación atrás/adelante, selector de modo y controles.
-// POR QUÉ: Ofrece estética iOS premium fluida y sin desbordamientos en móvil y horizontal.
+// CÓMO: Incluye Omnibox central, navegación atrás/adelante, selector de modo y botón de opciones iOS directo.
+// POR QUÉ: Evita menús intermedios duplicados y respeta el espacio del botón Drawer superior (< 140 líneas).
 
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/widgets/navigation/nano_nav_mode_provider.dart';
 import '../../domain/browser_tab_model.dart';
 import 'browser_display_mode.dart';
 import 'browser_icon_button.dart';
 import 'browser_view_mode_button.dart';
-import 'browser_window_controls.dart';
 import 'browser_window_omnibox.dart';
 
-class BrowserWindowTopBar extends StatelessWidget {
+class BrowserWindowTopBar extends ConsumerWidget {
   final BrowserTabModel activeTab;
   final int tabCount;
   final BrowserDisplayMode displayMode;
@@ -42,15 +43,18 @@ class BrowserWindowTopBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    final isDrawerMode = ref.watch(
+      nanoNavModeProvider.select((s) => s.isDrawerMode),
+    );
 
     final bg = isDark
-        ? theme.colorScheme.surface.withValues(alpha: 0.88)
-        : theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.90);
+        ? theme.colorScheme.surface.withValues(alpha: 0.90)
+        : theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.92);
     final border = isDark
         ? Colors.white.withValues(alpha: 0.08)
         : theme.colorScheme.outlineVariant.withValues(alpha: 0.35);
@@ -86,17 +90,13 @@ class BrowserWindowTopBar extends StatelessWidget {
                       : () => controller!.stopLoading(),
                 );
 
-                final controls = BrowserWindowControls(
-                  onOptions: onOpenOptionsMenu,
-                  onMinimize: onMinimize,
-                  onMaximize: onMaximize,
-                  onClose: onClose,
-                );
-
                 return Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: isLandscape ? 2 : 5,
+                  padding: EdgeInsets.only(
+                    // En modo Drawer superior izquierdo deja 88dp libres para la píldora del búho.
+                    left: isDrawerMode ? 88 : 6,
+                    right: 6,
+                    top: isLandscape ? 2 : 5,
+                    bottom: isLandscape ? 2 : 5,
                   ),
                   child: Row(
                     children: [
@@ -119,7 +119,12 @@ class BrowserWindowTopBar extends StatelessWidget {
                         tabCount: tabCount,
                         onSelected: onDisplayMode,
                       ),
-                      controls,
+                      // Abre directamente el menú limpio iOS sin PopupMenu intermedio duplicado.
+                      BrowserIconButton(
+                        icon: CupertinoIcons.ellipsis_circle,
+                        label: 'Opciones del navegador',
+                        onPressed: onOpenOptionsMenu,
+                      ),
                     ],
                   ),
                 );
