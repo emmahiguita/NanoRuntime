@@ -5,8 +5,15 @@ import 'package:nanoai/features/browser/infrastructure/browser_scripts.dart';
 import 'browser_zoom_quick_scales.dart';
 import 'package:nanoai/core/widgets/nano_glass_window.dart';
 
-/// Control Material de escala por pestaña; usa el estado como única vía de aplicación.
-/// El slider previsualiza el porcentaje y confirma al soltar, sin saturar el canal JS.
+/// QUÉ HACE:
+/// Control Material de escala libre por pestaña para Nano Browser.
+///
+/// CÓMO FUNCIONA:
+/// Slider continuo libre desde 5% hasta 300% sin divisiones rígidas, permitiendo
+/// reducción extrema (menor de 30%, 20%, 10%, 5%) y previsualización en tiempo real.
+///
+/// POR QUÉ:
+/// Ofrece ajuste milimétrico libre para adaptar páginas web de cualquier tamaño (< 175 líneas).
 class BrowserZoomSheet extends StatefulWidget {
   const BrowserZoomSheet({
     super.key,
@@ -28,7 +35,6 @@ class BrowserZoomSheet extends StatefulWidget {
     required ValueChanged<double> onZoomChanged,
   }) => showNanoGlassWindow(
     context: context,
-
     constraints: const BoxConstraints(maxWidth: 440),
     builder: (_) => BrowserZoomSheet(
       tab: tab,
@@ -50,13 +56,13 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
   void initState() {
     super.initState();
     _zoom = widget.currentZoom.isFinite
-        ? widget.currentZoom.clamp(0.1, 3.0)
-        : 1;
+        ? widget.currentZoom.clamp(0.05, 3.0)
+        : 1.0;
   }
 
   void _applyZoom(double value) {
     if (!mounted) return;
-    final scale = value.clamp(0.1, 3.0);
+    final scale = value.clamp(0.05, 3.0);
     setState(() => _zoom = scale);
     widget.onZoomChanged(scale);
   }
@@ -126,7 +132,12 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
                 label: 'Reducir zoom',
                 button: true,
                 child: IconButton(
-                  onPressed: _zoom > 0.1 ? () => _applyZoom(_zoom - 0.1) : null,
+                  onPressed: _zoom > 0.05
+                      ? () => _applyZoom(
+                          (_zoom <= 0.15 ? _zoom - 0.02 : _zoom - 0.05)
+                              .clamp(0.05, 3.0),
+                        )
+                      : null,
                   icon: const Icon(Icons.remove_rounded),
                 ),
               ),
@@ -141,17 +152,18 @@ class _BrowserZoomSheetState extends State<BrowserZoomSheet> {
                 label: 'Ampliar zoom',
                 button: true,
                 child: IconButton(
-                  onPressed: _zoom < 3 ? () => _applyZoom(_zoom + 0.1) : null,
+                  onPressed: _zoom < 3.0
+                      ? () => _applyZoom((_zoom + 0.05).clamp(0.05, 3.0))
+                      : null,
                   icon: const Icon(Icons.add_rounded),
                 ),
               ),
             ],
           ),
           Slider(
-            value: _zoom,
-            min: 0.1,
-            max: 3,
-            divisions: 29,
+            value: _zoom.clamp(0.05, 3.0),
+            min: 0.05,
+            max: 3.0,
             label: '${(_zoom * 100).round()}%',
             onChanged: (value) => setState(() => _zoom = value),
             onChangeEnd: _applyZoom,

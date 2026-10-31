@@ -5,13 +5,11 @@ import 'package:flutter/services.dart';
 /// Componente de selección rápida de escalas de zoom y reducción completa.
 /// 
 /// CÓMO FUNCIONA:
-/// Muestra una cuadrícula / fila de botones de porcentaje táctiles M3 Expressive
-/// (10%, 25%, 35%, 50%, 75%, 100%, 150%, 200%) y botones de acción rápida
-/// para ajuste total a pantalla y vista móvil.
+/// Muestra botones de porcentaje táctiles M3 Expressive
+/// (5%, 10%, 20%, 30%, 50%, 75%, 100%, 150%, 200%, 300%) y botón de ajuste total.
 /// 
 /// POR QUÉ:
-/// Cumple con Single Responsibility (SOLID) separando los selectores rápidos
-/// del sheet modal principal, manteniendo el código en menos de 130 líneas.
+/// Permite reducción extrema libre por debajo de 30% y ajuste rápido (< 135 líneas).
 class BrowserZoomQuickScales extends StatelessWidget {
   final double currentZoom;
   final ValueChanged<double> onSelectScale;
@@ -27,14 +25,16 @@ class BrowserZoomQuickScales extends StatelessWidget {
   });
 
   static const List<double> supportedScales = [
+    0.05, // 5% Reducción extrema
     0.10, // 10% Reducción total
-    0.25, // 25% Panorama amplio
-    0.35, // 35% Vista general
-    0.50, // 50% Mitad de escala
+    0.20, // 20% Panorama libre
+    0.30, // 30% Reducido
+    0.50, // 50% Mitad
     0.75, // 75% Compacto
-    1.00, // 100% Escala normal
-    1.50, // 150% Lectura grande
-    2.00, // 200% Doble tamaño
+    1.00, // 100% Normal
+    1.50, // 150% Grande
+    2.00, // 200% Detalle
+    3.00, // 300% Máximo
   ];
 
   @override
@@ -45,7 +45,6 @@ class BrowserZoomQuickScales extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Título de la sección
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           child: Text(
@@ -59,15 +58,14 @@ class BrowserZoomQuickScales extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        // Fila de chips de escala rápida envuelta en Wrap
         Wrap(
           spacing: 6,
           runSpacing: 6,
           alignment: WrapAlignment.center,
           children: supportedScales.map((scale) {
             final percent = (scale * 100).round();
-            final isSelected = (currentZoom - scale).abs() < 0.04;
-            final isUltraZoomOut = scale <= 0.35;
+            final isSelected = (currentZoom - scale).abs() < 0.03;
+            final isUltraZoomOut = scale <= 0.30;
 
             return InkWell(
               onTap: () {
@@ -77,7 +75,7 @@ class BrowserZoomQuickScales extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
                       ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
@@ -113,7 +111,6 @@ class BrowserZoomQuickScales extends StatelessWidget {
           }).toList(),
         ),
         const SizedBox(height: 12),
-        // Botón destacado: Reducción Completa (Ajustar a Pantalla)
         FilledButton.tonalIcon(
           onPressed: () {
             HapticFeedback.mediumImpact();
