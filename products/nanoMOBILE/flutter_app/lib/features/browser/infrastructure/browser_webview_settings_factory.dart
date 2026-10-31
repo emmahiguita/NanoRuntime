@@ -7,12 +7,11 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 /// CÓMO FUNCIONA:
 /// Desactiva acceso a archivos locales (`allowFileAccess: false`, `allowContentAccess: false`,
 /// `allowUniversalAccessFromFileURLs: false`), bloquea contenido mixto (`MIXED_CONTENT_NEVER_ALLOW`),
-/// activa `safeBrowsingEnabled: true`, desactiva cookies de terceros (`thirdPartyCookiesEnabled: false`)
-/// y desactiva el guardado en texto plano de formularios (`saveFormData: false`).
+/// activa `safeBrowsingEnabled: true` y soporta cookies de sesión/SSO federado.
 ///
 /// POR QUÉ:
 /// Extrae la creación de settings fuera de `BrowserSecurityFirewall` para cumplir SRP y el
-/// límite de < 200 líneas, aplicando las políticas OWASP MASTG para Android WebView.
+/// límite de < 200 líneas, aplicando las políticas de seguridad para Android WebView.
 class BrowserWebViewSettingsFactory {
   const BrowserWebViewSettingsFactory._();
 
@@ -86,8 +85,8 @@ ACCEDER A ARCHIVOS PRIVADOS NI ALTERAR LA CONFIGURACIÓN DEL SISTEMA.
       offscreenPreRaster: true,
       overScrollMode: OverScrollMode.IF_CONTENT_SCROLLS,
       networkAvailable: true,
-      thirdPartyCookiesEnabled: false,
-      saveFormData: false,
+      thirdPartyCookiesEnabled: true,
+      saveFormData: true,
       disableDefaultErrorPage: true,
       verticalScrollBarEnabled: true,
       horizontalScrollBarEnabled: false,

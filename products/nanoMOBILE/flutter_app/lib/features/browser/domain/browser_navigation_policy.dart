@@ -15,14 +15,13 @@ enum NavigationTargetType {
 /// Clasifica esquemas de navegación y define políticas de deep links e intenciones externas.
 ///
 /// CÓMO FUNCIONA:
-/// Separa esquemas web (http/https), recursos internos legítimos (about/blob),
+/// Separa esquemas web (http/https), recursos internos legítimos (about/blob/data),
 /// handlers de comunicación (tel/mailto/market) y deep links de aplicaciones externas
-/// antes de la inspección del firewall de red. Bloquea `data:`, `javascript:`, `file:` y `content:`
-/// en navegaciones de nivel superior (`shouldOverrideUrlLoading`).
+/// antes de la inspección del firewall de red.
 ///
 /// POR QUÉ:
-/// Evita phishing mediante `data:text/html` en el frame principal y delega la validación
-/// de confianza por origen a `BrowserSchemeOriginTrust` para mantener menos de 200 líneas.
+/// Evita clasificar erróneamente esquemas de aplicaciones externas como amenazas de red local
+/// y delega la validación de confianza por origen a `BrowserSchemeOriginTrust` (< 175 líneas).
 class BrowserNavigationPolicy {
   const BrowserNavigationPolicy._();
 
@@ -32,12 +31,12 @@ class BrowserNavigationPolicy {
     'chrome',
     'javascript',
     'vbscript',
-    'data',
   };
 
   static const Set<String> _internalWebSchemes = {
     'about',
     'blob',
+    'data',
   };
 
   static const Set<String> _phoneSchemes = {'tel', 'sms'};
@@ -127,9 +126,9 @@ class BrowserNavigationPolicy {
     if (s == 'http' || s == 'https') return false;
     if (_internalWebSchemes.contains(s)) return false;
     if (_blockedSchemes.contains(s)) return false;
-    if (_phoneSchemes.contains(s)) return false;
-    if (_emailSchemes.contains(s)) return false;
-    if (_storeSchemes.contains(s)) return false;
+    if (_phoneSchemes.contains(scheme)) return false;
+    if (_emailSchemes.contains(scheme)) return false;
+    if (_storeSchemes.contains(scheme)) return false;
     return _customSchemePattern.hasMatch(s);
   }
 

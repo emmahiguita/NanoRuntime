@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/browser_url_resolver.dart';
 
+/// QUÉ HACE:
 /// Barra de dirección estilo cápsula iOS Safari con tipografía nítida y sin solapamiento.
 ///
-/// - QUÉ HACE: Renderiza la dirección o campo de búsqueda con iconos de seguridad y recarga.
-/// - CÓMO FUNCIONA: Mantiene la consistencia de ancho entre edición y lectura sin saltos ni bugs.
-/// - POR QUÉ: Garantiza legibilidad 100% y elimina cualquier solapamiento visual (<200 líneas).
+/// CÓMO FUNCIONA:
+/// Mantiene la consistencia de ancho entre edición y lectura sin saltos ni desbordamientos,
+/// con indicadores de candado seguro, lupa de búsqueda y botón de borrado rápido.
+///
+/// POR QUÉ:
+/// Garantiza legibilidad 100% y elimina cualquier solapamiento visual (< 185 líneas).
 class BrowserAddressField extends StatefulWidget {
   final String url, title;
   final bool showTitle;
@@ -102,15 +106,15 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
     final isSecure = widget.url.startsWith('https://');
 
     return Container(
-      height: 40,
+      height: 38,
       decoration: BoxDecoration(
         color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(19),
         border: Border.all(
           color: _editing
               ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
-              : (isDark ? Colors.white.withValues(alpha: 0.14) : Colors.black.withValues(alpha: 0.08)),
-          width: _editing ? 1.2 : 0.8,
+              : (isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08)),
+          width: _editing ? 1.2 : 0.7,
         ),
       ),
       child: Row(
@@ -121,12 +125,12 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
             _editing
                 ? CupertinoIcons.search
                 : (isSecure ? CupertinoIcons.lock_shield_fill : CupertinoIcons.globe),
-            size: 15,
+            size: 14,
             color: _editing
                 ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
                 : (isSecure ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF)) : (isDark ? Colors.white60 : Colors.black45)),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Expanded(
             child: _editing
                 ? TextField(
@@ -138,7 +142,7 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
                     enableSuggestions: false,
                     cursorColor: isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF),
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: isDark ? Colors.white : const Color(0xFF0F172A),
                     ),
@@ -153,25 +157,26 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
                       ),
                       border: InputBorder.none,
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   )
                 : Semantics(
                     button: true,
                     label: 'Editar dirección: ${widget.url}',
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(19),
                       onTap: _begin,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(
                           display.isEmpty ? 'Buscar o ingresar URL' : display,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 13.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
                             color: isDark ? Colors.white : const Color(0xFF0F172A),
                           ),
                         ),
@@ -186,7 +191,7 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
                 padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(
                   CupertinoIcons.clear_circled_solid,
-                  size: 16,
+                  size: 15,
                   color: isDark ? Colors.white54 : Colors.black45,
                 ),
               ),

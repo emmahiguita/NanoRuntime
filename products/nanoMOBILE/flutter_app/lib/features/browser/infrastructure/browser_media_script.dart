@@ -1,9 +1,33 @@
-/// Puente idempotente entre HTMLMediaElement y los controles Android.
-/// Escucha eventos reales y limita timeupdate; no crea intervalos por carga.
+/// QUÉ HACE:
+/// Puente idempotente entre HTMLMediaElement, la Page Visibility API y los controles Android.
+///
+/// CÓMO FUNCIONA:
+/// Simula que el documento siempre está visible (`document.hidden = false`, `visibilityState = 'visible'`)
+/// e intercepta `visibilitychange` y `blur` para que reproductores como YouTube o Spotify Web
+/// continúen reproduciéndose en segundo plano o con la pantalla apagada fuera de Nano.
+/// Sincroniza metadatos reales y maneja comandos nativos de audio (`play`, `pause`, `seek`, `next`).
+///
+/// POR QUÉ:
+/// Permite escuchar música web en segundo plano sin cortes y mantiene el archivo < 120 líneas (SOLID).
 abstract final class BrowserMediaScript {
   static const sync = r'''
   (() => {
     if (window.__nanoMediaBridge) return;
+
+    // 1. Simulación de visibilidad: impide que YouTube pause al salir de la app
+    try {
+      Object.defineProperty(document, 'hidden', { get: () => false, configurable: true });
+      Object.defineProperty(document, 'visibilityState', { get: () => 'visible', configurable: true });
+      Object.defineProperty(document, 'webkitVisibilityState', { get: () => 'visible', configurable: true });
+    } catch (_) {}
+
+    const stopVis = e => { if (e) { e.stopImmediatePropagation(); } };
+    window.addEventListener('visibilitychange', stopVis, true);
+    document.addEventListener('visibilitychange', stopVis, true);
+    window.addEventListener('webkitvisibilitychange', stopVis, true);
+    document.addEventListener('webkitvisibilitychange', stopVis, true);
+    window.addEventListener('blur', stopVis, true);
+
     let current = null, lastUpdate = 0;
     const ids = new WeakMap();
     let nextId = 0;
@@ -11,12 +35,13 @@ abstract final class BrowserMediaScript {
       action === 'next' ? '.ytp-next-button' : '.ytp-prev-button'
     )).find(b => !b.disabled && b.getAttribute('aria-disabled') !== 'true'
       && b.getClientRects().length);
-    // Prefiere el medio que suena; conserva el pausado para reanudarlo.
+
     function selected() {
       const all = Array.from(document.querySelectorAll('video,audio'));
       return all.find(m => !m.paused && !m.ended && !m.muted)
         || (current?.isConnected ? current : null);
     }
+
     function report() {
       const m = selected();
       current = m;
@@ -36,7 +61,7 @@ abstract final class BrowserMediaScript {
         next: !!button('next'), previous: !!button('previous')
       }).catch(() => {});
     }
-    // Actúa solo sobre el elemento observado, sin arrancar todos los videos.
+
     async function command(action, position) {
       const m = selected();
       if (!m) { report(); return false; }
@@ -50,6 +75,17 @@ abstract final class BrowserMediaScript {
         return true;
       } catch (_) { report(); return false; }
     }
+
+    if (navigator.mediaSession) {
+      try {
+        navigator.mediaSession.setActionHandler('play', () => command('play'));
+        navigator.mediaSession.setActionHandler('pause', () => command('pause'));
+        navigator.mediaSession.setActionHandler('seekto', d => command('seek', d.seekTime));
+        navigator.mediaSession.setActionHandler('previoustrack', () => command('previous'));
+        navigator.mediaSession.setActionHandler('nexttrack', () => command('next'));
+      } catch (_) {}
+    }
+
     window.__nanoMediaBridge = {command, report};
     const events = ['play', 'playing', 'pause', 'ended', 'emptied', 'waiting',
       'loadedmetadata', 'durationchange', 'seeked', 'ratechange', 'volumechange'];

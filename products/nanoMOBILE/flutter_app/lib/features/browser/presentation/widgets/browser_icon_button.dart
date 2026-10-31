@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-/// Botón de acción compacto para la barra del navegador.
+/// QUÉ HACE:
+/// Botón de acción circular compacto estilo iOS para la barra de navegación web.
 ///
-/// - QUÉ HACE: Renderiza un botón de icono con dimensiones compactas para maximizar el Omnibox.
-/// - CÓMO FUNCIONA: Usa un área táctil de 34x34 con icono de 18px y feedback suave.
-/// - POR QUÉ: Evita que los botones laterales encogan la barra de direcciones (<200 líneas).
+/// CÓMO FUNCIONA:
+/// Usa un área táctil de 34x34 con icono centrado de 17px, bordes redondeados y feedback háptico.
+///
+/// POR QUÉ:
+/// Entrega una respuesta táctil nativa y limpia sin recortes ni desbordamientos (< 50 líneas).
 class BrowserIconButton extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -20,18 +24,38 @@ class BrowserIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final enabled = onPressed != null;
 
-    return SizedBox(
-      width: 34,
-      height: 34,
-      child: IconButton(
-        tooltip: label,
-        icon: Icon(icon, size: 18),
-        color: isDark ? Colors.white70 : Colors.black87,
-        disabledColor: isDark ? Colors.white24 : Colors.black26,
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-        onPressed: onPressed,
+    return Semantics(
+      button: true,
+      label: label,
+      enabled: enabled,
+      child: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(17),
+            onTap: enabled
+                ? () {
+                    HapticFeedback.lightImpact();
+                    onPressed!();
+                  }
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.all(7),
+              child: Icon(
+                icon,
+                size: 18,
+                color: enabled
+                    ? (isDark ? Colors.white : const Color(0xFF0F172A))
+                    : (isDark ? Colors.white24 : Colors.black26),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

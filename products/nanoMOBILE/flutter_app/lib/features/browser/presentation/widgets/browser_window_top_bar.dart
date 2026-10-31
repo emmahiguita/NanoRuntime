@@ -1,9 +1,4 @@
-﻿// browser_window_top_bar.dart — Barra superior estilo Safari iOS para el navegador web.
-// QUÉ HACE: Aloja navegación web (atrás/adelante), omnibox, selector de modo de vista y controles.
-// CÓMO FUNCIONA: Asigna el mayor ancho al omnibox eliminando accesos redundantes.
-// POR QUÉ: Mantiene la barra de URL amplia y legible sin desbordamientos en móvil (< 130 líneas).
-library;
-
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -14,6 +9,15 @@ import 'browser_view_mode_button.dart';
 import 'browser_window_controls.dart';
 import 'browser_window_omnibox.dart';
 
+/// QUÉ HACE:
+/// Barra superior estilo Safari iOS para el navegador web de Nano AI.
+///
+/// CÓMO FUNCIONA:
+/// Aplica desenfoque de cristal translúcido (frosted glass), aloja la navegación (atrás/adelante),
+/// la cápsula Omnibox central, el selector de modo de vista y el menú de acciones de página.
+///
+/// POR QUÉ:
+/// Ofrece estética iOS premium fluida y sin desbordamientos en móvil (< 130 líneas).
 class BrowserWindowTopBar extends StatelessWidget {
   final BrowserTabModel activeTab;
   final int tabCount;
@@ -46,75 +50,79 @@ class BrowserWindowTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xF00D131F) : const Color(0xF5F8FAFC),
-        border: Border(
-          bottom: BorderSide(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Colors.black.withValues(alpha: 0.06),
-            width: 0.8,
-          ),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 500;
-            final showForward = isWide;
-            final backAction =
-                activeTab.canGoBack ? onBack : (onExit ?? onBack);
-
-            final address = BrowserWindowOmnibox(
-              url: activeTab.url,
-              title: activeTab.title,
-              siteColor: Theme.of(context).colorScheme.primary,
-              isLandscape: isWide,
-              isLoading: activeTab.isLoading,
-              progress: activeTab.progress,
-              onSubmitted: onNavigate,
-              onReload: onReload,
-              onStop:
-                  controller == null ? null : () => controller!.stopLoading(),
-            );
-
-            final controls = BrowserWindowControls(
-              onOptions: onOpenOptionsMenu,
-              onMinimize: onMinimize,
-              onMaximize: onMaximize,
-              onClose: onClose,
-            );
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              child: Row(
-                children: [
-                  BrowserIconButton(
-                    icon: CupertinoIcons.chevron_left,
-                    label: 'Atrás',
-                    onPressed: backAction,
-                  ),
-                  if (showForward)
-                    BrowserIconButton(
-                      icon: CupertinoIcons.chevron_right,
-                      label: 'Adelante',
-                      onPressed: activeTab.canGoForward ? onForward : null,
-                    ),
-                  const SizedBox(width: 4),
-                  Expanded(child: address),
-                  const SizedBox(width: 4),
-                  BrowserViewModeButton(
-                    mode: displayMode,
-                    tabCount: tabCount,
-                    onSelected: onDisplayMode,
-                  ),
-                  controls,
-                ],
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xD90B0F19) : const Color(0xEBF8FAFC),
+            border: Border(
+              bottom: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
+                width: 0.7,
               ),
-            );
-          },
+            ),
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 520;
+                final showForward = isWide || activeTab.canGoForward;
+                final backAction =
+                    activeTab.canGoBack ? onBack : (onExit ?? onBack);
+
+                final address = BrowserWindowOmnibox(
+                  url: activeTab.url,
+                  title: activeTab.title,
+                  siteColor: Theme.of(context).colorScheme.primary,
+                  isLandscape: isWide,
+                  isLoading: activeTab.isLoading,
+                  progress: activeTab.progress,
+                  onSubmitted: onNavigate,
+                  onReload: onReload,
+                  onStop: controller == null ? null : () => controller!.stopLoading(),
+                );
+
+                final controls = BrowserWindowControls(
+                  onOptions: onOpenOptionsMenu,
+                  onMinimize: onMinimize,
+                  onMaximize: onMaximize,
+                  onClose: onClose,
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                  child: Row(
+                    children: [
+                      BrowserIconButton(
+                        icon: CupertinoIcons.chevron_left,
+                        label: 'Atrás',
+                        onPressed: backAction,
+                      ),
+                      if (showForward)
+                        BrowserIconButton(
+                          icon: CupertinoIcons.chevron_right,
+                          label: 'Adelante',
+                          onPressed: activeTab.canGoForward ? onForward : null,
+                        ),
+                      const SizedBox(width: 4),
+                      Expanded(child: address),
+                      const SizedBox(width: 4),
+                      BrowserViewModeButton(
+                        mode: displayMode,
+                        tabCount: tabCount,
+                        onSelected: onDisplayMode,
+                      ),
+                      controls,
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ),
     );

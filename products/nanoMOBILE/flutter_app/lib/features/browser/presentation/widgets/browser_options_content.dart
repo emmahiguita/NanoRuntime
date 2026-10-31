@@ -2,17 +2,19 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/browser_tab_model.dart';
+import 'browser_options_items.dart';
 
-/// Contenido de opciones del navegador agrupado al estilo iOS con tarjetas glassed.
+/// QUÉ HACE:
+/// Contenido del menú de opciones del navegador agrupado al estilo iOS con tarjetas de cristal.
 ///
-/// - QUÉ HACE: Renderiza secciones agrupadas con insignias metálicas y tipografía Apple.
-/// - CÓMO FUNCIONA: Agrupa opciones en contenedores redondeados con divisores finos y feedback háptico.
-/// - POR QUÉ: Logra el look & feel 100% iOS profesional y fluido sin saturar la GPU (<200 líneas).
+/// CÓMO FUNCIONA:
+/// Renderiza secciones agrupadas con insignias de colores Apple, divisores finos y feedback háptico.
+///
+/// POR QUÉ:
+/// Ofrece estética iOS premium fluida y sin desbordamientos (< 140 líneas).
 class BrowserOptionsContent extends StatelessWidget {
   final BrowserTabModel tab;
   final bool isBookmarked, isDesktopMode, isDarkModeWeb;
-
-  /// Etiqueta del modo actual de enlaces a apps externas (STAY_IN_WEB, etc.).
   final String externalAppModeLabel;
   final ValueChanged<String> onAction;
 
@@ -30,6 +32,18 @@ class BrowserOptionsContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final pageGroup = BrowserOptionsCatalog.pageItems(
+      isBookmarked: isBookmarked,
+    );
+    final displayGroup = BrowserOptionsCatalog.displayItems(
+      tab: tab,
+      isDesktopMode: isDesktopMode,
+      isDarkModeWeb: isDarkModeWeb,
+    );
+    final dataGroup = BrowserOptionsCatalog.dataItems(
+      externalAppModeLabel: externalAppModeLabel,
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: Column(
@@ -37,78 +51,13 @@ class BrowserOptionsContent extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _sectionHeader('PÁGINA ACTUAL', isDark),
-          _group(isDark, [
-            _ItemDef(
-              CupertinoIcons.bookmark,
-              const Color(0xFFF59E0B),
-              isBookmarked ? 'Quitar de favoritos' : 'Guardar en favoritos',
-              'toggle_bookmark',
-              subtitle: isBookmarked ? 'Guardada' : null,
-            ),
-            const _ItemDef(CupertinoIcons.search, Color(0xFF3B82F6), 'Buscar en la página', 'find_in_page'),
-            const _ItemDef(CupertinoIcons.doc_on_doc, Color(0xFF8B5CF6), 'Copiar enlace', 'copy_url'),
-            const _ItemDef(CupertinoIcons.shield_lefthalf_fill, Color(0xFF10B981), 'Información de conexión', 'show_ssl'),
-          ]),
+          _group(isDark, pageGroup),
           const SizedBox(height: 12),
           _sectionHeader('VISUALIZACIÓN', isDark),
-          _group(isDark, [
-            _ItemDef(
-              CupertinoIcons.textformat_size,
-              const Color(0xFF06B6D4),
-              'Escala de la página',
-              'show_zoom_sheet',
-              subtitle: '${(tab.zoomLevel * 100).round()} %',
-            ),
-            _ItemDef(
-              CupertinoIcons.desktopcomputer,
-              const Color(0xFF6366F1),
-              'Versión de escritorio',
-              'toggle_desktop_mode',
-              subtitle: isDesktopMode ? 'Activada' : 'Desactivada',
-            ),
-            _ItemDef(
-              CupertinoIcons.moon_stars_fill,
-              const Color(0xFFA855F7),
-              'Oscurecer páginas web',
-              'toggle_dark_web',
-              subtitle: isDarkModeWeb ? 'Activado' : 'Desactivado',
-            ),
-            const _ItemDef(
-              CupertinoIcons.play_rectangle_fill,
-              Color(0xFFEC4899),
-              'Vídeo flotante (PiP)',
-              'pip_mode',
-              subtitle: 'Compatible con reproductores web',
-            ),
-            const _ItemDef(
-              CupertinoIcons.square_stack_3d_up_fill,
-              Color(0xFF14B8A6),
-              'Carrusel de pestañas 3D',
-              'toggle_carousel',
-            ),
-          ]),
+          _group(isDark, displayGroup),
           const SizedBox(height: 12),
           _sectionHeader('NAVEGACIÓN Y DATOS', isDark),
-          _group(isDark, [
-            _ItemDef(
-              CupertinoIcons.link,
-              const Color(0xFFF97316),
-              'Enlaces a apps externas',
-              'cycle_external_app_mode',
-              subtitle: externalAppModeLabel,
-            ),
-            const _ItemDef(CupertinoIcons.plus_square_fill, Color(0xFF3B82F6), 'Nueva pestaña', 'new_tab'),
-            const _ItemDef(CupertinoIcons.bookmark_fill, Color(0xFFF59E0B), 'Favoritos', 'show_bookmarks'),
-            const _ItemDef(CupertinoIcons.clock_fill, Color(0xFF64748B), 'Historial', 'show_history'),
-            const _ItemDef(CupertinoIcons.lock_fill, Color(0xFF0EA5E9), 'Contraseñas guardadas', 'show_credentials'),
-            const _ItemDef(
-              CupertinoIcons.trash_fill,
-              Color(0xFFEF4444),
-              'Limpiar caché',
-              'clear_cache',
-              subtitle: 'Libera almacenamiento',
-            ),
-          ]),
+          _group(isDark, dataGroup),
         ],
       ),
     );
@@ -127,7 +76,7 @@ class BrowserOptionsContent extends StatelessWidget {
     ),
   );
 
-  Widget _group(bool isDark, List<_ItemDef> items) => Container(
+  Widget _group(bool isDark, List<BrowserOptionItemDef> items) => Container(
     decoration: BoxDecoration(
       color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.03),
       borderRadius: BorderRadius.circular(16),
@@ -151,24 +100,35 @@ class BrowserOptionsContent extends StatelessWidget {
     ),
   );
 
-  Widget _row(_ItemDef item, bool isDark) => Material(
+  Widget _row(BrowserOptionItemDef item, bool isDark) => Material(
     color: Colors.transparent,
     child: InkWell(
-      onTap: () { HapticFeedback.lightImpact(); onAction(item.action); },
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onAction(item.action);
+      },
       borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9.5),
         child: Row(
           children: [
             Container(
-              width: 28, height: 28,
+              width: 28,
+              height: 28,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [item.color, item.color.withValues(alpha: 0.8)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(7),
-                boxShadow: [BoxShadow(color: item.color.withValues(alpha: 0.28), blurRadius: 5, offset: const Offset(0, 1.5))],
+                boxShadow: [
+                  BoxShadow(
+                    color: item.color.withValues(alpha: 0.28),
+                    blurRadius: 5,
+                    offset: const Offset(0, 1.5),
+                  ),
+                ],
               ),
               child: Icon(item.icon, size: 15, color: Colors.white),
             ),
@@ -189,24 +149,23 @@ class BrowserOptionsContent extends StatelessWidget {
                     const SizedBox(height: 1),
                     Text(
                       item.subtitle!,
-                      style: TextStyle(fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
-            Icon(CupertinoIcons.chevron_right, size: 13, color: isDark ? Colors.white24 : Colors.black26),
+            Icon(
+              CupertinoIcons.chevron_right,
+              size: 13,
+              color: isDark ? Colors.white24 : Colors.black26,
+            ),
           ],
         ),
       ),
     ),
   );
-}
-
-class _ItemDef {
-  final IconData icon;
-  final Color color;
-  final String title, action;
-  final String? subtitle;
-  const _ItemDef(this.icon, this.color, this.title, this.action, {this.subtitle});
 }
