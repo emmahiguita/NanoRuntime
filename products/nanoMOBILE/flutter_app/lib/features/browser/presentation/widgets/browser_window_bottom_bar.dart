@@ -1,6 +1,6 @@
 // QUÉ: Barra de herramientas inferior estilo iOS Safari para Nano Browser.
 // CÓMO: Incluye controles de historial, hub de pantallas Nano, escala/escritorio, pestañas y menú.
-// POR QUÉ: Permite navegación ergonómica con una sola mano y salto directo a módulos Nano.
+// POR QUÉ: Permite navegación ergonómica con una sola mano y adaptación compacta en modo horizontal.
 
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
@@ -34,18 +34,25 @@ class BrowserWindowBottomBar extends StatelessWidget {
     required this.onOpenOptions,
   });
 
+  /// QUÉ: Botón táctil individual con háptica y badge opcional.
+  /// CÓMO: Ajusta altura e icono según la orientación (vertical vs horizontal).
+  /// POR QUÉ: Optimiza el espacio vertical en pantallas apaisadas sin perder usabilidad.
   Widget _buildButton({
     required IconData icon,
     required VoidCallback? onTap,
+    required bool isLandscape,
     VoidCallback? onLongPress,
     bool isPrimary = false,
     Widget? badge,
   }) {
+    final btnHeight = isLandscape ? 34.0 : 44.0;
+    final iconSize = isLandscape ? 17.0 : 21.0;
+
     return Expanded(
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           onTap: onTap != null
               ? () {
                   HapticFeedback.lightImpact();
@@ -59,7 +66,7 @@ class BrowserWindowBottomBar extends StatelessWidget {
                 }
               : null,
           child: Container(
-            height: 44,
+            height: btnHeight,
             alignment: Alignment.center,
             child: Stack(
               clipBehavior: Clip.none,
@@ -67,13 +74,13 @@ class BrowserWindowBottomBar extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  size: 21,
+                  size: iconSize,
                   color: onTap == null
                       ? Colors.grey.withValues(alpha: 0.35)
                       : (isPrimary ? const Color(0xFF3B82F6) : null),
                 ),
                 if (badge != null)
-                  Positioned(top: -4, right: -10, child: badge),
+                  Positioned(top: isLandscape ? -2 : -4, right: -8, child: badge),
               ],
             ),
           ),
@@ -84,15 +91,23 @@ class BrowserWindowBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xCC0F172A) : const Color(0xCCF8FAFC);
-    final border = isDark ? const Color(0x26FFFFFF) : const Color(0x1F000000);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
+    final bg = isDark
+        ? theme.colorScheme.surface.withValues(alpha: 0.85)
+        : theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.88);
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : theme.colorScheme.outlineVariant.withValues(alpha: 0.35);
 
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
-          height: 48,
+          height: isLandscape ? 36 : 48,
           decoration: BoxDecoration(
             color: bg,
             border: Border(top: BorderSide(color: border, width: 0.7)),
@@ -103,15 +118,18 @@ class BrowserWindowBottomBar extends StatelessWidget {
               _buildButton(
                 icon: CupertinoIcons.chevron_left,
                 onTap: canGoBack ? onBack : null,
+                isLandscape: isLandscape,
               ),
               _buildButton(
                 icon: CupertinoIcons.chevron_right,
                 onTap: canGoForward ? onForward : null,
+                isLandscape: isLandscape,
               ),
               _buildButton(
                 icon: CupertinoIcons.square_grid_2x2_fill,
                 isPrimary: true,
                 onTap: () => BrowserScreensHubSheet.show(context),
+                isLandscape: isLandscape,
               ),
               _buildButton(
                 icon: isDesktopMode
@@ -119,10 +137,12 @@ class BrowserWindowBottomBar extends StatelessWidget {
                     : CupertinoIcons.textformat_size,
                 onTap: onOpenZoomSheet,
                 onLongPress: onToggleDesktop,
+                isLandscape: isLandscape,
               ),
               _buildButton(
                 icon: CupertinoIcons.square_on_square,
                 onTap: onToggleTabs,
+                isLandscape: isLandscape,
                 badge: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
@@ -133,7 +153,7 @@ class BrowserWindowBottomBar extends StatelessWidget {
                     '$tabCount',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: 9.5,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -142,6 +162,7 @@ class BrowserWindowBottomBar extends StatelessWidget {
               _buildButton(
                 icon: CupertinoIcons.ellipsis,
                 onTap: onOpenOptions,
+                isLandscape: isLandscape,
               ),
             ],
           ),

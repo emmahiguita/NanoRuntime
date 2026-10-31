@@ -1,3 +1,7 @@
+// QUÉ: Barra superior estilo Safari iOS para el navegador web de Nano AI.
+// CÓMO: Incluye Omnibox central, navegación atrás/adelante, selector de modo y controles.
+// POR QUÉ: Ofrece estética iOS premium fluida y sin desbordamientos en móvil y horizontal.
+
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -9,15 +13,6 @@ import 'browser_view_mode_button.dart';
 import 'browser_window_controls.dart';
 import 'browser_window_omnibox.dart';
 
-/// QUÉ HACE:
-/// Barra superior estilo Safari iOS para el navegador web de Nano AI.
-///
-/// CÓMO FUNCIONA:
-/// Aplica desenfoque de cristal translúcido (frosted glass), aloja la navegación (atrás/adelante),
-/// la cápsula Omnibox central, el selector de modo de vista y el menú de acciones de página.
-///
-/// POR QUÉ:
-/// Ofrece estética iOS premium fluida y sin desbordamientos en móvil (< 130 líneas).
 class BrowserWindowTopBar extends StatelessWidget {
   final BrowserTabModel activeTab;
   final int tabCount;
@@ -48,28 +43,31 @@ class BrowserWindowTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+
+    final bg = isDark
+        ? theme.colorScheme.surface.withValues(alpha: 0.88)
+        : theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.90);
+    final border = isDark
+        ? Colors.white.withValues(alpha: 0.08)
+        : theme.colorScheme.outlineVariant.withValues(alpha: 0.35);
 
     return ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xD90B0F19) : const Color(0xEBF8FAFC),
-            border: Border(
-              bottom: BorderSide(
-                color: isDark
-                    ? Colors.white.withValues(alpha: 0.08)
-                    : Colors.black.withValues(alpha: 0.06),
-                width: 0.7,
-              ),
-            ),
+            color: bg,
+            border: Border(bottom: BorderSide(color: border, width: 0.7)),
           ),
           child: SafeArea(
             bottom: false,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final isWide = constraints.maxWidth >= 520;
+                final isWide = constraints.maxWidth >= 520 || isLandscape;
                 final showForward = isWide || activeTab.canGoForward;
                 final backAction =
                     activeTab.canGoBack ? onBack : (onExit ?? onBack);
@@ -77,13 +75,15 @@ class BrowserWindowTopBar extends StatelessWidget {
                 final address = BrowserWindowOmnibox(
                   url: activeTab.url,
                   title: activeTab.title,
-                  siteColor: Theme.of(context).colorScheme.primary,
+                  siteColor: theme.colorScheme.primary,
                   isLandscape: isWide,
                   isLoading: activeTab.isLoading,
                   progress: activeTab.progress,
                   onSubmitted: onNavigate,
                   onReload: onReload,
-                  onStop: controller == null ? null : () => controller!.stopLoading(),
+                  onStop: controller == null
+                      ? null
+                      : () => controller!.stopLoading(),
                 );
 
                 final controls = BrowserWindowControls(
@@ -94,7 +94,10 @@ class BrowserWindowTopBar extends StatelessWidget {
                 );
 
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: isLandscape ? 2 : 5,
+                  ),
                   child: Row(
                     children: [
                       BrowserIconButton(

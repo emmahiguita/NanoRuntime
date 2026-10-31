@@ -60,9 +60,18 @@ class _NanoNavFloatingWindowState extends State<NanoNavFloatingWindow> {
     final top = media.padding.top + 50.0 + (_dragDy * 0.2);
     const left = 14.0;
 
+    // QUÉ: Paleta de fondo Liquid Glass vinculada al tema activo.
+    // CÓMO: Gradiente entre surfaceContainerHigh y surface con atenuación óptica.
+    // POR QUÉ: Sigue el esquema de color del usuario sin forzar grises azulados estáticos.
     final bgColors = isDark
-        ? const [Color(0xF01E293B), Color(0xE80F172A)]
-        : const [Color(0xF8FFFFFF), Color(0xEEF8FAFC)];
+        ? [
+            theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.92),
+            theme.colorScheme.surface.withValues(alpha: 0.88),
+          ]
+        : [
+            theme.colorScheme.surface.withValues(alpha: 0.94),
+            theme.colorScheme.surfaceContainerLowest.withValues(alpha: 0.88),
+          ];
 
     return Positioned(
       left: left,

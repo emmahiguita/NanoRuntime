@@ -1,18 +1,14 @@
-import 'dart:async';
+// QUÉ: Capa emergente que aloja el popup nativo del flujo OAuth federado.
+// CÓMO: Abre ventana segura vinculada al windowId con timeout y guardia de navegación.
+// POR QUÉ: Permite autenticación con Google/OAuth sin romper la sesión del marco principal (< 170 líneas).
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-
 import '../../domain/browser_navigation_policy.dart';
 import '../../domain/tiktok_web_policy.dart';
 import '../../infrastructure/browser_security_firewall.dart';
 
-/// Capa emergente que aloja el popup nativo del flujo OAuth federado.
-///
-/// Solo se instancia después de que [BrowserSecurityFirewall.evaluatePopupUri]
-/// autoriza la URL. El WebView queda vinculado al padre por [windowId], de modo
-/// que Google Identity Services puede devolver la credencial vía `postMessage`
-/// y cerrarse con `window.close()`.
 class BrowserOAuthPopupLayer extends StatefulWidget {
   const BrowserOAuthPopupLayer({
     super.key,
@@ -24,11 +20,7 @@ class BrowserOAuthPopupLayer extends StatefulWidget {
 
   final int windowId;
   final URLRequest initialRequest;
-
-  /// Cierre manual del usuario (botón X): no hubo login.
   final VoidCallback onPopupClosed;
-
-  /// La página terminó el flujo con `window.close()`: login completado.
   final VoidCallback onPopupCompleted;
 
   @override
@@ -37,17 +29,9 @@ class BrowserOAuthPopupLayer extends StatefulWidget {
 
 class _BrowserOAuthPopupLayerState extends State<BrowserOAuthPopupLayer> {
   bool _loading = true;
-
-  /// True tras la primera navegación permitida; evita cerrar el popup cuando
-  /// una página legítima (ej. GIS) mezcla navegaciones permitidas y canceladas.
   bool _sawAllowedNavigation = false;
-
-  /// Cierra el popup si el login se abandona abierto; evita ventanas
-  /// huérfanas acumuladas en sesiones largas.
   Timer? _abandonTimeout;
 
-  /// GIS abre el popup en blanco (`window.open('')`) y escribe el formulario
-  /// dentro; sin documento inicial el WebView no recibiría el contenido.
   URLRequest get _initialRequest =>
       widget.initialRequest.url != null
           ? widget.initialRequest
@@ -68,11 +52,6 @@ class _BrowserOAuthPopupLayerState extends State<BrowserOAuthPopupLayer> {
     super.dispose();
   }
 
-  /// El popup permite navegación web pública libre (redes privadas, puertos
-  /// internos y esquemas de app siguen bloqueados). Se cierra solo cuando:
-  /// 1) la PRIMERA navegación ya es inválida (popup inútil), o
-  /// 2) intenta un deep link de app ("Abrir en TikTok"): el usuario permanece
-  ///    en TikTok Web sin ventanas colgadas.
   Future<NavigationActionPolicy> _guardNavigation(
     InAppWebViewController controller,
     NavigationAction action,
@@ -93,8 +72,6 @@ class _BrowserOAuthPopupLayerState extends State<BrowserOAuthPopupLayer> {
     );
 
     if (!allowed && (isAppLink || !_sawAllowedNavigation)) {
-      // Popup inútil o salto a app externa: cerrar en el siguiente frame
-      // para no mutar el árbol durante la navegación.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) widget.onPopupClosed();
       });
@@ -106,12 +83,6 @@ class _BrowserOAuthPopupLayerState extends State<BrowserOAuthPopupLayer> {
         : NavigationActionPolicy.CANCEL;
   }
 
-  /// QUÉ HACE: compone la ventana emergente con alturas 100% adaptativas.
-  /// CÓMO: el WebView se expande dentro del espacio real disponible de la
-  /// tarjeta contenedora (Expanded), sin alturas fijas basadas en pantalla.
-  /// POR QUÉ: una altura fija (ej. 82% de pantalla) desborda la tarjeta
-  /// cuando el navegador no está maximizado y pinta la franja amarilla de
-  /// overflow de Flutter.
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -145,8 +116,7 @@ class _BrowserOAuthPopupLayerState extends State<BrowserOAuthPopupLayer> {
                           Expanded(
                             child: Text(
                               'Inicio de sesión seguro',
-                              style:
-                                  Theme.of(context).textTheme.titleSmall,
+                              style: Theme.of(context).textTheme.titleSmall,
                             ),
                           ),
                           IconButton(
@@ -157,8 +127,7 @@ class _BrowserOAuthPopupLayerState extends State<BrowserOAuthPopupLayer> {
                         ],
                       ),
                     ),
-                    if (_loading)
-                      const LinearProgressIndicator(minHeight: 2),
+                    if (_loading) const LinearProgressIndicator(minHeight: 2),
                     Expanded(
                       child: InAppWebView(
                         windowId: widget.windowId,
@@ -180,9 +149,10 @@ class _BrowserOAuthPopupLayerState extends State<BrowserOAuthPopupLayer> {
                             'url=${request.url}',
                           );
                         },
-                        // GIS cierra el popup con window.close() al terminar.
                         onCloseWindow: (_) {
-                          debugPrint('[NanoBrowser] popup closed por la página.');
+                          debugPrint(
+                            '[NanoBrowser] popup closed por la página.',
+                          );
                           widget.onPopupCompleted();
                         },
                       ),

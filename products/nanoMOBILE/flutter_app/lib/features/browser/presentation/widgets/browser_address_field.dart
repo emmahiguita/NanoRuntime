@@ -1,17 +1,13 @@
+// QUÉ: Barra de dirección estilo cápsula iOS Safari con tipografía nítida y sin solapamiento.
+// CÓMO: Mantiene consistencia de ancho entre edición y lectura con indicadores de candado/búsqueda.
+// POR QUÉ: Garantiza legibilidad 100% y elimina cualquier solapamiento visual (< 160 líneas).
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../domain/browser_url_resolver.dart';
+import 'browser_address_edit_input.dart';
 
-/// QUÉ HACE:
-/// Barra de dirección estilo cápsula iOS Safari con tipografía nítida y sin solapamiento.
-///
-/// CÓMO FUNCIONA:
-/// Mantiene la consistencia de ancho entre edición y lectura sin saltos ni desbordamientos,
-/// con indicadores de candado seguro, lupa de búsqueda y botón de borrado rápido.
-///
-/// POR QUÉ:
-/// Garantiza legibilidad 100% y elimina cualquier solapamiento visual (< 185 líneas).
 class BrowserAddressField extends StatefulWidget {
   final String url, title;
   final bool showTitle;
@@ -104,16 +100,22 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
     final host = Uri.tryParse(widget.url)?.host ?? '';
     final display = host.isNotEmpty ? host : widget.url;
     final isSecure = widget.url.startsWith('https://');
+    final activeColor =
+        isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF);
 
     return Container(
       height: 38,
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.black.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(19),
         border: Border.all(
           color: _editing
-              ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
-              : (isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08)),
+              ? activeColor
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : Colors.black.withValues(alpha: 0.08)),
           width: _editing ? 1.2 : 0.7,
         ),
       ),
@@ -124,41 +126,24 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
           Icon(
             _editing
                 ? CupertinoIcons.search
-                : (isSecure ? CupertinoIcons.lock_shield_fill : CupertinoIcons.globe),
+                : (isSecure
+                    ? CupertinoIcons.lock_shield_fill
+                    : CupertinoIcons.globe),
             size: 14,
-            color: _editing
-                ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF))
-                : (isSecure ? (isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF)) : (isDark ? Colors.white60 : Colors.black45)),
+            color: _editing || isSecure
+                ? activeColor
+                : (isDark ? Colors.white60 : Colors.black45),
           ),
           const SizedBox(width: 6),
           Expanded(
             child: _editing
-                ? TextField(
+                ? BrowserAddressEditInput(
                     controller: _text,
                     focusNode: _focus,
-                    keyboardType: TextInputType.url,
-                    textInputAction: TextInputAction.go,
-                    autocorrect: false,
-                    enableSuggestions: false,
-                    cursorColor: isDark ? const Color(0xFF38BDF8) : const Color(0xFF007AFF),
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                    ),
-                    onSubmitted: (_) => _submit(),
+                    isDark: isDark,
+                    activeColor: activeColor,
+                    onSubmitted: _submit,
                     onChanged: (_) => setState(() {}),
-                    onTapOutside: (_) => _focus.unfocus(),
-                    decoration: InputDecoration(
-                      hintText: 'Buscar o ingresar URL',
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.white38 : Colors.black38,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    ),
                   )
                 : Semantics(
                     button: true,
@@ -177,7 +162,8 @@ class _BrowserAddressFieldState extends State<BrowserAddressField> {
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.2,
-                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                            color:
+                                isDark ? Colors.white : const Color(0xFF0F172A),
                           ),
                         ),
                       ),

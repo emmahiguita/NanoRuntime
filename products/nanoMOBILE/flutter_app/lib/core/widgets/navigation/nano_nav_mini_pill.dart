@@ -47,13 +47,16 @@ class NanoNavMiniPill extends StatelessWidget {
           onExpand();
         },
         child: Padding(
-          // El fondo es pequeño, pero toda la franja táctil conserva 48 px.
+          // QUÉ: Franja táctil con píldora translúcida reducida.
+          // CÓMO: Usa GlassSurface con intensity baja (0.05) y borde fino de 0.75px.
+          // POR QUÉ: Elimina el halo blanco grueso al colapsar la barra de navegación.
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: GlassSurface(
             interactive: false,
             radius: 999,
-            opacity: .90,
-            intensity: .38,
+            opacity: .88,
+            intensity: .05,
+            borderWidth: 0.75,
             padding: EdgeInsets.zero,
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 36),

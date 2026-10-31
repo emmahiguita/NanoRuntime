@@ -57,24 +57,24 @@ class NanoM3NavigationDrawer extends StatelessWidget {
         ? const BorderRadius.horizontal(left: Radius.circular(26))
         : const BorderRadius.horizontal(right: Radius.circular(26));
 
+    // QUÉ: Borde lateral sutil según el tema activo.
+    // CÓMO: Aplica outlineVariant con baja opacidad en claro y blanco difuso en oscuro.
+    // POR QUÉ: Integra el Drawer a la paleta sin líneas rígidas o desfasadas.
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.16)
+        : theme.colorScheme.outlineVariant.withValues(alpha: 0.35);
+
     final border = Border(
-      left: isRight
-          ? BorderSide(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.18)
-                  : Colors.white.withValues(alpha: 0.70),
-              width: 0.8,
-            )
-          : BorderSide.none,
-      right: !isRight
-          ? BorderSide(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.18)
-                  : Colors.white.withValues(alpha: 0.70),
-              width: 0.8,
-            )
-          : BorderSide.none,
+      left: isRight ? BorderSide(color: borderColor, width: 0.75) : BorderSide.none,
+      right: !isRight ? BorderSide(color: borderColor, width: 0.75) : BorderSide.none,
     );
+
+    // QUÉ: Color de fondo translúcido Liquid Glass.
+    // CÓMO: Extrae surfaceContainerHigh y surface del tema activo con transparencia calculada.
+    // POR QUÉ: Asegura que el Drawer refleje el tema seleccionado en Nano (claro, oscuro u OLED).
+    final drawerBg = isDark
+        ? theme.colorScheme.surface.withValues(alpha: 0.82)
+        : theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.88);
 
     return Container(
       width: width,
@@ -84,18 +84,18 @@ class NanoM3NavigationDrawer extends StatelessWidget {
         border: border,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
-            blurRadius: 30,
-            offset: Offset(isRight ? -8 : 8, 0),
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.08),
+            blurRadius: 28,
+            offset: Offset(isRight ? -6 : 6, 0),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: borderRadius,
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
+          filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
           child: Container(
-            color: isDark ? const Color(0x95151A24) : const Color(0xB5F8FAFD),
+            color: drawerBg,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

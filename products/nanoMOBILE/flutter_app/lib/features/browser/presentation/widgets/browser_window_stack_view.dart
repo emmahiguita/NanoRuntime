@@ -1,3 +1,6 @@
+// QUÉ: Organiza ventanas en pila (Stack) con claves estables para Nano Browser.
+// CÓMO: Evita destruir WebViews al rotar o dividir pantalla, con soporte de búsqueda y split landscape.
+// POR QUÉ: Permite navegación multiventana fluida sin recargas ni fugas de memoria (< 180 líneas).
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:nanoai/features/browser/application/browser_tab_notifier.dart';
@@ -8,9 +11,6 @@ import 'package:nanoai/features/browser/presentation/widgets/browser_resizable_s
 import 'package:nanoai/features/browser/presentation/widgets/browser_stack_page_factory.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_window_scroll_rail.dart';
 import 'package:nanoai/features/browser/presentation/widgets/browser_window_stack_bar.dart';
-
-/// QUÉ/CÓMO/POR QUÉ: organiza ventanas con claves estables para que rotar,
-/// reordenar o dividir la pantalla no destruya las WebViews nativas.
 class BrowserWindowStackView extends StatelessWidget {
   final BrowserTabState tabState;
   final Set<String> minimizedWindowIds;
@@ -19,17 +19,12 @@ class BrowserWindowStackView extends StatelessWidget {
   final ScrollController scrollController;
   final WidgetRef ref;
   final Key Function(String tabId) instanceKeyForTab;
-  final VoidCallback onToggleAllMinimized,
-      onAddTab,
-      onOpenCarousel,
-      onOpenFocused,
-      onCloseFindInPage,
-      onBackToStack;
+  final VoidCallback onToggleAllMinimized, onAddTab, onOpenCarousel;
+  final VoidCallback onOpenFocused, onCloseFindInPage, onBackToStack;
   final VoidCallback? onExit;
   final void Function(BrowserTabModel) onOpenOptions;
   final void Function(String id) onToggleMinimize, onToggleMaximize, onCloseTab;
   final void Function(String tabId, String url) onNavigate;
-
   const BrowserWindowStackView({
     super.key,
     required this.tabState,
@@ -54,20 +49,19 @@ class BrowserWindowStackView extends StatelessWidget {
     required this.onNavigate,
     this.onExit,
   });
-
   Widget _find(BrowserWebViewRegistry registry, BrowserTabModel tab) =>
       showFindInPage
-      ? BrowserFindInPageWidget(
-          controller: registry.controllerFor(tab.id),
-          onClose: onCloseFindInPage,
-        )
-      : const SizedBox.shrink();
-
+          ? BrowserFindInPageWidget(
+              controller: registry.controllerFor(tab.id),
+              onClose: onCloseFindInPage,
+            )
+          : const SizedBox.shrink();
   @override
   Widget build(BuildContext context) {
     final reg = ref.read(browserWebViewRegistryProvider);
     final activeTab = tabState.activeTab;
-    final isLand = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLand =
+        MediaQuery.of(context).orientation == Orientation.landscape;
     final tabs = tabState.tabs;
     final pages = BrowserStackPageFactory(
       tabState: tabState,
@@ -82,7 +76,6 @@ class BrowserWindowStackView extends StatelessWidget {
       onCloseTab: onCloseTab,
       onNavigate: onNavigate,
     );
-
     if (maximizedWindowId != null) {
       final maxTab = tabs.firstWhere(
         (t) => t.id == maximizedWindowId,
@@ -100,7 +93,6 @@ class BrowserWindowStackView extends StatelessWidget {
         ],
       );
     }
-
     final allMin = minimizedWindowIds.length >= tabs.length;
     final activeIdx = tabs
         .indexWhere((t) => t.id == tabState.activeTabId)
@@ -115,7 +107,6 @@ class BrowserWindowStackView extends StatelessWidget {
       onOpenOptions: () => onOpenOptions(activeTab),
       onExit: onExit,
     );
-
     if (isLand && tabs.length >= 2) {
       final leftTab = tabs[activeIdx];
       final rightTab = tabs[(activeIdx + 1) % tabs.length];
@@ -132,7 +123,6 @@ class BrowserWindowStackView extends StatelessWidget {
         ],
       );
     }
-
     if (isLand && tabs.isNotEmpty) {
       return Column(
         children: [
@@ -142,7 +132,6 @@ class BrowserWindowStackView extends StatelessWidget {
         ],
       );
     }
-
     return Column(
       children: [
         stackBar,

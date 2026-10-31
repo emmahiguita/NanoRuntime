@@ -1,4 +1,4 @@
-﻿// nano_nav_bar_container.dart — Carcasa Liquid Glass para la barra de navegación flotante.
+// nano_nav_bar_container.dart — Carcasa Liquid Glass para la barra de navegación flotante.
 //
 // QUÉ HACE:
 // Renderiza la cápsula de navegación flotante con textura Liquid Glass inspirada en iOS:
@@ -41,20 +41,24 @@ class NanoNavBarContainer extends StatelessWidget {
     final dark = (brightness ?? scheme.brightness) == Brightness.dark;
     final active = isFocused || isListening || isProcessing;
 
-    // Borde especular fino y discreto
+    // QUÉ: Borde hairline translúcido adaptativo.
+    // CÓMO: Usa outlineVariant suave en claro y blanco difuminado en oscuro.
+    // POR QUÉ: Evita el halo o borde blanco grande al deslizar la barra hacia abajo.
     final borderCol = dark
-        ? Colors.white.withValues(alpha: active ? 0.35 : 0.20)
-        : Colors.white.withValues(alpha: active ? 0.90 : 0.75);
+        ? Colors.white.withValues(alpha: active ? 0.30 : 0.16)
+        : scheme.outlineVariant.withValues(alpha: active ? 0.36 : 0.20);
 
-    // Fondo Liquid Glass: blanco translúcido ligeramente azulado en claro
+    // QUÉ: Fondo Liquid Glass vinculado al tema activo de Nano.
+    // CÓMO: Mezcla surfaceContainerHigh y surface con transparencia óptica.
+    // POR QUÉ: Respeta el tema seleccionado y fusiona los elementos sin contrastes ásperos.
     final bgColors = dark
         ? [
-            const Color(0x991E2433),
-            const Color(0x80131824),
+            scheme.surfaceContainerHigh.withValues(alpha: 0.84),
+            scheme.surface.withValues(alpha: 0.76),
           ]
         : [
-            const Color(0xDFFFFFFF),
-            const Color(0xC8EEF4FA),
+            scheme.surface.withValues(alpha: 0.88),
+            scheme.surfaceContainerLowest.withValues(alpha: 0.80),
           ];
 
     return Semantics(
@@ -66,10 +70,10 @@ class NanoNavBarContainer extends StatelessWidget {
           boxShadow: [
             BoxShadow(
               color: dark
-                  ? Colors.black.withValues(alpha: 0.40)
-                  : const Color(0x180F172A),
-              blurRadius: 22,
-              offset: const Offset(0, 6),
+                  ? Colors.black.withValues(alpha: 0.35)
+                  : Colors.black.withValues(alpha: 0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 4),
               spreadRadius: -2,
             ),
           ],
@@ -92,7 +96,7 @@ class NanoNavBarContainer extends StatelessWidget {
                 ),
                 border: Border.all(
                   color: borderCol,
-                  width: active ? 1.0 : 0.85,
+                  width: active ? 0.9 : 0.7,
                 ),
               ),
               child: Material(
